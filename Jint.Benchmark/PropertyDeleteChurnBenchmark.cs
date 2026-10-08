@@ -1,5 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using Jint.Collections;
+using Jint.Native;
 
 namespace Jint.Benchmark;
 
@@ -28,18 +29,20 @@ namespace Jint.Benchmark;
 /// <para>
 /// They measure the collection rather than a script on purpose: an engine-level delete costs a property
 /// key conversion, a shape deopt check and a version bump on top, which would dilute the very difference
-/// this class exists to size. The two <c>Script*</c> rows put it back in proportion, and there is one per
+/// this class exists to size. The <c>Script*</c> rows put it back in proportion, and there is one per
 /// collection shape that behaves differently — <c>ScriptDeleteReAdd</c> re-adds the same name (the
-/// non-compacting shape, and the issue's own repro) and <c>ScriptRotateOldest</c> adds a fresh one and
-/// deletes the oldest (the compacting shape). Measuring only the first would have priced the shape that
-/// did not regress.
+/// non-compacting shape, and the issue's own repro), <c>ScriptRotateOldest</c> adds a fresh one and
+/// deletes the oldest, and <c>ScriptRotateBehindPinnedKey</c> keeps the oldest property while rotating
+/// the rest (the shape that still compacts). Measuring only the first two would miss the degradation
+/// reported in #4013. The two <c>ScriptKeysAfter*</c> rows measure enumeration separately, after churn
+/// has finished, so a change that reduces compaction cannot hide its cost to readers.
 /// </para>
 /// <para>
 /// Each script row gets its own engine through <see cref="IsolatedScript"/>, warmed with that row's script
-/// and nothing else, so engine construction stays out of the measurement. <c>ScriptRotateOldest</c>'s
-/// engine additionally carries one fixture that row alone needs — a JS array of the property names it
-/// churns through, built once in <c>[GlobalSetup]</c> so that string concatenation does not enter the
-/// measured loop. The measured script rebuilds its own object every invocation, which it must: the churn
+/// and nothing else, so engine construction stays out of the measurement. Each rotation engine also
+/// owns a JS array of the property names it churns through, built once in <c>[GlobalSetup]</c> so that
+/// string concatenation does not enter the measured loop. Each measured rotation script rebuilds its
+/// own object every invocation, which it must: the churn
 /// deletes names in the order it created them, so an object carried over from the previous invocation
 /// would have every one of those deletes miss and grow without bound.
 /// </para>
@@ -68,6 +71,8 @@ public class PropertyDeleteChurnBenchmark
     private IsolatedScript _scriptDeleteReAdd;
     private IsolatedScript _scriptRotateOldest;
     private IsolatedScript _scriptKeysAfterRotation;
+    private IsolatedScript _scriptRotateBehindPinnedKey;
+    private IsolatedScript _scriptKeysAfterPinnedRotation;
 
     [GlobalSetup]
     public void Setup()
@@ -113,6 +118,36 @@ public class PropertyDeleteChurnBenchmark
                 var engine = new Engine();
                 engine.Execute(names);
                 engine.Execute(rotate);
+                return engine;
+            });
+
+        // Keep names[0] alive: every deletion is above the oldest property, including after the
+        // initial names have been replaced. Rebuild the object per invocation, just like RotateOldest.
+        var pinnedRotate = $$"""
+            var o = {};
+            for (var i = 0; i < {{Width}}; i++) { o[names[i]] = i; }
+            for (var n = 0; n < {{ScriptSteps}}; n++) { o[names[{{Width}} + n]] = n; delete o[names[n + 1]]; }
+            """;
+        _scriptRotateBehindPinnedKey = IsolatedScript.Warm(
+            pinnedRotate + $"o[names[0]] + o[names[{Width + ScriptSteps - 1}]];",
+            () =>
+            {
+                var engine = new Engine();
+                engine.Execute(names);
+                return engine;
+            });
+
+        _scriptKeysAfterPinnedRotation = IsolatedScript.Warm(
+            $$"""
+            var total = 0;
+            for (var n = 0; n < {{EnumerationSteps}}; n++) { total += Object.keys(o).length; }
+            total;
+            """,
+            () =>
+            {
+                var engine = new Engine();
+                engine.Execute(names);
+                engine.Execute(pinnedRotate);
                 return engine;
             });
     }
@@ -218,6 +253,10 @@ public class PropertyDeleteChurnBenchmark
     [Benchmark]
     public void ScriptRotateOldest() => _scriptRotateOldest.Execute();
 
+    /// <summary>Rotates properties above a pinned oldest key through the engine, rebuilding the object each time.</summary>
+    [Benchmark]
+    public JsValue ScriptRotateBehindPinnedKey() => _scriptRotateBehindPinnedKey.Run();
+
     /// <summary>
     /// Reading the keys of an object that has already been churned, which is the cost the tombstones
     /// impose on the <em>other</em> side. The rotation happens once, in this row's own engine fixture, so
@@ -226,4 +265,8 @@ public class PropertyDeleteChurnBenchmark
     /// </summary>
     [Benchmark]
     public void ScriptKeysAfterRotation() => _scriptKeysAfterRotation.Execute();
+
+    /// <summary>Enumerates a previously churned object with a pinned oldest property, excluding the rotation itself.</summary>
+    [Benchmark]
+    public JsValue ScriptKeysAfterPinnedRotation() => _scriptKeysAfterPinnedRotation.Run();
 }

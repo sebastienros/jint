@@ -1056,6 +1056,12 @@ public partial class Engine
         /// because the engine is already in use arrives synchronously; it means the import never started, so
         /// there is nothing for a task to describe.
         /// </para>
+        /// <para>
+        /// <c>cancellationToken</c> covers the whole import, module evaluation included, exactly as it does for
+        /// <see cref="Engine.EvaluateAsync(string, string, CancellationToken)"/>: already cancelled, nothing is
+        /// loaded or run; cancelled later, the interpreter stops with an <see cref="OperationCanceledException"/>
+        /// carrying it.
+        /// </para>
         /// </remarks>
         /// <exception cref="PromiseRejectedException">The module failed to load or its evaluation threw.</exception>
         /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
@@ -1080,6 +1086,7 @@ public partial class Engine
         {
             try
             {
+                _engine.BeginObservingAsyncEntryToken(cancellationToken);
                 Task<JsValue> task;
                 using (_engine.EnterHostCall(owner))
                 {
@@ -1091,6 +1098,7 @@ public partial class Engine
             }
             finally
             {
+                _engine.EndObservingAsyncEntryToken(cancellationToken);
                 _engine.ReleaseAsyncHostOperation(owner);
             }
         }

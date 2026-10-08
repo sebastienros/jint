@@ -434,6 +434,16 @@ internal sealed partial class ParserDriver : IDisposable
             // success and the failure arm. A ceiling refusal above deliberately does not get here.
             request.Requested = true;
 
+            // Reuse only a completed image in this native document, never a pending or broken request.
+            // Keep the attempt ceiling above this path so repeated sources cannot evade page limits.
+            // Each new element still owes its own queued load event, including detached images.
+            if (images.TryReuse(image, url, out var width, out var height))
+            {
+                Media.PageImages.Complete(request, width, height);
+                QueueResourceEvent(image, "load", afterParse: true);
+                return null;
+            }
+
             var fetched = FetchBytes(url, image, "image", PageRequestKind.Image, mayPump: false);
 
             if (fetched is null)
@@ -444,7 +454,7 @@ internal sealed partial class ParserDriver : IDisposable
                 return null;
             }
 
-            if (!Media.ImageHeader.TryRead(fetched.Value.Bytes, out var width, out var height))
+            if (!Media.ImageHeader.TryRead(fetched.Value.Bytes, out width, out height))
             {
                 Media.PageImages.Break(request);
                 FailSubresource(
@@ -455,6 +465,7 @@ internal sealed partial class ParserDriver : IDisposable
             }
 
             Media.PageImages.Complete(request, width, height);
+            images.Remember(image, url, width, height);
             QueueResourceEvent(image, "load", afterParse: true);
 
             return fetched;

@@ -116,6 +116,31 @@ public sealed class NamedNodeMapVisibilityTests
     }
 
     [Test]
+    public void VisibilityProbeCanRemoveTheAttributeBeforeTheNamedGetterRuns()
+    {
+        using var fixture = DomTestFixture.Create("<!doctype html>");
+        fixture.Bool("""
+            (() => {
+              const element = document.createElement('div'); element.setAttribute('foo', 'native');
+              const map = element.attributes, original = map[0];
+              let probes = 0;
+              Object.setPrototypeOf(map, new Proxy(Object.create(null), {
+                getOwnPropertyDescriptor(target, name) {
+                  if (name === 'foo') { probes++; element.removeAttribute('foo'); }
+                  return undefined;
+                }
+              }));
+              const result = map.foo;
+              if (result !== undefined) throw new Error('lookup:' + result);
+              if (probes !== 1) throw new Error('probes:' + probes);
+              if (map[0] !== undefined) throw new Error('index:' + map[0]);
+              if (original.ownerElement !== null) throw new Error('owner:' + original.ownerElement);
+              return original.value === 'native';
+            })()
+            """).Should().BeTrue();
+    }
+
+    [Test]
     public void UnsupportedNamesAndNumericIndicesDoNotProbeThePrototype()
     {
         using var fixture = DomTestFixture.Create("<!doctype html>");

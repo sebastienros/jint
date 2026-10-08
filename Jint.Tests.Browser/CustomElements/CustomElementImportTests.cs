@@ -94,6 +94,41 @@ public sealed class CustomElementImportTests
     }
 
     [Test]
+    public async Task ADeepImportKeepsTheOriginalIsSlotWhenTheAttributeChanges()
+    {
+        // https://dom.spec.whatwg.org/#concept-node-clone copies is separately from attributes.
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <script>
+              window.log = [];
+              class Original extends HTMLButtonElement {
+                constructor() { super(); window.log.push('original'); }
+              }
+              class Replacement extends HTMLButtonElement {
+                constructor() { super(); window.log.push('replacement'); }
+              }
+              customElements.define('original-button', Original, { extends: 'button' });
+              customElements.define('replacement-button', Replacement, { extends: 'button' });
+              const inert = document.implementation.createHTMLDocument();
+              const source = inert.createElement('section');
+              const button = inert.createElement('button', { is: 'original-button' });
+              button.setAttribute('is', 'replacement-button');
+              source.appendChild(button);
+              window.log.push(button instanceof Original);
+              const imported = document.importNode(source, true).firstElementChild;
+              window.log.push(imported instanceof Original, imported instanceof Replacement,
+                imported.getAttribute('is'), imported.ownerDocument === document,
+                button.ownerDocument === inert, imported !== button);
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.log.join('|')"))
+            .Should().Be("false|original|true|false|replacement-button|true|true|true");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task AnElementImportedFromAParsedDocumentIsUpgradedByThisDocumentsRegistry()
     {
         await using var browser = new Browser();

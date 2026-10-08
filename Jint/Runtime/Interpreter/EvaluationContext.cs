@@ -60,18 +60,26 @@ internal sealed class EvaluationContext
     public bool DebugMode => Engine._isDebugMode;
 
     /// <summary>
-    /// Whether anything rides the amortized cadence: an observation-only constraint, or a sampling
-    /// profiler. One flag rather than two, so the per-statement path stays the single field test it has
-    /// always been however many things end up hanging off the cadence.
+    /// Whether anything rides the amortized cadence: an observation-only constraint, a sampling
+    /// profiler, or the cancellable token of an <c>*Async</c> entry in progress
+    /// (<see cref="Engine._asyncEntryToken"/>). One flag rather than three, so the per-statement path stays
+    /// the single field test it has always been however many things end up hanging off the cadence.
     /// </summary>
     private static bool ResolveAmortizedChecks(Engine engine)
-        => engine._amortizedConstraints.Length > 0 || engine._sampler is not null;
+        => engine._amortizedConstraints.Length > 0 || engine._sampler is not null || engine._asyncEntryToken.CanBeCanceled;
 
     /// <summary>
     /// Re-reads that flag. Unlike everything else this context snapshots, a sampling session can open and
-    /// close during the engine's life, and the context is built once per engine.
+    /// close during the engine's life, and so does an <c>*Async</c> entry's token; the context is built once
+    /// per engine.
     /// </summary>
     internal void RefreshAmortizedChecks() => _runsAmortizedChecks = ResolveAmortizedChecks(Engine);
+
+    /// <summary>
+    /// Whether the amortized cadence is currently driven at all. Read by tests pinning that a host token which
+    /// can never be cancelled leaves the interpreter on the path it ran before.
+    /// </summary>
+    internal bool RunsAmortizedChecks => _runsAmortizedChecks;
 
     /// <summary>
     /// Frozen per context (exact constraints or debug mode at creation); statement fast paths

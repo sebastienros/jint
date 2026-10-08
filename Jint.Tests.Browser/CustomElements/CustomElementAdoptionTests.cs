@@ -48,6 +48,45 @@ public sealed class CustomElementAdoptionTests
         page.Errors.Should().BeEmpty();
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ReentrantAdoptionKeepsEachReactionsDocumentArguments(bool customized)
+    {
+        // DOM's adopt algorithm captures oldDocument per operation; adopting again from a callback
+        // must deliver the second pair without constructing a new element.
+        // https://dom.spec.whatwg.org/#concept-node-adopt
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            $$"""
+            <script>
+              window.log = [];
+              window.other = document.implementation.createHTMLDocument();
+              window.third = document.implementation.createHTMLDocument();
+              let constructions = 0;
+              class Thing extends {{(customized ? "HTMLButtonElement" : "HTMLElement")}} {
+                constructor() { super(); constructions++; }
+                adoptedCallback(oldDocument, newDocument) {
+                  const first = newDocument === other;
+                  log.push(arguments.length + ':' +
+                    (oldDocument === (first ? document : other)) + ':' +
+                    (newDocument === (first ? other : third)) + ':' +
+                    (this.ownerDocument === newDocument) + ':' + (this === window.instance));
+                  if (first) third.adoptNode(this);
+                }
+              }
+              customElements.define('x-reentrant', Thing{{(customized ? ", { extends: 'button' }" : "")}});
+              window.instance = {{(customized ? "document.createElement('button', { is: 'x-reentrant' })" : "document.createElement('x-reentrant')")}};
+              const result = other.adoptNode(instance);
+              log.push('returned:' + (result === instance), 'owner:' + (instance.ownerDocument === third),
+                'brand:' + (instance instanceof Thing), 'constructions:' + constructions);
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.log.join('|')"))
+            .Should().Be("2:true:true:true:true|2:true:true:true:true|returned:true|owner:true|brand:true|constructions:1");
+        page.Errors.Should().BeEmpty();
+    }
+
     [Test]
     public async Task AdoptingAConnectedElementDisconnectsItFirst()
     {

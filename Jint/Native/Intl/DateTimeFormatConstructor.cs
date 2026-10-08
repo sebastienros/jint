@@ -326,7 +326,10 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             month != null || day != null || dayPeriod != null || hour != null ||
             minute != null || second != null || fractionalSecondDigits != null;
 
-        // Step 37: Get formatMatcher option
+        // Step 37: Get formatMatcher option. It is read and validated, and both values are answered by the best-fit
+        // matcher: https://tc39.es/ecma402/#sec-basicformatmatcher presumes a [[formats]] list with every width of
+        // every field already expanded, and run over CLDR's availableFormats as they are it disagrees with ICU on about
+        // half of the bags a locale is asked for. V8 ignores "basic" the same way. See DateTimePatternGenerator.
         GetStringOption(optionsObj, "formatMatcher", in FormatMatcherValues, null);
 
         // Date/time style options
@@ -478,10 +481,11 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         };
 
         // https://tc39.es/ecma402/#sec-formatdatetimepattern — the month, weekday and day-period names a
-        // pattern writes are locale data. Every one of them is produced by handing a .NET pattern to
-        // this culture, so seeding the culture's own tables is the one place a host's names reach all of
-        // format(), formatToParts() and formatRange() at once, and it happens here, once per formatter,
-        // rather than on the per-format() path.
+        // pattern writes are locale data. A component bag writes CLDR's names (JsDateTimeFormat reads a host's
+        // straight off the provider, JsDateTimeFormat.GetHostNames); the dateStyle, timeStyle and Chinese/Dangi
+        // lanes still render .NET patterns through this culture, so seeding the culture's own tables is the one
+        // place a host's names reach them, and it happens here, once per formatter, rather than on the
+        // per-format() path.
         //
         // The shared singleton is recognized by identity and skipped, the way the engine already treats
         // DefaultCalendarProvider.Instance: it reads these very names out of this very culture, so it can
@@ -505,7 +509,13 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // rather than the provider's identity: it is read only when a narrow style is actually requested, so a
         // default construction is untouched, and reading it there teaches something — .NET's narrow weekday
         // names live in a slot no pattern letter reaches, and it has no narrow month names at all.
-        namesChanged |= ApplyNarrowNames(cldrProvider, dateTimeFormatInfo, culture, resolvedLocale, calendar, month, weekday);
+        //
+        // Only the Chinese and Dangi lane still writes a component bag's names through .NET, so only a formatter on
+        // one of those calendars needs them; every other component bag writes CLDR's narrow names.
+        if (string.Equals(calendar, "chinese", StringComparison.OrdinalIgnoreCase) || string.Equals(calendar, "dangi", StringComparison.OrdinalIgnoreCase))
+        {
+            namesChanged |= ApplyNarrowNames(cldrProvider, dateTimeFormatInfo, culture, resolvedLocale, calendar, month, weekday);
+        }
 
         // The culture IntlUtilities hands out is read-only and shared process-wide, so a formatter that
         // adjusted anything formats through a clone carrying its own DateTimeFormatInfo instead. Both lanes

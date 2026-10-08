@@ -728,9 +728,27 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         }
         result.CreateDataPropertyOrThrow("timeZone", ToIanaTimeZoneId(timeZoneId));
 
+        // https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions reads a component bag's fields off
+        // dtf.[[DateTimeFormat]], the format record the matcher chose, not off the options that asked for it: an
+        // en-GB { month: "numeric", day: "numeric" } resolves to "dd/MM" and reports "2-digit" for both, a Japanese
+        // { month: "long" } resolves to "M月" and reports "numeric". A Chinese or Dangi date is not written through a
+        // pattern, and reports what it was asked for.
+        var record = dateTimeFormat.UsesComponentPattern ? dateTimeFormat.GetComponentPattern() : null;
+        var weekday = record is null ? dateTimeFormat.Weekday : record.Weekday;
+        var era = record is null ? dateTimeFormat.Era : record.Era;
+        var year = record is null ? dateTimeFormat.Year : record.Year;
+        var month = record is null ? dateTimeFormat.Month : record.Month;
+        var day = record is null ? dateTimeFormat.Day : record.Day;
+        var dayPeriod = record is null ? dateTimeFormat.DayPeriod : record.DayPeriod;
+        var hour = record is null ? dateTimeFormat.Hour : record.Hour;
+        var minute = record is null ? dateTimeFormat.Minute : record.Minute;
+        var second = record is null ? dateTimeFormat.Second : record.Second;
+        var fractionalSecondDigits = record is null ? dateTimeFormat.FractionalSecondDigits : record.FractionalSecondDigits;
+        var timeZoneName = record is null ? dateTimeFormat.TimeZoneName : record.TimeZoneName;
+
         // hourCycle and hour12 should be returned if hour is present OR if timeStyle is set
         // Per ECMA-402, timeStyle implies hour formatting
-        if (dateTimeFormat.Hour != null || dateTimeFormat.TimeStyle != null)
+        if (hour != null || dateTimeFormat.TimeStyle != null)
         {
             // The cycle the formatter writes with: an option's or keyword's, or the locale's own
             var hourCycle = dateTimeFormat.ResolvedHourCycle;
@@ -750,60 +768,60 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         }
 
         // Component options
-        if (dateTimeFormat.Weekday != null)
+        if (weekday != null)
         {
-            result.CreateDataPropertyOrThrow("weekday", dateTimeFormat.Weekday);
+            result.CreateDataPropertyOrThrow("weekday", weekday);
         }
 
-        if (dateTimeFormat.Era != null)
+        if (era != null)
         {
-            result.CreateDataPropertyOrThrow("era", dateTimeFormat.Era);
+            result.CreateDataPropertyOrThrow("era", era);
         }
 
-        if (dateTimeFormat.Year != null)
+        if (year != null)
         {
-            result.CreateDataPropertyOrThrow("year", dateTimeFormat.Year);
+            result.CreateDataPropertyOrThrow("year", year);
         }
 
-        if (dateTimeFormat.Month != null)
+        if (month != null)
         {
-            result.CreateDataPropertyOrThrow("month", dateTimeFormat.Month);
+            result.CreateDataPropertyOrThrow("month", month);
         }
 
-        if (dateTimeFormat.Day != null)
+        if (day != null)
         {
-            result.CreateDataPropertyOrThrow("day", dateTimeFormat.Day);
+            result.CreateDataPropertyOrThrow("day", day);
         }
 
         // dayPeriod comes after day and before hour per ECMA-402 spec order
-        if (dateTimeFormat.DayPeriod != null)
+        if (dayPeriod != null)
         {
-            result.CreateDataPropertyOrThrow("dayPeriod", dateTimeFormat.DayPeriod);
+            result.CreateDataPropertyOrThrow("dayPeriod", dayPeriod);
         }
 
-        if (dateTimeFormat.Hour != null)
+        if (hour != null)
         {
-            result.CreateDataPropertyOrThrow("hour", dateTimeFormat.Hour);
+            result.CreateDataPropertyOrThrow("hour", hour);
         }
 
-        if (dateTimeFormat.Minute != null)
+        if (minute != null)
         {
-            result.CreateDataPropertyOrThrow("minute", dateTimeFormat.Minute);
+            result.CreateDataPropertyOrThrow("minute", minute);
         }
 
-        if (dateTimeFormat.Second != null)
+        if (second != null)
         {
-            result.CreateDataPropertyOrThrow("second", dateTimeFormat.Second);
+            result.CreateDataPropertyOrThrow("second", second);
         }
 
-        if (dateTimeFormat.FractionalSecondDigits.HasValue)
+        if (fractionalSecondDigits.HasValue)
         {
-            result.CreateDataPropertyOrThrow("fractionalSecondDigits", dateTimeFormat.FractionalSecondDigits.Value);
+            result.CreateDataPropertyOrThrow("fractionalSecondDigits", fractionalSecondDigits.Value);
         }
 
-        if (dateTimeFormat.TimeZoneName != null)
+        if (timeZoneName != null)
         {
-            result.CreateDataPropertyOrThrow("timeZoneName", dateTimeFormat.TimeZoneName);
+            result.CreateDataPropertyOrThrow("timeZoneName", timeZoneName);
         }
 
         return result;

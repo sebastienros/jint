@@ -346,8 +346,9 @@ public sealed class BrowserOptions
     /// <b>What it bounds is the count, because nothing else does.</b>
     /// <see cref="MaxSubresourceBytes"/> bounds each response and <see cref="SubresourceTimeout"/> each
     /// wait; neither bounds a document with fifty thousand <c>&lt;img&gt;</c> elements, and unlike a script
-    /// or a style sheet that is an ordinary shape for a page rather than an abusive one. It counts requests
-    /// <i>started</i> over the life of the document, so a script rewriting one element's <c>src</c> in a
+    /// or a style sheet that is an ordinary shape for a page rather than an abusive one. It counts image
+    /// load attempts <i>started</i> over the life of the document, including reuse of an available image,
+    /// so a script rewriting one element's <c>src</c> in a
     /// loop meets the same ceiling as a document full of elements.
     /// </para>
     /// <para>

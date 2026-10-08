@@ -630,6 +630,65 @@ public class FetchDomainTests
 
     // ---------------------------------------------------------------- getResponseBody
 
+    [TestCase(false, 8192, true)]
+    [TestCase(true, 8192, false)]
+    [TestCase(true, 32768, true)]
+    public async Task ReplyAllowanceIncludesJsonEscapingAndARefusalPreservesTheBody(bool plusHeavy, int allowance, bool fits)
+    {
+        var payload = new byte[768];
+        if (plusHeavy)
+            for (var i = 0; i < payload.Length; i += 3)
+            {
+                payload[i] = 251;
+                payload[i + 1] = 239;
+                payload[i + 2] = 190;
+            }
+        // These triples encode as "++++". The protocol's default JSON encoder expands each + to
+        // \u002B, so the two UTF-16 JSON copies alone exceed the tight allowance, unlike zero bytes.
+        using var server = new LoopbackServer();
+        server.Map("/blob", _ => LoopbackResponse.Raw(payload, "application/octet-stream"));
+        server.Map("/small", _ => LoopbackResponse.Raw(new byte[768], "application/octet-stream"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+        await using var fixture = await InterceptionFixture.OpenAsync(server,
+            new BrowserOptions { MaxCapturedResponseBytes = allowance });
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/*","requestStage":"Response"}]}""");
+        await fixture.Page.EvaluateAsync("""
+            window.__answer = null;
+            fetch('/blob').then(r => r.arrayBuffer())
+                .then(b => { window.__answer = Array.from(new Uint8Array(b)).join(','); },
+                      e => { window.__answer = 'rejected:' + e; });
+            true
+            """);
+        var paused = await fixture.PausedAsync();
+        for (var read = 0; read < 2; read++)
+        {
+            if (!fits)
+            {
+                var error = await fixture.Session.ErrorAsync("Fetch.getResponseBody",
+                    $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""", fixture.Attachment);
+                error.GetProperty("code").GetInt32().Should().Be(-32000);
+                error.GetProperty("message").GetString().Should().Contain("allowance");
+            }
+            else
+                Convert.FromBase64String((await fixture.GetResponseBodyAsync(paused)).GetProperty("body").GetString()!)
+                    .Should().Equal(payload);
+        }
+        await fixture.Page.EvaluateAsync("""
+            window.__small = null;
+            fetch('/small').then(r => r.arrayBuffer()).then(b => { window.__small = String(b.byteLength); });
+            true
+            """);
+        var sibling = await fixture.PausedAsync(1);
+        Convert.FromBase64String((await fixture.GetResponseBodyAsync(sibling)).GetProperty("body").GetString()!)
+            .Should().Equal(new byte[768], "a refused reply must release its provisional reservation");
+        await fixture.ContinueResponseAsync(sibling);
+        (await fixture.AnswerAsync("__small")).Should().Be("768");
+        await fixture.ContinueResponseAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be(string.Join(",", payload),
+            "encoding refusal neither consumes the response nor leaks the provisional reservation");
+    }
+
     /// <summary>
     /// The whole body of a response the client is holding, base64 — and the page still receives every one of
     /// those bytes exactly once afterwards, which is the property the whole read/replay design exists for.

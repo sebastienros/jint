@@ -199,6 +199,84 @@ public sealed class BrowserSelectorControlFactsTests
         ContentDom.ElementById(fixture.Document, "unrelated")!.ExistingInputValueState.Should().BeNull();
     }
 
+    [Test]
+    public void ConsecutiveEditingCandidatesKeepCooperativeWorkLinearInDepth()
+    {
+        static int Polls(int depth)
+        {
+            using var fixture = DomTestFixture.Create("<div id=host contenteditable></div>");
+            var host = ContentDom.ElementById(fixture.Document, "host")!;
+            var nodes = new List<Element>();
+            var parent = host;
+            for (var i = 0; i < depth; i++)
+            {
+                var child = fixture.Document.CreateElement("div");
+                parent.AppendChild(child);
+                nodes.Add(child);
+                parent = child;
+            }
+            var realm = DomRealm.Of(fixture.Engine);
+            var source = BrowserSelectorControlFacts.Factory.Create(realm, fixture.Document,
+                BrowserSelectorSemanticRevision.Read(fixture.Document));
+            var polls = 0;
+            var work = new SelectorMatchWork(host, default, () => polls++);
+            foreach (var node in nodes)
+                source.Read(node, SelectorControlFactMask.ReadWrite, ref work).ReadWrite.Should().BeTrue();
+            return polls;
+        }
+
+        // Count deterministic cooperative callbacks rather than timing a shared machine.
+        Polls(512).Should().BeLessThanOrEqualTo(Polls(64) * 8 + 16);
+    }
+
+    [TestCase("input", "readonly")]
+    [TestCase("input", "disabled")]
+    [TestCase("textarea", "readonly")]
+    public void CachedControlValueEditingDoesNotDecideDescendantContentEditing(string tag, string attribute)
+    {
+        using var fixture = DomTestFixture.Create("<div id=host contenteditable><" + tag + " id=control " + attribute + "></" + tag + "></div>");
+        var control = ContentDom.ElementById(fixture.Document, "control")!;
+        var child = fixture.Document.CreateElement("div");
+        control.AppendChild(child);
+        var realm = DomRealm.Of(fixture.Engine);
+        var source = BrowserSelectorControlFacts.Factory.Create(realm, fixture.Document,
+            BrowserSelectorSemanticRevision.Read(fixture.Document));
+        var work = new SelectorMatchWork(fixture.Document, default);
+        source.Read(control, SelectorControlFactMask.ReadWrite, ref work).ReadWrite.Should().BeFalse();
+        source.Read(child, SelectorControlFactMask.ReadWrite, ref work).ReadWrite.Should().BeTrue();
+    }
+
+    [TestCase("mutation")]
+    [TestCase("revision")]
+    [TestCase("cancel")]
+    public void CachedEditingAncestorsStillRejectCheckpointChanges(string changeKind)
+    {
+        using var fixture = DomTestFixture.Create("<div id=host contenteditable><div id=child></div></div>");
+        var host = ContentDom.ElementById(fixture.Document, "host")!;
+        var child = ContentDom.ElementById(fixture.Document, "child")!;
+        var realm = DomRealm.Of(fixture.Engine);
+        var source = BrowserSelectorControlFacts.Factory.Create(realm, fixture.Document,
+            BrowserSelectorSemanticRevision.Read(fixture.Document));
+        using var cancellation = new CancellationTokenSource();
+        Action? change = null;
+        var checks = 0;
+        var work = new SelectorMatchWork(fixture.Document, cancellation.Token, () =>
+        {
+            // The first check starts the child read; the second follows the ancestor cache hit.
+            if (change is not null && ++checks == 2) change();
+        });
+        source.Read(host, SelectorControlFactMask.ReadWrite, ref work).ReadWrite.Should().BeTrue();
+        change = changeKind switch
+        {
+            "cancel" => () => cancellation.Cancel(),
+            "revision" => () => DomDocumentEditing.Set(realm, fixture.Document, "on"),
+            _ => () => host.SetAttribute("contenteditable", "false"),
+        };
+        Action read = () => source.Read(child, SelectorControlFactMask.ReadWrite, ref work);
+        if (changeKind == "cancel") read.Should().Throw<OperationCanceledException>();
+        else read.Should().Throw<InvalidOperationException>().WithMessage(SelectorMatchWork.Invalidated);
+    }
+
     private static SelectorControlFacts Read(DomTestFixture fixture, Element element, SelectorControlFactMask mask)
     {
         var realm = DomRealm.Of(fixture.Engine);

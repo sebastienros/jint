@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Net.Http;
 using System.Text;
 using Jint.WebApi.Fetch;
@@ -237,26 +238,38 @@ internal static class SubresourceFetch
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
 #pragma warning restore CA2007
 
-        var buffer = new MemoryStream();
-        var chunk = new byte[16 * 1024];
-
-        while (true)
+        // Content-Length is only a capacity hint. Cap eager allocation and still read through EOF:
+        // a custom transport can declare a smaller body or provide no length at all.
+        var capacity = (int) Math.Min(response.Content.Headers.ContentLength ?? 0, 64 * 1024);
+        using var buffer = new MemoryStream(capacity);
+        var chunk = ArrayPool<byte>.Shared.Rent(16 * 1024);
+        try
         {
-            var read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false);
-            if (read == 0)
+            while (true)
             {
-                break;
+                var read = await stream.ReadAsync(chunk.AsMemory(0, 16 * 1024), cancellationToken).ConfigureAwait(false);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                if (buffer.Length + read > maxBytes)
+                {
+                    throw new SubresourceFetchException("", "the resource exceeded the " + Describe(maxBytes) + " a page may load.");
+                }
+
+                buffer.Write(chunk, 0, read);
             }
 
-            if (buffer.Length + read > maxBytes)
-            {
-                throw new SubresourceFetchException("", "the resource exceeded the " + Describe(maxBytes) + " a page may load.");
-            }
-
-            buffer.Write(chunk, 0, read);
+            // The stream owns this array; it never returns to a pool. Transfer it when exactly filled,
+            // otherwise trim so consumers see neither unused capacity nor bytes from another response.
+            return buffer.TryGetBuffer(out var body) && body.Count == body.Array!.Length
+                ? body.Array : buffer.ToArray();
         }
-
-        return buffer.ToArray();
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(chunk, clearArray: true);
+        }
     }
 
     private static string Describe(long bytes)

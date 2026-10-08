@@ -1,4 +1,3 @@
-using System.Text;
 using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Runtime;
@@ -216,21 +215,35 @@ internal static class DomTokenListMembers
         return true;
     }
 
+    // https://dom.spec.whatwg.org/#concept-ordered-set-serializer
     private static string Serialize(List<string> tokens, DomReadWork work)
     {
-        var builder = new StringBuilder();
+        var length = Math.Max(0, tokens.Count - 1);
         foreach (var token in tokens)
         {
             work.Step();
-            if (builder.Length != 0) builder.Append(' ');
-            foreach (var character in token)
-            {
-                work.Step();
-                builder.Append(character);
-            }
+            length = checked(length + token.Length);
         }
+        var result = string.Create(length, (tokens, work), static (span, state) =>
+        {
+            var position = 0;
+            foreach (var token in state.tokens)
+            {
+                if (position != 0) span[position++] = ' ';
+                // Charge each character and bound each copy before returning to a host checkpoint.
+                // The invocation-local tokens cannot change when a checkpoint reenters the engine.
+                for (var offset = 0; offset < token.Length;)
+                {
+                    var count = Math.Min(256, token.Length - offset);
+                    state.work.Account(count);
+                    token.AsSpan(offset, count).CopyTo(span.Slice(position, count));
+                    position += count;
+                    offset += count;
+                }
+            }
+        });
         work.Check();
-        return builder.ToString();
+        return result;
     }
 
     private static void Write(DomAttributeTokenList list, string value, DomReadWork work)

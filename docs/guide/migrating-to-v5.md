@@ -5820,7 +5820,7 @@ date.toLocaleTimeString('en-GB', { timeZone: 'UTC' });      // "3:07:00 pm"
 // 5.x
 new Intl.DateTimeFormat('en-GB', hm).format(date);          // "15:07"
 new Intl.DateTimeFormat('ja-JP', hm).format(date);          // "15:07"
-new Intl.DateTimeFormat('es-MX', hm).format(date);          // "3:07 p. m."
+new Intl.DateTimeFormat('es-MX', hm).format(date);          // "3:07 p.m." (CLDR's designator, 4.142)
 date.toLocaleTimeString('en-GB', { timeZone: 'UTC' });      // "15:07:00"
 ```
 
@@ -5845,6 +5845,69 @@ and that is the one line to add at each call site:
 new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', hourCycle: 'h12' }); // or hour12: true
 date.toLocaleTimeString('es-MX', { hour12: false });
 ```
+
+### 4.142 `Intl.DateTimeFormat` writes a component bag with the locale's CLDR pattern and names ([#4158](https://github.com/sebastienros/jint/issues/4158))
+
+A bag of component options — `{ weekday: 'short', day: 'numeric', month: 'long' }` and the like, including the
+defaults `Date.prototype.toLocaleString` and Temporal's `toLocaleString` fill in — was written by laying its fields out
+in the order of the .NET culture's short date pattern, with fixed separators and .NET's names. It is now resolved the
+way ICU resolves it ([BestFitFormatMatcher](https://tc39.es/ecma402/#sec-bestfitformatmatcher)): the locale's CLDR 48.2
+`availableFormats` pattern nearest the request, missing fields appended through `appendItems`, a date and a time joined
+with the `atTime` `dateTimeFormats`, and CLDR's month, weekday, era and am/pm names in the context the pattern asks
+for. The output is what V8 writes:
+
+```js
+const date = new Date(Date.UTC(2022, 11, 24, 15, 7, 9));
+const f = (locale, options) => new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options }).format(date);
+
+//                                                                4.16.x / earlier 5.0            5.x
+f('de', { weekday: 'short', day: 'numeric', month: 'long' });    // "Sa 24 Dezember"               "Sa., 24. Dezember"
+f('en', { weekday: 'short', day: 'numeric', month: 'long' });    // "Sat December 24"              "Sat, December 24"
+f('en', { year: 'numeric', month: 'long' });                     // "December, 2022"               "December 2022"
+f('ja', { year: 'numeric', month: 'long', day: 'numeric' });     // "2022 12月 24"                 "2022年12月24日"
+f('ko', { year: 'numeric', month: 'numeric', day: 'numeric' });  // "2022. 12. 24"                 "2022. 12. 24."
+f('de', { era: 'short', year: 'numeric' });                      // "2022 AD"                      "2022 n. Chr."
+f('en', { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+                                                                 // "December 24, 2022, 3:07 PM"   "December 24, 2022 at 3:07 PM"
+f('fr', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' });
+                                                                 // "24/12/2022, 15:07:09"         "24/12/2022 15:07:09"
+f('en', { weekday: 'short', hour: 'numeric', minute: 'numeric' }); // "Sat, 3:07 PM"               "Sat 3:07 PM"
+```
+
+**What could break:**
+
+- **The text of any component bag**, in any locale: the order of its fields, the punctuation between them, the joiner
+  between a date and a time, and the names — format-context weekdays and months (`Sa.` beside a day where .NET has only
+  the stand-alone `Sa`), localized eras where every locale wrote `AD`/`BC`, and CLDR's am/pm where .NET's differ
+  (`es-MX` `p.m.`, `he` and `th` `PM`). `formatToParts()` changes the same way, and `formatRange()` writes its two
+  dates with the new patterns (how it joins them is unchanged).
+- **`resolvedOptions()` reports the pattern that was chosen**, as
+  [the specification](https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions) requires, not the
+  options that asked for it: `en-GB` `{ month: 'numeric', day: 'numeric' }` reports `'2-digit'` for both (it writes
+  `24/12`), `ja` `{ month: 'long' }` reports `'numeric'` (`12月`), `de` `{ hour: 'numeric' }` reports `'2-digit'`
+  (`15 Uhr`), and a numeric minute or second written with two digits reports `'2-digit'`. A 24-hour locale drops a
+  `dayPeriod` it has no pattern for (`de` `{ hour: 'numeric', dayPeriod: 'short' }` writes `15 Uhr` and reports no
+  `dayPeriod`).
+- **A year of zero or less is written `1 - year`**, as
+  [FormatDateTimePattern](https://tc39.es/ecma402/#sec-formatdatetimepattern) says, with or without an era: year 0 is
+  `1` and the earliest time value's year, -271821, is `271822` (`new Date(-8.64e15).toLocaleDateString('en-US')` is
+  `4/20/271822`, as in V8).
+- **U+202F**, which CLDR writes in time patterns, is a plain space in `format()` and `formatToParts()` alike.
+- **An `ICldrProvider`'s month, weekday, era and day-period names** now reach a component bag only where they differ
+  from `DefaultCldrProvider.Instance`'s answer for the same arguments, and then in both the format and the stand-alone
+  context. A provider that overrides nothing name-related — or delegates the names to the default, as a provider
+  implementing the interface directly often does — used to have .NET's names written and now has CLDR's.
+- `formatMatcher: 'basic'` is still accepted and still answered by the best-fit matcher; V8 does the same.
+
+Not changed: `dateStyle` and `timeStyle` (they still write .NET's patterns, and so can disagree with a component bag in
+am/pm names — `he`, `th`, `es-MX` — until they move onto CLDR as well), the Chinese and Dangi calendars' lane, and the
+other non-Gregorian calendars, which were and are written in the Gregorian patterns with their own year, month and day.
+The fractional-second separator is still the numbering system's (`.` for Latin digits) where ICU writes the locale's
+decimal separator (`,` in `de`).
+
+There is no switch back. A script that parses a formatted date should use `formatToParts()`; a host that needs
+particular names supplies them through its `ICldrProvider`, and a script that needs a fixed shape asks for
+`dateStyle`/`timeStyle` or builds the string from `formatToParts()`.
 
 ### 4.145 `ICldrProvider` answers the hour cycles and calendars `Intl.Locale` lists ([#4178](https://github.com/sebastienros/jint/issues/4178))
 
@@ -5960,6 +6023,31 @@ content. `ForUntrustedContent` resolves that value to 100 MiB, and an unlimited 
 browser setting. Custom localStorage/cache partitions enforce their own quotas; context-owned IndexedDB still
 counts. Session storage, cookies, empty partition maps and peak allocations are excluded. See
 [IndexedDB storage limits](web-apis/indexeddb.md#jint-browser).
+
+### 4.151 An `*Async` entry's `CancellationToken` stops the script, not only the wait
+
+`EvaluateAsync`, `ExecuteAsync` (both overloads each), `InvokeAsync` and `Modules.ImportAsync` used to observe
+their token only while awaiting a pending promise. A token already cancelled when the call was made still let
+the script run to completion, and a script that never yields (`while (true) { }`) could not be stopped through
+it at all; the documented remedy was `ObserveCancellation`, which is fixed when the `Options` are built and so
+cannot carry a per-request token on options shared between engines.
+
+| | 4.16.x | 5.x |
+| --- | --- | --- |
+| token cancelled before the call | script runs; the token is checked only if a promise is still pending | the task is cancelled and no script runs |
+| token cancelled while the script runs | ignored until the synchronous run (or continuation) finishes | `OperationCanceledException` within the amortized check interval, from the run, a continuation, or a synchronous re-entry from a host callback |
+| `OperationCanceledException.CancellationToken` while awaiting | an internal linked token, or none | the token you passed |
+
+The token is observed only for the duration of the call, on the same cadence as `ObserveCancellation`, so the
+interpreter's tight-loop lane stays armed; a non-cancellable token (`default`, `CancellationToken.None`) changes
+nothing. A host that bracketed each call with an `OperationDeadlineConstraint` armed as
+`Begin(Timeout.InfiniteTimeSpan, token)` only to get this can drop the bracket and the factory registered for it;
+keeping them still works. A host that registered `ObserveCancellation` for the same token keeps getting
+`ExecutionCanceledException` from a running script, because registered constraints are checked first.
+
+**What could break:** code that passed an already-cancelled or soon-cancelled token and relied on the script
+still running to completion. There is no switch to restore that; pass `CancellationToken.None` for the work that
+must finish and observe your token yourself.
 
 ## 5. New in v5
 

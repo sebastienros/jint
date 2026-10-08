@@ -38,25 +38,56 @@ internal static class HtmlLabelAssociation
     /// </summary>
     internal static List<Element> LabelsFor(Element control, Action<int>? checkpoint = null, CancellationToken token = default)
     {
+        var labels = new List<Element>();
+        ReadLabels(control, uint.MaxValue, labels, checkpoint, token, out _);
+        return labels;
+    }
+
+    internal static int CountLabels(Element control, Action<int>? checkpoint, CancellationToken token)
+        => ReadLabels(control, uint.MaxValue, null, checkpoint, token, out _);
+
+    internal static Element? LabelAt(Element control, uint index, Action<int>? checkpoint, CancellationToken token)
+    {
+        ReadLabels(control, index, null, checkpoint, token, out var label);
+        return label;
+    }
+
+    // A live collection reads current membership, not a retained result list. uint.MaxValue selects
+    // a full count/collection; an indexed read stops at its match and still brackets that return with
+    // the invocation's constraint/cancellation check. The association predicate is shared with accessible-name reads.
+    private static int ReadLabels(Element control, uint index, List<Element>? labels,
+        Action<int>? checkpoint, CancellationToken token, out Element? match)
+    {
         var work = new DomReadWork(checkpoint, token);
         work.Check();
-        var labels = new List<Element>();
-        if (!IsLabelable(control, work)) return labels;
+        match = null;
+        if (!IsLabelable(control, work))
+        {
+            work.Check();
+            return 0;
+        }
         var root = work.Root(control);
         var id = work.Attribute(control, "id") ?? "";
         var isFirstWithId = id.Length > 0 && ReferenceEquals(FirstElementWithId(root, id, work), control);
+        var count = 0;
         foreach (var label in InclusiveElements(root, work))
         {
             if (!work.Equal(label.NamespaceUri, Namespaces.Html) || !work.Equal(label.LocalName, "label")) continue;
-            if (work.Attribute(label, "for") is { } targetId)
+            var associated = work.Attribute(label, "for") is { } targetId
+                ? isFirstWithId && work.Equal(targetId, id)
+                : IsAncestorOf(label, control, work)
+                    && ReferenceEquals(FirstLabelableDescendant(label, work), control);
+            if (!associated) continue;
+            labels?.Add(label);
+            if ((uint) count++ == index)
             {
-                if (isFirstWithId && work.Equal(targetId, id)) labels.Add(label);
+                match = label;
+                work.Check();
+                return count;
             }
-            else if (IsAncestorOf(label, control, work)
-                && ReferenceEquals(FirstLabelableDescendant(label, work), control)) labels.Add(label);
         }
         work.Check();
-        return labels;
+        return count;
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/forms.html#category-label.</summary>

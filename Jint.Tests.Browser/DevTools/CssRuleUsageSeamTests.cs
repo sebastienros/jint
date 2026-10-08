@@ -3,6 +3,8 @@
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
+using Jint.Browser.Styling;
+using Jint.Browser.Accessibility;
 
 namespace Jint.Tests.Browser.DevTools;
 
@@ -31,6 +33,94 @@ public sealed class CssRuleUsageSeamTests
     private const string Styled =
         "<style>.used { color: rgb(1, 2, 3) } .unused { color: rgb(4, 5, 6) }</style>"
         + "<p id='box' class='used'>text</p>";
+
+    [Test]
+    public void CoverageAndComputedValuesShareOneSelectorPassIncludingLosingRules()
+    {
+        const int rules = 256;
+        var css = string.Concat(Enumerable.Range(0, rules).Select(i => $".used {{ --loser:{i}; opacity:.5; }}"))
+            + ".unused { opacity:.1; }";
+        using var fixture = CreateStyled(css);
+        var element = ContentDom.ElementById(fixture.Document, "box")!;
+        var tracker = new CssRuleUsageTracker();
+        tracker.Rebind(fixture.Document);
+        CssRuleUsage.Arm(tracker);
+        try
+        {
+            var diagnostics = new NativeCssQueryDiagnostics();
+            var traversal = CssCascade.Traversal.For(fixture.Document, diagnostics: diagnostics)!;
+            var view = traversal.Of(element);
+            var record = diagnostics.Queries.Single();
+            var attempts = record.RuleAttempts;
+            attempts.Should().BeGreaterThanOrEqualTo(rules);
+            record.StatePublications.Should().Be(1);
+            tracker.TakeDelta().Should().HaveCount(rules, "matching counts even when another rule wins");
+
+            for (var i = 0; i < 8; i++)
+            {
+                view.GetPropertyValue("opacity").Should().Be("0.5");
+                view.GetPropertyValue("--loser").Should().Be("255");
+                view.MatchedRules().Should().HaveCountGreaterThanOrEqualTo(rules);
+                traversal.Of(element).Should().BeSameAs(view);
+            }
+            record.RuleAttempts.Should().Be(attempts, "coverage and computed values use the same matched state");
+            record.StatePublications.Should().Be(1);
+            tracker.TakeDelta().Should().BeEmpty();
+        }
+        finally
+        {
+            CssRuleUsage.Disarm(tracker);
+        }
+    }
+
+    [Test]
+    public void TrackingAnotherDocumentPreservesUntrackedCascadeReuse()
+    {
+        using var tracked = CreateStyled(".used { opacity:.5; }");
+        using var untracked = CreateStyled(".used { opacity:.5; }");
+        var element = ContentDom.ElementById(untracked.Document, "box")!;
+        var before = CssCascade.Traversal.Current(untracked.Document);
+        var view = before.Of(element);
+        view.GetPropertyValue("opacity").Should().Be("0.5");
+        CssCascade.Traversal.Current(untracked.Document).Should().BeSameAs(before);
+
+        var tracker = new CssRuleUsageTracker();
+        tracker.Rebind(tracked.Document);
+        CssRuleUsage.Arm(tracker);
+        try
+        {
+            var diagnostics = new NativeCssQueryDiagnostics();
+            var explicitTraversal = CssCascade.Traversal.For(untracked.Document, diagnostics: diagnostics)!;
+            var explicitView = explicitTraversal.Of(element);
+            diagnostics.Queries.Single().StatePublications.Should().Be(0,
+                "another document's coverage cannot force this lazy view to match rules");
+            explicitView.GetPropertyValue("opacity").Should().Be("0.5");
+            for (var i = 0; i < 8; i++)
+            {
+                var current = CssCascade.Traversal.Current(untracked.Document);
+                current.Should().BeSameAs(before, "another document's coverage cannot retire this query");
+                current.Of(element).Should().BeSameAs(view);
+                view.GetPropertyValue("opacity").Should().Be("0.5");
+            }
+            tracker.TakeDelta().Should().BeEmpty("untracked matches never belong to this coverage window");
+            var trackedElement = ContentDom.ElementById(tracked.Document, "box")!;
+            CssCascade.Of(trackedElement)!.GetPropertyValue("opacity").Should().Be("0.5");
+            tracker.TakeDelta().Select(rule => rule.SelectorText).Should().Equal(".used");
+        }
+        finally
+        {
+            CssRuleUsage.Disarm(tracker);
+        }
+        CssCascade.Traversal.Current(untracked.Document).Should().BeSameAs(before);
+    }
+
+    private static DomTestFixture CreateStyled(string css)
+    {
+        var fixture = DomTestFixture.Create($"<!doctype html><style>{css}</style><p id='box' class='used'>text</p>");
+        var style = ContentDom.Descendants(fixture.Document).Single(element => element.LocalName == "style");
+        NativeCssStyleSheets.Install(DomRealm.Of(fixture.Engine), style, css, "about:blank");
+        return fixture;
+    }
 
     [Test]
     public async Task ACascadeRecordsNothingWhileNoWindowIsOpen()

@@ -2,6 +2,7 @@ using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
 
@@ -32,6 +33,7 @@ namespace Jint.Browser.CustomElements;
 internal sealed partial class CustomElementRegistry
 {
     private List<Element> _elementQueue = [];
+    private ObjectPool<List<Element>>? _elementQueuePool;
     private readonly Action _checkpoint;
     private bool _scheduled;
 
@@ -208,25 +210,38 @@ internal sealed partial class CustomElementRegistry
         }
 
         var queue = _elementQueue;
-        _elementQueue = [];
+        var pool = _elementQueuePool ??= new ObjectPool<List<Element>>(static () => [], size: 4);
+        _elementQueue = pool.Allocate();
 
-        for (var i = 0; i < queue.Count; i++)
+        try
         {
-            var element = queue[i];
-
-            if (!_records.TryGetValue(element, out var record))
+            for (var i = 0; i < queue.Count; i++)
             {
-                continue;
-            }
+                var element = queue[i];
 
-            // Queued stays set for the whole of this element's own queue, so a reaction the callbacks add
-            // for the same element joins the loop below rather than putting it on a queue a second time.
-            while (record.Reactions.Count > 0)
-            {
-                Invoke(element, record.Reactions.Dequeue());
-            }
+                if (!_records.TryGetValue(element, out var record))
+                {
+                    continue;
+                }
 
-            record.Queued = false;
+                // Queued stays set for the whole of this element's own queue, so a reaction the callbacks add
+                // for the same element joins the loop below rather than putting it on a queue a second time.
+                while (record.Reactions.Count > 0)
+                {
+                    Invoke(element, record.Reactions.Dequeue());
+                }
+
+                record.Queued = false;
+            }
+        }
+        finally
+        {
+            // Active drains own distinct queues, including through nested callbacks. Recycle only
+            // after unwinding, and release every element even when a fatal exception escapes Invoke.
+            queue.Clear();
+            // Bound retained backing storage as well as the number of spare queues. Large parser
+            // batches are one-off work; their arrays should not live for the registry's lifetime.
+            if (queue.Capacity <= 128) pool.Free(queue);
         }
     }
 

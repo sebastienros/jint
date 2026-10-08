@@ -14,10 +14,10 @@ namespace Jint.Benchmark;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Why the suite needed it.</b> There was no row for an <c>HTMLCollection</c> at all, and an
+/// <b>Historical profile.</b> There was no row for an <c>HTMLCollection</c> at all, and an
 /// <c>HTMLCollection</c> is not a <c>NodeList</c> with a different name: a <c>NodeList</c> arrives at the
-/// binding as something that can be indexed in constant time, while every <c>HTMLCollection</c> AngleSharp
-/// hands over is a lazy view over a tree walk — <c>Length</c> is a <c>Count()</c> of that walk and the
+/// binding as something that could be indexed in constant time, while every <c>HTMLCollection</c> the
+/// former AngleSharp dependency supplied was a lazy tree walk — <c>Length</c> was a <c>Count()</c> and the
 /// indexer is a linear scan of it. A profile of this loop on a 1,500-element document put
 /// <c>NodeExtensions.GetDescendantsAndSelf.MoveNext</c> at 33.6% inclusive of the page thread, split three
 /// ways between the loop's own <c>c.length</c>, the element read, and a bounds pre-check that ran the whole
@@ -25,12 +25,21 @@ namespace Jint.Benchmark;
 /// existing browser rows touched it.
 /// </para>
 /// <para>
+/// <b>Current implementation.</b> Browser now uses Jint.HtmlParser. Root-backed tag/class collections and
+/// child collections reuse counts under a document-identity/mutation-stamp witness; tag/class indexed
+/// reads also retain a weak traversal cursor. Children still scan siblings for indexed access.
+/// <c>form.elements</c> remains uncached and walks the ordinary root using native form-owner identities:
+/// native custom-element category/owner changes can alter membership without advancing the tree stamp.
+/// A document stamp alone is therefore insufficient for a form-membership cache. These rows measure
+/// the current paths, not the historical three-walk implementation.
+/// </para>
+/// <para>
 /// <b>What each row is.</b>
 /// </para>
 /// <list type="bullet">
 /// <item><description>
 /// <see cref="ClassName"/> — <c>getElementsByClassName</c>, whose filter the binding owns because DOM makes
-/// its comparison ASCII case-insensitive in quirks mode and AngleSharp offers no seam for that. Its
+/// its comparison ASCII case-insensitive in quirks mode. Its
 /// document gives every element one three-character class, which is the <i>shortest</i> attribute the
 /// filter can be handed.
 /// </description></item>
@@ -46,18 +55,18 @@ namespace Jint.Benchmark;
 /// <see cref="TagName"/> — <c>getElementsByTagName</c>, the same live shape with a cheaper per-element test.
 /// </description></item>
 /// <item><description>
-/// <see cref="FormElements"/> — <c>form.elements</c>, which is AngleSharp's own
-/// <c>HtmlFormControlsCollection</c>: a <c>Where</c> over the form controls of the whole document, re-run per
-/// read. The binding cannot make that walk cheaper, only stop asking for it twice.
+/// <see cref="FormElements"/> — <c>form.elements</c>, the Browser collection over native form-owner
+/// identities. Counts and indexed reads each walk the ordinary root, filtering out non-listed controls
+/// and image inputs. Membership includes externally associated controls, not just descendants of the form.
 /// </description></item>
 /// <item><description>
-/// <see cref="Children"/> — <c>children</c>, AngleSharp's <c>HtmlCollection</c> over one node's element
-/// children. Shallow, so it isolates the second walk from the cost of the walk itself.
+/// <see cref="Children"/> — <c>children</c>, the native sibling-chain view of immediate element children.
+/// Counts are cached, but indexed reads still scan from the first child.
 /// </description></item>
 /// <item><description>
 /// <see cref="LiveNodeList"/> — the same loop over <c>childNodes</c>, whose elements are the same hundred
-/// nodes. It is a <c>NodeList</c>, so it reaches the generated accessor and a constant-time indexer, and
-/// nothing in this change touches that lane. <b>The control that must not move.</b>
+/// nodes. It is a <c>NodeList</c>, so it reaches the generated accessor and native child-node cursor.
+/// It is an independent collection lane and a control for changes confined to HTMLCollection reads.
 /// </description></item>
 /// <item><description>
 /// <see cref="PlainArray"/> — the floor and the baseline: the same loop over the <c>Array.from</c> of the
@@ -79,20 +88,22 @@ namespace Jint.Benchmark;
 /// cancel against the baseline the way a multiplicative one does — see <b>"A row through
 /// <c>Page.EvaluateAsync</c> must amortise the mailbox round trip"</b> in
 /// <a href="AGENTS.md"><c>Jint.Benchmark/AGENTS.md</c></a>, which carries the rule and the paired run that
-/// established it. The four target rows walk the document and cost milliseconds at ten passes, so ten is
-/// all they need. The two <i>control</i> rows are the ones the rule bites: <c>childNodes</c> is indexed in
-/// constant time and a plain array more so, so at ten passes each was a few microseconds of work behind a
+/// established it. The original target rows walked the document and were sized at ten passes.
+/// The two <i>control</i> rows were the ones the rule first exposed: <c>childNodes</c> and the plain array
+/// were much cheaper, so at ten passes each was a few microseconds of work behind a
 /// round trip an order of magnitude larger — a row that could not have detected a regression in what it
 /// controls for, and that measured as multimodal (<c>MValue</c> 3.56 on <see cref="PlainArray"/>) because
-/// what it was mostly reporting was thread scheduling. Their counts are set so that every row is at least
-/// in the low milliseconds and the round trip is a per-cent-level term.
+/// what it was mostly reporting was thread scheduling. The counts below retain those historical workloads;
+/// count caching and native cursors have since reduced query work, so check mailbox amortisation again
+/// before accepting timing evidence for a new change. These comments are not current timing results.
 /// </para>
 /// <para>
 /// <b>What that costs, and it is the one trap here: a row is comparable to itself across builds, and to no
 /// other row.</b> Because the counts differ, <c>Ratio</c> is not the price of a live projection per read —
 /// it is that price times a pass-count ratio. The counts are chosen so the six means land within about
 /// 1.7–2.5 ms of each other, which keeps the table readable, but that near-equality is arranged rather than
-/// measured and means nothing on its own. Read each row against the same row on the other build; a paired
+/// measured and means nothing on its own; that calibration predates the native migration. Read each row
+/// against the same row on the other build; a paired
 /// run (<c>measure-paired.ps1</c>) does exactly that and is the right instrument for this class.
 /// </para>
 /// </remarks>
@@ -107,24 +118,21 @@ public class BrowserHtmlCollectionBenchmark
     public int Count { get; set; }
 
     /// <summary>
-    /// The four rows that walk <see cref="Document"/>. One pass is already milliseconds — the read is
-    /// quadratic in the collection's length by construction, because these collections are live and nothing
-    /// may memoize — so ten passes puts the row well clear of the round trip without making it absurd.
+    /// Historical pass count for the deep collection rows. Tag/class collections now cache counts and
+    /// use weak indexed cursors; form.elements still walks. Retain the workload for comparisons across
+    /// builds and recheck mailbox amortisation before quoting a result.
     /// </summary>
     private const int WalkPasses = 10;
 
     /// <summary>
-    /// <see cref="ClassNameMultiToken"/> walks a document of the same size, and a pass is mostly the walk
-    /// rather than the attribute read at the end of it, so ten passes puts this row in the same band as the
-    /// four above it. It is a constant of its own all the same: the counts in this class state what each row
-    /// was sized for, and folding this one into <see cref="WalkPasses"/> would assert that its document costs
-    /// what <see cref="ClassName"/>'s does — the one thing the pair of rows exists to find out.
+    /// Historical pass count for the multi-token class fixture. Keep it independent of the short-token
+    /// fixture so either workload can be resized after measuring its mailbox overhead.
     /// </summary>
     private const int MultiTokenPasses = 10;
 
     /// <summary>
-    /// <see cref="Children"/> is the shallow one — element children of a single node rather than a walk of
-    /// the document — so it needs several times the passes of its siblings to sit in the same band.
+    /// Historical pass count for the shallow child collection. Its indexed reads scan sibling links,
+    /// unlike the weak descendant cursor of the tag/class rows.
     /// </summary>
     private const int ChildrenPasses = 60;
 

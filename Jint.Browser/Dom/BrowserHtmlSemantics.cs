@@ -68,7 +68,7 @@ internal static class BrowserHtmlSemantics
     internal static bool IsContentEditable(DomRealm realm, Element element)
         => IsContentEditable(element, Work(realm));
 
-    internal static bool IsContentEditable(Element element, DomReadWork work)
+    internal static bool IsContentEditable(Element element, DomReadWork work, Func<Element, bool?>? cached = null)
     {
         var result = false;
         for (Node? node = element; node is not null; node = node.ParentNode)
@@ -76,6 +76,13 @@ internal static class BrowserHtmlSemantics
             work.Step();
             if (node is not Element candidate) break;
             if (!IsEditableEligible(candidate)) break;
+            // The selector producer supplies invocation-owned editing facts, never a control's
+            // separate readonly/disabled state. Charge the visited link even when it is cached.
+            if (cached?.Invoke(candidate) is { } editable)
+            {
+                result = editable;
+                break;
+            }
             if (candidate.NamespaceUri != Namespaces.Html)
             {
                 continue;

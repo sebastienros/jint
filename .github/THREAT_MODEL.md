@@ -516,14 +516,14 @@ or attempt to resume after the request has ended.
 
 **Missing or residual mitigation.**
 
-- The cancellation-token parameter on `EvaluateAsync`, `ExecuteAsync`, and `InvokeAsync`
-  only controls promise settlement waiting; it does not preempt the initial synchronous
-  interpreter run.
+- The cancellation-token parameter on `EvaluateAsync`, `ExecuteAsync`, `InvokeAsync`, and
+  `Modules.ImportAsync` is observed by the interpreter for that call only, at cooperative check
+  points; it does not reach a host callback that never returns, and it does not outlive the call.
 - Discarding a completion does not cancel the underlying Task, I/O, timer, or host action.
 - A promise timeout is not a total request budget.
 
-**Required host action.** Register an engine cancellation constraint in addition to passing
-the async API token. Track and cancel all host operations, await intended work before
+**Required host action.** Pass the request token to the async API; register an engine
+cancellation constraint as well when the engine is also entered synchronously. Track and cancel all host operations, await intended work before
 disposing the request scope, and terminate the worker on an outer timeout.
 
 ### TM-11: Module loaders expose files, networks, and secrets
