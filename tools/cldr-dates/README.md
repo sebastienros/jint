@@ -6,10 +6,10 @@ an embedded resource with CLDR's Gregorian date and time patterns and names for 
 it came from. [`DateTimePatternData`](../../Jint/Native/Intl/Data/DateTimePatternData.cs) reads it. It is the
 `[[LocaleData]]` [issue #4158](https://github.com/sebastienros/jint/issues/4158) moves `Intl.DateTimeFormat` onto:
 a component bag is resolved against it by the format matcher,
-[`DateTimePatternGenerator`](../../Jint/Native/Intl/DateTimePatternGenerator.cs), and its ranges are written with its
-interval patterns by [`DateTimeIntervalFormat`](../../Jint/Native/Intl/DateTimeIntervalFormat.cs); their reference models
-and golden tables are under [`reference/`](#the-format-matchers-reference-model). `dateStyle` and `timeStyle` do not
-read it yet.
+[`DateTimePatternGenerator`](../../Jint/Native/Intl/DateTimePatternGenerator.cs), which resolves a `dateStyle` and
+`timeStyle` too, and a component bag's ranges are written with its interval patterns by
+[`DateTimeIntervalFormat`](../../Jint/Native/Intl/DateTimeIntervalFormat.cs); their reference models and golden tables
+are under [`reference/`](#the-format-matchers-reference-model).
 
 **The build never runs the generator.** Both outputs are committed, and regenerating them is a manual step taken
 when the pinned release changes.
@@ -179,6 +179,37 @@ date where Jint writes each part from the date its source names. `ties` reports 
 two candidates at the least distance, where ICU's hash-table order would decide: there is none, so walking the
 skeletons in ordinal order is exact.
 
+### `dateStyle` and `timeStyle`
+
+The model also writes the style table, [`reference/golden-styles.tsv`](reference/golden-styles.tsv), which
+`IntlDateTimeFormatStyleTests` embeds the same way: the 51 locales by 53 cases — each date and time style alone and in
+all sixteen pairs, twelve with an `hourCycle` or `hour12` the locale does not write, and seventeen Temporal values —
+with the pattern, the text at the two instants, the UTC zone name the text writes, and what `resolvedOptions()`
+reports. A style is modelled as V8 drives ICU: the locale's `dateFormats`/`timeFormats`, a date and a time joined by
+the `atTime` connector of the date's width, and where the resolved hour cycle is not the pattern's, its skeleton
+without the day period and with the cycle's hour letter matched again. A Temporal value without all of a style's
+fields gets Temporal's AdjustDateTimeStyleFormat: the matcher over the fields it has. For the text only, the model
+reads two more cldr-json files than the generator: `timeZoneNames.json` (the `Etc/UTC` name) and cldr-core's
+`supplemental/dayPeriods.json` (the flexible day period `zh-Hant` writes).
+
+Node's V8 does not ship Temporal, so the case list the probe reads is the model's own, and a Temporal case is asked of
+ICU as the component bag AdjustDateTimeStyleFormat matched:
+
+```sh
+python reference/format_matcher.py style-cases <cldr-json-root> > style-cases.tsv
+node reference/probe-styles.js style-cases.tsv > icu-styles.tsv
+python reference/format_matcher.py compare-styles <cldr-json-root> icu-styles.tsv
+python reference/format_matcher.py golden-styles <cldr-json-root> icu-styles.tsv > reference/golden-styles.tsv
+```
+
+With Node 24.19 every row's text agrees, and 22 rows' `resolvedOptions()` differ for the reasons above: 20 quoted
+literals V8 reads as fields, in the component bags the Temporal cases match to, and Japanese `hour12: true`. Jint's
+text differs from the table only in the long zone name, which it writes in English in every locale; the test counts
+those rows. `style-cases` and `compare-styles` take a file of locales as an extra argument: over the 641 cldr-json
+locales ICU resolves to themselves the model agreed with Node on 33,951 of 33,973 rows, and the 22 that differ are data
+— `fr-ML`'s connector as above, `haw`'s short date, whose `M=romanlow` override the resource drops (ICU writes `xii`),
+`sr-Cyrl-ME`'s long UTC name (ICU's is in Latin script), and `tok`.
+
 ## Moving to a later CLDR release
 
 1. Update `pin.json`: the versions and tag, each tarball's URL and npm `dist.integrity` (from
@@ -187,7 +218,8 @@ skeletons in ordinal order is exact.
    whether it belongs in `KnownLetterExceptions` or `KnownNumberingOverrides`, with a comment saying what it is.
 3. Update the expectations in `Jint.Tests/Runtime/IntlDateTimePatternDataTests.cs`: CLDR's values for a handful of
    locales, the locale count and the list of known letter exceptions.
-4. Regenerate [`reference/golden.tsv`](#the-format-matchers-reference-model) and
+4. Regenerate [`reference/golden.tsv`](#the-format-matchers-reference-model),
+   [`reference/golden-styles.tsv`](#datestyle-and-timestyle) and
    [`reference/range-golden.tsv`](#the-interval-formats-reference-model) from the new release.
 5. Run `Jint.Tests`.
 

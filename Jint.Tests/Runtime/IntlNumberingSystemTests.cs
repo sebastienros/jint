@@ -212,9 +212,11 @@ public class IntlNumberingSystemTests
         engine.Evaluate($"{components}.formatToParts({TwentySeventhOfAugust}).map(p => p.value).join('')")
             .AsString().Should().Be(Expected, "https://tc39.es/ecma402/#sec-formatdatetime is the concatenation of the parts");
 
+        // de-DE's short date pattern is CLDR's dd.MM.yy, so 27.08.26 — its full stops no less literals, as ICU writes them.
+        const string ExpectedShortStyle = "٢٧.٠٨.٢٦";
         var styled = "new Intl.DateTimeFormat('de-DE', { numberingSystem: 'arab', dateStyle: 'short', timeZone: 'UTC' })";
         engine.Evaluate($"{styled}.format({TwentySeventhOfAugust})")
-            .AsString().Should().Be(Expected, "a dateStyle pattern's full stops are literals too");
+            .AsString().Should().Be(ExpectedShortStyle, "a dateStyle pattern's full stops are literals too");
     }
 
     /// <summary>
