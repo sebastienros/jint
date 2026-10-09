@@ -112,8 +112,7 @@ temporary-directory cleanup is best effort when the filesystem refuses deletion.
 propagate, including during clear or eviction, so an invalidation is never silently reported successful
 while leaving a persisted representation. Persistent storage requires a writable, reliable directory.
 
-The [300-image workload report](../benchmarks/http-cache-2026-10/README.md) separates requests, transferred
-bodies, allocation and timing. Cache hits still incur the browser consumers' body copies; this feature does
+Cache hits still incur the browser consumers' body copies; this feature does
 not resolve the image allocation work in [#4013](https://github.com/sebastienros/jint/issues/4013).
 
 ## Command-line use
