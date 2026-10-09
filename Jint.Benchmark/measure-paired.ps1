@@ -47,25 +47,58 @@
     paired in fewer than half the rounds, when a row was seen on only one side, or when the report
     table is empty.
 
+    KNOWING WHAT WILL RUN, AND FOR HOW LONG. BenchmarkDotNet's glob matches [Params] VALUES as well
+    as Class.Method names, so '*Dromaeo*' also selects every EngineComparisonBenchmark row whose
+    script is dromaeo-* - for every engine in that class. A gate run that way took six hours instead
+    of two, and nothing said so until it ended. So before round 1 both worktrees are asked which
+    rows the filter selects (Program.cs '--list-cases', [Params] expanded, nothing run); the rows
+    are printed grouped by class, the run stops when the two sides disagree, and it stops when a
+    class was reached only through a parameter value - no filter matches its Class.Method name or
+    mentions the class - unless -Force says that was intended. After round 1 the run prints its
+    projected duration and aborts when that exceeds -MaxHours. -Suite names the standard gates by
+    exact class, which is what a gate should use; -Filter stays for one-off rows, where reaching
+    into parameter values is the point ('*SunSpiderBenchmark.Run*access-nbody*' is one row).
+
 .PARAMETER Baseline
     Path to the baseline worktree (the branch being compared against).
 
 .PARAMETER Candidate
     Path to the candidate worktree (the change under test).
 
+.PARAMETER Suite
+    Named benchmark suite(s), each mapped to an exact class filter (see $script:Suites):
+    SunSpider, Dromaeo, AsyncAwait. '-Suite SunSpider,Dromaeo' is the standard PR gate. May be
+    combined with -Filter; at least one of the two is required.
+
 .PARAMETER Filter
-    BenchmarkDotNet filter(s), e.g. '*SunSpiderBenchmark*'.
+    Raw BenchmarkDotNet glob(s) for one-off rows, e.g. '*SunSpiderBenchmark.Run*access-nbody*'.
+    The glob also matches [Params] values - see the preflight above.
 
 .PARAMETER Rounds
     Number of A/B pairs. 8 is a reasonable floor; the paired CI narrows roughly as 1/sqrt(Rounds).
 
+.PARAMETER MaxHours
+    Abort after round 1 when round 1's duration times -Rounds exceeds this many hours. Default 3.
+    0 disables the check.
+
+.PARAMETER Force
+    Run even though the selection reaches a class no -Suite or -Filter names (see above).
+
+.PARAMETER PreflightOnly
+    Build both worktrees, print what the filters select and run the guards, then exit without
+    measuring. Exits non-zero exactly when a real run would have stopped at the preflight.
+
 .PARAMETER SelfTest
-    Run the parser and the pairing/statistics pipeline against inline CSV fixtures that mirror
+    Run the parser, the pairing/statistics pipeline, the suite mapping, the preflight's listing
+    parser and class guard, and the duration projection against inline fixtures that mirror
     today's BenchmarkDotNet output, print the results and exit non-zero on any failure. Runs no
     benchmarks and needs no worktrees - use it after touching this script.
 
 .EXAMPLE
-    ./measure-paired.ps1 -Baseline D:\Work\jint -Candidate D:\Work\jint.myfix -Filter '*ForOfArrayBenchmark*'
+    ./measure-paired.ps1 -Baseline D:\Work\jint -Candidate D:\Work\jint.myfix -Suite SunSpider,Dromaeo -Rounds 6
+
+.EXAMPLE
+    ./measure-paired.ps1 -Baseline D:\Work\jint -Candidate D:\Work\jint.myfix -Filter 'Jint.Benchmark.ForOfArrayBenchmark.*'
 
 .EXAMPLE
     ./measure-paired.ps1 -SelfTest
@@ -74,8 +107,12 @@
 param(
     [Parameter(Mandatory, ParameterSetName = 'Measure')] [string]   $Baseline,
     [Parameter(Mandatory, ParameterSetName = 'Measure')] [string]   $Candidate,
-    [Parameter(Mandatory, ParameterSetName = 'Measure')] [string[]] $Filter,
+    [Parameter(ParameterSetName = 'Measure')] [string[]] $Suite = @(),
+    [Parameter(ParameterSetName = 'Measure')] [string[]] $Filter = @(),
     [Parameter(ParameterSetName = 'Measure')] [int]    $Rounds = 8,
+    [Parameter(ParameterSetName = 'Measure')] [double] $MaxHours = 3,
+    [Parameter(ParameterSetName = 'Measure')] [switch] $Force,
+    [Parameter(ParameterSetName = 'Measure')] [switch] $PreflightOnly,
     [Parameter(ParameterSetName = 'Measure')] [string] $OutputRoot = (Join-Path ([IO.Path]::GetTempPath()) "jint-paired-$(Get-Date -Format yyyyMMdd-HHmmss)"),
     [Parameter(Mandatory, ParameterSetName = 'SelfTest')] [switch] $SelfTest
 )
@@ -296,6 +333,189 @@ function Invoke-PairedAnalysis {
     }
 }
 
+# --- selection: suites, the preflight listing and the class guard ---------------------------
+
+# Each suite is an exact, class-anchored filter. A pattern that starts with the class's full name
+# can only match that class's own rows: BenchmarkDotNet anchors the glob, and every name it matches
+# against - with or without parameters - begins with the declaring class.
+$script:Suites = [ordered] @{
+    SunSpider  = 'Jint.Benchmark.SunSpiderBenchmark.*'
+    Dromaeo    = 'Jint.Benchmark.DromaeoBenchmark.*'
+    AsyncAwait = 'Jint.Benchmark.AsyncAwaitBenchmark.*'
+}
+
+# -Suite SunSpider,Dromaeo arrives as an array from PowerShell but as ONE string through
+# 'pwsh -File', so commas are split here either way. Unknown names are an error, not a no-op.
+function Resolve-SuiteFilters([string[]] $names) {
+    $filters = [System.Collections.Generic.List[string]]::new()
+    foreach ($name in @($names | ForEach-Object { "$_" -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+        $key = @($script:Suites.Keys | Where-Object { $_ -eq $name })   # case-insensitive, like any parameter value
+        if ($key.Count -ne 1) {
+            throw "unknown -Suite '$name'. Known suites: $(@($script:Suites.Keys) -join ', '). Use -Filter for anything else."
+        }
+        $filters.Add($script:Suites[$key[0]])
+    }
+    return $filters.ToArray()
+}
+
+function Get-EffectiveFilters([string[]] $suite, [string[]] $filter) {
+    $all = [System.Collections.Generic.List[string]]::new()
+    foreach ($f in @(Resolve-SuiteFilters $suite) + @($filter | Where-Object { $_ })) {
+        if (-not $all.Contains($f)) { $all.Add($f) }
+    }
+    if ($all.Count -eq 0) { throw 'nothing to measure: pass -Suite (e.g. -Suite SunSpider,Dromaeo) and/or -Filter.' }
+    return $all.ToArray()
+}
+
+# BenchmarkDotNet's GlobFilter: '*' and '?' are the only wildcards, the match is anchored and
+# case-insensitive.
+function ConvertTo-GlobRegex([string] $pattern) {
+    $body = [regex]::Escape($pattern).Replace('\*', '.*').Replace('\?', '.')
+    return [regex]::new("^$body`$", [Text.RegularExpressions.RegexOptions]'IgnoreCase, CultureInvariant')
+}
+
+<#
+    Parse what the preflight printed. Two shapes:
+
+      cases  Program.cs '--list-cases' (this script's contract): a '// jint-list-cases v1' marker,
+             then "case<TAB>Namespace.Class<TAB>Method<TAB>[Name=value, ...]" per row.
+      flat   BenchmarkDotNet's own '--list flat', for a baseline older than '--list-cases':
+             "Namespace.Class.Method" per METHOD, parameter rows not expanded.
+
+    Everything else (the measurement-environment banner, build output) is ignored. Each row is
+    { Class (full name), ShortClass, Method, Params, Key }.
+#>
+function ConvertFrom-CaseListing([string[]] $lines) {
+    $rows = [System.Collections.Generic.List[object]]::new()
+    $mode = 'flat'
+    if (@($lines | Where-Object { $_ -match '^// jint-list-cases v1\s*$' }).Count -gt 0) { $mode = 'cases' }
+
+    foreach ($line in $lines) {
+        $class = $null; $method = $null; $params = ''
+        if ($mode -eq 'cases') {
+            if (-not $line.StartsWith("case`t")) { continue }
+            $parts  = $line.TrimEnd() -split "`t"
+            $class  = $parts[1]
+            $method = $parts[2]
+            if ($parts.Count -gt 3) { $params = $parts[3] }
+        } else {
+            if ($line -notmatch '^([A-Za-z_][\w+`]*(?:\.[A-Za-z_][\w+`]*)+)\.([A-Za-z_]\w*)\s*$') { continue }
+            $class  = $Matches[1]
+            $method = $Matches[2]
+        }
+        $short = ($class -split '[.+]')[-1]
+        $rows.Add([pscustomobject] @{
+            Class      = $class
+            ShortClass = $short
+            Method     = $method
+            Params     = $params
+            Key        = "$short.$method$params"
+        })
+    }
+    return [pscustomobject] @{ Mode = $mode; Rows = $rows.ToArray() }
+}
+
+<#
+    Group the selected rows by class and decide, per class, whether the caller NAMED it. A pattern
+    names a class when it matches one of that class's Class.Method names - which is how '*Dromaeo*'
+    names DromaeoBenchmark - or when its text mentions the class, which is how a deliberate parameter
+    glob such as '*SunSpiderBenchmark.Run*access-nbody*' names SunSpiderBenchmark. A class selected
+    any other way was reached only through a [Params] value: EngineComparisonBenchmark's
+    FileName=dromaeo-* rows under '*Dromaeo*'.
+#>
+function Get-SelectionReport($rows, [string[]] $filters) {
+    $regexes = @($filters | ForEach-Object { [pscustomobject] @{ Pattern = $_; Regex = ConvertTo-GlobRegex $_ } })
+    $classes = foreach ($g in ($rows | Group-Object Class | Sort-Object Name)) {
+        $short   = $g.Group[0].ShortClass
+        $methods = @($g.Group | Select-Object -ExpandProperty Method -Unique)
+        $namedBy = @($regexes | Where-Object {
+            $re = $_.Regex
+            ($_.Pattern.IndexOf($short, [StringComparison]::OrdinalIgnoreCase) -ge 0) -or
+            (@($methods | Where-Object { $re.IsMatch("$($g.Name).$_") }).Count -gt 0)
+        } | ForEach-Object { $_.Pattern })
+        [pscustomobject] @{
+            Class   = $g.Name
+            Short   = $short
+            Rows    = $g.Count
+            Methods = $methods.Count
+            NamedBy = $namedBy
+            Named   = $namedBy.Count -gt 0
+            Sample  = @($g.Group | Select-Object -First 3 | ForEach-Object { $_.Key })
+        }
+    }
+    $classes = @($classes)
+    return [pscustomobject] @{
+        Classes = $classes
+        Unnamed = @($classes | Where-Object { -not $_.Named })
+        Total   = @($rows).Count
+    }
+}
+
+function Format-SelectionReport($report) {
+    foreach ($c in $report.Classes) {
+        $line = '  {0,-44} {1,5} row(s) {2,4} method(s)' -f $c.Short, $c.Rows, $c.Methods
+        if (-not $c.Named) { $line += '   <- named by no filter' }
+        $line
+        if ($c.Rows -le 3) { foreach ($k in $c.Sample) { "      $k" } }
+    }
+}
+
+# The guard's verdict as text; $null when every selected class was named.
+function Get-UnnamedClassMessage($report, [string[]] $filters) {
+    if ($report.Unnamed.Count -eq 0) { return $null }
+    $lines = @("the filter reaches $($report.Unnamed.Count) class(es) that no -Suite or -Filter names:")
+    foreach ($c in $report.Unnamed) {
+        $lines += "  $($c.Short): $($c.Rows) row(s), e.g. $($c.Sample[0])"
+    }
+    $lines += "BenchmarkDotNet's glob also matches [Params] values, so a pattern such as '*Dromaeo*' selects"
+    $lines += "EngineComparisonBenchmark's dromaeo-* rows for every engine. Filters: '$($filters -join "', '")'."
+    $lines += 'Use -Suite (' + (@($script:Suites.Keys) -join ', ') + ") or a class-anchored -Filter such as 'Jint.Benchmark.DromaeoBenchmark.*';"
+    $lines += 'pass -Force only if those rows are really wanted.'
+    return ($lines -join [Environment]::NewLine)
+}
+
+<#
+    Do the two sides select the same rows? Compared by row when both listings expand [Params],
+    otherwise by Class.Method (a baseline older than '--list-cases'). Returns { Level, OnlyBase,
+    OnlyCandidate }.
+#>
+function Compare-Selections($base, $cand) {
+    $level = 'row'
+    if ($base.Mode -ne 'cases' -or $cand.Mode -ne 'cases') { $level = 'method' }
+    $keyOf = if ($level -eq 'row') { { param($r) $r.Key } } else { { param($r) "$($r.ShortClass).$($r.Method)" } }
+    $b = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $c = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($r in $base.Rows) { $b.Add((& $keyOf $r)) | Out-Null }
+    foreach ($r in $cand.Rows) { $c.Add((& $keyOf $r)) | Out-Null }
+    return [pscustomobject] @{
+        Level         = $level
+        OnlyBase      = @($b | Where-Object { -not $c.Contains($_) } | Sort-Object)
+        OnlyCandidate = @($c | Where-Object { -not $b.Contains($_) } | Sort-Object)
+    }
+}
+
+# --- duration projection -------------------------------------------------------------------
+
+function Format-Duration([TimeSpan] $t) {
+    if ($t.TotalHours -ge 1)   { return '{0}h {1:00}m' -f [int][Math]::Floor($t.TotalHours), $t.Minutes }
+    if ($t.TotalMinutes -ge 1) { return '{0}m {1:00}s' -f [int][Math]::Floor($t.TotalMinutes), $t.Seconds }
+    return [string]::Format([Globalization.CultureInfo]::InvariantCulture, '{0:0.0}s', $t.TotalSeconds)
+}
+
+# Every round runs the same rows on both sides, so the mean round so far is the estimate for the
+# rest. Exceeds is only ever true while rounds remain - aborting a finished run saves nothing.
+function Get-RunProjection([TimeSpan] $elapsed, [int] $completedRounds, [int] $totalRounds, [double] $maxHours) {
+    $perRound  = [TimeSpan]::FromTicks([long]($elapsed.Ticks / $completedRounds))
+    $total     = [TimeSpan]::FromTicks($perRound.Ticks * $totalRounds)
+    $remaining = [TimeSpan]::FromTicks($perRound.Ticks * ($totalRounds - $completedRounds))
+    return [pscustomobject] @{
+        PerRound  = $perRound
+        Total     = $total
+        Remaining = $remaining
+        Exceeds   = ($maxHours -gt 0) -and ($completedRounds -lt $totalRounds) -and ($total.TotalHours -gt $maxHours)
+    }
+}
+
 # --- self test -----------------------------------------------------------------------------
 
 <#
@@ -474,6 +694,85 @@ function Invoke-SelfTest {
     Assert-True ($good.Lines[0] -match 'no change') 'noise around zero reads no change'
 
     Write-Host ''
+    Write-Host 'suites'
+    Assert-Equal 'Jint.Benchmark.SunSpiderBenchmark.*,Jint.Benchmark.DromaeoBenchmark.*' ((Resolve-SuiteFilters @('SunSpider', 'Dromaeo')) -join ',') 'SunSpider,Dromaeo map to exact class filters'
+    Assert-Equal 'Jint.Benchmark.SunSpiderBenchmark.*,Jint.Benchmark.DromaeoBenchmark.*' ((Resolve-SuiteFilters @('SunSpider,Dromaeo')) -join ',') "one comma-joined string (how 'pwsh -File' passes it) maps the same"
+    Assert-Equal 'Jint.Benchmark.AsyncAwaitBenchmark.*' ((Resolve-SuiteFilters @('asyncawait')) -join ',') 'suite names are case-insensitive'
+    Assert-Throws { Resolve-SuiteFilters @('Octane') } 'an unknown suite is an error, not a no-op'
+    Assert-Throws { Get-EffectiveFilters @() @() } 'neither -Suite nor -Filter is an error'
+    Assert-Equal 'Jint.Benchmark.DromaeoBenchmark.*,*SunSpiderBenchmark.Run*access-nbody*' ((Get-EffectiveFilters @('Dromaeo') @('*SunSpiderBenchmark.Run*access-nbody*', 'Jint.Benchmark.DromaeoBenchmark.*')) -join ',') '-Suite and -Filter combine, duplicates dropped'
+
+    Write-Host ''
+    Write-Host 'glob semantics (BenchmarkDotNet GlobFilter)'
+    Assert-True ((ConvertTo-GlobRegex '*Dromaeo*').IsMatch('Jint.Benchmark.DromaeoBenchmark.Cube')) "'*Dromaeo*' matches a DromaeoBenchmark method"
+    Assert-True (-not (ConvertTo-GlobRegex '*Dromaeo*').IsMatch('Jint.Benchmark.EngineComparisonBenchmark.Jint')) "'*Dromaeo*' does not match an EngineComparisonBenchmark method by name"
+    Assert-True (-not (ConvertTo-GlobRegex 'Jint.Benchmark.SunSpiderBenchmark.*').IsMatch('X.Jint.Benchmark.SunSpiderBenchmark.Run')) 'the glob is anchored'
+    Assert-True ((ConvertTo-GlobRegex '*sunspiderbenchmark.run').IsMatch('Jint.Benchmark.SunSpiderBenchmark.Run')) 'the glob is case-insensitive'
+
+    Write-Host ''
+    Write-Host 'preflight listing and class guard'
+    $banner = @('// Jint measurement environment: stable', '//   affinity    : CPU 2-15 (14 logical)', '')
+    # What '--list-cases --filter *Dromaeo*' printed on 2026-10-09: DromaeoBenchmark plus the
+    # EngineComparisonBenchmark rows reached through FileName=dromaeo-* (abridged).
+    $dromaeoGlob = $banner + @(
+        '// jint-list-cases v1',
+        "case`tJint.Benchmark.DromaeoBenchmark`tCube`t[Modern=False, Prepared=False]",
+        "case`tJint.Benchmark.DromaeoBenchmark`tCube`t[Modern=True, Prepared=False]",
+        "case`tJint.Benchmark.DromaeoBenchmark`tCoreEval`t[Modern=False, Prepared=False]",
+        "case`tJint.Benchmark.EngineComparisonBenchmark`tJint`t[FileName=dromaeo-3d-cube]",
+        "case`tJint.Benchmark.EngineComparisonBenchmark`tClearScript`t[FileName=dromaeo-3d-cube]",
+        "case`tJint.Benchmark.EngineComparisonBenchmark`tYantraJS`t[FileName=dromaeo-3d-cube-modern]")
+    $listing = ConvertFrom-CaseListing $dromaeoGlob
+    Assert-Equal 'cases' $listing.Mode 'the --list-cases marker is recognised'
+    Assert-Equal 6 $listing.Rows.Count 'banner lines are not rows'
+    Assert-Equal 'DromaeoBenchmark.Cube[Modern=False, Prepared=False]' $listing.Rows[0].Key 'a row key carries its parameters'
+    $report = Get-SelectionReport $listing.Rows @('*Dromaeo*')
+    Assert-Equal 2 $report.Classes.Count 'rows are grouped by class'
+    Assert-Equal 'EngineComparisonBenchmark' (@($report.Unnamed | ForEach-Object { $_.Short }) -join ',') "'*Dromaeo*' reaches EngineComparisonBenchmark only through a parameter"
+    Assert-True ((Get-UnnamedClassMessage $report @('*Dromaeo*')) -match 'EngineComparisonBenchmark: 3 row') 'the guard names the class and its row count'
+    Assert-Equal 3 (@($report.Classes | Where-Object { $_.Short -eq 'DromaeoBenchmark' })[0].Rows) 'the per-class row count'
+    $forced = Get-SelectionReport $listing.Rows @('*Dromaeo*', 'Jint.Benchmark.EngineComparisonBenchmark.*')
+    Assert-Equal 0 $forced.Unnamed.Count 'a class the caller does name passes'
+
+    $oneRow = ConvertFrom-CaseListing ($banner + @('// jint-list-cases v1', "case`tJint.Benchmark.SunSpiderBenchmark`tRun`t[FileName=access-nbody]"))
+    $oneReport = Get-SelectionReport $oneRow.Rows @('*SunSpiderBenchmark.Run*access-nbody*')
+    Assert-Equal 1 $oneReport.Total 'a deliberate parameter glob selects its one row'
+    Assert-Equal 0 $oneReport.Unnamed.Count 'a parameter glob that mentions its class is not flagged'
+    Assert-Equal $null (Get-UnnamedClassMessage $oneReport @('*SunSpiderBenchmark.Run*access-nbody*')) 'no guard message when every class is named'
+
+    $suiteRows = ConvertFrom-CaseListing (@('// jint-list-cases v1',
+        "case`tJint.Benchmark.SunSpiderBenchmark`tRun`t[FileName=3d-cube]",
+        "case`tJint.Benchmark.DromaeoBenchmark`tCube`t[Modern=False, Prepared=True]"))
+    Assert-Equal 0 (Get-SelectionReport $suiteRows.Rows (Resolve-SuiteFilters @('SunSpider', 'Dromaeo'))).Unnamed.Count 'suite filters name their classes'
+
+    $flat = ConvertFrom-CaseListing ($banner + @('Jint.Benchmark.DromaeoBenchmark.Cube', 'Jint.Benchmark.EngineComparisonBenchmark.Jint', 'Build succeeded. 0 Warning(s)'))
+    Assert-Equal 'flat' $flat.Mode "an old baseline's '--list flat' is parsed as methods"
+    Assert-Equal 'DromaeoBenchmark.Cube,EngineComparisonBenchmark.Jint' (@($flat.Rows | ForEach-Object { $_.Key }) -join ',') 'flat rows are Class.Method; other output is ignored'
+
+    $same = Compare-Selections $listing $listing
+    Assert-True ($same.Level -eq 'row' -and $same.OnlyBase.Count -eq 0 -and $same.OnlyCandidate.Count -eq 0) 'identical listings agree row by row'
+    $fewer = ConvertFrom-CaseListing ($dromaeoGlob | Where-Object { $_ -notmatch 'YantraJS' })
+    $diff = Compare-Selections $fewer $listing
+    Assert-Equal 'EngineComparisonBenchmark.YantraJS[FileName=dromaeo-3d-cube-modern]' ($diff.OnlyCandidate -join ',') 'a row only one side selects is reported'
+    $mixed = Compare-Selections $flat (ConvertFrom-CaseListing $dromaeoGlob)
+    Assert-Equal 'method' $mixed.Level 'a flat side drops the comparison to methods'
+    Assert-Equal 'DromaeoBenchmark.CoreEval,EngineComparisonBenchmark.ClearScript,EngineComparisonBenchmark.YantraJS' ($mixed.OnlyCandidate -join ',') 'method-level differences are still reported'
+
+    Write-Host ''
+    Write-Host 'duration projection'
+    $p = Get-RunProjection ([TimeSpan]::FromMinutes(37)) 1 6 3
+    Assert-Equal '3h 42m' (Format-Duration $p.Total) 'a 37-minute round 1 projects 6 rounds to 3h 42m'
+    Assert-Equal '3h 05m' (Format-Duration $p.Remaining) '... of which 3h 05m remain'
+    Assert-True $p.Exceeds '... which exceeds -MaxHours 3'
+    Assert-True (-not (Get-RunProjection ([TimeSpan]::FromMinutes(20)) 1 6 3).Exceeds) 'a 20-minute round 1 (2h) is within -MaxHours 3'
+    Assert-True (-not (Get-RunProjection ([TimeSpan]::FromMinutes(37)) 1 6 0).Exceeds) '-MaxHours 0 disables the check'
+    Assert-True (-not (Get-RunProjection ([TimeSpan]::FromHours(5)) 1 1 3).Exceeds) 'a run with no rounds left is never aborted'
+    $p3 = Get-RunProjection ([TimeSpan]::FromMinutes(90)) 3 8 3
+    Assert-Equal '4h 00m' (Format-Duration $p3.Total) 'the estimate is the mean round so far'
+    Assert-Equal '3m 12s' (Format-Duration ([TimeSpan]::FromSeconds(192))) 'minutes format'
+    Assert-Equal '4.2s' (Format-Duration ([TimeSpan]::FromSeconds(4.2))) 'seconds format'
+
+    Write-Host ''
     if ($script:SelfTestFailed -eq 0) { Write-Host 'SELF-TEST PASSED' } else { Write-Host "SELF-TEST FAILED: $($script:SelfTestFailed) assertion(s)" }
     return $script:SelfTestFailed
 }
@@ -484,10 +783,88 @@ if ($SelfTest) {
 
 # --- measurement ---------------------------------------------------------------------------
 
+$Filters = @(Get-EffectiveFilters $Suite $Filter)
+
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $env:JINT_BENCH_MODE      = 'stable'   # pinned + fixed clock; LaunchCount stays 1 per round
 $env:JINT_BENCH_POWERPLAN = [Environment]::GetEnvironmentVariable('JINT_BENCH_POWERPLAN', 'User')
+
+function Write-Banner([string[]] $lines) {
+    Write-Host ''
+    Write-Host ('=' * 108)
+    foreach ($l in $lines) { Write-Host $l }
+    Write-Host ('=' * 108)
+}
+
+# Ask one worktree which rows the filters select. Building happens here, so round 1 measures
+# benchmarks rather than a compile and its duration is a fair basis for the projection.
+function Get-Selection([string] $root, [string] $tag) {
+    $proj = Join-Path $root 'Jint.Benchmark'
+    $log  = Join-Path $OutputRoot "preflight-$tag.log"
+    # '--list-cases' arrived with this guard; an older baseline only has BenchmarkDotNet's
+    # method-level '--list flat', and an unknown first argument would only print BDN's usage.
+    $program = Join-Path $proj 'Program.cs'
+    $cases   = (Test-Path -LiteralPath $program) -and
+               [bool](Select-String -LiteralPath $program -SimpleMatch '"--list-cases"' -Quiet)
+    $listArgs = if ($cases) { @('--list-cases', '--filter') + $Filters } else { @('--filter') + $Filters + @('--list', 'flat') }
+    Push-Location $proj
+    try {
+        $a = @('run', '-c', 'Release', '--project', '.', '--') + $listArgs
+        & dotnet @a *> $log
+        if ($LASTEXITCODE -ne 0) { throw "preflight, side '$tag': dotnet exited with $LASTEXITCODE. Log: $log" }
+    } finally { Pop-Location }
+    $listing = ConvertFrom-CaseListing @(Get-Content -LiteralPath $log)
+    if (-not $cases) {
+        Write-Warning ("preflight, side '$tag': $root predates '--list-cases', so its selection is known only by " +
+                       'method - [Params] rows are not expanded and the two sides are compared by method.')
+    }
+    return $listing
+}
+
+Write-Host "filters : '$($Filters -join "', '")'"
+Write-Host "rounds  : $Rounds   -MaxHours: $(if ($MaxHours -gt 0) { $MaxHours } else { 'off' })   output: $OutputRoot"
+
+$baseSelection = Get-Selection $Baseline  'base'
+$candSelection = Get-Selection $Candidate 'cand'
+$selection = $candSelection
+if ($candSelection.Mode -ne 'cases' -and $baseSelection.Mode -eq 'cases') { $selection = $baseSelection }
+
+if ($selection.Rows.Count -eq 0) {
+    Write-Banner @("PREFLIGHT FAILED - the filters select no benchmark at all: '$($Filters -join "', '")'.",
+                   "Listings: $(Join-Path $OutputRoot 'preflight-base.log'), $(Join-Path $OutputRoot 'preflight-cand.log')")
+    exit 1
+}
+
+$report = Get-SelectionReport $selection.Rows $Filters
+$unit = if ($selection.Mode -eq 'cases') { 'row(s)' } else { 'method(s) - [Params] not expanded' }
+Write-Host "preflight: $($report.Total) $unit in $($report.Classes.Count) class(es)"
+Format-SelectionReport $report | ForEach-Object { Write-Host $_ }
+
+$agreement = Compare-Selections $baseSelection $candSelection
+if ($agreement.OnlyBase.Count -gt 0 -or $agreement.OnlyCandidate.Count -gt 0) {
+    $lines = @("PREFLIGHT FAILED - the two worktrees select different $($agreement.Level)s, which could never pair:")
+    foreach ($k in ($agreement.OnlyBase      | Select-Object -First 10)) { $lines += "  only baseline : $k" }
+    foreach ($k in ($agreement.OnlyCandidate | Select-Object -First 10)) { $lines += "  only candidate: $k" }
+    $lines += "($($agreement.OnlyBase.Count) baseline-only, $($agreement.OnlyCandidate.Count) candidate-only.) Narrow the filter to rows both sides have."
+    Write-Banner $lines
+    exit 1
+}
+Write-Host "preflight: baseline and candidate select the same $($agreement.Level)s"
+
+$unnamed = Get-UnnamedClassMessage $report $Filters
+if ($unnamed) {
+    if (-not $Force) {
+        Write-Banner (@('PREFLIGHT STOPPED - ' + $unnamed) -split [Environment]::NewLine)
+        exit 1
+    }
+    Write-Warning "-Force: measuring anyway. $unnamed"
+}
+
+if ($PreflightOnly) {
+    Write-Host 'preflight only: nothing measured.'
+    exit 0
+}
 
 function Invoke-Side([string] $root, [string] $tag, [int] $round) {
     $proj = Join-Path $root 'Jint.Benchmark'
@@ -495,7 +872,7 @@ function Invoke-Side([string] $root, [string] $tag, [int] $round) {
     $log  = Join-Path $OutputRoot "$tag-r$round.log"
     Push-Location $proj
     try {
-        $a = @('run','-c','Release','--project','.','--','--filter') + $Filter +
+        $a = @('run','-c','Release','--project','.','--','--filter') + $Filters +
              @('--artifacts', $art, '--launchCount','1')
         & dotnet @a *> $log
         if ($LASTEXITCODE -ne 0) {
@@ -512,10 +889,12 @@ $paired   = @{}   # key -> list of percentage differences, one per round
 $seenBase = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 $seenCand = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 
+$clock = [Diagnostics.Stopwatch]::StartNew()
+
 for ($r = 1; $r -le $Rounds; $r++) {
     # Alternate which side runs first so run-order penalty is shared equally.
     $baseFirst = ($r % 2) -eq 1
-    Write-Host "round $r/$Rounds ($(if($baseFirst){'base,cand'}else{'cand,base'}))"
+    Write-Host "round $r/$Rounds ($(if($baseFirst){'base,cand'}else{'cand,base'})) started $(Get-Date -Format 'HH:mm:ss')"
 
     if ($baseFirst) {
         $b = Invoke-Side $Baseline  'base' $r
@@ -532,6 +911,21 @@ for ($r = 1; $r -le $Rounds; $r++) {
         if (-not $c.ContainsKey($k)) { continue }
         if (-not $paired.ContainsKey($k)) { $paired[$k] = @() }
         $paired[$k] += 100.0 * ($c[$k] - $b[$k]) / $b[$k]
+    }
+
+    # The projection is printed every round, so the first lines of a background run's log already
+    # say how long it will take; it can only abort after round 1, before most of the cost is sunk.
+    $projection = Get-RunProjection $clock.Elapsed $r $Rounds $MaxHours
+    $eta = (Get-Date).Add($projection.Remaining).ToString('HH:mm')
+    Write-Host ("round $r/$Rounds done: elapsed $(Format-Duration $clock.Elapsed), $(Format-Duration $projection.PerRound) per round; " +
+                "projected total $(Format-Duration $projection.Total) for $Rounds rounds, $(Format-Duration $projection.Remaining) remaining (ETA $eta)")
+    if ($r -eq 1 -and $projection.Exceeds) {
+        $limit = Format-Duration ([TimeSpan]::FromHours($MaxHours))
+        Write-Banner @(
+            "ABORTED BY -MaxHours: round 1 took $(Format-Duration $projection.PerRound), so $Rounds rounds project to $(Format-Duration $projection.Total) - over -MaxHours $MaxHours ($limit).",
+            'Narrow the selection (-Suite, or a class-anchored -Filter), lower -Rounds, or raise -MaxHours (0 disables the check).',
+            "Round 1's raw data: $OutputRoot")
+        exit 3
     }
 }
 
