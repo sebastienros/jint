@@ -967,7 +967,9 @@ internal sealed partial class RegExpPrototype : Prototype
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.test");
         var s = TypeConverter.ToString(stringArg);
 
-        if (r is JsRegExp R && R.HasDefaultRegExpExec)
+        // ToLength(lastIndex) can invoke user code that recompiles the regexp. Only
+        // numeric values let this fast path read the matcher before coercion.
+        if (r is JsRegExp R && R.HasDefaultRegExpExec && R.Get(JsRegExp.PropertyLastIndex) is JsNumber numericLastIndex)
         {
             // Fast path for custom engine (allocation-free IsMatch)
             if (!R.UsesDotNetEngine)
@@ -978,7 +980,7 @@ internal sealed partial class RegExpPrototype : Prototype
                     return IsMatchWithTimeout(R, customEngine, s, 0);
                 }
 
-                if (!TryGetSearchStart(R, s, out var lastIndex))
+                if (!TryGetSearchStart(R, s, numericLastIndex, out var lastIndex))
                 {
                     return JsBoolean.False;
                 }
@@ -1005,7 +1007,7 @@ internal sealed partial class RegExpPrototype : Prototype
                     return R.Value.IsMatch(s);
                 }
 
-                if (!TryGetSearchStart(R, s, out var lastIndex))
+                if (!TryGetSearchStart(R, s, numericLastIndex, out var lastIndex))
                 {
                     return JsBoolean.False;
                 }
@@ -1033,9 +1035,9 @@ internal sealed partial class RegExpPrototype : Prototype
     /// <see cref="int.MaxValue"/> cannot wrap into a valid position.
     /// https://tc39.es/ecma262/#sec-regexpbuiltinexec
     /// </summary>
-    private static bool TryGetSearchStart(JsRegExp R, string s, out int start)
+    private static bool TryGetSearchStart(JsRegExp R, string s, JsNumber numericLastIndex, out int start)
     {
-        var lastIndex = TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
+        var lastIndex = TypeConverter.ToLength(numericLastIndex);
         if (lastIndex > (ulong) s.Length)
         {
             R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
@@ -1062,8 +1064,9 @@ internal sealed partial class RegExpPrototype : Prototype
             rx.Set(JsRegExp.PropertyLastIndex, 0, true);
         }
 
-        // Fast path for custom engine: only need the index, skip full result array
-        if (rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } customR)
+        // Global/sticky exec must perform its lastIndex writes, including throwing
+        // when the property is non-writable.
+        if (rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false, Global: false, Sticky: false } customR)
         {
             var searchResult = ExecuteWithTimeout(customR, customR.CustomEngine!, s, 0);
             var currentLastIndex2 = rx.Get(JsRegExp.PropertyLastIndex);
@@ -1358,13 +1361,10 @@ internal sealed partial class RegExpPrototype : Prototype
             lastIndex = 0;
         }
 
-        if (string.Equals(R.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))  // Reg Exp is really ""
+        // Stateful expressions and match indices need the full result handling below.
+        if (!global && !sticky && !R.Indices
+            && string.Equals(R.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
         {
-            if (lastIndex > (ulong) s.Length)
-            {
-                return Null;
-            }
-
             // "aaa".match() => [ '', index: 0, input: 'aaa' ]
             var array = R.Engine.Realm.Intrinsics.Array.ArrayCreate(1);
             array.FastSetDataProperty(PropertyIndex._value, lastIndex);
