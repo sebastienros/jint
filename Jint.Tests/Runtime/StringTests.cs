@@ -753,6 +753,25 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
             .AsString().Should().Be("2:55357");
         _engine.Evaluate("""JSON.stringify('abc'.split(/(?:)/))""").AsString().Should().Be("""["a","b","c"]""");
         _engine.Evaluate("""JSON.stringify('abc'.split(/(?:)/, 2))""").AsString().Should().Be("""["a","b"]""");
+        _engine.Evaluate("""JSON.stringify(RegExp.prototype[Symbol.split].call(/(?:)/, 'abc', 2))""")
+            .AsString().Should().Be("""["a","b"]""");
+    }
+
+    [Fact]
+    public void SplitOnAnEmptyRegExpCallsItsSpeciesConstructor()
+    {
+        _engine.Evaluate("""
+            var pattern = /(?:)/;
+            var constructed = 0;
+            pattern.constructor = {
+                [Symbol.species]: function () {
+                    constructed++;
+                    return /b/y;
+                }
+            };
+            var pieces = 'ab'.split(pattern);
+            JSON.stringify([constructed, pieces])
+            """).AsString().Should().Be("""[1,["a",""]]""");
     }
 
     [Fact]

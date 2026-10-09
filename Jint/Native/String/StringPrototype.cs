@@ -1215,17 +1215,7 @@ internal sealed partial class StringPrototype : StringInstance
             var splitter = GetMethod(_realm, oi, GlobalSymbolRegistry.Split);
             if (splitter != null)
             {
-                if (IsEmptyPatternWithBuiltInSplit(separator, splitter))
-                {
-                    // Fast path: under the built-in @@split an empty pattern splits between every code
-                    // unit, exactly like the empty string separator does — so hand the work to the
-                    // string lane instead of driving the regexp machinery.
-                    separator = JsString.Empty;
-                }
-                else
-                {
-                    return splitter.Call(separator, thisObject, limit);
-                }
+                return splitter.Call(separator, thisObject, limit);
             }
         }
 
@@ -1261,20 +1251,6 @@ internal sealed partial class StringPrototype : StringInstance
         }
 
         return SplitWithStringSeparator(_engine, _realm, separator, s, lim);
-    }
-
-    /// <summary>
-    /// Whether <paramref name="separator"/> is an empty-pattern regexp that <c>@@split</c> would break
-    /// between every code unit, so the empty-string separator produces the identical result.
-    /// Deliberately narrow: a unicode-mode regexp advances by code *point*
-    /// (https://tc39.es/ecma262/#sec-regexp.prototype-@@split), and a replaced <c>@@split</c> may return
-    /// anything at all, so neither can take the shortcut.
-    /// </summary>
-    private bool IsEmptyPatternWithBuiltInSplit(JsValue separator, ICallable splitter)
-    {
-        return separator is JsRegExp { FullUnicode: false } r
-               && string.Equals(r.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal)
-               && ReferenceEquals(splitter, _realm.Intrinsics.RegExp.PrototypeObject.Get(GlobalSymbolRegistry.Split));
     }
 
     internal static JsValue SplitWithStringSeparator(Engine engine, Realm realm, JsValue separator, string s, uint lim)
