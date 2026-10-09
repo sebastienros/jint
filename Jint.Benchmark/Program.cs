@@ -9,6 +9,16 @@ using BenchmarkDotNet.Running;
 using Jint;
 using Jint.Benchmark;
 
+if (args.Length > 0 && args[0] == "--list-cases")
+{
+    // One line per benchmark CASE the remaining arguments select - [Params] expanded - without running
+    // anything. BenchmarkDotNet's own `--list flat` prints methods only, which hides the case that matters:
+    // its glob also matches parameter values, so `--filter *Dromaeo*` selects EngineComparisonBenchmark's
+    // dromaeo-* rows for every engine. measure-paired.ps1 reads this before round 1; the format (a marker
+    // line, then tab-separated "case", type, method, parameters) is its contract.
+    return ListCases(args.Skip(1).ToArray());
+}
+
 if (args.Length > 0 && args[0] == "--validate-http-cache")
 {
     return await BrowserHttpCacheBenchmark.ValidateAsync();
@@ -153,3 +163,36 @@ BenchmarkSwitcher
     .Run(args, JintBenchmarkConfig.Create(args));
 
 return 0;
+
+// The same parse and the same filtering BenchmarkSwitcher.Run performs, stopped before anything is built.
+static int ListCases(string[] commandLine)
+{
+    var (parsed, config, _) = BenchmarkDotNet.ConsoleArguments.ConfigParser.Parse(commandLine, ConsoleLogger.Default);
+    if (!parsed)
+    {
+        return 2;
+    }
+
+    var assembly = typeof(ArrayBenchmark).GetTypeInfo().Assembly;
+    var (_, types) = BenchmarkDotNet.Running.TypeFilter.GetTypesWithRunnableBenchmarks([], [assembly], NullLogger.Instance);
+
+    Console.WriteLine("// jint-list-cases v1");
+    var seen = new HashSet<string>(StringComparer.Ordinal);
+    foreach (var runInfo in BenchmarkDotNet.Running.TypeFilter.Filter(config, types))
+    {
+        foreach (var benchmarkCase in runInfo.BenchmarksCases)
+        {
+            var line = string.Join('\t',
+                "case",
+                benchmarkCase.Descriptor.Type.FullName,
+                benchmarkCase.Descriptor.WorkloadMethod.Name,
+                benchmarkCase.HasParameters ? benchmarkCase.Parameters.DisplayInfo : string.Empty);
+            if (seen.Add(line))
+            {
+                Console.WriteLine(line);
+            }
+        }
+    }
+
+    return 0;
+}
