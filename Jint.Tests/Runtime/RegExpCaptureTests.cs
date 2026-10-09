@@ -1,17 +1,15 @@
 #nullable enable
 
-using Jint.Tests;
-
-namespace Jint.Tests.PublicInterface;
+namespace Jint.Tests.Runtime;
 
 /// <summary>Generated patterns retain captures, backreferences, and finite repetition in Unicode mode.</summary>
-public class HostRegexMatcherCompatibilityTests
+public class RegExpCaptureTests
 {
     [TestCase(255, "u")]
     [TestCase(300, "u")]
     [TestCase(255, "v")]
     [TestCase(300, "v")]
-    public void TheCooperativeMatcherSupportsLargeCaptureSets(int captures, string flags)
+    public void UnicodePatternsSupportLargeCaptureSets(int captures, string flags)
     {
         using var engine = new Engine();
         engine.SetValue("pattern", string.Concat(System.Linq.Enumerable.Repeat("(a)", captures)));
@@ -36,18 +34,18 @@ public class HostRegexMatcherCompatibilityTests
             "named" => (prefix + @"(?<last>b)\k<last>", "bb"),
             _ => (prefix + "(?:(b)|(c))+", "bc"),
         };
-        using var unbounded = new Engine();
-        using var cooperative = new Engine();
-        foreach (var engine in new[] { unbounded, cooperative })
+        using var nonUnicodeEngine = new Engine();
+        using var unicodeEngine = new Engine();
+        foreach (var engine in new[] { nonUnicodeEngine, unicodeEngine })
         {
             engine.SetValue("pattern", pattern);
             engine.SetValue("subject", subject + suffix);
         }
 
         const string expression = "JSON.stringify((m => m && [Array.from(m), m.groups, m.indices, m.indices.groups])(new RegExp(pattern, 'd').exec(subject)))";
-        var expected = unbounded.Evaluate(expression).ToString();
+        var expected = nonUnicodeEngine.Evaluate(expression).ToString();
         expected.Should().NotBe("null");
-        cooperative.Evaluate(expression.Replace("'d'", "'du'")).ToString().Should().Be(expected);
+        unicodeEngine.Evaluate(expression.Replace("'d'", "'du'")).ToString().Should().Be(expected);
     }
 
     [Test]
@@ -62,7 +60,7 @@ public class HostRegexMatcherCompatibilityTests
     }
 
     [Test]
-    public void TheCooperativeMatcherSupportsDeeplyNestedFiniteQuantifiers()
+    public void UnicodePatternsSupportDeeplyNestedFiniteQuantifiers()
     {
         var pattern = "a";
         for (var i = 0; i < 300; i++)

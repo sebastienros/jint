@@ -450,6 +450,8 @@ internal static class RegExpCompiler
     /// </summary>
     private sealed class REParseState
     {
+        private const int StackCheckDepthThreshold = 32;
+
         // Bytecode buffer (replaces DynBuf)
         private readonly List<byte> _byteCode = new();
 
@@ -712,7 +714,7 @@ internal static class RegExpCompiler
             _cancellationToken.ThrowIfCancellationRequested();
             // A fixed nesting limit rejects otherwise valid generated patterns. Probe the
             // available native stack instead, retaining a catchable error before stack exhaustion.
-            if (++_recursionDepth > 32 && !RuntimeHelpers.TryEnsureSufficientExecutionStack())
+            if (++_recursionDepth > StackCheckDepthThreshold && !RuntimeHelpers.TryEnsureSufficientExecutionStack())
             {
                 throw new RegExpSyntaxException("stack overflow");
             }
