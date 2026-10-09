@@ -96,7 +96,7 @@ internal sealed partial class PerformanceResourceTimingPrototype : Prototype
     private JsNumber TransferSizeGet(JsValue thisObject)
     {
         var info = Brand(thisObject).Info;
-        return JsNumber.Create(info.TimingAllowed ? info.EncodedBodySize + 300 : 0);
+        return JsNumber.Create(info.TimingAllowed ? (info.FromCache ? 0 : info.Revalidated ? 300 : info.EncodedBodySize + 300) : 0);
     }
 
     [JsAccessor("encodedBodySize", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]

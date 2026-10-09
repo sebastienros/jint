@@ -898,6 +898,8 @@ public sealed partial class Options
         /// </remarks>
         public CookieJar? CookieJar { get; set { ThrowIfReadOnly(); field = value; } }
 
+        internal HttpResponseCache? HttpCache { get; set { ThrowIfReadOnly(); field = value; } }
+
         /// <summary>
         /// Watches every request, response and body chunk, and may answer a request itself. Defaults to
         /// <see langword="null"/>.

@@ -120,6 +120,8 @@ internal sealed class FetchObservation
             StatusText = response.ReasonPhrase ?? "",
             Headers = headers ?? CollectHeaders(response),
             FromInterception = exchange.FromInterception,
+            FromCache = exchange.FromCache,
+            Revalidated = exchange.Revalidated,
 
             // The reading the redirect loop took around the send that produced this exchange, which is the
             // only place either instant exists — and null when an interception answered without a socket.

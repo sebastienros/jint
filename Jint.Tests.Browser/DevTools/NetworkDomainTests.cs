@@ -21,6 +21,80 @@ namespace Jint.Tests.Browser.DevTools;
 [NonParallelizable]
 public class NetworkDomainTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DisablingTheCachePreservesPostBodiesThroughHeaderOnlyRewrites(bool intercept)
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<title>post</title>");
+        server.Map("/submit", request => LoopbackResponse.Text(request.Body));
+        await using var fixture = await NetworkFixture.OpenAsync(server);
+        await fixture.NavigateAsync("/page");
+        await fixture.Session.ResultAsync("Network.setCacheDisabled", "{\"cacheDisabled\":true}", fixture.Attachment);
+        if (intercept) await fixture.Session.ResultAsync("Fetch.enable", "{}", fixture.Attachment);
+
+        var pending = fixture.Page.EvaluateAndAwaitAsync<string>(
+            "fetch('/submit', {method: 'POST', body: 'name=jint'}).then(r => r.text())");
+        if (intercept)
+        {
+            var paused = await fixture.EventAsync("Fetch.requestPaused");
+            await fixture.Session.ResultAsync("Fetch.continueRequest",
+                $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}","headers":[]}""", fixture.Attachment);
+        }
+
+        (await pending).Should().Be("name=jint");
+        server.Received.Single(request => request.Path == "/submit").Body.Should().Be("name=jint");
+    }
+
+    [Test]
+    public async Task CacheHitsAreObservableInterceptableAndCanBeDisabledOrCleared()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<title>cache</title>");
+        server.Map("/body", _ => LoopbackResponse.Text("cached").With("Cache-Control", "max-age=60"));
+        await using var fixture = await NetworkFixture.OpenAsync(server,
+            configureContext: o => o.HttpCache.Storage = BrowserHttpCacheStorage.Memory);
+        await fixture.NavigateAsync("/page");
+        await fixture.Page.EvaluateAndAwaitAsync("fetch('/body').then(r => r.text())");
+        await fixture.Session.ResultAsync("Fetch.enable", "{}", fixture.Attachment);
+        var pending = fixture.Page.EvaluateAndAwaitAsync<string>("fetch('/body').then(r => r.text())");
+        var paused = await fixture.EventAsync("Fetch.requestPaused");
+        await fixture.Session.ResultAsync("Fetch.continueRequest",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""", fixture.Attachment);
+        (await pending).Should().Be("cached");
+        await fixture.Session.ResultAsync("Fetch.disable", "{}", fixture.Attachment);
+        var served = await fixture.EventAsync("Network.requestServedFromCache");
+        var requestId = served.GetProperty("requestId").GetString();
+        var finished = await fixture.WaitForCountAsync("Network.loadingFinished", 3);
+        finished.Single(e => e.GetProperty("requestId").GetString() == requestId)
+            .GetProperty("encodedDataLength").GetInt64().Should().Be(0);
+        var lifecycle = fixture.Session.Sent.Select(message =>
+        {
+            using var json = JsonDocument.Parse(message);
+            var root = json.RootElement;
+            return root.TryGetProperty("method", out var method)
+                && root.TryGetProperty("params", out var parameters)
+                && parameters.TryGetProperty("requestId", out var id) && id.GetString() == requestId
+                    ? method.GetString() : null;
+        }).Where(method => method is not null).ToArray();
+        lifecycle.Should().ContainInOrder("Network.requestWillBeSent", "Network.requestServedFromCache",
+            "Network.responseReceived", "Network.dataReceived", "Network.loadingFinished");
+        server.Received.Count(r => r.Path == "/body").Should().Be(1);
+        await fixture.Session.ResultAsync("Network.setCacheDisabled", "{\"cacheDisabled\":true}", fixture.Attachment);
+        await fixture.Session.ResultAsync("Fetch.enable", "{}", fixture.Attachment);
+        pending = fixture.Page.EvaluateAndAwaitAsync<string>("fetch('/body').then(r => r.text())");
+        paused = (await fixture.WaitForCountAsync("Fetch.requestPaused", 2)).Last();
+        await fixture.Session.ResultAsync("Fetch.continueRequest",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}","headers":[]}""", fixture.Attachment);
+        (await pending).Should().Be("cached");
+        await fixture.Session.ResultAsync("Fetch.disable", "{}", fixture.Attachment);
+        server.Received.Count(r => r.Path == "/body").Should().Be(2);
+        await fixture.Session.ResultAsync("Network.setCacheDisabled", "{\"cacheDisabled\":false}", fixture.Attachment);
+        await fixture.Session.ResultAsync("Network.clearBrowserCache", "{}", fixture.Attachment);
+        await fixture.Page.EvaluateAndAwaitAsync("fetch('/body').then(r => r.text())");
+        server.Received.Count(r => r.Path == "/body").Should().Be(3);
+    }
+
     [Test]
     public async Task EveryKindOfRequestIsReportedWithChromesOwnResourceType()
     {
@@ -665,9 +739,12 @@ public class NetworkDomainTests
         internal static async Task<NetworkFixture> OpenAsync(
             LoopbackServer server,
             BrowserOptions? options = null,
-            Func<Uri, bool>? urlFilter = null)
+            Func<Uri, bool>? urlFilter = null,
+            Action<BrowserContextOptions>? configureContext = null)
         {
-            var session = await PageSession.CreateAsync(new BrowserContextOptions { UrlFilter = urlFilter ?? server.Owns }, options);
+            var contextOptions = new BrowserContextOptions { UrlFilter = urlFilter ?? server.Owns };
+            configureContext?.Invoke(contextOptions);
+            var session = await PageSession.CreateAsync(contextOptions, options);
             var page = await session.NewPageAsync();
             var target = await session.TargetForAsync(page);
             var attachment = await session.AttachAsync(target);

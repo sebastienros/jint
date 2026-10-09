@@ -59,6 +59,10 @@ internal sealed class FetchRequestSnapshot
 {
     internal FetchResourceTiming? ResourceTiming { get; init; }
 
+    internal string Cache { get; init; } = "default";
+
+    internal string Mode { get; init; } = "cors";
+
     internal required string Method { get; init; }
 
     internal required UrlRecord Url { get; init; }
@@ -101,6 +105,10 @@ internal sealed class FetchRequestSnapshot
 /// </summary>
 internal sealed class FetchPolicy
 {
+    internal HttpResponseCache? HttpCache { get; init; }
+
+    internal bool IsNavigation { get; init; }
+
     internal required string[] AllowedSchemes { get; init; }
 
     internal required Func<Uri, bool> UrlFilter { get; init; }
@@ -216,6 +224,10 @@ internal sealed class FetchExchange : IDisposable
 
     /// <summary>Whether a <see cref="FetchObserver"/> answered this hop instead of the network.</summary>
     internal bool FromInterception { get; init; }
+
+    internal bool FromCache { get; init; }
+
+    internal bool Revalidated { get; init; }
 
     /// <summary>
     /// When the hop that produced this response went out and when its headers came back, or
@@ -456,6 +468,8 @@ internal static class FetchTransport
             StatusText = response.ReasonPhrase ?? string.Empty,
             Headers = ObservedHeaders(response),
             FromInterception = exchange.FromInterception,
+            FromCache = exchange.FromCache,
+            Revalidated = exchange.Revalidated,
             IsRedirect = false,
             Timing = exchange.Timing,
         };
@@ -501,6 +515,8 @@ internal static class FetchTransport
                 RedirectCount = exchange.RedirectCount,
                 HasCrossOriginRedirect = exchange.HasCrossOriginRedirect,
                 FromInterception = true,
+                FromCache = exchange.FromCache,
+                Revalidated = exchange.Revalidated,
 
                 // The hop that produced the response being replaced really was sent, so its timing is kept:
                 // what the observer substituted is the answer, not the round trip.
@@ -610,6 +626,14 @@ internal static class FetchTransport
         var content = request.BodyContent;
         var headers = new List<HeaderEntry>(request.Headers);
         AppendDefaultAccept(headers);
+        // https://fetch.spec.whatwg.org/#http-network-or-cache-fetch steps 17–18.
+        if (request.Cache is "no-cache" && !Contains(headers, "cache-control"))
+            headers.Add(new HeaderEntry("cache-control", "max-age=0"));
+        if (request.Cache is "no-store" or "reload")
+        {
+            if (!Contains(headers, "pragma")) headers.Add(new HeaderEntry("pragma", "no-cache"));
+            if (!Contains(headers, "cache-control")) headers.Add(new HeaderEntry("cache-control", "no-cache"));
+        }
         var redirectCount = 0;
         var hasCrossOriginRedirect = false;
 
@@ -693,7 +717,12 @@ internal static class FetchTransport
                 }
             }
 
+            if (request.Mode is "same-origin" && (policy.SameOriginReference is null || !IsSameOrigin(policy.SameOriginReference, url)))
+                throw new FetchFailureException(FetchFailureKind.PolicyDenied, "A same-origin request crossed origins.");
+            cancellationToken.ThrowIfCancellationRequested();
             HttpResponseMessage response;
+            var fromCache = false;
+            var revalidated = false;
 
             // The two readings that make a FetchTiming, taken either side of the one call in this process
             // that knows when the hop left and when its headers came back. The wall-clock instant is the
@@ -705,14 +734,37 @@ internal static class FetchTransport
             try
             {
                 using var message = BuildRequest(method, uri, effective, body, content);
-                response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                // HttpClient normally appends these in SendAsync, too late for cache matching.
+                if (policy.HttpCache is not null)
+                {
+                    foreach (var header in client.DefaultRequestHeaders)
+                        if (!message.Headers.Contains(header.Key)) message.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+                if (policy.HttpCache is { } cache)
+                {
+                    var origin = policy.IsNavigation ? url.SerializeOrigin() : policy.SameOriginReference?.SerializeOrigin();
+                    var partition = origin + "|" + request.Credentials;
+                    // Opaque origins have distinct identities which their serialized "null" value cannot represent.
+                    var allowCache = origin is not null and not "null";
+                    var result = await cache.SendAsync(client, message, partition, request.Cache, body is not null || content is not null, allowCache, cancellationToken).ConfigureAwait(false);
+                    response = result.Response;
+                    fromCache = result.FromCache;
+                    revalidated = result.Revalidated;
+                }
+                else
+                {
+                    if (request.Cache is "only-if-cached")
+                        throw new FetchFailureException(FetchFailureKind.Network, "HTTP caching is disabled.");
+                    response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                }
+
             }
             catch (Exception ex) when (ex is not OperationCanceledException and not FetchFailureException)
             {
                 throw new FetchFailureException(FetchFailureKind.Network, $"The request to '{uri}' failed: {ex.Message}", ex);
             }
 
-            var timing = new FetchTiming(sentAt, Stopwatch.GetElapsedTime(sentTicks));
+            FetchTiming? timing = fromCache ? null : new FetchTiming(sentAt, Stopwatch.GetElapsedTime(sentTicks));
 
             // The response is disposed here only while the loop goes on to another hop; the one it ends with
             // belongs to the caller, whose body may not have been read yet.
@@ -721,7 +773,7 @@ internal static class FetchTransport
             {
                 // Every response stores its cookies, a redirect's included: a login that answers 302 with a
                 // Set-Cookie is the shape this exists for.
-                StoreCookies(request, policy, url, uri, response);
+                if (!fromCache) StoreCookies(request, policy, url, uri, response);
 
                 // https://fetch.spec.whatwg.org/#concept-http-fetch step 6, the three redirect modes. "manual"
                 // is Node's reading of it: the redirect response itself is handed to the script, Location and
@@ -770,6 +822,8 @@ internal static class FetchTransport
                         RedirectCount = redirectCount,
                         HasCrossOriginRedirect = hasCrossOriginRedirect,
                         Timing = timing,
+                        FromCache = fromCache,
+                        Revalidated = revalidated,
                     };
                 }
 
@@ -794,6 +848,8 @@ internal static class FetchTransport
                         RedirectCount = redirectCount,
                         HasCrossOriginRedirect = hasCrossOriginRedirect,
                         Timing = timing,
+                        FromCache = fromCache,
+                        Revalidated = revalidated,
                     };
                 }
 
@@ -1519,6 +1575,8 @@ internal static class FetchTransport
             StatusText = response.ReasonPhrase ?? string.Empty,
             Headers = ToFetchHeaders(headers),
             FromInterception = exchange.FromInterception,
+            FromCache = exchange.FromCache,
+            Revalidated = exchange.Revalidated,
             IsRedirect = false,
             Timing = exchange.Timing,
         });

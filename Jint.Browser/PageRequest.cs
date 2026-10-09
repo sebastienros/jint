@@ -84,6 +84,15 @@ public sealed class PageRequest
     /// <summary>How many bytes of body were read, once the body has been read to its end.</summary>
     public long BodyLength => _snapshot.BodyLength;
 
+    /// <summary>Whether the response was served without contacting the network.</summary>
+    public bool FromCache => _snapshot.FromCache;
+
+    /// <summary>Whether a network 304 validated a cached body.</summary>
+    public bool Revalidated => _snapshot.Revalidated;
+
+    /// <summary>Gets transferred body bytes, excluding locally reused representation bytes.</summary>
+    public long TransferredBodyLength => FromCache || Revalidated ? 0 : BodyLength;
+
     /// <inheritdoc />
     public override string ToString()
     {
@@ -109,10 +118,10 @@ public sealed class PageRequest
         _snapshot = state with { Url = url, Method = method, RedirectCount = redirectCount };
     }
 
-    internal void Responded(int status, string statusText, IReadOnlyList<PageHeader> headers)
+    internal void Responded(int status, string statusText, IReadOnlyList<PageHeader> headers, bool fromCache, bool revalidated)
     {
         var state = _snapshot;
-        _snapshot = state with { Status = status, StatusText = statusText, Headers = headers };
+        _snapshot = state with { Status = status, StatusText = statusText, Headers = headers, FromCache = fromCache, Revalidated = revalidated };
     }
 
     internal void Completed(long bodyLength)
@@ -144,5 +153,7 @@ public sealed class PageRequest
         bool Failed,
         string? FailureReason,
         long BodyLength,
-        int RedirectCount);
+        int RedirectCount,
+        bool FromCache = false,
+        bool Revalidated = false);
 }

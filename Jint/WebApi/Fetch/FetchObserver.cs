@@ -196,6 +196,12 @@ public sealed record ObservedFetchResponse
     /// <summary>Whether an observer produced this response instead of the network.</summary>
     public bool FromInterception { get; init; }
 
+    /// <summary>Whether the response was reused without a network request.</summary>
+    public bool FromCache { get; init; }
+
+    /// <summary>Whether a 304 validated a stored representation.</summary>
+    public bool Revalidated { get; init; }
+
     /// <summary>Whether this is a redirect the request is about to follow.</summary>
     public bool IsRedirect { get; init; }
 

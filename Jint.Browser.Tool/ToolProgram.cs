@@ -80,6 +80,11 @@ internal static class ToolProgram
             error.WriteLine("Run 'jint-browser --help' for the commands and their options.");
             return ExitCode.Usage;
         }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            error.WriteLine($"Cannot access storage: {exception.Message}");
+            return ExitCode.Usage;
+        }
         catch (NavigationFailedException exception)
         {
             error.WriteLine(exception.Message);
@@ -168,6 +173,16 @@ internal static class ToolProgram
         output.WriteLine("  --memory-limit <size>     Allocation budget for one turn of a page");
         output.WriteLine("  --block-private-network   Refuse loopback and private addresses");
         output.WriteLine("  --allow-private-network   Allow them, even under --untrusted");
+        output.WriteLine();
+        output.WriteLine("HTTP caching (serve, fetch, eval and mcp; disabled by default):");
+        output.WriteLine("  --http-cache disabled|memory|disk   Storage mode");
+        output.WriteLine("  --http-cache-dir <path>   Disk directory; implies disk mode");
+        output.WriteLine("  --http-cache-partition <id>   Explicit visitor identity; required for persistent disk");
+        output.WriteLine("  --http-cache-temporary    Disposable disk storage; unique directory per context");
+        output.WriteLine("  --http-cache-max-bytes <size>   Total cache budget; 64mb");
+        output.WriteLine("  --http-cache-max-entries <n>    Stored representation limit; 1024");
+        output.WriteLine("  --http-cache-max-entry-bytes <size>   Body size limit; 4mb");
+        output.WriteLine("  serve: persistent identity applies to the default context; other contexts use temporary caches.");
         output.WriteLine();
         output.WriteLine("Durations are 30s, 500ms, 5m or a number of seconds; sizes are 256mb, 512kb or bytes.");
         output.WriteLine();

@@ -1537,10 +1537,10 @@ their exclusions without revisiting this table.
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
-| Fetch | `fetch/api/` ×7 | 62 | 906 | 116 |
+| Fetch | `fetch/api/` ×7 | 62 | 906 | 108 |
 | XMLHttpRequest | `xhr/` | 43 | 287 | 8 |
 | Web Locks | `web-locks/` | 12 | 70 | 2 |
-| **total** | **45** | **394** | **41,651** | **2,934** |
+| **total** | **45** | **394** | **41,651** | **2,926** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were

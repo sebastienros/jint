@@ -70,8 +70,16 @@ internal sealed partial class RequestPrototype : Prototype
     private JsHeaders HeadersGet(JsValue thisObject) => Brand(thisObject).Headers;
 
     /// <summary>
-    /// https://fetch.spec.whatwg.org/#dom-request-redirect
+    /// https://fetch.spec.whatwg.org/#dom-request-cache
     /// </summary>
+    [JsAccessor("cache", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsString CacheGet(JsValue thisObject) => JsString.Create(Brand(thisObject).Cache);
+
+    /// <summary>https://fetch.spec.whatwg.org/#dom-request-mode</summary>
+    [JsAccessor("mode", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsString ModeGet(JsValue thisObject) => JsString.Create(Brand(thisObject).Mode);
+
+    /// <summary>https://fetch.spec.whatwg.org/#dom-request-redirect</summary>
     [JsAccessor("redirect", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsString RedirectGet(JsValue thisObject) => JsString.Create(Brand(thisObject).Redirect);
 
@@ -208,6 +216,12 @@ internal sealed partial class RequestPrototype : Prototype
             Url = request.Url,
             BlobUrlEntry = request.BlobUrlEntry,
             Redirect = request.Redirect,
+            Cache = request.Cache,
+            Mode = request.Mode,
+            Credentials = request.Credentials,
+            ReferrerSource = request.ReferrerSource,
+            ReferrerUrl = request.ReferrerUrl,
+            ReferrerPolicy = request.ReferrerPolicy,
 
             // Step 4: "set clonedRequestObject's signal to the result of creating a dependent abort signal
             // given « this's signal »" — the clone aborts with the original, never the other way round.

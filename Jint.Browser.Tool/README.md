@@ -169,6 +169,37 @@ on by default, so a page cannot reach `localhost`, a private address or a cloud 
 of the event loop, one inline `<script>` — rather than the run as a whole, which is what a pumped event loop
 allows anyone to bound.
 
+## HTTP response caching
+
+Caching is disabled by default. `serve`, `fetch`, `eval` and `mcp` accept the same cache switches:
+
+```bash
+jint-browser fetch https://example.com --http-cache memory
+jint-browser serve --http-cache-dir ~/.cache/jint --http-cache-partition visitor-42
+jint-browser mcp --http-cache-temporary --http-cache-max-bytes 32mb
+```
+
+`--http-cache disabled|memory|disk` selects storage. `--http-cache-dir <path>` implies disk mode when no
+mode is supplied. Persistent disk storage requires both that directory and an explicit
+`--http-cache-partition <id>` identifying the same visitor across runs. Different visitors must use
+separate identities. `--http-cache-temporary` instead creates a unique disposable directory under the
+supplied directory, or the system temporary directory, and removes it on context close. It cannot be
+combined with a persistent identity.
+
+The finite limits are `--http-cache-max-bytes <size>` (64mb), `--http-cache-max-entries <n>` (1024), and
+`--http-cache-max-entry-bytes <size>` (4mb). Byte units are binary. Invalid combinations and cache limits
+supplied with caching disabled are usage errors. An inaccessible cache directory also returns exit code 1.
+
+For `serve`, the persistent identity belongs to the default browser context. Additional CDP contexts have
+independent memory caches or unique temporary disk partitions; they never reuse that persistent visitor's
+entries. MCP applies the configuration to its session context, including after `close` and reopening.
+Memory caching lasts for one context; disk persistence can reuse responses across separate tool invocations.
+
+For `fetch` and `eval`, `--header 'Cache-Control: no-cache'` requests validation and `no-store` bypasses
+cache reads and writes. CDP clients can use `Network.setCacheDisabled` and `Network.clearBrowserCache`.
+See [HTTP cache policy and lifecycle](../docs/guide/browser-http-cache.md) for freshness, credentials,
+size limits and disk failure behavior. Cache hits still incur consumer body copies.
+
 ## Exit codes
 
 | Code | Meaning |

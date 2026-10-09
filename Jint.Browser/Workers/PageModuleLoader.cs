@@ -150,6 +150,7 @@ internal sealed class PageModuleLoader : ModuleLoader
         var origin = Jint.WebApi.Url.Parsing.UrlParser.Parse(_baseUrl.AbsoluteUri);
         var policy = new FetchPolicy
         {
+            HttpCache = _network.HttpCache,
             AllowedSchemes = ["https", "http"],
             UrlFilter = Allowed,
             MaxResponseBytes = _maxBytes,

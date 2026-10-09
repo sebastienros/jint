@@ -1,4 +1,5 @@
 #nullable enable
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.HtmlParser.Html;
 
@@ -59,6 +60,9 @@ public class GeneratedNameLookupTests
     }
 
     [Test]
+    // Compile the measuring loop directly to optimized code, so tiering/OSR cannot change the
+    // test method while its thread's allocation counter is sampled. The zero-byte assertion stays exact.
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     public void RecognitionDoesNotAllocateForHitsOrMisses()
     {
         foreach (var name in HtmlKnownNames.Values) HtmlKnownNames.Match(name);

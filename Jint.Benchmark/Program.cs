@@ -9,6 +9,11 @@ using BenchmarkDotNet.Running;
 using Jint;
 using Jint.Benchmark;
 
+if (args.Length > 0 && args[0] == "--validate-http-cache")
+{
+    return await BrowserHttpCacheBenchmark.ValidateAsync();
+}
+
 if (args.Length > 0 && args[0] == "--validate-markup-primitives")
 {
     return MarkupPrimitiveData.Validate();

@@ -136,3 +136,12 @@ web-platform-tests measure rather than claim — is in
 [Jint's README](https://github.com/sebastienros/jint#headless-browser-opt-in-package).
 
 Licensed under BSD-2-Clause, like the rest of Jint.
+
+## HTTP response cache
+
+The session's HTTP cache is disabled by default. Configure `BrowserAgentOptions.HttpCache` when embedding,
+or pass `--http-cache memory`, `--http-cache-dir <path> --http-cache-partition <visitor-id>`, or
+`--http-cache-temporary` to `jint-browser mcp`. The CLI also exposes finite byte, count and entry-size
+budgets. Persistent identities belong to one visitor; temporary storage is deleted on context close.
+Closing and reopening the session preserves its configuration. See the
+[command-line cache options](../Jint.Browser.Tool/README.md#http-response-caching).

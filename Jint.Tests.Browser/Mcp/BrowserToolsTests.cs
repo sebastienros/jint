@@ -27,6 +27,54 @@ public sealed class BrowserToolsTests
         """;
 
     [Test]
+    public async Task UnavailableCacheStorageReturnsAnInformativeProtocolError()
+    {
+        var file = Path.GetTempFileName();
+        try
+        {
+            await using var fixture = await McpFixture.CreateAsync(configure: options =>
+            {
+                options.HttpCache.Storage = global::Jint.Browser.BrowserHttpCacheStorage.Disk;
+                options.HttpCache.Directory = file;
+                options.HttpCache.PartitionKey = "agent";
+            });
+            var result = await fixture.CallAsync("navigate", ("url", "about:blank"));
+            result.IsError.Should().BeTrue();
+            McpFixture.TextOf(result).Should().Contain("Cannot create the browser context");
+        }
+        finally { File.Delete(file); }
+    }
+
+    [Test]
+    public async Task HttpCacheConfigurationSurvivesSessionContextRecreation()
+    {
+        var requests = 0;
+        var directory = Path.Combine(Path.GetTempPath(), "jint-mcp-cache-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            await using var fixture = await McpFixture.CreateAsync(server => server.Map("/", _ =>
+            {
+                Interlocked.Increment(ref requests);
+                return LoopbackResponse.Html("<h1>cached</h1>").With("Cache-Control", "max-age=60");
+            }), options =>
+            {
+                options.HttpCache.Storage = global::Jint.Browser.BrowserHttpCacheStorage.Disk;
+                options.HttpCache.Directory = directory;
+                options.HttpCache.PartitionKey = "agent";
+            });
+            for (var i = 0; i < 2; i++)
+            {
+                var result = await fixture.CallAsync("navigate", ("url", fixture.Url("/")));
+                result.IsError.Should().NotBe(true, McpFixture.TextOf(result));
+                var closed = await fixture.CallAsync("close");
+                closed.IsError.Should().NotBe(true, McpFixture.TextOf(closed));
+            }
+            requests.Should().Be(1);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true); }
+    }
+
+    [Test]
     public async Task TheServerPublishesTheToolsAnAgentNeeds()
     {
         await using var fixture = await McpFixture.CreateAsync();

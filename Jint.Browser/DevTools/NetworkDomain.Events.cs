@@ -30,7 +30,7 @@ namespace Jint.Browser.DevTools;
 /// <para>
 /// <b>Some fields are honestly empty, and the timing document names which of its phases are among them.</b>
 /// There is no connection pool, so <c>connectionId</c> is zero and <c>connectionReused</c> false; there is no
-/// cache, so <c>fromDiskCache</c> is never true and <c>requestServedFromCache</c> is never sent. A response
+/// disk-resident body store; persisted entries are restored into memory and <c>fromDiskCache</c> stays false. A response
 /// the network produced does carry a <c>timing</c>, because the transport measures the one interval it can
 /// see exactly: <c>requestTime</c> is the instant the hop was handed over and
 /// <c>receiveHeadersStart</c>/<c>receiveHeadersEnd</c> the instant its headers were in, so a client
@@ -175,6 +175,9 @@ internal sealed partial class NetworkDomain
         }
 
         // Chrome sends the extra info first, and a client that pairs the two reads the pair in that order.
+        if (response.FromCache)
+            EmitDetached(ProtocolNetworkEvents.RequestServedFromCache(new RequestServedFromCacheEvent { RequestId = response.RequestId }));
+
         EmitDetached(ProtocolNetworkEvents.ResponseReceivedExtraInfo(new ResponseReceivedExtraInfoEvent
         {
             RequestId = response.RequestId,
@@ -197,7 +200,7 @@ internal sealed partial class NetworkDomain
     }
 
     /// <summary>Some of the body arrived.</summary>
-    internal void DataReceived(string requestId, int length)
+    internal void DataReceived(string requestId, int length, bool cachedBody)
     {
         if (!IsEnabled)
         {
@@ -213,7 +216,7 @@ internal sealed partial class NetworkDomain
             // Nothing here decodes a transfer encoding of its own — HttpClient does, above the point the
             // bytes are counted — so the encoded length is the decoded one rather than a number invented for
             // the field.
-            EncodedDataLength = length,
+            EncodedDataLength = cachedBody ? 0 : length,
         }));
     }
 

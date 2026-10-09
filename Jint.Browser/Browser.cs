@@ -38,7 +38,9 @@ public sealed class Browser : IAsyncDisposable
     public Browser(BrowserOptions? options = null)
     {
         Options = options ?? new BrowserOptions();
-        _defaultContext = new BrowserContext(this, new BrowserContextOptions());
+        var contextOptions = new BrowserContextOptions();
+        Options.ApplyContextConfiguration(contextOptions);
+        _defaultContext = new BrowserContext(this, contextOptions);
         _contexts.Add(_defaultContext);
     }
 
@@ -71,7 +73,9 @@ public sealed class Browser : IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        var context = new BrowserContext(this, options ?? new BrowserContextOptions());
+        options ??= new BrowserContextOptions();
+        Options.ApplyContextConfiguration(options);
+        var context = new BrowserContext(this, options);
 
         lock (_gate)
         {

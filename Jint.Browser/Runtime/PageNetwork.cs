@@ -51,6 +51,28 @@ internal sealed class PageNetwork
         long maxIndexedDbBytes = 50 * 1024 * 1024,
         long maxTotalStorageBytes = BrowserOptions.DefaultMaxTotalStorageBytes)
     {
+        var cache = options.HttpCache;
+        if (!Enum.IsDefined(cache.Storage)) throw new ArgumentOutOfRangeException(nameof(options));
+        if (cache.Storage != BrowserHttpCacheStorage.Disabled)
+        {
+            if (cache.MaxBytes <= 0 || cache.MaxBytes == long.MaxValue || cache.MaxEntries <= 0
+                || cache.MaxEntries == int.MaxValue || cache.MaxEntryBytes <= 0 || cache.MaxEntryBytes > int.MaxValue / 2)
+                throw new ArgumentOutOfRangeException(nameof(options), "HTTP cache limits must be finite and positive.");
+            ArgumentNullException.ThrowIfNull(cache.TimeProvider);
+            if (options.HttpClientFactory is not null)
+                throw new ArgumentException("HTTP caching requires a context client; per-engine HttpClientFactory can change authentication invisibly.", nameof(options));
+            string? directory = null;
+            if (cache.Storage == BrowserHttpCacheStorage.Disk)
+            {
+                if (!cache.Temporary && (string.IsNullOrWhiteSpace(cache.Directory) || string.IsNullOrWhiteSpace(cache.PartitionKey)))
+                    throw new ArgumentException("Persistent HTTP caching requires Directory and PartitionKey.", nameof(options));
+                var identity = cache.Temporary ? Guid.NewGuid().ToString("N")
+                    : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(cache.PartitionKey!)));
+                directory = Path.GetFullPath(Path.Combine(cache.Directory ?? Path.GetTempPath(), "jint-http-" + identity));
+            }
+            HttpCache = new HttpResponseCache(cache.MaxBytes, cache.MaxEntries, cache.MaxEntryBytes, cache.TimeProvider,
+                directory, cache.Temporary, options.HttpClient ?? FetchTransport.SharedClient);
+        }
         _client = options.HttpClient;
         _clientFactory = options.HttpClientFactory;
         _maxIndexedDbBytes = maxIndexedDbBytes;
@@ -77,6 +99,8 @@ internal sealed class PageNetwork
 
     /// <summary>Where this context's cookies live; never <see langword="null"/>.</summary>
     internal CookieJar CookieJar { get; }
+
+    internal HttpResponseCache? HttpCache { get; }
 
     /// <summary>Where this context's <c>localStorage</c> lives, one store per origin.</summary>
     internal StoragePartitionProvider Storage { get; }

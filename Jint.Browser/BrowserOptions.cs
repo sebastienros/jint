@@ -21,6 +21,7 @@ namespace Jint.Browser;
 public sealed class BrowserOptions
 {
     private readonly List<Action<Options>> _engineConfiguration = [];
+    private Action<BrowserContextOptions>? _contextConfiguration;
     private string _userAgent = DefaultUserAgent;
     private TimeSpan _pumpIdle = TimeSpan.FromMilliseconds(50);
     private int _maxRecordedEvents = 1000;
@@ -488,6 +489,24 @@ public sealed class BrowserOptions
         _engineConfiguration.Add(configure);
         return this;
     }
+
+    /// <summary>Adds a callback that configures every context before it is created.</summary>
+    /// <param name="configure">The configuration to apply, including to the default and protocol-created contexts.</param>
+    /// <returns>This instance, so calls chain.</returns>
+    /// <remarks>
+    /// Runs on the creating caller's thread, after any explicitly supplied context options. Callbacks must
+    /// support concurrent context creation and assign separate persistent cache identities to separate visitors.
+    /// Register callbacks before constructing the browser; exceptions abort context creation.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="configure"/> is <c>null</c>.</exception>
+    public BrowserOptions ConfigureContext(Action<BrowserContextOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        _contextConfiguration += configure;
+        return this;
+    }
+
+    internal void ApplyContextConfiguration(BrowserContextOptions options) => _contextConfiguration?.Invoke(options);
 
     /// <summary>Hardens every page of this browser for content nobody vouches for.</summary>
     /// <param name="limits">

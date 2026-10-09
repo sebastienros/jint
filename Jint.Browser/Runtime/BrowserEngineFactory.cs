@@ -200,6 +200,7 @@ internal static class BrowserEngineFactory
 
         fetch.UrlFilter = request.Network.UrlFilter;
         fetch.CookieJar = request.Network.CookieJar;
+        fetch.HttpCache = request.Network.HttpCache;
         fetch.Observer = request.Requests;
 
         // The socket half of the same recorder. Two engine seams, one page-side consumer: a socket is not a

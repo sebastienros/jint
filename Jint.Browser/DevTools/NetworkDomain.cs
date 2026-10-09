@@ -27,8 +27,7 @@ namespace Jint.Browser.DevTools;
 /// of flags and everything else lives on the target.
 /// </para>
 /// <para>
-/// <b>What this browser cannot report, and says so rather than inventing.</b> There is no HTTP cache, so
-/// <c>requestServedFromCache</c> is never sent and <c>setCacheDisabled</c> is accepted and changes nothing.
+/// <b>What this browser cannot report, and says so rather than inventing.</b> HTTP cache hits are reported and can be bypassed or cleared.
 /// There is no connection pool, so <c>connectionId</c> is zero and <c>connectionReused</c> false. Timing is
 /// published for what the transport can see exactly and for nothing else: <c>requestTime</c> is when the hop
 /// was handed over and <c>receiveHeadersStart</c>/<c>receiveHeadersEnd</c> when its headers were in, so a
@@ -88,15 +87,17 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
     /// <inheritdoc/>
     void IDetachableDomain.Detach() => _target.RemoveNetworkDomain(this);
 
-    /// <summary>Answers success and disables nothing, because there is no HTTP cache.</summary>
-    /// <remarks>
-    /// Every recorded client sends it while opening a page and reads a refusal as a broken target. Nothing in
-    /// this browser stores a response between requests, so a client asking for the cache to be bypassed is
-    /// asking for what it already has; the flag is kept so that <c>Emulation</c>'s own bookkeeping holds.
-    /// </remarks>
+    /// <summary>Bypasses HTTP cache reads and writes for this page's requests.</summary>
     protected override ValueTask<EmptyResult> SetCacheDisabledAsync(SetCacheDisabledRequest parameters, CommandContext context)
     {
         _target.Emulation.CacheDisabled = parameters.CacheDisabled;
+        return new ValueTask<EmptyResult>(EmptyResult.Instance);
+    }
+
+    /// <summary>Clears the browser context's HTTP response cache.</summary>
+    protected override ValueTask<EmptyResult> ClearBrowserCacheAsync(EmptyParameters parameters, CommandContext context)
+    {
+        _target.Page.Context.ClearHttpCache();
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 

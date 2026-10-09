@@ -1247,19 +1247,13 @@ public class WptTestRunner
 
         new("fetch/api/response/response-consume-stream.any.js", "Getting a redirect Response stream", WptDivergence.NeedsApiBaseUrl),
 
-        // The seven members of the browser request model this engine deliberately has not — see the category.
+        // The remaining members of the browser request model this engine deliberately has not — see the category.
         new("fetch/api/request/request-structure.any.js", "Check destination attribute", WptDivergence.NeedsBrowserRequestModel),
-        new("fetch/api/request/request-structure.any.js", "Check mode attribute", WptDivergence.NeedsBrowserRequestModel),
-        new("fetch/api/request/request-structure.any.js", "Check cache attribute", WptDivergence.NeedsBrowserRequestModel),
         new("fetch/api/request/request-structure.any.js", "Check integrity attribute", WptDivergence.NeedsBrowserRequestModel),
         new("fetch/api/request/request-structure.any.js", "Check isReloadNavigation attribute", WptDivergence.NeedsBrowserRequestModel),
         new("fetch/api/request/request-structure.any.js", "Check isHistoryNavigation attribute", WptDivergence.NeedsBrowserRequestModel),
         new("fetch/api/request/request-error.any.js", "RequestInit's window is not null", WptDivergence.NeedsBrowserRequestModel),
-        new("fetch/api/request/request-error.any.js", "RequestInit's mode is *", WptDivergence.NeedsBrowserRequestModel),
-        new("fetch/api/request/request-error.any.js", "RequestInit's cache mode is only-if-cached and mode is not same-origin", WptDivergence.NeedsBrowserRequestModel),
-        new("fetch/api/request/request-error.any.js", "Request with cache mode: only-if-cached and fetch mode *", WptDivergence.NeedsBrowserRequestModel),
-        new("fetch/api/request/request-error.any.js", "Bad mode init parameter value", WptDivergence.NeedsBrowserRequestModel),
-        new("fetch/api/request/request-error.any.js", "Bad cache init parameter value", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-error.any.js", "RequestInit's mode is no-cors and method is not simple", WptDivergence.NeedsBrowserRequestModel),
 
         // The one row of request-disturbed.any.js that no conforming implementation passes. Its two siblings
         // — "…became disturbed" and "Request construction failure should not set bodyUsed" — were the

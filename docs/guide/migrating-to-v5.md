@@ -7424,6 +7424,26 @@ The quota counts retained serialized values, keys, indexes and metadata, not pea
 sharing does not share private stores. Browser-managed storage continues to use `BrowserOptions.MaxIndexedDbBytes`.
 See [IndexedDB](web-apis/indexeddb.md) for configuration and lifetime details.
 
+### 5.41 Browser HTTP response caching
+
+`BrowserContextOptions.HttpCache` adds opt-in, context-owned memory or disk HTTP caching. Defaults remain
+uncached. Configure finite budgets and, for persistent disk storage, an explicit directory and visitor
+partition identity. `BrowserContext.ClearHttpCache` clears it. `PageRequest.FromCache`, `Revalidated` and
+`TransferredBodyLength`, plus the preview `ObservedFetchResponse` cache flags, distinguish reuse from
+network traffic. DevTools cache disable/clear controls are effective when caching is enabled.
+
+`Request.cache` and `RequestInit.cache` now implement the standard cache modes; `Request.mode` is read and
+validated and `same-origin` requests reject origin changes. Invalid cache/mode values previously ignored
+now throw. `only-if-cached` requires `same-origin` mode and rejects when caching is disabled. Full CORS and
+no-cors filtering remain unsupported. Cloning preserves credentials and referrer settings alongside cache
+and mode. See [browser HTTP caching](browser-http-cache.md) for policy,
+credential partitioning, lifecycle and disk failure behavior.
+
+`jint-browser` exposes cache mode, disk directory, visitor partition, temporary storage and finite budgets
+for `serve`, `fetch`, `eval` and `mcp`. `BrowserOptions.ConfigureContext` configures every context, including
+protocol-created contexts; callbacks run on the creating caller's thread after supplied options.
+`BrowserAgentOptions.HttpCache` configures the MCP session's context.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In

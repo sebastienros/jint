@@ -132,6 +132,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         options.WebApi.Fetch.HttpClient = client;
         options.WebApi.Fetch.UrlFilter = _network.UrlFilter;
         options.WebApi.Fetch.CookieJar = _network.CookieJar;
+        options.WebApi.Fetch.HttpCache = _network.HttpCache;
 
         // Shared workers own a bounded log with immutable worker metadata. A page recorder
         // contains page delegates and protocol listeners and must not outlive that page.
