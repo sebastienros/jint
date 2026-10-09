@@ -8,12 +8,25 @@ namespace Jint.Runtime;
 
 public class JavaScriptException : JintException
 {
+    /// <summary>
+    /// The CLR message for a thrown value, read once per exception and handed to the wrapper. Reading an object's
+    /// <c>message</c> can run script (a getter, a proxy <c>get</c> trap, a <c>toString</c>). If that script throws,
+    /// the message falls back to empty: the exception must keep carrying the value that was thrown, not whatever
+    /// the getter threw while the CLR message was being built (#4186).
+    /// </summary>
     private static string? GetMessage(JsValue? error)
     {
         string? ret = null;
         if (error is ObjectInstance oi)
         {
-            ret = oi.Get(CommonProperties.Message).ToString();
+            try
+            {
+                ret = oi.Get(CommonProperties.Message).ToString();
+            }
+            catch (JavaScriptException)
+            {
+                ret = "";
+            }
         }
         else if (error is not null)
         {
@@ -78,7 +91,12 @@ public class JavaScriptException : JintException
     }
 
     public JavaScriptException(JsValue error)
-        : base(GetMessage(error), new JavaScriptErrorWrapperException(error, GetMessage(error), GetChainedClrException(error)))
+        : this(error, GetMessage(error))
+    {
+    }
+
+    private JavaScriptException(JsValue error, string? message)
+        : base(message, new JavaScriptErrorWrapperException(error, message, GetChainedClrException(error)))
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
     }
