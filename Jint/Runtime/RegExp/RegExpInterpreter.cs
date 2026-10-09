@@ -851,7 +851,8 @@ internal static class RegExpInterpreter
     /// Find the next position of the scan character(s) in the input string.
     /// Handles exact char, case-insensitive pair, and character range scanning.
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    // Keep the SIMD scan independent of the large bytecode interpreter's inlining budget.
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private static int FindScanChar(string input, int startIndex, in ScanLoopInfo info)
     {
         // Multi-char literal: SIMD substring search (much faster when first char is common)
