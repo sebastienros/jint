@@ -749,7 +749,7 @@ internal sealed partial class RegExpPrototype : Prototype
             if (string.Equals(R.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
             {
                 // if empty string, just a string split
-                return StringPrototype.SplitWithStringSeparator(_engine, _realm, "", s, (uint) s.Length);
+                return StringPrototype.SplitWithStringSeparator(_engine, _realm, "", s, (uint) System.Math.Min(s.Length, lim));
             }
 
             // the result is a plain array per spec (no species for the result), so segments
