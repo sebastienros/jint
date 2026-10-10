@@ -75,8 +75,8 @@ date and a time joined with `dateTimeFormats` ("at", "um", "à"), and CLDR's mon
 context the pattern asks for. So `de` writes `Sa., 24. Dezember` and `ja` writes `12月24日(土)`, as V8 does, on every
 platform, and `resolvedOptions()` reports the fields of the pattern chosen. `formatMatcher: 'basic'` is answered the
 same way. `formatRange()` and `formatRangeToParts()` write such a bag with CLDR's `intervalFormats`, as ICU's
-`DateIntervalFormat` does: `en` writes `Dec 24 – 27`, `de` `24.–27. Dez.`, `ja` `12/24～12/27`, with each part's
-`source` as the specification defines it. The data is one deflated block per language (about 210 KB in the
+`DateIntervalFormat` does: `en` writes `Dec 24 – 27` (with CLDR's U+2009 THIN SPACE around the dash, as V8 writes it),
+`de` `24.–27. Dez.`, `ja` `12/24～12/27`, with each part's `source` as the specification defines it. The data is one deflated block per language (about 210 KB in the
 assembly), and only the languages a process formats in are inflated.
 
 `dateStyle` and `timeStyle` write the locale's CLDR `dateFormats` and `timeFormats` the same way, a date and a time
@@ -93,9 +93,9 @@ or `GetDayPeriods` answer takes the place of CLDR's, in both the format and stan
 from `DefaultCldrProvider.Instance`'s answer for the same arguments — so a provider that derives from
 `DefaultCldrProvider`, or delegates to it, without touching the names leaves CLDR's in place, in a range as in a single
 date. Time-zone names are not CLDR's: a `long` zone is written in English in every locale (`Coordinated Universal
-Time`). A `dateStyle` or `timeStyle` range still drops the shared prefix and suffix of two whole dates rather than
-reading `intervalFormats`, the Chinese and Dangi calendars still write .NET's patterns and names, and the other
-non-Gregorian calendars are written in the Gregorian patterns; those move onto CLDR in later steps of
-[#4158](https://github.com/sebastienros/jint/issues/4158).
+Time`). A `dateStyle` or `timeStyle` range is written with the same `intervalFormats`, for the skeleton of the
+style's pattern, as V8 does (`de` `dateStyle: 'medium'` writes `24.–27.12.2022`). The Chinese and Dangi calendars still
+write .NET's patterns and names, and the other non-Gregorian calendars are written in the Gregorian patterns; those move
+onto CLDR in later steps of [#4158](https://github.com/sebastienros/jint/issues/4158).
 
 Choose providers before engine construction; the `Options` instance is frozen when an engine consumes it.

@@ -97,8 +97,12 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     private DateTimeFormatPattern? _stylePattern;
     private DateTimeFormatPattern? _adjustedStylePattern;
 
-    /// <summary>The range patterns of the component bag's format record, once a range is first written.</summary>
+    /// <summary>
+    /// The range patterns of the format record a range was last written with, once one is first written, and the pattern
+    /// they were built for.
+    /// </summary>
     private DateTimeIntervalFormat? _intervalFormat;
+    private DateTimeFormatPattern? _intervalFormatPattern;
 
     /// <summary>
     /// The runs <see cref="_hostNames"/> were read for, and a host provider's names per run of them; and the same for
@@ -1276,6 +1280,12 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     internal bool UsesComponentPattern => DateStyle is null && TimeStyle is null && !IsLunisolarCalendar;
 
     /// <summary>
+    /// Whether this formatter writes a range through CLDR's interval patterns (<see cref="FormatRangeToParts"/>): a
+    /// component bag or a <c>dateStyle</c>/<c>timeStyle</c> on any calendar but the lunisolar ones.
+    /// </summary>
+    internal bool UsesIntervalFormat => !IsLunisolarCalendar;
+
+    /// <summary>
     /// The format record of https://tc39.es/ecma402/#sec-createdatetimeformat for a component bag: the pattern the
     /// format matcher chose for the requested fields in this locale, resolved the first time it is needed.
     /// </summary>
@@ -1678,13 +1688,16 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-partitiondatetimerangepattern for a component bag: the parts of a range and the
-    /// source of each, from the range pattern of the largest calendar field in which the two dates differ.
+    /// https://tc39.es/ecma402/#sec-partitiondatetimerangepattern for a component bag or a <c>dateStyle</c>/<c>timeStyle</c>:
+    /// the parts of a range and the source of each, from the range pattern of the largest calendar field in which the two
+    /// dates differ.
     /// </summary>
     /// <remarks>
     /// <para>
     /// The range patterns are <see cref="DateTimeIntervalFormat"/>'s, built from CLDR's intervalFormats the way ICU's
-    /// DateIntervalFormat builds them. The fields are compared in the order of the DateTime Range Pattern Record
+    /// DateIntervalFormat builds them, for the pattern a single date is written with: the component bag's, or the style's
+    /// (adjusted for a Temporal value that lacks some of its fields), as V8 builds both. The fields are compared in the
+    /// order of the DateTime Range Pattern Record
     /// (https://tc39.es/ecma402/#sec-datetimeformat-range-pattern-record): era, year, month and day in this formatter's
     /// calendar, then am/pm, hour, minute, second, and the fractional second at the digits the format writes. The day
     /// period that record lists after am/pm is read as the am/pm, as ICU reads it, so it never differs on its own.
@@ -1708,6 +1721,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         ResolveCalendarFieldsForFormatting(start, startYear, out var startCalendarYear, out var startCalendarMonth, out var startCalendarDay);
         ResolveCalendarFieldsForFormatting(end, endYear, out var endCalendarYear, out var endCalendarMonth, out var endCalendarDay);
 
+        var format = DateStyle is null && TimeStyle is null ? GetComponentPattern() : GetStylePattern(isPlain);
         var field = -1;
         if (!string.Equals(EraKey(start, startYear), EraKey(end, endYear), StringComparison.Ordinal))
         {
@@ -1744,7 +1758,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         else
         {
             // floor(ms × 10^(fractionalSecondDigits - 3)), fractionalSecondDigits being 3 when the format writes none.
-            var scale = GetComponentPattern().FractionalSecondDigits switch
+            var scale = format.FractionalSecondDigits switch
             {
                 1 => 100,
                 2 => 10,
@@ -1757,7 +1771,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
         }
 
-        var range = field < 0 ? null : GetIntervalFormat().GetRangePattern(field);
+        var range = field < 0 ? null : GetIntervalFormat(format).GetRangePattern(field);
         List<DateTimeRangePart> result;
         if (range is null)
         {
@@ -1818,14 +1832,23 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     }
 
     /// <summary>
-    /// The range patterns of the component bag's format record, built for this locale, pattern and hour cycle once.
+    /// The range patterns of the format record whose pattern is <paramref name="format"/>, built for this locale, pattern
+    /// and hour cycle once (<see cref="DateTimePatternGenerator.GetIntervalFormat"/>) and kept for the pattern last asked
+    /// for, which is the formatter's own unless a Temporal value adjusted it.
     /// </summary>
-    private DateTimeIntervalFormat GetIntervalFormat()
+    private DateTimeIntervalFormat GetIntervalFormat(DateTimeFormatPattern format)
     {
-        return _intervalFormat ??= DateTimePatternGenerator.ForLocale(Locale).GetIntervalFormat(
-            GetComponentPattern(),
-            Hour is null ? "h23" : ResolvedHourCycle,
+        if (_intervalFormat is not null && ReferenceEquals(_intervalFormatPattern, format))
+        {
+            return _intervalFormat;
+        }
+
+        _intervalFormat = DateTimePatternGenerator.ForLocale(Locale).GetIntervalFormat(
+            format,
+            format.Hour is null ? "h23" : ResolvedHourCycle,
             _numberingSystem.DecimalSeparator);
+        _intervalFormatPattern = format;
+        return _intervalFormat;
     }
 
     /// <summary>

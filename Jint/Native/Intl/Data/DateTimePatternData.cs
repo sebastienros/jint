@@ -14,10 +14,9 @@ namespace Jint.Native.Intl.Data;
 /// <remarks>
 /// <para>
 /// <c>Intl.DateTimeFormat</c> resolves a component bag and a <c>dateStyle</c>/<c>timeStyle</c> against it
-/// (<see cref="DateTimePatternGenerator"/>), writes its names, and writes a component bag's <c>formatRange</c> through
-/// its interval patterns (<see cref="DateTimeIntervalFormat"/>); a <c>dateStyle</c>/<c>timeStyle</c> range does not
-/// read those yet (issue #4158). The
-/// resource and its generator are described in <c>DateTimePatternData.Data.cs</c> and <c>tools/cldr-dates/README.md</c>.
+/// (<see cref="DateTimePatternGenerator"/>), writes its names, and writes the <c>formatRange</c> of both through its
+/// interval patterns (<see cref="DateTimeIntervalFormat"/>). The resource and its generator are described in
+/// <c>DateTimePatternData.Data.cs</c> and <c>tools/cldr-dates/README.md</c>.
 /// </para>
 /// <para>
 /// The records are deflated one block per language, and a block is inflated the first time a locale that needs it

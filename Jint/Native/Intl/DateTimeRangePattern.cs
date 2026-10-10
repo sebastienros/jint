@@ -43,8 +43,8 @@ internal sealed class DateTimeRangePattern
     /// <c>d – d MMM y</c>). V8 reports both as shared.
     /// </para>
     /// <para>
-    /// CLDR writes U+2009 THIN SPACE around the dashes of its intervals; a range writes U+0020, as every lane writes
-    /// U+0020 for U+202F.
+    /// CLDR writes U+2009 THIN SPACE around the dashes of its intervals and of its fallback, and a range keeps it, as V8
+    /// does; U+202F is U+0020 here as in every lane.
     /// </para>
     /// </remarks>
     /// <param name="runs">The runs, each with the date ICU writes it from (0 the start, 1 the end, -1 for text of its own).</param>
@@ -84,11 +84,6 @@ internal sealed class DateTimeRangePattern
         for (var i = 0; i < runs.Count; i++)
         {
             var run = runs[i].Run;
-            if (run.Literal is { } literal && literal.Contains('\u2009'))
-            {
-                run = new DateTimePatternRun('\0', 0, literal.Replace('\u2009', ' '), null);
-            }
-
             result[i] = run;
             if (i >= firstStart && i <= firstEnd)
             {

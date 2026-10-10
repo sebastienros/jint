@@ -28,6 +28,14 @@ var bags = [
   ['j_mm_ss', { hour: 'numeric', minute: 'numeric', second: 'numeric' }],
   ['y_MMMM_d_j_mm', { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }],
   ['y_M_d_j_mm_ss', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }],
+  ['d_full', { dateStyle: 'full' }],
+  ['d_long', { dateStyle: 'long' }],
+  ['d_medium', { dateStyle: 'medium' }],
+  ['d_short', { dateStyle: 'short' }],
+  ['t_short', { timeStyle: 'short' }],
+  ['t_medium', { timeStyle: 'medium' }],
+  ['dt_medium_short', { dateStyle: 'medium', timeStyle: 'short' }],
+  ['dt_long_medium', { dateStyle: 'long', timeStyle: 'medium' }],
 ];
 // Each pair differs first in the field its name says.
 var pairs = [
@@ -46,11 +54,9 @@ for (var li = 0; li < locales.length; li++) {
     for (var pi = 0; pi < pairs.length; pi++) {
       var parts = f.formatRangeToParts(pairs[pi][1], pairs[pi][2]);
       var single = parts.every(function (p) { return p.source === 'shared'; });
-      // Jint writes a plain space for U+202F everywhere, and for U+2009 as well in a range; a range that collapses to one
-      // date is format()'s output, which keeps U+2009 (the zh-Hant short date-time join).
+      // Jint writes a plain space for U+202F everywhere; V8 keeps it in a range. Both keep U+2009.
       parts = parts.map(function (p) {
-        var value = p.value.replace(/\u202f/g, ' ');
-        return { type: p.type, source: p.source, value: single ? value : value.replace(/\u2009/g, ' ') };
+        return { type: p.type, source: p.source, value: p.value.replace(/\u202f/g, ' ') };
       });
       var text = parts.map(function (p) { return p.value; }).join('');
       var encoded = parts.map(function (p) { return (typeCodes[p.type] || '?') + sourceCodes[p.source] + p.value.length; }).join(' ');
