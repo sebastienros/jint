@@ -100,11 +100,11 @@ internal static class RegExpInterpreter
         long deadline = NoDeadline)
     {
         var flags = GetFlags(bytecode);
-        int captureCount = bytecode[RegExpHeader.OffsetCaptureCount];
-        int registerCount = bytecode[RegExpHeader.OffsetRegisterCount];
+        int captureCount = GetCaptureCount(bytecode);
+        int registerCount = ReadI32(bytecode, RegExpHeader.OffsetRegisterCount);
         bool isUnicode = (flags & (RegExpFlags.Unicode | RegExpFlags.UnicodeSets)) != RegExpFlags.None;
 
-        int allocCount = captureCount * 2 + registerCount;
+        int allocCount = checked(captureCount * 2 + registerCount);
 
         // Capture array: indices 0..captureCount*2-1 are capture start/end pairs,
         // indices captureCount*2..allocCount-1 are registers (loop counters, char positions).
@@ -162,11 +162,11 @@ internal static class RegExpInterpreter
         long deadline = NoDeadline)
     {
         var flags = GetFlags(bytecode);
-        int captureCount = bytecode[RegExpHeader.OffsetCaptureCount];
-        int registerCount = bytecode[RegExpHeader.OffsetRegisterCount];
+        int captureCount = GetCaptureCount(bytecode);
+        int registerCount = ReadI32(bytecode, RegExpHeader.OffsetRegisterCount);
         bool isUnicode = (flags & (RegExpFlags.Unicode | RegExpFlags.UnicodeSets)) != RegExpFlags.None;
 
-        int allocCount = captureCount * 2 + registerCount;
+        int allocCount = checked(captureCount * 2 + registerCount);
 
         int[]? capturePooled = null;
         Span<int> capture = allocCount <= 64
@@ -203,7 +203,7 @@ internal static class RegExpInterpreter
     /// <summary>Get capture count from bytecode header.</summary>
     public static int GetCaptureCount(ReadOnlySpan<byte> bytecode)
     {
-        return bytecode[RegExpHeader.OffsetCaptureCount];
+        return ReadI32(bytecode, RegExpHeader.OffsetCaptureCount);
     }
 
     /// <summary>Get flags from bytecode header.</summary>
@@ -227,7 +227,7 @@ internal static class RegExpInterpreter
             return null;
         }
 
-        int captureCount = bytecode[RegExpHeader.OffsetCaptureCount];
+        int captureCount = GetCaptureCount(bytecode);
         int bytecodeLen = BinaryPrimitives.ReadInt32LittleEndian(
             bytecode.Slice(RegExpHeader.OffsetBytecodeLen));
         int offset = RegExpHeader.Length + bytecodeLen;
@@ -253,12 +253,8 @@ internal static class RegExpInterpreter
                 names[i] = Encoding.UTF8.GetString(bytecode.Slice(offset, end - offset));
             }
 
-            // Skip past NUL terminator + 1 byte scope trailer (LRE_GROUP_NAME_TRAILER_LEN = 2 total)
-            offset = end + 1;
-            if (offset < bytecode.Length)
-            {
-                offset++; // skip the trailer byte (group index)
-            }
+            // Matching needs the name only; skip its terminator and the compiler's int32 scope.
+            offset = end + RegExpCompiler.GroupNameTrailerLen;
         }
 
         return names;
@@ -694,8 +690,8 @@ internal static class RegExpInterpreter
     /// </summary>
     private static ScanLoopInfo TryDetectScanLoop(ReadOnlySpan<byte> bc, bool isUnicode)
     {
-        // Need at least: 11 (scan loop) + 2 (SaveStart 0) + 1 (opcode) = 14 bytes
-        if (bc.Length < 14)
+        // Need at least: 11 (scan loop) + 5 (SaveStart 0) + 1 (opcode) = 17 bytes
+        if (bc.Length < 17)
         {
             return default;
         }
@@ -705,12 +701,12 @@ internal static class RegExpInterpreter
             || bc[5] != (byte) RegExpOpcode.Any
             || bc[6] != (byte) RegExpOpcode.Goto
             || bc[11] != (byte) RegExpOpcode.SaveStart
-            || bc[12] != 0)
+            || ReadI32(bc, 12) != 0)
         {
             return default;
         }
 
-        byte firstOp = bc[13];
+        byte firstOp = bc[16];
 
         // Anchored pattern: ^ (non-multiline) can only match at position 0.
         // Skip the scan loop entirely.
@@ -724,9 +720,9 @@ internal static class RegExpInterpreter
 
         // Exact character match — also look ahead for consecutive Char opcodes
         // to extract a multi-char literal for SIMD substring search.
-        if (firstOp == (byte) RegExpOpcode.Char && bc.Length >= 16)
+        if (firstOp == (byte) RegExpOpcode.Char && bc.Length >= 19)
         {
-            char scanChar = (char) ReadU16(bc, 14);
+            char scanChar = (char) ReadU16(bc, 17);
             if (char.IsSurrogate(scanChar))
             {
                 return default;
@@ -735,7 +731,7 @@ internal static class RegExpInterpreter
             // Look ahead for consecutive Char opcodes to build a literal prefix.
             // Each Char opcode is 3 bytes: opcode(1) + u16(2).
             string? literal = null;
-            int nextOp = 16; // position after first Char's u16
+            int nextOp = 19; // position after first Char's u16
             if (bc.Length > nextOp && bc[nextOp] == (byte) RegExpOpcode.Char)
             {
                 // At least 2 consecutive Chars — extract the literal
@@ -770,16 +766,16 @@ internal static class RegExpInterpreter
 
         // Case-insensitive: CharI stores the canonicalized value.
         // Also extract multi-char literal from consecutive CharI for OrdinalIgnoreCase search.
-        if (firstOp == (byte) RegExpOpcode.CharI && bc.Length >= 16)
+        if (firstOp == (byte) RegExpOpcode.CharI && bc.Length >= 19)
         {
-            char val = (char) ReadU16(bc, 14);
+            char val = (char) ReadU16(bc, 17);
             if (val < 128 && !FoldsAcrossAsciiBoundary(val, isUnicode))
             {
                 char alt = char.IsLower(val) ? char.ToUpperInvariant(val) : char.ToLowerInvariant(val);
 
                 // Look ahead for consecutive CharI opcodes (same as Char literal extraction)
                 string? literal = null;
-                int nextOp = 16;
+                int nextOp = 19;
                 if (bc.Length > nextOp && bc[nextOp] == (byte) RegExpOpcode.CharI)
                 {
                     Span<char> litBuf = stackalloc char[32];
@@ -814,13 +810,13 @@ internal static class RegExpInterpreter
 
         // Single-pair character range: [a-z], \d, etc.
         // Use IndexOfAnyInRange for SIMD-accelerated scanning.
-        if (firstOp == (byte) RegExpOpcode.Range && bc.Length >= 20)
+        if (firstOp == (byte) RegExpOpcode.Range && bc.Length >= 23)
         {
-            int n = ReadU16(bc, 14);
+            int n = ReadU16(bc, 17);
             if (n == 1)
             {
-                char low = (char) ReadU16(bc, 16);
-                char high = (char) ReadU16(bc, 18);
+                char low = (char) ReadU16(bc, 19);
+                char high = (char) ReadU16(bc, 21);
                 if (!char.IsSurrogate(low) && !char.IsSurrogate(high))
                 {
                     return new ScanLoopInfo(HasFastScan: true, PatternStartPc: 11,
@@ -855,7 +851,8 @@ internal static class RegExpInterpreter
     /// Find the next position of the scan character(s) in the input string.
     /// Handles exact char, case-insensitive pair, and character range scanning.
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    // Keep the SIMD scan independent of the large bytecode interpreter's inlining budget.
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private static int FindScanChar(string input, int startIndex, in ScanLoopInfo info)
     {
         // Multi-char literal: SIMD substring search (much faster when first char is common)
@@ -1142,7 +1139,7 @@ internal static class RegExpInterpreter
                         //      the nested capture in /(?:a(b)c)+/) and skipping over repeated leading
                         //      characters would silently drop the rest of each iteration.
                         if (val < 0
-                            && bc[pc1] == (byte) RegExpOpcode.SaveEnd && bc[pc1 + 1] == 0
+                            && bc[pc1] == (byte) RegExpOpcode.SaveEnd && ReadI32(bc, pc1 + 1) == 0
                             && cindex < inputEnd)
                         {
                             // Char+ bulk advance: skip all identical chars.
@@ -1386,7 +1383,8 @@ internal static class RegExpInterpreter
                 case RegExpOpcode.SaveStart:
                 case RegExpOpcode.SaveEnd:
                     {
-                        int val = bc[pc++];
+                        int val = ReadI32(bc, pc);
+                        pc += 4;
                         int idx = 2 * val + (opcode - RegExpOpcode.SaveStart);
                         capture[idx] = cindex;
                         break;
@@ -1394,9 +1392,9 @@ internal static class RegExpInterpreter
 
                 case RegExpOpcode.SaveReset:
                     {
-                        int val = bc[pc];
-                        int val2 = bc[pc + 1];
-                        pc += 2;
+                        int val = ReadI32(bc, pc);
+                        int val2 = ReadI32(bc, pc + 4);
+                        pc += 8;
                         while (val <= val2)
                         {
                             capture[2 * val] = Unset;
@@ -1411,18 +1409,18 @@ internal static class RegExpInterpreter
                 // ---------------------------------------------------------
                 case RegExpOpcode.SetI32:
                     {
-                        int idx = 2 * captureCount + bc[pc];
-                        int val = ReadI32(bc, pc + 1);
-                        pc += 5;
+                        int idx = 2 * captureCount + ReadI32(bc, pc);
+                        int val = ReadI32(bc, pc + 4);
+                        pc += 8;
                         capture[idx] = val;
                         break;
                     }
 
                 case RegExpOpcode.Loop:
                     {
-                        int idx = 2 * captureCount + bc[pc];
-                        int val = ReadI32(bc, pc + 1);
-                        pc += 5;
+                        int idx = 2 * captureCount + ReadI32(bc, pc);
+                        int val = ReadI32(bc, pc + 4);
+                        pc += 8;
 
                         int val2 = capture[idx] - 1;
                         capture[idx] = val2;
@@ -1443,10 +1441,10 @@ internal static class RegExpInterpreter
                 case RegExpOpcode.LoopCheckAdvSplitGotoFirst:
                 case RegExpOpcode.LoopCheckAdvSplitNextFirst:
                     {
-                        int idx = 2 * captureCount + bc[pc];
-                        uint limit = ReadU32(bc, pc + 1);
-                        int val = ReadI32(bc, pc + 5);
-                        pc += 9;
+                        int idx = 2 * captureCount + ReadI32(bc, pc);
+                        uint limit = ReadU32(bc, pc + 4);
+                        int val = ReadI32(bc, pc + 8);
+                        pc += 12;
 
                         // Decrement the counter
                         int val2 = capture[idx] - 1;
@@ -1495,14 +1493,16 @@ internal static class RegExpInterpreter
 
                 case RegExpOpcode.SetCharPos:
                     {
-                        int idx = 2 * captureCount + bc[pc++];
+                        int idx = 2 * captureCount + ReadI32(bc, pc);
+                        pc += 4;
                         capture[idx] = cindex;
                         break;
                     }
 
                 case RegExpOpcode.CheckAdvance:
                     {
-                        int idx = 2 * captureCount + bc[pc++];
+                        int idx = 2 * captureCount + ReadI32(bc, pc);
+                        pc += 4;
                         if (capture[idx] == cindex)
                         {
                             goto noMatch;
@@ -1568,13 +1568,14 @@ internal static class RegExpInterpreter
                 case RegExpOpcode.BackwardBackReference:
                 case RegExpOpcode.BackwardBackReferenceI:
                     {
-                        int n = bc[pc++];
+                        int n = ReadI32(bc, pc);
+                        pc += 4;
                         int pc1 = pc;
-                        pc += n;
+                        pc += n * 4;
 
                         for (int i = 0; i < n; i++)
                         {
-                            int val = bc[pc1 + i];
+                            int val = ReadI32(bc, pc1 + i * 4);
                             if (val >= captureCount)
                             {
                                 goto noMatch;

@@ -22,8 +22,10 @@
 
 using System.Buffers.Binary;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Jint.Extensions;
 using Jint.Runtime.RegExp.Unicode;
 
 namespace Jint.Runtime.RegExp;
@@ -374,7 +376,7 @@ internal enum CharRangeEnum : uint
 // Section: Group name entry
 
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct GroupNameEntry(string? Name, byte Scope);
+internal readonly record struct GroupNameEntry(string? Name, int Scope);
 
 // Section: Compiler entry point
 
@@ -384,15 +386,12 @@ internal readonly record struct GroupNameEntry(string? Name, byte Scope);
 /// </summary>
 internal static class RegExpCompiler
 {
-    private const int CaptureCountMax = 255;
-    private const int RegisterCountMax = 255;
     private const uint ClassRangeBase = 0x40000000;
 
     /// <summary>
-    /// Trailer length after the group name including the trailing '\0'.
-    /// Matches LRE_GROUP_NAME_TRAILER_LEN in the C code.
+    /// Trailer length after the group name including the trailing '\0' and int32 scope.
     /// </summary>
-    private const int GroupNameTrailerLen = 2;
+    internal const int GroupNameTrailerLen = 5;
 
     // Section: Built-in character class ranges (same data as C code)
 
@@ -436,7 +435,7 @@ internal static class RegExpCompiler
     /// <param name="pattern">The regex pattern string (without delimiters).</param>
     /// <param name="flags">The regex flags.</param>
     /// <param name="cancellationToken">Optional cancellation token for timeout/abort.</param>
-    /// <returns>The compiled bytecode including the 8-byte header.</returns>
+    /// <returns>The compiled bytecode including its header.</returns>
     /// <exception cref="RegExpSyntaxException">Thrown on syntax errors in the pattern.</exception>
     public static byte[] Compile(string pattern, RegExpFlags flags, CancellationToken cancellationToken = default)
     {
@@ -451,6 +450,8 @@ internal static class RegExpCompiler
     /// </summary>
     private sealed class REParseState
     {
+        private const int StackCheckDepthThreshold = 32;
+
         // Bytecode buffer (replaces DynBuf)
         private readonly List<byte> _byteCode = new();
 
@@ -468,7 +469,7 @@ internal static class RegExpCompiler
         internal bool DotAll;
 
         // Capture and group tracking
-        internal byte GroupNameScope;
+        internal int GroupNameScope;
         internal int CaptureCount;
         internal int TotalCaptureCount;
         internal int HasNamedCaptures; // -1 = don't know, 0 = no, 1 = yes
@@ -477,7 +478,6 @@ internal static class RegExpCompiler
         // Cancellation and stack overflow protection
         private readonly CancellationToken _cancellationToken;
         private int _recursionDepth;
-        private const int MaxRecursionDepth = 256;
 
         internal REParseState(string pattern, RegExpFlags flags, CancellationToken cancellationToken)
         {
@@ -502,11 +502,11 @@ internal static class RegExpCompiler
         {
             bool isSticky = (_reFlags & RegExpFlags.Sticky) != RegExpFlags.None;
 
-            // Write 8-byte header placeholder
+            // Capture and register indexes use int32 throughout the internal bytecode.
             EmitU16((ushort) _reFlags);   // offset 0: flags
-            EmitByte(0);                  // offset 2: capture count (filled later)
-            EmitByte(0);                  // offset 3: register count (filled later)
-            EmitU32(0);                   // offset 4: bytecode length (filled later)
+            EmitU32(0);                   // offset 2: capture count (filled later)
+            EmitU32(0);                   // offset 6: register count (filled later)
+            EmitU32(0);                   // offset 10: bytecode length (filled later)
 
             if (!isSticky)
             {
@@ -517,11 +517,11 @@ internal static class RegExpCompiler
                 EmitOp(RegExpOpcode.Any);
                 EmitOpU32(RegExpOpcode.Goto, unchecked((uint) (-(5 + 1 + 5))));
             }
-            EmitOpU8(RegExpOpcode.SaveStart, 0);
+            EmitOpU32(RegExpOpcode.SaveStart, 0);
 
             ParseDisjunction(false);
 
-            EmitOpU8(RegExpOpcode.SaveEnd, 0);
+            EmitOpU32(RegExpOpcode.SaveEnd, 0);
             EmitOp(RegExpOpcode.Match);
 
             if (_pos != _patternEnd)
@@ -530,13 +530,9 @@ internal static class RegExpCompiler
             }
 
             int registerCount = ComputeRegisterCount();
-            if (registerCount < 0)
-            {
-                throw new RegExpSyntaxException("too many imbricated quantifiers");
-            }
 
-            _byteCode[RegExpHeader.OffsetCaptureCount] = (byte) CaptureCount;
-            _byteCode[RegExpHeader.OffsetRegisterCount] = (byte) registerCount;
+            PutU32(RegExpHeader.OffsetCaptureCount, (uint) CaptureCount);
+            PutU32(RegExpHeader.OffsetRegisterCount, (uint) registerCount);
             PutU32(RegExpHeader.OffsetBytecodeLen, (uint) (_byteCode.Count - RegExpHeader.Length));
 
             // Add the named groups if needed
@@ -595,11 +591,11 @@ internal static class RegExpCompiler
             return pos;
         }
 
-        /// <summary>Emit goto with a u8 arg then relative offset. Returns offset of the u32.</summary>
-        private int EmitGotoU8(RegExpOpcode op, byte arg, int target)
+        /// <summary>Emit goto with a u32 register then relative offset. Returns offset of the u32.</summary>
+        private int EmitGotoRegister(RegExpOpcode op, uint arg, int target)
         {
             _byteCode.Add((byte) op);
-            _byteCode.Add(arg);
+            EmitU32(arg);
             int pos = _byteCode.Count;
             int rel = target - (pos + 4);
             EmitU32((uint) rel);
@@ -607,24 +603,18 @@ internal static class RegExpCompiler
         }
 
         /// <summary>
-        /// Emit goto with u8 arg, u32 arg, then relative offset.
+        /// Emit goto with u32 register, u32 arg, then relative offset.
         /// Returns offset of the u32 goto.
         /// </summary>
-        private int EmitGotoU8U32(RegExpOpcode op, byte arg0, uint arg1, int target)
+        private int EmitGotoRegisterU32(RegExpOpcode op, uint arg0, uint arg1, int target)
         {
             _byteCode.Add((byte) op);
-            _byteCode.Add(arg0);
+            EmitU32(arg0);
             EmitU32(arg1);
             int pos = _byteCode.Count;
             int rel = target - (pos + 4);
             EmitU32((uint) rel);
             return pos;
-        }
-
-        private void EmitOpU8(RegExpOpcode op, byte val)
-        {
-            _byteCode.Add((byte) op);
-            _byteCode.Add(val);
         }
 
         private void EmitOpU16(RegExpOpcode op, ushort val)
@@ -722,7 +712,9 @@ internal static class RegExpCompiler
         private void CheckStackOverflow()
         {
             _cancellationToken.ThrowIfCancellationRequested();
-            if (++_recursionDepth > MaxRecursionDepth)
+            // A fixed nesting limit rejects otherwise valid generated patterns. Probe the
+            // available native stack instead, retaining a catchable error before stack exhaustion.
+            if (++_recursionDepth > StackCheckDepthThreshold && !RuntimeHelpers.TryEnsureSufficientExecutionStack())
             {
                 throw new RegExpSyntaxException("stack overflow");
             }
@@ -1746,7 +1738,7 @@ after_class_handling:
                     case RegExpOpcode.BackReferenceI:
                     case RegExpOpcode.BackwardBackReference:
                     case RegExpOpcode.BackwardBackReferenceI:
-                        len += _byteCode[pos + 1];
+                        len += checked((int) ReadU32(pos + 1) * 4);
                         needCaptureInit = true;
                         break;
                     default:
@@ -1926,7 +1918,7 @@ done:
                                             if (string.Equals(name, captureName, StringComparison.Ordinal))
                                             {
                                                 if (emitGroupIndex)
-                                                    _byteCode.Add((byte) captureIndex);
+                                                    EmitU32((uint) captureIndex);
                                                 n++;
                                             }
                                         }
@@ -1939,14 +1931,12 @@ done:
                                     }
                                 }
                                 captureIndex++;
-                                if (captureIndex >= CaptureCountMax) goto done;
                             }
                             // Non-capturing groups like (?:...) don't increment
                         }
                         else
                         {
                             captureIndex++;
-                            if (captureIndex >= CaptureCountMax) goto done;
                         }
                         break;
 
@@ -1967,7 +1957,6 @@ done:
                 }
                 p++;
             }
-done:
             return captureName != null ? n : captureIndex;
         }
 
@@ -2003,7 +1992,7 @@ done:
                 if (entry.Name != null && string.Equals(entry.Name, name, StringComparison.Ordinal))
                 {
                     if (emitGroupIndex)
-                        _byteCode.Add((byte) captureIndex);
+                        EmitU32((uint) captureIndex);
                     n++;
                 }
                 captureIndex++;
@@ -2307,8 +2296,8 @@ done:
                                 lastCaptureCount = CaptureCount;
                                 var brOp = (RegExpOpcode) ((int) RegExpOpcode.BackReference +
                                                           2 * (isBackwardDir ? 1 : 0) + (IgnoreCase ? 1 : 0));
-                                EmitOpU8(brOp, 1);
-                                _byteCode.Add((byte) c);
+                                EmitOpU32(brOp, 1);
+                                EmitU32((uint) c);
                                 break;
                             }
 
@@ -2401,19 +2390,17 @@ parse_class_atom:
 
         private void EmitCapture(bool isBackwardDir, ref int lastAtomStart, ref int lastCaptureCount)
         {
-            if (CaptureCount >= CaptureCountMax)
-                throw new RegExpSyntaxException("too many captures");
             lastAtomStart = _byteCode.Count;
             lastCaptureCount = CaptureCount;
             int captureIndex = CaptureCount++;
 
             var saveStartOp = isBackwardDir ? RegExpOpcode.SaveEnd : RegExpOpcode.SaveStart;
-            EmitOpU8(saveStartOp, (byte) captureIndex);
+            EmitOpU32(saveStartOp, (uint) captureIndex);
 
             ParseDisjunction(isBackwardDir);
 
             var saveEndOp = isBackwardDir ? RegExpOpcode.SaveStart : RegExpOpcode.SaveEnd;
-            EmitOpU8(saveEndOp, (byte) captureIndex);
+            EmitOpU32(saveEndOp, (uint) captureIndex);
 
             ParseExpect(')');
         }
@@ -2466,7 +2453,7 @@ parse_class_atom:
 
             var backRefOp = (RegExpOpcode) ((int) RegExpOpcode.BackReference +
                                            2 * (isBackwardDir ? 1 : 0) + (IgnoreCase ? 1 : 0));
-            EmitOpU8(backRefOp, (byte) n);
+            EmitOpU32(backRefOp, (uint) n);
             if (isForward)
                 ParseCaptures(out _, refName, true);
             else
@@ -2556,10 +2543,10 @@ parse_class_atom:
             // Reset captures at each iteration if needed
             if (needCaptureInit && lastCaptureCount != CaptureCount)
             {
-                ByteCodeInsert(lastAtomStart, 3);
+                ByteCodeInsert(lastAtomStart, 9);
                 _byteCode[lastAtomStart] = (byte) RegExpOpcode.SaveReset;
-                _byteCode[lastAtomStart + 1] = (byte) lastCaptureCount;
-                _byteCode[lastAtomStart + 2] = (byte) (CaptureCount - 1);
+                PutU32(lastAtomStart + 1, (uint) lastCaptureCount);
+                PutU32(lastAtomStart + 5, (uint) (CaptureCount - 1));
             }
 
             int len = _byteCode.Count - lastAtomStart;
@@ -2569,11 +2556,11 @@ parse_class_atom:
                 // Reset captures if atom is not executed (but only for quant_min==0)
                 if (!needCaptureInit && lastCaptureCount != CaptureCount)
                 {
-                    ByteCodeInsert(lastAtomStart, 3);
+                    ByteCodeInsert(lastAtomStart, 9);
                     _byteCode[lastAtomStart] = (byte) RegExpOpcode.SaveReset;
-                    _byteCode[lastAtomStart + 1] = (byte) lastCaptureCount;
-                    _byteCode[lastAtomStart + 2] = (byte) (CaptureCount - 1);
-                    lastAtomStart += 3;
+                    PutU32(lastAtomStart + 1, (uint) lastCaptureCount);
+                    PutU32(lastAtomStart + 5, (uint) (CaptureCount - 1));
+                    lastAtomStart += 9;
                 }
 
                 if (quantMax == 0)
@@ -2584,21 +2571,21 @@ parse_class_atom:
                 else if (quantMax == 1 || quantMax == int.MaxValue)
                 {
                     bool hasGoto = (quantMax == int.MaxValue);
-                    int insertLen = 5 + (addZeroAdvanceCheck ? 2 : 0);
+                    int insertLen = 5 + (addZeroAdvanceCheck ? 5 : 0);
                     ByteCodeInsert(lastAtomStart, insertLen);
 
                     // When goto target is forward (to continuation), greedy means try atom (next) first
                     _byteCode[lastAtomStart] = (byte) (greedy
                         ? RegExpOpcode.SplitNextFirst
                         : RegExpOpcode.SplitGotoFirst);
-                    int jumpDist = len + (hasGoto ? 5 : 0) + (addZeroAdvanceCheck ? 4 : 0);
+                    int jumpDist = len + (hasGoto ? 5 : 0) + (addZeroAdvanceCheck ? 10 : 0);
                     PutU32(lastAtomStart + 1, (uint) jumpDist);
 
                     if (addZeroAdvanceCheck)
                     {
                         _byteCode[lastAtomStart + 5] = (byte) RegExpOpcode.SetCharPos;
-                        _byteCode[lastAtomStart + 6] = 0;
-                        EmitOpU8(RegExpOpcode.CheckAdvance, 0);
+                        PutU32(lastAtomStart + 6, 0);
+                        EmitOpU32(RegExpOpcode.CheckAdvance, 0);
                     }
                     if (hasGoto)
                         EmitGoto(RegExpOpcode.Goto, lastAtomStart);
@@ -2606,7 +2593,7 @@ parse_class_atom:
                 else
                 {
                     // Finite quantifier with min=0, max>1
-                    int insertLen = 11 + (addZeroAdvanceCheck ? 2 : 0);
+                    int insertLen = 14 + (addZeroAdvanceCheck ? 5 : 0);
                     ByteCodeInsert(lastAtomStart, insertLen);
 
                     int insPos = lastAtomStart;
@@ -2614,11 +2601,12 @@ parse_class_atom:
                     _byteCode[insPos] = (byte) (greedy
                         ? RegExpOpcode.SplitNextFirst
                         : RegExpOpcode.SplitGotoFirst);
-                    PutU32(insPos + 1, (uint) (6 + (addZeroAdvanceCheck ? 2 : 0) + len + 10));
+                    PutU32(insPos + 1, (uint) (9 + (addZeroAdvanceCheck ? 5 : 0) + len + 13));
                     insPos += 5;
 
                     _byteCode[insPos++] = (byte) RegExpOpcode.SetI32;
-                    _byteCode[insPos++] = 0;
+                    PutU32(insPos, 0);
+                    insPos += 4;
                     PutU32(insPos, (uint) quantMax);
                     insPos += 4;
                     lastAtomStart = insPos;
@@ -2626,13 +2614,13 @@ parse_class_atom:
                     if (addZeroAdvanceCheck)
                     {
                         _byteCode[insPos++] = (byte) RegExpOpcode.SetCharPos;
-                        _byteCode[insPos] = 0;
+                        PutU32(insPos, 0);
                     }
 
                     var loopOp = addZeroAdvanceCheck
                         ? (greedy ? RegExpOpcode.LoopCheckAdvSplitGotoFirst : RegExpOpcode.LoopCheckAdvSplitNextFirst)
                         : (greedy ? RegExpOpcode.LoopSplitGotoFirst : RegExpOpcode.LoopSplitNextFirst);
-                    EmitGotoU8U32(loopOp, 0, (uint) quantMax, lastAtomStart);
+                    EmitGotoRegisterU32(loopOp, 0, (uint) quantMax, lastAtomStart);
                 }
             }
             else if (quantMin == 1 && quantMax == int.MaxValue && !addZeroAdvanceCheck)
@@ -2647,12 +2635,13 @@ parse_class_atom:
                 if (quantMin == quantMax)
                     addZeroAdvanceCheck = false;
 
-                int insertLen = 6 + (addZeroAdvanceCheck ? 2 : 0);
+                int insertLen = 9 + (addZeroAdvanceCheck ? 5 : 0);
                 ByteCodeInsert(lastAtomStart, insertLen);
 
                 int insPos = lastAtomStart;
                 _byteCode[insPos++] = (byte) RegExpOpcode.SetI32;
-                _byteCode[insPos++] = 0;
+                PutU32(insPos, 0);
+                insPos += 4;
                 PutU32(insPos, (uint) quantMax);
                 insPos += 4;
                 lastAtomStart = insPos;
@@ -2660,20 +2649,20 @@ parse_class_atom:
                 if (addZeroAdvanceCheck)
                 {
                     _byteCode[insPos++] = (byte) RegExpOpcode.SetCharPos;
-                    _byteCode[insPos] = 0;
+                    PutU32(insPos, 0);
                 }
 
                 if (quantMin == quantMax)
                 {
                     // Simple loop: exactly N times
-                    EmitGotoU8(RegExpOpcode.Loop, 0, lastAtomStart);
+                    EmitGotoRegister(RegExpOpcode.Loop, 0, lastAtomStart);
                 }
                 else
                 {
                     var loopOp = addZeroAdvanceCheck
                         ? (greedy ? RegExpOpcode.LoopCheckAdvSplitGotoFirst : RegExpOpcode.LoopCheckAdvSplitNextFirst)
                         : (greedy ? RegExpOpcode.LoopSplitGotoFirst : RegExpOpcode.LoopSplitNextFirst);
-                    EmitGotoU8U32(loopOp, 0, (uint) (quantMax - quantMin), lastAtomStart);
+                    EmitGotoRegisterU32(loopOp, 0, (uint) (quantMax - quantMin), lastAtomStart);
                 }
             }
         }
@@ -2751,7 +2740,7 @@ parse_class_atom:
 
         /// <summary>
         /// Allocate the registers as a stack. The control flow is recursive so
-        /// the analysis can be linear. Returns max stack size or -1 on error.
+        /// the analysis can be linear. Returns the maximum stack size.
         /// </summary>
         private int ComputeRegisterCount()
         {
@@ -2769,12 +2758,10 @@ parse_class_atom:
                 {
                     case RegExpOpcode.SetI32:
                     case RegExpOpcode.SetCharPos:
-                        _byteCode[pos + 1] = (byte) stackSize;
+                        PutU32(pos + 1, (uint) stackSize);
                         stackSize++;
                         if (stackSize > stackSizeMax)
                         {
-                            if (stackSize > RegisterCountMax)
-                                return -1;
                             stackSizeMax = stackSize;
                         }
                         break;
@@ -2784,13 +2771,13 @@ parse_class_atom:
                     case RegExpOpcode.LoopSplitGotoFirst:
                     case RegExpOpcode.LoopSplitNextFirst:
                         stackSize--;
-                        _byteCode[pos + 1] = (byte) stackSize;
+                        PutU32(pos + 1, (uint) stackSize);
                         break;
 
                     case RegExpOpcode.LoopCheckAdvSplitGotoFirst:
                     case RegExpOpcode.LoopCheckAdvSplitNextFirst:
                         stackSize -= 2;
-                        _byteCode[pos + 1] = (byte) stackSize;
+                        PutU32(pos + 1, (uint) stackSize);
                         break;
 
                     case RegExpOpcode.Range:
@@ -2807,7 +2794,7 @@ parse_class_atom:
                     case RegExpOpcode.BackReferenceI:
                     case RegExpOpcode.BackwardBackReference:
                     case RegExpOpcode.BackwardBackReferenceI:
-                        len += _byteCode[pos + 1];
+                        len += checked((int) ReadU32(pos + 1) * 4);
                         break;
                 }
                 pos += len;
@@ -2819,7 +2806,7 @@ parse_class_atom:
 
         /// <summary>
         /// Serialize group names to the end of the bytecode buffer.
-        /// Format: null-terminated name + scope byte for each capture group (1-based).
+        /// Format: null-terminated name + int32 scope for each capture group (1-based).
         /// </summary>
         private void SerializeGroupNames()
         {
@@ -2831,7 +2818,7 @@ parse_class_atom:
                     _byteCode.AddRange(nameBytes);
                 }
                 _byteCode.Add(0); // null terminator
-                _byteCode.Add(entry.Scope);
+                EmitU32((uint) entry.Scope);
             }
         }
     }
