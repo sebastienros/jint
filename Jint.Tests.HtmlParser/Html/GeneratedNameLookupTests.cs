@@ -59,24 +59,45 @@ public class GeneratedNameLookupTests
         }
     }
 
+    private const int LookupRounds = 1000;
+    private const int AllocationWindows = 5;
+
     [Test]
-    // Compile the measuring loop directly to optimized code, so tiering/OSR cannot change the
-    // test method while its thread's allocation counter is sampled. The zero-byte assertion stays exact.
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     public void RecognitionDoesNotAllocateForHitsOrMisses()
     {
-        foreach (var name in HtmlKnownNames.Values) HtmlKnownNames.Match(name);
-        HtmlKnownNames.Match("unknown");
+        // The assertion stays exact: zero bytes. GetAllocatedBytesForCurrentThread counts everything that runs
+        // on this thread, the runtime's own work included - a JIT compile, the on-stack replacement of a tier-0
+        // loop, a call-count transition when a tiering delay expires - and on a busy runner any of those can
+        // fall inside the window. So the window holds nothing but lookups: the loop is its own method, compiled
+        // straight to optimized code and warmed by a first call before any window opens, rather than a loop in
+        // this test method. A one-off event can still land in one window - the lookup's own tier-up happens
+        // wherever its tiering delay expires - so the assertion is on the cleanest of a few windows. That cannot
+        // hide an allocating lookup: each window looks up every name and a miss a thousand times, so a lookup
+        // that allocates does so in every window.
+        var expected = HtmlKnownNames.Values.ToArray().Sum(name => name.Length) * LookupRounds;
+        MatchEveryNameAndAMiss().Should().Be(expected);
+
+        var fewest = long.MaxValue;
+        for (var window = 0; window < AllocationWindows && fewest != 0; window++)
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            var checksum = MatchEveryNameAndAMiss();
+            fewest = Math.Min(fewest, GC.GetAllocatedBytesForCurrentThread() - before);
+            checksum.Should().Be(expected);
+        }
+        fewest.Should().Be(0, "a lookup that allocates allocates in each of the {0} windows", AllocationWindows);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    private static int MatchEveryNameAndAMiss()
+    {
         var checksum = 0;
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 1000; i++)
+        for (var round = 0; round < LookupRounds; round++)
         {
             foreach (var name in HtmlKnownNames.Values) checksum += HtmlKnownNames.Match(name)!.Length;
             checksum += HtmlKnownNames.Match("unknown")?.Length ?? 0;
         }
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        allocated.Should().Be(0);
-        checksum.Should().Be(HtmlKnownNames.Values.ToArray().Sum(name => name.Length) * 1000);
+        return checksum;
     }
 
     [Test]
