@@ -126,6 +126,13 @@ public sealed partial class Engine : IDisposable
     private object? _hostCallbackAdmissionClosed;
     private int _hostCallbackAdmission;
 
+    /// <summary>
+    /// How many admissions are outstanding under the current reservation: authorized callbacks admitted and
+    /// not yet finished, plus one while an <c>*Async</c> settlement wait is parked. Read by tests that need a
+    /// callback admitted before the reservation is released.
+    /// </summary>
+    internal int OutstandingHostCallbackAdmissions => Volatile.Read(ref _hostCallbackAdmission);
+
     // A reservation taken for one host call that outlives it: see SuspendHostCallForCallbacks. Written only
     // by the thread that owns the engine, and released when the scope that claimed the engine for that
     // entry unwinds - HostCallScope's entry-root flag, plus this thread id, is what keeps a callback taking
@@ -962,6 +969,8 @@ public sealed partial class Engine : IDisposable
         {
             if (ReferenceEquals(Volatile.Read(ref _asyncReleasePending), owner))
             {
+                // The deferred half of ReleaseAsyncHostOperation, so the token goes with the reservation.
+                ClearAsyncEntryToken();
                 Interlocked.CompareExchange(ref _asyncOwner, null, owner);
                 Interlocked.CompareExchange(ref _asyncReleasePending, null, owner);
                 Interlocked.CompareExchange(ref _hostCallbackAdmissionClosed, null, owner);
@@ -995,7 +1004,15 @@ public sealed partial class Engine : IDisposable
     /// </para>
     /// </param>
     /// <param name="allowRetired">Whether a non-script wait may return <see langword="false"/> after retirement.</param>
-    internal object ReserveAsyncHostOperation(object? reservationOwner = null, bool allowRetired = false)
+    /// <param name="entryToken">
+    /// The token of the <c>*Async</c> entry this reservation is for, installed as <see cref="_asyncEntryToken"/>
+    /// for exactly as long as the reservation is held; see that field. <see langword="default"/> for a frame
+    /// that runs no script.
+    /// </param>
+    internal object ReserveAsyncHostOperation(
+        object? reservationOwner = null,
+        bool allowRetired = false,
+        CancellationToken entryToken = default)
     {
         if (!allowRetired)
         {
@@ -1021,6 +1038,9 @@ public sealed partial class Engine : IDisposable
             Throw.InvalidOperationException(ConcurrentUseMessage);
         }
 
+        // Only once the reservation is certain, so a refused one installs nothing; cleared by whichever of
+        // ReleaseAsyncHostOperation and ReleaseHostCallbackAdmission actually drops it.
+        InstallAsyncEntryToken(entryToken);
         return owner;
     }
 
@@ -1037,10 +1057,13 @@ public sealed partial class Engine : IDisposable
             Volatile.Write(ref _hostCallbackAdmissionClosed, owner);
             if (Volatile.Read(ref _hostCallbackAdmission) > 0)
             {
+                // A callback admitted under the reservation is still to run, and it runs as part of this
+                // operation: the entry's token stays installed until the last one has finished.
                 Volatile.Write(ref _asyncReleasePending, owner);
                 return;
             }
 
+            ClearAsyncEntryToken();
             Interlocked.CompareExchange(ref _asyncOwner, null, owner);
             Interlocked.CompareExchange(ref _hostCallbackAdmissionClosed, null, owner);
             reservationReleased = true;
@@ -3462,8 +3485,9 @@ public sealed partial class Engine : IDisposable
     /// belongs to whoever asked for the wait and is reported back to them as an
     /// <see cref="OperationCanceledException"/>, while the constraint means the engine itself was cancelled
     /// and surfaces as <see cref="ExecutionCanceledException"/>, exactly as per-statement execution reports
-    /// it. Both end the wait; the catch below decides which contract applies. The two are linked only when
-    /// both can actually fire, so every caller that passes nothing allocates nothing.
+    /// it. The token of an enclosing <c>*Async</c> entry ends the wait too, as that entry's own cancellation;
+    /// <see cref="ThrowWaitCancellation"/> decides which contract applies. They are linked only when more than
+    /// one can actually fire, so every caller that passes nothing allocates nothing.
     /// </param>
     /// <returns>Whether the condition held when the drain ended, i.e. false on timeout.</returns>
     internal bool DrainEventLoopUntil(
@@ -3495,27 +3519,13 @@ public sealed partial class Engine : IDisposable
         var previousWaitingThreadId = _eventLoop._waitingThreadId;
         _eventLoop._waitingThreadId = System.Environment.CurrentManagedThreadId;
 
-        // Observe a registered CancellationConstraint during the otherwise-idle waits. No statements
-        // run while we block on the completion event, so the per-statement constraint checks never
-        // fire; without this, cancelling the engine while a top-level await hangs on a never-settling
-        // Task would go unnoticed until PromiseTimeout. Defaults to CancellationToken.None when no
-        // such constraint is registered, which leaves the wait behavior unchanged.
-        var constraintToken = Constraints.Find<CancellationConstraint>()?.Token ?? default;
-
-        System.Threading.CancellationTokenSource? linkedTokenSource = null;
-        var waitToken = constraintToken;
-        if (cancellationToken.CanBeCanceled)
-        {
-            if (constraintToken.CanBeCanceled)
-            {
-                linkedTokenSource = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, constraintToken);
-                waitToken = linkedTokenSource.Token;
-            }
-            else
-            {
-                waitToken = cancellationToken;
-            }
-        }
+        // Observe a registered CancellationConstraint and the token of the *Async entry this drain is nested
+        // in during the otherwise-idle waits. No statements run while we block on the completion event, so
+        // the per-statement checks never fire; without this, cancelling the engine - or the call - while a
+        // top-level await hangs on a never-settling Task would go unnoticed until PromiseTimeout, or forever
+        // for a caller that passed a token and no bound. A wait with nothing cancellable allocates nothing.
+        var cancellation = CaptureCancellation();
+        var waitToken = cancellation.Link(cancellationToken, out var linkedTokenSource);
 
         try
         {
@@ -3537,8 +3547,13 @@ public sealed partial class Engine : IDisposable
                 ThrowIfRetired();
                 // The caller's token is checked before any work is run, so an already-cancelled token
                 // fails the wait rather than being masked by a drain that happens to settle the
-                // condition on its first turn.
+                // condition on its first turn. So is the entry's: the drain is part of that call, and a
+                // turn run for a call that has been cancelled is a turn its caller no longer wants.
                 cancellationToken.ThrowIfCancellationRequested();
+                if (cancellation.EntryToken.IsCancellationRequested)
+                {
+                    ThrowWaitCancellation(cancellationToken, in cancellation);
+                }
 
                 RunAvailableContinuations();
 
@@ -3603,18 +3618,7 @@ public sealed partial class Engine : IDisposable
                 }
                 catch (OperationCanceledException)
                 {
-                    // The caller's own token keeps its own contract: whoever asked for the wait gets an
-                    // OperationCanceledException back, which is what the public UnwrapIfPromise overload
-                    // taking a token documents.
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-
-                    // Otherwise the registered CancellationConstraint's token was cancelled during the idle
-                    // wait. Surface it exactly as per-statement execution does (CancellationConstraint.Check),
-                    // rather than swallowing it and letting the drain fall through to a silent timeout.
-                    Throw.ExecutionCanceledException();
+                    ThrowWaitCancellation(cancellationToken, in cancellation);
                 }
             }
 
@@ -3625,6 +3629,33 @@ public sealed partial class Engine : IDisposable
             linkedTokenSource?.Dispose();
             _eventLoop._waitingThreadId = previousWaitingThreadId;
         }
+    }
+
+    /// <summary>
+    /// Decides which contract a cancelled engine wait belongs to — <see cref="DrainEventLoopUntil"/>'s and the
+    /// pump's alike. Three tokens can end one, and each keeps the contract it has everywhere else.
+    /// </summary>
+    /// <remarks>
+    /// The caller's own token first: whoever asked for the wait gets an <see cref="OperationCanceledException"/>
+    /// carrying it, which is what the public <c>UnwrapIfPromise</c> and <c>WaitForScheduledWork</c> overloads
+    /// taking a token document. Then a registered <see cref="CancellationConstraint"/>, which surfaces exactly as
+    /// per-statement execution reports it, rather than letting the wait fall through to a silent timeout. Then
+    /// the <c>*Async</c> entry's token, as <see cref="ThrowIfAsyncEntryCancelled"/> reports it — after the
+    /// constraint, the order <see cref="CheckAmortizedConstraints"/> uses, so a host that registered the same
+    /// token both ways keeps the exception it already catches. Nothing else cancels these waits, so the last
+    /// line is unreachable in practice and keeps the engine's own report.
+    /// </remarks>
+    [DoesNotReturn]
+    private static void ThrowWaitCancellation(CancellationToken cancellationToken, in EngineCancellation cancellation)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!cancellation.ConstraintToken.IsCancellationRequested && cancellation.EntryToken.IsCancellationRequested)
+        {
+            Throw.OperationCanceledException(cancellation.EntryToken);
+        }
+
+        Throw.ExecutionCanceledException();
     }
 
     /// <summary>

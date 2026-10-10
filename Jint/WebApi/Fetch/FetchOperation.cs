@@ -65,11 +65,14 @@ internal sealed class FetchOperation
     private readonly CancellationToken _signalToken;
 
     /// <summary>
-    /// The engine's own cancellation token, from <see cref="CancellationConstraint"/>. A request cancelled
-    /// through it settles nothing at all: a constraint that became a promise rejection would no longer bound
-    /// anything — the script would observe an ordinary failed fetch and carry on, in a loop if it liked.
+    /// The engine's own cancellation, captured when the request started: a registered
+    /// <see cref="CancellationConstraint"/>'s token and the token of the <c>*Async</c> call the script was
+    /// running under, which this request goes on observing after that call has returned. A request cancelled
+    /// through either settles nothing at all: a constraint that became a promise rejection would no longer
+    /// bound anything — the script would observe an ordinary failed fetch and carry on, in a loop if it liked —
+    /// and a call that was cancelled has nobody left to settle for.
     /// </summary>
-    private readonly CancellationToken _engineToken;
+    private readonly EngineCancellation _engineCancellation;
 
     private readonly CancellationTokenSource _cancellation;
     private readonly TimeSpan _timeout;
@@ -114,8 +117,8 @@ internal sealed class FetchOperation
         _observation = observation;
 
         _signalToken = signal.CancellationToken;
-        _engineToken = engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
-        _cancellation = CancellationTokenSource.CreateLinkedTokenSource(_signalToken, _engineToken);
+        _engineCancellation = engine.CaptureCancellation();
+        _cancellation = _engineCancellation.CreateLinkedTokenSource(_signalToken);
     }
 
     /// <summary>
@@ -424,10 +427,10 @@ internal sealed class FetchOperation
 
         if (task.IsCanceled || task.Exception?.InnerException is OperationCanceledException)
         {
-            // The engine's own cancellation is the one outcome with no settlement at all — see _engineToken.
-            // Checked first, because a request that is also past its deadline is still bounded by the
-            // constraint, and the constraint is what must not become a rejection.
-            if (_engineToken.IsCancellationRequested)
+            // The engine's own cancellation is the one outcome with no settlement at all — see
+            // _engineCancellation. Checked first, because a request that is also past its deadline is still
+            // bounded by the constraint, and the constraint is what must not become a rejection.
+            if (_engineCancellation.IsCancellationRequested)
             {
                 _observation?.Failed("The engine's execution was cancelled.", null);
                 Enqueue(null);
@@ -533,8 +536,9 @@ internal sealed class FetchOperation
         {
             // The body gets a token source of its own rather than sharing the header phase's, which this
             // settle job is about to dispose: an abort or an engine cancellation still reaches it, and the
-            // rest of the deadline is re-armed on it.
-            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_signalToken, _engineToken);
+            // rest of the deadline is re-armed on it. It links the raw tokens captured at the start, never a
+            // source somebody else owns, so it cannot be handed one that was disposed under it.
+            var cancellation = _engineCancellation.CreateLinkedTokenSource(_signalToken);
             response.SetStreamBody(body.Attach(_engine, _realm, cancellation, RemainingTimeout()));
         }
 

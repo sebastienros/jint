@@ -90,11 +90,13 @@ internal sealed class XhrOperation : IDisposable
     private readonly JsBlob? _blobUrlEntry;
 
     /// <summary>
-    /// The engine's own cancellation token, from <see cref="CancellationConstraint"/>. A request cancelled
-    /// through it settles nothing at all: a constraint that became an <c>error</c> event would no longer
+    /// The engine's own cancellation, captured when the request was opened: a registered
+    /// <see cref="CancellationConstraint"/>'s token and the token of the <c>*Async</c> call the script was
+    /// running under, which this request goes on observing after that call has returned. A request cancelled
+    /// through either settles nothing at all: a constraint that became an <c>error</c> event would no longer
     /// bound anything.
     /// </summary>
-    private readonly CancellationToken _engineToken;
+    private readonly EngineCancellation _engineCancellation;
 
     private readonly CancellationTokenSource _abortSource = new();
     private readonly CancellationTokenSource _hostDeadline = new();
@@ -138,9 +140,10 @@ internal sealed class XhrOperation : IDisposable
         _body = body;
         _blobUrlEntry = blobUrlEntry;
         _registration = engine.CaptureEventLoopRegistration();
-        _engineToken = engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
+        _engineCancellation = engine.CaptureCancellation();
         _cancellation = CancellationTokenSource.CreateLinkedTokenSource(
-            _engineToken,
+            _engineCancellation.ConstraintToken,
+            _engineCancellation.EntryToken,
             _abortSource.Token,
             _hostDeadline.Token,
             _scriptDeadline.Token);
@@ -767,7 +770,7 @@ internal sealed class XhrOperation : IDisposable
     {
         if (exception is OperationCanceledException || _cancellation.IsCancellationRequested)
         {
-            if (_engineToken.IsCancellationRequested)
+            if (_engineCancellation.IsCancellationRequested)
             {
                 return XhrOutcome.Abandoned;
             }

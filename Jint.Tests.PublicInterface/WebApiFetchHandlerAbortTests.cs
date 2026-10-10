@@ -8,7 +8,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Jint;
+using Jint.Native;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Jint.WebApi;
 using Jint.WebApi.Fetch;
 
@@ -259,26 +261,51 @@ public class WebApiFetchHandlerAbortTests
     }
 
     /// <summary>
-    /// The awaitable shape's existing token now also feeds the signal. An already-cancelled one is the
-    /// deterministic half of that: the body read has nothing to read, the handler is called with an aborted
-    /// signal, and its synchronous answer never reaches the await's cancellation check.
+    /// The awaitable shape is an <c>*Async</c> call like <c>EvaluateAsync</c>, so an already-cancelled token
+    /// cancels it before the handler runs at all. The polled shape is the one that lets a handler see an
+    /// aborted signal and answer — see <see cref="AnAlreadyCancelledTokenGivesTheHandlerAnAlreadyAbortedSignal"/>.
     /// </summary>
     [Test]
-    public async Task TheAwaitableShapeGivesAnAlreadyCancelledTokenTheSameAbortedSignal()
+    public async Task TheAwaitableShapeRunsNoHandlerForAnAlreadyCancelledToken()
     {
         var engine = Handler("""
-            globalThis.handler = request => new Response(
-                request.signal.aborted ? request.signal.reason.name : 'live',
-                { status: request.signal.aborted ? 499 : 200 });
+            globalThis.ran = false;
+            globalThis.handler = request => { globalThis.ran = true; return new Response('answered'); };
             """);
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        using var response = await engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token);
+        var exception = await Caught.ExceptionAsync(() => engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token));
 
-        ((int) response.StatusCode).Should().Be(499);
-        Text(response).Should().Be("AbortError");
+        exception.Should().BeAssignableTo<OperationCanceledException>()
+            .Which.CancellationToken.Should().Be(cts.Token);
+        engine.Evaluate("ran").AsBoolean().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// The token stops the handler itself, not only the await that follows it: a handler that never yields
+    /// is cancellable through it, with nothing registered on the options.
+    /// </summary>
+    [Test]
+    public async Task TheAwaitableShapesTokenStopsAHandlerThatNeverYields()
+    {
+        using var cts = new CancellationTokenSource();
+        var engine = Handler("""
+            var i = 0;
+            globalThis.handler = request => { cancel(); for (; i < 1000000; i++) { } return new Response('finished'); };
+            """);
+        engine.SetValue("cancel", new ClrFunction(engine, "cancel", (_, _) =>
+        {
+            cts.Cancel();
+            return JsValue.Undefined;
+        }));
+
+        var exception = await Caught.ExceptionAsync(() => engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token));
+
+        exception.Should().BeAssignableTo<OperationCanceledException>()
+            .Which.CancellationToken.Should().Be(cts.Token);
+        engine.GetValue("i").AsNumber().Should().BeLessThan(1000);
     }
 
     /// <summary>

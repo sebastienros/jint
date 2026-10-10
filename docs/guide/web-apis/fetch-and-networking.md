@@ -62,6 +62,10 @@ using var response = await engine.WebApi.InvokeFetchHandlerAsync(
 default export. `WebApiFeatures.FetchEvents` is a distinct grant that lets script register an
 `addEventListener("fetch", ...)` route; it does not enable outbound `fetch`.
 
+A token passed to `InvokeFetchHandlerAsync` aborts `request.signal` and stops the handler the way it stops
+[`EvaluateAsync`](../async.md); one already cancelled cancels the call before the handler runs. To let a handler
+see an aborted signal and still answer, use `InvokeFetchHandler(request, token)` and pump its operation.
+
 Handler failures remain exceptions—the host decides how they map to HTTP. Apply
 [constraints](../constraints.md), do not share an engine between concurrent requests, and restore a pooled
 engine's snapshot between tenants. Ordinary constraints bound the initial engine entry, while later pump turns

@@ -58,6 +58,14 @@ internal sealed class JsEventSource : JsEventTarget
     private readonly WebApiEngineState _state;
     private readonly Options.FetchOptions _options;
 
+    /// <summary>
+    /// The engine's cancellation as it stood when the script constructed this object — a registered
+    /// constraint's token and the token of the <c>*Async</c> call it ran under. Every connection, a reconnect
+    /// long after that call returned included, observes these, so the call's token ends the stream rather than
+    /// only its first connection.
+    /// </summary>
+    private readonly EngineCancellation _cancellation;
+
     private EventSourceConnection? _connection;
 
     /// <summary>The id of the timer holding the reconnect delay, or zero when none is pending.</summary>
@@ -68,6 +76,7 @@ internal sealed class JsEventSource : JsEventTarget
     {
         _state = state;
         _options = state.FetchOptions!;
+        _cancellation = engine.CaptureCancellation();
         Url = url;
         Href = JsString.Create(url.Serialize());
         WithCredentials = withCredentials;
@@ -177,7 +186,7 @@ internal sealed class JsEventSource : JsEventTarget
 
         // The new stream's last event ID buffer starts as this object's last event ID string, so an event
         // that carries no id of its own still reports the last one the server sent — see the parser.
-        var connection = new EventSourceConnection(this, _engine, _realm, _options.MaxResponseBytes, LastEventId);
+        var connection = new EventSourceConnection(this, _engine, _realm, _cancellation, _options.MaxResponseBytes, LastEventId);
         _connection = connection;
         _state.RegisterEventSource(connection);
         connection.Start(client, BuildRequest(), policy, observation);

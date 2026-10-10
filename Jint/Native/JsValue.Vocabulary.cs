@@ -335,11 +335,18 @@ public abstract partial class JsValue
     /// Returns a task for what a settled promise fulfils with, or for this value unchanged when it is not a
     /// promise.
     /// </summary>
-    /// <param name="cancellationToken">The token to observe while waiting.</param>
+    /// <param name="cancellationToken">The token that cancels the wait and the continuations it runs.</param>
     /// <returns>A task carrying the fulfilment value, or this value.</returns>
     /// <remarks>
+    /// <para>
     /// The calling thread is not blocked, and everything the operation itself does — a rejection included —
     /// is delivered through the returned task rather than thrown out of the call.
+    /// </para>
+    /// <para>
+    /// For a promise, <paramref name="cancellationToken"/> covers the continuations the wait runs exactly as it
+    /// covers <see cref="Engine.EvaluateAsync(string, string, CancellationToken)"/>: already cancelled, the task
+    /// is cancelled before any of them runs, even for a promise that has already settled.
+    /// </para>
     /// </remarks>
     public Task<JsValue> UnwrapIfPromiseAsync(CancellationToken cancellationToken = default)
     {
