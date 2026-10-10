@@ -513,11 +513,9 @@ WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 PART_TYPES = {'G': 'era', 'y': 'year', 'Y': 'year', 'M': 'month', 'L': 'month', 'd': 'day', 'E': 'weekday', 'c': 'weekday',
               'a': 'dayPeriod', 'b': 'dayPeriod', 'B': 'dayPeriod', 'h': 'hour', 'H': 'hour', 'k': 'hour', 'K': 'hour',
               'm': 'minute', 's': 'second', 'S': 'fractionalSecond', 'z': 'timeZoneName', 'v': 'timeZoneName', 'O': 'timeZoneName'}
-EN_DAY_PERIODS = [(0, 6, 'at night'), (6, 12, 'in the morning'), (12, 13, 'noon'), (13, 18, 'in the afternoon'),
-                  (18, 21, 'in the evening'), (21, 24, 'at night')]
-
-
-def render_field(ld, letter, length, date):
+def render_field(ld, letter, length, date, shows=frozenset()):
+    """One field of a date; `shows` holds every letter of the pattern it is written with, whose minute and second
+    decide whether a time is shown as exactly noon."""
     g = ld.g
     if letter == 'G':
         width = 'eraNarrow' if length == 5 else 'eraNames' if length == 4 else 'eraAbbr'
@@ -538,13 +536,9 @@ def render_field(ld, letter, length, date):
     if letter == 'd':
         return ('%02d' if length == 2 else '%d') % date['day']
     if letter in 'ab':
-        width = {4: 'wide', 5: 'narrow'}.get(length, 'abbreviated')
-        return g['dayPeriods']['format'][width]['pm' if date['hour'] >= 12 else 'am']
+        return fm.am_pm_day_period(ld, date, length, letter == 'b' and fm.shown_as_noon(date, shows))
     if letter == 'B':
-        # Jint has CLDR's flexible day periods for English only; elsewhere it writes am/pm (PR-6 of #4158).
-        if ld.locale.split('-')[0] == 'en':
-            return next(name for start, end, name in EN_DAY_PERIODS if start <= date['hour'] < end)
-        return g['dayPeriods']['format']['abbreviated']['pm' if date['hour'] >= 12 else 'am']
+        return fm.flexible_day_period(ld, date, length, shows)
     if letter in 'hHkK':
         h = date['hour']
         value = {'h': (h % 12) or 12, 'K': h % 12, 'H': h, 'k': h or 24}[letter]
@@ -692,6 +686,7 @@ class Range:
         spans[first_index] = s1
         spans[1 - first_index] = s2
         out = []
+        shows = {run[1] for run in runs if run[0] == 'field'}
         for i, run in enumerate(runs):
             if spans[0][0] <= i <= spans[0][1]:
                 source = 'startRange'
@@ -705,7 +700,7 @@ class Range:
                 part, value = 'literal', run[1]
             else:
                 date = self.y if source == 'endRange' else self.x
-                part, value = PART_TYPES.get(run[1], 'unknown'), render_field(self.ld, run[1], run[2], date)
+                part, value = PART_TYPES.get(run[1], 'unknown'), render_field(self.ld, run[1], run[2], date, shows)
             value = value.replace('\u2009', ' ').replace('\u202f', ' ')
             if part == 'literal' and out and out[-1][0] == 'literal':
                 out[-1] = ('literal', out[-1][1] + value, out[-1][2])
@@ -782,6 +777,7 @@ def model_row(root, locale, bag, x, y):
     parts = Range(ld, itv, pattern, x, y).parts()
     if parts is None:
         single = []
+        shows = {run[1] for run in runs_of(pattern, 0) if run[0] == 'field'}
         for run in runs_of(pattern, 0):
             if run[0] == 'lit':
                 value = run[1].replace('\u202f', ' ')
@@ -790,7 +786,7 @@ def model_row(root, locale, bag, x, y):
                 else:
                     single.append(('literal', value, 'shared'))
             else:
-                single.append((PART_TYPES.get(run[1], 'unknown'), render_field(ld, run[1], run[2], x).replace('\u202f', ' '), 'shared'))
+                single.append((PART_TYPES.get(run[1], 'unknown'), render_field(ld, run[1], run[2], x, shows).replace('\u202f', ' '), 'shared'))
         parts = single
     return ''.join(v for _, v, _ in parts), encode_parts(parts)
 

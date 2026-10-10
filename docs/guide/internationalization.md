@@ -76,7 +76,7 @@ context the pattern asks for. So `de` writes `Sa., 24. Dezember` and `ja` writes
 platform, and `resolvedOptions()` reports the fields of the pattern chosen. `formatMatcher: 'basic'` is answered the
 same way. `formatRange()` and `formatRangeToParts()` write such a bag with CLDR's `intervalFormats`, as ICU's
 `DateIntervalFormat` does: `en` writes `Dec 24 – 27`, `de` `24.–27. Dez.`, `ja` `12/24～12/27`, with each part's
-`source` as the specification defines it. The data is one deflated block per language (about 210 KB in the
+`source` as the specification defines it. The data is one deflated block per language (about 215 KB in the
 assembly), and only the languages a process formats in are inflated.
 
 `dateStyle` and `timeStyle` write the locale's CLDR `dateFormats` and `timeFormats` the same way, a date and a time
@@ -88,8 +88,15 @@ style's fields — a `PlainYearMonth` under a `dateStyle`, a `PlainTime` under a
 is written with the format the matcher chooses for the fields it has, as Temporal's AdjustDateTimeStyleFormat says.
 `resolvedOptions()` reports the styles, not the fields.
 
+The `dayPeriod` option, and the flexible day period some locales write in their own time patterns (`zh-Hant`'s
+`清晨6:05`, `中午12:00`, `晚上7:45`), come from CLDR's day period rules and each locale's names, as ICU writes them:
+`de` writes `nachts`, `morgens`, `vormittags`, `mittags`, `nachmittags` and `abends`, `ja` `夜中` to `夜`. Noon is
+written only for a time shown as exactly 12:00 (`12 noon` for an hour alone, `12:30 in the afternoon` with its minute),
+midnight never, and a locale without rules, or without a name for the period, writes am/pm in its place.
+
 The patterns are not replaceable. The names are: a CLDR provider's `GetMonthNames`, `GetWeekdayNames`, `GetEraNames`
-or `GetDayPeriods` answer takes the place of CLDR's, in both the format and stand-alone contexts, where it differs
+or `GetDayPeriods` answer (am/pm; the flexible day periods are not replaceable) takes the place of CLDR's, in both
+the format and stand-alone contexts, where it differs
 from `DefaultCldrProvider.Instance`'s answer for the same arguments — so a provider that derives from
 `DefaultCldrProvider`, or delegates to it, without touching the names leaves CLDR's in place, in a range as in a single
 date. Time-zone names are not CLDR's: a `long` zone is written in English in every locale (`Coordinated Universal
