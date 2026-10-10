@@ -7,7 +7,7 @@ it came from. [`DateTimePatternData`](../../Jint/Native/Intl/Data/DateTimePatter
 `[[LocaleData]]` [issue #4158](https://github.com/sebastienros/jint/issues/4158) moves `Intl.DateTimeFormat` onto:
 a component bag is resolved against it by the format matcher,
 [`DateTimePatternGenerator`](../../Jint/Native/Intl/DateTimePatternGenerator.cs), which resolves a `dateStyle` and
-`timeStyle` too, and a component bag's ranges are written with its interval patterns by
+`timeStyle` too, and the ranges of both are written with their interval patterns by
 [`DateTimeIntervalFormat`](../../Jint/Native/Intl/DateTimeIntervalFormat.cs); their reference models and golden tables
 are under [`reference/`](#the-format-matchers-reference-model).
 
@@ -153,13 +153,16 @@ to the matcher goes into the model first, then into the port, and the table is r
 
 [`reference/interval_format.py`](reference/interval_format.py) is a model of ICU's `DateIntervalFormat` as V8 drives it,
 on top of `format_matcher.py`, and `DateTimeIntervalFormat` is its C# port: V8 creates the interval format for the
-skeleton of the pattern the matcher chose, with the resolved hour cycle; the skeleton is split into a date and a time
+skeleton of the pattern a single date is written with — the one the matcher chose, or a `dateStyle`/`timeStyle`'s —
+with the resolved hour cycle; the skeleton is split into a date and a time
 and normalized, the nearest interval skeleton is found and its pattern widened to the request, a date skeleton is
 extended by the field that differs (`MMMd` to `yMMMd`), a date and a time on one day are the date once joined to the
 time's interval by the medium `dateTimeFormats`, and any other range is the two whole dates in the fallback. It writes
 [`reference/range-golden.tsv`](reference/range-golden.tsv), which `IntlDateTimeFormatRangeTests` embeds: the 51 locales,
-15 bags and up to six pairs of dates, each differing first in the field it is named after, with the text and every
-part's type, source and length.
+23 bags — 15 component bags, the four date styles, the `short` and `medium` time styles and two pairs of them — and up
+to six pairs of dates, each differing first in the field it is named after, with the text and every part's type, source
+and length. A range keeps the U+2009 THIN SPACE CLDR writes around its dash, as V8 does; U+202F is U+0020, as in every
+lane (V8 keeps it in a range).
 
 ```sh
 node reference/probe-range-golden.js > icu-range-golden.tsv
@@ -168,12 +171,13 @@ python reference/interval_format.py golden <cldr-json-root> icu-range-golden.tsv
 python reference/interval_format.py ties <cldr-json-root>
 ```
 
-With Node 24.19 every one of the table's 3,570 rows has the same text, and 3,566 the same parts. The other four are
+With Node 24.19 every one of the table's 5,610 rows has the same text, and 5,600 the same parts. The other ten are
 V8 reporting as `shared` a part ICU writes from the end date, which the specification does not allow a shared part:
 `fa` writes the month stand-alone before the dash and in the format context after it, two fields to ICU, and `sw`
 writes the month of a month range once, after the second day; the model and Jint report those parts as the end date's.
-Over the 641 locales the model agrees with Node on 44,837 of 44,870 rows; the others are those two shapes (`fa`,
-`fa-AF`, `sw` and its regions, `wae`), `fr-ML` and `tok`'s data as above, and `yo`'s (and `yo-BJ`'s) `yMMMEd` year pattern,
+Over the 641 locales the model agrees with Node on 70,443 of 70,510 rows; the others are those two shapes (`fa`,
+`fa-AF`, `sw` and its regions, `wae`), `fr-ML` and `tok`'s data as above, `haw`'s short date, whose `M=romanlow` override
+the resource drops, and `yo`'s (and `yo-BJ`'s) `yMMMEd` year pattern,
 which repeats the year inside its first date, so that ICU splits it there and writes part of the start from the end
 date where Jint writes each part from the date its source names. `ties` reports every interval skeleton lookup with
 two candidates at the least distance, where ICU's hash-table order would decide: there is none, so walking the

@@ -4,7 +4,8 @@ NOT shipped and NOT run by the build. A Python model of ICU's DateIntervalFormat
 V8 drives it (js-date-time-format.cc: the interval format is created for the skeleton of the pattern the format
 matcher chose, with the resolved hour cycle as the locale's -u-hc- keyword), over CLDR 48.2's resolved JSON. It sits on
 format_matcher.py, the model of ICU's DateTimePatternGenerator, and Jint/Native/Intl/DateTimeIntervalFormat.cs is its
-C# port. The golden table Jint.Tests checks that port against is this model's output:
+C# port, for a component bag and for a dateStyle/timeStyle alike: V8 creates both from the skeleton of the pattern
+the formatter writes a single date with. The golden table Jint.Tests checks that port against is this model's output:
 
   node probe-range-golden.js > icu-range-golden.tsv
   python interval_format.py compare <cldr-json-root> icu-range-golden.tsv
@@ -27,7 +28,8 @@ What it models, in ICU's terms:
     source is startRange or endRange inside a span and shared outside, a literal being the text between two fields.
 Where Jint follows the specification instead (https://tc39.es/ecma402/#sec-partitiondatetimerangepattern), so does
 this model: fractional seconds are compared at the digits the format writes, and a range that collapses is format()'s
-output. Jint writes U+0020 for CLDR's U+2009 and U+202F in a range.
+output. A range keeps CLDR's U+2009 THIN SPACE around its dash, as V8 does, and writes U+0020 for U+202F, as every
+lane of Jint does (V8 keeps that one in a range too).
 """
 import json
 import os
@@ -706,7 +708,7 @@ class Range:
             else:
                 date = self.y if source == 'endRange' else self.x
                 part, value = PART_TYPES.get(run[1], 'unknown'), render_field(self.ld, run[1], run[2], date)
-            value = value.replace('\u2009', ' ').replace('\u202f', ' ')
+            value = value.replace('\u202f', ' ')
             if part == 'literal' and out and out[-1][0] == 'literal':
                 out[-1] = ('literal', out[-1][1] + value, out[-1][2])
             else:
@@ -757,11 +759,19 @@ BAGS = [
     ('j_mm_ss', {'hour': 'numeric', 'minute': 'numeric', 'second': 'numeric'}),
     ('y_MMMM_d_j_mm', {'year': 'numeric', 'month': 'long', 'day': 'numeric', 'hour': 'numeric', 'minute': '2-digit'}),
     ('y_M_d_j_mm_ss', {'year': 'numeric', 'month': 'numeric', 'day': 'numeric', 'hour': 'numeric', 'minute': 'numeric', 'second': 'numeric'}),
+    ('d_full', {'dateStyle': 'full'}),
+    ('d_long', {'dateStyle': 'long'}),
+    ('d_medium', {'dateStyle': 'medium'}),
+    ('d_short', {'dateStyle': 'short'}),
+    ('t_short', {'timeStyle': 'short'}),
+    ('t_medium', {'timeStyle': 'medium'}),
+    ('dt_medium_short', {'dateStyle': 'medium', 'timeStyle': 'short'}),
+    ('dt_long_medium', {'dateStyle': 'long', 'timeStyle': 'medium'}),
 ]
 
 def pairs_for(bag):
     """A bag without a time field writes the minute and hour pairs as it writes the am/pm one, as a single date."""
-    has_time = any(k in bag for k in ('hour', 'minute', 'second'))
+    has_time = any(k in bag for k in ('hour', 'minute', 'second', 'timeStyle'))
     return [p for p in PAIRS if has_time or p[0] not in ('minute', 'hour')]
 
 
@@ -775,9 +785,21 @@ def encode_parts(parts):
     return ' '.join('%s%s%d' % (TYPE_CODES.get(t, '?'), SOURCE_CODES[s], len(v.encode('utf-16-le')) // 2) for t, v, s in parts)
 
 
+def resolve_format(root, locale, bag):
+    """The locale data, the pattern a single date is written with and the resolved hour cycle: the component bag's
+    matched pattern, or the dateStyle/timeStyle pattern, which V8 hands DateIntervalFormat the same way."""
+    if 'dateStyle' in bag or 'timeStyle' in bag:
+        ld, pattern, _, _ = fm.resolve_style(root, locale, bag)
+        preferred, h12, h24 = fm.hour_cycles(root, locale)
+        hc = bag.get('hourCycle') or (h12 if bag.get('hour12') is True else h24 if bag.get('hour12') is False else preferred)
+        return ld, pattern, hc
+    ld, pattern, hc, _ = fm.resolve(root, locale, bag)
+    return ld, pattern, hc
+
+
 def model_row(root, locale, bag, x, y):
     """The model's (text, parts) for one range, the parts encoded; a single date is format()'s text, all shared."""
-    ld, pattern, hc, ro = fm.resolve(root, locale, bag)
+    ld, pattern, hc = resolve_format(root, locale, bag)
     itv = IntervalFormat(root, ld, static_get_skeleton(pattern), hc)
     parts = Range(ld, itv, pattern, x, y).parts()
     if parts is None:
@@ -824,7 +846,7 @@ def golden(root, icu_tsv):
     print('# parts: one per part, its type letter (l literal, G era, y year, M month, d day, E weekday, a dayPeriod, h hour,')
     print('# m minute, s second, S fractionalSecond, z timeZoneName), its source (s shared, 1 startRange, 2 endRange) and its')
     print('# length; the values are the text sliced in order. The last column is what ICU (Node 24.19, ICU 78.3) writes where')
-    print('# it differs from the model: text|parts, with U+2009 and U+202F written as U+0020 in a range, as Jint writes them.')
+    print('# it differs from the model: text|parts, with U+202F written as U+0020, as Jint writes it.')
     for name, bag in BAGS:
         print('\t'.join(['bag', name, json.dumps(bag, separators=(',', ':'))]))
     for pair, x, y in PAIRS:
@@ -873,7 +895,7 @@ def report_ties(root):
     try:
         for locale in locales():
             for name, bag in BAGS:
-                ld, pattern, hc, ro = fm.resolve(root, locale, bag)
+                ld, pattern, hc = resolve_format(root, locale, bag)
                 before = len(found)
                 IntervalFormat(root, ld, static_get_skeleton(pattern), hc)
                 for skeleton, best, tied in found[before:]:

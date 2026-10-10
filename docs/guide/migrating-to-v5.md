@@ -5952,8 +5952,8 @@ f('en', { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minut
   `Dec 24 – 27`), and the text between one date's fields belongs to that date.
 - **CLDR's quirks, which V8 writes too**: a range's time zone name is the short one where the format writes the long
   one, and a `shortOffset` or `longOffset` zone is not written in a range at all.
-- CLDR writes U+2009 THIN SPACE around the dash and U+202F before a day period; a range writes U+0020 for both, as every
-  lane writes U+0020 for U+202F, so its separator is still `" – "`.
+- CLDR writes U+2009 THIN SPACE around the dash and U+202F before a day period; a range writes U+0020 for U+202F, as
+  every lane does, and since 4.153 keeps the U+2009, as V8 does.
 - A time value outside the years a .NET `DateTime` holds keeps its real year in every range, `dateStyle` and
   `timeStyle` included (`formatRange(-8.64e15, 8.64e15)` is `4/20/271822 BC – 9/13/275760 AD`).
 
@@ -5963,9 +5963,8 @@ writes `05:01.2 – 05:01.2`. And every `shared` part is the start date's: where
 date that ICU does not pair with the start's (`fa`'s stand-alone month before the dash and format month after it,
 `sw`'s month written once after the second day), Jint reports it as `endRange`, which V8 reports as `shared`.
 
-Not changed: `dateStyle` and `timeStyle` ranges still drop the shared prefix and suffix of two whole dates, joined by
-`" – "` (4.144 moves the dates they write onto CLDR, not how a range joins them), and so do the Chinese and Dangi
-calendars. There is no switch back; a script that needs a fixed shape builds it from `formatToParts()` of each date.
+Not changed here: `dateStyle` and `timeStyle` ranges, which 4.153 moves onto the same interval patterns, and the
+Chinese and Dangi calendars, which still drop the shared prefix and suffix of two whole dates. There is no switch back; a script that needs a fixed shape builds it from `formatToParts()` of each date.
 
 ### 4.144 `Intl.DateTimeFormat` writes `dateStyle` and `timeStyle` with the locale's CLDR patterns ([#4158](https://github.com/sebastienros/jint/issues/4158))
 
@@ -6014,9 +6013,8 @@ f('ja', { dateStyle: 'long', timeStyle: 'long', hour12: true });     // "2022年
   `timeStyle`, which writes a zone the value does not have, is re-matched the same way (`ja` `dateStyle: 'full'`
   with `timeStyle: 'full'` writes `2022/12/24土曜日 15:07:09`). A style with every field the value has is written as
   it is — a `PlainDate` under any `dateStyle`.
-- **`formatRange()`** writes its two dates with the new patterns; how it collapses and joins them is unchanged, since
-  a style's range does not read the interval patterns 4.143 gives a component bag (`de` `dateStyle: 'medium'` gives
-  `24.12.2022 – 27.12.2022`).
+- **`formatRange()`** writes its two dates with the new patterns, and since 4.153 through the interval patterns 4.143
+  gives a component bag (`de` `dateStyle: 'medium'` gives `24.–27.12.2022`).
 - **An `ICldrProvider`'s names** reach a style under 4.142's rule: only where they differ from
   `DefaultCldrProvider.Instance`'s answer for the same arguments, and then in both contexts. Month and weekday names are
   no longer seeded into a .NET culture for any calendar but the Chinese and Dangi ones.
@@ -6166,6 +6164,39 @@ keeping them still works. A host that registered `ObserveCancellation` for the s
 **What could break:** code that passed an already-cancelled or soon-cancelled token and relied on the script
 still running to completion. There is no switch to restore that; pass `CancellationToken.None` for the work that
 must finish and observe your token yourself.
+
+### 4.153 `Intl.DateTimeFormat` writes a `dateStyle`/`timeStyle` range with CLDR's interval patterns, and keeps the thin spaces around a range's dash ([#4247](https://github.com/sebastienros/jint/issues/4247))
+
+A `dateStyle` or `timeStyle` range was the two whole dates with their shared start and end cut off, joined by
+`" – "`. It is now written the way 4.143 writes a component bag's range, as V8 does: from CLDR 48.2's
+`intervalFormats` for the skeleton of the style's pattern. Every range, of any kind, also keeps the U+2009 THIN SPACE
+that CLDR writes around the dash, as V8 does, where it wrote U+0020 (in the 5.x column below, every space beside a
+dash is U+2009):
+
+```js
+const range = (locale, options, start, end) =>
+  new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options }).formatRange(new Date(start), new Date(end));
+
+//                                                                          4.16.x / earlier 5.0                 5.x
+range('de', { dateStyle: 'medium' }, '2022-12-24', '2022-12-27');        // "24.12.2022 – 27.12.2022"            "24.–27.12.2022"
+range('ja', { dateStyle: 'long' }, '2022-12-24', '2022-12-27');          // "2022年12月24 – 2022年12月27日"       "2022/12/24～2022/12/27"
+range('en', { dateStyle: 'medium', timeStyle: 'short' },
+  '2022-12-24T15:07Z', '2022-12-27T09:04Z');                             // "Dec 24, 2022, 3:07 PM – 27, 2022, 9:04 AM"
+                                                                         //   "Dec 24, 2022, 3:07 PM – Dec 27, 2022, 9:04 AM"
+range('en', { month: 'short', day: 'numeric' }, '2022-12-24', '2022-12-27'); // "Dec 24 – 27"                 "Dec 24\u2009–\u200927"
+```
+
+**What could break:**
+
+- **The text and parts of a `dateStyle` or `timeStyle` range**, in any locale: which fields each date writes, the
+  separator, and the parts' `source`. A range whose dates differ only in a field the style does not show is the single
+  date. The Chinese and Dangi calendars keep their lane.
+- **The two characters around a range's dash** are U+2009, in `formatRange()` and `formatRangeToParts()` alike, for a
+  component bag, a style and the Chinese and Dangi calendars. A script that splits a range on `' – '` splits on
+  `/\s–\s/` or on `formatRangeToParts()`'s shared literal instead.
+
+Not changed: U+202F, which CLDR writes before a day period, is still U+0020 in a range, as in every lane; V8 keeps it in
+`formatRange()` and `formatRangeToParts()` and replaces it only in `format()`.
 
 ## 5. New in v5
 
