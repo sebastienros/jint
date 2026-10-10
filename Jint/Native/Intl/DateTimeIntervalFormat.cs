@@ -6,7 +6,8 @@ using Jint.Native.Intl.Data;
 namespace Jint.Native.Intl;
 
 /// <summary>
-/// The range patterns of a component bag's format record (https://tc39.es/ecma402/#sec-datetimeformat-range-pattern-record):
+/// The range patterns of a format record (https://tc39.es/ecma402/#sec-datetimeformat-range-pattern-record), a component
+/// bag's or a <c>dateStyle</c>/<c>timeStyle</c>'s:
 /// what <c>formatRange</c> and <c>formatRangeToParts</c> write two dates with, built from CLDR's <c>intervalFormats</c>
 /// the way ICU's <c>DateIntervalFormat</c> builds them as V8 drives it.
 /// </summary>
@@ -15,7 +16,8 @@ namespace Jint.Native.Intl;
 /// It is a port of <c>tools/cldr-dates/reference/interval_format.py</c>, a model of ICU's <c>DateIntervalFormat</c>
 /// (icu4c <c>dtitvfmt.cpp</c> and <c>dtitvinf.cpp</c>) which reproduces Node's <c>formatRange</c> and
 /// <c>formatRangeToParts</c> on every row of the golden table <c>Jint.Tests</c> checks this class against. V8 creates
-/// the interval format for the skeleton of the pattern the format matcher chose, with the resolved hour cycle; the
+/// the interval format for the skeleton of the pattern a single date is written with — the one the format matcher
+/// chose, or the style's — with the resolved hour cycle; the
 /// skeleton is split into a date and a time, each normalized, and the nearest interval skeleton CLDR has is looked up,
 /// its pattern widened to the request. A date and a time on one day are the date joined to the time's interval
 /// pattern by the <c>medium</c> <c>dateTimeFormats</c>; any other range of a date and a time, and any field no
@@ -26,7 +28,7 @@ namespace Jint.Native.Intl;
 /// them, are the <c>startRange</c> and the <c>endRange</c> date as ICU's <c>FormattedDateInterval</c> spans mark them;
 /// everything else is <c>shared</c>. A maximal stretch of one source is a DateTime Range Pattern Part Record
 /// (https://tc39.es/ecma402/#sec-datetimeformat-range-pattern-part-record). CLDR writes U+2009 THIN SPACE around its
-/// dashes and U+202F in its times; a range writes U+0020 for both, as every lane writes U+0020 for U+202F.
+/// dashes, which a range keeps as V8 does, and U+202F in its times, which is U+0020 here as in every lane.
 /// </para>
 /// <para>
 /// One instance serves every formatter whose format record it was built for (<see cref="DateTimePatternGenerator.GetIntervalFormat"/>);
@@ -72,7 +74,7 @@ internal sealed class DateTimeIntervalFormat
     private string? _dateTimeFormat;
 
     /// <param name="generator">The generator of the formatter's CLDR locale.</param>
-    /// <param name="format">The pattern the format matcher chose for the component bag.</param>
+    /// <param name="format">The pattern a single date is written with: the format matcher's for a component bag, or the style's.</param>
     /// <param name="hourCycle">The resolved hour cycle, which V8 hands ICU as the locale's <c>-u-hc-</c> keyword.</param>
     /// <param name="decimalSeparator">What separates the seconds from their fraction.</param>
     internal DateTimeIntervalFormat(DateTimePatternGenerator generator, DateTimeFormatPattern format, string hourCycle, char decimalSeparator)

@@ -861,10 +861,11 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         var isPlain = isTemporalInput && x is not JsInstant;
         var effectiveDtf = isTemporalInput ? GetTemporalFormatDtf(dateTimeFormat, x) : dateTimeFormat;
 
-        // A component bag is written through its range patterns (https://tc39.es/ecma402/#sec-formatdatetimerange is the
-        // concatenation of https://tc39.es/ecma402/#sec-partitiondatetimerangepattern's parts). dateStyle and timeStyle,
-        // and the Chinese and Dangi calendars, keep the lane below.
-        if (effectiveDtf.UsesComponentPattern)
+        // A component bag and a dateStyle/timeStyle are written through their range patterns
+        // (https://tc39.es/ecma402/#sec-formatdatetimerange is the concatenation of
+        // https://tc39.es/ecma402/#sec-partitiondatetimerangepattern's parts). The Chinese and Dangi calendars keep the
+        // lane below, which joins two dates with CLDR's fallback separator, U+2009 EN DASH U+2009, as the other lane does.
+        if (effectiveDtf.UsesIntervalFormat)
         {
             var rangeParts = effectiveDtf.FormatRangeToParts(start, startOrigYear, end, endOrigYear, isPlain);
             var builder = new ValueStringBuilder(stackalloc char[64]);
@@ -911,7 +912,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
                 result.Append(startParts[i].Value);
             }
 
-            result.Append(" \u2013 ");
+            result.Append("\u2009\u2013\u2009");
 
             // End range unique part
             for (var i = sharedPrefixEnd; i < endUniqueEnd; i++)
@@ -929,7 +930,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         }
 
         // Return a range string without collapsing
-        return $"{startFormatted} \u2013 {endFormatted}";
+        return $"{startFormatted}\u2009\u2013\u2009{endFormatted}";
     }
 
     /// <summary>
@@ -964,8 +965,8 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         var isPlain = isTemporalInput && x is not JsInstant;
         var effectiveDtf = isTemporalInput ? GetTemporalFormatDtf(dateTimeFormat, x) : dateTimeFormat;
 
-        // https://tc39.es/ecma402/#sec-formatdatetimerangetoparts over a component bag's range patterns.
-        if (effectiveDtf.UsesComponentPattern)
+        // https://tc39.es/ecma402/#sec-formatdatetimerangetoparts over the range patterns of a component bag or a style.
+        if (effectiveDtf.UsesIntervalFormat)
         {
             var rangeParts = effectiveDtf.FormatRangeToParts(start, startOrigYear, end, endOrigYear, isPlain);
             var array = new JsArray(Engine, (uint) rangeParts.Count);
@@ -1021,7 +1022,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
                 }
 
                 // Separator
-                AddPartToResult(result, ref index, "literal", " \u2013 ", "shared");
+                AddPartToResult(result, ref index, "literal", "\u2009\u2013\u2009", "shared");
 
                 // Output end range unique part
                 for (var i = sharedPrefixEnd; i < endUniqueEnd; i++)
@@ -1043,7 +1044,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
                     AddPartToResult(result, ref index, part.Type, part.Value, "startRange");
                 }
 
-                AddPartToResult(result, ref index, "literal", " \u2013 ", "shared");
+                AddPartToResult(result, ref index, "literal", "\u2009\u2013\u2009", "shared");
 
                 foreach (var part in endParts)
                 {
