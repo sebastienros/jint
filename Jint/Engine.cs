@@ -4536,8 +4536,9 @@ public sealed partial class Engine : IDisposable
     /// <para>
     /// Set <see cref="ResultLimits.MaxOutputCharacters"/> for an untrusted result: each string is checked by its
     /// length before it is copied, and one that would take the characters copied past the limit is refused, so
-    /// the limit bounds the characters the conversion copies. A memory limit charges a copy only after it is
-    /// made. <see cref="ResultLimits.MaxStringLength"/> refuses any one string longer than it the same way.
+    /// the limit bounds the characters the conversion copies. <see cref="ResultLimits.MaxStringLength"/> refuses
+    /// any one string longer than it the same way. A memory limit checks a slice view or a deferred concatenation
+    /// against what is left of its budget before copying it, and charges any other copy once it is made.
     /// </para>
     /// </remarks>
     public object? ConvertResult(JsValue value, ResultLimits? limits = null)
