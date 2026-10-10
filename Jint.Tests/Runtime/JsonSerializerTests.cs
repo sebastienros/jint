@@ -88,12 +88,12 @@ public class JsonSerializerTests
             values[0] += "c";
             values[0];
             """);
-        value._value.Should().Be("ab");
+        value._value.Should().BeNull("the appends are pending, so nothing has been flattened yet");
 
         AssertLimit(
             () => new JsonSerializer(engine, new ResultLimits { MaxStringLength = 2 }).Serialize(value),
             ResultLimit.StringLength);
-        value._value.Should().Be("ab");
+        value._value.Should().BeNull("the limit must refuse the value from its length, before flattening it");
     }
 
     [Test]
