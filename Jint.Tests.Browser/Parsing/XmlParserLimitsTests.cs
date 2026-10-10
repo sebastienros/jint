@@ -125,8 +125,13 @@ public class XmlParserLimitsTests
     [TestCase(4_000_000L, 2_000_000L)]
     public async Task DomParserRejectsSmallEntityBombAsAResourceFailure(long memory, long expansion)
     {
-        // The assertion is the entity-expansion ceiling, not elapsed time. Leave enough headroom
-        // for the parser to reach it on a loaded runner without the page deadline winning first.
+        // What this pins is an outcome: DOMParser stops at the expansion ceiling derived from the page's
+        // memory budget, at the first unit beyond it, and reports that as a resource failure rather than a
+        // parsererror document. Reaching the ceiling is fixed work - ten million replacement characters for an
+        // unbudgeted page - but not fixed time: on a busy runner, with the parser not yet tiered up, it outran
+        // the page's default five-second task budget, and the TimeoutException that followed failed a test
+        // that never meant to assert a duration. So the page budget here is only a wedge ceiling, and a parse
+        // that stopped late shows in Observed rather than in elapsed time.
         var options = new BrowserOptions { MemoryLimit = memory, MaxTaskDuration = TestBudgets.WedgeCeiling };
         // Isolate the parser's budget-derived ceiling: allocation accounting may otherwise fail first.
         options.ConfigureEngine(engineOptions => engineOptions.LimitMemory(0));
@@ -139,6 +144,7 @@ public class XmlParserLimitsTests
         var limit = error.Should().BeOfType<ParseLimitException>().Subject;
         limit.Kind.Should().Be(ParseLimitKind.EntityExpansionCharacters);
         limit.Limit.Should().Be(expansion);
+        limit.Observed.Should().Be(expansion + 1);
     }
 
     [Test]
@@ -149,6 +155,9 @@ public class XmlParserLimitsTests
             configureBrowser: options =>
             {
                 options.MemoryLimit = 4_000_000;
+                // As in the DOMParser case: the page budget is a wedge ceiling, and where the parse
+                // stopped is the assertion.
+                options.MaxTaskDuration = TestBudgets.WedgeCeiling;
                 // Isolate the lexical entity ceiling from the now-active parse allocation budget.
                 options.ConfigureEngine(engine => engine.LimitMemory(0));
             });
@@ -156,6 +165,7 @@ public class XmlParserLimitsTests
         var limit = error.Should().BeOfType<ParseLimitException>().Subject;
         limit.Kind.Should().Be(ParseLimitKind.EntityExpansionCharacters);
         limit.Limit.Should().Be(2_000_000);
+        limit.Observed.Should().Be(2_000_001);
     }
 
     [Test]
