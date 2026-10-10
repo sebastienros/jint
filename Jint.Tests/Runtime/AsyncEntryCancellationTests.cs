@@ -1,3 +1,5 @@
+#nullable enable
+
 using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
@@ -346,6 +348,21 @@ public class AsyncEntryCancellationTests
         exception.Should().BeOfType<ExecutionCanceledException>();
     }
 
+    [Test]
+    public async Task AHostThatAlsoRegisteredObserveCancellationGetsTheEntrysExceptionForAPreCancelledToken()
+    {
+        // Nothing runs for a token already cancelled, so the registered constraint is never checked: the
+        // call fails the way every *Async call does, which is the migration guide's "what could break" for
+        // a host that caught only ExecutionCanceledException.
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var engine = new Engine(options => options.ObserveCancellation(cts.Token));
+
+        var exception = await Caught.ExceptionAsync(() => engine.EvaluateAsync("1", cancellationToken: cts.Token));
+
+        AssertCanceledBy(exception, cts.Token);
+    }
+
     // Options.Host.JobCallbacks wraps every reaction in Enter/Exit (HostCallJobCallback), so a cancel observed
     // inside one unwinds through the hook. Both reaction lanes are covered: a then-handler
     // (HostDefinedReactionHandlers) and a resumed async body (HostDefinedContinuation).
@@ -391,6 +408,93 @@ public class AsyncEntryCancellationTests
         hooks.Enters.Should().Be(0);
     }
 
+    /// <summary>
+    /// The token lives exactly as long as the reservation, and a host callback admitted under it can outlive
+    /// the entry's own body: the reservation's release waits for it. Here the callback is admitted while the
+    /// last continuation holds the engine, takes its turn once that continuation lets go, and waits for the
+    /// call itself to complete before it loops — so the loop runs after the body's finally, still under the
+    /// reservation, and must still observe the call's token.
+    /// </summary>
+    [Test]
+    public async Task AHostCallbackStillRunningUnderTheReservationObservesTheToken()
+    {
+        using var cts = new CancellationTokenSource();
+        var engine = CreateEngineWithCancel(cts);
+        var io = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Action? callback = null;
+        Task<JsValue>? pending = null;
+        Task? invocation = null;
+        Exception? callbackFailure = null;
+
+        engine.SetValue("io", new Func<Task<int>>(() => io.Task));
+        engine.SetValue("keep", new Action<Action>(converted => callback = converted));
+        engine.SetValue("waitForTheCallToComplete", new Action(() =>
+            pending!.Wait(TestBudgets.WedgeCeiling).Should().BeTrue("the call completes without the engine thread")));
+        engine.SetValue("dispatchAndWaitUntilAdmitted", new ClrFunction(engine, "dispatchAndWaitUntilAdmitted", (_, _) =>
+        {
+            invocation = DedicatedThread.RunAsync(() =>
+            {
+                try
+                {
+                    callback!();
+                }
+                catch (Exception exception)
+                {
+                    callbackFailure = exception;
+                }
+            });
+
+            SpinWait.SpinUntil(() => engine.OutstandingHostCallbackAdmissions > 0, TestBudgets.WedgeCeiling)
+                .Should().BeTrue("the callback is admitted while this continuation still holds the engine");
+            return JsValue.Undefined;
+        }));
+
+        pending = engine.EvaluateAsync("""
+            var i = 0;
+            keep(() => { waitForTheCallToComplete(); cancel(); for (; i < 1000000; i++) { } });
+            (async () => { await io(); dispatchAndWaitUntilAdmitted(); return 'done'; })()
+            """, cancellationToken: cts.Token);
+        io.SetResult(1);
+
+        (await pending).Should().Be("done");
+        (await Task.WhenAny(invocation!, Task.Delay(TestBudgets.WedgeCeiling))).Should().BeSameAs(invocation, "the callback finishes once it observes the token");
+
+        AssertCanceledBy(callbackFailure, cts.Token);
+        IterationsReached(engine, "i").Should().BeLessThan(CadenceSlack);
+
+        // ...and the reservation took the token with it when the callback finished.
+        engine._asyncEntryToken.CanBeCanceled.Should().BeFalse();
+        engine._evaluationContext.RunsAmortizedChecks.Should().BeFalse();
+        (await engine.EvaluateAsync("1")).Should().Be(1);
+    }
+
+    /// <summary>
+    /// Only a cancellation the engine raised for the caller's token is reported as the caller's. A host
+    /// callback that raises one of its own while the caller's token happens to be cancelled keeps its own
+    /// identity, so the host can still tell the two apart.
+    /// </summary>
+    [Test]
+    public async Task AHostCancellationRaisedWhileAwaitingKeepsItsOwnIdentity()
+    {
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine();
+        var io = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var hostOwn = new OperationCanceledException("the host's own");
+        engine.SetValue("io", new Func<Task<int>>(() => io.Task));
+        engine.SetValue("fail", new ClrFunction(engine, "fail", (_, _) =>
+        {
+            cts.Cancel();
+            throw hostOwn;
+        }));
+
+        var pending = engine.EvaluateAsync("(async () => { await io(); fail(); })()", cancellationToken: cts.Token);
+        io.SetResult(1);
+
+        var exception = await Caught.ExceptionAsync(() => pending);
+
+        exception.Should().BeSameAs(hostOwn);
+    }
+
     /// <summary>Captures a flow for every registration and counts how deep inside Enter/Exit the engine is.</summary>
     private sealed class CountingJobCallbackHooks : JobCallbackHooks
     {
@@ -399,20 +503,20 @@ public class AsyncEntryCancellationTests
         internal int Exits;
         internal int Depth;
 
-        protected internal override object Capture(Engine engine)
+        protected internal override object? Capture(Engine engine)
         {
             Captures++;
             return "flow";
         }
 
-        protected internal override object Enter(Engine engine, object hostDefined)
+        protected internal override object? Enter(Engine engine, object hostDefined)
         {
             Enters++;
             Depth++;
             return null;
         }
 
-        protected internal override void Exit(Engine engine, object token)
+        protected internal override void Exit(Engine engine, object? token)
         {
             Exits++;
             Depth--;
@@ -446,9 +550,9 @@ public class AsyncEntryCancellationTests
 
     private static double IterationsReached(Engine engine, string name) => engine.GetValue(name).AsNumber();
 
-    private static void AssertCanceledBy(Exception exception, CancellationToken token)
+    private static void AssertCanceledBy(Exception? exception, CancellationToken token)
     {
-        exception.Should().BeAssignableTo<OperationCanceledException>();
-        ((OperationCanceledException) exception).CancellationToken.Should().Be(token);
+        exception.Should().BeAssignableTo<OperationCanceledException>()
+            .Which.CancellationToken.Should().Be(token);
     }
 }

@@ -428,6 +428,7 @@ public partial class Engine
                         // shutdown handling is written against exactly that. The unsettled completion must
                         // not stay registered, or a later import of the specifier would wait on it forever.
                         RemovePendingLoad(cacheKey);
+                        completion.ReleaseCancellation();
                         throw;
                     }
 
@@ -1057,10 +1058,8 @@ public partial class Engine
         /// there is nothing for a task to describe.
         /// </para>
         /// <para>
-        /// <c>cancellationToken</c> covers the whole import, module evaluation included, exactly as it does for
-        /// <see cref="Engine.EvaluateAsync(string, string, CancellationToken)"/>: already cancelled, nothing is
-        /// loaded or run; cancelled later, the interpreter stops with an <see cref="OperationCanceledException"/>
-        /// carrying it.
+        /// <c>cancellationToken</c> covers the whole import, loading and module evaluation included, exactly as
+        /// it covers <see cref="Engine.EvaluateAsync(string, string, CancellationToken)"/>; see there.
         /// </para>
         /// </remarks>
         /// <exception cref="PromiseRejectedException">The module failed to load or its evaluation threw.</exception>
@@ -1074,34 +1073,16 @@ public partial class Engine
             // Taken here rather than inside the async body so that the admission failure is reported to the
             // caller synchronously, exactly as EvaluateAsync and its siblings report it; the body owns the
             // release, and every other way the import can fail belongs to the returned task.
-            var owner = _engine.ReserveAsyncHostOperation();
-            return ImportOnReservationAsync(specifier, referencingModuleLocation, owner, cancellationToken);
+            var owner = _engine.ReserveAsyncHostOperation(entryToken: cancellationToken);
+            return NamespaceWhenImportedAsync(_engine.RunOnReservationAsync(
+                owner,
+                (operations: this, specifier, referencingModuleLocation),
+                static (_, state) => state.operations.StartImport(state.specifier, state.referencingModuleLocation).Promise,
+                cancellationToken));
         }
 
-        private async Task<ObjectInstance> ImportOnReservationAsync(
-            string specifier,
-            string? referencingModuleLocation,
-            object owner,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                _engine.BeginObservingAsyncEntryToken(cancellationToken);
-                Task<JsValue> task;
-                using (_engine.EnterHostCall(owner))
-                {
-                    var promise = StartImport(specifier, referencingModuleLocation).Promise;
-                    task = _engine.UnwrapResultAsync(promise, owner, cancellationToken);
-                }
-
-                return (ObjectInstance) await task.ConfigureAwait(false);
-            }
-            finally
-            {
-                _engine.EndObservingAsyncEntryToken(cancellationToken);
-                _engine.ReleaseAsyncHostOperation(owner);
-            }
-        }
+        private static async Task<ObjectInstance> NamespaceWhenImportedAsync(Task<JsValue> import)
+            => (ObjectInstance) await import.ConfigureAwait(false);
 
         /// <summary>
         /// Loads the root of a module graph: a <c>HostLoadImportedModule</c> call like any other, so with an

@@ -6144,28 +6144,46 @@ counts. Session storage, cookies, empty partition maps and peak allocations are 
 
 ### 4.151 An `*Async` entry's `CancellationToken` stops the script, not only the wait
 
-`EvaluateAsync`, `ExecuteAsync` (both overloads each), `InvokeAsync` and `Modules.ImportAsync` used to observe
-their token only while awaiting a pending promise. A token already cancelled when the call was made still let
-the script run to completion, and a script that never yields (`while (true) { }`) could not be stopped through
-it at all; the documented remedy was `ObserveCancellation`, which is fixed when the `Options` are built and so
-cannot carry a per-request token on options shared between engines.
+`EvaluateAsync`, `ExecuteAsync` (both overloads each), `InvokeAsync`, `Modules.ImportAsync`,
+`JsValue.UnwrapIfPromiseAsync` and `Engine.WebApi.InvokeFetchHandlerAsync` used to observe their token only while
+awaiting a pending promise. A token already cancelled when the call was made still let the script run to
+completion, and a script that never yields (`while (true) { }`) could not be stopped through it at all; the
+documented remedy was `ObserveCancellation`, which is fixed when the `Options` are built and so cannot carry a
+per-request token on options shared between engines.
 
 | | 4.16.x | 5.x |
 | --- | --- | --- |
 | token cancelled before the call | script runs; the token is checked only if a promise is still pending | the task is cancelled and no script runs |
-| token cancelled while the script runs | ignored until the synchronous run (or continuation) finishes | `OperationCanceledException` within the amortized check interval, from the run, a continuation, or a synchronous re-entry from a host callback |
+| token cancelled while the script runs | ignored until the synchronous run (or continuation) finishes | `OperationCanceledException` within the amortized check interval, from the run, a continuation, a synchronous re-entry from a host callback, or a callback still running under the call |
+| a blocking wait inside the call (`UnwrapIfPromise`, a blocking `Modules.Import`, `Tasks.WaitForScheduledWork`) | waits out its own bound | woken with `OperationCanceledException` |
+| a `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` or `AsyncModuleLoader` load the call starts | not told | told, for its whole life, even after the call returned |
 | `OperationCanceledException.CancellationToken` while awaiting | an internal linked token, or none | the token you passed |
 
-The token is observed only for the duration of the call, on the same cadence as `ObserveCancellation`, so the
-interpreter's tight-loop lane stays armed; a non-cancellable token (`default`, `CancellationToken.None`) changes
-nothing. A host that bracketed each call with an `OperationDeadlineConstraint` armed as
+The token is observed on the same cadence as `ObserveCancellation`, so the interpreter's tight-loop lane stays
+armed; a non-cancellable token (`default`, `CancellationToken.None`) changes nothing. A request the call started
+is abandoned when the token fires and settles nothing; a module load fails with the cancellation instead of a
+rejection script could catch. A host that bracketed each call with an `OperationDeadlineConstraint` armed as
 `Begin(Timeout.InfiniteTimeSpan, token)` only to get this can drop the bracket and the factory registered for it;
 keeping them still works. A host that registered `ObserveCancellation` for the same token keeps getting
 `ExecutionCanceledException` from a running script, because registered constraints are checked first.
 
-**What could break:** code that passed an already-cancelled or soon-cancelled token and relied on the script
-still running to completion. There is no switch to restore that; pass `CancellationToken.None` for the work that
-must finish and observe your token yourself.
+A cancelled call stops where it is and leaves its queued jobs, timers and pending loads behind, and the engine's
+next pump runs them; restore a global snapshot or discard the engine before reusing it (see
+[Asynchronous execution](async.md)).
+
+**What could break:**
+
+- Code that passed an already-cancelled or soon-cancelled token and relied on the script still running to
+  completion. There is no switch to restore that; pass `CancellationToken.None` for the work that must finish
+  and observe your token yourself.
+- A host that registered `ObserveCancellation(token)` and passes the same `token` to an `*Async` call: when the
+  token is already cancelled, the call now fails with `OperationCanceledException` before any script runs, where
+  a running script used to fail with `ExecutionCanceledException`. Catch both.
+- `InvokeFetchHandlerAsync` with an already-cancelled token no longer runs the handler with an aborted
+  `request.signal`; it is cancelled. The polled `InvokeFetchHandler(request, token)` still runs it.
+- `UnwrapIfPromiseAsync` with an already-cancelled token is cancelled even when the promise has already settled.
+- A module loader that fails with `OperationCanceledException` while the call's token is cancelled fails the
+  import with that exception rather than a `Could not load module` rejection.
 
 ## 5. New in v5
 

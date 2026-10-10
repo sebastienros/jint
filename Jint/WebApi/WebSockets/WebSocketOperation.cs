@@ -76,11 +76,13 @@ internal sealed class WebSocketOperation
     private readonly int _generation;
 
     /// <summary>
-    /// The engine's own cancellation token, from <see cref="CancellationConstraint"/>. A socket torn down
-    /// through it fires no events at all: a constraint that turned into an <c>error</c> event would no longer
-    /// bound anything, since the script would handle it and carry on.
+    /// The engine's own cancellation, captured when the socket was opened: a registered
+    /// <see cref="CancellationConstraint"/>'s token and the token of the <c>*Async</c> call the script was
+    /// running under, which this socket goes on observing after that call has returned. A socket torn down
+    /// through either fires no events at all: a constraint that turned into an <c>error</c> event would no
+    /// longer bound anything, since the script would handle it and carry on.
     /// </summary>
-    private readonly CancellationToken _engineToken;
+    private readonly EngineCancellation _engineCancellation;
 
     private readonly CancellationTokenSource _cancellation;
 
@@ -130,8 +132,8 @@ internal sealed class WebSocketOperation
         _protocols = protocols ?? [];
         _generation = engine.EventLoopGeneration;
         _handshakeTimeout = handshakeTimeout;
-        _engineToken = engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
-        _cancellation = CancellationTokenSource.CreateLinkedTokenSource(_engineToken);
+        _engineCancellation = engine.CaptureCancellation();
+        _cancellation = _engineCancellation.CreateLinkedTokenSource();
     }
 
     /// <summary>
@@ -407,7 +409,7 @@ internal sealed class WebSocketOperation
     /// </remarks>
     private void Enqueue(Action task)
     {
-        if (Volatile.Read(ref _abandoned) || _engineToken.IsCancellationRequested)
+        if (Volatile.Read(ref _abandoned) || _engineCancellation.IsCancellationRequested)
         {
             return;
         }
