@@ -60,7 +60,7 @@ custom loaders, serializers, network clients, output sinks, and process limits r
 - Bound source length and AST nodes before execution, module graphs and redirects at their loaders, and result,
   serialized, logged, and response sizes at their sinks.
 - Read a result through `ConvertResult`, not `ToString()` or `ToObject()`. The memory limit does not bound what
-  the host copies out of a result; see
+  those two copy out of a result; see
   [Bound what the host copies out of a result](./constraints.md#bound-what-the-host-copies-out-of-a-result).
 - Keep an external hard deadline. Cooperative constraints cannot interrupt arbitrary host callbacks.
 - Use separate engines for mutually distrusting scripts. Global snapshots do not undo intrinsic, module,

@@ -395,8 +395,9 @@ most of its time in garbage collection.
   turns, and output serialization are not part of this budget.
 - Strings that share characters — long `slice` views of one string, or long `a + b` values
   over one operand — are each charged only for what they add. A host `ToString()` or
-  `ToObject()` after the operation copies each of them in full, outside this budget;
-  `ConvertResult` under `ResultLimits` (TM-17) is the bounded read.
+  `ToObject()` after the operation copies each of them in full, outside this budget.
+  `ConvertResult` is the bounded read: it runs under this budget and checks each such copy
+  against what is left of it before making it, and `ResultLimits` (TM-17) bound it by length.
 - A managed limit cannot guarantee that the process avoids `OutOfMemoryException`.
 
 **Required host action.** Configure conservative Jint limits, input/module/output limits,
@@ -770,7 +771,8 @@ run additional code and consume CPU or memory outside the intended execution bud
 - `ConvertResult` checks `MaxStringLength` and `MaxOutputCharacters` against a string's length
   before copying its characters, so a long `slice` view or deferred `a + b` over shared
   characters is refused without being flattened, and `MaxOutputCharacters` alone bounds the
-  characters one conversion copies.
+  characters one conversion copies. Under `LimitMemory` the same length is checked against the
+  remaining memory budget before such a value is copied.
 - Jint's JSON serializer enforces the same limits while walking, counts escaped characters
   before appending, and checks exact UTF-8 bytes before touching a writer.
 - Conversion, JSON serialization, and bounded JavaScript error rendering run under execution

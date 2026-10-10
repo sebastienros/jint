@@ -17,9 +17,10 @@ namespace Jint.Tests.PublicInterface;
 /// <para>
 /// No test here flattens the value it is about: the assertions read <see cref="JsString.Length"/>, which a
 /// deferred value answers from the node, so a broken build fails them without allocating the 16 MB a script
-/// here can reach. The largest real allocations are the 6 MB host string one test hands in and the 2 MB
-/// strings a script reads back or a conversion copies, so the suite needs no heap cap to run a broken build
-/// safely.
+/// here can reach. The largest real allocations are the 6 MB host strings two tests hand in, the 2 MB
+/// strings a script reads back or a conversion copies, and the 16 MB a broken build's conversion copies in
+/// <see cref="TheMemoryLimitAloneStopsConvertResultBeforeItCopiesSharedValuesPastTheBudget"/>, so the suite
+/// needs no heap cap to run a broken build safely.
 /// </para>
 /// <para>
 /// The shapes are the ones a deferred <c>+</c> makes cheap to build and expensive to read: a doubling,
@@ -220,11 +221,11 @@ public class HostDeferredStringMemoryLimitTests
     }
 
     /// <summary>
-    /// What stays open (sebastienros/jint#4175): 64 values over one 1,048,576-character string are each
-    /// charged for what they add, so the script stays far inside its budget, and a host <c>ToObject()</c> of
-    /// the array would copy 128 MB. The documented bounded read is <see cref="Engine.ConvertResult"/> under
-    /// <see cref="ResultLimits"/>, which refuses the first value by its length before copying it — so the
-    /// conversion entry itself allocates less than one copy would.
+    /// What stays open to <c>ToObject()</c> (sebastienros/jint#4175): 64 values over one 1,048,576-character
+    /// string are each charged for what they add, so the script stays far inside its budget, and a host
+    /// <c>ToObject()</c> of the array would copy 128 MB. The documented bounded read is
+    /// <see cref="Engine.ConvertResult"/> under <see cref="ResultLimits"/>, which refuses the first value by its
+    /// length before copying it — so the conversion entry itself allocates less than one copy would.
     /// </summary>
     [TestCase("big.slice(i + 1)", TestName = "{m}(slice views)")]
     [TestCase("rope + 'q'", TestName = "{m}(concatenations over one operand)")]
@@ -245,6 +246,56 @@ public class HostDeferredStringMemoryLimitTests
         failure.Should().BeOfType<ResultLimitExceededException>()
             .Which.Limit.Should().Be(ResultLimit.StringLength);
         constraint.AllocatedBytes.Should().BeLessThan(1L << 20, "copying one value would allocate 2 MB");
+    }
+
+    /// <summary>
+    /// <see cref="Engine.ConvertResult"/> is an engine entry, so <c>LimitMemory</c> bounds it with no
+    /// <see cref="ResultLimits"/> at all — but its constraint cadence counts elements, and each element here is a
+    /// 256 KB copy of characters 64 values share. Each one is checked against what is left of the budget before
+    /// it is copied (sebastienros/jint#4175), so the conversion fails having copied about the budget, where it
+    /// used to copy all 16 MB and only then fail the entry's closing check.
+    /// </summary>
+    [TestCase("big.slice(i + 1)", TestName = "{m}(slice views)")]
+    [TestCase("rope + 'q'", TestName = "{m}(concatenations over one operand)")]
+    public void TheMemoryLimitAloneStopsConvertResultBeforeItCopiesSharedValuesPastTheBudget(string element)
+    {
+        var engine = CreateEngine();
+        var constraint = engine.Constraints.Find<MemoryLimitConstraint>()!;
+        var value = engine.Evaluate($$"""
+            var big = 'x'.repeat(1 << 17);
+            var rope = big + 'y';
+            var values = [];
+            for (var i = 0; i < 64; i++) { values.push({{element}}); }
+            values
+            """);
+
+        var failure = Caught.Exception(() => engine.ConvertResult(value, ResultLimits.Unlimited));
+
+        failure.Should().BeOfType<MemoryLimitExceededException>();
+        constraint.AllocatedBytes.Should().BeLessThan(2 * Budget, "copying all 64 values would allocate 16 MB");
+    }
+
+    /// <summary>
+    /// The other side of that check: it weighs a copy, never a value. Shared values that fit the budget are
+    /// copied out, and flat text the conversion hands back without copying is not weighed at all — here a 6 MB
+    /// host string, larger than the whole budget, returned three times by reference.
+    /// </summary>
+    [Test]
+    public void ConvertResultUnderTheMemoryLimitCopiesWhatFitsAndNeverWeighsFlatText()
+    {
+        var engine = CreateEngine();
+        var host = new string('h', 3_000_000);
+        engine.SetValue("host", host);
+        var value = engine.Evaluate("""
+            var big = 'x'.repeat(1 << 17);
+            [big.slice(1), big.slice(2), big + 'y', host, host, host]
+            """);
+
+        var result = engine.ConvertResult(value, ResultLimits.Unlimited);
+
+        var values = result.Should().BeOfType<object?[]>().Which;
+        values.Take(3).Select(v => ((string) v!).Length).Should().Equal((1 << 17) - 1, (1 << 17) - 2, (1 << 17) + 1);
+        values.Skip(3).Should().AllSatisfy(v => v.Should().BeSameAs(host));
     }
 
     /// <summary>

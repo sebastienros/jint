@@ -99,8 +99,9 @@ that was reached.
 
 Called without limits, `ConvertResult` uses `Options.ResultLimits`: unlimited by default, and
 `UntrustedCodeLimits.ResultLimits` (`ResultLimits.Conservative` unless changed) on an engine built with
-`ForUntrustedCode`. Unlimited, it still runs under `LimitMemory` like any engine entry, but a string is charged
-only after it has been copied.
+`ForUntrustedCode`. Unlimited, it still runs under `LimitMemory` like any engine entry, and it checks a slice
+view or a deferred `a + b` against what is left of the budget by its length before copying it: the 64 slices
+above fail with `MemoryLimitExceededException` once about 15 MB has been copied.
 
 ## Bound parsing and results
 

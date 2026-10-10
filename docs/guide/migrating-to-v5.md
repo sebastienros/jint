@@ -1830,7 +1830,9 @@ might notice:
   charged up to 1.5 times what 4.16 charged. A `+` whose result alone exceeds the whole budget throws
   `MemoryLimitExceededException` before the value exists, and `MemoryLimitConstraint.AllocatedBytes` counts
   characters charged but not yet allocated. A host copying out many values that share characters should read
-  them through `Engine.ConvertResult` under `ResultLimits`; `ToString()` and `ToObject()` are not bounded.
+  them through `Engine.ConvertResult` under `ResultLimits`, which also checks each such copy against the budget
+  before making it ([#4175](https://github.com/sebastienros/jint/issues/4175)); `ToString()` and `ToObject()`
+  are not bounded.
 ### 4.28 A read-only host collection refuses script with a JavaScript error ([#3382](https://github.com/sebastienros/jint/issues/3382))
 
 A wrapped collection that declares itself read-only — `ReadOnlyCollection<T>`, `ImmutableList<T>`,

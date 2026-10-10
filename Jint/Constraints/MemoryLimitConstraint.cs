@@ -47,7 +47,8 @@ public enum MemoryLimitAccuracy
 /// A long string concatenation that defers its copy is charged when it is built, for the characters it
 /// appends, and one whose result alone exceeds the limit fails at once. A host's <c>ToString()</c> or
 /// <c>ToObject()</c> on a result is not charged and copies every string in full, shared characters included;
-/// read an untrusted result through <see cref="Engine.ConvertResult"/> under <see cref="ResultLimits"/>.
+/// read an untrusted result through <see cref="Engine.ConvertResult"/> under <see cref="ResultLimits"/>, which
+/// also checks each such copy against this limit before making it.
 /// </para>
 /// </remarks>
 public sealed class MemoryLimitConstraint : Constraint
@@ -286,6 +287,35 @@ public sealed class MemoryLimitConstraint : Constraint
         }
 
         state.AllocatedBytes = SaturatingAdd(state.AllocatedBytes, length * sizeof(char));
+        Check();
+    }
+
+    /// <summary>
+    /// Refuses a copy of <paramref name="length"/> characters that the active operation is about to make,
+    /// before it is made, when the copy would take the operation past the limit (sebastienros/jint#4175).
+    /// </summary>
+    /// <remarks>
+    /// For a caller copying out text that many values share — a slice view, a deferred concatenation — one at a
+    /// time, under a constraint cadence that counts values rather than characters, so that the cadence's next
+    /// check could come thousands of copies later. A copy that fits is not charged here: the allocation counter
+    /// sees it once it is made. One that does not is charged in full and refused, as an over-long deferred
+    /// concatenation is.
+    /// </remarks>
+    internal void CheckBeforeCopying(int length)
+    {
+        var state = _activeState;
+        if (state is null || !state.Enabled)
+        {
+            return;
+        }
+
+        var bytes = length * (long) sizeof(char);
+        if (SaturatingAdd(GetUsage(state), bytes) <= _memoryLimit)
+        {
+            return;
+        }
+
+        state.AllocatedBytes = SaturatingAdd(state.AllocatedBytes, bytes);
         Check();
     }
 

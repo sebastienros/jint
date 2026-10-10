@@ -302,18 +302,35 @@ internal static class ResultConverter
         /// Checks a string against both character limits by its length, and only then copies it.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// A slice view, a deferred concatenation and a host's <see cref="LazyJsString"/> answer
         /// <see cref="JsString.Length"/> from a field, while <see cref="JsString.ToString()"/> on one of them
         /// copies every character, up to <see cref="JsString.MaxLength"/> of them. Checking after the copy
         /// would bound what the conversion returns, not what it allocates. What
         /// <see cref="ResultLimits.MaxOutputCharacters"/> counts is still the text that was copied, so a host
         /// string that materializes more than it declared cannot slip characters past the total.
+        /// </para>
+        /// <para>
+        /// The same length is checked against what is left of the memory limit before a slice view or a deferred
+        /// concatenation is copied, because those are the values that share characters: many of them cost the
+        /// script little and cost this conversion their whole length each, while <see cref="CheckConstraints"/>
+        /// sees the total only once every <see cref="Engine.ConstraintCheckInterval"/> values
+        /// (sebastienros/jint#4175). Flat text is handed back without a copy, so it is never weighed, and a
+        /// host's <see cref="LazyJsString"/> is the host's own allocation to account for.
+        /// </para>
         /// </remarks>
         private string ConvertString(JsString value)
         {
             var length = value.Length;
             CountStringLength(length);
             CheckOutputCharacters(length);
+
+            if (value._value is null
+                && value is JsString.SlicedString or JsString.RopeString
+                && _engine._memoryLimitConstraint is { } memoryLimit)
+            {
+                memoryLimit.CheckBeforeCopying(length);
+            }
 
             var text = value.ToString();
             _outputCharacters = CheckOutputCharacters(text.Length);
