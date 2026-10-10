@@ -658,8 +658,8 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         }
 
         // A present backing value is the flat text, so it is compared directly; only a subclass that
-        // has not materialized yet pays the virtual ToString(). See the note on GetHashCode for why
-        // reading the field here is safe and why the pattern must not be copied elsewhere.
+        // has not materialized yet pays the virtual ToString(). See the note on GetHashCode for the
+        // invariant that makes reading the field here safe.
         var value = _value;
         return string.Equals(value ?? ToString(), other.ToString(), StringComparison.Ordinal);
     }
@@ -683,12 +683,11 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     // ToString() needed (it hashes the content instead of throwing); a flat string hashes its field
     // directly, which is what every '===' and every Map/Set probe on a plain string pays for.
     //
-    // INVARIANT, and the reason this null-test may NOT be copied into other members: a dirty
-    // ConcatenatedString carries a non-null but STALE _value (the appends live in its StringBuilder
-    // until ToString() flushes them). Reading the field is correct here only because
-    // ConcatenatedString overrides every member that does so — ToString, Length, this[int],
-    // Equals(string), Equals(JsString) and GetHashCode — so these base bodies are unreachable for
-    // it. Any member ConcatenatedString does not override must keep routing through ToString().
+    // INVARIANT: every representation Jint builds keeps _value either null or the exact flat text —
+    // including ConcatenatedString, which drops its memo on each append rather than letting it go stale.
+    // That is what makes this null-test (and the one in Equals(JsString)) correct for all of them, and a
+    // new representation must keep it: a non-null value that is not the text would be returned as the
+    // text here, and by the plain loads its own ToString() relies on for thread safety.
     public override int GetHashCode()
     {
         var value = _value;
@@ -697,8 +696,16 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
     internal sealed class ConcatenatedString : JsString
     {
+        // Created by the first append (or presized by EnsureCapacity), and from then on the authoritative
+        // text; _value is its memo, and the memo is either null or the complete text, never a stale one. So
+        // the memo is the only field a read consults, and publishing it is one reference store. A dirty flag
+        // beside a stale memo would need its two stores ordered, which plain stores are not on a weakly
+        // ordered CPU: another thread could see the flag clear before the new text and return the value from
+        // before the appends (sebastienros/jint#4171). What this covers is first reads racing each other — a
+        // host reading one result from several threads while its engine is idle. A read racing an append is
+        // not covered and cannot be: appends happen on the engine's thread during an operation, and the
+        // builder is not safe to read while one is in progress.
         private StringBuilder? _stringBuilder;
-        private bool _dirty;
 
         internal ConcatenatedString(string value, int capacity = 0)
             : base(value, InternalTypes.String | InternalTypes.RequiresCloning)
@@ -713,15 +720,17 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             }
         }
 
-        public override string ToString()
-        {
-            if (_dirty)
-            {
-                _value = _stringBuilder!.ToString();
-                _dirty = false;
-            }
+        // A plain load on both sides, and no fence: storing a reference publishes the string's contents to
+        // whoever loads it, so a reader that finds a memo has the whole text, and one that finds none builds
+        // it from the builder itself. Two first reads racing each build and store the same text.
+        public override string ToString() => _value ?? Materialize();
 
-            return _value;
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private string Materialize()
+        {
+            var value = _stringBuilder!.ToString();
+            _value = value;
+            return value;
         }
 
         public override char this[int index] => _stringBuilder?[index] ?? _value[index];
@@ -741,8 +750,11 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
                 ThrowIfLengthExceeded(realm, (long) _stringBuilder.Length + value.Length);
             }
 
+            // The memo is dropped before the builder grows, so no failure between the two can leave a
+            // stale memo standing in front of text the builder already holds. Storing null needs no
+            // write barrier, so this costs what setting a flag did.
+            _value = null!;
             _stringBuilder.Append(value);
-            _dirty = true;
 
             return this;
         }
