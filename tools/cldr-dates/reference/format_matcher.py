@@ -536,7 +536,9 @@ DATES = [
 def render(ld, pattern, date):
     g = ld.g
     out = []
-    for tok in tokenize(pattern):
+    tokens = tokenize(pattern)
+    shows = {tok[1] for tok in tokens if tok[0] != 'lit'}
+    for tok in tokens:
         if tok[0] == 'lit':
             t = tok[1]
             if t.startswith("'"):
@@ -564,10 +566,9 @@ def render(ld, pattern, date):
         elif ch == 'd':
             out.append(('%02d' if ln == 2 else '%d') % date['day'])
         elif ch in 'ab':
-            w = {4: 'wide', 5: 'narrow'}.get(ln, 'abbreviated')
-            out.append(g['dayPeriods']['format'][w]['pm' if date['hour'] >= 12 else 'am'])
+            out.append(am_pm_day_period(ld, date, ln, ch == 'b' and shown_as_noon(date, shows)))
         elif ch == 'B':
-            out.append(flexible_day_period(ld, date['hour'], date['minute'], ln))
+            out.append(flexible_day_period(ld, date, ln, shows))
         elif ch == 'z':
             out.append(utc_zone_name(ld, ln))
         elif ch in 'hHkK':
@@ -606,26 +607,63 @@ def utc_zone_name(ld, length):
 _day_period_rules = None
 
 
-def flexible_day_period(ld, hour, minute, length):
-    """CLDR's flexible day period (B) for a time, as ICU picks it: the locale's dayPeriodRuleSet (the locale's own, then
-    its language's), the period whose [from, before) holds the time, named in the format context. Neither golden
-    instant is midnight or noon, so the 'at' rules never apply."""
+def day_period_rules(ld):
+    """The locale's dayPeriodRuleSet as ICU's DayPeriodRules::getInstance (dayperiodrules.cpp) finds it: the locale's
+    own, then each truncation of it, not its CLDR parent chain (zh-Hant has zh's, although its parent is the root). A
+    language with none has none, and ICU writes am/pm, which the root's rule set (am and pm only) writes too."""
     global _day_period_rules
     if _day_period_rules is None:
         _day_period_rules = json.load(open(os.path.join(ld.root, 'core', 'package', 'supplemental', 'dayPeriods.json'), encoding='utf-8'))['supplemental']['dayPeriodRuleSet']
-    rules = _day_period_rules.get(ld.locale) or _day_period_rules.get(ld.locale.split('-')[0]) or _day_period_rules['root']
-    minutes = hour * 60 + minute
+    name = ld.locale
+    while name not in _day_period_rules:
+        if '-' not in name:
+            return _day_period_rules['und']
+        name = name.rsplit('-', 1)[0]
+    return _day_period_rules[name]
+
+
+def shown_as_noon(date, shows):
+    """Whether a pattern writing the letters `shows` shows the time as exactly noon: ICU's SimpleDateFormat writes noon
+    only then, its minute and second zero where the pattern writes them (parsePattern's fHasMinute and fHasSecond)."""
+    return date['hour'] == 12 and ('m' not in shows or date['minute'] == 0) and ('s' not in shows or date['second'] == 0)
+
+
+def day_period_name(ld, width, period):
+    """A format-context day period of the width; ICU fills a missing wide or narrow one with the abbreviated one."""
+    names = ld.g['dayPeriods']['format']
+    return names[width].get(period) or names['abbreviated'].get(period)
+
+
+def am_pm_day_period(ld, date, length, noon=False):
+    """An a field; and a b field, which is the locale's noon for a time shown as exactly noon where it has one."""
+    width = {4: 'wide', 5: 'narrow'}.get(length, 'abbreviated')
+    if noon and day_period_name(ld, width, 'noon'):
+        return day_period_name(ld, width, 'noon')
+    return ld.g['dayPeriods']['format'][width]['pm' if date['hour'] >= 12 else 'am']
+
+
+def flexible_day_period(ld, date, length, shows):
+    """CLDR's flexible day period (B) as ICU's SimpleDateFormat writes it: noon where the locale's rules have it and the
+    pattern shows the time as exactly noon; otherwise the period whose [from, before) holds the hour (midnight is never
+    written); named in the format context, and am/pm in the same width where the period is am or pm or the locale has
+    no name for it."""
+    rules = day_period_rules(ld)
+    width = {4: 'wide', 5: 'narrow'}.get(length, 'abbreviated')
+    if 'noon' in rules and shown_as_noon(date, shows) and day_period_name(ld, width, 'noon'):
+        return day_period_name(ld, width, 'noon')
+    hour = date['hour']
     period = None
     for name, rule in rules.items():
         if '_from' not in rule:
             continue
-        start = int(rule['_from'][:2]) * 60 + int(rule['_from'][3:])
-        end = int(rule['_before'][:2]) * 60 + int(rule['_before'][3:])
-        if start <= minutes < end if start < end else (minutes >= start or minutes < end):
+        start = int(rule['_from'][:2])
+        end = int(rule['_before'][:2])
+        if start <= hour < end if start < end else (hour >= start or hour < end):
             period = name
             break
-    width = {4: 'wide', 5: 'narrow'}.get(length, 'abbreviated')
-    return ld.g['dayPeriods']['format'][width][period]
+    if period in (None, 'am', 'pm') or not day_period_name(ld, width, period):
+        return am_pm_day_period(ld, date, length)
+    return day_period_name(ld, width, period)
 
 
 # ---------------------------------------------------------------------------------------------------

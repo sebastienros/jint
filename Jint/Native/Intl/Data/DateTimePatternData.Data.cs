@@ -5,12 +5,13 @@
 // and the parent locales are common/supplemental/supplementalData.xml at release-48-2, SHA-256 cd2af39aef82fdbfba4d591c87548203350538ad2318486d104b3b38b8d62f1a.
 // DateTimePatterns.bin carries, for each of the 766 locales cldr-json has, the Gregorian calendar's availableFormats
 // (without the skeletons with a quarter or week field and the -count- and -alt- variants), dateTimeFormats and their atTime
-// variants, dateFormats, timeFormats, appendItems with the field display names they use, the month, weekday, era and
-// am/pm names, and the intervalFormats with their fallback. Every locale but the root stores only what differs from its
-// CLDR parent, and the records are deflated one block per language (323 blocks). tools/cldr-dates/README.md
-// describes the layout.
-//   DateTimePatterns.bin: 213655 bytes, SHA-256 341987176a39b5572aa70c003c46ff6788ebbcbb6e19fe85e5c9be2cb7c85a57
-//   inflated content: 746907 bytes, SHA-256 caff4828b113103301d5e39b54e9d68170d8de36da7d09117487f43740ef75ac
+// variants, dateFormats, timeFormats, appendItems with the field display names they use, the month, weekday, era,
+// am/pm and flexible day-period names, the intervalFormats with their fallback, and the day period rules of
+// cldr-core's supplemental/dayPeriods.json as ICU looks them up for the locale. Every locale but the root stores only
+// what differs from its CLDR parent, and the records are deflated one block per language (323 blocks).
+// tools/cldr-dates/README.md describes the layout.
+//   DateTimePatterns.bin: 219843 bytes, SHA-256 b0844bc8453db99894828c53a52e2524f23d9c7497f3f336dce27ee17a47d26a
+//   inflated content: 769985 bytes, SHA-256 09f9e4a27407f8ed88652688831ed4dc291aa12a4411ef4e01fd3f3cd9c7ef45
 // Unicode License v3 (CREDITS.txt). The data is CLDR's own: update it from a later release, not entry by entry.
 
 namespace Jint.Native.Intl.Data;
@@ -19,11 +20,11 @@ internal sealed partial class DateTimePatternData
 {
     internal const string CldrVersion = "48.2";
     internal const int LocaleCount = 766;
-    internal const int SlotCount = 179;
+    internal const int SlotCount = 207;
 
     /// <summary>
     /// The SHA-256 of the inflated index followed by every inflated block in order, which does not depend on the
     /// deflate encoder that wrote the resource.
     /// </summary>
-    internal const string PayloadSha256 = "caff4828b113103301d5e39b54e9d68170d8de36da7d09117487f43740ef75ac";
+    internal const string PayloadSha256 = "09f9e4a27407f8ed88652688831ed4dc291aa12a4411ef4e01fd3f3cd9c7ef45";
 }

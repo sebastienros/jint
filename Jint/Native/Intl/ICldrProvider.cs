@@ -144,8 +144,9 @@ public interface ICldrProvider
     /// embedded in the engine. This member's answer replaces them only where it differs from
     /// <see cref="DefaultCldrProvider.Instance"/>'s answer for the same arguments, so a provider that delegates this
     /// member, or derives from <see cref="DefaultCldrProvider"/> without overriding it, leaves the CLDR names in place.
-    /// The Chinese and Dangi calendars, and the <c>dayPeriod</c> option outside English, still write this member's
-    /// answer.
+    /// The <c>dayPeriod</c> option writes CLDR's flexible day periods, which this member does not replace, and its
+    /// answer only where the locale writes am/pm in their place. The Chinese and Dangi calendars still write this
+    /// member's answer.
     /// </remarks>
     string[]? GetDayPeriods(string locale, string style, string? calendar);
 

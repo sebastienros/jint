@@ -137,6 +137,9 @@ public class IntlDateTimePatternDataTests
         expected[DateTimePatternLocale.ErasStart].Should().Be("eras/eraAbbr/0");
         expected[DateTimePatternLocale.DayPeriodsStart].Should().Be("dayPeriods/format/abbreviated/am");
         expected[DateTimePatternLocale.IntervalFallbackSlot].Should().Be("dateTimeFormats/intervalFormats/intervalFormatFallback");
+        expected[DateTimePatternLocale.FlexibleDayPeriodsStart].Should().Be("dayPeriods/format/abbreviated/noon");
+        expected[DateTimePatternLocale.FlexibleDayPeriodsStart + DateTimePatternLocale.FlexibleDayPeriodCount].Should().Be("dayPeriods/format/wide/noon");
+        expected[DateTimePatternLocale.DayPeriodRulesSlot].Should().Be("supplemental/dayPeriodRuleSet");
     }
 
     /// <summary>
@@ -181,6 +184,12 @@ public class IntlDateTimePatternDataTests
         }
 
         expected.Add("dateTimeFormats/intervalFormats/intervalFormatFallback");
+        foreach (var width in new[] { "abbreviated", "wide", "narrow" })
+        {
+            expected.AddRange(new[] { "noon", "morning1", "afternoon1", "evening1", "night1", "morning2", "afternoon2", "evening2", "night2" }.Select(p => $"dayPeriods/format/{width}/{p}"));
+        }
+
+        expected.Add("supplemental/dayPeriodRuleSet");
         return expected;
     }
 
@@ -284,6 +293,81 @@ public class IntlDateTimePatternDataTests
         var root = Data.GetLocale("und");
         Invoking(() => { _ = root.GetMonthNames(DateTimeNameContext.Format, DateTimeNameWidth.Short); }).Should().Throw<ArgumentOutOfRangeException>();
         Invoking(() => { _ = root.GetEraNames(DateTimeNameWidth.Short); }).Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    /// The rules that pick a flexible day period for an hour are cldr-core's <c>dayPeriods.json</c>, looked up as ICU
+    /// looks them up, by truncation rather than along the CLDR parent chain: <c>zh-Hant</c>, whose parent is the root,
+    /// has <c>zh</c>'s, and <c>ga</c>, whose language has none, the root's am and pm. Each hour is the period's
+    /// position (1 morning1, 2 afternoon1, 3 evening1, 4 night1, 5 morning2, 6 afternoon2, 7 evening2, 8 night2), or
+    /// <c>a</c>/<c>p</c>. CLDR 48.2's English morning starts at midnight.
+    /// </summary>
+    [TestCase("en", "111111111111222222333444", true)]
+    [TestCase("en-GB", "111111111111222222333444", true)]
+    [TestCase("de", "444441111155266666333333", false)]
+    [TestCase("zh", "444441115555266666633333", false)]
+    [TestCase("zh-Hant", "444441115555266666633333", false)]
+    [TestCase("zh-Hant-HK", "444441115555266666633333", false)]
+    [TestCase("ja", "888811111111222233344448", true)]
+    [TestCase("es", "111111555555333333334444", true)]
+    [TestCase("es-CO", "555555555555333333334444", true)]
+    [TestCase("fr", "444411111111222222333333", true)]
+    [TestCase("ga", "aaaaaaaaaaaapppppppppppp", false)]
+    [TestCase("und", "aaaaaaaaaaaapppppppppppp", false)]
+    public void EachLocaleHasTheDayPeriodRulesIcuLooksUpForIt(string id, string hours, bool noon)
+    {
+        var locale = Data.GetLocale(id);
+        var actual = new StringBuilder();
+        for (var hour = 0; hour < 24; hour++)
+        {
+            var period = locale.GetFlexibleDayPeriod(hour);
+            actual.Append(period == 0 ? (hour < 12 ? 'a' : 'p') : (char) ('0' + period));
+        }
+
+        actual.ToString().Should().Be(hours);
+        locale.DayPeriodRulesHaveNoon.Should().Be(noon);
+    }
+
+    /// <summary>
+    /// The flexible day periods are CLDR's format-context names — <c>noon</c>, then <c>morning1</c> to <c>night2</c> —
+    /// and a period the locale has no name for is empty.
+    /// </summary>
+    [Test]
+    public void TheFlexibleDayPeriodsAreCldrsFormatNames()
+    {
+        var de = Data.GetLocale("de");
+        de.GetFlexibleDayPeriodNames(DateTimeNameWidth.Abbreviated).ToArray().Should().Equal("", "morgens", "mittags", "abends", "nachts", "vorm.", "nachm.", "", "");
+        de.GetFlexibleDayPeriodNames(DateTimeNameWidth.Wide).ToArray().Should().Equal("", "morgens", "mittags", "abends", "nachts", "vormittags", "nachmittags", "", "");
+        Data.GetLocale("zh-Hant").GetFlexibleDayPeriodNames(DateTimeNameWidth.Abbreviated).ToArray()
+            .Should().Equal("", "清晨", "中午", "晚上", "凌晨", "上午", "下午", "", "");
+        Data.GetLocale("en").GetFlexibleDayPeriodNames(DateTimeNameWidth.Narrow).ToArray()
+            .Should().Equal("n", "in the morning", "in the afternoon", "in the evening", "at night", "", "", "", "");
+        Data.GetLocale("und").GetFlexibleDayPeriodNames(DateTimeNameWidth.Wide).ToArray().Should().OnlyContain(n => n.Length == 0);
+    }
+
+    /// <summary>
+    /// Every locale's rules put every hour in a period or in am/pm, and nearly every period they name is one the
+    /// locale has a name for; where it has none, the hour is written as am or pm, as ICU writes it.
+    /// </summary>
+    [Test]
+    public void EveryLocaleHasDayPeriodRulesForEveryHour()
+    {
+        var problems = new List<string>();
+        foreach (var id in Data.Locales)
+        {
+            var locale = Data.GetLocale(id);
+            for (var hour = 0; hour < 24; hour++)
+            {
+                var period = locale.GetFlexibleDayPeriod(hour);
+                if (period is < 0 or > 8)
+                {
+                    problems.Add($"{id}: {hour}:00 is in period {period}");
+                }
+            }
+        }
+
+        problems.Should().BeEmpty();
+        Invoking(() => Data.GetLocale("en").GetFlexibleDayPeriod(24)).Should().Throw<ArgumentOutOfRangeException>();
     }
 
     /// <summary>

@@ -6165,6 +6165,40 @@ keeping them still works. A host that registered `ObserveCancellation` for the s
 still running to completion. There is no switch to restore that; pass `CancellationToken.None` for the work that
 must finish and observe your token yourself.
 
+### 4.152 `Intl.DateTimeFormat` writes the flexible day period from CLDR in every locale ([#4205](https://github.com/sebastienros/jint/issues/4205))
+
+The `dayPeriod` option (`'narrow'`, `'short'`, `'long'`), and any CLDR pattern with a flexible day period (`B`), had
+English names and hours only; every other locale wrote .NET's am/pm instead. They now come from CLDR 48.2's day period
+rules and each locale's names, as ICU writes them, including the time patterns of `zh-Hant`, which use them:
+
+```js
+const f = (locale, options, hour, minute = 0) =>
+  new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options }).format(Date.UTC(2022, 11, 24, hour, minute));
+
+//                                                                          4.16.x / earlier 5.0   5.x
+f('zh-Hant', { timeStyle: 'short' }, 6, 5);                              // "上午6:05"      "清晨6:05"
+f('zh-Hant', { timeStyle: 'short' }, 19, 45);                            // "下午7:45"      "晚上7:45"
+f('de', { dayPeriod: 'long' }, 10);                                      // "AM"            "vormittags"
+f('fr', { dayPeriod: 'long' }, 15);                                      // "PM"            "de l’après-midi"
+f('ja', { hour: 'numeric', dayPeriod: 'short', hour12: true }, 23);      // "午後11時"      "夜中11時"
+f('en', { hour: 'numeric', dayPeriod: 'short' }, 3);                     // "3 at night"    "3 in the morning"
+f('en', { hour: 'numeric', minute: 'numeric', dayPeriod: 'short' }, 12, 30); // "12:30 noon" "12:30 in the afternoon"
+```
+
+**What could break:**
+
+- **The text of a `dayPeriod`** in every locale but English, and of the `zh-Hant` times CLDR writes with one: its
+  `timeStyle`s and the hour ranges of `zh-Hant` and its regions (`清晨6:05至晚上7:30`). `formatToParts()` changes the
+  same way.
+- **English follows CLDR 48.2**, whose morning starts at midnight (`12 in the morning`, `3 in the morning`, where the
+  old table wrote `at night` until 6:00), and **noon is written only for a time shown as exactly 12:00**: an hour alone
+  at 12:30 is `12 noon`, an hour and minute is `12:30 in the afternoon`. Midnight is never written, as in ICU.
+- **A locale without day period rules**, or without a name for the period, writes CLDR's am/pm in the field's width,
+  where it wrote .NET's; an `ICldrProvider` whose `GetDayPeriods` differs from the default's still replaces that am/pm,
+  but has no say over the flexible day periods themselves.
+
+There is no switch back; a script that wants am/pm asks for `hour12: true` without `dayPeriod`.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
