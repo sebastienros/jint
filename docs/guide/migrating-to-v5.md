@@ -5902,8 +5902,8 @@ f('en', { weekday: 'short', hour: 'numeric', minute: 'numeric' }); // "Sat, 3:07
 - `formatMatcher: 'basic'` is still accepted and still answered by the best-fit matcher; V8 does the same.
 
 Not changed here: `dateStyle` and `timeStyle` (they moved onto CLDR too, in 4.144), the Chinese and Dangi calendars'
-lane, and the other non-Gregorian calendars, which were and are written in the Gregorian patterns with their own year,
-month and day. The fractional-second separator is still the numbering system's (`.` for Latin digits) where ICU writes
+lane, and the other non-Gregorian calendars, which were written in the Gregorian patterns with their own year, month
+and day until 4.154 gave them their own. The fractional-second separator is still the numbering system's (`.` for Latin digits) where ICU writes
 the locale's decimal separator (`,` in `de`).
 
 There is no switch back. A script that parses a formatted date should use `formatToParts()`; a host that needs
@@ -6022,8 +6022,8 @@ f('ja', { dateStyle: 'long', timeStyle: 'long', hour12: true });     // "2022年
 Not changed: `resolvedOptions()` of a style reports `dateStyle`, `timeStyle` and, beside a time, the hour cycle, never
 the fields of the pattern, as [the specification](https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions)
 says. A zone is still named in English in every locale (`Coordinated Universal Time` where ICU writes `Koordinierte
-Weltzeit`). The Chinese and Dangi calendars keep their lane, and the other non-Gregorian calendars are written in the
-Gregorian patterns (a `buddhist` date has no `BE`) until a later step of #4158.
+Weltzeit`). The Chinese and Dangi calendars keep their lane, and the other non-Gregorian calendars were written in the
+Gregorian patterns (a `buddhist` date had no `BE`) until 4.154.
 
 ### 4.145 `ICldrProvider` answers the hour cycles and calendars `Intl.Locale` lists ([#4178](https://github.com/sebastienros/jint/issues/4178))
 
@@ -6249,6 +6249,47 @@ range('en', { month: 'short', day: 'numeric' }, '2022-12-24', '2022-12-27'); // 
 
 Not changed: U+202F, which CLDR writes before a day period, is still U+0020 in a range, as in every lane; V8 keeps it in
 `formatRange()` and `formatRangeToParts()` and replaces it only in `format()`.
+
+### 4.154 `Intl.DateTimeFormat` writes the other calendars with their own CLDR patterns, months and eras ([#4204](https://github.com/sebastienros/jint/issues/4204))
+
+A formatter whose calendar is `buddhist`, `japanese`, `roc`, `hebrew`, `persian`, `indian`, `coptic`, `ethiopic`,
+`ethioaa` or one of the Islamic calendars wrote that calendar's year, month and day into the locale's Gregorian
+pattern, with no era and with month numbers where CLDR has names. It now writes each calendar the way ICU does: the
+calendar's own CLDR 48.2 `availableFormats`, `dateFormats`, `intervalFormats`, month names and eras, matched by the same
+format matcher (4.142), styles (4.144) and range patterns (4.143). The output is what V8 writes:
+
+```js
+const date = new Date(Date.UTC(2022, 11, 24, 15, 7, 9));
+const f = (locale, options) => new Intl.DateTimeFormat(locale, { timeZone: 'UTC', numberingSystem: 'latn', ...options }).format(date);
+
+//                                                   4.16.x / earlier 5.0       5.x
+f('en-u-ca-buddhist', {});                        // "12/24/2565"               "12/24/2565 BE"
+f('ja-u-ca-japanese', { dateStyle: 'long' });     // "4年12月24日"                "令和4年12月24日"
+f('en-u-ca-hebrew', {});                          // "3/30/5783"                "30 Kislev 5783"
+f('fa-u-ca-persian', { month: 'long' });          // "10"                       "دی"
+f('en-u-ca-islamic-civil', { dateStyle: 'long' }); // "5 30, 1444"              "Jumada I 30, 1444 AH"
+```
+
+**What could break:**
+
+- **The text of any date in these calendars**, in any locale: an era where there was none (a Buddhist, Japanese, Republic
+  of China, Persian, Indian, Coptic, Ethiopic or Islamic numeric date gains one, `M/d/y G`), the calendar's month names
+  where the month number was written (a Hebrew leap year's `Adar I` and `Adar II` included), and the calendar's field
+  order and punctuation. `formatToParts()` and `formatRange()` change the same way, and so do
+  `Date.prototype.toLocaleString` and Temporal's `toLocaleString` in these calendars.
+- **`resolvedOptions()`** reports the era the calendar's pattern writes (`era: 'narrow'` for `en-u-ca-buddhist` with no
+  options), as [the specification](https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions)
+  requires; V8 leaves out an era written with a single `G`.
+- **An `ICldrProvider`'s era names** no longer reach these calendars, which write CLDR's; its month names for a
+  calendar counting months of its own still win where it answers for that calendar, indexed as before by the
+  calendar's month number.
+- **A short era is matched as `GGG`**, as V8 asks for it, so an `availableFormats` entry whose skeleton names one `G` no
+  longer writes a wider era than the one asked for (`ja-u-ca-buddhist` `{ era: 'short', year: 'numeric' }` writes
+  `BE2566年`, not `仏暦2566年`). Gregorian output is unchanged.
+
+Not changed: `gregory` and `iso8601`, the Chinese and Dangi calendars' lane, and a Japanese date before Meiji, which
+is written in its Gregorian year with the Gregorian era where ICU writes one of the 232 earlier eras (`1850 AD` for
+`Kaei 3`). Hebrew dates in `he` and `yi`, which CLDR writes in Hebrew numerals, are written in the formatter's digits.
 
 ## 5. New in v5
 

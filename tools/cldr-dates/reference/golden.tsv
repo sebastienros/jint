@@ -16,7 +16,7 @@ ar	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd\u200f/MM\u20
 ar	MMMM	{"month":"long"}	LLLL	\u062f\u064a\u0633\u0645\u0628\u0631	\u0645\u0627\u0631\u0633	month=long	
 ar	EEEE	{"weekday":"long"}	cccc	\u0627\u0644\u0633\u0628\u062a	\u0627\u0644\u0627\u062b\u0646\u064a\u0646	weekday=long	
 ar	d	{"day":"numeric"}	d	24	6	day=numeric	
-ar	G_y	{"era":"short","year":"numeric"}	y G	2022 \u0645	2023 \u0645	era=short,year=numeric	
+ar	G_y	{"era":"short","year":"numeric"}	y GGG	2022 \u0645	2023 \u0645	era=short,year=numeric	
 ar	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 \u062f\u064a\u0633\u0645\u0628\u0631 2022 \u0645\u064a\u0644\u0627\u062f\u064a	6 \u0645\u0627\u0631\u0633 2023 \u0645\u064a\u0644\u0627\u062f\u064a	era=long,year=numeric,month=long,day=numeric	
 ar	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm a	3:07 \u0645	9:04 \u0635	hour=numeric,minute=2-digit,hourCycle=h12	
 ar	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -41,7 +41,7 @@ bg	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy\u202f'
 bg	MMMM	{"month":"long"}	LLLL	\u0434\u0435\u043a\u0435\u043c\u0432\u0440\u0438	\u043c\u0430\u0440\u0442	month=long	
 bg	EEEE	{"weekday":"long"}	cccc	\u0441\u044a\u0431\u043e\u0442\u0430	\u043f\u043e\u043d\u0435\u0434\u0435\u043b\u043d\u0438\u043a	weekday=long	
 bg	d	{"day":"numeric"}	d	24	6	day=numeric	
-bg	G_y	{"era":"short","year":"numeric"}	y\u202f'\u0433'. G	2022 \u0433. \u0441\u043b.\u0425\u0440.	2023 \u0433. \u0441\u043b.\u0425\u0440.	era=short,year=numeric	
+bg	G_y	{"era":"short","year":"numeric"}	y\u202f'\u0433'. GGG	2022 \u0433. \u0441\u043b.\u0425\u0440.	2023 \u0433. \u0441\u043b.\u0425\u0440.	era=short,year=numeric	
 bg	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y\u202f'\u0433'. GGGG	24 \u0434\u0435\u043a\u0435\u043c\u0432\u0440\u0438 2022 \u0433. \u0441\u043b\u0435\u0434 \u0425\u0440\u0438\u0441\u0442\u0430	6 \u043c\u0430\u0440\u0442 2023 \u0433. \u0441\u043b\u0435\u0434 \u0425\u0440\u0438\u0441\u0442\u0430	era=long,year=numeric,month=long,day=numeric	
 bg	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 bg	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -66,7 +66,7 @@ bn	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 bn	MMMM	{"month":"long"}	LLLL	\u09a1\u09bf\u09b8\u09c7\u09ae\u09cd\u09ac\u09b0	\u09ae\u09be\u09b0\u09cd\u099a	month=long	
 bn	EEEE	{"weekday":"long"}	cccc	\u09b6\u09a8\u09bf\u09ac\u09be\u09b0	\u09b8\u09cb\u09ae\u09ac\u09be\u09b0	weekday=long	
 bn	d	{"day":"numeric"}	d	24	6	day=numeric	
-bn	G_y	{"era":"short","year":"numeric"}	y G	2022 \u0996\u09c3\u09b7\u09cd\u099f\u09be\u09ac\u09cd\u09a6	2023 \u0996\u09c3\u09b7\u09cd\u099f\u09be\u09ac\u09cd\u09a6	era=short,year=numeric	
+bn	G_y	{"era":"short","year":"numeric"}	y GGG	2022 \u0996\u09c3\u09b7\u09cd\u099f\u09be\u09ac\u09cd\u09a6	2023 \u0996\u09c3\u09b7\u09cd\u099f\u09be\u09ac\u09cd\u09a6	era=short,year=numeric	
 bn	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM, y GGGG	24 \u09a1\u09bf\u09b8\u09c7\u09ae\u09cd\u09ac\u09b0, 2022 \u0996\u09cd\u09b0\u09bf\u09b8\u09cd\u099f\u09be\u09ac\u09cd\u09a6	6 \u09ae\u09be\u09b0\u09cd\u099a, 2023 \u0996\u09cd\u09b0\u09bf\u09b8\u09cd\u099f\u09be\u09ac\u09cd\u09a6	era=long,year=numeric,month=long,day=numeric	
 bn	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm a	3:07 PM	9:04 AM	hour=numeric,minute=2-digit,hourCycle=h12	
 bn	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -91,7 +91,7 @@ ca	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 ca	MMMM	{"month":"long"}	LLLL	desembre	mar\u00e7	month=long	
 ca	EEEE	{"weekday":"long"}	cccc	dissabte	dilluns	weekday=long	
 ca	d	{"day":"numeric"}	d	24	6	day=numeric	
-ca	G_y	{"era":"short","year":"numeric"}	y G	2022 dC	2023 dC	era=short,year=numeric	
+ca	G_y	{"era":"short","year":"numeric"}	y GGG	2022 dC	2023 dC	era=short,year=numeric	
 ca	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM 'del' y GGGG	24 de desembre del 2022 despr\u00e9s de Crist	6 de mar\u00e7 del 2023 despr\u00e9s de Crist	era=long,year=numeric,month=long,day=numeric	
 ca	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 ca	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -116,7 +116,7 @@ cs	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd. MM. yy	24. 
 cs	MMMM	{"month":"long"}	LLLL	prosinec	b\u0159ezen	month=long	
 cs	EEEE	{"weekday":"long"}	cccc	sobota	pond\u011bl\u00ed	weekday=long	
 cs	d	{"day":"numeric"}	d.	24.	6.	day=numeric	
-cs	G_y	{"era":"short","year":"numeric"}	y G	2022 n. l.	2023 n. l.	era=short,year=numeric	
+cs	G_y	{"era":"short","year":"numeric"}	y GGG	2022 n. l.	2023 n. l.	era=short,year=numeric	
 cs	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d. MMMM y GGGG	24. prosince 2022 na\u0161eho letopo\u010dtu	6. b\u0159ezna 2023 na\u0161eho letopo\u010dtu	era=long,year=numeric,month=long,day=numeric	
 cs	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 cs	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -141,7 +141,7 @@ da	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 da	MMMM	{"month":"long"}	MMMM	december	marts	month=long	
 da	EEEE	{"weekday":"long"}	cccc	l\u00f8rdag	mandag	weekday=long	
 da	d	{"day":"numeric"}	d.	24.	6.	day=numeric	
-da	G_y	{"era":"short","year":"numeric"}	y G	2022 e.Kr.	2023 e.Kr.	era=short,year=numeric	
+da	G_y	{"era":"short","year":"numeric"}	y GGG	2022 e.Kr.	2023 e.Kr.	era=short,year=numeric	
 da	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d. MMMM y GGGG	24. december 2022 efter Kristus	6. marts 2023 efter Kristus	era=long,year=numeric,month=long,day=numeric	
 da	j_mm	{"hour":"numeric","minute":"2-digit"}	H.mm	15.07	9.04	hour=numeric,minute=2-digit,hourCycle=h23	
 da	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H.mm	15.07	9.04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -166,7 +166,7 @@ de	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 de	MMMM	{"month":"long"}	LLLL	Dezember	M\u00e4rz	month=long	
 de	EEEE	{"weekday":"long"}	cccc	Samstag	Montag	weekday=long	
 de	d	{"day":"numeric"}	d	24	6	day=numeric	
-de	G_y	{"era":"short","year":"numeric"}	y G	2022 n. Chr.	2023 n. Chr.	era=short,year=numeric	
+de	G_y	{"era":"short","year":"numeric"}	y GGG	2022 n. Chr.	2023 n. Chr.	era=short,year=numeric	
 de	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d. MMMM y GGGG	24. Dezember 2022 n. Chr.	6. M\u00e4rz 2023 n. Chr.	era=long,year=numeric,month=long,day=numeric	
 de	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 de	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -191,7 +191,7 @@ el	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 el	MMMM	{"month":"long"}	MMMM	\u0394\u03b5\u03ba\u03b5\u03bc\u03b2\u03c1\u03af\u03bf\u03c5	\u039c\u03b1\u03c1\u03c4\u03af\u03bf\u03c5	month=long	
 el	EEEE	{"weekday":"long"}	cccc	\u03a3\u03ac\u03b2\u03b2\u03b1\u03c4\u03bf	\u0394\u03b5\u03c5\u03c4\u03ad\u03c1\u03b1	weekday=long	
 el	d	{"day":"numeric"}	d	24	6	day=numeric	
-el	G_y	{"era":"short","year":"numeric"}	y G	2022 \u03bc.\u03a7.	2023 \u03bc.\u03a7.	era=short,year=numeric	
+el	G_y	{"era":"short","year":"numeric"}	y GGG	2022 \u03bc.\u03a7.	2023 \u03bc.\u03a7.	era=short,year=numeric	
 el	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 \u0394\u03b5\u03ba\u03b5\u03bc\u03b2\u03c1\u03af\u03bf\u03c5 2022 \u03bc\u03b5\u03c4\u03ac \u03a7\u03c1\u03b9\u03c3\u03c4\u03cc\u03bd	6 \u039c\u03b1\u03c1\u03c4\u03af\u03bf\u03c5 2023 \u03bc\u03b5\u03c4\u03ac \u03a7\u03c1\u03b9\u03c3\u03c4\u03cc\u03bd	era=long,year=numeric,month=long,day=numeric	
 el	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm\u202fa	3:07 \u03bc.\u03bc.	9:04 \u03c0.\u03bc.	hour=numeric,minute=2-digit,hourCycle=h12	
 el	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -216,7 +216,7 @@ en	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	MM/dd/yy	12/24/
 en	MMMM	{"month":"long"}	LLLL	December	March	month=long	
 en	EEEE	{"weekday":"long"}	cccc	Saturday	Monday	weekday=long	
 en	d	{"day":"numeric"}	d	24	6	day=numeric	
-en	G_y	{"era":"short","year":"numeric"}	y G	2022 AD	2023 AD	era=short,year=numeric	
+en	G_y	{"era":"short","year":"numeric"}	y GGG	2022 AD	2023 AD	era=short,year=numeric	
 en	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	MMMM d, y GGGG	December 24, 2022 Anno Domini	March 6, 2023 Anno Domini	era=long,year=numeric,month=long,day=numeric	
 en	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm\u202fa	3:07 PM	9:04 AM	hour=numeric,minute=2-digit,hourCycle=h12	
 en	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -241,7 +241,7 @@ en-AU	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/
 en-AU	MMMM	{"month":"long"}	LLLL	December	March	month=long	
 en-AU	EEEE	{"weekday":"long"}	cccc	Saturday	Monday	weekday=long	
 en-AU	d	{"day":"numeric"}	d	24	6	day=numeric	
-en-AU	G_y	{"era":"short","year":"numeric"}	y G	2022 AD	2023 AD	era=short,year=numeric	
+en-AU	G_y	{"era":"short","year":"numeric"}	y GGG	2022 AD	2023 AD	era=short,year=numeric	
 en-AU	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 December 2022 Anno Domini	6 March 2023 Anno Domini	era=long,year=numeric,month=long,day=numeric	
 en-AU	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm\u202fa	3:07 pm	9:04 am	hour=numeric,minute=2-digit,hourCycle=h12	
 en-AU	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -266,7 +266,7 @@ en-GB	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/
 en-GB	MMMM	{"month":"long"}	LLLL	December	March	month=long	
 en-GB	EEEE	{"weekday":"long"}	cccc	Saturday	Monday	weekday=long	
 en-GB	d	{"day":"numeric"}	d	24	6	day=numeric	
-en-GB	G_y	{"era":"short","year":"numeric"}	y G	2022 AD	2023 AD	era=short,year=numeric	
+en-GB	G_y	{"era":"short","year":"numeric"}	y GGG	2022 AD	2023 AD	era=short,year=numeric	
 en-GB	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 December 2022 Anno Domini	6 March 2023 Anno Domini	era=long,year=numeric,month=long,day=numeric	
 en-GB	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 en-GB	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -291,7 +291,7 @@ en-IN	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/
 en-IN	MMMM	{"month":"long"}	LLLL	December	March	month=long	
 en-IN	EEEE	{"weekday":"long"}	cccc	Saturday	Monday	weekday=long	
 en-IN	d	{"day":"numeric"}	d	24	6	day=numeric	
-en-IN	G_y	{"era":"short","year":"numeric"}	y G	2022 AD	2023 AD	era=short,year=numeric	
+en-IN	G_y	{"era":"short","year":"numeric"}	y GGG	2022 AD	2023 AD	era=short,year=numeric	
 en-IN	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 December 2022 Anno Domini	6 March 2023 Anno Domini	era=long,year=numeric,month=long,day=numeric	
 en-IN	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm\u202fa	3:07 pm	9:04 am	hour=numeric,minute=2-digit,hourCycle=h12	
 en-IN	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -316,7 +316,7 @@ es	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 es	MMMM	{"month":"long"}	LLLL	diciembre	marzo	month=long	
 es	EEEE	{"weekday":"long"}	cccc	s\u00e1bado	lunes	weekday=long	
 es	d	{"day":"numeric"}	d	24	6	day=numeric	
-es	G_y	{"era":"short","year":"numeric"}	y G	2022 d. C.	2023 d. C.	era=short,year=numeric	
+es	G_y	{"era":"short","year":"numeric"}	y GGG	2022 d. C.	2023 d. C.	era=short,year=numeric	
 es	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d 'de' MMMM 'de' y GGGG	24 de diciembre de 2022 despu\u00e9s de Cristo	6 de marzo de 2023 despu\u00e9s de Cristo	era=long,year=numeric,month=long,day=numeric	
 es	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 es	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -341,7 +341,7 @@ es-MX	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/
 es-MX	MMMM	{"month":"long"}	LLLL	diciembre	marzo	month=long	
 es-MX	EEEE	{"weekday":"long"}	cccc	s\u00e1bado	lunes	weekday=long	
 es-MX	d	{"day":"numeric"}	d	24	6	day=numeric	
-es-MX	G_y	{"era":"short","year":"numeric"}	y G	2022 d.C.	2023 d.C.	era=short,year=numeric	
+es-MX	G_y	{"era":"short","year":"numeric"}	y GGG	2022 d.C.	2023 d.C.	era=short,year=numeric	
 es-MX	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d 'de' MMMM 'de' y GGGG	24 de diciembre de 2022 despu\u00e9s de Cristo	6 de marzo de 2023 despu\u00e9s de Cristo	era=long,year=numeric,month=long,day=numeric	
 es-MX	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm\u202fa	3:07 p.m.	9:04 a.m.	hour=numeric,minute=2-digit,hourCycle=h12	
 es-MX	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -366,7 +366,7 @@ et	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 et	MMMM	{"month":"long"}	MMMM	detsember	m\u00e4rts	month=long	
 et	EEEE	{"weekday":"long"}	cccc	laup\u00e4ev	esmasp\u00e4ev	weekday=long	
 et	d	{"day":"numeric"}	d	24	6	day=numeric	
-et	G_y	{"era":"short","year":"numeric"}	y G	2022 pKr	2023 pKr	era=short,year=numeric	
+et	G_y	{"era":"short","year":"numeric"}	y GGG	2022 pKr	2023 pKr	era=short,year=numeric	
 et	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d. MMMM y GGGG	24. detsember 2022 p\u00e4rast Kristust	6. m\u00e4rts 2023 p\u00e4rast Kristust	era=long,year=numeric,month=long,day=numeric	
 et	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 et	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -391,7 +391,7 @@ fa	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	yy/MM/dd	22/12/
 fa	MMMM	{"month":"long"}	LLLL	\u062f\u0633\u0627\u0645\u0628\u0631	\u0645\u0627\u0631\u0633	month=long	
 fa	EEEE	{"weekday":"long"}	cccc	\u0634\u0646\u0628\u0647	\u062f\u0648\u0634\u0646\u0628\u0647	weekday=long	
 fa	d	{"day":"numeric"}	d	24	6	day=numeric	
-fa	G_y	{"era":"short","year":"numeric"}	y G	2022 \u0645.	2023 \u0645.	era=short,year=numeric	
+fa	G_y	{"era":"short","year":"numeric"}	y GGG	2022 \u0645.	2023 \u0645.	era=short,year=numeric	
 fa	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 \u062f\u0633\u0627\u0645\u0628\u0631 2022 \u0645\u06cc\u0644\u0627\u062f\u06cc	6 \u0645\u0627\u0631\u0633 2023 \u0645\u06cc\u0644\u0627\u062f\u06cc	era=long,year=numeric,month=long,day=numeric	
 fa	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 fa	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -416,7 +416,7 @@ fi	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 fi	MMMM	{"month":"long"}	LLLL	joulukuu	maaliskuu	month=long	
 fi	EEEE	{"weekday":"long"}	cccc	lauantai	maanantai	weekday=long	
 fi	d	{"day":"numeric"}	d	24	6	day=numeric	
-fi	G_y	{"era":"short","year":"numeric"}	y G	2022 jKr.	2023 jKr.	era=short,year=numeric	
+fi	G_y	{"era":"short","year":"numeric"}	y GGG	2022 jKr.	2023 jKr.	era=short,year=numeric	
 fi	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d. MMMM y GGGG	24. joulukuuta 2022 j\u00e4lkeen Kristuksen syntym\u00e4n	6. maaliskuuta 2023 j\u00e4lkeen Kristuksen syntym\u00e4n	era=long,year=numeric,month=long,day=numeric	
 fi	j_mm	{"hour":"numeric","minute":"2-digit"}	H.mm	15.07	9.04	hour=numeric,minute=2-digit,hourCycle=h23	
 fi	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H.mm	15.07	9.04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -441,7 +441,7 @@ fil	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	MM/dd/yy	12/24
 fil	MMMM	{"month":"long"}	LLLL	Disyembre	Marso	month=long	
 fil	EEEE	{"weekday":"long"}	cccc	Sabado	Lunes	weekday=long	
 fil	d	{"day":"numeric"}	d	24	6	day=numeric	
-fil	G_y	{"era":"short","year":"numeric"}	y G	2022 AD	2023 AD	era=short,year=numeric	
+fil	G_y	{"era":"short","year":"numeric"}	y GGG	2022 AD	2023 AD	era=short,year=numeric	
 fil	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	MMMM d, y GGGG	Disyembre 24, 2022 Anno Domini	Marso 6, 2023 Anno Domini	era=long,year=numeric,month=long,day=numeric	
 fil	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm\u202fa	3:07 PM	9:04 AM	hour=numeric,minute=2-digit,hourCycle=h12	
 fil	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -466,7 +466,7 @@ fr	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 fr	MMMM	{"month":"long"}	LLLL	d\u00e9cembre	mars	month=long	
 fr	EEEE	{"weekday":"long"}	EEEE	samedi	lundi	weekday=long	
 fr	d	{"day":"numeric"}	d	24	6	day=numeric	
-fr	G_y	{"era":"short","year":"numeric"}	y G	2022 ap. J.-C.	2023 ap. J.-C.	era=short,year=numeric	
+fr	G_y	{"era":"short","year":"numeric"}	y GGG	2022 ap. J.-C.	2023 ap. J.-C.	era=short,year=numeric	
 fr	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 d\u00e9cembre 2022 apr\u00e8s J\u00e9sus-Christ	6 mars 2023 apr\u00e8s J\u00e9sus-Christ	era=long,year=numeric,month=long,day=numeric	
 fr	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 fr	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -491,7 +491,7 @@ fr-CA	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	yy-MM-dd	22-
 fr-CA	MMMM	{"month":"long"}	LLLL	d\u00e9cembre	mars	month=long	
 fr-CA	EEEE	{"weekday":"long"}	EEEE	samedi	lundi	weekday=long	
 fr-CA	d	{"day":"numeric"}	d	24	6	day=numeric	
-fr-CA	G_y	{"era":"short","year":"numeric"}	y G	2022 ap. J.-C.	2023 ap. J.-C.	era=short,year=numeric	
+fr-CA	G_y	{"era":"short","year":"numeric"}	y GGG	2022 ap. J.-C.	2023 ap. J.-C.	era=short,year=numeric	
 fr-CA	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 d\u00e9cembre 2022 apr\u00e8s J\u00e9sus-Christ	6 mars 2023 apr\u00e8s J\u00e9sus-Christ	era=long,year=numeric,month=long,day=numeric	
 fr-CA	j_mm	{"hour":"numeric","minute":"2-digit"}	H 'h' mm	15 h 07	9 h 04	hour=numeric,minute=2-digit,hourCycle=h23	
 fr-CA	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H 'h' mm	15 h 07	9 h 04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -516,7 +516,7 @@ he	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 he	MMMM	{"month":"long"}	LLLL	\u05d3\u05e6\u05de\u05d1\u05e8	\u05de\u05e8\u05e5	month=long	
 he	EEEE	{"weekday":"long"}	cccc	\u05d9\u05d5\u05dd \u05e9\u05d1\u05ea	\u05d9\u05d5\u05dd \u05e9\u05e0\u05d9	weekday=long	
 he	d	{"day":"numeric"}	d	24	6	day=numeric	
-he	G_y	{"era":"short","year":"numeric"}	y G	2022 \u05dc\u05e1\u05e4\u05d9\u05e8\u05d4	2023 \u05dc\u05e1\u05e4\u05d9\u05e8\u05d4	era=short,year=numeric	
+he	G_y	{"era":"short","year":"numeric"}	y GGG	2022 \u05dc\u05e1\u05e4\u05d9\u05e8\u05d4	2023 \u05dc\u05e1\u05e4\u05d9\u05e8\u05d4	era=short,year=numeric	
 he	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d \u05d1MMMM y GGGG	24 \u05d1\u05d3\u05e6\u05de\u05d1\u05e8 2022 \u05dc\u05e1\u05e4\u05d9\u05e8\u05d4	6 \u05d1\u05de\u05e8\u05e5 2023 \u05dc\u05e1\u05e4\u05d9\u05e8\u05d4	era=long,year=numeric,month=long,day=numeric	
 he	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 he	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -541,7 +541,7 @@ hi	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 hi	MMMM	{"month":"long"}	LLLL	\u0926\u093f\u0938\u0902\u092c\u0930	\u092e\u093e\u0930\u094d\u091a	month=long	
 hi	EEEE	{"weekday":"long"}	cccc	\u0936\u0928\u093f\u0935\u093e\u0930	\u0938\u094b\u092e\u0935\u093e\u0930	weekday=long	
 hi	d	{"day":"numeric"}	d	24	6	day=numeric	
-hi	G_y	{"era":"short","year":"numeric"}	y G	2022 \u0908\u0938\u094d\u0935\u0940	2023 \u0908\u0938\u094d\u0935\u0940	era=short,year=numeric	
+hi	G_y	{"era":"short","year":"numeric"}	y GGG	2022 \u0908\u0938\u094d\u0935\u0940	2023 \u0908\u0938\u094d\u0935\u0940	era=short,year=numeric	
 hi	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 \u0926\u093f\u0938\u0902\u092c\u0930 2022 \u0908\u0938\u0935\u0940 \u0938\u0928	6 \u092e\u093e\u0930\u094d\u091a 2023 \u0908\u0938\u0935\u0940 \u0938\u0928	era=long,year=numeric,month=long,day=numeric	
 hi	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm a	3:07 pm	9:04 am	hour=numeric,minute=2-digit,hourCycle=h12	
 hi	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -566,7 +566,7 @@ hr	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd. MM. yy.	24.
 hr	MMMM	{"month":"long"}	LLLL	prosinac	o\u017eujak	month=long	
 hr	EEEE	{"weekday":"long"}	cccc	subota	ponedjeljak	weekday=long	
 hr	d	{"day":"numeric"}	d.	24.	6.	day=numeric	
-hr	G_y	{"era":"short","year":"numeric"}	y. G	2022. po. Kr.	2023. po. Kr.	era=short,year=numeric	
+hr	G_y	{"era":"short","year":"numeric"}	y. GGG	2022. po. Kr.	2023. po. Kr.	era=short,year=numeric	
 hr	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d. MMMM y. GGGG	24. prosinca 2022. poslije Krista	6. o\u017eujka 2023. poslije Krista	era=long,year=numeric,month=long,day=numeric	
 hr	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 hr	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -591,7 +591,7 @@ hu	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	yy. MM. dd.	22.
 hu	MMMM	{"month":"long"}	LLLL	december	m\u00e1rcius	month=long	
 hu	EEEE	{"weekday":"long"}	cccc	szombat	h\u00e9tf\u0151	weekday=long	
 hu	d	{"day":"numeric"}	d	24	6	day=numeric	
-hu	G_y	{"era":"short","year":"numeric"}	G y.	i. sz. 2022.	i. sz. 2023.	era=short,year=numeric	
+hu	G_y	{"era":"short","year":"numeric"}	GGG y.	i. sz. 2022.	i. sz. 2023.	era=short,year=numeric	
 hu	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	GGGG y. MMMM d.	id\u0151sz\u00e1m\u00edt\u00e1sunk szerint 2022. december 24.	id\u0151sz\u00e1m\u00edt\u00e1sunk szerint 2023. m\u00e1rcius 6.	era=long,year=numeric,month=long,day=numeric	
 hu	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 hu	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -616,7 +616,7 @@ id	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 id	MMMM	{"month":"long"}	LLLL	Desember	Maret	month=long	
 id	EEEE	{"weekday":"long"}	cccc	Sabtu	Senin	weekday=long	
 id	d	{"day":"numeric"}	d	24	6	day=numeric	
-id	G_y	{"era":"short","year":"numeric"}	y G	2022 M	2023 M	era=short,year=numeric	
+id	G_y	{"era":"short","year":"numeric"}	y GGG	2022 M	2023 M	era=short,year=numeric	
 id	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 Desember 2022 Masehi	6 Maret 2023 Masehi	era=long,year=numeric,month=long,day=numeric	
 id	j_mm	{"hour":"numeric","minute":"2-digit"}	H.mm	15.07	9.04	hour=numeric,minute=2-digit,hourCycle=h23	
 id	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H.mm	15.07	9.04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -641,7 +641,7 @@ it	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 it	MMMM	{"month":"long"}	LLLL	dicembre	marzo	month=long	
 it	EEEE	{"weekday":"long"}	cccc	sabato	luned\u00ec	weekday=long	
 it	d	{"day":"numeric"}	d	24	6	day=numeric	
-it	G_y	{"era":"short","year":"numeric"}	y G	2022 d.C.	2023 d.C.	era=short,year=numeric	
+it	G_y	{"era":"short","year":"numeric"}	y GGG	2022 d.C.	2023 d.C.	era=short,year=numeric	
 it	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 dicembre 2022 dopo Cristo	6 marzo 2023 dopo Cristo	era=long,year=numeric,month=long,day=numeric	
 it	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 it	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -666,7 +666,7 @@ ja	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	yy/MM/dd	22/12/
 ja	MMMM	{"month":"long"}	M\u6708	12\u6708	3\u6708	month=numeric	
 ja	EEEE	{"weekday":"long"}	cccc	\u571f\u66dc\u65e5	\u6708\u66dc\u65e5	weekday=long	
 ja	d	{"day":"numeric"}	d\u65e5	24\u65e5	6\u65e5	day=numeric	
-ja	G_y	{"era":"short","year":"numeric"}	Gy\u5e74	\u897f\u66a62022\u5e74	\u897f\u66a62023\u5e74	era=short,year=numeric	
+ja	G_y	{"era":"short","year":"numeric"}	GGGy\u5e74	\u897f\u66a62022\u5e74	\u897f\u66a62023\u5e74	era=short,year=numeric	
 ja	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	GGGGy\u5e74M\u6708d\u65e5	\u897f\u66a62022\u5e7412\u670824\u65e5	\u897f\u66a62023\u5e743\u67086\u65e5	era=long,year=numeric,month=numeric,day=numeric	
 ja	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 ja	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -691,7 +691,7 @@ ko	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	yy. MM. dd.	22.
 ko	MMMM	{"month":"long"}	LLLL	12\uc6d4	3\uc6d4	month=long	
 ko	EEEE	{"weekday":"long"}	cccc	\ud1a0\uc694\uc77c	\uc6d4\uc694\uc77c	weekday=long	
 ko	d	{"day":"numeric"}	d\uc77c	24\uc77c	6\uc77c	day=numeric	
-ko	G_y	{"era":"short","year":"numeric"}	G y\ub144	AD 2022\ub144	AD 2023\ub144	era=short,year=numeric	
+ko	G_y	{"era":"short","year":"numeric"}	GGG y\ub144	AD 2022\ub144	AD 2023\ub144	era=short,year=numeric	
 ko	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	GGGG y\ub144 MMMM d\uc77c	\uc11c\uae30 2022\ub144 12\uc6d4 24\uc77c	\uc11c\uae30 2023\ub144 3\uc6d4 6\uc77c	era=long,year=numeric,month=long,day=numeric	
 ko	j_mm	{"hour":"numeric","minute":"2-digit"}	a h:mm	\uc624\ud6c4 3:07	\uc624\uc804 9:04	hour=numeric,minute=2-digit,hourCycle=h12	
 ko	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -716,7 +716,7 @@ lt	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	yy-MM-dd	22-12-
 lt	MMMM	{"month":"long"}	LLLL	gruodis	kovas	month=long	
 lt	EEEE	{"weekday":"long"}	cccc	\u0161e\u0161tadienis	pirmadienis	weekday=long	
 lt	d	{"day":"numeric"}	dd	24	06	day=2-digit	
-lt	G_y	{"era":"short","year":"numeric"}	y 'm'. G	2022 m. po Kr.	2023 m. po Kr.	era=short,year=numeric	2022 m. po Kr.|2023 m. po Kr.|era=short,year=numeric,minute=numeric
+lt	G_y	{"era":"short","year":"numeric"}	y 'm'. GGG	2022 m. po Kr.	2023 m. po Kr.	era=short,year=numeric	2022 m. po Kr.|2023 m. po Kr.|era=short,year=numeric,minute=numeric
 lt	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	y 'm'. GGGG MMMM d 'd'.	2022 m. po Kristaus gruod\u017eio 24 d.	2023 m. po Kristaus kovo 6 d.	era=long,year=numeric,month=long,day=numeric	2022 m. po Kristaus gruod\u017eio 24 d.|2023 m. po Kristaus kovo 6 d.|era=long,year=numeric,month=long,day=numeric,minute=numeric
 lt	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 lt	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -741,7 +741,7 @@ lv	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 lv	MMMM	{"month":"long"}	LLLL	decembris	marts	month=long	
 lv	EEEE	{"weekday":"long"}	cccc	Sestdiena	Pirmdiena	weekday=long	
 lv	d	{"day":"numeric"}	d	24	6	day=numeric	
-lv	G_y	{"era":"short","year":"numeric"}	G y. 'g'.	m.\u0113. 2022. g.	m.\u0113. 2023. g.	era=short,year=numeric	
+lv	G_y	{"era":"short","year":"numeric"}	GGG y. 'g'.	m.\u0113. 2022. g.	m.\u0113. 2023. g.	era=short,year=numeric	
 lv	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	GGGG y. 'g'. d. MMMM	m\u016bsu \u0113r\u0101 2022. g. 24. decembris	m\u016bsu \u0113r\u0101 2023. g. 6. marts	era=long,year=numeric,month=long,day=numeric	
 lv	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 lv	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -766,7 +766,7 @@ ms	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 ms	MMMM	{"month":"long"}	LLLL	Disember	Mac	month=long	
 ms	EEEE	{"weekday":"long"}	cccc	Sabtu	Isnin	weekday=long	
 ms	d	{"day":"numeric"}	d	24	6	day=numeric	
-ms	G_y	{"era":"short","year":"numeric"}	y G	2022 TM	2023 TM	era=short,year=numeric	
+ms	G_y	{"era":"short","year":"numeric"}	y GGG	2022 TM	2023 TM	era=short,year=numeric	
 ms	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 Disember 2022 TM	6 Mac 2023 TM	era=long,year=numeric,month=long,day=numeric	
 ms	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm\u202fa	3:07 PTG	9:04 PG	hour=numeric,minute=2-digit,hourCycle=h12	
 ms	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -791,7 +791,7 @@ nb	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 nb	MMMM	{"month":"long"}	LLLL	desember	mars	month=long	
 nb	EEEE	{"weekday":"long"}	cccc	l\u00f8rdag	mandag	weekday=long	
 nb	d	{"day":"numeric"}	d.	24.	6.	day=numeric	
-nb	G_y	{"era":"short","year":"numeric"}	y G	2022 e.Kr.	2023 e.Kr.	era=short,year=numeric	
+nb	G_y	{"era":"short","year":"numeric"}	y GGG	2022 e.Kr.	2023 e.Kr.	era=short,year=numeric	
 nb	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d. MMMM y GGGG	24. desember 2022 etter Kristus	6. mars 2023 etter Kristus	era=long,year=numeric,month=long,day=numeric	
 nb	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 nb	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -816,7 +816,7 @@ nl	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd-MM-yy	24-12-
 nl	MMMM	{"month":"long"}	LLLL	december	maart	month=long	
 nl	EEEE	{"weekday":"long"}	cccc	zaterdag	maandag	weekday=long	
 nl	d	{"day":"numeric"}	d	24	6	day=numeric	
-nl	G_y	{"era":"short","year":"numeric"}	y G	2022 n.Chr.	2023 n.Chr.	era=short,year=numeric	
+nl	G_y	{"era":"short","year":"numeric"}	y GGG	2022 n.Chr.	2023 n.Chr.	era=short,year=numeric	
 nl	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 december 2022 na Christus	6 maart 2023 na Christus	era=long,year=numeric,month=long,day=numeric	
 nl	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 nl	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -841,7 +841,7 @@ pl	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 pl	MMMM	{"month":"long"}	LLLL	grudzie\u0144	marzec	month=long	
 pl	EEEE	{"weekday":"long"}	cccc	sobota	poniedzia\u0142ek	weekday=long	
 pl	d	{"day":"numeric"}	d	24	6	day=numeric	
-pl	G_y	{"era":"short","year":"numeric"}	y G	2022 n.e.	2023 n.e.	era=short,year=numeric	
+pl	G_y	{"era":"short","year":"numeric"}	y GGG	2022 n.e.	2023 n.e.	era=short,year=numeric	
 pl	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 grudnia 2022 naszej ery	6 marca 2023 naszej ery	era=long,year=numeric,month=long,day=numeric	
 pl	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 pl	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -866,7 +866,7 @@ pt	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 pt	MMMM	{"month":"long"}	LLLL	dezembro	mar\u00e7o	month=long	
 pt	EEEE	{"weekday":"long"}	cccc	s\u00e1bado	segunda-feira	weekday=long	
 pt	d	{"day":"numeric"}	d	24	6	day=numeric	
-pt	G_y	{"era":"short","year":"numeric"}	y G	2022 d.C.	2023 d.C.	era=short,year=numeric	
+pt	G_y	{"era":"short","year":"numeric"}	y GGG	2022 d.C.	2023 d.C.	era=short,year=numeric	
 pt	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d 'de' MMMM 'de' y GGGG	24 de dezembro de 2022 depois de Cristo	6 de mar\u00e7o de 2023 depois de Cristo	era=long,year=numeric,month=long,day=numeric	
 pt	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 pt	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -891,7 +891,7 @@ pt-PT	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/
 pt-PT	MMMM	{"month":"long"}	LLLL	dezembro	mar\u00e7o	month=long	
 pt-PT	EEEE	{"weekday":"long"}	cccc	s\u00e1bado	segunda-feira	weekday=long	
 pt-PT	d	{"day":"numeric"}	d	24	6	day=numeric	
-pt-PT	G_y	{"era":"short","year":"numeric"}	y G	2022 d.C.	2023 d.C.	era=short,year=numeric	
+pt-PT	G_y	{"era":"short","year":"numeric"}	y GGG	2022 d.C.	2023 d.C.	era=short,year=numeric	
 pt-PT	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d 'de' MMMM 'de' y GGGG	24 de dezembro de 2022 depois de Cristo	6 de mar\u00e7o de 2023 depois de Cristo	era=long,year=numeric,month=long,day=numeric	
 pt-PT	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 pt-PT	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -916,7 +916,7 @@ ro	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 ro	MMMM	{"month":"long"}	LLLL	decembrie	martie	month=long	
 ro	EEEE	{"weekday":"long"}	cccc	s\u00e2mb\u0103t\u0103	luni	weekday=long	
 ro	d	{"day":"numeric"}	d	24	6	day=numeric	
-ro	G_y	{"era":"short","year":"numeric"}	y G	2022 d.Hr.	2023 d.Hr.	era=short,year=numeric	
+ro	G_y	{"era":"short","year":"numeric"}	y GGG	2022 d.Hr.	2023 d.Hr.	era=short,year=numeric	
 ro	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 decembrie 2022 dup\u0103 Hristos	6 martie 2023 dup\u0103 Hristos	era=long,year=numeric,month=long,day=numeric	
 ro	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 ro	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -941,7 +941,7 @@ ru	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 ru	MMMM	{"month":"long"}	LLLL	\u0434\u0435\u043a\u0430\u0431\u0440\u044c	\u043c\u0430\u0440\u0442	month=long	
 ru	EEEE	{"weekday":"long"}	cccc	\u0441\u0443\u0431\u0431\u043e\u0442\u0430	\u043f\u043e\u043d\u0435\u0434\u0435\u043b\u044c\u043d\u0438\u043a	weekday=long	
 ru	d	{"day":"numeric"}	d	24	6	day=numeric	
-ru	G_y	{"era":"short","year":"numeric"}	y\u202f'\u0433'. G	2022 \u0433. \u043d. \u044d.	2023 \u0433. \u043d. \u044d.	era=short,year=numeric	
+ru	G_y	{"era":"short","year":"numeric"}	y\u202f'\u0433'. GGG	2022 \u0433. \u043d. \u044d.	2023 \u0433. \u043d. \u044d.	era=short,year=numeric	
 ru	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y\u202f'\u0433'. GGGG	24 \u0434\u0435\u043a\u0430\u0431\u0440\u044f 2022 \u0433. \u043e\u0442 \u0420\u043e\u0436\u0434\u0435\u0441\u0442\u0432\u0430 \u0425\u0440\u0438\u0441\u0442\u043e\u0432\u0430	6 \u043c\u0430\u0440\u0442\u0430 2023 \u0433. \u043e\u0442 \u0420\u043e\u0436\u0434\u0435\u0441\u0442\u0432\u0430 \u0425\u0440\u0438\u0441\u0442\u043e\u0432\u0430	era=long,year=numeric,month=long,day=numeric	
 ru	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 ru	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -966,7 +966,7 @@ sk	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd. MM. yy	24. 
 sk	MMMM	{"month":"long"}	LLLL	december	marec	month=long	
 sk	EEEE	{"weekday":"long"}	cccc	sobota	pondelok	weekday=long	
 sk	d	{"day":"numeric"}	d.	24.	6.	day=numeric	
-sk	G_y	{"era":"short","year":"numeric"}	y G	2022 po Kr.	2023 po Kr.	era=short,year=numeric	
+sk	G_y	{"era":"short","year":"numeric"}	y GGG	2022 po Kr.	2023 po Kr.	era=short,year=numeric	
 sk	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d. M. y GGGG	24. 12. 2022 po Kristovi	6. 3. 2023 po Kristovi	era=long,year=numeric,month=numeric,day=numeric	
 sk	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 sk	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -991,7 +991,7 @@ sl	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd. MM. yy	24. 
 sl	MMMM	{"month":"long"}	LLLL	december	marec	month=long	
 sl	EEEE	{"weekday":"long"}	cccc	sobota	ponedeljek	weekday=long	
 sl	d	{"day":"numeric"}	d.	24.	6.	day=numeric	
-sl	G_y	{"era":"short","year":"numeric"}	y G	2022 po Kr.	2023 po Kr.	era=short,year=numeric	
+sl	G_y	{"era":"short","year":"numeric"}	y GGG	2022 po Kr.	2023 po Kr.	era=short,year=numeric	
 sl	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d. MMMM y GGGG	24. december 2022 po Kristusu	6. marec 2023 po Kristusu	era=long,year=numeric,month=long,day=numeric	
 sl	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 sl	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -1016,7 +1016,7 @@ sr	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy.	24.12
 sr	MMMM	{"month":"long"}	LLLL	\u0434\u0435\u0446\u0435\u043c\u0431\u0430\u0440	\u043c\u0430\u0440\u0442	month=long	
 sr	EEEE	{"weekday":"long"}	EEEE	\u0441\u0443\u0431\u043e\u0442\u0430	\u043f\u043e\u043d\u0435\u0434\u0435\u0459\u0430\u043a	weekday=long	
 sr	d	{"day":"numeric"}	d	24	6	day=numeric	
-sr	G_y	{"era":"short","year":"numeric"}	y. G	2022. \u043d. \u0435.	2023. \u043d. \u0435.	era=short,year=numeric	
+sr	G_y	{"era":"short","year":"numeric"}	y. GGG	2022. \u043d. \u0435.	2023. \u043d. \u0435.	era=short,year=numeric	
 sr	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d. MMMM y. GGGG	24. \u0434\u0435\u0446\u0435\u043c\u0431\u0430\u0440 2022. \u043d\u043e\u0432\u0435 \u0435\u0440\u0435	6. \u043c\u0430\u0440\u0442 2023. \u043d\u043e\u0432\u0435 \u0435\u0440\u0435	era=long,year=numeric,month=long,day=numeric	
 sr	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 sr	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -1041,7 +1041,7 @@ sv	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	yy-MM-dd	22-12-
 sv	MMMM	{"month":"long"}	LLLL	december	mars	month=long	
 sv	EEEE	{"weekday":"long"}	cccc	l\u00f6rdag	m\u00e5ndag	weekday=long	
 sv	d	{"day":"numeric"}	d	24	6	day=numeric	
-sv	G_y	{"era":"short","year":"numeric"}	y G	2022 e.Kr.	2023 e.Kr.	era=short,year=numeric	
+sv	G_y	{"era":"short","year":"numeric"}	y GGG	2022 e.Kr.	2023 e.Kr.	era=short,year=numeric	
 sv	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 december 2022 efter Kristus	6 mars 2023 efter Kristus	era=long,year=numeric,month=long,day=numeric	
 sv	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 sv	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -1066,7 +1066,7 @@ sw	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 sw	MMMM	{"month":"long"}	LLLL	Desemba	Machi	month=long	
 sw	EEEE	{"weekday":"long"}	cccc	Jumamosi	Jumatatu	weekday=long	
 sw	d	{"day":"numeric"}	d	24	6	day=numeric	
-sw	G_y	{"era":"short","year":"numeric"}	y G	2022 BK	2023 BK	era=short,year=numeric	
+sw	G_y	{"era":"short","year":"numeric"}	y GGG	2022 BK	2023 BK	era=short,year=numeric	
 sw	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y GGGG	24 Desemba 2022 Baada ya Kristo	6 Machi 2023 Baada ya Kristo	era=long,year=numeric,month=long,day=numeric	
 sw	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 sw	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -1091,7 +1091,7 @@ ta	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 ta	MMMM	{"month":"long"}	LLLL	\u0b9f\u0bbf\u0b9a\u0bae\u0bcd\u0baa\u0bb0\u0bcd	\u0bae\u0bbe\u0bb0\u0bcd\u0b9a\u0bcd	month=long	
 ta	EEEE	{"weekday":"long"}	cccc	\u0b9a\u0ba9\u0bbf	\u0ba4\u0bbf\u0b99\u0bcd\u0b95\u0bb3\u0bcd	weekday=long	
 ta	d	{"day":"numeric"}	d	24	6	day=numeric	
-ta	G_y	{"era":"short","year":"numeric"}	G y	\u0b95\u0bbf.\u0baa\u0bbf. 2022	\u0b95\u0bbf.\u0baa\u0bbf. 2023	era=short,year=numeric	
+ta	G_y	{"era":"short","year":"numeric"}	GGG y	\u0b95\u0bbf.\u0baa\u0bbf. 2022	\u0b95\u0bbf.\u0baa\u0bbf. 2023	era=short,year=numeric	
 ta	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	GGGG y MMMM d	\u0b85\u0ba9\u0bcd\u0ba9\u0bcb \u0b9f\u0bcb\u0bae\u0bbf\u0ba9\u0bbf 2022 \u0b9f\u0bbf\u0b9a\u0bae\u0bcd\u0baa\u0bb0\u0bcd 24	\u0b85\u0ba9\u0bcd\u0ba9\u0bcb \u0b9f\u0bcb\u0bae\u0bbf\u0ba9\u0bbf 2023 \u0bae\u0bbe\u0bb0\u0bcd\u0b9a\u0bcd 6	era=long,year=numeric,month=long,day=numeric	
 ta	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm a	3:07 PM	9:04 AM	hour=numeric,minute=2-digit,hourCycle=h12	
 ta	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -1116,7 +1116,7 @@ th	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 th	MMMM	{"month":"long"}	LLLL	\u0e18\u0e31\u0e19\u0e27\u0e32\u0e04\u0e21	\u0e21\u0e35\u0e19\u0e32\u0e04\u0e21	month=long	
 th	EEEE	{"weekday":"long"}	cccc	\u0e27\u0e31\u0e19\u0e40\u0e2a\u0e32\u0e23\u0e4c	\u0e27\u0e31\u0e19\u0e08\u0e31\u0e19\u0e17\u0e23\u0e4c	weekday=long	
 th	d	{"day":"numeric"}	d	24	6	day=numeric	
-th	G_y	{"era":"short","year":"numeric"}	G y	\u0e04.\u0e28. 2022	\u0e04.\u0e28. 2023	era=short,year=numeric	
+th	G_y	{"era":"short","year":"numeric"}	GGG y	\u0e04.\u0e28. 2022	\u0e04.\u0e28. 2023	era=short,year=numeric	
 th	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM GGGG y	24 \u0e18\u0e31\u0e19\u0e27\u0e32\u0e04\u0e21 \u0e04\u0e23\u0e34\u0e2a\u0e15\u0e4c\u0e28\u0e31\u0e01\u0e23\u0e32\u0e0a 2022	6 \u0e21\u0e35\u0e19\u0e32\u0e04\u0e21 \u0e04\u0e23\u0e34\u0e2a\u0e15\u0e4c\u0e28\u0e31\u0e01\u0e23\u0e32\u0e0a 2023	era=long,year=numeric,month=long,day=numeric	
 th	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 th	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -1141,7 +1141,7 @@ tr	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 tr	MMMM	{"month":"long"}	LLLL	Aral\u0131k	Mart	month=long	
 tr	EEEE	{"weekday":"long"}	cccc	Cumartesi	Pazartesi	weekday=long	
 tr	d	{"day":"numeric"}	d	24	6	day=numeric	
-tr	G_y	{"era":"short","year":"numeric"}	G y	MS 2022	MS 2023	era=short,year=numeric	
+tr	G_y	{"era":"short","year":"numeric"}	GGG y	MS 2022	MS 2023	era=short,year=numeric	
 tr	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	GGGG d MMMM y	Milattan Sonra 24 Aral\u0131k 2022	Milattan Sonra 6 Mart 2023	era=long,year=numeric,month=long,day=numeric	
 tr	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 tr	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -1166,7 +1166,7 @@ uk	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd.MM.yy	24.12.
 uk	MMMM	{"month":"long"}	LLLL	\u0433\u0440\u0443\u0434\u0435\u043d\u044c	\u0431\u0435\u0440\u0435\u0437\u0435\u043d\u044c	month=long	
 uk	EEEE	{"weekday":"long"}	cccc	\u0441\u0443\u0431\u043e\u0442\u0430	\u043f\u043e\u043d\u0435\u0434\u0456\u043b\u043e\u043a	weekday=long	
 uk	d	{"day":"numeric"}	d	24	6	day=numeric	
-uk	G_y	{"era":"short","year":"numeric"}	y G	2022 \u043d. \u0435.	2023 \u043d. \u0435.	era=short,year=numeric	
+uk	G_y	{"era":"short","year":"numeric"}	y GGG	2022 \u043d. \u0435.	2023 \u043d. \u0435.	era=short,year=numeric	
 uk	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM y\u202f'\u0440'. GGGG	24 \u0433\u0440\u0443\u0434\u043d\u044f 2022 \u0440. \u043d\u0430\u0448\u043e\u0457 \u0435\u0440\u0438	6 \u0431\u0435\u0440\u0435\u0437\u043d\u044f 2023 \u0440. \u043d\u0430\u0448\u043e\u0457 \u0435\u0440\u0438	era=long,year=numeric,month=long,day=numeric	
 uk	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 uk	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -1191,7 +1191,7 @@ ur	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 ur	MMMM	{"month":"long"}	LLLL	\u062f\u0633\u0645\u0628\u0631	\u0645\u0627\u0631\u0686	month=long	
 ur	EEEE	{"weekday":"long"}	cccc	\u06c1\u0641\u062a\u06c1	\u067e\u06cc\u0631	weekday=long	
 ur	d	{"day":"numeric"}	d	24	6	day=numeric	
-ur	G_y	{"era":"short","year":"numeric"}	y G	2022 \u0639\u06cc\u0633\u0648\u06cc	2023 \u0639\u06cc\u0633\u0648\u06cc	era=short,year=numeric	
+ur	G_y	{"era":"short","year":"numeric"}	y GGG	2022 \u0639\u06cc\u0633\u0648\u06cc	2023 \u0639\u06cc\u0633\u0648\u06cc	era=short,year=numeric	
 ur	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM\u060c y GGGG	24 \u062f\u0633\u0645\u0628\u0631\u060c 2022 \u0639\u06cc\u0633\u0648\u06cc	6 \u0645\u0627\u0631\u0686\u060c 2023 \u0639\u06cc\u0633\u0648\u06cc	era=long,year=numeric,month=long,day=numeric	
 ur	j_mm	{"hour":"numeric","minute":"2-digit"}	h:mm a	3:07 PM	9:04 AM	hour=numeric,minute=2-digit,hourCycle=h12	
 ur	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	
@@ -1216,7 +1216,7 @@ vi	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	dd/MM/yy	24/12/
 vi	MMMM	{"month":"long"}	LLLL	Th\u00e1ng 12	Th\u00e1ng 3	month=long	
 vi	EEEE	{"weekday":"long"}	cccc	Th\u1ee9 B\u1ea3y	Th\u1ee9 Hai	weekday=long	
 vi	d	{"day":"numeric"}	d	24	6	day=numeric	
-vi	G_y	{"era":"short","year":"numeric"}	y G	2022 SCN	2023 SCN	era=short,year=numeric	
+vi	G_y	{"era":"short","year":"numeric"}	y GGG	2022 SCN	2023 SCN	era=short,year=numeric	
 vi	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	d MMMM, y GGGG	24 th\u00e1ng 12, 2022 Sau C\u00f4ng Nguy\u00ean	6 th\u00e1ng 3, 2023 Sau C\u00f4ng Nguy\u00ean	era=long,year=numeric,month=long,day=numeric	
 vi	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 vi	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -1241,7 +1241,7 @@ zh	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	yy/MM/dd	22/12/
 zh	MMMM	{"month":"long"}	LLLL	\u5341\u4e8c\u6708	\u4e09\u6708	month=long	
 zh	EEEE	{"weekday":"long"}	cccc	\u661f\u671f\u516d	\u661f\u671f\u4e00	weekday=long	
 zh	d	{"day":"numeric"}	d\u65e5	24\u65e5	6\u65e5	day=numeric	
-zh	G_y	{"era":"short","year":"numeric"}	Gy\u5e74	\u516c\u51432022\u5e74	\u516c\u51432023\u5e74	era=short,year=numeric	
+zh	G_y	{"era":"short","year":"numeric"}	GGGy\u5e74	\u516c\u51432022\u5e74	\u516c\u51432023\u5e74	era=short,year=numeric	
 zh	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	GGGGy\u5e74M\u6708d\u65e5	\u516c\u51432022\u5e7412\u670824\u65e5	\u516c\u51432023\u5e743\u67086\u65e5	era=long,year=numeric,month=numeric,day=numeric	
 zh	j_mm	{"hour":"numeric","minute":"2-digit"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
 zh	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	H:mm	15:07	9:04	hour=numeric,minute=2-digit,hourCycle=h23	
@@ -1266,7 +1266,7 @@ zh-Hant	yy_MM_dd	{"year":"2-digit","month":"2-digit","day":"2-digit"}	yy/MM/dd	2
 zh-Hant	MMMM	{"month":"long"}	LLLL	12\u6708	3\u6708	month=long	
 zh-Hant	EEEE	{"weekday":"long"}	cccc	\u661f\u671f\u516d	\u661f\u671f\u4e00	weekday=long	
 zh-Hant	d	{"day":"numeric"}	d\u65e5	24\u65e5	6\u65e5	day=numeric	
-zh-Hant	G_y	{"era":"short","year":"numeric"}	Gy\u5e74	\u897f\u51432022\u5e74	\u897f\u51432023\u5e74	era=short,year=numeric	
+zh-Hant	G_y	{"era":"short","year":"numeric"}	GGGy\u5e74	\u897f\u51432022\u5e74	\u897f\u51432023\u5e74	era=short,year=numeric	
 zh-Hant	GGGG_y_MMMM_d	{"era":"long","year":"numeric","month":"long","day":"numeric"}	GGGGy\u5e74M\u6708d\u65e5	\u897f\u51432022\u5e7412\u670824\u65e5	\u897f\u51432023\u5e743\u67086\u65e5	era=long,year=numeric,month=numeric,day=numeric	
 zh-Hant	j_mm	{"hour":"numeric","minute":"2-digit"}	ah:mm	\u4e0b\u53483:07	\u4e0a\u53489:04	hour=numeric,minute=2-digit,hourCycle=h12	
 zh-Hant	H_mm_h23	{"hour":"numeric","minute":"2-digit","hourCycle":"h23"}	HH:mm	15:07	09:04	hour=2-digit,minute=2-digit,hourCycle=h23	

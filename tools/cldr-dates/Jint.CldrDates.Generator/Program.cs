@@ -34,6 +34,8 @@ var toolDirectory = Path.Combine(repository, "tools", "cldr-dates");
 var dataDirectory = Path.Combine(repository, "Jint", "Native", "Intl", "Data");
 var binPath = Path.Combine(dataDirectory, "DateTimePatterns.bin");
 var codePath = Path.Combine(dataDirectory, "DateTimePatternData.Data.cs");
+var calendarBinPath = Path.Combine(dataDirectory, "DateTimeCalendarPatterns.bin");
+var calendarCodePath = Path.Combine(dataDirectory, "DateTimeCalendarPatternData.Data.cs");
 
 var pin = Pin.Load(Path.Combine(toolDirectory, "pin.json"));
 Console.WriteLine($"CLDR {pin.CldrVersion} ({pin.CldrReleaseTag}) via cldr-json {pin.CldrJsonVersion}; inputs cached in {cacheDirectory}");
@@ -50,30 +52,54 @@ Console.WriteLine("  round trip: every locale decodes to what was written");
 PrintStatistics(result);
 
 var code = EmitCode(pin, locales.Count, result);
-if (check)
+
+var calendars = CalendarExtraction.ExtractAll(inputs, ids, parents);
+Console.WriteLine($"  {calendars.Count} other calendars: {string.Join(", ", calendars.Select(c => c.Spec.CldrName))}");
+var calendarResult = CalendarPatternFile.Write(pin.CldrVersion, calendars, parents);
+CalendarPatternFile.VerifyRoundTrip(calendarResult.Bytes, calendars, parents);
+Console.WriteLine("  calendar round trip: every locale of every calendar decodes to what was written");
+PrintCalendarStatistics(calendarResult);
+var calendarCode = EmitCalendarCode(pin, locales.Count, calendars, calendarResult);
+
+var failed = false;
+foreach (var (name, path, bytesPath, payload, bytes, text) in new[]
+         {
+             ("DateTimePatterns.bin", codePath, binPath, result.PayloadSha256, result.Bytes, code),
+             ("DateTimeCalendarPatterns.bin", calendarCodePath, calendarBinPath, calendarResult.PayloadSha256, calendarResult.Bytes, calendarCode),
+         })
 {
-    var committed = File.Exists(codePath) ? File.ReadAllText(codePath) : "";
+    var committed = File.Exists(path) ? File.ReadAllText(path) : "";
     var match = Regex.Match(committed, "PayloadSha256 = \"([0-9a-f]{64})\"", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
-    if (!match.Success || !string.Equals(match.Groups[1].Value, result.PayloadSha256, StringComparison.Ordinal))
+    var sameContent = match.Success && string.Equals(match.Groups[1].Value, payload, StringComparison.Ordinal);
+    if (check)
     {
-        Console.Error.WriteLine($"--check: the regenerated content (payload SHA-256 {result.PayloadSha256}) differs from the committed one ({(match.Success ? match.Groups[1].Value : "none")})");
-        return 1;
+        if (!sameContent)
+        {
+            Console.Error.WriteLine($"--check: {name}'s regenerated content (payload SHA-256 {payload}) differs from the committed one ({(match.Success ? match.Groups[1].Value : "none")})");
+            failed = true;
+            continue;
+        }
+
+        var sameBytes = File.Exists(bytesPath) && File.ReadAllBytes(bytesPath).AsSpan().SequenceEqual(bytes);
+        Console.WriteLine(sameBytes
+            ? $"--check: {name} is identical to the committed resource, byte for byte"
+            : $"--check: {name} has the same content as the committed resource; the deflate output differs, which a different runtime's zlib can cause");
     }
-
-    var sameBytes = File.Exists(binPath) && File.ReadAllBytes(binPath).AsSpan().SequenceEqual(result.Bytes);
-    Console.WriteLine(sameBytes
-        ? "--check: identical to the committed resource, byte for byte"
-        : "--check: same content as the committed resource; the deflate output differs, which a different runtime's zlib can cause");
+    else if (sameContent)
+    {
+        // Rewriting it would change nothing but, under another runtime's zlib, the deflated bytes.
+        Console.WriteLine($"  {name}: the content is the committed one; left as it is");
+    }
+    else
+    {
+        await File.WriteAllBytesAsync(bytesPath, bytes).ConfigureAwait(false);
+        await File.WriteAllTextAsync(path, text, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)).ConfigureAwait(false);
+        Console.WriteLine($"  wrote {bytesPath}");
+        Console.WriteLine($"  wrote {path}");
+    }
 }
-else
-{
-    await File.WriteAllBytesAsync(binPath, result.Bytes).ConfigureAwait(false);
-    await File.WriteAllTextAsync(codePath, code, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)).ConfigureAwait(false);
-    Console.WriteLine($"  wrote {binPath}");
-    Console.WriteLine($"  wrote {codePath}");
-}
 
-return 0;
+return failed ? 1 : 0;
 
 static string FindRepository(string start)
 {
@@ -130,6 +156,72 @@ static string EmitCode(Pin pin, int localeCount, PatternFileResult result)
 
         """);
     return builder.ToString().ReplaceLineEndings("\n");
+}
+
+static string EmitCalendarCode(Pin pin, int localeCount, List<CalendarData> calendars, PatternFileResult result)
+{
+    var dates = pin.Package("cldr-dates-full");
+    var payloadLength = result.IndexRawLength + result.Blocks.Sum(b => b.RawLength);
+    var fileSha256 = Inputs.Sha256(result.Bytes);
+    var invariant = CultureInfo.InvariantCulture;
+    var packages = new StringBuilder();
+    foreach (var name in calendars.Select(c => c.Spec.Package).Distinct(StringComparer.Ordinal))
+    {
+        var package = pin.Package(name);
+        packages.Append(invariant, $"//   {package.FileName}, npm integrity {package.Integrity}").Append('\n');
+    }
+
+    var builder = new StringBuilder();
+    builder.Append(invariant, $$"""
+        // Generated from CLDR {{pin.CldrVersion}} (https://github.com/unicode-org/cldr/releases/tag/{{pin.CldrReleaseTag}}) by tools/cldr-dates;
+        // do not edit. The calendar data is cldr-json {{pin.CldrJsonVersion}}'s, which resolves each locale's inheritance itself:
+        {{packages.ToString().TrimEnd('\n')}}
+        // and the generic calendar's availableFormats, from {{dates.FileName}}, which DateTimePatternData.Data.cs pins.
+        // DateTimeCalendarPatterns.bin carries, for each of the {{localeCount}} locales and each of {{calendars.Count}} calendars
+        // ({{string.Join(", ", calendars.Select(c => c.Spec.CldrName))}}),
+        // the calendar's availableFormats, dateFormats, the time formats and atTime patterns ICU reads for it, appendItems, the
+        // month names of a calendar with months of its own, the era names, and the intervalFormats with their fallback. Every
+        // locale but the root stores only what differs from its CLDR parent's, in DateTimePatterns.bin's language blocks
+        // ({{result.Blocks.Count}}). tools/cldr-dates/README.md describes the layout.
+        //   DateTimeCalendarPatterns.bin: {{result.Bytes.Length}} bytes, SHA-256 {{fileSha256}}
+        //   inflated content: {{payloadLength}} bytes, SHA-256 {{result.PayloadSha256}}
+        // Unicode License v3 (CREDITS.txt). The data is CLDR's own: update it from a later release, not entry by entry.
+
+        namespace Jint.Native.Intl.Data;
+
+        internal sealed partial class DateTimeCalendarPatternData
+        {
+            internal const string CldrVersion = "{{pin.CldrVersion}}";
+            internal const int LocaleCount = {{localeCount}};
+            internal const int CalendarCount = {{calendars.Count}};
+
+            /// <summary>
+            /// The SHA-256 of the inflated index followed by every inflated block in order, which does not depend on the
+            /// deflate encoder that wrote the resource.
+            /// </summary>
+            internal const string PayloadSha256 = "{{result.PayloadSha256}}";
+        }
+
+        """);
+    return builder.ToString().ReplaceLineEndings("\n");
+}
+
+static void PrintCalendarStatistics(PatternFileResult result)
+{
+    var payload = result.Blocks.Sum(b => b.RawLength);
+    Console.WriteLine($"DateTimeCalendarPatterns.bin: {result.Bytes.Length:N0} bytes");
+    Console.WriteLine($"  index: {result.IndexRawLength:N0} bytes inflated, {result.IndexCompressedLength:N0} deflated");
+    Console.WriteLine($"  {result.Blocks.Count} language blocks: {payload:N0} bytes inflated, {result.Blocks.Sum(b => b.CompressedLength):N0} deflated");
+    foreach (var language in new[] { "en", "de", "ja", "und" })
+    {
+        var block = result.Blocks.Single(b => b.Language == language);
+        Console.WriteLine($"  {language}: {block.Locales.Count} locales, {block.RawLength:N0} bytes inflated, {block.CompressedLength:N0} deflated");
+    }
+
+    foreach (var block in result.Blocks.OrderByDescending(b => b.RawLength).Take(5))
+    {
+        Console.WriteLine($"  largest: {block.Language} {block.RawLength:N0} / {block.CompressedLength:N0} ({block.Locales.Count} locales)");
+    }
 }
 
 static void PrintStatistics(PatternFileResult result)

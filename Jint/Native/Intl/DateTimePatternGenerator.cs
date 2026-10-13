@@ -101,24 +101,36 @@ internal sealed class DateTimePatternGenerator
 
     /// <summary>
     /// The generator for the CLDR locale that serves the BCP 47 tag <paramref name="locale"/>
-    /// (<see cref="DateTimePatternData.ResolveLocale"/>).
+    /// (<see cref="DateTimePatternData.ResolveLocale"/>), over its Gregorian data.
     /// </summary>
-    internal static DateTimePatternGenerator ForLocale(string locale)
+    internal static DateTimePatternGenerator ForLocale(string locale) => ForLocale(locale, calendar: null);
+
+    /// <summary>
+    /// The generator for the CLDR locale that serves the BCP 47 tag <paramref name="locale"/>, over the data of the
+    /// ECMA-402 calendar <paramref name="calendar"/> where <see cref="DateTimeCalendarPatternData"/> carries it, and over
+    /// the Gregorian data otherwise (<c>gregory</c>, <c>iso8601</c>, <c>chinese</c>, <c>dangi</c>, a host's calendar).
+    /// </summary>
+    internal static DateTimePatternGenerator ForLocale(string locale, string? calendar)
     {
-        if (GeneratorsByTag.TryGetValue(locale, out var generator))
+        var index = DateTimeCalendarPatternData.CalendarOf(calendar);
+
+        // A calendar the data carries is one of a closed set of identifiers, so it can share the key with the tag.
+        var tagKey = index < 0 ? locale : string.Concat(locale, "\u0001", calendar);
+        if (GeneratorsByTag.TryGetValue(tagKey, out var generator))
         {
             return generator;
         }
 
-        var data = DateTimePatternData.Shared.GetLocale(locale);
-        if (!Generators.TryGetValue(data.Locale, out generator))
+        var data = index < 0 ? DateTimePatternData.Shared.GetLocale(locale) : DateTimeCalendarPatternData.Shared.GetLocale(locale, index);
+        var key = data.Calendar is null ? data.Locale : string.Concat(data.Locale, "\u0001", data.Calendar);
+        if (!Generators.TryGetValue(key, out generator))
         {
-            generator = Generators.GetOrAdd(data.Locale, new DateTimePatternGenerator(data));
+            generator = Generators.GetOrAdd(key, new DateTimePatternGenerator(data));
         }
 
         // A tag is script-controlled, so the map from tags is bounded; the map from CLDR locales is bounded by the data.
         // The count is kept beside the map because ConcurrentDictionary.Count takes every lock it has.
-        if (System.Threading.Volatile.Read(ref _generatorsByTagCount) < MaxCachedLocaleTags && GeneratorsByTag.TryAdd(locale, generator))
+        if (System.Threading.Volatile.Read(ref _generatorsByTagCount) < MaxCachedLocaleTags && GeneratorsByTag.TryAdd(tagKey, generator))
         {
             System.Threading.Interlocked.Increment(ref _generatorsByTagCount);
         }
@@ -367,7 +379,11 @@ internal sealed class DateTimePatternGenerator
     /// shadows <c>short</c>; an <c>availableFormats</c> entry replaces a same-skeleton pattern in place. Those entries
     /// are added the locale's own first, then each CLDR ancestor's in turn (<see cref="DateTimePatternLocale.OwnFormats"/>),
     /// each bundle in key order: <c>en-AU</c>'s own <c>MMMMEEEEd</c> goes before the <c>MMMEd</c> it inherits from
-    /// <c>en-001</c>, and wins the tie <c>{ weekday: "short", month: "long", day: "numeric" }</c> scores them.
+    /// <c>en-001</c>, and wins the tie <c>{ weekday: "short", month: "long", day: "numeric" }</c> scores them. Another
+    /// calendar's own entries come first from every level (<see cref="DateTimePatternLocale.OwnCalendarFormats"/>), and the
+    /// generic calendar's it inherits after them, as ICU reaches those through the root's alias: <c>en-GB</c>'s Hebrew
+    /// <c>{ weekday: "short", month: "long", day: "numeric" }</c> ties <c>en</c>'s Hebrew <c>MMMEd</c> with its own
+    /// <c>MMMMEEEEd</c>, and writes the former.
     /// </remarks>
     private static Candidate[] BuildCandidates(DateTimePatternLocale data)
     {
@@ -420,18 +436,31 @@ internal sealed class DateTimePatternGenerator
         var replacedKeys = new HashSet<string>(StringComparer.Ordinal);
         for (var level = data; level is not null; level = level.Parent)
         {
+            foreach (var skeleton in level.OwnCalendarFormats)
+            {
+                AddAvailable(skeleton);
+            }
+        }
+
+        for (var level = data; level is not null; level = level.Parent)
+        {
             foreach (var own in level.OwnFormats)
             {
-                if (!data.TryGetAvailableFormat(own.Skeleton, out var pattern) || !added.Add(own.Skeleton))
-                {
-                    continue;
-                }
-
-                // An availableFormats entry replaces a style pattern or a canonical item with its skeleton, but not an
-                // availableFormats entry added before it.
-                var key = Skeleton.Parse(own.Skeleton).CanonicalKey();
-                Add(pattern, own.Skeleton, replace: replacedKeys.Add(key));
+                AddAvailable(own.Skeleton);
             }
+        }
+
+        void AddAvailable(string skeleton)
+        {
+            if (!data.TryGetAvailableFormat(skeleton, out var pattern) || !added.Add(skeleton))
+            {
+                return;
+            }
+
+            // An availableFormats entry replaces a style pattern or a canonical item with its skeleton, but not an
+            // availableFormats entry added before it.
+            var key = Skeleton.Parse(skeleton).CanonicalKey();
+            Add(pattern, skeleton, replace: replacedKeys.Add(key));
         }
 
         // ICU walks its map by the first letter of each base skeleton, upper case first, and within a letter in the
@@ -1094,7 +1123,9 @@ internal sealed class DateTimePatternGenerator
         {
             var builder = new StringBuilder(24);
             AppendTextual(builder, 'E', weekday, shortLength: 3);
-            AppendTextual(builder, 'G', era, shortLength: 1);
+            // V8 asks for a short era as GGG (js-date-time-format.cc), which is what keeps an availableFormats entry
+            // whose skeleton names one G from writing a wider era than asked for: ja's Buddhist Gy is GGGGy年.
+            AppendTextual(builder, 'G', era, shortLength: 3);
             AppendNumeric(builder, 'y', year);
             if (month is not null)
             {

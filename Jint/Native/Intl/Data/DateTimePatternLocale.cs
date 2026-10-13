@@ -45,6 +45,11 @@ internal sealed class DateTimePatternLocale
     private readonly DateTimeSkeletonPattern[] _availableFormats;
     private readonly DateTimeSkeletonPattern[] _ownFormats;
     private readonly DateTimeIntervalPattern[] _intervalFormats;
+    private readonly string[] _ownCalendarFormats = [];
+    private readonly string[]? _calendarMonths;
+    private readonly int _calendarMonthCount;
+    private readonly string[]? _calendarEras;
+    private readonly int _calendarEraCount;
 
     /// <param name="locale">The CLDR locale.</param>
     /// <param name="slots">Every slot, resolved.</param>
@@ -70,6 +75,67 @@ internal sealed class DateTimePatternLocale
         _ownFormats = ownFormats;
         _intervalFormats = intervalFormats;
     }
+
+    /// <summary>
+    /// The data of another calendar than the Gregorian one, which <see cref="DateTimeCalendarPatternData"/> builds over
+    /// the Gregorian locale's: <paramref name="slots"/> are that locale's with the calendar's patterns laid over them.
+    /// </summary>
+    /// <param name="locale">The CLDR locale.</param>
+    /// <param name="slots">Every slot, resolved, in the Gregorian layout.</param>
+    /// <param name="availableFormats">The calendar's availableFormats, resolved, in ordinal order of the skeleton.</param>
+    /// <param name="parent">The parent locale's data of the same calendar, or <see langword="null"/> for the root.</param>
+    /// <param name="ownFormats">The entries new or different from the parent's, in ordinal order of the skeleton.</param>
+    /// <param name="intervalFormats">The calendar's interval patterns, resolved.</param>
+    /// <param name="calendar">CLDR's name for the calendar.</param>
+    /// <param name="ownCalendarFormats">The availableFormats skeletons that are the calendar's own at this level (<see cref="OwnCalendarFormats"/>).</param>
+    /// <param name="calendarMonths">
+    /// The calendar's month names, by context (format, stand-alone) and width (abbreviated, wide, narrow), each
+    /// <paramref name="calendarMonthCount"/> long; or <see langword="null"/> for a calendar that writes the Gregorian months.
+    /// </param>
+    /// <param name="calendarMonthCount">How many month names each context and width has.</param>
+    /// <param name="calendarEras">The calendar's era names, by width (abbreviated, wide, narrow), each <paramref name="calendarEraCount"/> long.</param>
+    /// <param name="calendarEraCount">How many eras each width has.</param>
+    internal DateTimePatternLocale(
+        string locale,
+        string[] slots,
+        DateTimeSkeletonPattern[] availableFormats,
+        DateTimePatternLocale? parent,
+        DateTimeSkeletonPattern[] ownFormats,
+        DateTimeIntervalPattern[] intervalFormats,
+        string calendar,
+        string[] ownCalendarFormats,
+        string[]? calendarMonths,
+        int calendarMonthCount,
+        string[] calendarEras,
+        int calendarEraCount)
+        : this(locale, slots, availableFormats, parent, ownFormats, intervalFormats)
+    {
+        Calendar = calendar;
+        _ownCalendarFormats = ownCalendarFormats;
+        _calendarMonths = calendarMonths;
+        _calendarMonthCount = calendarMonthCount;
+        _calendarEras = calendarEras;
+        _calendarEraCount = calendarEraCount;
+    }
+
+    /// <summary>
+    /// CLDR's name for the calendar the data is for, or <see langword="null"/> for the Gregorian data.
+    /// </summary>
+    internal string? Calendar { get; }
+
+    /// <summary>
+    /// For another calendar than the Gregorian one, the <see cref="AvailableFormats"/> skeletons that are the calendar's
+    /// own at this level of the chain, in ordinal order; empty for the Gregorian data.
+    /// </summary>
+    /// <remarks>
+    /// ICU's root aliases a calendar's availableFormats to the generic calendar's, so it adds the calendar's own entries
+    /// from every level of the chain before any of the generic calendar's, which <see cref="OwnFormats"/> holds; the order
+    /// decides the format matcher's ties.
+    /// </remarks>
+    internal ReadOnlySpan<string> OwnCalendarFormats => _ownCalendarFormats;
+
+    /// <summary>A copy of every slot, which another calendar's data is built over.</summary>
+    internal string[] CopySlots() => (string[]) _slots.Clone();
 
     /// <summary>
     /// The CLDR locale the data belongs to, as cldr-json names it (<c>de-AT</c>, <c>zh-Hant-HK</c>, <c>und</c>).
@@ -168,11 +234,19 @@ internal sealed class DateTimePatternLocale
     internal string GetFieldDisplayName(DateTimeAppendField field) => _slots[FieldDisplayNamesStart + CheckAppendField(field)];
 
     /// <summary>
-    /// The twelve month names, January first. Months have no <see cref="DateTimeNameWidth.Short"/> width.
+    /// The month names, the first month's first: the twelve Gregorian months, or for another calendar with months of its
+    /// own, its names in the order of CLDR's month keys, which for the Hebrew calendar are its thirteen months and Adar II
+    /// last. Months have no <see cref="DateTimeNameWidth.Short"/> width.
     /// </summary>
     internal ReadOnlySpan<string> GetMonthNames(DateTimeNameContext context, DateTimeNameWidth width)
     {
-        return new ReadOnlySpan<string>(_slots, MonthsStart + (CheckContext(context) * MonthWidthCount + CheckWidth(width, MonthWidthCount)) * 12, 12);
+        var table = CheckContext(context) * MonthWidthCount + CheckWidth(width, MonthWidthCount);
+        if (_calendarMonths is not null)
+        {
+            return new ReadOnlySpan<string>(_calendarMonths, table * _calendarMonthCount, _calendarMonthCount);
+        }
+
+        return new ReadOnlySpan<string>(_slots, MonthsStart + table * 12, 12);
     }
 
     /// <summary>
@@ -184,10 +258,16 @@ internal sealed class DateTimePatternLocale
     }
 
     /// <summary>
-    /// The Gregorian eras, before the common era first: CLDR's <c>eraAbbr</c>, <c>eraNames</c> and <c>eraNarrow</c>.
+    /// The eras of CLDR's <c>eraAbbr</c>, <c>eraNames</c> and <c>eraNarrow</c>: the Gregorian ones, before the common era
+    /// first, or another calendar's, in the order of the era keys <see cref="DateTimeCalendarPatternData.EraKeys"/> lists.
     /// </summary>
     internal ReadOnlySpan<string> GetEraNames(DateTimeNameWidth width)
     {
+        if (_calendarEras is not null)
+        {
+            return new ReadOnlySpan<string>(_calendarEras, CheckWidth(width, MonthWidthCount) * _calendarEraCount, _calendarEraCount);
+        }
+
         return new ReadOnlySpan<string>(_slots, ErasStart + CheckWidth(width, MonthWidthCount) * 2, 2);
     }
 
@@ -271,7 +351,7 @@ internal sealed class DateTimePatternLocale
     /// <summary>
     /// <see cref="Merge"/> for the interval patterns, keyed by skeleton and field.
     /// </summary>
-    private static DateTimeIntervalPattern[] MergeIntervals(DateTimeIntervalPattern[] inherited, DateTimeIntervalPattern[] set, DateTimeIntervalPattern[] removed)
+    internal static DateTimeIntervalPattern[] MergeIntervals(DateTimeIntervalPattern[] inherited, DateTimeIntervalPattern[] set, DateTimeIntervalPattern[] removed)
     {
         if (set.Length == 0 && removed.Length == 0)
         {
@@ -337,7 +417,7 @@ internal sealed class DateTimePatternLocale
     /// Merges two skeleton-ordered lists: an entry of <paramref name="set"/> replaces the inherited one with the same
     /// skeleton, and an inherited skeleton in <paramref name="removed"/> is dropped.
     /// </summary>
-    private static DateTimeSkeletonPattern[] Merge(DateTimeSkeletonPattern[] inherited, DateTimeSkeletonPattern[] set, string[] removed)
+    internal static DateTimeSkeletonPattern[] Merge(DateTimeSkeletonPattern[] inherited, DateTimeSkeletonPattern[] set, string[] removed)
     {
         if (set.Length == 0 && removed.Length == 0)
         {

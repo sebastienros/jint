@@ -112,7 +112,8 @@ public interface ICldrProvider
     /// as its pattern asks. This member's answer replaces them only where it differs from
     /// <see cref="DefaultCldrProvider.Instance"/>'s answer for the same arguments, and then in both contexts; so a
     /// provider that delegates this member, or derives from <see cref="DefaultCldrProvider"/> without overriding it,
-    /// leaves the CLDR names in place. A calendar that counts months of its own still writes this member's answer.
+    /// leaves the CLDR names in place. A calendar that counts months of its own writes this member's answer for it where
+    /// there is one, indexed by the calendar's month number, and the calendar's CLDR names otherwise.
     /// </remarks>
     string[]? GetMonthNames(string locale, string style, string? calendar);
 
@@ -162,7 +163,9 @@ public interface ICldrProvider
     /// data embedded in the engine. This member's answer replaces them only where it differs from
     /// <see cref="DefaultCldrProvider.Instance"/>'s answer for the same arguments, so a provider that delegates this
     /// member, or derives from <see cref="DefaultCldrProvider"/> without overriding it, leaves the CLDR names in place.
-    /// The other calendars' eras are read from this member as before.
+    /// The other calendars the engine carries CLDR data for — <c>buddhist</c>, <c>japanese</c>, <c>roc</c>,
+    /// <c>hebrew</c>, <c>persian</c>, <c>indian</c>, <c>coptic</c>, <c>ethiopic</c>, <c>ethioaa</c> and the Islamic
+    /// ones — write their own CLDR eras, and this member is not read for them.
     /// </remarks>
     string[]? GetEraNames(string locale, string style, string? calendar);
 
