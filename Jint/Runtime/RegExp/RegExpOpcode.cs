@@ -28,31 +28,31 @@ internal enum RegExpOpcode : byte
     Match,           // size: 1 - successful match
     LookaheadMatch,  // size: 1 - successful lookahead match
     NegativeLookaheadMatch, // size: 1 - successful negative lookahead match (must come after)
-    SaveStart,       // size: 2 - save start position of capture group
-    SaveEnd,         // size: 2 - save end position of capture group (must come after SaveStart)
-    SaveReset,       // size: 3 - reset capture group positions
-    Loop,            // size: 6 - decrement top of stack and goto if != 0
-    LoopSplitGotoFirst,       // size: 10 - loop then split (greedy)
-    LoopSplitNextFirst,       // size: 10 - loop then split (lazy)
-    LoopCheckAdvSplitGotoFirst, // size: 10 - loop, check advance, then split (greedy)
-    LoopCheckAdvSplitNextFirst, // size: 10 - loop, check advance, then split (lazy)
-    SetI32,          // size: 6 - store immediate value to register
+    SaveStart,       // size: 5 - save start position of capture group
+    SaveEnd,         // size: 5 - save end position of capture group (must come after SaveStart)
+    SaveReset,       // size: 9 - reset capture group positions
+    Loop,            // size: 9 - decrement top of stack and goto if != 0
+    LoopSplitGotoFirst,       // size: 13 - loop then split (greedy)
+    LoopSplitNextFirst,       // size: 13 - loop then split (lazy)
+    LoopCheckAdvSplitGotoFirst, // size: 13 - loop, check advance, then split (greedy)
+    LoopCheckAdvSplitNextFirst, // size: 13 - loop, check advance, then split (lazy)
+    SetI32,          // size: 9 - store immediate value to register
     WordBoundary,    // size: 1 - \b
     WordBoundaryI,   // size: 1 - \b case-insensitive
     NotWordBoundary, // size: 1 - \B
     NotWordBoundaryI,// size: 1 - \B case-insensitive
-    BackReference,   // size: 2 - \N backreference (variable length match)
-    BackReferenceI,  // size: 2 - \N case-insensitive (must come after)
-    BackwardBackReference,  // size: 2 - backward \N for lookbehind (must come after)
-    BackwardBackReferenceI, // size: 2 - backward \N case-insensitive (must come after)
+    BackReference,   // size: 5+ - \N backreference (count + int32 capture indexes)
+    BackReferenceI,  // size: 5+ - \N case-insensitive (must come after)
+    BackwardBackReference,  // size: 5+ - backward \N for lookbehind (must come after)
+    BackwardBackReferenceI, // size: 5+ - backward \N case-insensitive (must come after)
     Range,           // size: 3+ - character range (variable length, 16-bit pairs)
     RangeI,          // size: 3+ - character range, case-insensitive
     Range32,         // size: 3+ - character range (variable length, 32-bit pairs)
     Range32I,        // size: 3+ - character range, case-insensitive
     Lookahead,       // size: 5 - positive lookahead (?=...)
     NegativeLookahead, // size: 5 - negative lookahead (?!...) (must come after)
-    SetCharPos,      // size: 2 - store character position to register
-    CheckAdvance,    // size: 2 - check register differs from current position
+    SetCharPos,      // size: 5 - store character position to register
+    CheckAdvance,    // size: 5 - check register differs from current position
     Prev,            // size: 1 - go to previous character (for lookbehind)
 
     Count
@@ -84,31 +84,31 @@ internal static class RegExpOpcodeInfo
         1,  // Match
         1,  // LookaheadMatch
         1,  // NegativeLookaheadMatch
-        2,  // SaveStart
-        2,  // SaveEnd
-        3,  // SaveReset
-        6,  // Loop
-        10, // LoopSplitGotoFirst
-        10, // LoopSplitNextFirst
-        10, // LoopCheckAdvSplitGotoFirst
-        10, // LoopCheckAdvSplitNextFirst
-        6,  // SetI32
+        5,  // SaveStart
+        5,  // SaveEnd
+        9,  // SaveReset
+        9,  // Loop
+        13, // LoopSplitGotoFirst
+        13, // LoopSplitNextFirst
+        13, // LoopCheckAdvSplitGotoFirst
+        13, // LoopCheckAdvSplitNextFirst
+        9,  // SetI32
         1,  // WordBoundary
         1,  // WordBoundaryI
         1,  // NotWordBoundary
         1,  // NotWordBoundaryI
-        2,  // BackReference
-        2,  // BackReferenceI
-        2,  // BackwardBackReference
-        2,  // BackwardBackReferenceI
+        5,  // BackReference
+        5,  // BackReferenceI
+        5,  // BackwardBackReference
+        5,  // BackwardBackReferenceI
         3,  // Range
         3,  // RangeI
         3,  // Range32
         3,  // Range32I
         5,  // Lookahead
         5,  // NegativeLookahead
-        2,  // SetCharPos
-        2,  // CheckAdvance
+        5,  // SetCharPos
+        5,  // CheckAdvance
         1,  // Prev
     ];
 
@@ -139,8 +139,8 @@ internal enum RegExpFlags : ushort
 internal static class RegExpHeader
 {
     public const int OffsetFlags = 0;          // uint16
-    public const int OffsetCaptureCount = 2;   // byte
-    public const int OffsetRegisterCount = 3;  // byte
-    public const int OffsetBytecodeLen = 4;    // int32 (little-endian)
-    public const int Length = 8;
+    public const int OffsetCaptureCount = 2;   // int32 (little-endian)
+    public const int OffsetRegisterCount = 6;  // int32 (little-endian)
+    public const int OffsetBytecodeLen = 10;   // int32 (little-endian)
+    public const int Length = 14;
 }
