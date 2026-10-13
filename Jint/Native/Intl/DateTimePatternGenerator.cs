@@ -832,7 +832,16 @@ internal sealed class DateTimePatternGenerator
 
     // === Names ===
 
-    private const int NameTableCount = 20;
+    private const int NameTableCount = 26;
+
+    /// <summary>Where <see cref="GetFlexibleDayPeriodNames"/> keeps the name of a time shown as exactly noon.</summary>
+    internal const int FlexibleNoon = 24;
+
+    /// <summary>Where <see cref="GetFlexibleDayPeriodNames"/> keeps am; pm follows it.</summary>
+    internal const int FlexibleAm = 25;
+
+    /// <summary>Where <see cref="GetNoonDayPeriodNames"/> keeps the name of a time shown as exactly noon.</summary>
+    internal const int NoonAfterAmPm = 2;
 
     /// <summary>
     /// The locale's CLDR names for a text field, one array per context and width, built the first time each is asked
@@ -848,8 +857,53 @@ internal sealed class DateTimePatternGenerator
     internal string[] GetEraNames(DateTimeNameWidth width)
         => GetNames(14 + (int) width, static (data, _, w) => data.GetEraNames(w), DateTimeNameContext.Format, width);
 
+    /// <summary>What an <c>a</c> field writes: am, then pm.</summary>
     internal string[] GetDayPeriodNames(DateTimeNameWidth width)
         => GetNames(17 + (int) width, static (data, _, w) => data.GetDayPeriodNames(w), DateTimeNameContext.Format, width);
+
+    /// <summary>
+    /// What a <c>b</c> field writes: am and pm, then at <see cref="NoonAfterAmPm"/> the locale's <c>noon</c>, which a
+    /// time shown as exactly noon is written as, or empty where the locale has none.
+    /// </summary>
+    internal string[] GetNoonDayPeriodNames(DateTimeNameWidth width)
+        => GetNames(20 + (int) width, static (data, _, w) => NoonDayPeriodTable(data, w), DateTimeNameContext.Format, width);
+
+    /// <summary>
+    /// What a <c>B</c> field writes, the flexible day period: for each hour 0 to 23 the period CLDR's day period rules
+    /// put it in, named as the locale names it, or empty where the locale writes am or pm instead (it has no rules, or
+    /// no name for the period); at <see cref="FlexibleNoon"/> the name of a time shown as exactly noon, empty where the
+    /// rules have no <c>noon</c> or the locale no name for it; and at <see cref="FlexibleAm"/> and after it, am and pm.
+    /// </summary>
+    /// <remarks>
+    /// This is what ICU's <c>SimpleDateFormat</c> writes for <c>B</c> (icu4c <c>smpdtfmt.cpp</c>), from the same CLDR
+    /// data: a time at midnight takes the period of its hour, since ICU does not write <c>midnight</c>, and where there
+    /// is no period to write, the field is written as an <c>a</c> of the same width would be.
+    /// </remarks>
+    internal string[] GetFlexibleDayPeriodNames(DateTimeNameWidth width)
+        => GetNames(23 + (int) width, static (data, _, w) => FlexibleDayPeriodTable(data, w), DateTimeNameContext.Format, width);
+
+    private static string[] NoonDayPeriodTable(DateTimePatternLocale data, DateTimeNameWidth width)
+    {
+        var amPm = data.GetDayPeriodNames(width);
+        return [amPm[0], amPm[1], data.GetFlexibleDayPeriodNames(width)[0]];
+    }
+
+    private static string[] FlexibleDayPeriodTable(DateTimePatternLocale data, DateTimeNameWidth width)
+    {
+        var names = data.GetFlexibleDayPeriodNames(width);
+        var amPm = data.GetDayPeriodNames(width);
+        var table = new string[FlexibleAm + 2];
+        for (var hour = 0; hour < 24; hour++)
+        {
+            var period = data.GetFlexibleDayPeriod(hour);
+            table[hour] = period > 0 ? names[period] : "";
+        }
+
+        table[FlexibleNoon] = data.DayPeriodRulesHaveNoon ? names[0] : "";
+        table[FlexibleAm] = amPm[0];
+        table[FlexibleAm + 1] = amPm[1];
+        return table;
+    }
 
     private delegate ReadOnlySpan<string> NameReader(DateTimePatternLocale data, DateTimeNameContext context, DateTimeNameWidth width);
 
@@ -1485,7 +1539,10 @@ internal sealed class DateTimeFormatPattern
         _ => "short",
     };
 
-    /// <summary>The locale's CLDR names a text field writes, or null for a numeric field.</summary>
+    /// <summary>
+    /// The locale's CLDR names a text field writes, or null for a numeric field: for <c>b</c> and <c>B</c>, the tables
+    /// <see cref="DateTimePatternGenerator.GetNoonDayPeriodNames"/> and <see cref="DateTimePatternGenerator.GetFlexibleDayPeriodNames"/>.
+    /// </summary>
     private static string[]? NamesFor(DateTimePatternGenerator generator, char letter, int length)
     {
         switch (letter)
@@ -1498,8 +1555,12 @@ internal sealed class DateTimeFormatPattern
                 return generator.GetWeekdayNames(letter == 'E' ? DateTimeNameContext.Format : DateTimeNameContext.StandAlone, NameWidth(length, allowsShort: true));
             case 'G':
                 return generator.GetEraNames(NameWidth(length, allowsShort: false));
-            case 'a' or 'b':
+            case 'a':
                 return generator.GetDayPeriodNames(NameWidth(length, allowsShort: false));
+            case 'b':
+                return generator.GetNoonDayPeriodNames(NameWidth(length, allowsShort: false));
+            case 'B':
+                return generator.GetFlexibleDayPeriodNames(NameWidth(length, allowsShort: false));
             default:
                 return null;
         }

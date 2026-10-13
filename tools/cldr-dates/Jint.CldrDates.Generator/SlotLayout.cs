@@ -6,7 +6,8 @@ namespace Jint.CldrDates.Generator;
 /// </summary>
 /// <remarks>
 /// Each name is the value's JSON path: under <c>dates/fields</c> of <c>dateFields.json</c> when it starts with
-/// <c>fields/</c>, under <c>dates/calendars/gregorian</c> of <c>ca-gregorian.json</c> otherwise. The names are
+/// <c>fields/</c>, under <c>dates/calendars/gregorian</c> of <c>ca-gregorian.json</c> otherwise; the one exception is
+/// <see cref="DayPeriodRules"/>, which is cldr-core's, resolved for the locale (<see cref="DayPeriodRuleSets"/>). The names are
 /// written into the resource's index, and <c>Jint.Tests</c> compares them with the loader's own layout, so the
 /// two cannot drift apart silently: change this table and the loader's in the same pull request.
 /// </remarks>
@@ -32,10 +33,24 @@ internal static class SlotLayout
     internal static readonly string[] DayPeriodWidths = ["abbreviated", "wide", "narrow"];
 
     /// <summary>
+    /// The flexible day periods a <c>B</c> field writes, and the <c>noon</c> a <c>b</c> field writes, in the order of
+    /// ICU's <c>DayPeriodRules::DayPeriod</c> (icu4c <c>dayperiodrules.h</c>) without <c>midnight</c>, which ICU has not
+    /// written since ICU 57 (a time at midnight takes the period its hour falls in). A locale need not have all of them:
+    /// a slot is empty where CLDR has no name, and ICU then writes am/pm.
+    /// </summary>
+    internal static readonly string[] FlexibleDayPeriods = ["noon", "morning1", "afternoon1", "evening1", "night1", "morning2", "afternoon2", "evening2", "night2"];
+
+    /// <summary>
     /// <c>intervalFormats/intervalFormatFallback</c>, which <c>formatRange</c> joins two dates with when no interval
     /// pattern fits: <c>{0}</c> the first, <c>{1}</c> the second, the rest literal text.
     /// </summary>
     internal const string IntervalFallback = "dateTimeFormats/intervalFormats/intervalFormatFallback";
+
+    /// <summary>
+    /// The day period rules that pick a flexible day period for an hour, from cldr-core's
+    /// <c>supplemental/dayPeriods.json</c>, as <see cref="DayPeriodRuleSets"/> resolves and writes them.
+    /// </summary>
+    internal const string DayPeriodRules = "supplemental/dayPeriodRuleSet";
 
     internal static readonly string[] Names = BuildNames();
 
@@ -48,6 +63,16 @@ internal static class SlotLayout
         if (string.Equals(name, IntervalFallback, StringComparison.Ordinal))
         {
             return SlotKind.IntervalFallback;
+        }
+
+        if (string.Equals(name, DayPeriodRules, StringComparison.Ordinal))
+        {
+            return SlotKind.DayPeriodRules;
+        }
+
+        if (IsFlexibleDayPeriod(name))
+        {
+            return SlotKind.OptionalName;
         }
 
         if (name.StartsWith("dateTimeFormats/appendItems/", StringComparison.Ordinal))
@@ -136,7 +161,29 @@ internal static class SlotLayout
         }
 
         names.Add(IntervalFallback);
+
+        // Appended after the interval fallback, so that the slots before it keep the positions the loader reads them at.
+        foreach (var width in DayPeriodWidths)
+        {
+            foreach (var period in FlexibleDayPeriods)
+            {
+                names.Add($"dayPeriods/format/{width}/{period}");
+            }
+        }
+
+        names.Add(DayPeriodRules);
         return [.. names];
+    }
+
+    private static bool IsFlexibleDayPeriod(string name)
+    {
+        if (!name.StartsWith("dayPeriods/format/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var period = name[(name.LastIndexOf('/') + 1)..];
+        return Array.IndexOf(FlexibleDayPeriods, period) >= 0;
     }
 }
 
@@ -147,4 +194,10 @@ internal enum SlotKind
     GluePattern,
     AppendPattern,
     IntervalFallback,
+
+    /// <summary>A name CLDR may leave out: a flexible day period the locale has no name for.</summary>
+    OptionalName,
+
+    /// <summary>A <see cref="DayPeriodRuleSets"/> value.</summary>
+    DayPeriodRules,
 }

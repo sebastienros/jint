@@ -1386,8 +1386,9 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// </para>
     /// <para>
     /// The names — months in the format (<c>M</c>) and stand-alone (<c>L</c>) contexts, weekdays (<c>E</c>, <c>c</c>),
-    /// the Gregorian eras and am/pm — are the locale's CLDR names, unless a host <see cref="ICldrProvider"/> answers
-    /// differently from <see cref="DefaultCldrProvider.Instance"/> (<see cref="GetHostNames"/>). A calendar counting
+    /// the Gregorian eras, am/pm and the flexible day periods — are the locale's CLDR names, unless a host
+    /// <see cref="ICldrProvider"/> answers differently from <see cref="DefaultCldrProvider.Instance"/>
+    /// (<see cref="GetHostNames"/>), which it can for all of them but the flexible day periods. A calendar counting
     /// months of its own writes its month through <see cref="CalendarMonthName"/> and its era through
     /// <see cref="GetEraName"/>, as before.
     /// </para>
@@ -1399,19 +1400,21 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         var hostNames = GetHostNames(runs);
         for (var i = 0; i < runs.Length; i++)
         {
-            AppendRun(result, in runs[i], hostNames?[i], dateTime, originalYear, calendarYear, calendarMonth, calendarDay);
+            AppendRun(result, in runs[i], hostNames?[i], pattern.Fields, dateTime, originalYear, calendarYear, calendarMonth, calendarDay);
         }
     }
 
     /// <summary>
     /// One run of a pattern (https://tc39.es/ecma402/#sec-formatdatetimepattern step 15): a literal as the pattern
     /// writes it, a field as the locale writes its value, with <paramref name="hostNames"/> in place of the run's CLDR
-    /// names where a host provider has its own.
+    /// names where a host provider has its own. <paramref name="patternFields"/> are the fields the whole pattern writes,
+    /// whose minute and second a day period reads.
     /// </summary>
     private void AppendRun(
         List<DateTimePart> result,
         in DateTimePatternRun run,
         string[]? hostNames,
+        DateTimeFormatFields patternFields,
         DateTime dateTime,
         int? originalYear,
         int? calendarYear,
@@ -1449,11 +1452,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             case 'E' or 'c' or 'e':
                 result.Add(new DateTimePart("weekday", names![(int) dateTime.DayOfWeek]));
                 break;
-            case 'a' or 'b':
+            case 'a':
                 result.Add(new DateTimePart("dayPeriod", names![dateTime.Hour < 12 ? 0 : 1]));
                 break;
+            case 'b':
+                var noon = run.Names![DateTimePatternGenerator.NoonAfterAmPm];
+                result.Add(new DateTimePart("dayPeriod", noon.Length > 0 && IsShownAsNoon(dateTime, patternFields) ? noon : names![dateTime.Hour < 12 ? 0 : 1]));
+                break;
             case 'B':
-                result.Add(new DateTimePart("dayPeriod", GetExtendedDayPeriod(dateTime.Hour, TextualStyle(length))));
+                result.Add(new DateTimePart("dayPeriod", FlexibleDayPeriod(run.Names!, hostNames, dateTime, patternFields)));
                 break;
             case 'h':
                 result.Add(new DateTimePart("hour", FormatPadded(dateTime.Hour % 12 == 0 ? 12 : dateTime.Hour % 12, length)));
@@ -1615,7 +1622,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 case 'G':
                     host = OverrideOf(provider.GetEraNames(Locale, style, Calendar), shipped.GetEraNames(Locale, style, Calendar), 2);
                     break;
-                case 'a' or 'b':
+                case 'a' or 'b' or 'B':
+                    // The am and pm a flexible day period falls back to; ICldrProvider has no flexible day periods.
                     host = OverrideOf(provider.GetDayPeriods(Locale, style, Calendar), shipped.GetDayPeriods(Locale, style, Calendar), 2);
                     break;
             }
@@ -1774,16 +1782,17 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         var runs = range.Runs;
         var sources = range.Sources;
         var hostNames = GetHostNames(runs);
+        var rangeFields = range.TimeFields;
         var parts = new List<DateTimePart>(runs.Length);
         for (var i = 0; i < runs.Length; i++)
         {
             if (sources[i] == DateTimeRangeSource.EndRange)
             {
-                AppendRun(parts, in runs[i], hostNames?[i], end, endYear, endCalendarYear, endCalendarMonth, endCalendarDay);
+                AppendRun(parts, in runs[i], hostNames?[i], rangeFields, end, endYear, endCalendarYear, endCalendarMonth, endCalendarDay);
             }
             else
             {
-                AppendRun(parts, in runs[i], hostNames?[i], start, startYear, startCalendarYear, startCalendarMonth, startCalendarDay);
+                AppendRun(parts, in runs[i], hostNames?[i], rangeFields, start, startYear, startCalendarYear, startCalendarMonth, startCalendarDay);
             }
         }
 
@@ -1947,7 +1956,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             {
                 result.Add(new DateTimePart("literal", " "));
             }
-            result.Add(new DateTimePart("dayPeriod", GetExtendedDayPeriod(dateTime.Hour, DayPeriod)));
+            result.Add(new DateTimePart("dayPeriod", GetExtendedDayPeriod(dateTime, DayPeriod)));
         }
         else if (Hour != null && hourUse12Hour)
         {
@@ -1974,53 +1983,62 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     }
 
     /// <summary>
-    /// Gets the extended day period string based on the hour and dayPeriod style.
-    /// CLDR defines: night1 (21:00-05:59), morning1 (06:00-11:59), noon (12:00),
-    /// afternoon1 (12:01-17:59), evening1 (18:00-20:59)
+    /// The flexible day period a Chinese or Dangi formatter's <c>dayPeriod</c> writes after its time: the one
+    /// <see cref="FlexibleDayPeriod"/> writes, falling back to this lane's own am/pm (<see cref="GetDayPeriod"/>).
     /// </summary>
-    private string GetExtendedDayPeriod(int hour, string? style)
+    private string GetExtendedDayPeriod(DateTime dateTime, string style)
     {
-        // For English locale (en), use CLDR day period names
-        // Other locales would need locale-specific data
-        var lang = IntlUtilities.GetLanguageSubtag(Locale);
-
-        if (string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase))
+        var length = style switch
         {
-            return style switch
-            {
-                "long" => hour switch
-                {
-                    >= 0 and < 6 => "at night",
-                    >= 6 and < 12 => "in the morning",
-                    12 => "noon",
-                    > 12 and < 18 => "in the afternoon",
-                    >= 18 and < 21 => "in the evening",
-                    _ => "at night"
-                },
-                "short" => hour switch
-                {
-                    >= 0 and < 6 => "at night",
-                    >= 6 and < 12 => "in the morning",
-                    12 => "noon",
-                    > 12 and < 18 => "in the afternoon",
-                    >= 18 and < 21 => "in the evening",
-                    _ => "at night"
-                },
-                "narrow" => hour switch
-                {
-                    >= 0 and < 6 => "at night",
-                    >= 6 and < 12 => "in the morning",
-                    12 => "n",
-                    > 12 and < 18 => "in the afternoon",
-                    >= 18 and < 21 => "in the evening",
-                    _ => "at night"
-                },
-                _ => GetDayPeriod(hour)
-            };
+            "long" => 4,
+            "narrow" => 5,
+            _ => 1,
+        };
+
+        var table = DateTimePatternGenerator.ForLocale(Locale).GetFlexibleDayPeriodNames(DateTimeFormatPattern.NameWidth(length, allowsShort: false));
+        var shown = (Minute is null ? DateTimeFormatFields.None : DateTimeFormatFields.Minute)
+                    | (Second is null ? DateTimeFormatFields.None : DateTimeFormatFields.Second);
+        return FlexibleDayPeriodOrNull(table, dateTime, shown) ?? GetDayPeriod(dateTime.Hour);
+    }
+
+    /// <summary>
+    /// A <c>B</c> field, CLDR's flexible day period (<c>dayPeriod</c>; https://tc39.es/ecma402/#sec-formatdatetimepattern
+    /// leaves its text to the implementation and the locale), written as ICU writes it: the period the locale's day
+    /// period rules put the hour in, or <c>noon</c> for a time shown as exactly noon where the rules have it; and where
+    /// the locale names no such period, am or pm in the same width — a host's, where <paramref name="hostAmPm"/> holds
+    /// them, as an <c>a</c> field would write. <paramref name="table"/> is the run's names,
+    /// <see cref="DateTimePatternGenerator.GetFlexibleDayPeriodNames"/>.
+    /// </summary>
+    private static string FlexibleDayPeriod(string[] table, string[]? hostAmPm, DateTime dateTime, DateTimeFormatFields patternFields)
+    {
+        var pm = dateTime.Hour < 12 ? 0 : 1;
+        return FlexibleDayPeriodOrNull(table, dateTime, patternFields)
+               ?? (hostAmPm is not null ? hostAmPm[pm] : table[DateTimePatternGenerator.FlexibleAm + pm]);
+    }
+
+    private static string? FlexibleDayPeriodOrNull(string[] table, DateTime dateTime, DateTimeFormatFields patternFields)
+    {
+        var noon = table[DateTimePatternGenerator.FlexibleNoon];
+        if (noon.Length > 0 && IsShownAsNoon(dateTime, patternFields))
+        {
+            return noon;
         }
 
-        // No extended day-period data for this locale: fall back to its own AM/PM designators.
-        return GetDayPeriod(hour);
+        var name = table[dateTime.Hour];
+        return name.Length > 0 ? name : null;
+    }
+
+    /// <summary>
+    /// Whether a pattern shows a time as exactly noon: the hour is 12, and the minute and second are zero where the
+    /// pattern writes them. ICU's <c>SimpleDateFormat</c> writes a day period as noon only then (icu4c
+    /// <c>smpdtfmt.cpp</c>, after <c>parsePattern</c>), so <c>{ hour: 'numeric', dayPeriod: 'short' }</c> writes
+    /// <c>12 noon</c> at 12:30 and <c>{ hour, minute, dayPeriod }</c> writes <c>12:30 in the afternoon</c>.
+    /// </summary>
+    private static bool IsShownAsNoon(DateTime dateTime, DateTimeFormatFields patternFields)
+    {
+        return dateTime.Hour == 12
+               && ((patternFields & DateTimeFormatFields.Minute) == DateTimeFormatFields.None || dateTime.Minute == 0)
+               && ((patternFields & DateTimeFormatFields.Second) == DateTimeFormatFields.None || dateTime.Second == 0);
     }
 
     internal readonly record struct DateTimePart(string Type, string Value);

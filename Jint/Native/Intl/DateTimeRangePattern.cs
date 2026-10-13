@@ -20,11 +20,26 @@ internal sealed class DateTimeRangePattern
     {
         Runs = runs;
         Sources = sources;
+        foreach (var run in runs)
+        {
+            TimeFields |= run.Field switch
+            {
+                'm' => DateTimeFormatFields.Minute,
+                's' => DateTimeFormatFields.Second,
+                _ => DateTimeFormatFields.None,
+            };
+        }
     }
 
     internal DateTimePatternRun[] Runs { get; }
 
     internal DateTimeRangeSource[] Sources { get; }
+
+    /// <summary>
+    /// Which of the minute and the second the pattern writes: a day period is written as noon only for a time the
+    /// pattern shows as exactly noon.
+    /// </summary>
+    internal DateTimeFormatFields TimeFields { get; }
 
     /// <summary>
     /// The sources of the runs ICU writes a range with, as V8 reports them wherever that is what

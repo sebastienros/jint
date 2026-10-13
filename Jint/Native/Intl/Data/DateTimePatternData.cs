@@ -14,7 +14,7 @@ namespace Jint.Native.Intl.Data;
 /// <remarks>
 /// <para>
 /// <c>Intl.DateTimeFormat</c> resolves a component bag and a <c>dateStyle</c>/<c>timeStyle</c> against it
-/// (<see cref="DateTimePatternGenerator"/>), writes its names, and writes a component bag's <c>formatRange</c> through
+/// (<see cref="DateTimePatternGenerator"/>), writes its names and flexible day periods, and writes a component bag's <c>formatRange</c> through
 /// its interval patterns (<see cref="DateTimeIntervalFormat"/>); a <c>dateStyle</c>/<c>timeStyle</c> range does not
 /// read those yet (issue #4158). The
 /// resource and its generator are described in <c>DateTimePatternData.Data.cs</c> and <c>tools/cldr-dates/README.md</c>.
@@ -401,7 +401,9 @@ internal sealed partial class DateTimePatternData
             || !string.Equals(slotNames[DateTimePatternLocale.WeekdaysStart], "days/format/abbreviated/sun", StringComparison.Ordinal)
             || !string.Equals(slotNames[DateTimePatternLocale.ErasStart], "eras/eraAbbr/0", StringComparison.Ordinal)
             || !string.Equals(slotNames[DateTimePatternLocale.DayPeriodsStart], "dayPeriods/format/abbreviated/am", StringComparison.Ordinal)
-            || !string.Equals(slotNames[DateTimePatternLocale.IntervalFallbackSlot], "dateTimeFormats/intervalFormats/intervalFormatFallback", StringComparison.Ordinal))
+            || !string.Equals(slotNames[DateTimePatternLocale.IntervalFallbackSlot], "dateTimeFormats/intervalFormats/intervalFormatFallback", StringComparison.Ordinal)
+            || !string.Equals(slotNames[DateTimePatternLocale.FlexibleDayPeriodsStart], "dayPeriods/format/abbreviated/noon", StringComparison.Ordinal)
+            || !string.Equals(slotNames[DateTimePatternLocale.DayPeriodRulesSlot], "supplemental/dayPeriodRuleSet", StringComparison.Ordinal))
         {
             Throw.InvalidOperationException("The embedded date/time pattern data has a slot layout DateTimePatternLocale does not read; update both together.");
         }

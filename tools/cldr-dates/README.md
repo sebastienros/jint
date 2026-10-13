@@ -21,7 +21,7 @@ when the pinned release changes.
 | Input | What it gives | Pinned by |
 | --- | --- | --- |
 | [`cldr-dates-full-48.2.0.tgz`](https://www.npmjs.com/package/cldr-dates-full/v/48.2.0) | `main/<locale>/ca-gregorian.json` and `dateFields.json` for 766 locales, each already resolved through CLDR's inheritance | npm integrity `sha512-zMrKvjMO414HDftLr6vKH1fNQHakFNe+F1h4S0eg+zmL4WRi9pI41fxB3UrTJDY42MEM87jCuAw/qlqCgYKcAQ==` |
-| [`cldr-core-48.2.0.tgz`](https://www.npmjs.com/package/cldr-core/v/48.2.0) | `availableLocales.json` (the locale list, cross-checked), `defaultContent.json`, `supplemental/likelySubtags.json` and `supplemental/parentLocales.json` (cross-checked) | npm integrity `sha512-zfmLothncSwfv2jlevoSrgI2VGgH8SDGHXst6jUEotHA8nq9Igeg9jzdJDFtBso9pgJuG89DK16TzrmZDdo2Bg==` |
+| [`cldr-core-48.2.0.tgz`](https://www.npmjs.com/package/cldr-core/v/48.2.0) | `availableLocales.json` (the locale list, cross-checked), `defaultContent.json`, `supplemental/likelySubtags.json`, `supplemental/parentLocales.json` (cross-checked) and `supplemental/dayPeriods.json` | npm integrity `sha512-zfmLothncSwfv2jlevoSrgI2VGgH8SDGHXst6jUEotHA8nq9Igeg9jzdJDFtBso9pgJuG89DK16TzrmZDdo2Bg==` |
 | [`common/supplemental/supplementalData.xml`](https://github.com/unicode-org/cldr/blob/release-48-2/common/supplemental/supplementalData.xml) at `release-48-2` | `<parentLocales>`, the parent table, as the other CLDR tables under `Jint/Native/Intl/Data` are read from it | SHA-256 `cd2af39aef82fdbfba4d591c87548203350538ad2318486d104b3b38b8d62f1a` |
 
 Each file is downloaded into a cache directory (by default `jint-cldr-dates` under the temporary directory; `--cache`
@@ -42,6 +42,17 @@ For each locale, from the `gregorian` calendar:
   `fields/<field>/displayName`), which is what ICU puts in their `{2}`.
 - `months` and `days`, `format` and `stand-alone`, every width; `eras` (`eraAbbr`, `eraNames`, `eraNarrow`); and the
   `format` `am`/`pm` day periods in three widths.
+- The flexible day periods a `B` field writes, `format` context, in the same three widths: `noon` and `morning1` to
+  `night2`, empty where CLDR has no name, and a missing wide or narrow one filled with the abbreviated one, as ICU's
+  `DateFormatSymbols` fills it. ICU writes only the `format` context and has not written `midnight` since ICU 57, so the
+  stand-alone names and `midnight` are left out.
+- The day period rules that pick a flexible day period for an hour, from cldr-core's `supplemental/dayPeriods.json`,
+  looked up for each locale as ICU's `DayPeriodRules::getInstance` looks them up: the locale, then each truncation of
+  it, not the CLDR parent chain, so `zh-Hant` (whose parent is the root) has `zh`'s. A locale whose language has none
+  gets the root's, `am` and `pm`, which ICU writes the same as no rules. Each is written as one character per hour —
+  the period's position in the names (`1` `morning1` to `8` `night2`), or `a`/`p` — then `n` where the rules have
+  `noon` at 12:00; English's is `111111111111222222333444n`. A rule set fails the run unless every hour of the day is
+  in exactly one period, every period is whole hours, and only `midnight` at 00:00 and `noon` at 12:00 are `at` rules.
 - `dateTimeFormats/intervalFormats`: `intervalFormatFallback`, and each skeleton's pattern for each greatest-difference
   letter ICU reads (`G y M d a B h H m`; CLDR's `-alt-` variants are left out). They are stored as ICU's
   `DateIntervalInfo` ends up holding them, one pattern per skeleton and field (`a` and `B` are one field, and so are `h`
@@ -49,10 +60,10 @@ For each locale, from the `gregorian` calendar:
   pattern differs from its parent's — and within one locale the first letter in binary order, so `zh-Hant`'s `B`
   pattern for `h` is read and its `a` one is not.
 
-The flexible day periods and the other calendars are not extracted yet.
+The other calendars are not extracted yet.
 
 The run fails, listing every problem at once, unless: cldr-dates-full and `availableLocales.json` name the same
-locales; every value is present and non-empty, with twelve months, seven weekdays, two eras and am/pm; every pattern
+locales; every value is present and non-empty (a flexible day period may be missing), with twelve months, seven weekdays, two eras and am/pm; every pattern
 parses (every quote closed) and uses only the letters ECMA-402's fields map to, `GyMLdEcabBhHKkmsSzvO`; every join
 and appendItems pattern places `{0}` and `{1}` (and appendItems only `{2}` besides) with no letter outside quotes; the
 XML's and cldr-core's parent tables agree; every locale's parent chain reaches the root through locales cldr-json
@@ -106,8 +117,9 @@ record: varint n, n x { varint gap, string value }        slots: the index is th
 An interval pattern's field is one of `G y M d a h m`, the letter ICU's interval index names it by. Version 1 had no
 interval lists.
 
-A **slot** is one fixed-position value; the 179 of them are listed in
-[`SlotLayout.cs`](Jint.CldrDates.Generator/SlotLayout.cs), each named by its JSON path, and the index carries the
+A **slot** is one fixed-position value; the 207 of them are listed in
+[`SlotLayout.cs`](Jint.CldrDates.Generator/SlotLayout.cs), each named by its JSON path (the day period rules by
+`supplemental/dayPeriodRuleSet`), and the index carries the
 names so the loader can check them against its own offsets. Every locale but the root (`und`) stores only what
 differs from its **CLDR parent** ([TR35](https://www.unicode.org/reports/tr35/#Parent_Locales)): the parent table's
 entry, else the root for a language-and-script locale whose script is not the language's likely one, else the
@@ -189,8 +201,8 @@ reports. A style is modelled as V8 drives ICU: the locale's `dateFormats`/`timeF
 the `atTime` connector of the date's width, and where the resolved hour cycle is not the pattern's, its skeleton
 without the day period and with the cycle's hour letter matched again. A Temporal value without all of a style's
 fields gets Temporal's AdjustDateTimeStyleFormat: the matcher over the fields it has. For the text only, the model
-reads two more cldr-json files than the generator: `timeZoneNames.json` (the `Etc/UTC` name) and cldr-core's
-`supplemental/dayPeriods.json` (the flexible day period `zh-Hant` writes).
+reads one more cldr-json file than the generator, `timeZoneNames.json` (the `Etc/UTC` name), and writes the flexible
+day period `zh-Hant`'s time patterns use from `supplemental/dayPeriods.json` as the generator reads it.
 
 Node's V8 does not ship Temporal, so the case list the probe reads is the model's own, and a Temporal case is asked of
 ICU as the component bag AdjustDateTimeStyleFormat matched:

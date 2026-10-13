@@ -201,13 +201,14 @@ internal static class CldrExtraction
             }
         }
 
+        var dayPeriodRules = DayPeriodRuleSets.Resolve(inputs, ids, problems);
         var seenLetterExceptions = new HashSet<(string, string)>();
         var seenNumberingOverrides = new HashSet<(string, string)>();
         var seenUnsplittable = new HashSet<(string, string)>();
         var locales = new List<CldrLocale>(ids.Count);
         foreach (var id in ids)
         {
-            locales.Add(Extract(inputs, id, problems, seenLetterExceptions, seenNumberingOverrides, seenUnsplittable));
+            locales.Add(Extract(inputs, id, dayPeriodRules[id], problems, seenLetterExceptions, seenNumberingOverrides, seenUnsplittable));
         }
 
         foreach (var (locale, skeleton, _) in KnownLetterExceptions)
@@ -242,7 +243,7 @@ internal static class CldrExtraction
         return locales;
     }
 
-    private static CldrLocale Extract(Inputs inputs, string id, List<string> problems, HashSet<(string, string)> seenLetterExceptions, HashSet<(string, string)> seenNumberingOverrides, HashSet<(string, string)> seenUnsplittable)
+    private static CldrLocale Extract(Inputs inputs, string id, string dayPeriodRules, List<string> problems, HashSet<(string, string)> seenLetterExceptions, HashSet<(string, string)> seenNumberingOverrides, HashSet<(string, string)> seenUnsplittable)
     {
         using var gregorianDocument = JsonDocument.Parse(inputs.DatesFiles[$"package/main/{id}/ca-gregorian.json"]);
         using var fieldsDocument = JsonDocument.Parse(inputs.DatesFiles[$"package/main/{id}/dateFields.json"]);
@@ -253,10 +254,21 @@ internal static class CldrExtraction
         for (var slot = 0; slot < slots.Length; slot++)
         {
             var name = SlotLayout.Names[slot];
+            var kind = SlotLayout.KindOf(slot);
+            if (kind == SlotKind.DayPeriodRules)
+            {
+                slots[slot] = dayPeriodRules;
+                continue;
+            }
+
             var node = name.StartsWith("fields/", StringComparison.Ordinal) ? Navigate(fields, name["fields/".Length..]) : Navigate(gregorian, name);
             if (node is not { } value)
             {
-                problems.Add($"{id}: {name} is missing");
+                if (kind != SlotKind.OptionalName)
+                {
+                    problems.Add($"{id}: {name} is missing");
+                }
+
                 slots[slot] = "";
                 continue;
             }
@@ -264,6 +276,8 @@ internal static class CldrExtraction
             slots[slot] = ReadString(id, name, value, problems, seenNumberingOverrides);
             CheckSlot(id, slot, slots[slot], problems);
         }
+
+        FillDayPeriodWidths(slots);
 
         var formats = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach (var entry in gregorian.GetProperty("dateTimeFormats").GetProperty("availableFormats").EnumerateObject())
@@ -342,6 +356,27 @@ internal static class CldrExtraction
         }
 
         return new CldrLocale { Id = id, Slots = slots, Formats = formats, RawIntervals = intervals };
+    }
+
+    /// <summary>
+    /// A wide or narrow flexible day period CLDR has no name for is the abbreviated one, as ICU's
+    /// <c>DateFormatSymbols</c> fills it (icu4c <c>dtfmtsym.cpp</c>).
+    /// </summary>
+    private static void FillDayPeriodWidths(string[] slots)
+    {
+        var abbreviated = Array.IndexOf(SlotLayout.Names, "dayPeriods/format/abbreviated/" + SlotLayout.FlexibleDayPeriods[0]);
+        var count = SlotLayout.FlexibleDayPeriods.Length;
+        for (var width = 1; width < SlotLayout.DayPeriodWidths.Length; width++)
+        {
+            for (var period = 0; period < count; period++)
+            {
+                ref var slot = ref slots[abbreviated + width * count + period];
+                if (slot.Length == 0)
+                {
+                    slot = slots[abbreviated + period];
+                }
+            }
+        }
     }
 
     /// <summary>

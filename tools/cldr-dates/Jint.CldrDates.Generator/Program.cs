@@ -104,10 +104,11 @@ static string EmitCode(Pin pin, int localeCount, PatternFileResult result)
         // and the parent locales are {{pin.SupplementalData.Path}} at {{pin.CldrReleaseTag}}, SHA-256 {{pin.SupplementalData.Sha256}}.
         // DateTimePatterns.bin carries, for each of the {{localeCount}} locales cldr-json has, the Gregorian calendar's availableFormats
         // (without the skeletons with a quarter or week field and the -count- and -alt- variants), dateTimeFormats and their atTime
-        // variants, dateFormats, timeFormats, appendItems with the field display names they use, the month, weekday, era and
-        // am/pm names, and the intervalFormats with their fallback. Every locale but the root stores only what differs from its
-        // CLDR parent, and the records are deflated one block per language ({{result.Blocks.Count}} blocks). tools/cldr-dates/README.md
-        // describes the layout.
+        // variants, dateFormats, timeFormats, appendItems with the field display names they use, the month, weekday, era,
+        // am/pm and flexible day-period names, the intervalFormats with their fallback, and the day period rules of
+        // cldr-core's supplemental/dayPeriods.json as ICU looks them up for the locale. Every locale but the root stores only
+        // what differs from its CLDR parent, and the records are deflated one block per language ({{result.Blocks.Count}} blocks).
+        // tools/cldr-dates/README.md describes the layout.
         //   DateTimePatterns.bin: {{result.Bytes.Length}} bytes, SHA-256 {{fileSha256}}
         //   inflated content: {{payloadLength}} bytes, SHA-256 {{result.PayloadSha256}}
         // Unicode License v3 (CREDITS.txt). The data is CLDR's own: update it from a later release, not entry by entry.

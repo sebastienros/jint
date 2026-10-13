@@ -27,7 +27,15 @@ internal sealed class DateTimePatternLocale
     internal const int ErasStart = 166;
     internal const int DayPeriodsStart = 172;
     internal const int IntervalFallbackSlot = 178;
-    internal const int SlotCount = 179;
+    internal const int FlexibleDayPeriodsStart = 179;
+    internal const int DayPeriodRulesSlot = 206;
+    internal const int SlotCount = 207;
+
+    /// <summary>
+    /// How many flexible day periods each width has: <c>noon</c>, then <c>morning1</c>, <c>afternoon1</c>,
+    /// <c>evening1</c>, <c>night1</c>, <c>morning2</c>, <c>afternoon2</c>, <c>evening2</c> and <c>night2</c>.
+    /// </summary>
+    internal const int FlexibleDayPeriodCount = 9;
 
     private const int AppendFieldCount = 11;
     private const int MonthWidthCount = 3;
@@ -189,6 +197,55 @@ internal sealed class DateTimePatternLocale
     internal ReadOnlySpan<string> GetDayPeriodNames(DateTimeNameWidth width)
     {
         return new ReadOnlySpan<string>(_slots, DayPeriodsStart + CheckWidth(width, MonthWidthCount) * 2, 2);
+    }
+
+    /// <summary>
+    /// The format-context flexible day periods: <c>noon</c>, then <c>morning1</c> to <c>night2</c> in the order of
+    /// <see cref="FlexibleDayPeriodCount"/>. A period the locale has no name for is empty.
+    /// </summary>
+    /// <remarks>
+    /// ICU writes only these in a pattern; the stand-alone names are not carried. A wide or narrow name CLDR leaves
+    /// out is the abbreviated one, as ICU's <c>DateFormatSymbols</c> fills it, and <c>midnight</c> is not carried
+    /// because ICU does not write it.
+    /// </remarks>
+    internal ReadOnlySpan<string> GetFlexibleDayPeriodNames(DateTimeNameWidth width)
+    {
+        return new ReadOnlySpan<string>(_slots, FlexibleDayPeriodsStart + CheckWidth(width, MonthWidthCount) * FlexibleDayPeriodCount, FlexibleDayPeriodCount);
+    }
+
+    /// <summary>
+    /// The flexible day period CLDR's day period rules put an hour in: its position in
+    /// <see cref="GetFlexibleDayPeriodNames"/> (1 <c>morning1</c> to 8 <c>night2</c>), or 0 where the rules give the
+    /// hour am or pm, which the locale then writes instead.
+    /// </summary>
+    /// <remarks>
+    /// The rules are cldr-core's <c>supplemental/dayPeriods.json</c>, looked up the way ICU's
+    /// <c>DayPeriodRules::getInstance</c> finds them — the locale, then each truncation of it — so <c>zh-Hant</c> has
+    /// <c>zh</c>'s, although its CLDR parent is the root. A language without rules has the root's, which are am and pm.
+    /// The generator writes them as one character per hour (<c>tools/cldr-dates/Jint.CldrDates.Generator/DayPeriodRuleSets.cs</c>).
+    /// </remarks>
+    internal int GetFlexibleDayPeriod(int hour)
+    {
+        var rules = _slots[DayPeriodRulesSlot];
+        if ((uint) hour >= 24 || rules.Length < 24)
+        {
+            Throw.ArgumentOutOfRangeException(nameof(hour), "No day period rule for that hour.");
+        }
+
+        var code = rules[hour];
+        return code is >= '1' and <= '8' ? code - '0' : 0;
+    }
+
+    /// <summary>
+    /// Whether the locale's day period rules have <c>noon</c> at 12:00, which a time shown as exactly noon is written as.
+    /// </summary>
+    internal bool DayPeriodRulesHaveNoon
+    {
+        get
+        {
+            var rules = _slots[DayPeriodRulesSlot];
+            return rules.Length > 24 && rules[24] == 'n';
+        }
     }
 
     /// <summary>
