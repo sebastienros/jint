@@ -512,20 +512,29 @@ or attempt to resume after the request has ended.
 - Promise and module waits have a configurable `PromiseTimeout`.
 - Async completions are queued so background threads do not execute JavaScript directly.
 - Event-loop generations discard promise/module completions from a cycle ended by
-  `RestoreGlobalSnapshot`.
-- Async module loading can receive the registered cancellation constraint's token.
+  `RestoreGlobalSnapshot`, which also discards the queued jobs, timers and pending loads of that cycle.
+- The cancellation token passed to `EvaluateAsync`, `ExecuteAsync`, `InvokeAsync`,
+  `Modules.ImportAsync`, `JsValue.UnwrapIfPromiseAsync` and `InvokeFetchHandlerAsync` is observed by
+  the interpreter at cooperative check points for that call, wakes blocking waits made inside it,
+  and reaches the `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and async module loads the
+  call starts for as long as they run.
+- Those requests and loads also observe the registered cancellation constraint's token.
 
 **Missing or residual mitigation.**
 
-- The cancellation-token parameter on `EvaluateAsync`, `ExecuteAsync`, `InvokeAsync`, and
-  `Modules.ImportAsync` is observed by the interpreter for that call only, at cooperative check
-  points; it does not reach a host callback that never returns, and it does not outlive the call.
+- The call's token does not reach a host callback that never returns, a host Task the script
+  awaits, or script the engine runs outside the call, such as a timer callback in a later
+  `Tasks.ProcessTasks()`.
+- A cancelled call stops where it is and leaves its queued jobs, timers and pending loads on the
+  engine; the next pump runs them unless the host restores a snapshot or discards the engine.
 - Discarding a completion does not cancel the underlying Task, I/O, timer, or host action.
 - A promise timeout is not a total request budget.
 
-**Required host action.** Pass the request token to the async API; register an engine
-cancellation constraint as well when the engine is also entered synchronously. Track and cancel all host operations, await intended work before
-disposing the request scope, and terminate the worker on an outer timeout.
+**Required host action.** Pass the request token to every async API call. Register an engine
+cancellation constraint as well whenever the engine also runs script outside such a call, through a
+synchronous entry or a `Tasks.ProcessTasks()` loop. After a cancelled call, restore a global
+snapshot or discard the engine before reusing it. Track and cancel all host operations, await
+intended work before disposing the request scope, and terminate the worker on an outer timeout.
 
 ### TM-11: Module loaders expose files, networks, and secrets
 

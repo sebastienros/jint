@@ -1,6 +1,5 @@
 using System.Threading;
 using System.Threading.Tasks;
-using Jint.Constraints;
 
 namespace Jint.Runtime.Modules;
 
@@ -46,9 +45,10 @@ public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
     /// <inheritdoc />
     public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
     {
-        // A host that registered options.ObserveCancellation(token) means it for its I/O too, so the fetch sees
-        // the same token the interpreter's cancellation constraint observes.
-        var cancellationToken = engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
+        // A host that registered options.ObserveCancellation(token), or passed a token to the *Async call this
+        // load runs under, means it for its I/O too, so the fetch sees the very tokens the interpreter observes.
+        // The completion captured them when the load was registered, and owns whatever linking them took.
+        var cancellationToken = completion.CancellationToken;
 
         if (resolved.ModuleRequest.IsBytesModule())
         {
@@ -182,7 +182,7 @@ public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
         {
             if (completion.CancellationToken.IsCancellationRequested)
             {
-                completion.SetConstraintError(new OperationCanceledException(completion.CancellationToken));
+                completion.SetConstraintError(new OperationCanceledException(completion.CancelledToken));
             }
             else
             {

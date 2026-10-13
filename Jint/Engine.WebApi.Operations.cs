@@ -601,14 +601,10 @@ public partial class Engine
         /// <see cref="InvokeFetchHandler(HttpRequestMessage)"/> and its own pump.
         /// </para>
         /// <para>
-        /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
-        /// handler runs to completion first and the token is only observed afterwards, while awaiting the
-        /// response promise — that is, at event-loop continuation boundaries. A handler that never yields
-        /// (<c>while (true) { }</c>) is therefore not cancellable through this parameter. To bound the
-        /// interpreter itself, register an execution constraint on the engine's <see cref="Options"/>:
-        /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> for token-driven cancellation or
-        /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/> for a wall-clock bound. Both are
-        /// amortizable, so neither disarms the interpreter's tight-loop lane.
+        /// <paramref name="cancellationToken"/> covers the handler exactly as it covers
+        /// <see cref="EvaluateAsync(string, string, CancellationToken)"/>: already cancelled, the task is
+        /// cancelled before the handler runs; cancelled later, the handler, its continuations and any wait
+        /// inside the call stop with an <see cref="OperationCanceledException"/> carrying it.
         /// </para>
         /// <para>
         /// <b><paramref name="cancellationToken"/> is also wired to the <c>Request</c>'s <c>signal</c>.</b>
@@ -616,15 +612,14 @@ public partial class Engine
         /// second one: a single token on a request invocation means "this request has been abandoned", which
         /// is exactly what <c>HttpContext.RequestAborted</c> means and exactly what
         /// <c>request.signal</c> is for, and a host holding one token for the two halves of one request would
-        /// have nothing to put in a second parameter. Everything
+        /// have nothing to put in a second parameter. What
         /// <see cref="InvokeFetchHandler(HttpRequestMessage, CancellationToken)"/> documents about that wiring
-        /// holds here — the abort lands on a pump, it settles nothing by itself, an already-cancelled token
-        /// gives a handler a request whose signal is already aborted, and the registration is released when
-        /// this call returns however it returns.
+        /// holds here — the abort lands on a pump, it settles nothing by itself, and the registration is
+        /// released when this call returns however it returns.
         /// </para>
         /// <para>
         /// <b>One consequence is specific to this shape, and is why a host that wants a graceful answer on
-        /// abort should prefer the polled one.</b> The token ends the <c>await</c> as well as aborting the
+        /// abort should prefer the polled one.</b> The token stops the handler as well as aborting the
         /// signal, and the two are not ordered against each other: cancelling mid-flight normally ends this
         /// call with an <see cref="OperationCanceledException"/> before the abort job has had a turn, so the
         /// handler never gets to observe the abort and answer. The job is still there, and the abort lands on
@@ -644,9 +639,8 @@ public partial class Engine
         /// The inbound request; see <see cref="InvokeFetchHandler(HttpRequestMessage)"/> for what it must carry.
         /// </param>
         /// <param name="cancellationToken">
-        /// The host's "the client is gone" token: it bounds the body read and the await, and it is what the
-        /// <c>Request</c>'s <c>signal</c> aborts from. See the remarks — the signal half is a behaviour this
-        /// parameter gained rather than one it always had.
+        /// The host's "the client is gone" token: it bounds the body read, the handler and the await, and it is
+        /// what the <c>Request</c>'s <c>signal</c> aborts from. See the remarks.
         /// </param>
         /// <returns>The response the handler produced. The caller owns it and disposes it.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
@@ -672,13 +666,33 @@ public partial class Engine
                 : await content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
 
             // After the body read rather than before it: the read observes the token itself and throws, so a
-            // signal built ahead of it would be one nothing could ever release. From here on the engine's
-            // single-thread contract puts us on the engine's thread, which is what building a signal needs.
-            var signal = CreateHostBridgedSignal(cancellationToken, out var bridge);
+            // signal built ahead of it would be one nothing could ever release. From here on the call is an
+            // *Async entry like EvaluateAsync: the reservation carries the token, so the handler's own run is
+            // cancellable through it and not only the await that follows.
+            var owner = _engine.ReserveAsyncHostOperation(entryToken: cancellationToken);
+            JsAbortSignal signal;
+            HostAbortSignalBridge? bridge;
             try
             {
-                var result = InvokeRoute(in route, request, body, signal);
-                var settled = await _engine.UnwrapResultAsync(result, cancellationToken).ConfigureAwait(false);
+                using (_engine.EnterHostCall(owner))
+                {
+                    signal = CreateHostBridgedSignal(cancellationToken, out bridge);
+                }
+            }
+            catch
+            {
+                _engine.ReleaseAsyncHostOperation(owner);
+                throw;
+            }
+
+            try
+            {
+                // Owns the release from here, and refuses an already-cancelled token before the handler runs.
+                var settled = await _engine.RunOnReservationAsync(
+                    owner,
+                    (operations: this, route, request, body, signal),
+                    static (_, state) => state.operations.InvokeRoute(in state.route, state.request, state.body, state.signal),
+                    cancellationToken).ConfigureAwait(false);
                 return FetchHandlerHosting.CreateResponse(settled);
             }
             finally

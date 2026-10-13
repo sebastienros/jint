@@ -61,11 +61,26 @@ public sealed class ModuleLoadCompletion
     private readonly ParsingConstraints _parsingConstraints;
 
     /// <summary>
-    /// The engine cancellation token that governed the load when it was registered. A deferred settle can run
-    /// on a background thread while an async host operation owns the engine, so it must neither enter the
-    /// engine to rediscover this state nor observe a token installed for a later operation.
+    /// The engine cancellation that governed the load when it was registered — a registered
+    /// <see cref="CancellationConstraint"/>'s token and the token of the <c>*Async</c> entry that started it. A
+    /// deferred settle can run on a background thread while an async host operation owns the engine, so it
+    /// must neither enter the engine to rediscover this state nor observe a token installed for a later
+    /// operation; and a load that outlives the entry that started it goes on observing that entry's token.
+    /// </summary>
+    private readonly EngineCancellation _cancellation;
+
+    /// <summary>
+    /// The one token the loader is handed, observing both of <see cref="_cancellation"/>'s.
     /// </summary>
     private readonly CancellationToken _cancellationToken;
+
+    /// <summary>
+    /// The source behind <see cref="_cancellationToken"/> when both tokens can fire, owned by this completion
+    /// and disposed once it is settled — the point after which the loader has answered and nothing reads the
+    /// token any more. <see langword="null"/> when one token was enough, which is every engine without both a
+    /// registered constraint and a cancellable entry token.
+    /// </summary>
+    private CancellationTokenSource? _linkedCancellation;
 
     private readonly List<Waiter> _waiters = new();
     private int _settled;
@@ -90,7 +105,8 @@ public sealed class ModuleLoadCompletion
         _registration = Engine.CaptureEventLoopRegistration();
         _realm = Engine.Realm;
         _parsingConstraints = Engine.GetActiveParsingConstraints();
-        _cancellationToken = Engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
+        _cancellation = Engine.CaptureCancellation();
+        _cancellationToken = _cancellation.Link(default, out _linkedCancellation);
     }
 
     /// <summary>The engine the module is being loaded for.</summary>
@@ -176,7 +192,7 @@ public sealed class ModuleLoadCompletion
             Throw.ArgumentNullException(nameof(exception));
         }
 
-        if (MustPropagateLoaderException(exception, _cancellationToken))
+        if (MustPropagateLoaderException(exception, in _cancellation))
         {
             Settle(() => Propagate(exception));
             return;
@@ -218,7 +234,24 @@ public sealed class ModuleLoadCompletion
 
     internal void CloseInlineSettleWindow() => _inlineSettleThreadId = -1;
 
+    /// <summary>
+    /// The token handed to the loader: cancelled when either the registered constraint's token or the token of
+    /// the <c>*Async</c> entry the load started under is.
+    /// </summary>
     internal CancellationToken CancellationToken => _cancellationToken;
+
+    /// <summary>
+    /// Which of the captured tokens fired, for the exception a cancelled load propagates with — the host's own
+    /// token, never the linked one it has no reference to.
+    /// </summary>
+    internal CancellationToken CancelledToken => _cancellation.CancelledToken;
+
+    /// <summary>
+    /// Disposes the source behind the loader's token, once: when the load is settled, or when the loader threw
+    /// a failure that propagates instead of settling it. Only this completion created the source, so only it
+    /// disposes it.
+    /// </summary>
+    internal void ReleaseCancellation() => Interlocked.Exchange(ref _linkedCancellation, null)?.Dispose();
 
     private void Settle(Action onEngineThread)
     {
@@ -226,6 +259,9 @@ public sealed class ModuleLoadCompletion
         {
             return;
         }
+
+        // The loader has answered, so nothing reads the token it was handed any more.
+        ReleaseCancellation();
 
         // A settle from inside the engine's own LoadModuleAsync call runs here and now, so a loader that can
         // answer without waiting — a cache in front of the network, source already in hand — finishes the
@@ -426,11 +462,18 @@ public sealed class ModuleLoadCompletion
     internal static bool MustPropagate(Exception exception) => ConstraintFailure.MustPropagate(exception);
 
     internal static bool MustPropagateLoaderException(Engine engine, Exception exception)
-        => MustPropagateLoaderException(
-            exception,
-            engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None);
+    {
+        var cancellation = engine.CaptureCancellation();
+        return MustPropagateLoaderException(exception, in cancellation);
+    }
 
-    private static bool MustPropagateLoaderException(Exception exception, CancellationToken cancellationToken)
+    /// <summary>
+    /// <see cref="MustPropagate"/> narrowed for a loader's own failures, which may be its ordinary
+    /// <see cref="TimeoutException"/> or <see cref="OperationCanceledException"/>: those propagate only when
+    /// the engine raised them, or when the engine's cancellation — the registered constraint's token or the
+    /// <c>*Async</c> entry's — has fired, which is what a loader observing the token it was handed reports.
+    /// </summary>
+    private static bool MustPropagateLoaderException(Exception exception, in EngineCancellation cancellation)
     {
         if (Throw.MustPropagateHostException(exception))
         {
@@ -440,7 +483,7 @@ public sealed class ModuleLoadCompletion
         if (exception is OperationCanceledException)
         {
             return Throw.IsEngineAbortException(exception)
-                   || cancellationToken.IsCancellationRequested;
+                   || cancellation.IsCancellationRequested;
         }
 
         return exception is TimeoutException && Throw.IsEngineAbortException(exception);

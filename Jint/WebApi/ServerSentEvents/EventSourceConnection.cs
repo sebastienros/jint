@@ -76,12 +76,12 @@ internal sealed class EventSourceConnection
     private readonly int _generation;
 
     /// <summary>
-    /// The engine's own cancellation token, from <see cref="CancellationConstraint"/>. A connection cancelled
-    /// through it ends silently — a constraint that turned into an <c>error</c> event would let the script
-    /// carry on, and reconnect, which is precisely what the constraint exists to stop.
+    /// Linked to the engine's own cancellation, captured when the script constructed the event source: a
+    /// registered <see cref="CancellationConstraint"/>'s token and the token of the <c>*Async</c> call the
+    /// script was running under, which this connection goes on observing after that call has returned. A
+    /// connection cancelled through either ends silently — a constraint that turned into an <c>error</c> event
+    /// would let the script carry on, and reconnect, which is precisely what the constraint exists to stop.
     /// </summary>
-    private readonly CancellationToken _engineToken;
-
     private readonly CancellationTokenSource _cancellation;
 
     /// <summary>
@@ -112,14 +112,13 @@ internal sealed class EventSourceConnection
 
     private int _finished;
 
-    internal EventSourceConnection(JsEventSource source, Engine engine, Realm realm, long maxEventLength, string lastEventId)
+    internal EventSourceConnection(JsEventSource source, Engine engine, Realm realm, EngineCancellation cancellation, long maxEventLength, string lastEventId)
     {
         _source = source;
         _engine = engine;
         _realm = realm;
         _generation = engine.EventLoopGeneration;
-        _engineToken = engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
-        _cancellation = CancellationTokenSource.CreateLinkedTokenSource(_engineToken);
+        _cancellation = cancellation.CreateLinkedTokenSource();
         _token = _cancellation.Token;
         _parser = new EventStreamParser(maxEventLength, lastEventId);
     }

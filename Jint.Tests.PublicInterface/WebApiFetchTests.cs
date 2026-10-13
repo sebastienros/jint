@@ -476,6 +476,46 @@ public class WebApiFetchTests
         Volatile.Read(ref settled).Should().Be(0);
     });
 
+    /// <summary>
+    /// The token handed to an <c>*Async</c> call reaches a fetch that call started, and keeps reaching it after
+    /// the call has returned — with nothing registered on the options. Cancelled, the request is abandoned and
+    /// settles nothing, exactly as it is for an engine cancellation.
+    /// </summary>
+    [Test]
+    public async Task TheCallsTokenReachesAFetchThatOutlivesTheCall()
+    {
+        var handler = new StubHandler { Hang = true };
+        using var request = new CancellationTokenSource();
+        var settled = 0;
+
+        // No deadline of either kind, so the token is the only thing that can ever cancel the request.
+        var engine = WebEngine(
+            handler,
+            fetch =>
+            {
+                fetch.Timeout = Timeout.InfiniteTimeSpan;
+                fetch.HttpClient!.Timeout = Timeout.InfiniteTimeSpan;
+            },
+            extra: options => options.Configure(e => e.SetValue("record", new Action(() => Interlocked.Increment(ref settled)))));
+
+        (await engine.EvaluateAsync("fetch('https://example.org/').then(record, record); 'started'", cancellationToken: request.Token))
+            .AsString().Should().Be("started");
+
+        await DedicatedThread.RunAsync(() =>
+        {
+            request.Cancel();
+            handler.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("the call's token must reach the request it started");
+
+            for (var i = 0; i < 20; i++)
+            {
+                engine.Tasks.ProcessTasks();
+                Thread.Sleep(5);
+            }
+        });
+
+        Volatile.Read(ref settled).Should().Be(0);
+    }
+
     [Test]
     public Task CompletesUnderABlockingUnwrap() => DedicatedThread.RunAsync(() =>
     {

@@ -25,11 +25,32 @@ var value = await engine.EvaluateAsync(
     cancellationToken: cts.Token);
 ```
 
-The token covers the whole call, not only the wait: one already cancelled cancels the task before any script
-runs, and one cancelled later stops the interpreter itself — a synchronous loop, a continuation, a synchronous
-re-entry from a host callback — with an `OperationCanceledException` carrying that token. It is observed on the
-same amortized cadence as `ObserveCancellation`, so a per-request token needs no constraint registered on
-shared options. A host callback that never returns cannot be stopped. `Modules.ImportAsync` behaves the same.
+The token covers the whole call, not only the wait. One already cancelled cancels the task before any script
+runs. One cancelled later fails the call with an `OperationCanceledException` carrying that token, and reaches:
+
+- the interpreter, on the same amortized cadence as `ObserveCancellation`: the synchronous run, every
+  continuation, a synchronous re-entry from a host callback, and an authorized host callback still running
+  under the call;
+- a blocking wait inside the call — `UnwrapIfPromise`, a blocking `Modules.Import`, `Tasks.WaitForScheduledWork`
+  reached from host code — which wakes instead of waiting out its own bound;
+- a `fetch`, `XMLHttpRequest`, `WebSocket` or `EventSource` the call starts, for as long as it runs, including
+  after the call has returned: the request is abandoned and settles nothing;
+- a module load the call starts: `AsyncModuleLoader` hands `LoadModuleContentsAsync` a token the call's token
+  cancels, and a loader that fails with `OperationCanceledException` once it is cancelled fails the import with
+  that exception rather than with a rejection script could catch.
+
+`Modules.ImportAsync`, `JsValue.UnwrapIfPromiseAsync` on a promise, and `Engine.WebApi.InvokeFetchHandlerAsync`
+behave the same.
+
+The token does not reach a host callback that never returns, a host `Task` the script awaits — cancel that one
+yourself — or script the engine runs outside the call, such as a timer callback run by a later
+`Tasks.ProcessTasks()`. A token passed to every `*Async` call is therefore enough for those calls; register
+`ObserveCancellation` as well when the engine also runs script outside them.
+
+A cancelled call stops where it is: its queued jobs, timers and pending loads stay on the engine, and its next
+pump — the next `Evaluate`, `*Async` call or `Tasks.ProcessTasks()` — runs them. Before reusing a pooled engine
+after a cancelled call, call `engine.Advanced.RestoreGlobalSnapshot(snapshot)`, which discards them and fences
+the completions still on their way, or discard the engine.
 
 The engine's `Options.Constraints.PromiseTimeout` also bounds waits.
 

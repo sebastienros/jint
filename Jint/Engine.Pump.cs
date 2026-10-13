@@ -350,41 +350,18 @@ public partial class Engine
         => TimeSpan.FromMilliseconds((Stopwatch.GetTimestamp() - startTimestamp) * MillisecondsPerStopwatchTick);
 
     /// <summary>
-    /// Links the caller's token with a registered <see cref="CancellationConstraint"/>'s, exactly as
-    /// <see cref="DrainEventLoopUntil"/> does: an engine that has been cancelled has nothing worth waiting
-    /// for, and the two tokens keep different contracts on the way out.
+    /// Links the caller's token with a registered <see cref="CancellationConstraint"/>'s and with the token of
+    /// the <c>*Async</c> entry the wait is nested in, exactly as <see cref="DrainEventLoopUntil"/> does: an
+    /// engine — or a call — that has been cancelled has nothing worth waiting for, and the tokens keep
+    /// different contracts on the way out (<see cref="ThrowWaitCancellation"/>).
     /// </summary>
     private CancellationToken BuildPumpWaitToken(
         CancellationToken cancellationToken,
+        out EngineCancellation cancellation,
         out CancellationTokenSource? linkedTokenSource)
     {
-        linkedTokenSource = null;
-
-        var constraintToken = Constraints.Find<CancellationConstraint>()?.Token ?? default;
-        if (!cancellationToken.CanBeCanceled)
-        {
-            return constraintToken;
-        }
-
-        if (!constraintToken.CanBeCanceled)
-        {
-            return cancellationToken;
-        }
-
-        linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, constraintToken);
-        return linkedTokenSource.Token;
-    }
-
-    /// <summary>
-    /// Decides which contract a cancellation during an idle wait belongs to, mirroring
-    /// <see cref="DrainEventLoopUntil"/>: the caller's own token is reported back to the caller, while the
-    /// engine's <see cref="CancellationConstraint"/> surfaces the way per-statement execution reports it.
-    /// </summary>
-    [DoesNotReturn]
-    private static void RethrowPumpWaitCancellation(CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        Throw.ExecutionCanceledException();
+        cancellation = CaptureCancellation();
+        return cancellation.Link(cancellationToken, out linkedTokenSource);
     }
 
     /// <summary>
@@ -465,7 +442,7 @@ public partial class Engine
             return false;
         }
 
-        var waitToken = BuildPumpWaitToken(cancellationToken, out var linkedTokenSource);
+        var waitToken = BuildPumpWaitToken(cancellationToken, out var cancellation, out var linkedTokenSource);
         try
         {
             var start = Stopwatch.GetTimestamp();
@@ -490,7 +467,7 @@ public partial class Engine
                 }
                 catch (OperationCanceledException)
                 {
-                    RethrowPumpWaitCancellation(cancellationToken);
+                    ThrowWaitCancellation(cancellationToken, in cancellation);
                 }
 
                 if (IsRetired)
@@ -549,6 +526,7 @@ public partial class Engine
 
             ScheduledWorkState state;
             CancellationToken waitToken;
+            EngineCancellation cancellation;
             using (EnterTransferredHostCall(owner))
             {
                 if (IsRetired)
@@ -557,7 +535,7 @@ public partial class Engine
                     return false;
                 }
                 state = InspectScheduledWork();
-                waitToken = BuildPumpWaitToken(cancellationToken, out linkedTokenSource);
+                waitToken = BuildPumpWaitToken(cancellationToken, out cancellation, out linkedTokenSource);
             }
 
             if (state.IsAvailable)
@@ -595,7 +573,7 @@ public partial class Engine
                 }
                 catch (OperationCanceledException)
                 {
-                    RethrowPumpWaitCancellation(cancellationToken);
+                    ThrowWaitCancellation(cancellationToken, in cancellation);
                 }
 
                 // The bounded overload reports a cancelled wait by returning rather than by throwing — it
@@ -603,7 +581,7 @@ public partial class Engine
                 // token has to be re-read here as well as caught above.
                 if (waitToken.IsCancellationRequested)
                 {
-                    RethrowPumpWaitCancellation(cancellationToken);
+                    ThrowWaitCancellation(cancellationToken, in cancellation);
                 }
 
                 using (EnterTransferredHostCall(owner))
@@ -852,7 +830,13 @@ public partial class Engine
             // one refuses every authorized callback instead of admitting the ones this frame issued. Nothing
             // is in force to keep here either — the reservation requires an unowned engine, and an unowned
             // engine has no operation token.
-            var owner = _engine.ReserveAsyncHostOperation(_engine.OwnershipReleasedEvent, allowRetired: true);
+            //
+            // And with no entry token: a park runs no script, so there is nothing for the interpreter to observe
+            // it in, and the wait below observes the caller's token itself.
+            var owner = _engine.ReserveAsyncHostOperation(
+                _engine.OwnershipReleasedEvent,
+                allowRetired: true,
+                entryToken: CancellationToken.None);
             return _engine.WaitForScheduledWorkCoreAsync(owner, timeout, cancellationToken);
         }
     }
