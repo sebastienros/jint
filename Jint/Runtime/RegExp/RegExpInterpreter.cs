@@ -870,9 +870,8 @@ internal static class RegExpInterpreter
     /// steps over a whole surrogate pair under <c>u</c> or <c>v</c>, so the loop never tries a match from
     /// between the two halves of one. A scan character is never a surrogate, and a scan range never has
     /// one at either end, so the only range that can hit such a position is one that holds the whole
-    /// surrogate block: <see cref="ScanLoopInfo.RangeHoldsPairTrails"/>. There a hit on a trail surrogate
-    /// whose predecessor is a lead is skipped. The predecessor may sit before <paramref name="startIndex"/>,
-    /// which is how a retry after the lead's own failed match lands on the trail.
+    /// surrogate block: <see cref="ScanLoopInfo.RangeHoldsPairTrails"/>, which
+    /// <see cref="FindRangeScanStartOutsidePairs"/> scans for.
     /// </remarks>
     // Keep the SIMD scan independent of the large bytecode interpreter's inlining budget.
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -889,28 +888,13 @@ internal static class RegExpInterpreter
 
         if (info.IsRange)
         {
-            var idx = input.AsSpan(startIndex).IndexOfAnyInRange(info.RangeLow, info.RangeHigh);
-            if (idx < 0)
-            {
-                return -1;
-            }
-
-            idx += startIndex;
             if (info.RangeHoldsPairTrails)
             {
-                while (idx > 0 && char.IsLowSurrogate(input[idx]) && char.IsHighSurrogate(input[idx - 1]))
-                {
-                    var next = input.AsSpan(idx + 1).IndexOfAnyInRange(info.RangeLow, info.RangeHigh);
-                    if (next < 0)
-                    {
-                        return -1;
-                    }
-
-                    idx += 1 + next;
-                }
+                return FindRangeScanStartOutsidePairs(input, startIndex, info.RangeLow, info.RangeHigh);
             }
 
-            return idx;
+            var idx = input.AsSpan(startIndex).IndexOfAnyInRange(info.RangeLow, info.RangeHigh);
+            return idx < 0 ? -1 : idx + startIndex;
         }
 
         if (info.ScanCharAlt == '\0' || info.ScanCharAlt == info.ScanChar)
@@ -985,25 +969,35 @@ internal static class RegExpInterpreter
     }
 
     /// <summary>
-    /// Where a greedy <see cref="RegExpOpcode.Char"/> or <see cref="RegExpOpcode.Range"/> run, which a
-    /// code-unit scan took over [<paramref name="start"/>, <paramref name="scanEnd"/>), really ends under
-    /// <c>u</c> or <c>v</c>. There the input is a list of code points
-    /// (<see href="https://tc39.es/ecma262/#sec-regexpbuiltinexec">RegExpBuiltinExec</see>) and the atom
-    /// reads one (<see cref="GetChar"/>): a lead surrogate followed by a trail is a single astral code
-    /// point, which a 16-bit atom never matches, even where its set holds both halves on their own. The
-    /// run therefore ends at the first unit in it that starts a pair. The caller only asks when the atom's
-    /// set holds a lead surrogate, as no pair can start in the run otherwise.
+    /// The end of the run a greedy <see cref="RegExpOpcode.Char"/> or single-pair
+    /// <see cref="RegExpOpcode.Range"/> atom takes from <paramref name="start"/>, for a set
+    /// [<paramref name="low"/>, <paramref name="high"/>] that reaches the lead surrogates. The interpreter
+    /// scans every other set inline, deciding on one compare of <paramref name="high"/>, and leaves the
+    /// rest of the decision here.
     /// </summary>
     /// <remarks>
-    /// <paramref name="runMayHoldPair"/> says whether the set also holds a trail surrogate. When it does
-    /// not, no unit inside the run is a trail, so only the run's last unit can start a pair, with the
-    /// trail the scan stopped at.
+    /// Under <c>u</c> or <c>v</c> the input is a list of code points
+    /// (<see href="https://tc39.es/ecma262/#sec-regexpbuiltinexec">RegExpBuiltinExec</see>) and the atom
+    /// reads one (<see cref="GetChar"/>): a lead surrogate followed by a trail is a single astral code
+    /// point, which a 16-bit atom never matches, even where its set holds both halves on their own. When
+    /// the set holds a lead surrogate, the run therefore ends at the first unit in it that starts a pair. A
+    /// set that holds no trail surrogate has none inside the run, so only the run's last unit can start a
+    /// pair, with the trail the code-unit scan stopped at. Without <c>u</c> or <c>v</c>, or for a set above
+    /// the leads, code units are the unit and the code-unit run stands.
     /// </remarks>
-    // Keep the search out of the large bytecode interpreter's inlining budget, as FindScanChar does.
+    // Out of line, so that the interpreter's own codegen for the common bulk advance stays as it was.
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static int EndBeforeSurrogatePair(string input, int start, int scanEnd, bool runMayHoldPair)
+    private static int ScanRunReachingSurrogates(string input, int start, char low, char high, bool isUnicode)
     {
-        if (runMayHoldPair)
+        var skipLen = input.AsSpan(start).IndexOfAnyExceptInRange(low, high);
+        int scanEnd = skipLen < 0 ? input.Length : start + skipLen;
+
+        if (!isUnicode || low > '\uDBFF')
+        {
+            return scanEnd;
+        }
+
+        if (high >= '\uDC00')
         {
             // A pair with both halves inside the run: find each lead before the run's last unit.
             int i = start;
@@ -1035,6 +1029,35 @@ internal static class RegExpInterpreter
         }
 
         return scanEnd;
+    }
+
+    /// <summary>
+    /// <see cref="FindScanChar"/> for a range that holds the trail surrogates under <c>u</c> or <c>v</c>:
+    /// the first position from <paramref name="startIndex"/> whose code unit is in
+    /// [<paramref name="low"/>, <paramref name="high"/>] and that is not the trail of a pair, or -1. The
+    /// pair's lead may sit before <paramref name="startIndex"/>, which is how a retry after the lead's own
+    /// failed match lands on the trail.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int FindRangeScanStartOutsidePairs(string input, int startIndex, char low, char high)
+    {
+        int idx = startIndex;
+        while (true)
+        {
+            var hit = input.AsSpan(idx).IndexOfAnyInRange(low, high);
+            if (hit < 0)
+            {
+                return -1;
+            }
+
+            idx += hit;
+            if (idx == 0 || !char.IsLowSurrogate(input[idx]) || !char.IsHighSurrogate(input[idx - 1]))
+            {
+                return idx;
+            }
+
+            idx++;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -1306,17 +1329,22 @@ internal static class RegExpInterpreter
                                 && gotoTarget + 3 == splitOpcodePos)
                             {
                                 char targetChar = (char) ReadU16(bc, gotoTarget + 1);
-                                int scanEnd = cindex;
-                                while (scanEnd < inputEnd && input[scanEnd] == targetChar)
-                                {
-                                    scanEnd++;
-                                }
+                                int scanEnd;
 
                                 // Under u or v a lead surrogate can be half of a pair the atom never
-                                // matches, and a run of one lead surrogate can only hold a pair at its end.
-                                if (isUnicode && char.IsHighSurrogate(targetChar))
+                                // matches. That rare atom scans out of line on this one test, which also
+                                // checks the flags; any other keeps this loop.
+                                if (char.IsHighSurrogate(targetChar))
                                 {
-                                    scanEnd = EndBeforeSurrogatePair(input, cindex, scanEnd, runMayHoldPair: false);
+                                    scanEnd = ScanRunReachingSurrogates(input, cindex, targetChar, targetChar, isUnicode);
+                                }
+                                else
+                                {
+                                    scanEnd = cindex;
+                                    while (scanEnd < inputEnd && input[scanEnd] == targetChar)
+                                    {
+                                        scanEnd++;
+                                    }
                                 }
 
                                 PushFrame(ref stackBuf, ref stackPooled, ref sp,
@@ -1338,14 +1366,20 @@ internal static class RegExpInterpreter
                                     char low = (char) ReadU16(bc, gotoTarget + 3);
                                     char high = (char) ReadU16(bc, gotoTarget + 5);
 
-                                    var skipLen = input.AsSpan(cindex).IndexOfAnyExceptInRange(low, high);
-                                    var scanEnd = skipLen < 0 ? inputEnd : cindex + skipLen;
+                                    int scanEnd;
 
                                     // Under u or v a range holding a lead surrogate can hold half of a pair
-                                    // the atom never matches; both halves only when it holds a trail too.
-                                    if (isUnicode && low <= '\uDBFF' && high >= '\uD800')
+                                    // the atom never matches. A range that reaches the leads scans out of
+                                    // line on this one test, which also checks the flags; a range below
+                                    // them, the common case, keeps this scan.
+                                    if (high >= '\uD800')
                                     {
-                                        scanEnd = EndBeforeSurrogatePair(input, cindex, scanEnd, runMayHoldPair: high >= '\uDC00');
+                                        scanEnd = ScanRunReachingSurrogates(input, cindex, low, high, isUnicode);
+                                    }
+                                    else
+                                    {
+                                        var skipLen = input.AsSpan(cindex).IndexOfAnyExceptInRange(low, high);
+                                        scanEnd = skipLen < 0 ? inputEnd : cindex + skipLen;
                                     }
 
                                     PushFrame(ref stackBuf, ref stackPooled, ref sp,
