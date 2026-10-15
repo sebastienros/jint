@@ -238,25 +238,41 @@ public class IntlDateTimeFormatCalendarTests
     }
 
     /// <summary>
-    /// A calendar's ranges are written with its own interval patterns and its own fields, as Node 24.19 writes them.
+    /// A calendar's ranges are written with its own interval patterns and its own fields, as Node 24.19 writes them, a
+    /// <c>dateStyle</c>/<c>timeStyle</c> range (#4247) as well as a component bag's.
     /// </summary>
-    [TestCase("en-u-ca-buddhist", "{ year: 'numeric', month: 'short', day: 'numeric' }", "2022-12-24", "2022-12-27",
-        "Dec 24 – 27, 2565 BE",
-        "month:shared=Dec|literal:shared= |day:startRange=24|literal:shared= – |day:endRange=27|literal:shared=, |year:shared=2565|literal:shared= |era:shared=BE")]
-    [TestCase("en-u-ca-hebrew", "{ year: 'numeric', month: 'long', day: 'numeric' }", "2022-12-24", "2023-03-06",
-        "30 Kislev – 13 Adar 5783",
-        "day:startRange=30|literal:startRange= |month:startRange=Kislev|literal:shared= – |day:endRange=13|literal:endRange= |month:endRange=Adar|literal:shared= |year:shared=5783")]
-    [TestCase("ja-u-ca-japanese", "{ year: 'numeric', month: 'numeric', day: 'numeric' }", "2019-04-30", "2019-05-01",
+    [TestCase("en-u-ca-buddhist", "{ year: 'numeric', month: 'short', day: 'numeric' }", "2022-12-24T00:00Z", "2022-12-27T00:00Z",
+        "Dec 24\u2009–\u200927, 2565 BE",
+        "month:shared=Dec|literal:shared= |day:startRange=24|literal:shared=\u2009–\u2009|day:endRange=27|literal:shared=, |year:shared=2565|literal:shared= |era:shared=BE")]
+    [TestCase("en-u-ca-hebrew", "{ year: 'numeric', month: 'long', day: 'numeric' }", "2022-12-24T00:00Z", "2023-03-06T00:00Z",
+        "30 Kislev\u2009–\u200913 Adar 5783",
+        "day:startRange=30|literal:startRange= |month:startRange=Kislev|literal:shared=\u2009–\u2009|day:endRange=13|literal:endRange= |month:endRange=Adar|literal:shared= |year:shared=5783")]
+    [TestCase("ja-u-ca-japanese", "{ year: 'numeric', month: 'numeric', day: 'numeric' }", "2019-04-30T00:00Z", "2019-05-01T00:00Z",
         "H31/04/30～R1/05/01",
         "era:startRange=H|year:startRange=31|literal:startRange=/|month:startRange=04|literal:startRange=/|day:startRange=30|literal:shared=～|era:endRange=R|year:endRange=1|literal:endRange=/|month:endRange=05|literal:endRange=/|day:endRange=01")]
-    [TestCase("en-u-ca-persian", "{ year: 'numeric', month: 'long', day: 'numeric' }", "2022-12-24", "2022-12-30",
-        "Dey 3 – 9, 1401 AP",
-        "month:shared=Dey|literal:shared= |day:startRange=3|literal:shared= – |day:endRange=9|literal:shared=, |year:shared=1401|literal:shared= |era:shared=AP")]
+    [TestCase("en-u-ca-persian", "{ year: 'numeric', month: 'long', day: 'numeric' }", "2022-12-24T00:00Z", "2022-12-30T00:00Z",
+        "Dey 3\u2009–\u20099, 1401 AP",
+        "month:shared=Dey|literal:shared= |day:startRange=3|literal:shared=\u2009–\u2009|day:endRange=9|literal:shared=, |year:shared=1401|literal:shared= |era:shared=AP")]
+    [TestCase("en-u-ca-buddhist", "{ dateStyle: 'medium' }", "2022-12-24T00:00Z", "2022-12-27T00:00Z",
+        "Dec 24\u2009–\u200927, 2565 BE",
+        "month:shared=Dec|literal:shared= |day:startRange=24|literal:shared=\u2009–\u2009|day:endRange=27|literal:shared=, |year:shared=2565|literal:shared= |era:shared=BE")]
+    [TestCase("th-u-ca-buddhist", "{ dateStyle: 'medium' }", "2022-12-24T00:00Z", "2023-01-03T00:00Z",
+        "24 ธ.ค. 2565 – 3 ม.ค. 2566",
+        "day:startRange=24|literal:startRange= |month:startRange=ธ.ค.|literal:startRange= |year:startRange=2565|literal:shared= – |day:endRange=3|literal:endRange= |month:endRange=ม.ค.|literal:endRange= |year:endRange=2566")]
+    [TestCase("de-u-ca-hebrew", "{ dateStyle: 'long' }", "2022-12-24T00:00Z", "2023-03-06T00:00Z",
+        "AM 5783 Kislew 30\u2009–\u2009Adar 13",
+        "era:shared=AM|literal:shared= |year:shared=5783|literal:shared= |month:startRange=Kislew|literal:startRange= |day:startRange=30|literal:shared=\u2009–\u2009|month:endRange=Adar|literal:endRange= |day:endRange=13")]
+    [TestCase("en-u-ca-islamic-civil", "{ dateStyle: 'full' }", "2022-12-24T00:00Z", "2022-12-27T00:00Z",
+        "Saturday, Jumada I 30\u2009–\u2009Tuesday, Jumada II 3, 1444 AH",
+        "weekday:startRange=Saturday|literal:startRange=, |month:startRange=Jumada I|literal:startRange= |day:startRange=30|literal:shared=\u2009–\u2009|weekday:endRange=Tuesday|literal:endRange=, |month:endRange=Jumada II|literal:endRange= |day:endRange=3|literal:shared=, |year:shared=1444|literal:shared= |era:shared=AH")]
+    [TestCase("zh-Hant-u-ca-roc", "{ dateStyle: 'short', timeStyle: 'short' }", "2022-12-24T06:05Z", "2022-12-24T19:45Z",
+        "民國111/12/24 6:05 清晨\u2009–\u20097:45 晚上",
+        "era:shared=民國|year:shared=111|literal:shared=/|month:shared=12|literal:shared=/|day:shared=24|literal:shared= |hour:startRange=6|literal:startRange=:|minute:startRange=05|literal:startRange= |dayPeriod:startRange=清晨|literal:shared=\u2009–\u2009|hour:endRange=7|literal:endRange=:|minute:endRange=45|literal:endRange= |dayPeriod:endRange=晚上")]
     public void ACalendarWritesItsOwnRanges(string locale, string options, string start, string end, string expected, string parts)
     {
         var engine = new Engine();
         var formatter = $"new Intl.DateTimeFormat('{locale}', Object.assign({{ timeZone: 'UTC' }}, {options}))";
-        var range = $"new Date('{start}T00:00:00Z'), new Date('{end}T00:00:00Z')";
+        var range = $"new Date('{start}'), new Date('{end}')";
 
         engine.Evaluate($"{formatter}.formatRange({range})").AsString().Should().Be(expected);
         engine.Evaluate($"{formatter}.formatRangeToParts({range}).map(function (p) {{ return p.type + ':' + p.source + '=' + p.value; }}).join('|')")

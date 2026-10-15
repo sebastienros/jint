@@ -6256,7 +6256,8 @@ A formatter whose calendar is `buddhist`, `japanese`, `roc`, `hebrew`, `persian`
 `ethioaa` or one of the Islamic calendars wrote that calendar's year, month and day into the locale's Gregorian
 pattern, with no era and with month numbers where CLDR has names. It now writes each calendar the way ICU does: the
 calendar's own CLDR 48.2 `availableFormats`, `dateFormats`, `intervalFormats`, month names and eras, matched by the same
-format matcher (4.142), styles (4.144) and range patterns (4.143). The output is what V8 writes:
+format matcher (4.142), styles (4.144) and range patterns (4.143, a style's range as 4.153 writes it). The output is
+what V8 writes:
 
 ```js
 const date = new Date(Date.UTC(2022, 11, 24, 15, 7, 9));
