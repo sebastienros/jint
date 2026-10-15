@@ -27,7 +27,10 @@ public abstract partial class JsValue : IEquatable<JsValue>
 
     // Not readonly: JsObject toggles InternalTypes.ShapeMode here when it enters/leaves hidden-class
     // shape mode, so the hot property paths can discriminate shape vs dictionary storage with a single
-    // flag test on the already-loaded _type. Every other value type sets it once and never mutates it.
+    // flag test on the already-loaded _type. JsString.ConcatenatedString carries InternalTypes.ReadHook
+    // only while a binding owns it, which no other holder can observe: the bit is cleared before the
+    // string is handed on. Both are internal flags: Type masks them out, and no exact _type comparison
+    // is against String or Object.
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     internal InternalTypes _type;
 

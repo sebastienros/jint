@@ -712,7 +712,8 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     /// <see cref="IsExtensibleInPlace"/>; the binding's next <c>+=</c> then extends that instance itself
     /// (<see cref="AppendInPlace"/>) instead of allocating, and stores nothing. That is sound because nothing but
     /// the binding can hold it: the value of the <c>+=</c> expression is marked shared when it is used, and every
-    /// read of a binding's value — <see cref="Runtime.Environments.Binding.Value"/>, or a slot reader's out-of-line
+    /// read of a binding's value — <see cref="Runtime.Environments.Binding.Value"/>, an identifier read (through the
+    /// <see cref="Runtime.InternalTypes.ReadHook"/> bit an owned instance carries), or a slot reader's out-of-line
     /// path — marks an owned string shared before handing it on, after which it is never written again. So no
     /// variable, property, collection, closure, debugger or host ever holds a value that changes, and a host may
     /// still read any string it holds on any thread.
@@ -783,7 +784,10 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         {
             if (_ownership == Ownership.Unclaimed)
             {
+                // ReadHook makes an identifier read of the owning binding mark this instance shared before handing
+                // it on (JintIdentifierExpression.HandOn), with the one _type test that lane already makes.
                 _ownership = Ownership.Owned;
+                _type |= InternalTypes.ReadHook;
             }
 
             return _ownership == Ownership.Owned;
@@ -792,7 +796,11 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         /// <summary>
         /// Called by every read that hands this instance on: from here on it is never written again.
         /// </summary>
-        internal void MarkShared() => _ownership = Ownership.Shared;
+        internal void MarkShared()
+        {
+            _ownership = Ownership.Shared;
+            _type &= ~InternalTypes.ReadHook;
+        }
 
         public override string ToString() => _value ?? Materialize();
 

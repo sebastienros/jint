@@ -84,28 +84,27 @@ internal static class JintEnvironment
     }
 
     /// <summary>
-    /// <see cref="TryGetIdentifierEnvironmentWithBindingValue"/> for the <c>+=</c> lane's own read of its left operand:
-    /// a binding that owns its string is read without being marked shared, and reported in
-    /// <paramref name="ownsString"/>, so the lane may extend the string in place. Only a function, block, catch or eval
-    /// environment's own binding is read this way. The global environment (its declarative record holds script-level
-    /// <c>let</c> and <c>const</c>, which a host and other scripts read and a snapshot copies), a module environment
-    /// (import bindings live beside its own) and an object environment are read as usual, so none of them ever owns a
-    /// string.
+    /// <see cref="TryGetIdentifierEnvironmentWithBindingValue"/> for the <c>+=</c> lane's own read of its left operand,
+    /// in the same shape, one virtual call per environment: a binding that owns its string is read without ending its
+    /// ownership (<see cref="Environment.TryGetBindingForAppend"/>), so the lane may extend the string in place.
+    /// <paramref name="canOwnStrings"/> says whether the environment found is one whose bindings can own a string: a
+    /// function, block, catch or eval environment, never the global, a module or an object environment.
     /// </summary>
-    internal static bool TryGetIdentifierEnvironmentWithPeekedBindingValue(
+    internal static bool TryGetIdentifierEnvironmentWithBindingValueForAppend(
         Environment env,
         Environment.BindingName name,
         bool strict,
         [NotNullWhen(true)] out Environment? record,
         out JsValue? value,
-        out bool ownsString)
+        out bool ownsString,
+        out bool canOwnStrings)
     {
         record = env;
-        value = default;
-        ownsString = false;
 
         if (env._outerEnv is null)
         {
+            ownsString = false;
+            canOwnStrings = false;
             return ((GlobalEnvironment) env).TryGetBinding(name, strict, out value);
         }
 
@@ -121,14 +120,7 @@ internal static class JintEnvironment
                 continue;
             }
 
-            if (record is DeclarativeEnvironment declarative and not ModuleEnvironment and not GlobalEnvironment.GlobalDeclarativeEnvironment)
-            {
-                if (declarative.TryPeekBinding(name.Key, out value, out ownsString))
-                {
-                    return true;
-                }
-            }
-            else if (record.TryGetBinding(name, strict, out value))
+            if (record.TryGetBindingForAppend(name, strict, out value, out ownsString, out canOwnStrings))
             {
                 return true;
             }
@@ -136,6 +128,9 @@ internal static class JintEnvironment
             record = record._outerEnv;
         }
 
+        value = default;
+        ownsString = false;
+        canOwnStrings = false;
         return false;
     }
 

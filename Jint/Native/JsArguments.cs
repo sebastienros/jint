@@ -41,8 +41,9 @@ public sealed class JsArguments : ObjectInstance
         // Member reads must route through the virtual-mode [[Get]] instead of the
         // GetOwnProperty-first protocol (which would materialize the property surface);
         // arguments objects gain nothing from the member caches anyway — their identity
-        // churns per call, so a cached receiver never re-matches.
-        _type |= InternalTypes.ExoticGet;
+        // churns per call, so a cached receiver never re-matches. ReadHook makes an identifier
+        // read materialize it before it leaves the frame (JintIdentifierExpression.HandOn).
+        _type |= InternalTypes.ExoticGet | InternalTypes.ReadHook;
     }
 
     internal void Prepare(
