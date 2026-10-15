@@ -142,7 +142,6 @@ internal sealed class JintAssignmentExpression : JintExpression
             }
         }
 
-        var wasMutatedInPlace = false;
         if (!handledByOverload)
         {
             switch (_operator)
@@ -216,17 +215,13 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        newLeftValue = ComputeCompound(context, originalLeftValue, rval, ref wasMutatedInPlace);
+                        newLeftValue = ComputeCompound(context, originalLeftValue, rval);
                         break;
                     }
             }
         }
 
-        // if we did string concatenation in-place, we don't need to update records, objects might have evil setters
-        if (!wasMutatedInPlace || lref.Base is not Environment)
-        {
-            engine.PutValue(lref, newLeftValue!);
-        }
+        engine.PutValue(lref, newLeftValue!);
 
         engine._referencePool.Return(lref);
         suspendable?.Data.Clear(this);
@@ -256,7 +251,7 @@ internal sealed class JintAssignmentExpression : JintExpression
     /// logical/nullish forms, which short-circuit before evaluating the right operand).
     /// Operands are fully evaluated; shared by the materialized and discard-mode lanes.
     /// </summary>
-    private JsValue ComputeCompound(EvaluationContext context, JsValue originalLeftValue, JsValue rval, ref bool wasMutatedInPlace)
+    private JsValue ComputeCompound(EvaluationContext context, JsValue originalLeftValue, JsValue rval)
     {
         switch (_operator)
         {
@@ -272,16 +267,16 @@ internal sealed class JintAssignmentExpression : JintExpression
 
                     if (lprim.IsString() || rprim.IsString())
                     {
-                        wasMutatedInPlace = lprim is JsString.ConcatenatedString;
                         if (lprim is not JsString jsString)
                         {
-                            jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
+                            jsString = JsString.Create(TypeConverter.ToString(lprim));
                         }
 
-                        // Append itself refuses a result past JsString.MaxLength, before growing the
-                        // buffer to hold it. Deliberately not checked here: reading the receiver's
-                        // Length at this call site costs a virtual dispatch on every `s += t`, which
-                        // the override does not, because it already holds the field it measures.
+                        // A new value: the receiver, and whatever else holds it, keeps its text. Append
+                        // itself refuses a result past JsString.MaxLength, before allocating it.
+                        // Deliberately not checked here: reading the receiver's Length at this call site
+                        // costs a virtual dispatch on every `s += t`, which the override does not, because
+                        // it already holds the field it measures.
                         return jsString.Append(context.Engine.Realm, TypeConverter.ToString(rprim));
                     }
 
@@ -469,11 +464,8 @@ internal sealed class JintAssignmentExpression : JintExpression
             return true;
         }
 
-        // rare: number op= non-number (string concat, BigInt mix error, exponentiation).
-        // The left operand is a number, never a ConcatenatedString, so in-place mutation
-        // cannot apply and the result is always stored.
-        var wasMutatedInPlace = false;
-        var newLeftValue = ComputeCompound(context, JsNumber.Create(left), rval, ref wasMutatedInPlace);
+        // rare: number op= non-number (string concat, BigInt mix error, exponentiation)
+        var newLeftValue = ComputeCompound(context, JsNumber.Create(left), rval);
         declarativeEnvironment.SetMutableBinding(_leftIdentifier.Identifier.Key, newLeftValue, context.Engine.ExecutionContext.Strict);
         return true;
     }
@@ -481,11 +473,10 @@ internal sealed class JintAssignmentExpression : JintExpression
     /// <summary>
     /// Fast path for compound assignment to a slot-stored non-number binding (the string
     /// `s += "x"` loop shape), shared by the discard lane and the value-producing lane:
-    /// reads the slot directly, runs the right-hand side exactly once, and writes back through
-    /// <see cref="DeclarativeEnvironment.SetMutableBinding(Key, JsValue, bool)"/> unless the
-    /// rope concat mutated the value in place (matching the materialized lane's skip). Bails
-    /// before any evaluation for const (mutable check) and TDZ/unboxed bindings so the slow
-    /// path produces the exact error ordering.
+    /// reads the slot directly, runs the right-hand side exactly once, and writes the result back
+    /// through the same slot (or <see cref="DeclarativeEnvironment.SetMutableBinding(Key, JsValue, bool)"/>
+    /// when the right-hand side replaced the slot array). Bails before any evaluation for const
+    /// (mutable check) and TDZ/unboxed bindings so the slow path produces the exact error ordering.
     /// </summary>
     private bool TryCompoundSlotValue(EvaluationContext context, DeclarativeEnvironment environment, int slotIndex, out JsValue result)
     {
@@ -508,9 +499,16 @@ internal sealed class JintAssignmentExpression : JintExpression
         var originalLeftValue = binding.Value;
         var rval = _right.GetValue(context);
 
-        var wasMutatedInPlace = false;
-        var newLeftValue = ComputeCompound(context, originalLeftValue, rval, ref wasMutatedInPlace);
-        if (!wasMutatedInPlace)
+        var newLeftValue = ComputeCompound(context, originalLeftValue, rval);
+
+        // `s += t` produces a new string every time, so this store runs on every iteration of the loop this
+        // lane exists for. Through the slot already resolved, re-validated as TryAssignSlot does; the full
+        // store only if the right-hand side replaced the slot array or changed the binding's state.
+        if (ReferenceEquals(environment._slots, slots) && binding.Mutable && binding.IsInitialized())
+        {
+            binding = binding.ChangeValue(newLeftValue);
+        }
+        else
         {
             environment.SetMutableBinding(_leftIdentifier!.Identifier.Key, newLeftValue, context.Engine.ExecutionContext.Strict);
         }
@@ -859,7 +857,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                 return true;
             }
 
-            var rval = completion.Clone();
+            var rval = completion;
 
             if (_rightNeedsFunctionName)
             {
@@ -1139,7 +1137,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                     return completion;
                 }
 
-                var rval = completion.Clone();
+                var rval = completion;
 
                 if (nameAnonymousFunction && right._expression.IsFunctionDefinition() && right is not JintClassExpression)
                 {
@@ -1206,7 +1204,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                 return completion;
             }
 
-            var rval = completion.Clone();
+            var rval = completion;
 
             if (nameAnonymousFunction && right._expression.IsFunctionDefinition() && right is not JintClassExpression)
             {

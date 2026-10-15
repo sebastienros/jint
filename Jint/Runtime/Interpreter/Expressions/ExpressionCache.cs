@@ -148,7 +148,7 @@ internal sealed class ExpressionCache
     {
         return value switch
         {
-            JintExpression expression => expression.GetValue(context).Clone(),
+            JintExpression expression => expression.GetValue(context),
             _ => (JsValue) value!,
         };
     }

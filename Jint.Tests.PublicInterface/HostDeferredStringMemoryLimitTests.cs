@@ -229,6 +229,7 @@ public class HostDeferredStringMemoryLimitTests
     /// </summary>
     [TestCase("big.slice(i + 1)", TestName = "{m}(slice views)")]
     [TestCase("rope + 'q'", TestName = "{m}(concatenations over one operand)")]
+    [TestCase("(acc += 'q')", TestName = "{m}(appends sharing one buffer)")]
     public void ConvertResultRefusesValuesSharingOneStringBeforeCopyingThem(string element)
     {
         var engine = new Engine(options => options.LimitMemory(16_000_000));
@@ -236,6 +237,7 @@ public class HostDeferredStringMemoryLimitTests
         var value = engine.Evaluate($$"""
             var big = 'x'.repeat(1 << 20);
             var rope = big + 'y';
+            var acc = big; acc += 'y';
             var values = [];
             for (var i = 0; i < 64; i++) { values.push({{element}}); }
             values
@@ -257,6 +259,7 @@ public class HostDeferredStringMemoryLimitTests
     /// </summary>
     [TestCase("big.slice(i + 1)", TestName = "{m}(slice views)")]
     [TestCase("rope + 'q'", TestName = "{m}(concatenations over one operand)")]
+    [TestCase("(acc += 'q')", TestName = "{m}(appends sharing one buffer)")]
     public void TheMemoryLimitAloneStopsConvertResultBeforeItCopiesSharedValuesPastTheBudget(string element)
     {
         var engine = CreateEngine();
@@ -264,6 +267,7 @@ public class HostDeferredStringMemoryLimitTests
         var value = engine.Evaluate($$"""
             var big = 'x'.repeat(1 << 17);
             var rope = big + 'y';
+            var acc = big; acc += 'y';
             var values = [];
             for (var i = 0; i < 64; i++) { values.push({{element}}); }
             values

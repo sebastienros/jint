@@ -685,20 +685,6 @@ public abstract partial class JsValue : IEquatable<JsValue>
     public override int GetHashCode() => _type.GetHashCode();
 
     /// <summary>
-    /// Some values need to be cloned in order to be assigned, like ConcatenatedString.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal JsValue Clone()
-    {
-        // concatenated string and arguments currently may require cloning
-        return (_type & InternalTypes.RequiresCloning) == InternalTypes.Empty
-            ? this
-            : DoClone();
-    }
-
-    internal virtual JsValue DoClone() => this;
-
-    /// <summary>
     /// Whether this value has a [[Call]] internal method, which is what the specification's IsCallable
     /// asks. The public spelling is <see cref="IsCallable"/>, a method, so this one cannot share the name.
     /// </summary>

@@ -24,7 +24,6 @@ internal enum InternalTypes
 
     // internal usage
     ObjectEnvironmentRecord = 1024,
-    RequiresCloning = 2048,
     Module = 4096,
 
     // the object doesn't override important GetOwnProperty etc which change behavior. Set only through the
@@ -145,5 +144,5 @@ internal enum InternalTypes
     // FastCallGuardValuesMatchInternalTypes fails loudly if anything grows into them.
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots | BuiltinShapeIndexAuthoritative | TailCall | Map | Set
+    InternalFlags = ObjectEnvironmentRecord | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots | BuiltinShapeIndexAuthoritative | TailCall | Map | Set
 }
