@@ -24,6 +24,10 @@ Jint handles redirects so `AllowedSchemes` and `UrlFilter` are checked on every 
 observers may run on transport threads: they must be thread-safe, non-blocking, and must never touch the engine
 or a `JsValue`.
 
+`blob:` and `data:` URLs never reach the transport: the engine answers them itself, so `AllowedSchemes`,
+`UrlFilter`, the concurrency cap and an observer never see them, and they work however the scheme list is
+narrowed. `MaxResponseBytes` still bounds a decoded `data:` body, and a redirect to either scheme is refused.
+
 Set `BaseUrl` for relative URLs. Cookies are disabled unless a `CookieJar` is supplied; partition every jar by
 tenant or browsing session. Fetch bodies are streams, and network progress reaches script only while the engine
 is pumped. `MaxResponseBytes` applies after decompression and may error the body stream after headers have

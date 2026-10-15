@@ -36,6 +36,23 @@ public class WptServerTests
         => _client.GetAsync(WptServer.Instance.Origin + path);
 
     /// <summary>
+    /// A fixture that is not UTF-8 is served as the bytes that were vendored, as wptserve serves every file.
+    /// <c>xhr/resources/utf16-bom.json</c> is UTF-16 behind its byte order mark; read as text it would arrive
+    /// as UTF-8 JSON, and the two <c>json.any.js</c> files would be asserting about the driver's transcoding
+    /// rather than about the engine's JSON parser.
+    /// </summary>
+    [Test]
+    public async Task AFixtureThatIsNotUtf8IsServedByteForByte()
+    {
+        using var response = await GetAsync("/xhr/resources/utf16-bom.json");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsByteArrayAsync();
+        body.Should().Equal(WptCorpus.ReadBytes("xhr/resources/utf16-bom.json"));
+        body.Take(4).Should().Equal(0xFF, 0xFE, (byte) '{', 0x00);
+    }
+
+    /// <summary>
     /// <c>fetch/api/resources/inspect-headers.py</c> echoes each named request header back as
     /// <c>x-request-&lt;name&gt;</c>, and names it does not find are simply absent.
     /// </summary>
@@ -482,7 +499,8 @@ public class WptServerTests
     /// </summary>
     /// <remarks>
     /// The whole table, not the part the corpus exercises. Only a handful of these extensions are vendored —
-    /// nothing binary is, because <c>WptCorpus</c> hands every file back as a string — so the rows that
+    /// nothing binary is, because <c>WptCorpus</c> hands every file back as a string or, for the one UTF-16 text
+    /// fixture, as the bytes of one — so the rows that
     /// cannot be served are here precisely so that a corpus bump which changes one of them fails against
     /// upstream's source rather than going unnoticed until a lane needs it.
     /// </remarks>

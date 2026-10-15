@@ -39,7 +39,9 @@ namespace Jint.Tests.Wpt;
 /// signal</b>: its last entry — an empty <c>FormData</c> body, which no browser serializes to nothing either
 /// — was never a defect, and https://github.com/sebastienros/jint/issues/3261 moved it to
 /// <see cref="WptDivergence.AssertsWhatNothingRequires"/>, the category for a test that asserts what nothing
-/// requires of anybody. <c>Vendor/README.md</c> analyses each.
+/// requires of anybody. <c>Vendor/README.md</c> analyses each. It holds one entry again: the
+/// <c>XMLHttpRequest</c> text response's missing BOM sniff, which <c>encoding/unsupported-encodings.any.js</c>
+/// found once the <c>data:</c> arm of scheme fetch let it run (https://github.com/sebastienros/jint/issues/4270).
 /// </para>
 /// <para>
 /// <b>A corpus with sub-directories is one suite per directory</b> rather than one for the lot, because
@@ -82,7 +84,6 @@ public class WptTestRunner
         ("encoding/legacy-mb-*", "legacy multi-byte decoders, issue #3106"),
         ("encoding/iso-2022-jp-decoder.any.js", "legacy multi-byte decoder, issue #3106"),
         ("encoding/replacement-encodings.any.js", "the replacement encoding, issue #3106; also needs XMLHttpRequest"),
-        ("encoding/unsupported-encodings.any.js", "needs XMLHttpRequest and data: URLs"),
 
         // IdnaTestV2 is a 314 kB conformance corpus for UTS-46 alone. Jint's Idna builds on IdnMapping and
         // documents where that diverges (VerifyDnsLength, CheckHyphens, ICU version skew); running the
@@ -341,7 +342,6 @@ public class WptTestRunner
         ("fetch/api/basic/referrer.any.js", "get-host-info substitution at file scope, for the cross-origin half of the referrer policy table"),
         ("fetch/api/basic/request-forbidden-headers.any.js", "the forbidden-header names, which this implementation does not filter"),
         ("fetch/api/basic/request-headers.any.js", "asserts the Accept and Accept-Language a browser adds; see NeedsBrowserRequestHeaders"),
-        ("fetch/api/basic/scheme-data.any.js", "a data: URL fetch"),
 
         // ---- body/
         // The other two files in the directory are vendored: they build their own Request and Response and
@@ -355,7 +355,7 @@ public class WptTestRunner
         ("fetch/api/redirect/redirect-referrer.any.js", "a Referer header, which an engine with no document never sends"),
         ("fetch/api/redirect/redirect-referrer-override.any.js", "a Referer header and a Referrer-Policy the redirect handler sets"),
         ("fetch/api/redirect/redirect-schemes.any.js", "redirects to blob: and other schemes, and get-host-info substitution"),
-        ("fetch/api/redirect/redirect-to-dataurl.any.js", "a data: URL redirect target"),
+        ("fetch/api/redirect/redirect-to-dataurl.any.js", "/common/get-host-info.sub.js at file scope, loaded unsubstituted: every redirect URL would be unparsable, which is the TypeError all five rows expect — a pass without a request. DataUrlFetchTests pins the behaviour instead"),
 
         // ---- what the ".sub." and ".h2." spellings mean, wherever they appear under fetch/
         // `.sub.` is wptserve rewriting {{host}} and {{ports[…]}} into a *second* origin before serving the
@@ -368,7 +368,6 @@ public class WptTestRunner
 
         // ---- headers/ and response/, the rows the server did not reach
         ("fetch/api/headers/headers-no-cors.any.js", "the \"no-cors\" request mode, which this implementation has no model for"),
-        ("fetch/api/response/json.any.js", "fetches a data: url"),
         ("fetch/api/response/response-blob-realm.any.js", "needs a document and a second realm"),
 
         // The xhr corpus. Nineteen of its files are about CORS and one is about credentials across
@@ -381,7 +380,6 @@ public class WptTestRunner
         ("xhr/xhr-authorization-redirect.any.js", "cross-origin: it follows a redirect to a second origin with an Authorization header"),
         ("xhr/idlharness.any.js", "needs idlharness.js and a WebIDL parser, which the harness shim does not have"),
         ("xhr/send-data-sharedarraybuffer.any.js", "needs WebAssembly.Memory, which Jint declines by design"),
-        ("xhr/json.any.js", "its first test fetches a data: URL, which the transport has no scheme for, so that test never settles and the file stalls"),
         ("xhr/abort-after-timeout.any.js", "its one test asks for /common/blank.html?pipe=trickle(d1), a wptserve pipe directive the driver's server does not implement"),
 
         ("xhr/xhr-timeout-longtask.any.js", "its outcome still depends on the machine. The deadline is a task on the engine's timer queue since #3627, so it can no longer fire *during* the 200 ms busy-wait — but the file also needs the 100 ms response to have arrived before that wait ends, and a loaded runner cannot promise that: when the body lands after the loop, the deadline behind it is due and the file's assert_unreached fires. It passed on Linux and failed on macOS in the same run"),
@@ -466,6 +464,7 @@ public class WptTestRunner
         ["encoding/textdecoder-utf16-surrogates.any.js"] = 8,
         ["encoding/textencoder-constructor-non-utf.any.js"] = 70,
         ["encoding/textencoder-utf16-surrogates.any.js"] = 6,
+        ["encoding/unsupported-encodings.any.js"] = 14,
 
         ["WebCryptoAPI/crypto_key_cached_slots.https.any.js"] = 2,
         ["WebCryptoAPI/getRandomValues.any.js"] = 30,
@@ -753,6 +752,7 @@ public class WptTestRunner
         ["fetch/api/basic/request-referrer.any.js"] = 2,
         ["fetch/api/basic/response-null-body.any.js"] = 11,
         ["fetch/api/basic/scheme-about.any.js"] = 7,
+        ["fetch/api/basic/scheme-data.any.js"] = 8,
         ["fetch/api/basic/stream-response.any.js"] = 2,
         ["fetch/api/basic/stream-safe-creation.any.js"] = 63,
         ["fetch/api/basic/text-utf8.any.js"] = 8,
@@ -777,6 +777,7 @@ public class WptTestRunner
         ["fetch/api/headers/headers-record.any.js"] = 13,
         ["fetch/api/headers/headers-structure.any.js"] = 8,
 
+        ["fetch/api/response/json.any.js"] = 2,
         ["fetch/api/response/response-cancel-stream.any.js"] = 4,
         ["fetch/api/response/response-clone.any.js"] = 10,
         ["fetch/api/response/response-headers-guard.any.js"] = 1,
@@ -839,6 +840,7 @@ public class WptTestRunner
         ["xhr/event-timeout-order.any.js"] = 1,
         ["xhr/event-timeout.any.js"] = 1,
         ["xhr/getresponseheader.any.js"] = 6,
+        ["xhr/json.any.js"] = 2,
         ["xhr/over-1-meg.any.js"] = 1,
         ["xhr/overridemimetype-done-state.any.js"] = 1,
         ["xhr/overridemimetype-unsent-state-force-shiftjis.any.js"] = 1,
@@ -1233,6 +1235,14 @@ public class WptTestRunner
         // that answers with the bytes 0x00..0xFE labelled with the charset from its query string. The
         // TextDecoder half — the same 168 labels, the same expectations — passes.
         new("encoding/single-byte-decoder.any.js", "*(XMLHttpRequest)", WptDivergence.NeedsWptServer),
+
+        // XMLHttpRequest's text response does not BOM-sniff. https://xhr.spec.whatwg.org/#text-response ends in
+        // Encoding's "decode", whose BOM sniff overrides the charset, so bytes beginning FF FE are UTF-16LE
+        // whatever the overridden MIME type named — and JsXmlHttpRequest.TextResponse decodes them with the
+        // charset alone. A real defect, found by vendoring this file once the data: arm let it run (#4270), and
+        // recorded rather than fixed by that change. The file's ten other rows, two of them a BOM the sniff
+        // must not find (00 00 FE FF), pass.
+        new("encoding/unsupported-encodings.any.js", "*with BOM should decode as UTF-16LE", WptDivergence.NeedsTriage),
 
         // ------------------------------------------- hr-time, user-timing and the performance timeline
         // Nothing. The five NeedsPerformanceObserver rows and the one NeedsPerformanceEventTarget row that
@@ -2017,15 +2027,15 @@ public class WptTestRunner
     }
 
     /// <summary>
-    /// The blob-URL lane holds exactly the files it names, and no file is in two lanes at once.
+    /// The local-scheme lane holds exactly the files it names, and no file is in two lanes at once.
     /// </summary>
     /// <remarks>
     /// <para>
     /// It is the second place in the driver that grants <see cref="WebApiFeatures.Fetch"/>, so it moves the
     /// boundary the test above guards and has to be held to the same rule. What keeps the promise here is not
     /// a port but the absence of one: a lane engine's <c>UrlFilter</c> refuses <b>every</b> URL, and the only
-    /// requests these files make are of <c>blob:</c> URLs, which scheme fetch answers from the engine's own
-    /// blob URL store before a filter is consulted at all. So a file that drifted into this lane would gain
+    /// requests these files make are of <c>blob:</c> and <c>data:</c> URLs, which scheme fetch answers from the
+    /// engine's own blob URL store and from the URL itself before a filter is consulted at all. So a file that drifted into this lane would gain
     /// the interfaces and no reach whatever — but it would also gain the <i>shipped</i> <c>fetch</c> and
     /// <c>XMLHttpRequest</c> in place of the shim's corpus reader, and fail for a reason that looks like an
     /// engine defect.
@@ -2037,16 +2047,16 @@ public class WptTestRunner
     /// </para>
     /// </remarks>
     [Test]
-    public void TheBlobUrlLaneHoldsExactlyTheFilesItNames()
+    public void TheLocalSchemeLaneHoldsExactlyTheFilesItNames()
     {
-        var named = WptHarness.BlobUrlBackedFiles.ToArray();
+        var named = WptHarness.LocalSchemeBackedFiles.ToArray();
 
-        named.Should().NotBeEmpty("the blob-URL lane is what the two FileAPI/url fetch suites run in");
+        named.Should().NotBeEmpty("the local-scheme lane is what the blob: and data: URL suites run in");
 
         foreach (var file in named)
         {
-            WptCorpus.Contains(file).Should().BeTrue($"{file} is in the blob-URL lane but is not vendored");
-            WptHarness.IsBlobUrlBacked(file).Should().BeTrue($"{file} must answer for itself");
+            WptCorpus.Contains(file).Should().BeTrue($"{file} is in the local-scheme lane but is not vendored");
+            WptHarness.IsLocalSchemeBacked(file).Should().BeTrue($"{file} must answer for itself");
             WptHarness.IsServerBacked(file).Should().BeFalse($"{file} cannot be in two lanes at once");
         }
 
@@ -2054,7 +2064,7 @@ public class WptTestRunner
         {
             if (path.EndsWith(".any.js", StringComparison.Ordinal) && !Array.Exists(named, f => string.Equals(f, path, StringComparison.Ordinal)))
             {
-                WptHarness.IsBlobUrlBacked(path).Should().BeFalse($"{path} is not one of the files the blob-URL lane names");
+                WptHarness.IsLocalSchemeBacked(path).Should().BeFalse($"{path} is not one of the files the local-scheme lane names");
             }
         }
     }

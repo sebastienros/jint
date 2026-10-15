@@ -6326,6 +6326,19 @@ not throw: it destructured `src` during the suspension, running its getters and 
 had been given the value `a` was due, and `[b] = yield 1` threw `TypeError: The value is not iterable`
 straight out of `next()`. Both now wait for the resume, as a declaration always did.
 
+### 4.156 `fetch()` and `XMLHttpRequest` answer a `data:` URL ([#4270](https://github.com/sebastienros/jint/issues/4270))
+
+Earlier previews rejected `fetch('data:…')` with a `TypeError` and failed an `XMLHttpRequest` to one, unless
+the host added `data` to `AllowedSchemes` and served it from its own `HttpClient`. Now the engine answers it
+itself, as it already answered a `blob:` URL: a 200 `OK` whose only header is the `Content-Type` the URL names
+and whose body is the URL's decoded bytes — no I/O, and no network grant needed for `XMLHttpRequest`.
+
+So `AllowedSchemes`, `UrlFilter`, `MaxConcurrentRequests` and a `FetchObserver` never see a `data:` URL, and
+**a host that narrowed `AllowedSchemes` or set a `UrlFilter` now lets one through** where it used to be refused.
+What does bound it is `MaxResponseBytes`, on the decoded body: over the limit, the request fails as a body over
+the limit from the network does. A redirect to a `data:` or `blob:` URL is always a network error, whatever
+`AllowedSchemes` holds. There is no switch to refuse `data:` again; a host that must, wraps `fetch` in script.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
