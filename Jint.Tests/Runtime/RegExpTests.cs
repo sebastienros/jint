@@ -144,6 +144,91 @@ public class RegExpTests
         result.Should().Be("""[1,"ab",3,["ab","ab"],["ab","abxab"]]""");
     }
 
+    // Under u or v the input is a list of code points
+    // (https://tc39.es/ecma262/#sec-regexpbuiltinexec), so a surrogate pair is one astral code point,
+    // which a character or a BMP class never matches even where it holds both halves on their own; a
+    // lone surrogate is a code point of its own. A greedy Char+ or single-range Range+ that ends the
+    // pattern takes the custom engine's bulk advance over code units, and so does the first-character
+    // scan of a pattern that starts with a single range. Neither may stop between, or start at, the two
+    // halves of a pair. The expected values are what V8 returns, as [index, match, ...captures]; the u
+    // flag forces the custom engine.
+    [TestCase(@"/\uD800+/u", @"""\uD800\uD800\uDC00""", @"[0,""\ud800""]")]
+    [TestCase(@"/x\uD800+/u", @"""x\uD800\uD800\uDC00""", @"[0,""x\ud800""]")]
+    [TestCase(@"/\uD800+/u", @"""\uD800\uDC00\uD800\uD800""", @"[2,""\ud800\ud800""]")]
+    [TestCase(@"/[\uD800-\uDFFF]+/u", @"""\uDC00\uD800\uDC00""", @"[0,""\udc00""]")]
+    [TestCase(@"/[\uD800-\uDFFF]+/v", @"""\uDC00\uD800\uDC00""", @"[0,""\udc00""]")]
+    [TestCase(@"/[\uD800-\uDFFF]+/u", @"""\uDC00\uDBFF\uDFFF\uDC00""", @"[0,""\udc00""]")]
+    [TestCase(@"/[\uD800-\uDFFF]+/u", @"""\uDBFF\uDBFF\uDFFF""", @"[0,""\udbff""]")]
+    // a class of lead surrogates: a run of lone leads ends before the lead of a pair
+    [TestCase(@"/[\uD800-\uDBFF]+/u", @"""\uD800\uDBFF\uDC00""", @"[0,""\ud800""]")]
+    [TestCase(@"/[\uD800-\uDBFF]+/u", @"""\uD800\uD801\uD802\uDC00\uD803""", @"[0,""\ud800\ud801""]")]
+    // a class of trail surrogates: the trail of a pair is neither matched nor a place to start
+    [TestCase(@"/[\uDC00-\uDFFF]+/u", @"""\uDC00\uDC01\uD800\uDC00\uDC02""", @"[0,""\udc00\udc01""]")]
+    [TestCase(@"/[\uDC00-\uDFFF]+/u", @"""\uD800\uDC00\uDC00\uDC01""", @"[2,""\udc00\udc01""]")]
+    // a range spanning the surrogate block holds every lone surrogate, and still no pair
+    [TestCase(@"/[\0-\uFFFE]+/u", @"""ab\uD83D\uDE00c""", @"[0,""ab""]")]
+    [TestCase(@"/[\0-\uFFFE]+/u", @"""ab\uD83Dc""", @"[0,""ab\ud83dc""]")]
+    [TestCase(@"/[\u0100-\uFFFE]/u", @"""\uD83D\uDE00""", "null")]
+    [TestCase(@"/[\u0100-\uFFFE]+/u", @"""a\uD83D\uDE00\u0101\u0102""", "[3,\"\u0101\u0102\"]")]
+    [TestCase(@"/[\u0100-\uFFFE]+/u", @"""a\uDE00\u0101\uD83D""", "[1,\"\\ude00\u0101\\ud83d\"]")]
+    // an astral literal matches the pair whole, and never one of its halves
+    [TestCase(@"/\u{1F600}+/u", @"""\u{1F600}\u{1F600}x""", "[0,\"\uD83D\uDE00\uD83D\uDE00\"]")]
+    [TestCase(@"/\u{1F600}+/u", @"""\uD83D\u{1F600}\u{1F600}\uDE00""", "[1,\"\uD83D\uDE00\uD83D\uDE00\"]")]
+    // a character or class with no surrogate in it is unaffected by the pairs around it
+    [TestCase(@"/a+/u", @"""baaab""", @"[1,""aaa""]")]
+    [TestCase(@"/[a-z]+/u", @"""12abc\u{1F600}d""", @"[2,""abc""]")]
+    [TestCase(@"/\d+/u", @"""a\uD800123\uDC00""", @"[2,""123""]")]
+    // without u the quantified capture still routes these to the custom engine, and there the input
+    // is code units, so either half of a pair matches on its own
+    [TestCase(@"/^(?:(x)|y)*\uD800+/", @"""\uD800\uD800\uDC00""", @"[0,""\ud800\ud800"",null]")]
+    [TestCase(@"/^(?:(x)|y)*[\uD800-\uDFFF]+/", @"""\uDC00\uD800\uDC00""", "[0,\"\\udc00\uD800\uDC00\",null]")]
+    [TestCase(@"/^(?:(x)|y)*[\0-\uFFFE]+/", @"""ab\uD83D\uDE00c""", "[0,\"ab\uD83D\uDE00c\",null]")]
+    [TestCase(@"/[\u0100-\uFFFE](?:(x)|y)*/", @"""\uD83D\uDE00""", @"[0,""\ud83d"",null]")]
+    [TestCase(@"/[\u0100-\uFFFE](?:(x)|y)*/", @"""a\uDE00""", @"[1,""\ude00"",null]")]
+    public void UnicodeQuantifiedCharOrRangeNeverSplitsASurrogatePair(string regex, string input, string expected)
+    {
+        var engine = new Engine();
+        ((JsRegExp) engine.Evaluate(regex)).UsesDotNetEngine.Should().BeFalse();
+
+        var result = engine.Evaluate($"var m = {regex}.exec({input}); JSON.stringify(m && [m.index].concat(m))").AsString();
+
+        result.Should().Be(expected);
+    }
+
+    [Test]
+    public void UnicodeQuantifiedCharOrRangeNeverSplitsASurrogatePairFromStickyAndGlobalLastIndex()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function sticky(re, input) {
+                var out = [];
+                for (var i = 0; i < 4; i++) {
+                    re.lastIndex = i;
+                    var m = re.exec(input);
+                    out.push([i, m && m.index, m && m[0], re.lastIndex]);
+                }
+                return out;
+            }
+            var global = /\uD800+/gu;
+            global.lastIndex = 2;
+            var m = global.exec("\uD800\uD800\uDC00\uD800");
+            JSON.stringify([
+                sticky(/\uD800+/uy, "\uD800\uD800\uDC00\uD800"),
+                sticky(/[\uD800-\uDFFF]+/uy, "\uDC00\uD800\uDC00\uDC01"),
+                "\uD800\uD800\uDC00\uD800".match(/\uD800+/gu),
+                "ab\uD83D\uDE00cd".match(/[\0-\uFFFE]+/gu),
+                "\uDC00\uD800\uDC00\uDC01".match(/[\uD800-\uDFFF]+/gu),
+                "\uD83D\uDE00\u0100".match(/[\u0100-\uFFFE]/gu),
+                [m.index, m[0], global.lastIndex]])
+            """).AsString();
+
+        result.Should().Be(
+            """[[[0,0,"\ud800",1],[1,null,null,0],[2,null,null,0],[3,3,"\ud800",4]],"""
+            + """[[0,0,"\udc00",1],[1,null,null,0],[2,null,null,0],[3,3,"\udc01",4]],"""
+            + """["\ud800","\ud800"],["ab","cd"],["\udc00","\udc01"],["""
+            + "\"\u0100\"],[3,\"\\ud800\",4]]");
+    }
+
     [TestCase("gy")]
     [TestCase("guy")]
     public void MatchStickyGlobalCollectsAllAdjacentMatches(string flags)
