@@ -42,6 +42,11 @@ any outstanding `*Async` task complete.
 JavaScript objects are engine-affine. Build `JsObject`, `JsArray`, and other engine-owned values on the thread
 that owns the engine, or while it is idle. Passing an object-valued `JsValue` to another engine is unsupported.
 
+Reading a primitive `JsValue` (a string, number, boolean or BigInt) from several threads at once is safe while no
+operation is running on the engine that produced it. Some strings produce their text on first read, such as a
+long concatenation, a slice or a `LazyJsString`. Those first reads may race, and every reader still gets the
+complete text.
+
 `Prepared<Script>` and `Prepared<Module>` are different: they are reusable, thread-safe, and may execute
 concurrently on separate engines. A configured `Options` may also be shared by engines being constructed
 concurrently, but finish configuring it before construction begins.
