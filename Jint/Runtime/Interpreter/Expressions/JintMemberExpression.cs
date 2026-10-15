@@ -303,7 +303,7 @@ internal sealed class JintMemberExpression : JintExpression
                 baseReferenceName = identifierExpression.Identifier.Key.Name;
                 if (_objectReadKeepsRawEnvironmentWalk)
                 {
-                    // `arguments[i]` / `eval.x`: GetValue would run MaterializeIfArguments and
+                    // `arguments[i]` / `eval.x`: GetValue's HandOn would materialize the arguments object and
                     // permanently opt the frame's JsArguments out of pooling; the raw walk
                     // returns the live object and mapped-index reads stay on the parameter map.
                     var env = engine.ExecutionContext.LexicalEnvironment;

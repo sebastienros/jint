@@ -26,6 +26,23 @@ internal sealed class JintAssignmentExpression : JintExpression
     // validity reasoning (with-statement shadowing, pooling, cross-engine sharing).
     private SlotLocationCache _slotCache;
 
+    /// <summary>
+    /// What <see cref="TryCompoundSlotValue"/> or <see cref="TryAppendToIdentifier"/> did. A return value rather than
+    /// a second out parameter: the discard lane ignores it, and an address-taken bool there cost the numeric lane
+    /// that shares the method (TryCompoundUnboxed) a stack round trip on every compound assignment.
+    /// </summary>
+    private enum CompoundOutcome : byte
+    {
+        /// <summary>Declined before evaluating anything, for the next lane to take.</summary>
+        Declined,
+
+        /// <summary>Done, and the result is not a string the binding owns.</summary>
+        Done,
+
+        /// <summary>Done, and the binding owns the result, so a use of the value must mark it shared.</summary>
+        DoneOwned,
+    }
+
     private JintAssignmentExpression(AssignmentExpression expression) : base(expression)
     {
         _left = Build((Expression) expression.Left);
@@ -58,6 +75,11 @@ internal sealed class JintAssignmentExpression : JintExpression
     {
         var engine = context.Engine;
 
+        // One result local for both lanes below: each out local holding a reference is a stack slot the prolog
+        // zeroes on every call.
+        JsValue result;
+        CompoundOutcome outcome;
+
         // Value-producing twin of the discard-mode slot lane (completion-value positions such
         // as eval/script bodies route here even for expression statements). Same gates: the
         // logical/nullish forms short-circuit, overloading and suspension need the Reference.
@@ -66,28 +88,98 @@ internal sealed class JintAssignmentExpression : JintExpression
             && !context.OperatorOverloadingAllowed
             && _operator is not (Operator.NullishCoalescingAssignment or Operator.LogicalAndAssignment or Operator.LogicalOrAssignment)
             && _slotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier.Identifier, out var slotEnvironment, out var fastSlotIndex)
-            && TryCompoundSlotValue(context, slotEnvironment, fastSlotIndex, out var fastResult))
+            && (outcome = TryCompoundSlotValue(context, slotEnvironment, fastSlotIndex, out result)) != CompoundOutcome.Declined)
         {
-            return HandOut(fastResult);
+            return outcome == CompoundOutcome.DoneOwned ? HandOut(result) : result;
         }
 
-        return HandOut(EvaluateMaterialized(context));
+        if (CanAppendToIdentifier(context)
+            && (outcome = TryAppendToIdentifier(context, out result)) != CompoundOutcome.Declined)
+        {
+            return outcome == CompoundOutcome.DoneOwned ? HandOut(result) : result;
+        }
+
+        return EvaluateMaterialized(context);
     }
 
     /// <summary>
-    /// The value of this expression is being used (<c>x = (s += t)</c>, <c>f(s += t)</c>, a completion value), so a
-    /// string the binding owns stops being extensible: whatever holds it now must never see it change. The discard
-    /// lane does not come through here, which is what keeps a statement-position <c>s += t</c> in place.
+    /// The value of this expression is being used (<c>x = (s += t)</c>, <c>f(s += t)</c>, a completion value) and is a
+    /// string its binding owns, so it stops being extensible: whatever holds it now must never see it change. The
+    /// discard lane does not come through here, which is what keeps a statement-position <c>s += t</c> in place.
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static JsValue HandOut(JsValue value)
     {
-        if (value is JsString.ConcatenatedString concatenated)
+        // a type test rather than a cast on the strength of the lane's report; this runs only for an owned result
+        if (value is JsString.ConcatenatedString owned)
         {
-            concatenated.MarkShared();
+            owned.MarkShared();
         }
 
         return value;
+    }
+
+    /// <summary>
+    /// Whether this is a <c>+=</c> to an identifier that <see cref="TryAppendToIdentifier"/> may take: no suspendable
+    /// frame (whose resume needs the Reference path) and no operator overloading. Every other compound assignment goes
+    /// straight to <see cref="EvaluateMaterialized"/>, as it always did.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool CanAppendToIdentifier(EvaluationContext context)
+    {
+        return _operator == Operator.AdditionAssignment
+               && _leftIdentifier is not null
+               && context.Engine.ExecutionContext.Suspendable is null
+               && !context.OperatorOverloadingAllowed;
+    }
+
+    /// <summary>
+    /// <c>s += t</c> where <c>s</c> is an identifier the slot lane did not take (a dictionary binding, an outer or eval
+    /// environment's binding, a global): one walk that reads the left operand without ending a string's ownership
+    /// (<see cref="JintEnvironment.TryGetIdentifierEnvironmentWithBindingValueForAppend"/>), then the right-hand side,
+    /// then either an in-place append or the ordinary store. Declines, before evaluating anything, when the binding is
+    /// missing or uninitialized, for <see cref="EvaluateMaterialized"/> to raise the error. No suspendable frame comes
+    /// here, so the right-hand side cannot suspend.
+    /// </summary>
+    private CompoundOutcome TryAppendToIdentifier(EvaluationContext context, out JsValue result)
+    {
+        var engine = context.Engine;
+        ref readonly var executionContext = ref engine.ExecutionContext;
+        var strict = executionContext.Strict;
+        var identifier = _leftIdentifier!.Identifier;
+
+        if (!JintEnvironment.TryGetIdentifierEnvironmentWithBindingValueForAppend(
+                executionContext.LexicalEnvironment,
+                identifier,
+                strict,
+                out var record,
+                out var left,
+                out var ownsString,
+                out var canOwnStrings)
+            || left is null)
+        {
+            result = null!;
+            return CompoundOutcome.Declined;
+        }
+
+        var rval = _right.GetValue(context);
+
+        if (canOwnStrings)
+        {
+            result = AppendToOwningBinding(context, (DeclarativeEnvironment) record, left, ownsString, rval, out var stored);
+            if (stored)
+            {
+                return CompoundOutcome.DoneOwned;
+            }
+        }
+        else
+        {
+            result = ComputeCompound(context, left, rval);
+        }
+
+        var lref = engine._referencePool.Rent(record, identifier.Value, strict, thisValue: null);
+        engine.PutValue(lref, result);
+        engine._referencePool.Return(lref);
+        return CompoundOutcome.Done;
     }
 
     /// <summary>
@@ -104,11 +196,6 @@ internal sealed class JintAssignmentExpression : JintExpression
         JsValue originalLeftValue;
         Reference lref;
         bool lhsHasSideEffects;
-
-        // Set when the left operand is a function, block, catch or eval environment's own binding and this is a
-        // `+=` that can neither suspend nor be overloaded: the binding may then own the string the append produces.
-        DeclarativeEnvironment? owningEnvironment = null;
-        var ownsString = false;
         if (suspendable is { IsResuming: true }
             && suspendable.Data.TryGet(this, out AssignmentSuspendData? suspendData))
         {
@@ -117,26 +204,6 @@ internal sealed class JintAssignmentExpression : JintExpression
             lref = suspendData!.Lref;
             originalLeftValue = suspendData.OriginalLeftValue;
             lhsHasSideEffects = true;
-        }
-        else if (_leftIdentifier is not null
-                 && _operator == Operator.AdditionAssignment
-                 && suspendable is null
-                 && !context.OperatorOverloadingAllowed
-                 && JintEnvironment.TryGetIdentifierEnvironmentWithPeekedBindingValue(
-                     engine.ExecutionContext.LexicalEnvironment,
-                     _leftIdentifier.Identifier,
-                     strict,
-                     out var peekedEnvironment,
-                     out var peeked,
-                     out ownsString)
-                 && peeked is not null)
-        {
-            // The append's own read of its operand, which it hands nowhere but into its result: a string the binding
-            // owns stays owned, so the append can extend it in place.
-            originalLeftValue = peeked;
-            lref = engine._referencePool.Rent(peekedEnvironment, _leftIdentifier.Identifier.Value, strict, thisValue: null);
-            lhsHasSideEffects = false;
-            owningEnvironment = peekedEnvironment is DeclarativeEnvironment declarative and not ModuleEnvironment ? declarative : null;
         }
         else if (_leftIdentifier is not null && JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 engine.ExecutionContext.LexicalEnvironment,
@@ -176,7 +243,6 @@ internal sealed class JintAssignmentExpression : JintExpression
         }
 
         var handledByOverload = false;
-        var stored = false;
         JsValue? newLeftValue = null;
 
         if (context.OperatorOverloadingAllowed)
@@ -265,18 +331,13 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        newLeftValue = owningEnvironment is not null
-                            ? AppendToOwningBinding(context, owningEnvironment, originalLeftValue, ownsString, rval, out stored)
-                            : ComputeCompound(context, originalLeftValue, rval);
+                        newLeftValue = ComputeCompound(context, originalLeftValue, rval);
                         break;
                     }
             }
         }
 
-        if (!stored)
-        {
-            engine.PutValue(lref, newLeftValue!);
-        }
+        engine.PutValue(lref, newLeftValue!);
 
         engine._referencePool.Return(lref);
         suspendable?.Data.Clear(this);
@@ -305,7 +366,9 @@ internal sealed class JintAssignmentExpression : JintExpression
     /// <c>s += t</c> where <c>s</c> is a declarative binding that may own its string (see
     /// <see cref="JsString.ConcatenatedString"/>): a string it owns and nothing has read is extended in place and
     /// nothing is stored; any string result the append creates is stored owned, so the next append can be. Reports
-    /// in <paramref name="stored"/> whether the binding already holds the result, so the caller skips its store.
+    /// in <paramref name="stored"/> whether the binding already holds the result, so the caller skips its store and,
+    /// if the value is used, marks it shared. (It is held but not owned only if the claim was refused, which never
+    /// happens to a string the append has just created; marking it shared again would be harmless.)
     /// </summary>
     private JsValue AppendToOwningBinding(
         EvaluationContext context,
@@ -477,7 +540,8 @@ internal sealed class JintAssignmentExpression : JintExpression
         var oldSyntaxElement = context.LastSyntaxElement;
         context.PrepareFor(_expression);
 
-        if (!TryCompoundUnboxed(context))
+        if (!TryCompoundUnboxed(context)
+            && (_operator != Operator.AdditionAssignment || _leftIdentifier is null || !TryAppendToIdentifierDiscarding(context)))
         {
             // straight to the materialized path — TryCompoundUnboxed already ran the same
             // gates and slot resolution EvaluateInternal's fast lane would repeat
@@ -485,6 +549,17 @@ internal sealed class JintAssignmentExpression : JintExpression
         }
 
         context.LastSyntaxElement = oldSyntaxElement;
+    }
+
+    /// <summary>
+    /// The discard lane's <see cref="TryAppendToIdentifier"/>, for a <c>+=</c> to an identifier. Out of line so that
+    /// its out local does not cost <see cref="EvaluateAndDiscard"/> a zeroed stack slot on every compound assignment,
+    /// and so that a member or a non-<c>+=</c> compound assignment pays only the two tests in front of the call.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool TryAppendToIdentifierDiscarding(EvaluationContext context)
+    {
+        return CanAppendToIdentifier(context) && TryAppendToIdentifier(context, out _) != CompoundOutcome.Declined;
     }
 
     /// <summary>
@@ -513,7 +588,7 @@ internal sealed class JintAssignmentExpression : JintExpression
 
         if (!declarativeEnvironment.TryGetNumberSlot(slotIndex, out var left))
         {
-            return TryCompoundSlotValue(context, declarativeEnvironment, slotIndex, out _);
+            return TryCompoundSlotValue(context, declarativeEnvironment, slotIndex, out _) != CompoundOutcome.Declined;
         }
 
         var rval = _right.GetValue(context);
@@ -584,7 +659,7 @@ internal sealed class JintAssignmentExpression : JintExpression
     /// when the right-hand side replaced the slot array). Bails before any evaluation for const
     /// (mutable check) and TDZ/unboxed bindings so the slow path produces the exact error ordering.
     /// </summary>
-    private bool TryCompoundSlotValue(EvaluationContext context, DeclarativeEnvironment environment, int slotIndex, out JsValue result)
+    private CompoundOutcome TryCompoundSlotValue(EvaluationContext context, DeclarativeEnvironment environment, int slotIndex, out JsValue result)
     {
         result = null!;
 
@@ -593,13 +668,13 @@ internal sealed class JintAssignmentExpression : JintExpression
         var slots = environment._slots;
         if (slots is null || (uint) slotIndex >= (uint) slots.Length)
         {
-            return false;
+            return CompoundOutcome.Declined;
         }
 
         ref var binding = ref slots[slotIndex];
         if (!binding.Mutable || !binding.HasReferenceValue)
         {
-            return false;
+            return CompoundOutcome.Declined;
         }
 
         // The lane's own read of its operand, which it hands nowhere but into its result: a string the slot owns
@@ -622,7 +697,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             {
                 concatenated.AppendInPlace(context.Engine.Realm, text);
                 result = concatenated;
-                return true;
+                return CompoundOutcome.DoneOwned;
             }
 
             newLeftValue = concatenated.Append(context.Engine.Realm, text);
@@ -638,6 +713,7 @@ internal sealed class JintAssignmentExpression : JintExpression
         // when the left operand is itself a string is the append's receiver the left operand, so that a result
         // other than it is new: otherwise the receiver is ToPrimitive's answer, which may be any existing string,
         // and an empty append returns its receiver.
+        var outcome = CompoundOutcome.Done;
         if (ReferenceEquals(environment._slots, slots) && binding.Mutable && binding.IsInitialized())
         {
             binding = originalLeftValue is JsString
@@ -645,6 +721,10 @@ internal sealed class JintAssignmentExpression : JintExpression
                       && !ReferenceEquals(produced, originalLeftValue)
                 ? binding.ChangeValueOwned(produced)
                 : binding.ChangeValue(newLeftValue);
+            if (binding.OwnsString)
+            {
+                outcome = CompoundOutcome.DoneOwned;
+            }
         }
         else
         {
@@ -652,7 +732,7 @@ internal sealed class JintAssignmentExpression : JintExpression
         }
 
         result = newLeftValue;
-        return true;
+        return outcome;
     }
 
     private void HandleSuspendedRight(Engine engine, ISuspendable? suspendable, Reference lref, JsValue originalLeftValue, bool lhsHasSideEffects)
