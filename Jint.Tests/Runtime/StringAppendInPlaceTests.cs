@@ -29,6 +29,13 @@ public class StringAppendInPlaceTests
     [TestCase("function f() { eval(''); var s = 'a'; s += 'b'; s += (s = 'z', 'c'); return s; } f()", "abc", TestName = "right-hand side reassigns the dictionary binding")]
     [TestCase("function f() { var s = 'a'; s += 'b'; var t = s; s += ''; s += 'c'; return t; } f()", "ab", TestName = "an empty append claims nothing")]
     [TestCase("function f() { eval(''); var s = 'a'; s += 'b'; var t = s; s += ''; s += 'c'; return t; } f()", "ab", TestName = "an empty append claims nothing in a dictionary binding")]
+    [TestCase("function f() { var held = 'a'.concat('b'); var s = held; s += ''; s += 'c'; return held; } f()", "ab", TestName = "an empty append to a string nothing owns")]
+    [TestCase("function f() { eval(''); var held = 'a'.concat('b'); var s = held; s += ''; s += 'c'; return held; } f()", "ab", TestName = "an empty append to a string nothing owns, dictionary binding")]
+    [TestCase("function f() { var t = ''; t += 'a'; t += 'b'; var held = t; var s = { valueOf() { return held; } }; s += ''; s += 'c'; return held; } f()", "ab", TestName = "an object whose valueOf returns a shared string")]
+    [TestCase("function f() { eval(''); var t = ''; t += 'a'; t += 'b'; var held = t; var s = { valueOf() { return held; } }; s += ''; s += 'c'; return held; } f()", "ab", TestName = "an object whose valueOf returns a shared string, dictionary binding")]
+    [TestCase("function f() { var t = ''; t += 'a'; t += 'b'; var held = t; var s = Object.create(null); s.toString = function () { return held; }; s += ''; s += 'c'; return held; } f()", "ab", TestName = "a null-prototype object whose toString returns a shared string")]
+    [TestCase("function f() { var held = 'a'.concat('b'); var s = { valueOf() { return held; } }; s += ''; s += 'c'; return held; } f()", "ab", TestName = "an object whose valueOf returns a string nothing owns")]
+    [TestCase("function f() { eval(''); var held = 'a'.concat('b'); var s = { valueOf() { return held; } }; s += ''; s += 'c'; return held; } f()", "ab", TestName = "an object whose valueOf returns a string nothing owns, dictionary binding")]
     public void ACopyTakenOutOfTheBindingKeepsItsText(string script, string expected)
     {
         var engine = new Engine();

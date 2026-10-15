@@ -113,7 +113,7 @@ public class ConcatenatedStringMemoTests
         var value = (JsString.ConcatenatedString) new JsString("a").Append(engine.Realm, "b");
         value.IsExtensibleInPlace.Should().BeFalse("nothing owns a value until a binding claims it");
 
-        value.ClaimForBinding();
+        value.TryClaimForBinding().Should().BeTrue();
         value.AppendInPlace(engine.Realm, "c");
         AssertMemoIsAbsent(value, "abc");
 
@@ -126,6 +126,8 @@ public class ConcatenatedStringMemoTests
         AssertMemoIsAbsent(value, expected);
 
         value.MarkShared();
+        value.IsExtensibleInPlace.Should().BeFalse();
+        value.TryClaimForBinding().Should().BeFalse("shared is final: a value once handed on is never claimed again");
         value.IsExtensibleInPlace.Should().BeFalse();
         AssertReadsAs(value, expected);
 
