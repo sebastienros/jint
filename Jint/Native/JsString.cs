@@ -743,10 +743,17 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         private Chunk? _chunk;
         private int _length;
 
-        // Set when a binding takes ownership of this instance (Binding.ChangeValueOwned), cleared for good by the
-        // first read that hands it anywhere (MarkShared). Fits the padding after _length, so the object stays the
-        // size it was.
-        private bool _extensibleInPlace;
+        // Unclaimed until a binding takes ownership of this instance (Binding.ChangeValueOwned); Shared for good from
+        // the first read that hands it anywhere (MarkShared), after which no binding can claim it again. A byte in the
+        // padding after _length, so the object stays the size it was.
+        private Ownership _ownership;
+
+        private enum Ownership : byte
+        {
+            Unclaimed,
+            Owned,
+            Shared,
+        }
 
         internal ConcatenatedString(string value) : base(value)
         {
@@ -765,17 +772,27 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         /// Whether the binding that owns this instance may still extend it in place: nothing has read it out of that
         /// binding since the <c>+=</c> that produced it.
         /// </summary>
-        internal bool IsExtensibleInPlace => _extensibleInPlace;
+        internal bool IsExtensibleInPlace => _ownership == Ownership.Owned;
 
         /// <summary>
-        /// Taken by a binding storing a value its <c>+=</c> has just produced, which nothing else holds.
+        /// Taken by a binding storing a value its <c>+=</c> has just created, which nothing else holds. Refused for an
+        /// instance that has ever been handed on: shared is final, so even a caller that wrongly took an existing
+        /// value for a new one cannot make it extensible again.
         /// </summary>
-        internal void ClaimForBinding() => _extensibleInPlace = true;
+        internal bool TryClaimForBinding()
+        {
+            if (_ownership == Ownership.Unclaimed)
+            {
+                _ownership = Ownership.Owned;
+            }
+
+            return _ownership == Ownership.Owned;
+        }
 
         /// <summary>
         /// Called by every read that hands this instance on: from here on it is never written again.
         /// </summary>
-        internal void MarkShared() => _extensibleInPlace = false;
+        internal void MarkShared() => _ownership = Ownership.Shared;
 
         public override string ToString() => _value ?? Materialize();
 
@@ -865,7 +882,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         /// </summary>
         internal void AppendInPlace(Realm realm, string value)
         {
-            Debug.Assert(_extensibleInPlace, "only an instance a binding owns, and nothing has read, is extended in place");
+            Debug.Assert(_ownership == Ownership.Owned, "only an instance a binding owns, and nothing has read, is extended in place");
 
             var length = _length;
             ThrowIfLengthExceeded(realm, (long) length + value.Length);

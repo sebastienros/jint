@@ -120,13 +120,15 @@ internal readonly struct Binding
     }
 
     /// <summary>
-    /// Stores a string a <c>+=</c> has just produced, which nothing else holds yet, and takes ownership of it so
-    /// the next <c>+=</c> can extend it in place. The caller must have created <paramref name="value"/> itself.
+    /// Stores a string a <c>+=</c> has just created, which nothing else holds yet, and takes ownership of it so the
+    /// next <c>+=</c> can extend it in place. The caller must have created <paramref name="value"/> itself; a value
+    /// that has ever been handed on refuses the claim and is stored like any other.
     /// </summary>
     public Binding ChangeValueOwned(JsString.ConcatenatedString value)
     {
-        value.ClaimForBinding();
-        return new Binding(value, 0, (_flags & ~BindingFlags.UnboxedNumber) | BindingFlags.OwnsString);
+        return value.TryClaimForBinding()
+            ? new Binding(value, 0, (_flags & ~BindingFlags.UnboxedNumber) | BindingFlags.OwnsString)
+            : ChangeValue(value);
     }
 
     public Binding WithUnboxedNumber(double value)

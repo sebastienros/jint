@@ -340,9 +340,12 @@ internal sealed class JintAssignmentExpression : JintExpression
             result = ComputeCompound(context, left, rval);
         }
 
-        // A string the append has just created is held by nothing else, so the binding can own it. An empty append
-        // returns its receiver, which is not new and may be held elsewhere.
-        stored = result is JsString.ConcatenatedString produced
+        // A string the append has just created is held by nothing else, so the binding can own it. Only when the left
+        // operand is itself a string is the append's receiver the left operand, so that a result other than it is new:
+        // otherwise the receiver is ToPrimitive's answer, which may be any existing string, and an empty append
+        // returns its receiver.
+        stored = left is JsString
+                 && result is JsString.ConcatenatedString produced
                  && !ReferenceEquals(produced, left)
                  && environment.TryStoreOwnedString(name, produced);
         return result;
@@ -631,11 +634,15 @@ internal sealed class JintAssignmentExpression : JintExpression
 
         // Through the slot already resolved, re-validated as TryAssignSlot does; the full store only if the
         // right-hand side replaced the slot array or changed the binding's state. A string the append has just
-        // created is held by nothing else, so the slot owns it and the next append can extend it in place; an
-        // empty append returns its receiver, which is not new.
+        // created is held by nothing else, so the slot owns it and the next append can extend it in place. Only
+        // when the left operand is itself a string is the append's receiver the left operand, so that a result
+        // other than it is new: otherwise the receiver is ToPrimitive's answer, which may be any existing string,
+        // and an empty append returns its receiver.
         if (ReferenceEquals(environment._slots, slots) && binding.Mutable && binding.IsInitialized())
         {
-            binding = newLeftValue is JsString.ConcatenatedString produced && !ReferenceEquals(produced, originalLeftValue)
+            binding = originalLeftValue is JsString
+                      && newLeftValue is JsString.ConcatenatedString produced
+                      && !ReferenceEquals(produced, originalLeftValue)
                 ? binding.ChangeValueOwned(produced)
                 : binding.ChangeValue(newLeftValue);
         }
