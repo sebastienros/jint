@@ -136,6 +136,55 @@ public class HostStringImmutabilityTests
     }
 
     /// <summary>
+    /// A script-level <c>let</c> lives in the global environment's declarative record, which the host, every later
+    /// script and a snapshot all read. A <c>+=</c> on it never extends the string in place, so each of them keeps the
+    /// text it read.
+    /// </summary>
+    [Test]
+    public void AGlobalLetReadByTheHostDoesNotChangeWhenScriptAppendsToIt()
+    {
+        using var engine = new Engine();
+
+        // Engine.GetValue reads the global object, which holds no lexical binding, so a host reads one by evaluating it
+        var completion = engine.Evaluate("let s = 'a'; s += 'b'; s += 'c'; s");
+        var held = engine.Evaluate("s");
+        engine.Execute("s += 'd'; s += 'e';");
+
+        completion.AsString().Should().Be("abc");
+        held.AsString().Should().Be("abc");
+        engine.Evaluate("s").AsString().Should().Be("abcde");
+    }
+
+    [Test]
+    public void AGlobalLetCopiedByAnotherScriptDoesNotChangeWhenAThirdAppendsToIt()
+    {
+        using var engine = new Engine();
+
+        engine.Execute("let s = 'a'; s += 'b'; s += 'c';");
+        engine.Execute("var t = s; var o = { p: s };");
+        engine.Execute("s += 'd'; s += 'e';");
+
+        engine.Evaluate("t + '|' + o.p + '|' + s").AsString().Should().Be("abc|abc|abcde");
+    }
+
+    [Test]
+    public void AGlobalLetRestoredFromASnapshotHasTheTextItWasCapturedWith()
+    {
+        using var engine = new Engine();
+
+        engine.Execute("let s = 'a'; s += 'b'; s += 'c';");
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Execute("s += 'd'; s += 'e';");
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+        engine.Evaluate("s").AsString().Should().Be("abc");
+
+        engine.Execute("s += 'x'; s += 'y';");
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+        engine.Evaluate("s").AsString().Should().Be("abc");
+    }
+
+    /// <summary>
     /// A primitive may be handed from one engine to another. The receiving engine appending to it must not
     /// change the string the first engine, or its host, still holds.
     /// </summary>

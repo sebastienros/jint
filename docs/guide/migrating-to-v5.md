@@ -6315,16 +6315,20 @@ result.AsString();              // 4.16.x / earlier 5.0: "abcd"   5.x: "abc"
 
 The same held for `Engine.GetValue`, a property or array element read through `Get`, a descriptor's `Value`, an
 argument a built-in passes to a host delegate (`a.forEach(hostDelegate)`), a `JsValue` host property, a module
-export, and a string passed to a second engine. Now every `+=` produces a new string that shares its characters
-with the one it extended, and a string never changes once it exists. A host may read one on any thread, even
-while its engine keeps running (see [Thread safety](thread-safety.md#values-and-construction)).
+export, and a string passed to a second engine. Now a string never changes once anything can hold it: a `+=` on a
+function or block variable still extends the string in place while that variable is the only place holding it, and
+every other `+=` produces a new string sharing its characters with the one it extended. A host may read a string on
+any thread, even while its engine keeps running (see [Thread safety](thread-safety.md#values-and-construction)).
 
 **What could break:**
 
 - **A host that expected a held string to follow later appends** was relying on the bug; read the binding again.
-- **`LimitMemory` charges more for a `+=` loop.** Each append allocates a 48-byte value (on 64-bit) where it used
-  to append into a builder, and `LimitMemory` counts the bytes an operation allocates: 300,000 appends in one
-  operation are charged about 14 MB more than before, most of `ForUntrustedCode`'s 16 MB budget.
+- **`LimitMemory` charges more for some `+=` loops.** An append to a property or array element (`o.p += x`), to a
+  script's or a module's top-level variable, inside a generator or an async function, or to a variable read since
+  its last append (`while (s.length < n) s += x`) allocates a 48-byte value (on 64-bit) where it used to append into
+  a builder. `LimitMemory` counts the bytes an operation allocates, so 300,000 such appends in one operation are
+  charged about 14 MB more than before, most of `ForUntrustedCode`'s 16 MB budget. An append to a function or block
+  variable, including one a direct `eval` declared inside a function, costs what it did.
 - **Copying a string no longer copies its text.** `var t = s`, passing `s` to a function or returning it used to
   copy the whole text of a `+=` result; it now costs nothing, and so does `s += x; t = s` in a loop, which was
   quadratic.

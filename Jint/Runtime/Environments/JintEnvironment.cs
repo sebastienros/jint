@@ -84,6 +84,62 @@ internal static class JintEnvironment
     }
 
     /// <summary>
+    /// <see cref="TryGetIdentifierEnvironmentWithBindingValue"/> for the <c>+=</c> lane's own read of its left operand:
+    /// a binding that owns its string is read without being marked shared, and reported in
+    /// <paramref name="ownsString"/>, so the lane may extend the string in place. Only a function, block, catch or eval
+    /// environment's own binding is read this way. The global environment (its declarative record holds script-level
+    /// <c>let</c> and <c>const</c>, which a host and other scripts read and a snapshot copies), a module environment
+    /// (import bindings live beside its own) and an object environment are read as usual, so none of them ever owns a
+    /// string.
+    /// </summary>
+    internal static bool TryGetIdentifierEnvironmentWithPeekedBindingValue(
+        Environment env,
+        Environment.BindingName name,
+        bool strict,
+        [NotNullWhen(true)] out Environment? record,
+        out JsValue? value,
+        out bool ownsString)
+    {
+        record = env;
+        value = default;
+        ownsString = false;
+
+        if (env._outerEnv is null)
+        {
+            return ((GlobalEnvironment) env).TryGetBinding(name, strict, out value);
+        }
+
+        while (record is not null)
+        {
+            // See TryGetIdentifierEnvironmentWithBinding; skip empty FunctionEnvironments outright.
+            if (record is FunctionEnvironment fenv
+                && fenv._slots is null
+                && fenv._dictionary is null
+                && record._outerEnv is not null)
+            {
+                record = record._outerEnv;
+                continue;
+            }
+
+            if (record is DeclarativeEnvironment declarative and not ModuleEnvironment and not GlobalEnvironment.GlobalDeclarativeEnvironment)
+            {
+                if (declarative.TryPeekBinding(name.Key, out value, out ownsString))
+                {
+                    return true;
+                }
+            }
+            else if (record.TryGetBinding(name, strict, out value))
+            {
+                return true;
+            }
+
+            record = record._outerEnv;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-newdeclarativeenvironment
     /// </summary>
     internal static DeclarativeEnvironment NewDeclarativeEnvironment(Engine engine, Environment? outer, bool catchEnvironment = false)
