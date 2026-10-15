@@ -269,29 +269,38 @@ internal static class RegExpInterpreter
         Split = 0,
         Lookahead = 1,
         NegativeLookahead = 2,
+
+        /// <summary>
+        /// The positions a greedy <c>.*</c> bulk scan has yet to hand to its continuation. Not in the C
+        /// code, which pushes one <see cref="Split"/> frame per character instead. The saved cindex is the
+        /// exclusive upper bound of the candidates left, the packed auxiliary value their inclusive lower
+        /// bound, and the saved pc the continuation; see <see cref="FindGreedyScanCandidate"/>.
+        /// </summary>
+        GreedyScan = 3,
     }
 
     // -----------------------------------------------------------------------
     //  Backtracking stack helpers
     //
-    //  The stack stores frames of 3 ints:
-    //    [sp-3] = saved pc (bytecode offset)
-    //    [sp-2] = saved cindex (string position)
-    //    [sp-1] = packed (bp_offset << 2 | state_type)
-    //
-    //  Between frames, capture-save pairs are stored:
-    //    [sp-2] = capture index
-    //    [sp-1] = old capture value
+    //  The stack stores frames of 3 + allocCount ints:
+    //    [0] = saved pc (bytecode offset)
+    //    [1] = saved cindex (string position)
+    //    [2] = packed (aux << 2 | state_type); aux is 0 except in a GreedyScan frame
+    //    [3..] = snapshot of the captures and registers
     // -----------------------------------------------------------------------
 
+    /// <remarks>
+    /// <paramref name="aux"/> is a string position, so it is below 2^30 and the shift cannot lose bits
+    /// <see cref="UnpackAux"/> reads back with its unsigned shift.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int PackBpType(int bpOffset, ExecStateType type)
+    private static int PackAuxType(int aux, ExecStateType type)
     {
-        return (bpOffset << 2) | (int) type;
+        return (aux << 2) | (int) type;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int UnpackBp(int packed) => packed >>> 2;
+    private static int UnpackAux(int packed) => packed >>> 2;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ExecStateType UnpackType(int packed) => (ExecStateType) (packed & 3);
@@ -625,34 +634,34 @@ internal static class RegExpInterpreter
         ref int[] stackBuf,
         ref int[]? stackPooled,
         ref int sp,
-        ref int bp,
         Span<int> capture,
         int allocCount,
         int savedPc,
         int savedCindex,
-        ExecStateType stateType)
+        ExecStateType stateType,
+        int aux = 0)
     {
         int frameSize = 3 + allocCount;
         EnsureStackSpace(ref stackBuf, ref stackPooled, sp, frameSize);
         // Header
         stackBuf[sp] = savedPc;
         stackBuf[sp + 1] = savedCindex;
-        stackBuf[sp + 2] = PackBpType(bp, stateType);
+        stackBuf[sp + 2] = PackAuxType(aux, stateType);
         // Full snapshot of captures + registers (SIMD-optimized bulk copy)
         capture.CopyTo(stackBuf.AsSpan(sp + 3, allocCount));
         sp += frameSize;
-        bp = sp;
     }
 
     /// <summary>
     /// Pop a backtracking frame: restores the full capture+register array from snapshot.
-    /// Returns the frame's state type.
+    /// Returns the frame's state type. The popped frame's ints stay in the buffer at the new
+    /// <paramref name="sp"/>, which is what lets a <see cref="ExecStateType.GreedyScan"/> frame be
+    /// re-armed in place.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ExecStateType PopFrame(
         int[] stackBuf,
         ref int sp,
-        ref int bp,
         Span<int> capture,
         int allocCount,
         out int restoredPc,
@@ -662,9 +671,7 @@ internal static class RegExpInterpreter
         sp -= frameSize;
         restoredPc = stackBuf[sp];
         restoredCindex = stackBuf[sp + 1];
-        int packed = stackBuf[sp + 2];
-        var stateType = UnpackType(packed);
-        bp = UnpackBp(packed);
+        var stateType = UnpackType(stackBuf[sp + 2]);
         // Restore full snapshot (SIMD-optimized bulk copy)
         stackBuf.AsSpan(sp + 3, allocCount).CopyTo(capture);
         return stateType;
@@ -879,6 +886,68 @@ internal static class RegExpInterpreter
         return result < 0 ? -1 : result + startIndex;
     }
 
+    /// <summary>
+    /// The rightmost position in [<paramref name="lowerBound"/>, <paramref name="upperBound"/>) where
+    /// a greedy <c>.*</c> could stop and hand over to the continuation at <paramref name="continuationPc"/>,
+    /// or -1 when there is none. The continuation starts with a <see cref="RegExpOpcode.Char"/> or a
+    /// <see cref="RegExpOpcode.Range"/>, and a position whose code unit that first atom rejects is
+    /// skipped: the atom would fail there before touching any state, as the <see cref="RegExpOpcode.SplitNextFirst"/>
+    /// pruning also assumes. The scan never crosses a line terminator <c>.</c> rejects, because the
+    /// caller already capped <paramref name="upperBound"/> at the first one.
+    /// </summary>
+    /// <remarks>
+    /// Under <c>u</c> or <c>v</c>, <c>.</c> consumes a surrogate pair whole, so the position between its
+    /// two halves is not one the quantifier ever stops at. A hit on a low surrogate whose predecessor is
+    /// a high surrogate is skipped; <paramref name="lowerBound"/> itself is where the quantifier started,
+    /// and is a stop whatever precedes it.
+    /// </remarks>
+    // Keep the search out of the large bytecode interpreter's inlining budget, as FindScanChar does.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int FindGreedyScanCandidate(
+        ReadOnlySpan<byte> bc,
+        int continuationPc,
+        string input,
+        int lowerBound,
+        int upperBound,
+        bool isUnicode)
+    {
+        bool continuationIsChar = bc[continuationPc] == (byte) RegExpOpcode.Char;
+        while (upperBound > lowerBound)
+        {
+            int hit = -1;
+            if (continuationIsChar)
+            {
+                char targetChar = (char) ReadU16(bc, continuationPc + 1);
+                hit = input.LastIndexOf(targetChar, upperBound - 1, upperBound - lowerBound);
+            }
+            else
+            {
+                int n = ReadU16(bc, continuationPc + 1);
+                for (int i = upperBound - 1; i >= lowerBound; i--)
+                {
+                    if (MatchRange16(bc, continuationPc + 3, n, input[i]))
+                    {
+                        hit = i;
+                        break;
+                    }
+                }
+            }
+
+            if (hit > lowerBound
+                && isUnicode
+                && char.IsLowSurrogate(input[hit])
+                && char.IsHighSurrogate(input[hit - 1]))
+            {
+                upperBound = hit;
+                continue;
+            }
+
+            return hit;
+        }
+
+        return -1;
+    }
+
     // -----------------------------------------------------------------------
     //  Main backtracking interpreter (lre_exec_backtrack equivalent)
     // -----------------------------------------------------------------------
@@ -908,7 +977,6 @@ internal static class RegExpInterpreter
         int[]? stackPooled = ArrayPool<int>.Shared.Rent(InitialStackCapacity);
         int[] stackBuf = stackPooled;
         int sp = 0;  // stack pointer (next free index)
-        int bp = 0;  // backtrack pointer (start of current frame's snapshot area, unused in new design but kept for frame nesting)
 
         int pc = 0;  // program counter (index into bc)
         int interruptCounter = InterruptCounterInit;
@@ -1155,7 +1223,7 @@ internal static class RegExpInterpreter
                                     scanEnd++;
                                 }
 
-                                PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                                PushFrame(ref stackBuf, ref stackPooled, ref sp,
                                     capture, allocCount, pc1, scanEnd, ExecStateType.Split);
                                 cindex = scanEnd;
                                 pc = gotoTarget;
@@ -1176,7 +1244,7 @@ internal static class RegExpInterpreter
 
                                     var skipLen = input.AsSpan(cindex).IndexOfAnyExceptInRange(low, high);
                                     var scanEnd = skipLen < 0 ? inputEnd : cindex + skipLen;
-                                    PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                                    PushFrame(ref stackBuf, ref stackPooled, ref sp,
                                         capture, allocCount, pc1, scanEnd, ExecStateType.Split);
                                     cindex = scanEnd;
                                     pc = gotoTarget;
@@ -1207,7 +1275,7 @@ internal static class RegExpInterpreter
                             }
                         }
 
-                        PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                        PushFrame(ref stackBuf, ref stackPooled, ref sp,
                             capture, allocCount, pc1, cindex, ExecStateType.Split);
                         break;
                     }
@@ -1220,7 +1288,8 @@ internal static class RegExpInterpreter
                         int pc1 = pc + val; // continuation (backtrack target)
 
                         // Greedy dot-star bulk scan: detect SplitNextFirst → Dot/Any → Goto(back)
-                        // and replace the per-character opcode loop with a direct scan.
+                        // and replace the per-character opcode loop, and its frame per character,
+                        // with a direct scan.
                         // Verify the Goto jumps backward (loop) and the atom is exactly 1 opcode.
                         if (bc[pc] is (byte) RegExpOpcode.Dot or (byte) RegExpOpcode.Any
                             && bc[pc + 1] == (byte) RegExpOpcode.Goto
@@ -1229,7 +1298,6 @@ internal static class RegExpInterpreter
                             && cindex < inputEnd)
                         {
                             bool isDot = bc[pc] == (byte) RegExpOpcode.Dot;
-                            bool continuationIsChar = bc[pc1] == (byte) RegExpOpcode.Char;
 
                             // Determine scan limit: Dot stops at line terminators, Any goes to end.
                             int scanLimit = inputEnd;
@@ -1252,37 +1320,19 @@ internal static class RegExpInterpreter
                                 }
                             }
 
-                            // Use LastIndexOf (for Char) or backward scan (for Range) to find
-                            // the RIGHTMOST position matching the continuation. Greedy quantifiers
-                            // try the longest match first, so only this single frame is needed.
+                            // A greedy quantifier hands the continuation its longest length first and
+                            // each shorter one in turn as the continuation fails (RepeatMatcher tries the
+                            // atom before the continuation,
+                            // https://tc39.es/ecma262/#sec-runtime-semantics-repeatmatcher-abstract-operation).
+                            // The continuation runs at scanLimit now. One GreedyScan frame stands for
+                            // every shorter length, the stops in [cindex, scanLimit): each time
+                            // backtracking reaches it, it resumes the continuation at the rightmost stop
+                            // left and keeps the rest (FindGreedyScanCandidate). Every search starts where
+                            // the last one ended, so all of them together read the span once.
                             if (scanLimit > cindex)
                             {
-                                int lastHit;
-                                if (continuationIsChar)
-                                {
-                                    char targetChar = (char) ReadU16(bc, pc1 + 1);
-                                    lastHit = input.LastIndexOf(targetChar, scanLimit - 1, scanLimit - cindex);
-                                }
-                                else
-                                {
-                                    // Range continuation: scan backward for a char in the range
-                                    int rn = ReadU16(bc, pc1 + 1);
-                                    lastHit = -1;
-                                    for (int ri = scanLimit - 1; ri >= cindex; ri--)
-                                    {
-                                        if (MatchRange16(bc, pc1 + 3, rn, input[ri]))
-                                        {
-                                            lastHit = ri;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (lastHit >= 0)
-                                {
-                                    PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
-                                        capture, allocCount, pc1, lastHit, ExecStateType.Split);
-                                }
+                                PushFrame(ref stackBuf, ref stackPooled, ref sp,
+                                    capture, allocCount, pc1, scanLimit, ExecStateType.GreedyScan, aux: cindex);
                             }
 
                             cindex = scanLimit;
@@ -1311,7 +1361,7 @@ internal static class RegExpInterpreter
                             }
                         }
 
-                        PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                        PushFrame(ref stackBuf, ref stackPooled, ref sp,
                             capture, allocCount, pc1, cindex, ExecStateType.Split);
                         break;
                     }
@@ -1328,7 +1378,7 @@ internal static class RegExpInterpreter
                         var stateType = opcode == RegExpOpcode.Lookahead
                             ? ExecStateType.Lookahead
                             : ExecStateType.NegativeLookahead;
-                        PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                        PushFrame(ref stackBuf, ref stackPooled, ref sp,
                             capture, allocCount, pc + val, cindex, stateType);
                         break;
                     }
@@ -1341,13 +1391,11 @@ internal static class RegExpInterpreter
                         while (true)
                         {
                             sp -= frameSize;
-                            int packed = stackBuf[sp + 2];
-                            var type = UnpackType(packed);
+                            var type = UnpackType(stackBuf[sp + 2]);
                             if (type == ExecStateType.Lookahead)
                             {
                                 pc = stackBuf[sp];
                                 cindex = stackBuf[sp + 1];
-                                bp = UnpackBp(packed);
                                 break;
                             }
                         }
@@ -1362,15 +1410,13 @@ internal static class RegExpInterpreter
                         while (true)
                         {
                             sp -= frameSize;
-                            int packed = stackBuf[sp + 2];
-                            var type = UnpackType(packed);
+                            var type = UnpackType(stackBuf[sp + 2]);
                             if (type == ExecStateType.NegativeLookahead)
                             {
                                 for (int i = 0; i < allocCount; i++)
                                 {
                                     capture[i] = stackBuf[sp + 3 + i];
                                 }
-                                bp = UnpackBp(packed);
                                 break;
                             }
                         }
@@ -1484,7 +1530,7 @@ internal static class RegExpInterpreter
                                     pc = pc + val;
                                 }
 
-                                PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                                PushFrame(ref stackBuf, ref stackPooled, ref sp,
                                     capture, allocCount, pc1, cindex, ExecStateType.Split);
                             }
                         }
@@ -1757,8 +1803,28 @@ noMatch:
                 }
 
                 // Pop frame with full capture+register restore
-                var stateType = PopFrame(stackBuf, ref sp, ref bp, capture, allocCount,
+                var stateType = PopFrame(stackBuf, ref sp, capture, allocCount,
                     out pc, out cindex);
+
+                if (stateType == ExecStateType.GreedyScan)
+                {
+                    // pc is the continuation and cindex the end of the candidates left. The restored
+                    // snapshot is right for every one of them: the scan's Dot/Any/Goto loop writes
+                    // no capture or register.
+                    int candidate = FindGreedyScanCandidate(bc, pc, input, UnpackAux(stackBuf[sp + 2]), cindex, isUnicode);
+                    if (candidate < 0)
+                    {
+                        // Every length of the quantifier has failed; the frame is spent.
+                        continue;
+                    }
+
+                    // Re-arm the frame for the candidates below this one. Popping left its ints in
+                    // the buffer, so only the bound changes.
+                    stackBuf[sp + 1] = candidate;
+                    sp += frameSize;
+                    cindex = candidate;
+                    break;
+                }
 
                 // For Lookahead frames we keep unwinding (a lookahead failure
                 // means the inner expression failed, not an alternative to try).
