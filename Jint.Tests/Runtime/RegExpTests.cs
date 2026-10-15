@@ -75,6 +75,79 @@ public class RegExpTests
         result.Should().Be($"[\"{astral}a\",\"a\"]");
     }
 
+    // A greedy .* followed by a character or class takes the custom engine's bulk scan, which tries
+    // the continuation at every position the continuation's first atom can match, rightmost first
+    // (https://tc39.es/ecma262/#sec-runtime-semantics-repeatmatcher-abstract-operation). When the rest
+    // of the pattern fails at one candidate, every earlier candidate must still be tried. The expected
+    // values are what V8 returns, as [index, match, ...captures]; the u flag forces the custom engine.
+    // https://github.com/sebastienros/jint/issues/4263
+    [Theory]
+    [InlineData(@"/^.*ab/u", @"""abac""", @"[0,""ab""]")]
+    [InlineData(@"/^.*[a]b/u", @"""abac""", @"[0,""ab""]")]
+    [InlineData(@"/^a.*ab/u", @"""aaabac""", @"[0,""aaab""]")]
+    [InlineData(@"/^.*a(b)/u", @"""abac""", @"[0,""ab"",""b""]")]
+    [InlineData(@"/.*ab/u", @"""abac""", @"[0,""ab""]")]
+    // several later candidates fail before the right one
+    [InlineData(@"/^.*ab/u", @"""abacadae""", @"[0,""ab""]")]
+    [InlineData(@"/^.*ab/u", @"""aaaa""", "null")]
+    // class continuations: a single range and a multi-range class
+    [InlineData(@"/^.*[a-c]x/u", @"""axbycz""", @"[0,""ax""]")]
+    [InlineData(@"/^.*[ace]x/u", @"""axcyez""", @"[0,""ax""]")]
+    // a capture after the continuation is rebuilt on the earlier candidate
+    [InlineData(@"/^x.*a(b+)c/u", @"""xabbcabd""", @"[0,""xabbc"",""bb""]")]
+    // the rightmost candidate is still preferred when it succeeds
+    [InlineData(@"/^.*ab/u", @"""abab""", @"[0,""abab""]")]
+    [InlineData(@"/^.*a(b)/u", @"""abxab""", @"[0,""abxab"",""b""]")]
+    // a nested bulk scan fails under the outer scan's rightmost candidate
+    [InlineData(@"/^.*a.*b/u", @"""aXbaY""", @"[0,""aXb""]")]
+    // . stops at a line terminator unless s is set, so the candidates past one differ
+    [InlineData(@"/^.*ab/u", @"""abac\nab""", @"[0,""ab""]")]
+    [InlineData(@"/^.*ab/su", @"""abac\nad""", @"[0,""ab""]")]
+    [InlineData(@"/^.*ab/u", @"""ac\nab""", "null")]
+    [InlineData(@"/^.*ab/su", @"""ac\nab""", @"[0,""ac\nab""]")]
+    [InlineData(@"/^.*ab/u", @"""abac\u2028ab""", @"[0,""ab""]")]
+    [InlineData(@"/^.*ab/u", @"""xx\u2029ab""", "null")]
+    [InlineData(@"/^.*ab/mu", @"""ac\nabac""", @"[3,""ab""]")]
+    [InlineData(@"/.*\n/u", @"""ab\ncd""", @"[0,""ab\n""]")]
+    // u: . consumes a whole surrogate pair, so the scan never stops between its two halves
+    [InlineData(@"/^.*ab/u", @"""ab\uD83D\uDE00ac""", @"[0,""ab""]")]
+    [InlineData(@"/^.*\uDC00/u", @"""\uD800\uDC00""", "null")]
+    [InlineData(@"/^.*[\uDC00-\uDFFF]/u", @"""\uD800\uDC00""", "null")]
+    [InlineData(@"/^.*\uDC00/u", @"""\uDC00\uD800\uDC00""", @"[0,""\udc00""]")]
+    [InlineData(@"/^.*[\uDC00-\uDFFF]/u", @"""\uDC00\uD800\uDC00""", @"[0,""\udc00""]")]
+    [InlineData(@"/^.*\uDC00/su", @"""\uDC00\uD800\uDC00""", @"[0,""\udc00""]")]
+    // a scan inside a lookahead: the lookahead's own frames must still unwind correctly
+    [InlineData(@"/^(?=.*ab)/u", @"""abac""", @"[0,""""]")]
+    [InlineData(@"/^(?!.*ab)/u", @"""abac""", "null")]
+    // without u the quantified capture still routes these to the custom engine, and there . consumes
+    // one code unit, so the scan may stop between the halves of a pair
+    [InlineData(@"/^(?:(x)|y)*.*ab/", @"""abac""", @"[0,""ab"",null]")]
+    [InlineData(@"/^(?:(x)|y)*.*\uDC00/", @"""\uD800\uDC00""", "[0,\"\uD800\uDC00\",null]")]
+    [InlineData(@"/^(?:(x)|y)*.*[\uDC00-\uDFFF]/", @"""\uD800\uDC00x""", "[0,\"\uD800\uDC00\",null]")]
+    public void GreedyDotStarRetriesEarlierContinuationCandidates(string regex, string input, string expected)
+    {
+        var engine = new Engine();
+        ((JsRegExp) engine.Evaluate(regex)).UsesDotNetEngine.Should().BeFalse();
+
+        var result = engine.Evaluate($"var m = {regex}.exec({input}); JSON.stringify(m && [m.index].concat(m))").AsString();
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void GreedyDotStarRetriesEarlierCandidatesFromStickyAndGlobalLastIndex()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var sticky = /.*ab/uy;
+            sticky.lastIndex = 1;
+            var m = sticky.exec("xabac");
+            JSON.stringify([m.index, m[0], sticky.lastIndex, "abac\nabac".match(/.*ab/gu), "abac\nxyz\nabxab".match(/^.*ab/gmu)])
+            """).AsString();
+
+        result.Should().Be("""[1,"ab",3,["ab","ab"],["ab","abxab"]]""");
+    }
+
     [Theory]
     [InlineData("gy")]
     [InlineData("guy")]
