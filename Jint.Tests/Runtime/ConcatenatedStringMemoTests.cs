@@ -101,6 +101,41 @@ public class ConcatenatedStringMemoTests
     }
 
     /// <summary>
+    /// The one instance that changes: a value a binding owns, extended in place by its <c>+=</c> before anything
+    /// has read it. The memo stays absent-or-whole through every step, from the flat first value through the
+    /// chunks, and the first read that marks it shared ends the extensibility for good.
+    /// </summary>
+    [Test]
+    public void AnOwnedValueExtendedInPlaceKeepsTheMemoAbsentOrWhole()
+    {
+        using var engine = new Engine();
+
+        var value = (JsString.ConcatenatedString) new JsString("a").Append(engine.Realm, "b");
+        value.IsExtensibleInPlace.Should().BeFalse("nothing owns a value until a binding claims it");
+
+        value.ClaimForBinding();
+        value.AppendInPlace(engine.Realm, "c");
+        AssertMemoIsAbsent(value, "abc");
+
+        for (var i = 0; i < 10_000; i++)
+        {
+            value.AppendInPlace(engine.Realm, "d");
+        }
+
+        var expected = "abc" + new string('d', 10_000);
+        AssertMemoIsAbsent(value, expected);
+
+        value.MarkShared();
+        value.IsExtensibleInPlace.Should().BeFalse();
+        AssertReadsAs(value, expected);
+
+        // shared now, so an append makes a new value and leaves this one as it was
+        var longer = Append(engine, value, "e");
+        AssertReadsAs(longer, expected + "e");
+        AssertReadsAs(value, expected);
+    }
+
+    /// <summary>
     /// The shape a host is handed: a script's <c>+=</c> result returned as the completion value, and read off
     /// an object property, before anything has read its text.
     /// </summary>

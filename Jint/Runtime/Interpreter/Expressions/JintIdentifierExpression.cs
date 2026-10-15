@@ -186,10 +186,13 @@ internal sealed class JintIdentifierExpression : JintExpression
                 var idx = _cachedSlotIndex;
                 if (slots is not null && (uint) idx < (uint) slots.Length)
                 {
+                    // One flags test, in place of the null test this made before a binding could own its string:
+                    // a plain value is read as it is, and only an unboxed number or an owned string - which this
+                    // read hands on, so it must stop being extensible - takes the out-of-line path.
                     ref var binding = ref slots[idx];
-                    value = binding.HasReferenceValue
-                        ? binding.Value
-                        : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
+                    value = binding.IsPlainValue
+                        ? binding.PeekValue
+                        : DeclarativeEnvironment.ReadSlotSlow(ref binding);
                     if (value is null)
                     {
                         ThrowNotInitialized(engine);

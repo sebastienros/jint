@@ -674,8 +674,9 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     }
 
     /// <summary>
-    /// What <c>s += t</c> produces: an immutable string whose characters live in chunks it shares with the
-    /// value it was appended to, so a loop of appends is amortised linear without any value ever changing.
+    /// What <c>s += t</c> produces: a string whose characters live in chunks it shares with the value it was
+    /// appended to, so a loop of appends is amortised linear, and which never changes once anything but the
+    /// binding that produced it can hold it.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -705,6 +706,18 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     /// chunk of its own, rather than both racing to write the same characters.
     /// </para>
     /// <para>
+    /// <b>The one value that is extended in place.</b> A new value per append costs an object per append, so a
+    /// <c>+=</c> whose result went into a declarative binding (a function or block variable, a catch or eval
+    /// variable) stores it <em>owned</em> (<see cref="Runtime.Environments.BindingFlags.OwnsString"/>) and marks it
+    /// <see cref="IsExtensibleInPlace"/>; the binding's next <c>+=</c> then extends that instance itself
+    /// (<see cref="AppendInPlace"/>) instead of allocating, and stores nothing. That is sound because nothing but
+    /// the binding can hold it: the value of the <c>+=</c> expression is marked shared when it is used, and every
+    /// read of a binding's value — <see cref="Runtime.Environments.Binding.Value"/>, or a slot reader's out-of-line
+    /// path — marks an owned string shared before handing it on, after which it is never written again. So no
+    /// variable, property, collection, closure, debugger or host ever holds a value that changes, and a host may
+    /// still read any string it holds on any thread.
+    /// </para>
+    /// <para>
     /// <b>Reading.</b> A reader touches only characters below its instance's length, which nothing writes any
     /// more, so a host may read a string on any thread while its engine keeps appending to the binding it came
     /// from. The flat text is memoized in <c>_value</c> by the first read that needs it, with a plain reference
@@ -725,9 +738,15 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         private const int MaxChunkLength = 8000;
 
         // Null for a value produced by one concatenation, whose text is _value from the start; the first
-        // append to it copies that text into a chunk.
-        private readonly Chunk? _chunk;
-        private readonly int _length;
+        // append to it copies that text into a chunk. Both fields change only in AppendInPlace, while the
+        // binding that owns this instance is the only place that holds it.
+        private Chunk? _chunk;
+        private int _length;
+
+        // Set when a binding takes ownership of this instance (Binding.ChangeValueOwned), cleared for good by the
+        // first read that hands it anywhere (MarkShared). Fits the padding after _length, so the object stays the
+        // size it was.
+        private bool _extensibleInPlace;
 
         internal ConcatenatedString(string value) : base(value)
         {
@@ -741,6 +760,22 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         }
 
         public override int Length => _length;
+
+        /// <summary>
+        /// Whether the binding that owns this instance may still extend it in place: nothing has read it out of that
+        /// binding since the <c>+=</c> that produced it.
+        /// </summary>
+        internal bool IsExtensibleInPlace => _extensibleInPlace;
+
+        /// <summary>
+        /// Taken by a binding storing a value its <c>+=</c> has just produced, which nothing else holds.
+        /// </summary>
+        internal void ClaimForBinding() => _extensibleInPlace = true;
+
+        /// <summary>
+        /// Called by every read that hands this instance on: from here on it is never written again.
+        /// </summary>
+        internal void MarkShared() => _extensibleInPlace = false;
 
         public override string ToString() => _value ?? Materialize();
 
@@ -815,28 +850,61 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         {
             var length = _length;
             ThrowIfLengthExceeded(realm, (long) length + value.Length);
+            if (value.Length == 0)
+            {
+                return this;
+            }
 
+            return new ConcatenatedString(Extend(realm, value), length + value.Length);
+        }
+
+        /// <summary>
+        /// Appends <paramref name="value"/> to this instance itself rather than returning a new one. Only for the
+        /// <c>+=</c> lane, and only while <see cref="IsExtensibleInPlace"/> and the binding that owns this instance
+        /// still holds it: nothing else can then see it change.
+        /// </summary>
+        internal void AppendInPlace(Realm realm, string value)
+        {
+            Debug.Assert(_extensibleInPlace, "only an instance a binding owns, and nothing has read, is extended in place");
+
+            var length = _length;
+            ThrowIfLengthExceeded(realm, (long) length + value.Length);
+            if (value.Length == 0)
+            {
+                return;
+            }
+
+            _chunk = Extend(realm, value);
+            _length = length + value.Length;
+            _value = null!;
+        }
+
+        /// <summary>
+        /// Writes <paramref name="value"/> after this value's end and returns the chunk the result ends in: into this
+        /// value's own chunk when it ends that chunk's written characters and the realm owns it, otherwise into a new
+        /// chunk. Changes no instance; the caller decides whether the result is a new value or this one.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private Chunk Extend(Realm realm, string value)
+        {
             var chunk = _chunk;
             if (chunk is not null)
             {
-                var used = length - chunk.Offset;
+                var used = _length - chunk.Offset;
                 if (chunk.Used == used && ReferenceEquals(chunk.Owner, realm._concatenationOwner))
                 {
                     var chars = chunk.Chars;
                     if (value.Length <= chars.Length - used)
                     {
-                        // The characters first, then the claim: an instance is handed out only after both, and
-                        // no reader looks at Used. One or two characters are stored directly, as
-                        // StringBuilder.Append does, rather than through a copy call.
+                        // The characters first, then the claim: a result is handed out only after both, and no
+                        // reader looks at Used. One or two characters are stored directly, as StringBuilder.Append
+                        // does, rather than through a copy call.
                         if (value.Length <= 2)
                         {
-                            if (value.Length > 0)
+                            chars[used] = value[0];
+                            if (value.Length > 1)
                             {
-                                chars[used] = value[0];
-                                if (value.Length > 1)
-                                {
-                                    chars[used + 1] = value[1];
-                                }
+                                chars[used + 1] = value[1];
                             }
                         }
                         else
@@ -845,13 +913,13 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
                         }
 
                         chunk.Used = used + value.Length;
-                        return new ConcatenatedString(chunk, length + value.Length);
+                        return chunk;
                     }
 
-                    return AppendAcrossChunks(realm, chunk, used, value);
+                    return FillAndStartChunk(realm, chunk, used, value);
                 }
 
-                return Branch(realm, value);
+                return StartBranchChunk(realm, value);
             }
 
             return StartFirstChunk(realm, value);
@@ -863,7 +931,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         /// one sized with the text, doubling up to <see cref="MaxChunkLength"/>.
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private ConcatenatedString AppendAcrossChunks(Realm realm, Chunk chunk, int used, string value)
+        private Chunk FillAndStartChunk(Realm realm, Chunk chunk, int used, string value)
         {
             var head = chunk.Chars.Length - used;
             value.AsSpan(0, head).CopyTo(chunk.Chars.AsSpan(used));
@@ -873,8 +941,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             var rest = value.Length - head;
             var chars = GC.AllocateUninitializedArray<char>(System.Math.Max(rest, System.Math.Max(MinChunkLength, System.Math.Min(offset, MaxChunkLength))));
             value.AsSpan(head).CopyTo(chars);
-            var next = new Chunk(chars, chunk, offset, realm._concatenationOwner, rest);
-            return new ConcatenatedString(next, _length + value.Length);
+            return new Chunk(chars, chunk, offset, realm._concatenationOwner, rest);
         }
 
         /// <summary>
@@ -883,37 +950,25 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         /// by a little or not at all, so its chunk is small; the doubling takes over if it does keep growing.
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private ConcatenatedString Branch(Realm realm, string value)
+        private Chunk StartBranchChunk(Realm realm, string value)
         {
-            if (value.Length == 0)
-            {
-                return this;
-            }
-
             var chars = GC.AllocateUninitializedArray<char>(System.Math.Max(value.Length, MinChunkLength));
             value.AsSpan().CopyTo(chars);
-            var chunk = new Chunk(chars, _chunk, _length, realm._concatenationOwner, value.Length);
-            return new ConcatenatedString(chunk, _length + value.Length);
+            return new Chunk(chars, _chunk, _length, realm._concatenationOwner, value.Length);
         }
 
         /// <summary>
         /// The first append to a value one concatenation produced: copies its text into a chunk with room to grow.
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private ConcatenatedString StartFirstChunk(Realm realm, string value)
+        private Chunk StartFirstChunk(Realm realm, string value)
         {
-            if (value.Length == 0)
-            {
-                return this;
-            }
-
             var text = _value;
             var length = text.Length + value.Length;
             var chars = GC.AllocateUninitializedArray<char>(length + System.Math.Max(MinChunkLength, System.Math.Min(length, MaxChunkLength)));
             text.AsSpan().CopyTo(chars);
             value.AsSpan().CopyTo(chars.AsSpan(text.Length));
-            var chunk = new Chunk(chars, previous: null, offset: 0, realm._concatenationOwner, length);
-            return new ConcatenatedString(chunk, length);
+            return new Chunk(chars, previous: null, offset: 0, realm._concatenationOwner, length);
         }
 
         public override bool Equals(string? other)
