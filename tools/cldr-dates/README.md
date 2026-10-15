@@ -3,7 +3,12 @@
 `Jint.CldrDates.Generator` writes [`Jint/Native/Intl/Data/DateTimePatterns.bin`](../../Jint/Native/Intl/Data/DateTimePatterns.bin),
 an embedded resource with CLDR's Gregorian date and time patterns and names for every locale cldr-json carries, and
 [`DateTimePatternData.Data.cs`](../../Jint/Native/Intl/Data/DateTimePatternData.Data.cs), the header that says where
-it came from. [`DateTimePatternData`](../../Jint/Native/Intl/Data/DateTimePatternData.cs) reads it. It is the
+it came from. [`DateTimePatternData`](../../Jint/Native/Intl/Data/DateTimePatternData.cs) reads it. It writes the other
+calendars' patterns and names beside them, into
+[`DateTimeCalendarPatterns.bin`](../../Jint/Native/Intl/Data/DateTimeCalendarPatterns.bin) and its header
+[`DateTimeCalendarPatternData.Data.cs`](../../Jint/Native/Intl/Data/DateTimeCalendarPatternData.Data.cs), which
+[`DateTimeCalendarPatternData`](../../Jint/Native/Intl/Data/DateTimeCalendarPatternData.cs) reads
+([the other calendars](#the-other-calendars)). It is the
 `[[LocaleData]]` [issue #4158](https://github.com/sebastienros/jint/issues/4158) moves `Intl.DateTimeFormat` onto:
 a component bag is resolved against it by the format matcher,
 [`DateTimePatternGenerator`](../../Jint/Native/Intl/DateTimePatternGenerator.cs), which resolves a `dateStyle` and
@@ -11,7 +16,7 @@ a component bag is resolved against it by the format matcher,
 [`DateTimeIntervalFormat`](../../Jint/Native/Intl/DateTimeIntervalFormat.cs); their reference models and golden tables
 are under [`reference/`](#the-format-matchers-reference-model).
 
-**The build never runs the generator.** Both outputs are committed, and regenerating them is a manual step taken
+**The build never runs the generator.** Its outputs are committed, and regenerating them is a manual step taken
 when the pinned release changes.
 
 ## Inputs
@@ -23,6 +28,8 @@ when the pinned release changes.
 | [`cldr-dates-full-48.2.0.tgz`](https://www.npmjs.com/package/cldr-dates-full/v/48.2.0) | `main/<locale>/ca-gregorian.json` and `dateFields.json` for 766 locales, each already resolved through CLDR's inheritance | npm integrity `sha512-zMrKvjMO414HDftLr6vKH1fNQHakFNe+F1h4S0eg+zmL4WRi9pI41fxB3UrTJDY42MEM87jCuAw/qlqCgYKcAQ==` |
 | [`cldr-core-48.2.0.tgz`](https://www.npmjs.com/package/cldr-core/v/48.2.0) | `availableLocales.json` (the locale list, cross-checked), `defaultContent.json`, `supplemental/likelySubtags.json`, `supplemental/parentLocales.json` (cross-checked) and `supplemental/dayPeriods.json` | npm integrity `sha512-zfmLothncSwfv2jlevoSrgI2VGgH8SDGHXst6jUEotHA8nq9Igeg9jzdJDFtBso9pgJuG89DK16TzrmZDdo2Bg==` |
 | [`common/supplemental/supplementalData.xml`](https://github.com/unicode-org/cldr/blob/release-48-2/common/supplemental/supplementalData.xml) at `release-48-2` | `<parentLocales>`, the parent table, as the other CLDR tables under `Jint/Native/Intl/Data` are read from it | SHA-256 `cd2af39aef82fdbfba4d591c87548203350538ad2318486d104b3b38b8d62f1a` |
+| `cldr-cal-{buddhist,coptic,ethiopic,hebrew,indian,islamic,japanese,persian,roc}-full-48.2.0.tgz` | `main/<locale>/ca-<calendar>.json` for the other calendars, resolved as `cldr-dates-full` is | each package's npm integrity, in `pin.json` |
+| [`cldr-common-48.2.zip`](https://unicode.org/Public/cldr/48.2/cldr-common-48.2.zip), 36 MB | `common/main/*.xml`, CLDR's unresolved locale files: which calendar values a locale defines itself, which ICU's data is built from and resolved JSON cannot show ([the other calendars](#the-other-calendars)) | SHA-256 `d2844f9dbf6124d11a7b047f5381a467902d82a673be3d658f4c0791ffa0b83b` |
 
 Each file is downloaded into a cache directory (by default `jint-cldr-dates` under the temporary directory; `--cache`
 changes it) and checked against its pin before anything reads it. A cached copy that does not match is fetched again,
@@ -60,7 +67,7 @@ For each locale, from the `gregorian` calendar:
   pattern differs from its parent's — and within one locale the first letter in binary order, so `zh-Hant`'s `B`
   pattern for `h` is read and its `a` one is not.
 
-The other calendars are not extracted yet.
+The other calendars are extracted into a resource of their own ([the other calendars](#the-other-calendars)).
 
 The run fails, listing every problem at once, unless: cldr-dates-full and `availableLocales.json` name the same
 locales; every value is present and non-empty (a flexible day period may be missing), with twelve months, seven weekdays, two eras and am/pm; every pattern
@@ -77,6 +84,41 @@ nowhere to put it) and are listed by name in `CldrLocale.cs`, so a new one fails
 that no longer occurs. `Jint.Tests` pins the same list. So is `fa`'s (and `fa-AF`'s) `GyMMM` month pattern,
 `LLL تا MMM y G`, which repeats no letter (`KnownUnsplittableIntervals`).
 
+## The other calendars
+
+`DateTimeCalendarPatterns.bin` carries ten calendars, for every locale: `buddhist`, `japanese`, `roc`, `hebrew`,
+`persian`, `indian`, `coptic`, `ethiopic`, `ethiopic-amete-alem` (`ethioaa`) and `islamic`, which serves all five Islamic
+identifiers (the generator requires `ca-islamic-civil.json`, `-rgsa`, `-tbla` and `-umalqura` to be `ca-islamic.json`
+in every locale, and their XML to define nothing). `chinese` and `dangi` are not carried: they write a related year and
+a year name, in a lane of their own. For each locale and calendar it holds the calendar's `availableFormats`,
+`dateFormats`, `timeFormats`, atTime joining patterns, `appendItems`, `intervalFormats` and fallback, its month names
+(none for the three calendars that write the Gregorian months; thirteen for the Coptic and Ethiopic ones; thirteen and
+Adar II for the Hebrew one) and its eras (the Japanese calendar keeps Meiji to Reiwa, CLDR's 232 to 236). Weekdays, day
+periods, field names and the `dateTimeFormats` a range joins its date and time with are the Gregorian locale's, as in ICU.
+
+cldr-json resolves every element through CLDR's inheritance, which is what ICU reads for most of this. Three things ICU
+decides by which locale defines a value (icu4c `dtptngen.cpp`, `smpdtfmt.cpp`), and the generator reads those from
+`cldr-common`'s XML ([`CldrXml.cs`](Jint.CldrDates.Generator/CldrXml.cs)), counting an element as ICU's data build does:
+a pattern of its own, not an alias, not the inheritance marker `↑↑↑`, not `draft="unconfirmed"` or `"provisional"`.
+So read, CLDR 48.2's XML says which locales have each calendar's `DateTimePatterns` and `DateTimePatterns%atTime`
+exactly as ICU 78.3's data does, 2,724 of 2,724.
+
+- **Style patterns.** ICU keeps a calendar's date, time and joining patterns in one array, `calendar/<name>/DateTimePatterns`,
+  which the root aliases to the generic calendar's. A locale has it only where it defines one of them, so a calendar's
+  time styles are those of the nearest locale defining its (or the generic calendar's) date patterns: `en-GB`'s Buddhist
+  `h:mm a` is `en-001`'s. The date and time formats are written from that locale.
+- **Joining patterns.** A date and a time are joined with the calendar's `%atTime`, which the root aliases to nothing;
+  failing that with the Gregorian `%atTime` of the nearest locale defining one (`zh-Hant`'s `{1}\u2009{0}`, identical to
+  its standard pattern); failing both, with the calendar's own joining patterns (`lv`'s `{1}, {0}`).
+- **availableFormats order.** ICU adds a calendar's own entries from every locale of the chain before the generic
+  calendar's it inherits; each record lists the skeletons its locale defines for the calendar itself, and the format
+  matcher adds those first. The order decides ties (`en-GB`'s Hebrew `Sat, 30 Kislev`).
+
+The validation lists are their own: `CalendarExtraction.KnownNumberingOverrides` (`haw`'s Roman months, `ja`'s 元年,
+`he` and `yi`'s Hebrew numerals, all dropped as the Gregorian `haw` override is), `KnownLetterExceptions` (the generic
+calendar's week-numbering `Y` in six locales, `fa`'s `Z` and `ko`'s `e`) and `KnownUnsplittableIntervals` (`fa`'s), each
+keyed by locale, calendar (none for every calendar) and path, each failing the run when it no longer occurs.
+
 ## Regenerating
 
 From the repository root:
@@ -85,8 +127,9 @@ From the repository root:
 dotnet run --project tools/cldr-dates/Jint.CldrDates.Generator -c Release
 ```
 
-It prints the resource's size, in total and for the largest blocks. `--check` regenerates in memory and compares the content with
-the committed header instead of writing anything.
+It prints each resource's size, in total and for the largest blocks, and leaves a resource whose content is the
+committed one as it is. `--check` regenerates in memory and compares the content with the committed headers instead of
+writing anything.
 
 The deflated bytes depend on the runtime's zlib, so a different .NET can write a different `.bin` from the same
 inputs. The header therefore records two hashes: the file's, and the **payload's** — the inflated index followed by
@@ -130,6 +173,27 @@ locales, so a parent it does not carry is skipped for that parent's own (`ca-ES-
 There is one deflated block per language (the locale's first subtag), so a process inflates only the languages it
 uses — plus the root's, which every language's records are relative to, and a parent's in another language where
 CLDR has one (`nb` and `nn` inherit from `no`, `hi-Latn` from `en-IN`, `ht` from `fr-HT`).
+
+`DateTimeCalendarPatterns.bin` follows `DateTimePatterns.bin`'s language blocks, locales and parents without repeating
+them:
+
+```text
+file:   "JDTC"  version=1  varint indexLength  varint indexDeflatedLength  index (raw deflate)  blocks
+index:  string cldrVersion
+        varint calendarCount, calendarCount x { string cldrName, varint n, n x string identifier, varint monthCount,
+                                                varint n, n x string eraKey, varint slotCount, slotCount x string slotName }
+        varint blockCount, blockCount x { string language, varint offset, varint deflatedLength, varint length,
+                                          varint localeCount }
+block:  each locale of the language in DateTimePatterns.bin's order, and for each, each calendar in the index's order:
+record: a DateTimePatterns.bin record over the calendar's own slots, relative to the parent's record of the calendar,
+        then varint n, n x string skeleton                the availableFormats the locale defines for the calendar
+```
+
+A calendar's slots are its date, time and atTime formats, appendItems and interval fallback (24), its months by context
+and width, and its eras by width; the index names them. Holding a locale's records of every calendar side by side is
+what lets deflate find what the calendars share, which are all the generic calendar's patterns under other eras and
+months: 175 KB deflated for the ten, where one block per calendar and language costs 860 KB. A process inflates a block
+the first time a calendar is asked for in its language, and reads only that calendar's records out of it.
 
 ## The format matcher's reference model
 
@@ -195,6 +259,33 @@ date where Jint writes each part from the date its source names. `ties` reports 
 two candidates at the least distance, where ICU's hash-table order would decide: there is none, so walking the
 skeletons in ordinal order is exact.
 
+### The other calendars' table
+
+`format_matcher.py` reads a calendar's data from its `ca-<calendar>.json` and, for the three things ICU decides by which
+locale defines a value, from `cldr-common`'s XML, as the generator does ([the other calendars](#the-other-calendars)); it
+expects the calendar packages unpacked under `<cldr-json-root>/cal/<package>/package` and `cldr-common-48.2.zip` beside
+them. It writes [`reference/golden-calendars.tsv`](reference/golden-calendars.tsv), which `IntlDateTimeFormatCalendarTests`
+embeds: 11 locales chosen to exercise ICU's rules, every calendar but `islamic-tbla` (whose data is `islamic-civil`'s), and
+21 component bags and styles, at the two instants, each instant dated in the calendar as ICU dates it
+(`CALENDAR_DATES`).
+
+```sh
+python reference/format_matcher.py calendar-cases > calendar-cases.tsv
+node reference/probe-calendars.js calendar-cases.tsv > icu-calendars.tsv
+python reference/format_matcher.py compare-calendars <cldr-json-root> icu-calendars.tsv
+python reference/format_matcher.py golden-calendars <cldr-json-root> icu-calendars.tsv > reference/golden-calendars.tsv
+```
+
+With Node 24.19, 2,535 of the table's 2,541 rows have the same text; the six others are `he`'s Hebrew date styles,
+which ICU writes in Hebrew numerals (`numbers="hebr"`) and Jint in the formatter's digits. 574 rows' `resolvedOptions()`
+differ, in two ways V8 reads a format record that the specification does not: it recognizes an era only in a run of three
+or more `G`, so the `M/d/y G` every one of these calendars writes reports no era, and it reads a letter inside a quoted
+literal as a field. `calendar-cases` and `compare-calendars` take a file of locales as an extra argument, and then run
+every calendar and all 31 cases: over the 641 cldr-json locales ICU resolves to themselves the model agreed with Node on
+238,395 of 238,452 rows' text. The 57 others are `he` and `yi`'s Hebrew numerals, `haw`'s Roman months, the
+week-numbering `Y` that `gl`, `ksh`, `my` and `te` patterns use (ICU writes it as the Gregorian week year in these
+calendars), and `fr-ML`'s joining pattern, which differs between CLDR 48.0 and 48.2.
+
 ### `dateStyle` and `timeStyle`
 
 The model also writes the style table, [`reference/golden-styles.tsv`](reference/golden-styles.tsv), which
@@ -229,14 +320,15 @@ locales ICU resolves to themselves the model agreed with Node on 33,951 of 33,97
 ## Moving to a later CLDR release
 
 1. Update `pin.json`: the versions and tag, each tarball's URL and npm `dist.integrity` (from
-   `https://registry.npmjs.org/<package>/<version>`), and the XML's URL and SHA-256.
+   `https://registry.npmjs.org/<package>/<version>`), the XML's URL and SHA-256, and `cldr-common`'s.
 2. Run the generator. A validation failure is upstream data to read, not a list to widen: decide for each new entry
    whether it belongs in `KnownLetterExceptions` or `KnownNumberingOverrides`, with a comment saying what it is.
 3. Update the expectations in `Jint.Tests/Runtime/IntlDateTimePatternDataTests.cs`: CLDR's values for a handful of
    locales, the locale count and the list of known letter exceptions.
 4. Regenerate [`reference/golden.tsv`](#the-format-matchers-reference-model),
-   [`reference/golden-styles.tsv`](#datestyle-and-timestyle) and
-   [`reference/range-golden.tsv`](#the-interval-formats-reference-model) from the new release.
+   [`reference/golden-styles.tsv`](#datestyle-and-timestyle),
+   [`reference/range-golden.tsv`](#the-interval-formats-reference-model) and
+   [`reference/golden-calendars.tsv`](#the-other-calendars-table) from the new release.
 5. Run `Jint.Tests`.
 
 Update from a release, never entry by entry: the data is CLDR's own, under the Unicode License v3

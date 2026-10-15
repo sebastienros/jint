@@ -6,7 +6,7 @@ using System.Xml.Linq;
 
 namespace Jint.CldrDates.Generator;
 
-internal sealed record Pin(string CldrVersion, string CldrReleaseTag, string CldrJsonVersion, PinnedPackage[] Packages, PinnedFile SupplementalData)
+internal sealed record Pin(string CldrVersion, string CldrReleaseTag, string CldrJsonVersion, PinnedPackage[] Packages, PinnedFile SupplementalData, PinnedFile CldrCommon)
 {
     private static readonly JsonSerializerOptions _options = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
@@ -39,17 +39,32 @@ internal sealed record PinnedFile(string Path, string Url, string Sha256)
 /// </summary>
 internal sealed class Inputs
 {
-    private Inputs(Dictionary<string, byte[]> datesFiles, Dictionary<string, byte[]> coreFiles, XDocument supplementalData)
+    private Inputs(Dictionary<string, byte[]> datesFiles, Dictionary<string, byte[]> coreFiles, Dictionary<string, byte[]> calendarFiles, XDocument supplementalData, Dictionary<string, byte[]> mainXmlFiles)
     {
         DatesFiles = datesFiles;
         CoreFiles = coreFiles;
+        CalendarFiles = calendarFiles;
         SupplementalData = supplementalData;
+        MainXmlFiles = mainXmlFiles;
     }
+
+    /// <summary>
+    /// CLDR's own, unresolved locale files, <c>common/main/&lt;locale&gt;.xml</c> from <c>cldr-common</c>, keyed by the file
+    /// name without its extension (<c>zh_Hant</c>, <c>root</c>): the one place that says which values a locale defines
+    /// itself, which cldr-json's resolved data cannot (<see cref="CldrXml"/>).
+    /// </summary>
+    internal Dictionary<string, byte[]> MainXmlFiles { get; }
 
     /// <summary>
     /// <c>package/main/&lt;locale&gt;/ca-gregorian.json</c> and <c>dateFields.json</c> from cldr-dates-full.
     /// </summary>
     internal Dictionary<string, byte[]> DatesFiles { get; }
+
+    /// <summary>
+    /// <c>package/main/&lt;locale&gt;/ca-&lt;calendar&gt;.json</c> from each <c>cldr-cal-*-full</c> package
+    /// <see cref="CalendarSpec.Package"/> names, keyed by <c>&lt;package&gt;/package/main/&lt;locale&gt;/ca-&lt;calendar&gt;.json</c>.
+    /// </summary>
+    internal Dictionary<string, byte[]> CalendarFiles { get; }
 
     /// <summary>
     /// <c>package/availableLocales.json</c>, <c>package/defaultContent.json</c> and <c>package/supplemental/*.json</c> from cldr-core.
@@ -79,8 +94,36 @@ internal sealed class Inputs
             || string.Equals(name, "package/defaultContent.json", StringComparison.Ordinal)
             || name.StartsWith("package/supplemental/", StringComparison.Ordinal));
 
+        var calendarFiles = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        foreach (var packageName in CalendarSpec.All.Select(c => c.Package).Distinct(StringComparer.Ordinal))
+        {
+            var package = pin.Package(packageName);
+            var tarball = await FetchAsync(http, package.Tarball, Path.Combine(cacheDirectory, package.FileName), bytes => Integrity(bytes) == package.Integrity, "npm integrity " + package.Integrity).ConfigureAwait(false);
+            foreach (var (name, bytes) in ReadTarball(tarball, static name => name.StartsWith("package/main/", StringComparison.Ordinal) && name.Contains("/ca-", StringComparison.Ordinal)))
+            {
+                calendarFiles.Add(packageName + "/" + name, bytes);
+            }
+        }
+
+        var common = pin.CldrCommon;
+        var commonZip = await FetchAsync(http, common.Url, Path.Combine(cacheDirectory, common.FileName), bytes => Sha256(bytes) == common.Sha256, "SHA-256 " + common.Sha256).ConfigureAwait(false);
+        var mainXmlFiles = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        using (var archive = new ZipArchive(new MemoryStream(commonZip), ZipArchiveMode.Read))
+        {
+            foreach (var entry in archive.Entries)
+            {
+                if (entry.FullName.StartsWith("common/main/", StringComparison.Ordinal) && entry.FullName.EndsWith(".xml", StringComparison.Ordinal))
+                {
+                    using var stream = entry.Open();
+                    using var buffer = new MemoryStream();
+                    stream.CopyTo(buffer);
+                    mainXmlFiles.Add(entry.Name[..^".xml".Length], buffer.ToArray());
+                }
+            }
+        }
+
         using var xmlStream = new MemoryStream(xml);
-        return new Inputs(datesFiles, coreFiles, XDocument.Load(xmlStream));
+        return new Inputs(datesFiles, coreFiles, calendarFiles, XDocument.Load(xmlStream), mainXmlFiles);
     }
 
     internal static string Integrity(byte[] bytes) => "sha512-" + Convert.ToBase64String(SHA512.HashData(bytes));

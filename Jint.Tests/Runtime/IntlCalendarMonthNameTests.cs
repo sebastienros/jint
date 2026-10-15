@@ -68,22 +68,32 @@ public class IntlCalendarMonthNameTests
     }
 
     /// <summary>
-    /// A calendar counting months of its own is the other case, and the number is what the engine has: Jint
-    /// ships no month-name data for one, and a number is never a wrong name. ICU itself writes the number for
-    /// <c>"narrow"</c> on every one of these.
+    /// A calendar counting months of its own is the other case, and writes its own CLDR names
+    /// (sebastienros/jint#4204), as Node 24.19 does; CLDR's narrow names for these calendars are the numbers.
     /// </summary>
-    [TestCase("islamic-civil", "7")]
-    [TestCase("islamic-tbla", "7")]
-    [TestCase("islamic-umalqura", "7")]
-    [TestCase("hebrew", "5")]
-    [TestCase("persian", "10")]
-    [TestCase("coptic", "5")]
-    [TestCase("ethiopic", "5")]
-    [TestCase("ethioaa", "5")]
-    [TestCase("indian", "10")]
+    [TestCase("islamic-civil", "Rajab", "Raj.", "7")]
+    [TestCase("islamic-tbla", "Rajab", "Raj.", "7")]
+    [TestCase("islamic-umalqura", "Rajab", "Raj.", "7")]
+    [TestCase("hebrew", "Shevat", "Shevat", "5")]
+    [TestCase("persian", "Dey", "Dey", "10")]
+    [TestCase("coptic", "Toba", "Toba", "5")]
+    [TestCase("ethiopic", "Ter", "Ter", "5")]
+    [TestCase("ethioaa", "Ter", "Ter", "5")]
+    [TestCase("indian", "Pausa", "Pausa", "10")]
+    public void ACalendarWithMonthsOfItsOwnWritesItsCldrNames(string calendar, string wide, string abbreviated, string narrow)
+    {
+        Month(calendar, "long").Should().Be(wide);
+        Month(calendar, "short").Should().Be(abbreviated);
+        Month(calendar, "narrow").Should().Be(narrow);
+    }
+
+    /// <summary>
+    /// The Chinese and Dangi calendars keep the lane that writes a related year and a year name, and Jint ships no
+    /// month names for them: the number stands, and a number is never a wrong name.
+    /// </summary>
     [TestCase("chinese", "12")]
     [TestCase("dangi", "12")]
-    public void ACalendarWithMonthsOfItsOwnKeepsTheNumberWithNoDataForIt(string calendar, string expected)
+    public void ALunisolarCalendarKeepsTheNumberWithNoDataForIt(string calendar, string expected)
     {
         foreach (var style in new[] { "long", "short", "narrow" })
         {
@@ -222,7 +232,7 @@ public class IntlCalendarMonthNameTests
     }
 }
 
-/// <summary>A host with the thirteen Hebrew month names Jint ships none of, and no other datum.</summary>
+/// <summary>A host with thirteen Hebrew month names of its own, and no other datum.</summary>
 file sealed class HebrewMonths : DefaultCldrProvider
 {
     private static readonly string[] Wide =

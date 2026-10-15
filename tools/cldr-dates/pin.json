@@ -12,11 +12,61 @@
       "name": "cldr-core",
       "tarball": "https://registry.npmjs.org/cldr-core/-/cldr-core-48.2.0.tgz",
       "integrity": "sha512-zfmLothncSwfv2jlevoSrgI2VGgH8SDGHXst6jUEotHA8nq9Igeg9jzdJDFtBso9pgJuG89DK16TzrmZDdo2Bg=="
+    },
+    {
+      "name": "cldr-cal-buddhist-full",
+      "tarball": "https://registry.npmjs.org/cldr-cal-buddhist-full/-/cldr-cal-buddhist-full-48.2.0.tgz",
+      "integrity": "sha512-bdc08W3e/uGGypQYUCNIrM2TldixnIQpW0Ybr2ynxQkojmqgkPk9f6FpOR370eblCMTO57SEgSx59ZXYaBE/og=="
+    },
+    {
+      "name": "cldr-cal-coptic-full",
+      "tarball": "https://registry.npmjs.org/cldr-cal-coptic-full/-/cldr-cal-coptic-full-48.2.0.tgz",
+      "integrity": "sha512-7M5D01WMan8VyISCdZmqMDpjUmaYM/7W7Vry4M5SNejZn5F3RfTxSx67XFtHT8gqPgy6t2TUIypCcKFEsJsm2Q=="
+    },
+    {
+      "name": "cldr-cal-ethiopic-full",
+      "tarball": "https://registry.npmjs.org/cldr-cal-ethiopic-full/-/cldr-cal-ethiopic-full-48.2.0.tgz",
+      "integrity": "sha512-u/zKRom3PAk2LIk3o/iS30dgg8EHsYhVlbYY6uWq3JtWz6y8tGBO6gR3CVjPmVneoS7PRrB9GE5HIk+x8yM1Lw=="
+    },
+    {
+      "name": "cldr-cal-hebrew-full",
+      "tarball": "https://registry.npmjs.org/cldr-cal-hebrew-full/-/cldr-cal-hebrew-full-48.2.0.tgz",
+      "integrity": "sha512-9Aubz8V76RsZwNFKsFCN6wIubV9gLJ0EGKIvROdfPgt7ip50KuhVz3AYlDiZZKbac8pV3L/AcA3zFP6h4IrNPA=="
+    },
+    {
+      "name": "cldr-cal-indian-full",
+      "tarball": "https://registry.npmjs.org/cldr-cal-indian-full/-/cldr-cal-indian-full-48.2.0.tgz",
+      "integrity": "sha512-nNDa0YRmDQQLDpnNp2mKTUBhQkmovOWiZIb1i1DpOlZ0IovJ0ZR6gFrc7VkF9CYyWqgEEZlE4jkjiGyaai/2Dw=="
+    },
+    {
+      "name": "cldr-cal-islamic-full",
+      "tarball": "https://registry.npmjs.org/cldr-cal-islamic-full/-/cldr-cal-islamic-full-48.2.0.tgz",
+      "integrity": "sha512-iMu/LMaU/hN8u7RiD9toZD7UkhaeeqCwWta56RJRENpvS10VWEzYXvOOfcqrJUPzs2PsN4KqYX/9plouOrsVqA=="
+    },
+    {
+      "name": "cldr-cal-japanese-full",
+      "tarball": "https://registry.npmjs.org/cldr-cal-japanese-full/-/cldr-cal-japanese-full-48.2.0.tgz",
+      "integrity": "sha512-9qmtZGuiulBpFO7TZsujRZcgswEmeaxLuzEZwH5G2mlc7AOga6ra0TkjLrYBH4TWxaPKlymT9FJsTOYxAz99Zg=="
+    },
+    {
+      "name": "cldr-cal-persian-full",
+      "tarball": "https://registry.npmjs.org/cldr-cal-persian-full/-/cldr-cal-persian-full-48.2.0.tgz",
+      "integrity": "sha512-U3p2xvA1aDgcinhWgM+P3aQtsAV4S2nb1fjcutcS71FID1IjhqfVet54QNjAw6HrSjy+y0QP60KCiwUA7u9EnQ=="
+    },
+    {
+      "name": "cldr-cal-roc-full",
+      "tarball": "https://registry.npmjs.org/cldr-cal-roc-full/-/cldr-cal-roc-full-48.2.0.tgz",
+      "integrity": "sha512-olySft80D0auJfNSn+qVYqh3Oq4FVO2Fe+1uRQkcz2TXEzfRyqIPf9M1paGsQARkrB6t2pclRoOHtXHFBZFgtg=="
     }
   ],
   "supplementalData": {
     "path": "common/supplemental/supplementalData.xml",
     "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/supplemental/supplementalData.xml",
     "sha256": "cd2af39aef82fdbfba4d591c87548203350538ad2318486d104b3b38b8d62f1a"
+  },
+  "cldrCommon": {
+    "path": "cldr-common-48.2.zip",
+    "url": "https://unicode.org/Public/cldr/48.2/cldr-common-48.2.zip",
+    "sha256": "d2844f9dbf6124d11a7b047f5381a467902d82a673be3d658f4c0791ffa0b83b"
   }
 }

@@ -108,7 +108,7 @@ internal static class PatternFile
     /// values; then the availableFormats entries that are new or differ; then the skeletons the parent has and this
     /// locale does not; then the same two lists for the interval patterns, keyed by skeleton and field.
     /// </summary>
-    private static void WriteRecord(Stream stream, CldrLocale locale, CldrLocale? parent)
+    internal static void WriteRecord(Stream stream, CldrLocale locale, CldrLocale? parent)
     {
         var slots = new List<int>();
         for (var slot = 0; slot < locale.Slots.Length; slot++)
@@ -352,7 +352,7 @@ internal static class PatternFile
         return raw;
     }
 
-    private static byte[] Deflate(byte[] raw)
+    internal static byte[] Deflate(byte[] raw)
     {
         using var output = new MemoryStream();
         using (var deflate = new DeflateStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
@@ -363,7 +363,7 @@ internal static class PatternFile
         return output.ToArray();
     }
 
-    private static void WriteVarint(Stream stream, int value)
+    internal static void WriteVarint(Stream stream, int value)
     {
         var remaining = checked((uint) value);
         while (remaining >= 0x80)
@@ -375,14 +375,14 @@ internal static class PatternFile
         stream.WriteByte((byte) remaining);
     }
 
-    private static void WriteString(Stream stream, string value)
+    internal static void WriteString(Stream stream, string value)
     {
         var bytes = Encoding.UTF8.GetBytes(value);
         WriteVarint(stream, bytes.Length);
         stream.Write(bytes);
     }
 
-    private sealed class Reader(byte[] bytes)
+    internal sealed class Reader(byte[] bytes)
     {
         internal int Position { get; private set; }
 

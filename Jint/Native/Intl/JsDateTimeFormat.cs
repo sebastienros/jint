@@ -175,8 +175,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     private string[][]? _calendarMonthNames;
 
     /// <summary>
-    /// The name this formatter writes for month <paramref name="month"/> of the calendar it resolved, or null
-    /// when there is none and the month number stands.
+    /// A host provider's name for month <paramref name="month"/> of the calendar this formatter resolved, or null when
+    /// it has none and the calendar's CLDR name (<see cref="FormatMonth"/>) stands.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -184,18 +184,13 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// <c>"narrow"</c> textual, and a formatter is not free to answer one of them with a number. For a
     /// calendar counting the Gregorian months the name is the locale's own and no lookup happens here — the
     /// pattern's CLDR name, or a host's (<see cref="GetHostNames"/>). For a calendar counting months of its own the name
-    /// has to come from data that knows that calendar, which is what
-    /// <see cref="ICldrProvider.GetMonthNames"/> takes its <c>calendar</c> argument for.
+    /// is the calendar's CLDR name (<see cref="Data.DateTimeCalendarPatternData"/>), unless the host answers
+    /// <see cref="ICldrProvider.GetMonthNames"/> for the calendar, which is what it takes its <c>calendar</c> argument for.
     /// </para>
     /// <para>
-    /// The array is indexed by the calendar's month number, so it is as long as that calendar's year: thirteen
-    /// for Coptic, Ethiopic and a Hebrew or Chinese leap year. That is why the answer is read from the provider
-    /// rather than out of <see cref="DateTimeFormatInfo"/>, whose month arrays hold twelve names and a trailing
-    /// empty one. A month the array is too short for keeps its number, and so does an empty name.
-    /// </para>
-    /// <para>
-    /// With no answer the number stands, which is what every release before this one wrote for all three
-    /// styles, and what ICU itself writes for <c>"narrow"</c> on every one of these calendars.
+    /// The host's array is indexed by the calendar's month number, so it is as long as that calendar's year: thirteen
+    /// for Coptic, Ethiopic and a Hebrew or Chinese leap year. A month the array is too short for takes CLDR's name, and
+    /// so does an empty one; a calendar the data does not carry keeps its number.
     /// </para>
     /// </remarks>
     private string? CalendarMonthName(int month, string? style)
@@ -659,29 +654,42 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     }
 
     /// <summary>
-    /// For non-ISO/non-Gregorian/non-lunisolar calendars, returns the calendar's view of the
-    /// given DateTime via the three out parameters. Sets all three to null for ISO/Gregorian
-    /// (the caller falls back to dateTime.Year/Month/Day) or for lunisolar calendars (which
-    /// take a separate code path via ChineseCalendarHelper).
+    /// A date in this formatter's calendar, for writing it through a pattern: the year, month and day, each null where
+    /// the Gregorian one stands (<c>gregory</c>, <c>iso8601</c>, and the month and day of the calendars that count the
+    /// Gregorian months), and where the calendar's own CLDR names are written, the position of its month's name and its
+    /// era's in them (<see cref="Data.DateTimePatternLocale.GetMonthNames"/>, <see cref="Data.DateTimePatternLocale.GetEraNames"/>),
+    /// or -1.
     /// </summary>
-    private void ResolveCalendarFieldsForFormatting(DateTime dateTime, int? originalYear, out int? year, out int? month, out int? day)
-    {
-        year = null;
-        month = null;
-        day = null;
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private readonly record struct CalendarFieldValues(int? Year, int? Month, int? Day, int MonthName, int Era);
 
-        if (Calendar is null) return;
-        if (string.Equals(Calendar, "iso8601", StringComparison.OrdinalIgnoreCase)
+    /// <summary>
+    /// The position of this formatter's calendar in <see cref="Data.DateTimeCalendarPatternData"/>, or -1 for a calendar
+    /// written with the Gregorian data; looked up the first time it is needed.
+    /// </summary>
+    private int CalendarData => _calendarData ??= Data.DateTimeCalendarPatternData.CalendarOf(Calendar);
+
+    private int? _calendarData;
+
+    /// <summary>
+    /// For non-ISO/non-Gregorian/non-lunisolar calendars, the calendar's view of the given DateTime. All null for
+    /// ISO/Gregorian (the caller falls back to dateTime.Year/Month/Day) and for the lunisolar calendars, which take a
+    /// separate code path via ChineseCalendarHelper.
+    /// </summary>
+    private CalendarFieldValues ResolveCalendarFieldsForFormatting(DateTime dateTime, int? originalYear)
+    {
+        if (Calendar is null
+            || string.Equals(Calendar, "iso8601", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Calendar, "gregory", StringComparison.OrdinalIgnoreCase))
         {
-            return;
+            return new CalendarFieldValues(null, null, null, -1, -1);
         }
 
         // Lunisolar calendars are handled separately via ChineseCalendarHelper / lunisolarDate.
         if (string.Equals(Calendar, "chinese", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Calendar, "dangi", StringComparison.OrdinalIgnoreCase))
         {
-            return;
+            return new CalendarFieldValues(null, null, null, -1, -1);
         }
 
         // Simple offset calendars: cheap arithmetic without going through NonIsoCalendars. Only the year is
@@ -693,38 +701,48 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         var sourceYear = originalYear ?? dateTime.Year;
         if (string.Equals(Calendar, "buddhist", StringComparison.OrdinalIgnoreCase))
         {
-            year = sourceYear + 543;
-            return;
+            return new CalendarFieldValues(sourceYear + 543, null, null, -1, EraName("0"));
         }
+
         if (string.Equals(Calendar, "roc", StringComparison.OrdinalIgnoreCase))
         {
-            year = sourceYear - 1911;
-            return;
+            // Year 1 is 1912; a year before it is in the era before the Republic, written 1 - year.
+            return new CalendarFieldValues(sourceYear - 1911, null, null, -1, EraName(sourceYear >= 1912 ? "1" : "0"));
         }
+
         if (string.Equals(Calendar, "japanese", StringComparison.OrdinalIgnoreCase))
         {
-            // For Japanese, the displayed year is the era year of whichever era contains the
-            // given date. Pre-Meiji dates fall back to the Gregorian year. The comparisons read
-            // sourceYear rather than dateTime.Year for the reason IsOnOrAfter gives: a year outside
-            // DateTime's range arrives on a substitute congruent mod 400, whose month and day are real
-            // and whose year is not.
+            // For Japanese, the displayed year is the era year of whichever era contains the given date, and CLDR's
+            // eras 232 to 236 are Meiji to Reiwa. A date before Meiji keeps its Gregorian year and era. The comparisons
+            // read sourceYear rather than dateTime.Year for the reason IsOnOrAfter gives: a year outside DateTime's
+            // range arrives on a substitute congruent mod 400, whose month and day are real and whose year is not.
             var dt = dateTime;
-            int? eraYear = null;
             if (IsOnOrAfter(sourceYear, dt, 2019, 5, 1))
-                eraYear = sourceYear - 2018; // Reiwa
-            else if (IsOnOrAfter(sourceYear, dt, 1989, 1, 8))
-                eraYear = sourceYear - 1988; // Heisei
-            else if (IsOnOrAfter(sourceYear, dt, 1926, 12, 25))
-                eraYear = sourceYear - 1925; // Showa
-            else if (IsOnOrAfter(sourceYear, dt, 1912, 7, 30))
-                eraYear = sourceYear - 1911; // Taisho
-            else if (IsOnOrAfter(sourceYear, dt, 1868, 1, 25))
-                eraYear = sourceYear - 1867; // Meiji
-            if (eraYear.HasValue)
             {
-                year = eraYear;
+                return new CalendarFieldValues(sourceYear - 2018, null, null, -1, EraName("236")); // Reiwa
             }
-            return;
+
+            if (IsOnOrAfter(sourceYear, dt, 1989, 1, 8))
+            {
+                return new CalendarFieldValues(sourceYear - 1988, null, null, -1, EraName("235")); // Heisei
+            }
+
+            if (IsOnOrAfter(sourceYear, dt, 1926, 12, 25))
+            {
+                return new CalendarFieldValues(sourceYear - 1925, null, null, -1, EraName("234")); // Showa
+            }
+
+            if (IsOnOrAfter(sourceYear, dt, 1912, 7, 30))
+            {
+                return new CalendarFieldValues(sourceYear - 1911, null, null, -1, EraName("233")); // Taisho
+            }
+
+            if (IsOnOrAfter(sourceYear, dt, 1868, 1, 25))
+            {
+                return new CalendarFieldValues(sourceYear - 1867, null, null, -1, EraName("232")); // Meiji
+            }
+
+            return new CalendarFieldValues(null, null, null, -1, -1);
         }
 
         // Other non-ISO calendars go through the full IsoToCalendarDate machinery.
@@ -734,14 +752,96 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             // knows it rather than falling through to the catch below and printing the underlying ISO date.
             var isoDate = new IsoDate(originalYear ?? dateTime.Year, dateTime.Month, dateTime.Day);
             var calDate = NonIsoCalendars.IsoToCalendarDate(Calendar, in isoDate, _engine);
-            year = calDate.Year;
-            month = calDate.Month;
-            day = calDate.Day;
+            return new CalendarFieldValues(calDate.Year, calDate.Month, calDate.Day, MonthName(in calDate), EraName(EraKeyOf(in calDate, dateTime, sourceYear)));
         }
         catch
         {
-            // ignore
+            return new CalendarFieldValues(null, null, null, -1, -1);
         }
+    }
+
+    /// <summary>
+    /// The position of a month's name among the calendar's CLDR month names, which follow CLDR's month keys: the month
+    /// code's number, and in the Hebrew calendar Adar I (<c>M05L</c>) as the sixth, Adar as the seventh and, in a leap
+    /// year, Adar II under the key of its own that comes last. -1 for a calendar without CLDR month names.
+    /// </summary>
+    private int MonthName(in NonIsoCalendars.CalendarDate date)
+    {
+        if (CalendarData < 0
+            || date.MonthCode is not { Length: >= 3 } code
+            || code[0] != 'M'
+            || !char.IsDigit(code[1])
+            || !char.IsDigit(code[2]))
+        {
+            return -1;
+        }
+
+        var number = (code[1] - '0') * 10 + (code[2] - '0');
+
+        if (!string.Equals(Calendar, "hebrew", StringComparison.OrdinalIgnoreCase))
+        {
+            return code.Length == 3 ? number - 1 : -1;
+        }
+
+        if (code.Length == 4)
+        {
+            return number == 5 ? 5 : -1;
+        }
+
+        return number switch
+        {
+            <= 5 => number - 1,
+            6 => date.InLeapYear ? 13 : 6,
+            _ => number,
+        };
+    }
+
+    /// <summary>
+    /// CLDR's era key for a date of one of the calendars counting their own months: the era before the epoch where the
+    /// calendar has one, and otherwise its only era.
+    /// </summary>
+    private string? EraKeyOf(in NonIsoCalendars.CalendarDate date, DateTime dateTime, int year)
+    {
+        if (string.Equals(Calendar, "ethiopic", StringComparison.OrdinalIgnoreCase))
+        {
+            // The Era of the Incarnation from its year 1; the Era of the World before it.
+            return date.Year > 0 ? "1" : "0";
+        }
+
+        if (string.Equals(Calendar, "coptic", StringComparison.OrdinalIgnoreCase))
+        {
+            // CLDR names the Era of the Martyrs only.
+            return "1";
+        }
+
+        if (Calendar is not null && Calendar.StartsWith("islamic", StringComparison.OrdinalIgnoreCase))
+        {
+            // Anno Hegirae from the Hijra, 622-07-16; Before Hijrah before it.
+            return IsOnOrAfter(year, dateTime, 622, 7, 16) ? "0" : "1";
+        }
+
+        return "0";
+    }
+
+    /// <summary>The position of the era with CLDR key <paramref name="key"/> among the calendar's era names, or -1.</summary>
+    private int EraName(string? key)
+    {
+        var index = CalendarData;
+        if (index < 0 || key is null)
+        {
+            return -1;
+        }
+
+        var keys = Data.DateTimeCalendarPatternData.Shared.EraKeys(index);
+        for (var i = 0; i < keys.Length; i++)
+        {
+            if (string.Equals(keys[i], key, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private void AddLunisolarMonthPart(ChineseCalendarHelper.ChineseCalendarDate lunisolarDate, List<DateTimePart> result, ref bool hasDate, string separator)
@@ -1291,9 +1391,9 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The matcher is <see cref="DateTimePatternGenerator"/>, over the locale's CLDR Gregorian data whatever the
-    /// calendar: the other calendars' own patterns are not embedded, and a calendar that counts the Gregorian months
-    /// writes them in the Gregorian shape. <c>formatMatcher</c> is read by the constructor and makes no difference;
+    /// The matcher is <see cref="DateTimePatternGenerator"/>, over the locale's CLDR data for the formatter's calendar
+    /// (<see cref="Data.DateTimeCalendarPatternData"/>), and over its Gregorian data for <c>gregory</c>, <c>iso8601</c>
+    /// and a calendar the data does not carry. <c>formatMatcher</c> is read by the constructor and makes no difference;
     /// see <see cref="DateTimePatternGenerator"/> for why <c>"basic"</c> is answered by the best-fit matcher.
     /// </para>
     /// <para>
@@ -1311,7 +1411,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         var hourCycle = Hour is null ? "h23" : ResolvedHourCycle;
         var skeleton = DateTimePatternGenerator.Skeleton.FromOptions(
             Weekday, Era, Year, Month, Day, DayPeriod, Hour, Minute, Second, FractionalSecondDigits, TimeZoneName, hourCycle);
-        return _componentPattern = DateTimePatternGenerator.ForLocale(Locale).GetPattern(skeleton, hourCycle, _numberingSystem.DecimalSeparator);
+        return _componentPattern = DateTimePatternGenerator.ForLocale(Locale, Calendar).GetPattern(skeleton, hourCycle, _numberingSystem.DecimalSeparator);
     }
 
     /// <summary>
@@ -1364,7 +1464,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         // The hour cycle is looked up only by a formatter that writes an hour, which is one with a timeStyle.
         var hourCycle = TimeStyle is null ? "h23" : ResolvedHourCycle;
-        var generator = DateTimePatternGenerator.ForLocale(Locale);
+        var generator = DateTimePatternGenerator.ForLocale(Locale, Calendar);
         var decimalSeparator = _numberingSystem.DecimalSeparator;
         var style = _stylePattern ??= generator.GetStylePattern(StyleWidth(DateStyle), StyleWidth(TimeStyle), hourCycle, decimalSeparator);
         if (allowed == DateTimeFormatFields.All)
@@ -1396,21 +1496,21 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// </para>
     /// <para>
     /// The names — months in the format (<c>M</c>) and stand-alone (<c>L</c>) contexts, weekdays (<c>E</c>, <c>c</c>),
-    /// the Gregorian eras, am/pm and the flexible day periods — are the locale's CLDR names, unless a host
+    /// eras, am/pm and the flexible day periods — are the locale's CLDR names for the calendar, unless a host
     /// <see cref="ICldrProvider"/> answers differently from <see cref="DefaultCldrProvider.Instance"/>
     /// (<see cref="GetHostNames"/>), which it can for all of them but the flexible day periods. A calendar counting
-    /// months of its own writes its month through <see cref="CalendarMonthName"/> and its era through
-    /// <see cref="GetEraName"/>, as before.
+    /// months of its own writes a host's name for its month where the host has one (<see cref="CalendarMonthName"/>), and
+    /// a calendar the data does not carry writes its era through <see cref="GetEraName"/>.
     /// </para>
     /// </remarks>
     private void FormatPatternToParts(DateTimeFormatPattern pattern, DateTime dateTime, List<DateTimePart> result, int? originalYear)
     {
         var runs = pattern.Runs;
-        ResolveCalendarFieldsForFormatting(dateTime, originalYear, out var calendarYear, out var calendarMonth, out var calendarDay);
+        var calendar = ResolveCalendarFieldsForFormatting(dateTime, originalYear);
         var hostNames = GetHostNames(runs);
         for (var i = 0; i < runs.Length; i++)
         {
-            AppendRun(result, in runs[i], hostNames?[i], pattern.Fields, dateTime, originalYear, calendarYear, calendarMonth, calendarDay);
+            AppendRun(result, in runs[i], hostNames?[i], pattern.Fields, dateTime, originalYear, in calendar);
         }
     }
 
@@ -1427,9 +1527,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         DateTimeFormatFields patternFields,
         DateTime dateTime,
         int? originalYear,
-        int? calendarYear,
-        int? calendarMonth,
-        int? calendarDay)
+        in CalendarFieldValues calendar)
     {
         if (run.IsLiteral)
         {
@@ -1442,10 +1540,10 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         switch (run.Field)
         {
             case 'G':
-                result.Add(new DateTimePart("era", FormatEra(dateTime, originalYear, length, names)));
+                result.Add(new DateTimePart("era", FormatEra(dateTime, originalYear, length, names, calendar.Era)));
                 break;
             case 'y' or 'Y' or 'u' or 'r':
-                var year = calendarYear ?? originalYear ?? dateTime.Year;
+                var year = calendar.Year ?? originalYear ?? dateTime.Year;
                 if (year <= 0)
                 {
                     year = 1 - year;
@@ -1454,10 +1552,10 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 result.Add(new DateTimePart("year", length == 2 ? FormatTwoDigits(year % 100) : FormatPadded(year, length)));
                 break;
             case 'M' or 'L':
-                result.Add(new DateTimePart("month", FormatMonth(dateTime.Month, calendarMonth, length, names)));
+                result.Add(new DateTimePart("month", FormatMonth(dateTime.Month, in calendar, length, names)));
                 break;
             case 'd':
-                result.Add(new DateTimePart("day", FormatPadded(calendarDay ?? dateTime.Day, length)));
+                result.Add(new DateTimePart("day", FormatPadded(calendar.Day ?? dateTime.Day, length)));
                 break;
             case 'E' or 'c' or 'e':
                 result.Add(new DateTimePart("weekday", names![(int) dateTime.DayOfWeek]));
@@ -1511,17 +1609,21 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     }
 
     /// <summary>
-    /// A month: its number, or for a text width its name — the calendar's own where it counts months of its own
-    /// (the number where it has none), and otherwise the Gregorian name <paramref name="names"/> holds.
+    /// A month: its number, or for a text width its name. A calendar counting months of its own writes a host
+    /// provider's name for it where the provider has one (<see cref="CalendarMonthName"/>), and otherwise its CLDR name,
+    /// which <paramref name="names"/> holds for a calendar the data carries; where there is neither, the number stands.
+    /// The other calendars write the Gregorian name <paramref name="names"/> holds.
     /// </summary>
-    private string FormatMonth(int gregorianMonth, int? calendarMonth, int length, string[]? names)
+    private string FormatMonth(int gregorianMonth, in CalendarFieldValues calendar, int length, string[]? names)
     {
-        if (calendarMonth.HasValue)
+        if (calendar.Month.HasValue)
         {
-            var month = calendarMonth.Value;
+            var month = calendar.Month.Value;
             if (length >= 3)
             {
-                return CalendarMonthName(month, TextualStyle(length)) ?? month.ToString(CultureInfo.InvariantCulture);
+                return CalendarMonthName(month, TextualStyle(length))
+                       ?? ((uint) calendar.MonthName < (uint) (names?.Length ?? 0) && names![calendar.MonthName].Length > 0 ? names[calendar.MonthName] : null)
+                       ?? month.ToString(CultureInfo.InvariantCulture);
             }
 
             return FormatPadded(month, length);
@@ -1532,15 +1634,28 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
     /// <summary>
     /// The era: CLDR's Gregorian era for <c>gregory</c> and <c>iso8601</c>, before the common era for a year of zero
-    /// or less, and <see cref="GetEraName"/> for the other calendars, which have eras of their own.
+    /// or less; the calendar's own CLDR era for a calendar the data carries (<paramref name="era"/>, its position in
+    /// <paramref name="names"/>), and the Gregorian one for a Japanese date before Meiji, which keeps its Gregorian year;
+    /// and <see cref="GetEraName"/> for any other calendar.
     /// </summary>
-    private string FormatEra(DateTime dateTime, int? originalYear, int length, string[]? names)
+    private string FormatEra(DateTime dateTime, int? originalYear, int length, string[]? names, int era)
     {
         var calendar = Calendar ?? "gregory";
         if (string.Equals(calendar, "gregory", StringComparison.OrdinalIgnoreCase)
             || string.Equals(calendar, "iso8601", StringComparison.OrdinalIgnoreCase))
         {
             return names![(originalYear ?? dateTime.Year) <= 0 ? 0 : 1];
+        }
+
+        if (CalendarData >= 0)
+        {
+            if ((uint) era < (uint) (names?.Length ?? 0))
+            {
+                return names![era];
+            }
+
+            var gregorian = DateTimePatternGenerator.ForLocale(Locale).GetEraNames(DateTimeFormatPattern.NameWidth(length, allowsShort: false));
+            return gregorian[(originalYear ?? dateTime.Year) <= 0 ? 0 : 1];
         }
 
         return GetEraName(dateTime, calendar, TextualStyle(length), originalYear) ?? "";
@@ -1629,7 +1744,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 case 'E' or 'c' or 'e' when run.Length <= 5:
                     host = OverrideOf(provider.GetWeekdayNames(Locale, style), shipped.GetWeekdayNames(Locale, style), 7);
                     break;
-                case 'G':
+                case 'G' when CalendarData < 0:
+                    // A calendar the data carries writes its own CLDR eras, which a provider's two names do not index.
                     host = OverrideOf(provider.GetEraNames(Locale, style, Calendar), shipped.GetEraNames(Locale, style, Calendar), 2);
                     break;
                 case 'a' or 'b' or 'B':
@@ -1726,8 +1842,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             end = ToFormatterTimeZone(end, ref endYear);
         }
 
-        ResolveCalendarFieldsForFormatting(start, startYear, out var startCalendarYear, out var startCalendarMonth, out var startCalendarDay);
-        ResolveCalendarFieldsForFormatting(end, endYear, out var endCalendarYear, out var endCalendarMonth, out var endCalendarDay);
+        var startCalendar = ResolveCalendarFieldsForFormatting(start, startYear);
+        var endCalendar = ResolveCalendarFieldsForFormatting(end, endYear);
 
         var format = DateStyle is null && TimeStyle is null ? GetComponentPattern() : GetStylePattern(isPlain);
         var field = -1;
@@ -1735,15 +1851,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         {
             field = DateTimeIntervalFormat.Era;
         }
-        else if ((startCalendarYear ?? startYear ?? start.Year) != (endCalendarYear ?? endYear ?? end.Year))
+        else if ((startCalendar.Year ?? startYear ?? start.Year) != (endCalendar.Year ?? endYear ?? end.Year))
         {
             field = DateTimeIntervalFormat.Year;
         }
-        else if ((startCalendarMonth ?? start.Month) != (endCalendarMonth ?? end.Month))
+        else if ((startCalendar.Month ?? start.Month) != (endCalendar.Month ?? end.Month))
         {
             field = DateTimeIntervalFormat.Month;
         }
-        else if ((startCalendarDay ?? start.Day) != (endCalendarDay ?? end.Day))
+        else if ((startCalendar.Day ?? start.Day) != (endCalendar.Day ?? end.Day))
         {
             field = DateTimeIntervalFormat.Day;
         }
@@ -1802,11 +1918,11 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         {
             if (sources[i] == DateTimeRangeSource.EndRange)
             {
-                AppendRun(parts, in runs[i], hostNames?[i], rangeFields, end, endYear, endCalendarYear, endCalendarMonth, endCalendarDay);
+                AppendRun(parts, in runs[i], hostNames?[i], rangeFields, end, endYear, in endCalendar);
             }
             else
             {
-                AppendRun(parts, in runs[i], hostNames?[i], rangeFields, start, startYear, startCalendarYear, startCalendarMonth, startCalendarDay);
+                AppendRun(parts, in runs[i], hostNames?[i], rangeFields, start, startYear, in startCalendar);
             }
         }
 
@@ -1852,7 +1968,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             return _intervalFormat;
         }
 
-        _intervalFormat = DateTimePatternGenerator.ForLocale(Locale).GetIntervalFormat(
+        // The calendar's own generator, whose interval patterns are the calendar's (a style range too).
+        _intervalFormat = DateTimePatternGenerator.ForLocale(Locale, Calendar).GetIntervalFormat(
             format,
             format.Hour is null ? "h23" : ResolvedHourCycle,
             _numberingSystem.DecimalSeparator);

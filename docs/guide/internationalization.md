@@ -102,7 +102,14 @@ from `DefaultCldrProvider.Instance`'s answer for the same arguments — so a pro
 date. Time-zone names are not CLDR's: a `long` zone is written in English in every locale (`Coordinated Universal
 Time`). A `dateStyle` or `timeStyle` range is written with the same `intervalFormats`, for the skeleton of the
 style's pattern, as V8 does (`de` `dateStyle: 'medium'` writes `24.–27.12.2022`). The Chinese and Dangi calendars still
-write .NET's patterns and names, and the other non-Gregorian calendars are written in the Gregorian patterns; those move
-onto CLDR in later steps of [#4158](https://github.com/sebastienros/jint/issues/4158).
+write .NET's patterns and names; they move onto CLDR in a later step of
+[#4158](https://github.com/sebastienros/jint/issues/4158).
+
+The other calendars — `buddhist`, `japanese`, `roc`, `hebrew`, `persian`, `indian`, `coptic`, `ethiopic`, `ethioaa` and
+the Islamic ones — are written in their own CLDR shape, as ICU writes them: each calendar's `availableFormats`,
+`dateFormats`, `intervalFormats`, month names and eras, so `en-u-ca-buddhist` writes `12/24/2565 BE` and `fa-u-ca-persian`
+names its months. A host provider's month names for a calendar counting months of its own still win, indexed by the
+calendar's month number; its era names reach the Gregorian calendar only. A Japanese date before Meiji is written in its
+Gregorian year, and a Hebrew date in `he` or `yi` in the formatter's digits where CLDR writes Hebrew numerals.
 
 Choose providers before engine construction; the `Options` instance is frozen when an engine consumes it.

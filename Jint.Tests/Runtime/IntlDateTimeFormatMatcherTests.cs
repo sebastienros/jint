@@ -315,9 +315,10 @@ public class IntlDateTimeFormatMatcherTests
     }
 
     /// <summary>
-    /// A calendar that counts the Gregorian months writes them in the Gregorian shape with its own year; one that
-    /// counts months of its own writes its own month number and day; the Chinese and Dangi calendars keep the lane
-    /// that writes a related year and a year name.
+    /// Another calendar writes its own fields in its own CLDR shape (sebastienros/jint#4204,
+    /// <see cref="IntlDateTimeFormatCalendarTests"/>): the Buddhist calendar adds its era to the Gregorian months, and
+    /// English writes a Hebrew date with the month's name whatever width it asks for; the Chinese and Dangi calendars
+    /// keep the lane that writes a related year and a year name.
     /// </summary>
     [Test]
     public void OtherCalendarsWriteTheirOwnFields()
@@ -326,8 +327,8 @@ public class IntlDateTimeFormatMatcherTests
         string Parts(string locale, string options)
             => engine.Evaluate($"new Intl.DateTimeFormat('{locale}', Object.assign({{ timeZone: 'UTC' }}, {options})).formatToParts(Date.UTC(2022, 11, 24)).filter(function (p) {{ return p.type !== 'literal'; }}).map(function (p) {{ return p.type + '=' + p.value; }}).join()").AsString();
 
-        Parts("en-u-ca-buddhist", "{ year: 'numeric', month: 'long', day: 'numeric' }").Should().Be("month=December,day=24,year=2565");
-        Parts("en-u-ca-hebrew", "{ year: 'numeric', month: 'numeric', day: 'numeric' }").Should().Be("month=3,day=30,year=5783");
+        Parts("en-u-ca-buddhist", "{ year: 'numeric', month: 'long', day: 'numeric' }").Should().Be("month=December,day=24,year=2565,era=BE");
+        Parts("en-u-ca-hebrew", "{ year: 'numeric', month: 'numeric', day: 'numeric' }").Should().Be("day=30,month=Kislev,year=5783");
         Parts("zh-u-ca-chinese", "{ year: 'numeric', month: 'numeric', day: 'numeric' }").Should().Contain("relatedYear=2022");
         engine.Evaluate("new Intl.DateTimeFormat('en-u-ca-chinese', { year: 'numeric', month: 'long', timeZone: 'UTC' }).resolvedOptions().month")
             .AsString().Should().Be("long");

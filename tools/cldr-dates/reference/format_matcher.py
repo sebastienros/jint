@@ -202,12 +202,154 @@ _available_formats = {}
 _parents = None
 _likely_scripts = None
 
+# The other calendars (sebastienros/jint#4204): the ECMA-402 identifier, the cldr-cal-*-full package that carries it,
+# unpacked under <cldr-json-root>/cal/<package>/package, CLDR's name for it, the CLDR calendars ICU's root aliases it
+# through before the generic calendar (CALENDAR_CHAIN), and the one whose %atTime its identifier reads, which the root
+# aliases to nothing (CALENDAR_AT_TIME). Each is read as the Gregorian calendar is, from its own ca-<name>.json, which
+# cldr-json has already resolved through CLDR's inheritance, so the matcher runs over it unchanged; what ICU decides by
+# which locale defines a value is read from CLDR's XML (defined()).
+CALENDAR_DATA = {
+    'buddhist': ('cldr-cal-buddhist-full', 'buddhist'),
+    'japanese': ('cldr-cal-japanese-full', 'japanese'),
+    'roc': ('cldr-cal-roc-full', 'roc'),
+    'hebrew': ('cldr-cal-hebrew-full', 'hebrew'),
+    'persian': ('cldr-cal-persian-full', 'persian'),
+    'indian': ('cldr-cal-indian-full', 'indian'),
+    'coptic': ('cldr-cal-coptic-full', 'coptic'),
+    'ethiopic': ('cldr-cal-ethiopic-full', 'ethiopic'),
+    'ethioaa': ('cldr-cal-ethiopic-full', 'ethiopic-amete-alem'),
+    'islamic-civil': ('cldr-cal-islamic-full', 'islamic-civil'),
+    'islamic-tbla': ('cldr-cal-islamic-full', 'islamic-tbla'),
+    'islamic-umalqura': ('cldr-cal-islamic-full', 'islamic-umalqura'),
+}
+CALENDAR_CHAIN = {
+    'ethioaa': ['ethiopic-amete-alem', 'ethiopic'],
+    'islamic-civil': ['islamic-civil', 'islamic'],
+    'islamic-tbla': ['islamic-tbla', 'islamic'],
+    'islamic-umalqura': ['islamic-umalqura', 'islamic'],
+}
 
-def available_formats(root, locale):
-    if locale not in _available_formats:
-        g = json.load(open(os.path.join(root, 'package', 'main', locale, 'ca-gregorian.json'), encoding='utf-8'))['main'][locale]['dates']['calendars']['gregorian']
-        _available_formats[locale] = {k: v for k, v in g['dateTimeFormats']['availableFormats'].items() if '-alt-' not in k and '-count-' not in k}
-    return _available_formats[locale]
+
+def calendar_chain(calendar):
+    return CALENDAR_CHAIN.get(calendar, [CALENDAR_DATA[calendar][1]])
+
+
+_calendar_data = {}
+
+
+def calendar_data(root, locale, calendar='gregory'):
+    """ca-gregorian.json's calendar node for gregory, and the calendar's own ca-<name>.json node for the others."""
+    if (locale, calendar) in _calendar_data:
+        return _calendar_data[(locale, calendar)]
+    if calendar == 'gregory':
+        name = 'gregorian'
+        path = os.path.join(root, 'package', 'main', locale, 'ca-gregorian.json')
+    else:
+        package, name = CALENDAR_DATA[calendar]
+        path = os.path.join(root, 'cal', package, 'package', 'main', locale, 'ca-%s.json' % name)
+    data = json.load(open(path, encoding='utf-8'))['main'][locale]['dates']['calendars'][name]
+    _calendar_data[(locale, calendar)] = data
+    return data
+
+
+STYLE_WIDTHS = ('full', 'long', 'medium', 'short')
+_defined = {}
+_xml = None
+
+
+def defined(root, locale):
+    """What the locale's own CLDR XML (common/main/<locale>.xml in <cldr-json-root>/cldr-common-48.2.zip) defines per
+    calendar, as ICU's data build keeps it: an element with a pattern, not an alias, not the inheritance marker and not
+    draft="unconfirmed" or "provisional". 'style' is any of dateFormats, timeFormats and the standard dateTimeFormats
+    (ICU's DateTimePatterns), 'atTime' the atTime dateTimeFormats (ICU's DateTimePatterns%atTime), 'formats' the
+    availableFormats skeletons. Read so, CLDR 48.2's files say which locales have each calendar's DateTimePatterns and
+    %atTime exactly as ICU 78.3's data does."""
+    global _xml
+    if locale in _defined:
+        return _defined[locale]
+    import zipfile
+    import xml.etree.ElementTree as ET
+    if _xml is None:
+        archive = zipfile.ZipFile(os.path.join(root, 'cldr-common-48.2.zip'))
+        _xml = {name.rsplit('/', 1)[1][:-4].lower(): (archive, name) for name in archive.namelist() if name.startswith('common/main/') and name.endswith('.xml')}
+    archive, name = _xml['root' if locale == 'und' else locale.replace('-', '_').lower()]
+    marker = '\u2191\u2191\u2191'
+
+    def confirmed(element):
+        return element.get('draft') not in ('unconfirmed', 'provisional')
+
+    def defines(element):
+        return element is not None and element.find('.//alias') is None and any(
+            confirmed(p) and p.text and p.text != marker for p in element.iter('pattern'))
+
+    out = {}
+    calendars = ET.fromstring(archive.read(name)).find('dates/calendars')
+    for cal in (calendars.findall('calendar') if calendars is not None else []):
+        data = {'style': defines(cal.find('dateFormats')) or defines(cal.find('timeFormats')), 'atTime': False, 'formats': set()}
+        dtf = cal.find('dateTimeFormats')
+        if dtf is not None:
+            for fmt in dtf.findall('dateTimeFormatLength/dateTimeFormat'):
+                if defines(fmt):
+                    if fmt.get('type') == 'atTime':
+                        data['atTime'] = True
+                    elif fmt.get('type') in (None, 'standard'):
+                        data['style'] = True
+            for item in dtf.findall('availableFormats/dateFormatItem'):
+                if item.get('alt') is None and item.get('count') is None and confirmed(item) and item.text != marker:
+                    data['formats'].add(item.get('id'))
+        out[cal.get('type')] = data
+    _defined[locale] = out
+    return out
+
+
+def chain_of(root, locale):
+    chain = []
+    while locale is not None:
+        chain.append(locale)
+        locale = parent_of(root, locale)
+    return chain
+
+
+def style_owner(root, locale, calendar):
+    """The locale whose calendar/<name>/DateTimePatterns ICU reads for a calendar's style patterns, time styles included:
+    the nearest of the locale and its ancestors that defines the calendar's date, time or joining patterns, each calendar
+    of its chain in turn, and failing those the nearest that defines the generic calendar's. ICU keeps them in one array,
+    so en-GB writes a Buddhist time style from en-001's ("h:mm a"), not with the "HH:mm" cldr-json resolves it to."""
+    for name in calendar_chain(calendar) + ['generic']:
+        for at in chain_of(root, locale):
+            if defined(root, at).get(name, {}).get('style'):
+                return at
+    return 'und'
+
+
+def at_time_formats(root, locale, calendar):
+    """The joining patterns ICU's DateTimePatternGenerator and SimpleDateFormat put a date and a time together with:
+    calendar/<name>/DateTimePatterns%atTime where a locale of the chain defines it (the root aliases it to nothing);
+    failing that the Gregorian %atTime, which the root does not have either; and failing both, the joining patterns of
+    the calendar's own DateTimePatterns. cldr-json fills in an absent atTime with the standard pattern, so which locale
+    defines one is read from CLDR's XML: zh-Hant defines its Gregorian one identical to its standard pattern."""
+    g = calendar_data(root, locale, calendar)
+    at = g.get('dateTimeFormats-atTime', {}).get('standard', {})
+    if calendar == 'gregory':
+        return {k: at.get(k, g['dateTimeFormats'][k]) for k in STYLE_WIDTHS}
+
+    def defines_at_time(name):
+        return any(defined(root, x).get(name, {}).get('atTime') for x in chain_of(root, locale) if x != 'und')
+
+    if defines_at_time(CALENDAR_DATA[calendar][1]):
+        return {k: at[k] for k in STYLE_WIDTHS}
+    if defines_at_time('gregorian'):
+        gregorian = calendar_data(root, locale, 'gregory')
+        return {k: gregorian['dateTimeFormats-atTime']['standard'][k] for k in STYLE_WIDTHS}
+    owner = calendar_data(root, style_owner(root, locale, calendar), calendar)
+    return {k: owner['dateTimeFormats'][k] for k in STYLE_WIDTHS}
+
+
+def available_formats(root, locale, calendar='gregory'):
+    if (locale, calendar) not in _available_formats:
+        g = calendar_data(root, locale, calendar)
+        _available_formats[(locale, calendar)] = {k: v for k, v in g['dateTimeFormats']['availableFormats'].items() if '-alt-' not in k and '-count-' not in k}
+    return _available_formats[(locale, calendar)]
 
 
 def cldr_parent_of(root, locale):
@@ -233,13 +375,25 @@ def parent_of(root, locale):
     return parent
 
 
-def own_formats_chain(root, locale):
-    """The availableFormats keys each of locale, its parent, ..., the root holds itself: new, or different from its parent's."""
+def own_formats_chain(root, locale, calendar='gregory'):
+    """The availableFormats keys each of locale, its parent, ..., the root holds itself: new, or different from its parent's.
+
+    For another calendar, ICU's root aliases calendar/<name>/availableFormats to the generic calendar's, so its sink
+    walks the entries each locale of the chain defines for the calendar itself (CLDR's XML) first, and only then the
+    others, level by level as for the Gregorian calendar.
+    """
     chain = []
+    if calendar != 'gregory':
+        resolved = available_formats(root, locale, calendar)
+        for at in chain_of(root, locale):
+            own = set()
+            for name in calendar_chain(calendar):
+                own |= defined(root, at).get(name, {}).get('formats', set())
+            chain.append([k for k in own if k in resolved])
     while locale is not None:
         parent = parent_of(root, locale)
-        formats = available_formats(root, locale)
-        inherited = available_formats(root, parent) if parent is not None else {}
+        formats = available_formats(root, locale, calendar)
+        inherited = available_formats(root, parent, calendar) if parent is not None else {}
         chain.append([k for k, v in formats.items() if inherited.get(k) != v])
         locale = parent
     return chain
@@ -247,11 +401,12 @@ def own_formats_chain(root, locale):
 
 # ---------------------------------------------------------------------------------------------------
 class LocaleData:
-    def __init__(self, root, locale):
+    def __init__(self, root, locale, calendar='gregory'):
         self.root = root
         self.locale = locale
+        self.calendar = calendar
         main = os.path.join(root, 'package', 'main', locale)
-        g = json.load(open(os.path.join(main, 'ca-gregorian.json'), encoding='utf-8'))['main'][locale]['dates']['calendars']['gregorian']
+        g = calendar_data(root, locale, calendar)
         self.g = g
         self.zone_names = json.load(open(os.path.join(main, 'timeZoneNames.json'), encoding='utf-8'))['main'][locale]['dates']['timeZoneNames']
         fields = json.load(open(os.path.join(root, 'package', 'main', locale, 'dateFields.json'), encoding='utf-8'))
@@ -259,8 +414,11 @@ class LocaleData:
         dtf = g['dateTimeFormats']
         self.append_items = dtf['appendItems']
         self.dt_formats = {k: dtf[k] for k in ('full', 'long', 'medium', 'short')}
-        at = g.get('dateTimeFormats-atTime', {}).get('standard', {})
-        self.dt_formats_at = {k: at.get(k, self.dt_formats[k]) for k in self.dt_formats}
+        self.dt_formats_at = at_time_formats(root, locale, calendar)
+        # A calendar's date and time styles are the ones in the DateTimePatterns ICU reads for it (style_owner).
+        owner = g if calendar == 'gregory' else calendar_data(root, style_owner(root, locale, calendar), calendar)
+        self.date_formats = owner['dateFormats']
+        self.time_formats = owner['timeFormats']
         # Candidates: skeleton text -> pattern. ICU order: style patterns, canonical items, then availableFormats
         # overriding any skeleton already present.
         cands = {}
@@ -283,7 +441,7 @@ class LocaleData:
             cands[k] = (key, pattern)
         for style in ('full', 'long', 'medium', 'short'):
             for block in ('dateFormats', 'timeFormats'):
-                p = g[block][style]
+                p = self.date_formats[style] if block == 'dateFormats' else self.time_formats[style]
                 if isinstance(p, dict):
                     p = p.get('_value')
                 add(p)
@@ -295,7 +453,7 @@ class LocaleData:
         resolved = {k: v for k, v in dtf['availableFormats'].items() if '-alt-' not in k and '-count-' not in k}
         seen = set()
         done = set()
-        for own in own_formats_chain(root, locale):
+        for own in own_formats_chain(root, locale, calendar):
             for k in sorted(own):
                 if k not in resolved or k in done:
                     continue
@@ -497,7 +655,7 @@ def skeleton_from_options(o, hc):
     s = ''
     w = {'narrow': 'EEEEE', 'short': 'EEE', 'long': 'EEEE'}
     if 'weekday' in o: s += w[o['weekday']]
-    if 'era' in o: s += {'narrow': 'GGGGG', 'short': 'G', 'long': 'GGGG'}[o['era']]
+    if 'era' in o: s += {'narrow': 'GGGGG', 'short': 'GGG', 'long': 'GGGG'}[o['era']]
     if 'year' in o: s += {'2-digit': 'yy', 'numeric': 'y'}[o['year']]
     if 'month' in o: s += {'2-digit': 'MM', 'numeric': 'M', 'narrow': 'MMMMM', 'short': 'MMM', 'long': 'MMMM'}[o['month']]
     if 'day' in o: s += {'2-digit': 'dd', 'numeric': 'd'}[o['day']]
@@ -532,9 +690,36 @@ DATES = [
     dict(year=2023, month=3, day=6, weekday='mon', hour=9, minute=4, second=5, ms=0),
 ]
 
+# The two instants in each other calendar, as ICU dates them: CLDR's era key, the year, the month's number as ICU writes
+# it numerically (its ordinal in the year: a Hebrew Adar is 6 in a common year), CLDR's key for its name ('7' is Adar in
+# a common year, '7-yeartype-leap' Adar II in a leap one), and the day. Read off Node 24.19 (ICU 78.3), formatToParts.
+CALENDAR_DATES = {
+    'buddhist': [('0', 2565, 12, '12', 24), ('0', 2566, 3, '3', 6)],
+    'japanese': [('236', 4, 12, '12', 24), ('236', 5, 3, '3', 6)],
+    'roc': [('1', 111, 12, '12', 24), ('1', 112, 3, '3', 6)],
+    'hebrew': [('0', 5783, 3, '3', 30), ('0', 5783, 6, '7', 13)],
+    'persian': [('0', 1401, 10, '10', 3), ('0', 1401, 12, '12', 15)],
+    'indian': [('0', 1944, 10, '10', 3), ('0', 1944, 12, '12', 15)],
+    'coptic': [('1', 1739, 4, '4', 15), ('1', 1739, 6, '6', 27)],
+    'ethiopic': [('1', 2015, 4, '4', 15), ('1', 2015, 6, '6', 27)],
+    'ethioaa': [('0', 7515, 4, '4', 15), ('0', 7515, 6, '6', 27)],
+    'islamic-civil': [('0', 1444, 5, '5', 30), ('0', 1444, 8, '8', 13)],
+    'islamic-tbla': [('0', 1444, 6, '6', 1), ('0', 1444, 8, '8', 14)],
+    'islamic-umalqura': [('0', 1444, 5, '5', 30), ('0', 1444, 8, '8', 14)],
+}
+
+
+def calendar_date(calendar, date):
+    """DATES' instant as the calendar dates it: a copy with its era key, year, month number, month name key and day."""
+    if calendar == 'gregory':
+        return dict(date, era='0' if date['year'] <= 0 else '1', month_key=str(date['month']))
+    era, year, month, key, day = CALENDAR_DATES[calendar][DATES.index(date)]
+    return dict(date, era=era, year=year, month=month, month_key=key, day=day)
+
 
 def render(ld, pattern, date):
     g = ld.g
+    date = calendar_date(ld.calendar, date)
     out = []
     tokens = tokenize(pattern)
     shows = {tok[1] for tok in tokens if tok[0] != 'lit'}
@@ -549,7 +734,7 @@ def render(ld, pattern, date):
         ch, ln = tok[1], tok[2]
         if ch == 'G':
             w = 'eraNarrow' if ln == 5 else 'eraNames' if ln == 4 else 'eraAbbr'
-            out.append(g['eras'][w]['1'])
+            out.append(g['eras'][w][date['era']])
         elif ch in 'yY':
             out.append('%02d' % (date['year'] % 100) if ln == 2 else str(date['year']).zfill(ln))
         elif ch in 'ML':
@@ -558,7 +743,7 @@ def render(ld, pattern, date):
                 out.append(('%02d' if ln == 2 else '%d') % date['month'])
             else:
                 w = {3: 'abbreviated', 4: 'wide'}.get(ln, 'narrow')
-                out.append(g['months'][ctx][w][str(date['month'])])
+                out.append(g['months'][ctx][w][date['month_key']])
         elif ch in 'Ec':
             ctx = 'format' if ch == 'E' else 'stand-alone'
             w = {4: 'wide', 5: 'narrow', 6: 'short'}.get(ln, 'abbreviated')
@@ -757,9 +942,9 @@ def hour_cycles(root, locale):
 
 
 
-def resolve(root, locale, bag):
+def resolve(root, locale, bag, calendar='gregory'):
     """The pattern, hour cycle and resolved record the model chooses for one (locale, bag)."""
-    ld = LocaleData(root, locale)
+    ld = LocaleData(root, locale, calendar)
     preferred, h12, h24 = hour_cycles(root, locale)
     o = {k: v for k, v in bag.items() if k not in ('hourCycle', 'hour12')}
     hc = bag.get('hourCycle') or (h12 if bag.get('hour12') is True else h24 if bag.get('hour12') is False else preferred)
@@ -838,7 +1023,7 @@ STYLES = ('full', 'long', 'medium', 'short')
 
 
 def style_format(ld, block, style):
-    p = ld.g[block][style]
+    p = ld.date_formats[style] if block == 'dateFormats' else ld.time_formats[style]
     return p.get('_value') if isinstance(p, dict) else p
 
 
@@ -935,11 +1120,11 @@ STYLE_CASES = [('d_' + s, {'dateStyle': s}) for s in STYLES] + [('t_' + s, {'tim
 ]
 
 
-def resolve_style(root, locale, options):
+def resolve_style(root, locale, options, calendar='gregory'):
     """The pattern, the component bag an ICU engine can be asked for the same text with, and the resolvedOptions string,
     for one style case. A Temporal case's bag is the one AdjustDateTimeStyleFormat matched, and its resolvedOptions are
     that bag's format record, which is what the bag reports when an ICU engine is asked for it."""
-    ld = LocaleData(root, locale)
+    ld = LocaleData(root, locale, calendar)
     preferred, h12, h24 = hour_cycles(root, locale)
     hc = options.get('hourCycle') or (h12 if options.get('hour12') is True else h24 if options.get('hour12') is False else preferred)
     date_style = options.get('dateStyle')
@@ -1015,6 +1200,93 @@ def compare_styles(root, node_tsv, locales_path=None):
     print('same', same, 'diff', diff)
 
 
+# ---------------------------------------------------------------------------------------------------
+# The other calendars (sebastienros/jint#4204). Each case is a component bag of BAGS or a dateStyle/timeStyle, matched
+# over the calendar's own CLDR data exactly as the Gregorian ones are over ca-gregorian.json, and formatted at DATES'
+# instants with { timeZone: 'UTC', calendar, numberingSystem: 'latn' }. The golden table is GOLDEN_CALENDAR_LOCALES by
+# GOLDEN_CALENDARS by GOLDEN_CALENDAR_CASES: locales that exercise each of ICU's rules (en-GB's and es-MX's time styles,
+# zh-Hant's atTime pattern), every calendar but islamic-tbla, whose data is islamic-civil's, and the bags and styles a
+# calendar changes. A comparison over a file of locales runs every calendar and case.
+CALENDARS = list(CALENDAR_DATA)
+CALENDAR_CASES = BAGS + [('d_' + s, {'dateStyle': s}) for s in STYLES] + [
+    ('dt_medium_short', {'dateStyle': 'medium', 'timeStyle': 'short'}),
+    ('dt_full_short', {'dateStyle': 'full', 'timeStyle': 'short'}),
+]
+GOLDEN_CALENDAR_LOCALES = ['en', 'en-GB', 'de', 'es-MX', 'fr', 'ja', 'zh-Hant', 'th', 'fa', 'he', 'ar']
+GOLDEN_CALENDARS = [c for c in CALENDARS if c != 'islamic-tbla']
+GOLDEN_CALENDAR_CASES = [c for c in CALENDAR_CASES if c[0] in (
+    'E_d_MMMM', 'EEEE_y_MMMM_d', 'y_MMMM', 'y_MMM', 'y_M_d', 'yy_MM_dd', 'MMMM_d', 'M_d', 'MMMM', 'G_y', 'GGGG_y_MMMM_d',
+    'j_mm', 'H_mm_h23', 'y_MMMM_d_j_mm', 'y_M_d_j_mm_ss',
+    'd_full', 'd_long', 'd_medium', 'd_short', 'dt_medium_short', 'dt_full_short')]
+
+
+def calendar_matrix(locales_path):
+    """The (locale, calendar, case) rows a run covers: the golden table's, or every calendar and case for a file of locales."""
+    if locales_path is None:
+        return [(l, c, case) for l in GOLDEN_CALENDAR_LOCALES for c in GOLDEN_CALENDARS for case in GOLDEN_CALENDAR_CASES]
+    return [(l, c, case) for l in read_locales(locales_path) for c in CALENDARS for case in CALENDAR_CASES]
+
+
+def resolve_calendar_case(root, locale, calendar, options):
+    """The pattern and the resolvedOptions string for one (locale, calendar, case)."""
+    if 'dateStyle' in options or 'timeStyle' in options:
+        ld, pattern, probe, ro = resolve_style(root, locale, options, calendar)
+    else:
+        ld, pattern, hc, ro = resolve(root, locale, options, calendar)
+    return ld, pattern, ro
+
+
+def load_icu_calendars(path):
+    """An ICU reference written by probe-calendars.js: (locale, calendar, case) -> [text@DATES[0], text@DATES[1], resolvedOptions]."""
+    import re
+    ref = {}
+    for line in open(path, encoding='utf-8'):
+        line = re.sub(r'\\u([0-9a-f]{4})', lambda m: chr(int(m.group(1), 16)), line.rstrip('\r\n'))
+        line = line.encode('utf-16-le', 'surrogatepass').decode('utf-16-le')
+        cols = line.split('\t')
+        if len(cols) >= 5:
+            ref[(cols[0], cols[1], cols[2])] = cols[3:]
+    return ref
+
+
+def calendar_cases(locales_path=None):
+    """What probe-calendars.js asks ICU for: locale, calendar, case and the Intl.DateTimeFormat options, one line each."""
+    for locale, calendar, (name, options) in calendar_matrix(locales_path):
+        print('\t'.join([locale, calendar, name, json.dumps(options, separators=(',', ':'))]))
+
+
+def golden_calendars(root, icu_tsv):
+    """Writes the calendar golden table: locale, calendar, case, options, pattern, the text at each of DATES,
+    resolvedOptions, and last what ICU writes where it differs from the model."""
+    icu = load_icu_calendars(icu_tsv)
+    print('# Generated by tools/cldr-dates/reference/format_matcher.py golden-calendars from cldr-json 48.2.0 and its cldr-cal-*-full packages; do not edit.')
+    print('# The last column is what ICU (Node 24.19, ICU 78.3) writes where it differs from the model: text@1|text@2|resolvedOptions.')
+    print('# locale\tcalendar\tcase\toptions\tpattern\t' + '\t'.join('text@%04d-%02d-%02dT%02d:%02d:%02dZ' % (d['year'], d['month'], d['day'], d['hour'], d['minute'], d['second']) for d in DATES) + '\tresolvedOptions\ticu')
+    for locale, calendar, (name, options) in calendar_matrix(None):
+        ld, pattern, ro = resolve_calendar_case(root, locale, calendar, options)
+        texts = [render(ld, pattern, d) for d in DATES]
+        reference = icu[(locale, calendar, name)]
+        differs = '' if reference == texts + [ro] else '|'.join(reference)
+        print('\t'.join([locale, calendar, name, json.dumps(options, separators=(',', ':')), escape(pattern)] + [escape(t) for t in texts] + [ro, escape(differs)]))
+
+
+def compare_calendars(root, node_tsv, locales_path=None):
+    """Compares the calendar golden table's model with an ICU reference written by probe-calendars.js."""
+    ref = load_icu_calendars(node_tsv)
+    same = diff = 0
+    for locale, calendar, (name, options) in calendar_matrix(locales_path):
+        ld, pattern, ro = resolve_calendar_case(root, locale, calendar, options)
+        texts = [render(ld, pattern, d) for d in DATES]
+        expected = ref.get((locale, calendar, name))
+        ok = expected is not None and expected[:len(texts)] == texts
+        ro_ok = expected is not None and len(expected) > len(texts) and expected[len(texts)] == ro
+        same += ok
+        diff += not ok
+        if not ok or not ro_ok:
+            print(('!!' if not ok else 'ro') + '\t%s\t%s\t%s\t%r\t%r\ticu=%r' % (locale, calendar, name, pattern, texts + [ro], expected))
+    print('same', same, 'diff', diff)
+
+
 if __name__ == '__main__':
     if len(sys.argv) >= 4 and sys.argv[1] == 'golden':
         golden(sys.argv[2], sys.argv[3])
@@ -1026,6 +1298,12 @@ if __name__ == '__main__':
         golden_styles(sys.argv[2], sys.argv[3])
     elif len(sys.argv) >= 4 and sys.argv[1] == 'compare-styles':
         compare_styles(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) >= 5 else None)
+    elif len(sys.argv) >= 2 and sys.argv[1] == 'calendar-cases':
+        calendar_cases(sys.argv[2] if len(sys.argv) >= 3 else None)
+    elif len(sys.argv) >= 4 and sys.argv[1] == 'golden-calendars':
+        golden_calendars(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) >= 4 and sys.argv[1] == 'compare-calendars':
+        compare_calendars(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) >= 5 else None)
     else:
         print(__doc__)
         sys.exit(2)
