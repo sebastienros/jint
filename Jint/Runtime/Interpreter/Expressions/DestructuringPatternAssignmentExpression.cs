@@ -17,9 +17,31 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         _right = Build(expression.Right);
     }
 
+    /// <summary>
+    /// AssignmentExpression : LeftHandSideExpression = AssignmentExpression with an ObjectLiteral or
+    /// ArrayLiteral target (https://tc39.es/ecma262/#sec-assignment-operators-runtime-semantics-evaluation):
+    /// GetValue of the right-hand side first, DestructuringAssignmentEvaluation of the pattern over it
+    /// second, and the right-hand side's value is the expression's own.
+    /// </summary>
     protected override object EvaluateInternal(EvaluationContext context)
     {
         var rightValue = _right.GetValue(context);
+
+        // `({ a } = await p)`: the right-hand side suspended, and what came back is the suspension
+        // placeholder - a plain undefined for an await, the yielded operand for a yield - not the value to
+        // destructure. Hand it back untouched, as every other consumer of the placeholder does
+        // (sebastienros/jint#4086), so the enclosing statement completes normally inside the suspended
+        // frame and the statement list records its resume position; the resume re-runs this expression,
+        // the await returns its memoized value, and the pattern runs once, over the real one. Destructuring
+        // the placeholder opened with ToObject, whose TypeError AsyncBlockStart swallowed but which unwound
+        // past the position bookkeeping, so the body replayed from statement 0 - and in a generator it read
+        // the yielded operand's properties and wrote the targets before next() had been given the value
+        // they were due.
+        if (context.IsSuspended())
+        {
+            return rightValue;
+        }
+
         ProcessPatterns(context, _pattern, rightValue, null);
         return rightValue;
     }

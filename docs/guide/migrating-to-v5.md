@@ -6292,6 +6292,40 @@ Not changed: `gregory` and `iso8601`, the Chinese and Dangi calendars' lane, and
 is written in its Gregorian year with the Gregorian era where ICU writes one of the 232 earlier eras (`1850 AD` for
 `Kaei 3`). Hebrew dates in `he` and `yi`, which CLDR writes in Hebrew numerals, are written in the formatter's digits.
 
+### 4.155 An `await` or `yield` on the right-hand side of a destructuring assignment no longer replays the body ([#4273](https://github.com/sebastienros/jint/issues/4273))
+
+The one consumer of the suspension placeholder that
+[§4.137](#4-137-an-await-or-yield-inside-an-optional-chain-or-a-computed-member-access-no-longer-replays-the-body-4086)
+did not reach was the destructuring *assignment* itself — the pattern as an assignment target,
+`({ a } = await p)` or `[a] = await p`, as opposed to a declaration (`const { a } = await p`), a plain
+assignment or a member target, all of which were already right. It destructured the placeholder as though it
+were the awaited value, which raised the same swallowed `TypeError` and lost the resume position the same way,
+so the resume started again from the first statement:
+
+```js
+var log = [];
+var a = null;
+async function m() {
+    log.push("pre");
+    ({ a } = await Promise.resolve({ a: 1 }));
+    log.push("post");
+    return a;
+}
+
+// 4.16.x / earlier 5.0: log is 'pre,pre,post' - one extra 'pre' per awaited destructuring assignment
+// 5.x:                  log is 'pre,post'
+```
+
+Inside a loop it is the iteration that repeats (`it0,it0,it1,it1,…`), and behind a re-entrancy guard the
+replay takes the early return, so the assignment never happens at all. The answer itself was right in every
+shape — the memoized await makes the replayed `await` return instantly — which is why the defect showed only
+in the side effects.
+
+In a generator the placeholder is the yielded operand rather than `undefined`, so `({ a } = yield src)` did
+not throw: it destructured `src` during the suspension, running its getters and writing `a` before `next()`
+had been given the value `a` was due, and `[b] = yield 1` threw `TypeError: The value is not iterable`
+straight out of `next()`. Both now wait for the resume, as a declaration always did.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
