@@ -1,6 +1,7 @@
 ﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -64,6 +65,36 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
+        _builtInPropertiesVersion = _propertiesVersion;
+    }
+
+    // The own-property version this prototype had once its built-in properties were installed. Every
+    // redefinition of an own property — an accessor's getter replaced, an accessor turned into a data
+    // property, a property deleted — goes through SetOwnProperty or RemoveOwnProperty and moves the
+    // version, so while the two still match, every flag accessor is the built-in one.
+    private uint _builtInPropertiesVersion;
+
+    /// <summary>
+    /// Whether <c>flags</c> and the eight flag accessors it reads (hasIndices, global, ignoreCase,
+    /// multiline, dotAll, unicode, unicodeSets, sticky) are still this prototype's built-in accessors,
+    /// so reading <c>flags</c> off an instance with no own properties is unobservable.
+    /// </summary>
+    internal bool HasDefaultFlagAccessors => _propertiesVersion == _builtInPropertiesVersion;
+
+    /// <summary>
+    /// <c>ToString(Get(rx, "flags"))</c>, without running the accessors when that is unobservable: an
+    /// instance with no own properties whose prototype still carries the built-in accessors would answer
+    /// with its own flags in canonical order, which is exactly <see cref="JsRegExp.CanonicalFlags"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string GetFlagsString(ObjectInstance rx)
+    {
+        if (rx is JsRegExp { Properties: null } r && r.Prototype is RegExpPrototype { HasDefaultFlagAccessors: true })
+        {
+            return r.CanonicalFlags;
+        }
+
+        return TypeConverter.ToString(rx.Get(PropertyFlags));
     }
 
     // Spec: each prototype getter, when called on RegExp.prototype itself (not a JsRegExp instance),
@@ -192,7 +223,7 @@ internal sealed partial class RegExpPrototype : Prototype
             mayHaveNamedCaptures = value.Contains('$');
         }
 
-        var flags = TypeConverter.ToString(rx.Get(PropertyFlags));
+        var flags = GetFlagsString(rx);
         var global = flags.Contains('g');
 
         var fullUnicode = false;
@@ -1102,7 +1133,7 @@ internal sealed partial class RegExpPrototype : Prototype
         var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.match");
 
         var s = TypeConverter.ToString(stringArg);
-        var flags = TypeConverter.ToString(rx.Get(PropertyFlags));
+        var flags = GetFlagsString(rx);
         var global = flags.Contains('g');
         if (!global)
         {
