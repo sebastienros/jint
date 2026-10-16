@@ -38,6 +38,14 @@ internal sealed class AsyncFunctionInstance : ISuspendable, IPromiseContinuation
     internal Func<EvaluationContext, Completion>? _bodyFunction;
 
     /// <summary>
+    /// For a function with a statement body, which has no <see cref="_bodyFunction"/>: the function and the
+    /// arguments the body's instantiation binds when it starts. Both are cleared once it has, since a resume
+    /// replays <see cref="_body"/> and never instantiates again.
+    /// </summary>
+    internal Function.Function? _startFunction;
+    internal JsCallArguments? _startArguments;
+
+    /// <summary>
     /// The AST node (AwaitExpression) where execution last suspended.
     /// Used for node-based tracking similar to generator yield tracking.
     /// </summary>
