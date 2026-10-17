@@ -167,8 +167,8 @@ public class WebApiMultipartTests
     public Task ReadsAResponseWrittenByMultipartFormDataContent() => DedicatedThread.RunAsync(() =>
     {
         // .NET's own writer, which a host's server is likeliest to answer with: it leaves a name and a
-        // filename unquoted when they need no quoting and appends an RFC 5987 filename* to every file
-        // (sebastienros/jint#4269).
+        // filename unquoted when they need no quoting, and appends an RFC 8187 filename* to every file, the
+        // only place a non-ASCII file name survives (sebastienros/jint#4269).
         var handler = new CapturingHandler
         {
             Responder = static () => new HttpResponseMessage(HttpStatusCode.OK)
@@ -178,6 +178,7 @@ public class WebApiMultipartTests
                     { new StringContent("done"), "status" },
                     { new StringContent("Ada"), "first name" },
                     { new ByteArrayContent("thanks"u8.ToArray()), "receipt", "r.txt" },
+                    { new ByteArrayContent("scan"u8.ToArray()), "scan", "kvitto-å.pdf" },
                 },
             },
         };
@@ -186,8 +187,8 @@ public class WebApiMultipartTests
 
         engine.Evaluate(@"fetch('https://api.example.org/')
                 .then(r => r.formData())
-                .then(fd => fd.get('status') + '|' + fd.get('first name') + '|' + fd.get('receipt').name + '|' + fd.get('receipt').type)")
-            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("done|Ada|r.txt|text/plain");
+                .then(fd => [fd.get('status'), fd.get('first name'), fd.get('receipt').name, fd.get('receipt').type, fd.get('scan').name].join('|'))")
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("done|Ada|r.txt|text/plain|kvitto-å.pdf");
     });
 
     [Test]

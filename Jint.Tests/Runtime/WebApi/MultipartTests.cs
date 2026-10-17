@@ -398,7 +398,7 @@ public class MultipartTests
     {
         // .NET's own writer is the producer a host is likeliest to meet, and it spells Content-Disposition in
         // ways the HTML writer never does: a name and a filename unquoted unless they need quoting, and an
-        // RFC 5987 filename* after every file name (sebastienros/jint#4269). The body is .NET's bytes, handed
+        // RFC 8187 filename* after every file name (sebastienros/jint#4269). The body is .NET's bytes, handed
         // over as bytes, so the UTF-8 in a value is what reaches the parser.
         var upload = new ByteArrayContent(Encoding.UTF8.GetBytes("日本"));
         upload.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
@@ -423,15 +423,13 @@ public class MultipartTests
         wire.Should().Contain("\r\nContent-Disposition: form-data; name=file; filename=a.txt; filename*=utf-8''a.txt\r\n");
         wire.Should().Contain("\r\nContent-Disposition: form-data; name=upload; filename=\"=?utf-8?B?44OV44Kh44Kk44OrLnR4dA==?=\"; filename*=utf-8''%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB.txt\r\n");
 
-        // A non-ASCII file name is the one place the answer is not Node's. .NET writes it twice, as an RFC 2047
-        // encoded-word in filename and as RFC 5987 in filename*. RFC 7578 section 4.2 forbids the second, so
-        // it is skipped rather than decoded and the entry is named by the first, the way Chromium and Gecko
-        // name it; undici alone prefers filename* and answers "ファイル.txt".
+        // .NET writes a non-ASCII file name twice: as an RFC 2047 encoded-word in filename, which nothing
+        // decodes, and as RFC 8187 in filename*. The decoded filename* names the File, as it does in Node.
         ReadAll(owner, contentType, body).Should().Be(
             "name=Grace"
             + "|first name=Grüße, 世界"
             + "|file=File(a.txt, text/plain, hello)"
-            + "|upload=File(=?utf-8?B?44OV44Kh44Kk44OrLnR4dA==?=, text/csv, 日本)");
+            + "|upload=File(ファイル.txt, text/csv, 日本)");
     }
 
     // The seven spellings sebastienros/jint#4269 tabulates, each with the answer Node (undici) gives.
@@ -458,10 +456,7 @@ public class MultipartTests
     // A repeated name or filename is last-wins, as undici, Chromium and Gecko resolve it.
     [TestCase("form-data; name=a; name=b", "b=x")]
     [TestCase("form-data; name=a; filename=x; filename=y", "a=File(y)")]
-    // filename* is skipped, never decoded: on its own it makes no file, and beside filename it changes nothing.
-    [TestCase("form-data; name=a; filename*=utf-8''b%20c", "a=x")]
-    [TestCase("form-data; name=a; filename*=utf-8''b%20c; filename=d", "a=File(d)")]
-    // Every other parameter is skipped too, a quoted ';' inside one included.
+    // Every other parameter is skipped, a quoted ';' inside one included.
     [TestCase("form-data; name=a; foo=\"x;y\"; bar=baz", "a=x")]
     // A token is taken literally...
     [TestCase("form-data; name=%22a%22", "%22a%22=x")]
@@ -472,6 +467,58 @@ public class MultipartTests
     // An empty quoted-string is a value, as it always was.
     [TestCase("form-data; name=\"\"; filename=\"\"", "=File()")]
     public void ReadsContentDispositionAsItsRfcGrammar(string disposition, string expected)
+    {
+        Entries(Part(disposition)).Should().Be(expected);
+    }
+
+    // Each row is Node's (undici's) answer unless it says otherwise.
+    // A valid filename* names the File on its own, and wins over filename whichever comes first...
+    [TestCase("form-data; name=a; filename*=utf-8''b%20c", "a=File(b c)")]
+    [TestCase("form-data; name=a; filename*=utf-8''b%20c; filename=d", "a=File(b c)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''b%20c", "a=File(b c)")]
+    // ...even where both are ASCII and simply disagree.
+    [TestCase("form-data; name=a; filename=x.txt; filename*=utf-8''y.txt", "a=File(y.txt)")]
+    // The charset is matched case-insensitively, and so are the hexadecimal digits of an escape.
+    [TestCase("form-data; name=a; filename=d; filename*=UTF-8''%E3%83%95", "a=File(フ)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''%e3%83%95", "a=File(フ)")]
+    // A repeated filename* is last-wins among the valid ones, and an empty one is an empty name.
+    [TestCase("form-data; name=a; filename*=utf-8''b; filename*=utf-8''c", "a=File(c)")]
+    [TestCase("form-data; name=a; filename*=utf-8''", "a=File()")]
+    // FILENAME* is filename* (parameter names are case-insensitive).
+    [TestCase("form-data; name=a; FILENAME*=utf-8''b", "a=File(b)")]
+    // A filename* that is not a UTF-8 ext-value is as though it were absent, so filename stands — where Node
+    // rejects the whole body: another charset, ISO-8859-1 included...
+    [TestCase("form-data; name=a; filename=d; filename*=iso-8859-1''%E9", "a=File(d)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-16''e", "a=File(d)")]
+    // ...a bad or truncated escape, or bytes that are not UTF-8...
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''%zz", "a=File(d)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''%E", "a=File(d)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''%FF", "a=File(d)")]
+    // ...a quoted-string, which an ext-value never is...
+    [TestCase("form-data; name=a; filename=d; filename*=\"utf-8''b\"", "a=File(d)")]
+    // ...and an invalid one after a valid one, which leaves the valid one standing.
+    [TestCase("form-data; name=a; filename*=utf-8''b; filename*=utf-8''%zz", "a=File(b)")]
+    // With no filename to fall back on, an invalid filename* leaves a string entry rather than failing.
+    [TestCase("form-data; name=a; filename*=utf-8''%zz", "a=x")]
+    // Where undici reads past the grammar and Jint follows RFC 8187: Node answers "n'b" for a language tag,
+    // "" for a value missing its second quote or its whole language part, and "a*b" for a '*', which is no
+    // attr-char.
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8'en'b", "a=File(b)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8'b", "a=File(d)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8", "a=File(d)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''a*b", "a=File(d)")]
+    // name* is decoded as undici decodes it, and takes its turn in last-wins beside name.
+    [TestCase("form-data; name=a; name*=utf-8''b", "b=x")]
+    [TestCase("form-data; name*=utf-8''b; name=a", "a=x")]
+    [TestCase("form-data; name*=utf-8''%E3%83%95", "フ=x")]
+    [TestCase("form-data; NAME*=utf-8''b", "b=x")]
+    // An invalid name* is as though it were absent, where Node rejects the body.
+    [TestCase("form-data; name=a; name*=iso-8859-1''b", "a=x")]
+    // filename* never supplies a name, so this still names no field.
+    [TestCase("form-data; filename*=utf-8''b", ParseFailure)]
+    // And an invalid name* is no name either.
+    [TestCase("form-data; name*=utf-8''%zz", ParseFailure)]
+    public void DecodesTheRfc8187ExtendedParameters(string disposition, string expected)
     {
         Entries(Part(disposition)).Should().Be(expected);
     }
