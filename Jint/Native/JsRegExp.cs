@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Text.RegularExpressions;
 using Jint.Native.Object;
+using System.Text;
 using Jint.Native.RegExp;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -62,6 +63,7 @@ public sealed class JsRegExp : ObjectInstance
         set
         {
             _flags = value;
+            _canonicalFlags = null;
 
             // Every construction and every compile() assigns Flags last, so this is the one place that
             // has to drop the lazily determined case-folding state along with the flags themselves.
@@ -115,6 +117,30 @@ public sealed class JsRegExp : ObjectInstance
     }
 
     public RegExpParseResult ParseResult { get; set; }
+
+    private string? _canonicalFlags;
+
+    /// <summary>
+    /// The string <c>RegExp.prototype.flags</c> answers for this instance while the flag accessors are the
+    /// built-in ones: the flags in the specification's fixed order ("dgimsuvy"), whatever order the
+    /// pattern was written with. Built once per <see cref="Flags"/> assignment.
+    /// https://tc39.es/ecma262/#sec-get-regexp.prototype.flags
+    /// </summary>
+    internal string CanonicalFlags => _canonicalFlags ??= BuildCanonicalFlags();
+
+    private string BuildCanonicalFlags()
+    {
+        var builder = new ValueStringBuilder(stackalloc char[8]);
+        if (Indices) builder.Append('d');
+        if (Global) builder.Append('g');
+        if (IgnoreCase) builder.Append('i');
+        if (Multiline) builder.Append('m');
+        if (DotAll) builder.Append('s');
+        if (Unicode) builder.Append('u');
+        if (UnicodeSets) builder.Append('v');
+        if (Sticky) builder.Append('y');
+        return builder.ToString();
+    }
 
     /// <summary>
     /// Whether this instance wraps a .NET <see cref="Regex"/> the host supplied directly (through
