@@ -89,6 +89,33 @@ internal static class EncodingLabels
 
         return EncodingTables.TryMatch(lowered.Slice(0, trimmed.Length), out entry);
     }
+
+    /// <summary>
+    /// BOM sniff, https://encoding.spec.whatwg.org/#bom-sniff: UTF-8 for a leading <c>EF BB BF</c>, UTF-16BE
+    /// for <c>FE FF</c>, UTF-16LE for <c>FF FE</c>. Returns <see langword="false"/> for the specification's
+    /// null, which is every other input — <c>00 00 FE FF</c>, a UTF-32BE mark, among them.
+    /// </summary>
+    internal static bool TryBomSniff(ReadOnlySpan<byte> bytes, out EncodingEntry encoding)
+    {
+        if (bytes is [0xEF, 0xBB, 0xBF, ..])
+        {
+            encoding = Utf8Encoding;
+            return true;
+        }
+
+        if (bytes is [0xFE, 0xFF, ..])
+        {
+            return TryLookup(Utf16Be, out encoding);
+        }
+
+        if (bytes is [0xFF, 0xFE, ..])
+        {
+            return TryLookup(Utf16Le, out encoding);
+        }
+
+        encoding = default;
+        return false;
+    }
 }
 
 /// <summary>

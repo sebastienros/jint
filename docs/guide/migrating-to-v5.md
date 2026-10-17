@@ -6339,6 +6339,21 @@ What does bound it is `MaxResponseBytes`, on the decoded body: over the limit, t
 the limit from the network does. A redirect to a `data:` or `blob:` URL is always a network error, whatever
 `AllowedSchemes` holds. There is no switch to refuse `data:` again; a host that must, wraps `fetch` in script.
 
+### 4.159 `XMLHttpRequest`'s text response honours a byte order mark ([#4282](https://github.com/sebastienros/jint/issues/4282))
+
+Earlier previews decoded `responseText` — and `response` for the `""` and `"text"` response types, and the text
+`Options.WebApi.Xhr.DocumentParser` is handed — with the response's charset alone. Now it runs the Encoding
+Standard's [decode](https://encoding.spec.whatwg.org/#decode), as `FileReader.readAsText` already did: a body that
+starts with a byte order mark is decoded in the encoding the mark names, whatever the charset said, and the mark
+is removed.
+
+So a body beginning `EF BB BF` under `charset=windows-1252` used to read `ï»¿` followed by mojibake and now reads
+as UTF-8; one beginning `FF FE` or `FE FF` under a UTF-8 charset, or under a label the engine does not know such as
+`utf-32`, used to read `U+FFFD U+FFFD …` and now reads as UTF-16LE or UTF-16BE. A body without a mark decodes
+exactly as before, and `responseType = "json"` is unchanged: it ignores the charset and strips only a UTF-8 mark,
+as the standard says. There is no switch back; a host that needs the bytes as sent reads
+`responseType = "arraybuffer"`.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
