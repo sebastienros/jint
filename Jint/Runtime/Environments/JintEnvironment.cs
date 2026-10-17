@@ -88,7 +88,8 @@ internal static class JintEnvironment
     /// in the same shape, one virtual call per environment: a binding that owns its string is read without ending its
     /// ownership (<see cref="Environment.TryGetBindingForAppend"/>), so the lane may extend the string in place.
     /// <paramref name="canOwnStrings"/> says whether the environment found is one whose bindings can own a string: a
-    /// function, block, catch or eval environment, never the global, a module or an object environment.
+    /// function, block, catch or eval environment, never the global, a module or an object environment. The global
+    /// environment is called directly rather than through the virtual.
     /// </summary>
     internal static bool TryGetIdentifierEnvironmentWithBindingValueForAppend(
         Environment env,
@@ -110,6 +111,16 @@ internal static class JintEnvironment
 
         while (record is not null)
         {
+            // The global environment ends every walk from a running context, and never owns a string: a direct call
+            // into its TryGetBinding, where the virtual TryGetBindingForAppend would make two. A type test rather than
+            // an _outerEnv test, because the global's declarative record and a debugger scope have no outer either.
+            if (record is GlobalEnvironment global)
+            {
+                ownsString = false;
+                canOwnStrings = false;
+                return global.TryGetBinding(name, strict, out value);
+            }
+
             // See TryGetIdentifierEnvironmentWithBinding; skip empty FunctionEnvironments outright.
             if (record is FunctionEnvironment fenv
                 && fenv._slots is null

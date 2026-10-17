@@ -27,9 +27,9 @@ internal sealed class JintAssignmentExpression : JintExpression
     private SlotLocationCache _slotCache;
 
     /// <summary>
-    /// What <see cref="TryCompoundSlotValue"/> or <see cref="TryAppendToIdentifier"/> did. A return value rather than
-    /// a second out parameter: the discard lane ignores it, and an address-taken bool there cost the numeric lane
-    /// that shares the method (TryCompoundUnboxed) a stack round trip on every compound assignment.
+    /// What <see cref="TryCompoundSlotValue"/> did. A return value rather than a second out parameter: the discard lane
+    /// ignores it, and an address-taken bool there cost the numeric lane that shares the method (TryCompoundUnboxed) a
+    /// stack round trip on every compound assignment.
     /// </summary>
     private enum CompoundOutcome : byte
     {
@@ -75,8 +75,6 @@ internal sealed class JintAssignmentExpression : JintExpression
     {
         var engine = context.Engine;
 
-        // One result local for both lanes below: each out local holding a reference is a stack slot the prolog
-        // zeroes on every call.
         JsValue result;
         CompoundOutcome outcome;
 
@@ -93,10 +91,15 @@ internal sealed class JintAssignmentExpression : JintExpression
             return outcome == CompoundOutcome.DoneOwned ? HandOut(result) : result;
         }
 
-        if (CanAppendToIdentifier(context)
-            && (outcome = TryAppendToIdentifier(context, out result)) != CompoundOutcome.Declined)
+        if (_operator == Operator.AdditionAssignment && _leftIdentifier is not null)
         {
-            return outcome == CompoundOutcome.DoneOwned ? HandOut(result) : result;
+            var appended = TryAppendToIdentifier(context);
+            if (appended is not null)
+            {
+                // The binding owns the result exactly when it is a string still extensible in place: only a claim makes
+                // one so, and nothing here claims. Marking it shared only takes that away.
+                return appended is JsString.ConcatenatedString { IsExtensibleInPlace: true } ? HandOut(appended) : appended;
+            }
         }
 
         return EvaluateMaterialized(context);
@@ -119,31 +122,24 @@ internal sealed class JintAssignmentExpression : JintExpression
     }
 
     /// <summary>
-    /// Whether this is a <c>+=</c> to an identifier that <see cref="TryAppendToIdentifier"/> may take: no suspendable
-    /// frame (whose resume needs the Reference path) and no operator overloading. Every other compound assignment goes
-    /// straight to <see cref="EvaluateMaterialized"/>, as it always did.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool CanAppendToIdentifier(EvaluationContext context)
-    {
-        return _operator == Operator.AdditionAssignment
-               && _leftIdentifier is not null
-               && context.Engine.ExecutionContext.Suspendable is null
-               && !context.OperatorOverloadingAllowed;
-    }
-
-    /// <summary>
     /// <c>s += t</c> where <c>s</c> is an identifier the slot lane did not take (a dictionary binding, an outer or eval
     /// environment's binding, a global): one walk that reads the left operand without ending a string's ownership
     /// (<see cref="JintEnvironment.TryGetIdentifierEnvironmentWithBindingValueForAppend"/>), then the right-hand side,
-    /// then either an in-place append or the ordinary store. Declines, before evaluating anything, when the binding is
-    /// missing or uninitialized, for <see cref="EvaluateMaterialized"/> to raise the error. No suspendable frame comes
-    /// here, so the right-hand side cannot suspend.
+    /// then either an in-place append or the ordinary store. Returns the result, or null when it declines before
+    /// evaluating anything: in a suspendable frame (whose resume needs the Reference path), under operator overloading,
+    /// and when the binding is missing or uninitialized, for <see cref="EvaluateMaterialized"/> to raise the error. A
+    /// return value rather than an out parameter, so that the discard lane calls it as it calls EvaluateMaterialized,
+    /// with nothing more on its frame.
     /// </summary>
-    private CompoundOutcome TryAppendToIdentifier(EvaluationContext context, out JsValue result)
+    private JsValue? TryAppendToIdentifier(EvaluationContext context)
     {
         var engine = context.Engine;
         ref readonly var executionContext = ref engine.ExecutionContext;
+        if (executionContext.Suspendable is not null || context.OperatorOverloadingAllowed)
+        {
+            return null;
+        }
+
         var strict = executionContext.Strict;
         var identifier = _leftIdentifier!.Identifier;
 
@@ -157,18 +153,18 @@ internal sealed class JintAssignmentExpression : JintExpression
                 out var canOwnStrings)
             || left is null)
         {
-            result = null!;
-            return CompoundOutcome.Declined;
+            return null;
         }
 
         var rval = _right.GetValue(context);
 
+        JsValue result;
         if (canOwnStrings)
         {
             result = AppendToOwningBinding(context, (DeclarativeEnvironment) record, left, ownsString, rval, out var stored);
             if (stored)
             {
-                return CompoundOutcome.DoneOwned;
+                return result;
             }
         }
         else
@@ -179,7 +175,7 @@ internal sealed class JintAssignmentExpression : JintExpression
         var lref = engine._referencePool.Rent(record, identifier.Value, strict, thisValue: null);
         engine.PutValue(lref, result);
         engine._referencePool.Return(lref);
-        return CompoundOutcome.Done;
+        return result;
     }
 
     /// <summary>
@@ -541,7 +537,7 @@ internal sealed class JintAssignmentExpression : JintExpression
         context.PrepareFor(_expression);
 
         if (!TryCompoundUnboxed(context)
-            && (_operator != Operator.AdditionAssignment || _leftIdentifier is null || !TryAppendToIdentifierDiscarding(context)))
+            && (_operator != Operator.AdditionAssignment || _leftIdentifier is null || TryAppendToIdentifier(context) is null))
         {
             // straight to the materialized path — TryCompoundUnboxed already ran the same
             // gates and slot resolution EvaluateInternal's fast lane would repeat
@@ -549,17 +545,6 @@ internal sealed class JintAssignmentExpression : JintExpression
         }
 
         context.LastSyntaxElement = oldSyntaxElement;
-    }
-
-    /// <summary>
-    /// The discard lane's <see cref="TryAppendToIdentifier"/>, for a <c>+=</c> to an identifier. Out of line so that
-    /// its out local does not cost <see cref="EvaluateAndDiscard"/> a zeroed stack slot on every compound assignment,
-    /// and so that a member or a non-<c>+=</c> compound assignment pays only the two tests in front of the call.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private bool TryAppendToIdentifierDiscarding(EvaluationContext context)
-    {
-        return CanAppendToIdentifier(context) && TryAppendToIdentifier(context, out _) != CompoundOutcome.Declined;
     }
 
     /// <summary>
