@@ -90,20 +90,75 @@ tables alone, and the `#if NET9_0_OR_GREATER` guards (the folder's `README.md`).
 
 ## 5. Performance
 
-Two measurements, both against `main` at `82b0efbaa`, on the same Apple M4 Pro, .NET 10.0.11, macOS 15.
+`Jint.Benchmark/measure-paired.ps1`, 3 rounds in alternating order, `main` at `82b0efbaa` against this branch at
+`e4d62e219` (the vendored copy is byte-identical at `d16b83758`), on one Apple M4 Pro, .NET 10.0.11, macOS 15. The
+41 rows are every regex benchmark the suite has, plus SunSpider `regexp-dna` and Dromaeo `ObjectRegExp`. A row is a
+change only when its 95% CI excludes zero; `control-indexOf` never reaches regex code and reads +1.0%, the run's
+floor. Three rounds is enough for the large effects; the ±5% ones (Dromaeo below) want six before they are believed
+([`Jint.Benchmark/AGENTS.md`](../../Jint.Benchmark/AGENTS.md)).
 
-### 5.1 Shape probe (one engine, 1 s per row, 64 KiB lowercase subject)
+**Faster**
 
-PERF_PROBE_TABLE
+| Row | Median Δ | 95% CI |
+| --- | ---: | --- |
+| `RegExpShapeBenchmark.Run[template-replace-g]` | −97.8% | [−97.8, −97.7] |
+| `RegExpShapeBenchmark.Run[uprop-match-g]` | −92.1% | [−92.2, −92.0] |
+| `RegExpSplitBenchmark.SplitUnicode` | −89.9% | [−90.4, −89.8] |
+| `RegExpCustomEngineBenchmark.VariableLength` | −67.5% | [−71.6, −66.0] |
+| `RegExpFreshEngineBenchmark.FreshEngineSource` | −61.1% | [−63.0, −61.0] |
+| `RegExpSplitBenchmark.SplitWithCaptures` | −47.7% | [−49.1, −47.5] |
+| `RegExpCustomEngineBenchmark.NamedCapture` | −44.5% | [−45.0, −43.9] |
+| `RegExpShapeBenchmark.Run[capture-match-g]` | −40.3% | [−41.0, −38.4] |
+| `RegExpCustomEngineBenchmark.IsMatchOnly` | −38.1% | [−41.7, −37.5] |
+| `RegExpCustomEngineBenchmark.GlobalMatchAll` | −37.7% | [−39.9, −37.0] |
+| `RegExpCustomEngineBenchmark.LiteralScan` | −36.2% | [−39.2, −35.8] |
+| `RegExpMatchBenchmark.MatchGlobalUnicode` | −34.2% | [−36.2, −31.7] |
+| `RegExpShapeBenchmark.Run[class-match-g]` | −33.9% | [−35.9, −33.2] |
+| `RegExpCustomEngineBenchmark.NoMatchScan` | −32.6% | [−33.3, −32.1] |
+| `RegExpCustomEngineBenchmark.CaseInsensitiveScan` | −23.7% | [−24.8, −22.0] |
+| `RegExpMatchBenchmark.MatchGlobal` | −23.5% | [−24.9, −22.3] |
+| `RegExpShapeBenchmark.Run[construct-100]` | −18.3% | [−21.4, −17.3] |
+| `RegExpExecLoopBenchmark.NamedGroupsAccess` | −14.5% | [−18.8, −13.6] |
+| `RegExpShapeBenchmark.Run[exec-loop]` | −12.8% | [−14.0, −11.4] |
+| `RegExpShapeBenchmark.Run[function-replace-g]` | −12.4% | [−14.3, −12.0] |
+| `RegExpExecLoopBenchmark.MatchAllIterate` | −9.9% | [−10.6, −9.2] |
+| `RegExpExecLoopBenchmark.ExecWhileLoop` | −9.4% | [−10.2, −3.9] |
+| `RegExpExecLoopBenchmark.StickyExec` | −5.1% | [−6.9, −4.1] |
 
-### 5.2 Paired BenchmarkDotNet run (`measure-paired.ps1`, 3 rounds, alternating order)
+Allocation fell with time on the capture-heavy rows: `template-replace-g` from 177 MB to 0.6 MB per operation,
+`SplitUnicode` 25 MB to 1.6 MB, `capture-match-g` 10.5 MB to 2.3 MB, `MatchGlobal` 5.8 MB to 1.4 MB.
 
-PAIRED_TABLE
+**No change:** SunSpider `regexp-dna` −2.6% [−5.8, +0.1] (it was +2,679% before the `FirstStrings` prefilter),
+`CharClassScan` +0.9% [−4.3, +5.5], `DigitScan` +3.5% [−0.8, +3.8], Dromaeo `ObjectRegExp[True,False]` +1.8%
+[−8.1, +5.7].
+
+**Slower**
+
+| Row | Median Δ | 95% CI | Absolute |
+| --- | ---: | --- | --- |
+| `RegExpCustomEngineBenchmark.AnchoredLiteral` | +169.1% | [+166.0, +180.1] | 12 ns → 33 ns |
+| `RegExpFreshEngineBenchmark.FreshEnginePrepared` | +80.0% | [+79.1, +82.5] | 5.7 µs → 10.1 µs |
+| `RegExpShapeBenchmark.Run[nullable-split]` | +72.7% | [+72.1, +79.7] | 406 µs → 701 µs |
+| `RegExpShapeBenchmark.Run[char-split]` | +49.2% | [+43.5, +51.5] | 99 µs → 142 µs |
+| `RegExpSplitBenchmark.Split` | +30.1% | [+27.7, +35.4] | 615 µs → 786 µs |
+| `RegExpShapeBenchmark.Run[greedy-dotstar-test]` | +24.2% | [+22.6, +25.0] | 4.7 µs → 5.7 µs |
+| `RegExpShapeBenchmark.Run[greedy-dotstar-exec]` | +22.6% | [+18.8, +24.3] | 4.9 µs → 5.9 µs |
+| `RegExpShapeBenchmark.Run[literal-test]` | +18.2% | [+14.0, +20.7] | 3.3 µs → 3.7 µs |
+| `RegExpShapeBenchmark.Run[literal-replace-g]` | +17.6% | [+11.4, +17.9] | 3.4 µs → 3.8 µs |
+| `RegExpShapeBenchmark.Run[icase-literal-test]` | +6.8% | [+6.5, +8.2] | 3.7 µs → 4.0 µs |
+| Dromaeo `ObjectRegExp` `[False,False]` / `[False,True]` / `[True,True]` | +6.5% / +5.0% / +5.8% | [+3.9, +6.6] / [+0.7, +9.8] / [+4.9, +6.4] | ~30 ms |
+
+Every slower row is one where a single search does little work, so a fixed cost per search dominates: the
+executor's workspace and run state are set up per call, and split pays it once per piece (`char-split` makes ~2,600
+searches). `AnchoredLiteral` is 21 ns of that cost on its own. `FreshEnginePrepared` (+4.4 µs per fresh engine running a
+prepared script) has not been profiled yet. The matching itself is faster wherever a search does real
+work. The Dromaeo rows are below the three-round bar and need a six-round run before they count.
 
 ## 6. Follow-ups
 
-- **Per-search overhead in split and other many-match loops** (`split(/a/)` 1.3×, `split(/\s*,\s*/)` 2× `main`):
-  workspace setup per search, and the VM started per candidate where a plan could run the whole loop.
+- **Per-search overhead in split and other many-match loops** (`split(/a/)` +49%, `split(/\s*,\s*/)` +73%,
+  an anchored literal 12 ns → 33 ns; §5): workspace setup per search, and the VM started per candidate where a plan
+  could run the whole loop. Then re-measure Dromaeo `ObjectRegExp` at six rounds.
 - **Acornima still validates every regex literal at parse time** (an early error is a parse-time error), so a
   literal is parsed twice. A parse-time validator on the GregsEx parser would remove one pass and one source of
   disagreement; error messages would then need their own text, since GregsEx diagnostics are codes.
