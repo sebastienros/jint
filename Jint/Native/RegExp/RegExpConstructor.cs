@@ -592,8 +592,16 @@ public sealed partial class RegExpConstructor : Constructor
     /// Detect patterns where .NET Regex produces semantically incorrect results
     /// compared to ECMAScript specification. These patterns need the custom engine.
     /// </summary>
+    // TEMPORARY experiment switch while GregsEx replaces the BCL adaptation path.
+    internal static bool AlwaysCustomEngine = true;
+
     internal static bool NeedCustomEngine(string pattern, string flags)
     {
+        if (AlwaysCustomEngine)
+        {
+            return true;
+        }
+
         // Unicode modes: Although Acornima implements a best-effort conversion for
         // flag u patterns, it's not possible to produce standards-compliant results
         // in most of the cases. Conversion of flag v patterns is not supported at all.

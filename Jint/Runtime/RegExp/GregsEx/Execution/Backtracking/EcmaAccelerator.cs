@@ -473,12 +473,22 @@ internal sealed class EcmaAccelerator
         var hasAmbiguousRepeat = new bool[nodes.Length];
 
         var hasBackref = false;
+        // Jint: a lone surrogate literal in a Unicode-aware pattern matches a lone surrogate code point only,
+        // but the plans below assemble literals into UTF-16 strings, where an escaped lead followed by a raw
+        // trail (/\uD83D\uDC38/u spelled with one escape) reads as a valid pair and matches U+1F438.
+        var loneSurrogateLiteral = false;
+        var unicodeAwareProgram = program.Profile.IsUnicodeAware;
         for (var i = 0; i < nodes.Length; i++)
         {
             var n = nodes[i];
             if (n.Kind == EcmaNodeKind.Backreference)
             {
                 hasBackref = true;
+            }
+
+            if (unicodeAwareProgram && n.Kind == EcmaNodeKind.Literal && n.Value is >= 0xD800 and <= 0xDFFF)
+            {
+                loneSurrogateLiteral = true;
             }
 
             if (n.Kind == EcmaNodeKind.Set)
@@ -511,6 +521,10 @@ internal sealed class EcmaAccelerator
             hasAmbiguousRepeat[i] = ambig;
         }
         HasBackreferences = hasBackref;
+        if (loneSurrogateLiteral)
+        {
+            return;
+        }
 
         // Try building direct whole-pattern plans
         if (TryBuildLiteralPlan(nodes, out _hasStartAnchor, out _startMultiline, out _hasEndAnchor, out _endMultiline,
@@ -1471,12 +1485,20 @@ internal sealed class EcmaAccelerator
             }
         }
 
-        var totalMin = 0;
+        var totalMinWide = 0L;
         for (var i = 0; i < parsed.Count; i++)
         {
-            totalMin += parsed[i].Min;
+            totalMinWide += parsed[i].Min;
         }
 
+        // Jint: the offsets below are int sums of step minimums; /.{2147483647}11/ wrapped them negative and
+        // the scan sliced past the input. No subject can satisfy such a length, so leave it to the VM.
+        if (totalMinWide > int.MaxValue / 2)
+        {
+            return false;
+        }
+
+        var totalMin = (int)totalMinWide;
         minTotalLength = totalMin;
 
         // Choose anchor strategy if not start-anchored

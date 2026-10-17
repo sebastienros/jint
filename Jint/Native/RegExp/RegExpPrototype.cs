@@ -400,7 +400,9 @@ internal sealed partial class RegExpPrototype : Prototype
         var accumulatedResult = "";
         var nextSourcePosition = 0;
 
-        var captures = new List<string>();
+        // Step 14.k: a capture keeps undefined rather than becoming "", which a replacer function observes;
+        // GetSubstitution reads an undefined capture as the empty string itself.
+        var captures = new List<JsValue>();
         for (var i = 0; i < results.Count; i++)
         {
             if (i > 0 && i % ConstraintCheckInterval == 0)
@@ -426,8 +428,7 @@ internal sealed partial class RegExpPrototype : Prototype
             while (n <= nCaptures)
             {
                 var capN = result.Get(n);
-                var value = !capN.IsUndefined() ? TypeConverter.ToString(capN) : "";
-                captures.Add(value);
+                captures.Add(!capN.IsUndefined() ? TypeConverter.ToString(capN) : Undefined);
                 n++;
             }
 
@@ -462,7 +463,13 @@ internal sealed partial class RegExpPrototype : Prototype
                     namedCaptures = TypeConverter.ToObject(_realm, namedCaptures);
                 }
 
-                replacement = GetSubstitution(_realm, matched, s, position, captures.ToArray(), namedCaptures, TypeConverter.ToString(replaceValue));
+                var captureStrings = new string[captures.Count];
+                for (var c = 0; c < captureStrings.Length; c++)
+                {
+                    captureStrings[c] = captures[c].IsUndefined() ? "" : ((JsString) captures[c]).ToString();
+                }
+
+                replacement = GetSubstitution(_realm, matched, s, position, captureStrings, namedCaptures, TypeConverter.ToString(replaceValue));
             }
 
             if (position >= nextSourcePosition)
@@ -1557,7 +1564,7 @@ internal sealed partial class RegExpPrototype : Prototype
 
     /// <summary>
     /// Runs the custom regex engine under the configured timeout. The deadline is enforced by inline
-    /// elapsed-time checks inside <see cref="RegExpInterpreter"/> rather than a thread-pool
+    /// elapsed-time checks inside <see cref="JintRegExpEngine"/> rather than a thread-pool
     /// <see cref="CancellationTokenSource"/> timer, so the abort fires promptly
     /// even when the pool is saturated — mirroring how <see cref="Regex.Match(string,int)"/> enforces
     /// <see cref="Regex.MatchTimeout"/> on the .NET path. Throws <see cref="RegexMatchTimeoutException"/>
@@ -1604,7 +1611,7 @@ internal sealed partial class RegExpPrototype : Prototype
 
     /// <summary>
     /// Convert a positive, finite regex timeout into an absolute <see cref="Stopwatch.GetTimestamp"/>
-    /// deadline for the custom engine's inline interrupt checks. Saturates to <see cref="RegExpInterpreter.NoDeadline"/>
+    /// deadline for the custom engine's inline interrupt checks. Saturates to <see cref="JintRegExpEngine.NoDeadline"/>
     /// (never fires) instead of overflowing for extreme timeout values.
     /// </summary>
     private static long ComputeRegexDeadline(TimeSpan timeout)
@@ -1614,12 +1621,12 @@ internal sealed partial class RegExpPrototype : Prototype
             // Untimed, which is what Regex.InfiniteMatchTimeout means and what a normalized timeout uses
             // to say it. Without this the negative interval would put the deadline in the past and every
             // match would report a timeout immediately.
-            return RegExpInterpreter.NoDeadline;
+            return JintRegExpEngine.NoDeadline;
         }
 
         var now = Stopwatch.GetTimestamp();
         var ticks = timeout.TotalSeconds * Stopwatch.Frequency;
-        return ticks >= long.MaxValue - now ? RegExpInterpreter.NoDeadline : now + (long) ticks;
+        return ticks >= long.MaxValue - now ? JintRegExpEngine.NoDeadline : now + (long) ticks;
     }
 
     /// <summary>

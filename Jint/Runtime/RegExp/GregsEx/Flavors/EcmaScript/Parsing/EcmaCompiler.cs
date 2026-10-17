@@ -626,13 +626,12 @@ internal ref partial struct EcmaParser
                 _s.Fail();
             }
 
-            if (lower > int.MaxValue || upper > int.MaxValue)
-            {
-                _s.Fail(RegexDiagnosticCode.ProgramLimitExceeded);
-            }
-
-            min = (int)lower;
-            max = (int)upper;
+            // Jint: ECMAScript admits any DecimalDigits here (built-ins/RegExp/quantifier-integer-limit.js uses
+            // 2^53-1), where upstream fails ProgramLimitExceeded. No UTF-16 subject is longer than int.MaxValue,
+            // so a larger lower bound is unsatisfiable by any non-empty atom exactly as int.MaxValue is, and a
+            // larger upper bound is indistinguishable from an unbounded one.
+            min = (int)Math.Min(lower, int.MaxValue);
+            max = upper > int.MaxValue ? -1 : (int)upper;
         }
         else
         {
