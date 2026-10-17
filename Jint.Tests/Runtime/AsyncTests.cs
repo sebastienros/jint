@@ -1627,6 +1627,11 @@ public class AsyncTests
         // the timer, the continuation the async function was suspended on is the thing that lands.
         scheduled.Should().NotBeNull("the script registered a timer");
         scheduled();
+
+        // The continuation runs when the queue is drained, which an Evaluate does only after it has read x —
+        // so draining first is what lets the read see it. Reading first used to pass anyway, because the
+        // continuation's += appended into the very string Evaluate had already returned (#4259).
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("x").AsString().Should().Be("f() called - promise resolved - ");
     }
 

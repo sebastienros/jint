@@ -20,6 +20,15 @@ internal sealed class GlobalEnvironment : Environment
         public GlobalDeclarativeEnvironment(Engine engine) : base(engine)
         {
         }
+
+        // Script-level let and const, which a host, every later script and a snapshot read: never owned. The walk
+        // reaches the global environment rather than this record, so this states the rule rather than enforcing it.
+        internal override bool TryGetBindingForAppend(BindingName name, bool strict, out JsValue? value, out bool ownsString, out bool canOwnStrings)
+        {
+            ownsString = false;
+            canOwnStrings = false;
+            return TryGetBinding(name, strict, out value);
+        }
     }
 
     internal readonly ObjectInstance _global;
@@ -151,6 +160,15 @@ internal sealed class GlobalEnvironment : Environment
         }
 
         return false;
+    }
+
+    // The global hop of the += walk (and every += to a global from function code): the global environment never owns
+    // a string, and overriding the base default makes its TryGetBinding a direct call rather than a second virtual one.
+    internal override bool TryGetBindingForAppend(BindingName name, bool strict, out JsValue? value, out bool ownsString, out bool canOwnStrings)
+    {
+        ownsString = false;
+        canOwnStrings = false;
+        return TryGetBinding(name, strict, out value);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

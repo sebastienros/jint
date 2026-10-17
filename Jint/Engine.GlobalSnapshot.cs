@@ -615,7 +615,10 @@ public sealed class GlobalSnapshot
         var i = 0;
         foreach (var pair in dictionary!)
         {
-            captured[i++] = new LexicalBinding(pair.Key, pair.Value);
+            // A copy of the binding struct, which bypasses Binding.Value: detached, so a string the binding owned
+            // could not be extended in place behind the snapshot. The global record never owns one (the += lane
+            // excludes it), so this is the defensive half of that rule.
+            captured[i++] = new LexicalBinding(pair.Key, pair.Value.Detach());
         }
 
         return captured;

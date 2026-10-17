@@ -6292,6 +6292,47 @@ Not changed: `gregory` and `iso8601`, the Chinese and Dangi calendars' lane, and
 is written in its Gregorian year with the Gregorian era where ICU writes one of the 232 earlier eras (`1850 AD` for
 `Kaei 3`). Hebrew dates in `he` and `yi`, which CLDR writes in Hebrew numerals, are written in the formatter's digits.
 
+### 4.157 A string stays the string it was when script appends to where it came from ([#4259](https://github.com/sebastienros/jint/issues/4259))
+
+`s += t` appended into the string `s` held, which was correct only while nothing else held that string. Copying it
+at a declaration, an identifier assignment, an argument or a `return` kept that true there, but not for a member
+assignment, a built-in that copies values (`slice`, `concat`, spread, `Array.from`, `Object.assign`,
+`Object.values`, `filter`, …), or any value handed to the host. Each of those saw its text change when script
+appended to the original:
+
+```js
+var s = 'a'; s += 'b';
+var o = {}; o.p = s;            // or a.slice(), [...a], Object.assign({}, x), …
+s += 'c';
+o.p;                            // 4.16.x / earlier 5.0: "abc"    5.x: "ab"
+```
+
+```csharp
+var result = engine.Evaluate("var s = 'a'; s += 'b'; s += 'c'; s");
+engine.Execute("s += 'd'");
+result.AsString();              // 4.16.x / earlier 5.0: "abcd"   5.x: "abc"
+```
+
+The same held for `Engine.GetValue`, a property or array element read through `Get`, a descriptor's `Value`, an
+argument a built-in passes to a host delegate (`a.forEach(hostDelegate)`), a `JsValue` host property, a module
+export, and a string passed to a second engine. Now a string never changes once anything can hold it: a `+=` on a
+function or block variable still extends the string in place while that variable is the only place holding it, and
+every other `+=` produces a new string sharing its characters with the one it extended. A host may read a string on
+any thread, even while its engine keeps running (see [Thread safety](thread-safety.md#values-and-construction)).
+
+**What could break:**
+
+- **A host that expected a held string to follow later appends** was relying on the bug; read the binding again.
+- **`LimitMemory` charges more for some `+=` loops.** An append to a property or array element (`o.p += x`), to a
+  script's or a module's top-level variable, inside a generator or an async function, or to a variable read since
+  its last append (`while (s.length < n) s += x`) allocates a 48-byte value (on 64-bit) where it used to append into
+  a builder. `LimitMemory` counts the bytes an operation allocates, so 300,000 such appends in one operation are
+  charged about 14 MB more than before, most of `ForUntrustedCode`'s 16 MB budget. An append to a function or block
+  variable, including one a direct `eval` declared inside a function, costs what it did.
+- **Copying a string no longer copies its text.** `var t = s`, passing `s` to a function or returning it used to
+  copy the whole text of a `+=` result; it now costs nothing, and so does `s += x; t = s` in a loop, which was
+  quadratic.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Compound assignment to slot-stored bindings (the discard-mode fast paths) must stay
-/// observably identical to the materialized path, including the in-place rope-append skip.
+/// observably identical to the materialized path.
 /// </summary>
 public class CompoundAssignmentTests
 {
@@ -18,15 +18,16 @@ public class CompoundAssignmentTests
     }
 
     [Test]
-    public void RightSideReassignmentPinsCurrentInPlaceAppendBehavior()
+    public void RightSideReassignmentIsOverwrittenByTheCompoundResult()
     {
-        // The materialized lane skips the write-back when the rope was mutated in place,
-        // so a right-hand side that reassigns the binding wins. This pins that behavior
-        // so the slot lane cannot silently diverge from the slow path.
+        // A compound assignment reads the left value before the right-hand side runs and stores the result
+        // after it, so a reassignment inside the right-hand side is overwritten — "xa", as V8 answers. Both
+        // lanes used to answer "z": the string lane appended into the value it had read and skipped the store,
+        // leaving the reassignment standing (#4259).
         var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("function f() { var s = ''; s += 'x'; s += (s = 'z', 'a'); return s; } f();").AsString();
 
-        result.Should().Be("z");
+        result.Should().Be("xa");
     }
 
     [Test]
@@ -66,14 +67,23 @@ public class CompoundAssignmentTests
     }
 
     [Test]
-    public void RightSideReassignmentPinnedInEvalBody()
+    public void RightSideReassignmentOfAGlobalIsOverwritten()
+    {
+        // a global binding is no slot, so this is the materialized lane's own store
+        var engine = new Engine();
+
+        engine.Evaluate("var s = ''; s += 'x'; s += (s = 'z', 'a'); s;").AsString().Should().Be("xa");
+    }
+
+    [Test]
+    public void RightSideReassignmentIsOverwrittenInEvalBody()
     {
         // eval bodies have completion-value semantics, so their expression statements take the
-        // value-producing lane; the in-place-append skip must behave identically there.
+        // value-producing lane; it must store the compound result exactly as the discard lane does.
         var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("eval(\"var s = ''; s += 'x'; s += (s = 'z', 'a'); s;\")").AsString();
 
-        result.Should().Be("z");
+        result.Should().Be("xa");
     }
 
     [Test]
