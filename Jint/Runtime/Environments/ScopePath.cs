@@ -41,13 +41,15 @@ internal sealed class ScopePath
     private readonly object? _token0;
     private readonly object? _token1;
     private readonly object? _token2;
-    private readonly Key[] _terminalLayout;
+    private readonly Key[]? _terminalLayout;
+    private readonly Environment? _terminalEnvironment;
     private readonly int _hops;
     private readonly int _injectionEpoch;
     internal readonly int SlotIndex;
 
-    private ScopePath(int hops, object? token0, object? token1, object? token2, Key[] terminalLayout, int slotIndex, int injectionEpoch)
+    private ScopePath(int hops, object? token0, object? token1, object? token2, Key[]? terminalLayout, Environment? terminalEnvironment, int slotIndex, int injectionEpoch)
     {
+        _terminalEnvironment = terminalEnvironment;
         _hops = hops;
         _token0 = token0;
         _token1 = token1;
@@ -92,6 +94,19 @@ internal sealed class ScopePath
             return null;
         }
 
+        return TryCreate(engine, start, terminal, name, terminalLayout, terminalEnvironment: null, slotIndex);
+    }
+
+    /// <summary>
+    /// Describes the chain from <paramref name="start"/> to <paramref name="terminal"/> itself — an
+    /// environment that lives as long as the engine and is matched by identity, such as a module environment —
+    /// with the same conditions as the slot form.
+    /// </summary>
+    internal static ScopePath? TryCreateToEnvironment(Engine engine, Environment start, Environment terminal, Key name)
+        => TryCreate(engine, start, terminal, name, terminalLayout: null, terminal, slotIndex: -1);
+
+    private static ScopePath? TryCreate(Engine engine, Environment start, Environment terminal, Key name, Key[]? terminalLayout, Environment? terminalEnvironment, int slotIndex)
+    {
         object? token0 = null, token1 = null, token2 = null;
         var hops = 0;
         var current = start;
@@ -119,7 +134,7 @@ internal sealed class ScopePath
             }
         }
 
-        return new ScopePath(hops, token0, token1, token2, terminalLayout, slotIndex, engine._envBindingInjectionEpoch);
+        return new ScopePath(hops, token0, token1, token2, terminalLayout, terminalEnvironment, slotIndex, engine._envBindingInjectionEpoch);
     }
 
     /// <summary>
@@ -137,6 +152,13 @@ internal sealed class ScopePath
             ? declarative
             : null;
     }
+
+    /// <summary>
+    /// For a path built by <see cref="TryCreateToEnvironment"/>: whether the current chain still reaches its
+    /// terminal environment with no environment on the way owning the name.
+    /// </summary>
+    internal bool Reaches(Engine engine, Environment env)
+        => (_hops == 0 || TryFollow(engine, ref env)) && ReferenceEquals(env, _terminalEnvironment);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private bool TryFollow(Engine engine, ref Environment env)

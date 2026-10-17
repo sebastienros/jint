@@ -35,6 +35,30 @@ internal sealed class JintIdentifierExpression : JintExpression
     // describe the previous one and miss.
     private ScopePath? _scopePath;
 
+    // Module-binding location cache: a read that resolves to a module environment (a module's own top-level
+    // binding, or an import followed to the module that owns the value) remembers where the value is stored,
+    // and how the chain reaches that environment (a ScopePath), so a read from a function nested in the module
+    // neither walks the chain nor hashes the name — and an import does not resolve it twice — on each
+    // evaluation. A module environment's name set is fixed once it is linked, which is what makes the stored
+    // entry stable. Published as one immutable object so a torn read is impossible.
+    private ModuleBindingLocation? _moduleBinding;
+
+    private sealed class ModuleBindingLocation
+    {
+        internal readonly ScopePath Path;
+        internal readonly Collections.StringDictionarySlim<Binding> Bindings;
+        internal readonly int Entry;
+        internal readonly Key Key;
+
+        internal ModuleBindingLocation(ScopePath path, Collections.StringDictionarySlim<Binding> bindings, int entry, Key key)
+        {
+            Path = path;
+            Bindings = bindings;
+            Entry = entry;
+            Key = key;
+        }
+    }
+
     // Version-based inline cache for global bindings: when resolution (from any scope depth)
     // lands on a plain writable data property of the real GlobalObject, remember the
     // descriptor. Valid while the global object's own-property shape and the set of global
@@ -206,6 +230,11 @@ internal sealed class JintIdentifierExpression : JintExpression
             }
         }
 
+        if (_moduleBinding is not null && TryReadModuleBinding(engine, env, out value))
+        {
+            return value;
+        }
+
         if (_scopePath is { } scopePath && scopePath.Resolve(engine, env) is { _slots: { } pathSlots }
             && (uint) scopePath.SlotIndex < (uint) pathSlots.Length)
         {
@@ -285,6 +314,11 @@ internal sealed class JintIdentifierExpression : JintExpression
                 TryRememberGlobalBinding(globalEnv);
             }
 
+            if (identifierEnvironment is ModuleEnvironment moduleEnv)
+            {
+                RememberModuleBinding(engine, env, moduleEnv);
+            }
+
             if (value is null)
             {
                 ThrowNotInitialized(engine);
@@ -297,6 +331,38 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
 
         return MaterializeIfArguments(value);
+    }
+
+    /// <summary>
+    /// The module-binding cache's read. A binding still in its temporal dead zone (no value yet) is left to the
+    /// full path, which owns the error and its message.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool TryReadModuleBinding(Engine engine, Environment env, [NotNullWhen(true)] out JsValue? value)
+    {
+        var location = _moduleBinding!;
+        if (location.Path.Reaches(engine, env))
+        {
+            ref var binding = ref location.Bindings.GetValueRefAtEntry(location.Entry, location.Key);
+            if (!Unsafe.IsNullRef(ref binding) && binding.HasReferenceValue && binding.Value is { } found)
+            {
+                value = found;
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void RememberModuleBinding(Engine engine, Environment env, ModuleEnvironment moduleEnv)
+    {
+        if (moduleEnv.TryGetBindingLocation(Identifier.Key, out var bindings, out var entry, out var key)
+            && ScopePath.TryCreateToEnvironment(engine, env, moduleEnv, Identifier.Key) is { } path)
+        {
+            _moduleBinding = new ModuleBindingLocation(path, bindings, entry, key);
+        }
     }
 
     /// <summary>

@@ -293,6 +293,48 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
         return true;
     }
 
+    /// <summary>
+    /// The index of the entry holding <paramref name="key"/>, or -1. The index stays usable with
+    /// <see cref="GetValueRefAtEntry"/> for as long as the entry is neither removed nor moved by a
+    /// compaction; that method re-checks the key, so a stale index only costs a miss.
+    /// </summary>
+    internal int FindEntryIndex(Key key)
+    {
+        Entry[] entries = _entries;
+        int bucketIndex = key.HashCode & (_buckets.Length - 1);
+        for (int i = _buckets[bucketIndex] - 1;
+             (uint) i < (uint) entries.Length; i = entries[i].next)
+        {
+            if (key.Name == entries[i].key.Name)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// The value of the entry at <paramref name="index"/> when that entry still holds
+    /// <paramref name="key"/>, otherwise a null ref. No hashing and no chain walk: the caller
+    /// remembered the index from <see cref="FindEntryIndex"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ref TValue GetValueRefAtEntry(int index, Key key)
+    {
+        Entry[] entries = _entries;
+        if ((uint) index < (uint) entries.Length)
+        {
+            ref var entry = ref entries[index];
+            if (entry.next != Tombstone && key.Name == entry.key.Name)
+            {
+                return ref entry.value;
+            }
+        }
+
+        return ref Unsafe.NullRef<TValue>();
+    }
+
     public override ref TValue GetValueRefOrNullRef(Key key)
     {
         Entry[] entries = _entries;
