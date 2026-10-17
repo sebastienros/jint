@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Buffers;
+using System.Runtime.CompilerServices;
 
 namespace Jint.Extensions;
 
@@ -8,6 +9,8 @@ internal static class Character
     /// https://tc39.es/ecma262/#ASCII-word-characters
     /// </summary>
     public const string AsciiWordCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
+
+    public const string JsWhiteSpaceCharacters = "\x20\x09\x0A\x0B\x0C\x0D\xA0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF";
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsInRange(this char c, ushort min, ushort max) => (uint) (c - min) <= (uint) (max - min);
@@ -46,6 +49,8 @@ internal static class Character
         return (long) (shift & mask) < 0 ? true : false;
     }
 
+    private static SearchValues<char> JsWhiteSpaceSearchValues { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; } = SearchValues.Create(JsWhiteSpaceCharacters);
+
     /// <summary>
     /// Whether <paramref name="c"/> is JavaScript white space: the union of the <c>WhiteSpace</c> and
     /// <c>LineTerminator</c> productions. https://tc39.es/ecma262/#sec-trimstring
@@ -60,13 +65,7 @@ internal static class Character
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsJsWhiteSpace(this char c)
     {
-        if (c < 0x80)
-        {
-            // SP, then the TAB..CR run, which holds VT and FF along with the two ASCII line terminators.
-            return c == ' ' || c.IsInRange('\t', '\r');
-        }
-
-        return IsNonAsciiJsWhiteSpace(c);
+        return JsWhiteSpaceSearchValues.Contains(c);
     }
 
     /// <summary>
@@ -82,24 +81,4 @@ internal static class Character
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsJsLineTerminator(this char c) => c is '\n' or '\r' or '\u2028' or '\u2029';
-
-    /// <summary>
-    /// The members above U+007F: the non-ASCII half of <c>Space_Separator</c>, ZWNBSP, and the two
-    /// non-ASCII line terminators.
-    /// </summary>
-    /// <remarks>
-    /// The <c>Space_Separator</c> members are enumerated rather than read out of
-    /// <c>char.GetUnicodeCategory</c> so that every target framework answers alike: .NET Framework carries
-    /// an older Unicode table than .NET 10 does, and the whole point of one definition is that it does not
-    /// move under an embedder. The category has not gained or lost a code point since Unicode 6.3 dropped
-    /// U+180E from it, and <c>Jint.Tests/Runtime/WhiteSpaceDefinitionTests.cs</c> checks the enumeration
-    /// against the running framework's table on every target framework so a future addition cannot land
-    /// unnoticed.
-    /// </remarks>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsNonAsciiJsWhiteSpace(char c) => c switch
-    {
-        '\u00A0' or '\u1680' or '\u2028' or '\u2029' or '\u202F' or '\u205F' or '\u3000' or '\uFEFF' => true,
-        _ => c.IsInRange('\u2000', '\u200A'),
-    };
 }

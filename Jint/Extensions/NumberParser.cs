@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
@@ -23,28 +25,6 @@ internal static class NumberParser
     // The exponent of the smallest positive double, 2^-1074: nothing rounds below it.
     private const int MinBinaryExponent = -1074;
 
-    // 10^0 .. 10^22 are the powers of ten a double holds exactly; past 10^22 the constant itself is
-    // rounded and scaling by it would round twice.
-    private const int MaxExactPowerOfTen = 22;
-
-    // 19 decimal digits are the most that always fit a ulong (10^19 - 1 < 2^64 - 1).
-    private const int MaxAccumulatedDigits = 19;
-
-    // A double's rounding boundary - the midpoint between two adjacent doubles - is a dyadic rational
-    // whose decimal expansion never runs past 769 significant digits (the widest sits at the smallest
-    // normal, where the midpoint carries 5^1074). Keeping 800 therefore places every boundary inside the
-    // digits actually read, so a dropped tail can only push the value strictly past a boundary it already
-    // sits on, which is what the truncated flag records.
-    private const int MaxSignificantDigits = 800;
-
-    private const ulong MaxExactMantissa = 1UL << 53;
-
-    private static readonly double[] ExactPowersOfTen =
-    {
-        1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11,
-        1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
-    };
-
     /// <summary>
     /// The digit count at which an integer in a given radix has certainly passed every finite double.
     /// Indexed by radix; 0 and 1 are not digit bases and hold zero.
@@ -58,7 +38,6 @@ internal static class NumberParser
     private static readonly int[] DigitsThatOverflow = BuildDigitsThatOverflow();
 
     private static readonly BigInteger Ten = new BigInteger(10);
-    private static readonly BigInteger TenPow19 = new BigInteger(10000000000000000000UL);
     private static readonly BigInteger Two52 = BigInteger.One << 52;
     private static readonly BigInteger Two53 = BigInteger.One << 53;
 
@@ -74,263 +53,25 @@ internal static class NumberParser
     /// </remarks>
     internal static bool TryParseDouble(ReadOnlySpan<char> text, out double result)
     {
-        result = 0;
-        var length = text.Length;
-        var i = 0;
+        text = text.Trim(Character.JsWhiteSpaceCharacters);
 
-        while (i < length && text[i].IsJsWhiteSpace())
+        if (!text.IsEmpty)
         {
-            i++;
-        }
-
-        var negative = false;
-        if (i < length && (text[i] == '+' || text[i] == '-'))
-        {
-            negative = text[i] == '-';
-            i++;
-        }
-
-        var significandStart = i;
-        ulong mantissa = 0;
-        var digits = 0;
-        long exponent = 0;
-        var truncated = false;
-        var sawDigit = false;
-
-        while (i < length && IsDigit(text[i]))
-        {
-            sawDigit = true;
-            var digit = (ulong) (text[i] - '0');
-            if (digits == 0 && digit == 0)
+            var negative = text[0] == '-';
+            if (negative || text[0] == '+')
             {
-                // A leading zero is not a significant digit and shifts nothing.
-            }
-            else if (digits < MaxAccumulatedDigits)
-            {
-                mantissa = mantissa * 10 + digit;
-                digits++;
-            }
-            else
-            {
-                exponent++;
-                truncated |= digit != 0;
+                text = text.Slice(1);
             }
 
-            i++;
-        }
-
-        if (i < length && text[i] == '.')
-        {
-            i++;
-            while (i < length && IsDigit(text[i]))
+            if (Tokenizer.TryParseDecimalNumber(text, allowSeparator: false, out var tmp))
             {
-                sawDigit = true;
-                var digit = (ulong) (text[i] - '0');
-                if (digits == 0 && digit == 0)
-                {
-                    exponent--;
-                }
-                else if (digits < MaxAccumulatedDigits)
-                {
-                    mantissa = mantissa * 10 + digit;
-                    digits++;
-                    exponent--;
-                }
-                else
-                {
-                    truncated |= digit != 0;
-                }
-
-                i++;
+                result = Signed(tmp, negative);
+                return true;
             }
         }
 
-        if (!sawDigit)
-        {
-            return false;
-        }
-
-        var significandEnd = i;
-        long literalExponent = 0;
-        if (i < length && (text[i] | 0x20) == 'e')
-        {
-            i++;
-            var exponentNegative = false;
-            if (i < length && (text[i] == '+' || text[i] == '-'))
-            {
-                exponentNegative = text[i] == '-';
-                i++;
-            }
-
-            if (i >= length || !IsDigit(text[i]))
-            {
-                return false;
-            }
-
-            long scanned = 0;
-            while (i < length && IsDigit(text[i]))
-            {
-                // Keep accumulating until the exponent is so large that no digit count could pull the
-                // value back into range: compensation would need a digit string longer than 10^17
-                // characters, a scale no real input reaches, and 10^17 also keeps the long accumulator
-                // well clear of overflow on a long run of exponent digits.
-                if (scanned < 100_000_000_000_000_000L)
-                {
-                    scanned = scanned * 10 + (text[i] - '0');
-                }
-
-                i++;
-            }
-
-            literalExponent = exponentNegative ? -scanned : scanned;
-            exponent += literalExponent;
-        }
-
-        while (i < length && text[i].IsJsWhiteSpace())
-        {
-            i++;
-        }
-
-        if (i != length)
-        {
-            return false;
-        }
-
-        if (mantissa == 0)
-        {
-            // Every digit read was a zero, whatever the exponent says.
-            result = negative ? -0.0 : 0.0;
-            return true;
-        }
-
-        // 10^(magnitude - 1) <= |value| < 10^magnitude. The two scans keep a different number of
-        // significant digits, and this is the figure both of them agree on.
-        var magnitude = exponent + digits;
-        if (magnitude > 309)
-        {
-            result = negative ? double.NegativeInfinity : double.PositiveInfinity;
-            return true;
-        }
-
-        if (magnitude < -323)
-        {
-            // Under 10^-324, which is less than half the smallest positive double.
-            result = negative ? -0.0 : 0.0;
-            return true;
-        }
-
-        if (!truncated && TryScaleExactly(mantissa, exponent, negative, out result))
-        {
-            return true;
-        }
-
-        result = ParseExact(text.Slice(significandStart, significandEnd - significandStart), literalExponent, negative);
-        return true;
-    }
-
-    /// <summary>
-    /// The cases one floating-point operation on two exact operands settles, and which are therefore
-    /// correctly rounded: an integer, or an exact significand scaled by a power of ten a double holds.
-    /// </summary>
-    private static bool TryScaleExactly(ulong mantissa, long exponent, bool negative, out double result)
-    {
-        if (exponent == 0)
-        {
-            result = Signed(UInt64ToDouble(mantissa), negative);
-            return true;
-        }
-
-        if (mantissa > MaxExactMantissa)
-        {
-            result = 0;
-            return false;
-        }
-
-        if (exponent > 0 && exponent <= MaxExactPowerOfTen)
-        {
-            result = Signed(mantissa * ExactPowersOfTen[exponent], negative);
-            return true;
-        }
-
-        if (exponent < 0 && exponent >= -MaxExactPowerOfTen)
-        {
-            result = Signed(mantissa / ExactPowersOfTen[-exponent], negative);
-            return true;
-        }
-
-        result = 0;
+        result = default;
         return false;
-    }
-
-    /// <summary>
-    /// Re-reads the significand at full width and rounds the exact decimal value once.
-    /// </summary>
-    /// <param name="significand">The digits and at most one decimal point, with no sign and no exponent.</param>
-    /// <param name="literalExponent">The value of the text's own exponent part, if it had one.</param>
-    /// <param name="negative">Whether the text carried a minus sign.</param>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static double ParseExact(ReadOnlySpan<char> significand, long literalExponent, bool negative)
-    {
-        var value = BigInteger.Zero;
-        ulong chunk = 0;
-        var chunkDigits = 0;
-        var digits = 0;
-        var exponent = literalExponent;
-        var truncated = false;
-        var afterPoint = false;
-
-        foreach (var c in significand)
-        {
-            if (c == '.')
-            {
-                afterPoint = true;
-                continue;
-            }
-
-            var digit = c - '0';
-            if (digits == 0 && digit == 0)
-            {
-                if (afterPoint)
-                {
-                    exponent--;
-                }
-
-                continue;
-            }
-
-            if (digits < MaxSignificantDigits)
-            {
-                chunk = chunk * 10 + (ulong) digit;
-                chunkDigits++;
-                if (chunkDigits == MaxAccumulatedDigits)
-                {
-                    value = value * TenPow19 + chunk;
-                    chunk = 0;
-                    chunkDigits = 0;
-                }
-
-                digits++;
-                if (afterPoint)
-                {
-                    exponent--;
-                }
-            }
-            else
-            {
-                truncated |= digit != 0;
-                if (!afterPoint)
-                {
-                    exponent++;
-                }
-            }
-        }
-
-        if (chunkDigits > 0)
-        {
-            value = value * BigInteger.Pow(Ten, chunkDigits) + chunk;
-        }
-
-        return Round(value, exponent, truncated, negative);
     }
 
     /// <summary>
@@ -675,8 +416,28 @@ internal static class NumberParser
         return counts;
     }
 
+    private static int DigitValue(char c)
+    {
+        var tmp = c - '0';
+        if ((uint) tmp < 10)
+        {
+            return tmp;
+        }
+
+        tmp = (c | 0x20) - 'a';
+        if ((uint) tmp < 26)
+        {
+            return tmp + 10;
+        }
+
+        return -1;
+    }
+
     private static int BitLength(ulong value)
     {
+#if NETCOREAPP3_0_OR_GREATER
+        return 64 - BitOperations.LeadingZeroCount(value);
+#else
         var bits = 0;
         while (value != 0)
         {
@@ -685,39 +446,61 @@ internal static class NumberParser
         }
 
         return bits;
+#endif
     }
-
-    private static int DigitValue(char c) => c switch
-    {
-        >= '0' and <= '9' => c - '0',
-        >= 'a' and <= 'z' => c - 'a' + 10,
-        >= 'A' and <= 'Z' => c - 'A' + 10,
-        _ => -1,
-    };
 
     private static int BitLength(BigInteger value)
     {
+#if NET5_0_OR_GREATER
+        return (int) value.GetBitLength();
+#else
         if (value.IsZero)
         {
             return 0;
         }
 
-        var bytes = value.ToByteArray();
-        var index = bytes.Length - 1;
-        while (index > 0 && bytes[index] == 0)
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
+        var byteCount = value.GetByteCount();
+        byte[]? byteArray = null;
+        try
         {
-            index--;
+            var bytes = byteCount <= 64
+                ? stackalloc byte[byteCount]
+                : (byteArray = ArrayPool<byte>.Shared.Rent(byteCount)).AsSpan(0, byteCount);
+            var success = value.TryWriteBytes(bytes, out var bytesWritten);
+            Debug.Assert(success && bytesWritten == byteCount);
+            return GetBitLength(bytes);
         }
-
-        var bits = index * 8;
-        int top = bytes[index];
-        while (top != 0)
+        finally
         {
-            bits++;
-            top >>= 1;
+            if (byteArray is not null)
+            {
+                ArrayPool<byte>.Shared.Return(byteArray);
+            }
         }
+#else
+        return GetBitLength(value.ToByteArray());
+#endif
 
-        return bits;
+        static int GetBitLength(ReadOnlySpan<byte> bytes)
+        {
+            var index = bytes.Length - 1;
+            while (index > 0 && bytes[index] == 0)
+            {
+                index--;
+            }
+
+            var bits = index * 8;
+            int top = bytes[index];
+            while (top != 0)
+            {
+                bits++;
+                top >>= 1;
+            }
+
+            return bits;
+        }
+#endif
     }
 
     /// <summary>
@@ -737,12 +520,9 @@ internal static class NumberParser
             return (long) value;
         }
 
-        return (double) (long) ((value >> 1) | (value & 1)) * 2.0;
+        return (long) ((value >> 1) | (value & 1)) * 2.0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static double Signed(double value, bool negative) => negative ? -value : value;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsDigit(char c) => c is >= '0' and <= '9';
 }
