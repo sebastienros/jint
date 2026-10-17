@@ -6292,7 +6292,7 @@ Not changed: `gregory` and `iso8601`, the Chinese and Dangi calendars' lane, and
 is written in its Gregorian year with the Gregorian era where ICU writes one of the 232 earlier eras (`1850 AD` for
 `Kaei 3`). Hebrew dates in `he` and `yi`, which CLDR writes in Hebrew numerals, are written in the formatter's digits.
 
-### 4.155 A string stays the string it was when script appends to where it came from ([#4259](https://github.com/sebastienros/jint/issues/4259))
+### 4.157 A string stays the string it was when script appends to where it came from ([#4259](https://github.com/sebastienros/jint/issues/4259))
 
 `s += t` appended into the string `s` held, which was correct only while nothing else held that string. Copying it
 at a declaration, an identifier assignment, an argument or a `return` kept that true there, but not for a member
