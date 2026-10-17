@@ -14,8 +14,11 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     private readonly int _taskSlots;
     private readonly int _registerSlots;
     private readonly EcmaAccelerator _accelerator;
+    // Jint: per node, whether it is a greedy repeat of a single-character atom (see Machine.GreedyRun).
+    private readonly bool[] _greedyRun;
     internal const int TaskWidth = 6;
-    internal const int ChoiceWidth = 3;
+    // Jint: a fourth slot holds a greedy run's lower bound (ChoiceKind.GreedyRun).
+    internal const int ChoiceWidth = 4;
     public EcmaProgram Program { get; }
 
     internal EcmaExecutor(EcmaProgram program, EcmaCaseTables tables, EcmaNode[] instructions, int taskCapacity)
@@ -27,6 +30,17 @@ internal sealed class EcmaExecutor : IEcmaExecutor
         _taskSlots = checked(TaskWidth * _taskCapacity);
         _registerSlots = checked(2 * Program.GroupCount);
         _accelerator = new EcmaAccelerator(program, _caseTables);
+        _greedyRun = new bool[instructions.Length];
+        for (var i = 0; i < instructions.Length; i++)
+        {
+            var node = instructions[i];
+            if (node.Kind == EcmaNodeKind.Repeat && !node.Lazy && node.X >= 0)
+            {
+                var atom = instructions[node.X];
+                _greedyRun[i] = atom.Kind == EcmaNodeKind.Literal ||
+                    (atom.Kind == EcmaNodeKind.Set && _accelerator.FastSets[node.X] is { } fastSet && fastSet.Slice.StringCount == 0);
+            }
+        }
     }
 
     public RegexWorkspaceCapacity GetRequiredCapacity(SearchOperation operation, int frameCapacity)
@@ -124,7 +138,10 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             }
         }
 
-        if (_accelerator.TrySearch(input, startAt, sticky, operation, frames, ref state, groups, out match, out var fastStatus))
+        // Jint: the plans read frames only to refuse work the VM could not have done within its reservation, a
+        // memory-bound policy JavaScript does not have. Passing the real count made /a.*a/ over a 64 KiB subject fail
+        // capacity, and the host grow the reservation and rerun the whole search five times before it fitted.
+        if (_accelerator.TrySearch(input, startAt, sticky, operation, int.MaxValue, ref state, groups, out match, out var fastStatus))
         {
             return fastStatus;
         }
@@ -269,7 +286,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     };
 
     private enum TaskKind { Evaluate, Repeat, RepeatBody, RepeatAfter, CaptureEnd, AssertionEnd, SetResume }
-    private enum ChoiceKind { Branch, PositiveAssertionFailure, NegativeAssertionFailure }
+    private enum ChoiceKind { Branch, PositiveAssertionFailure, NegativeAssertionFailure, GreedyRun }
     // A/B/C interpretation is specific to Kind. Direction is always explicit, including
     // tasks saved before entering a nested assertion with a different direction.
     private readonly record struct Task(TaskKind Kind, int Node, int A, int B, int Direction, int C = 0);
@@ -359,6 +376,13 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                         if (node.Lazy)
                         {
                             if (!Save(ChoiceKind.Branch, new(TaskKind.RepeatBody, task.Node, task.A, 0, task.Direction), ref state))
+                            {
+                                return -1;
+                            }
+                        }
+                        else if (_owner._greedyRun[task.Node] && task.Direction > 0)
+                        {
+                            if (!GreedyRun(node, task.A, ref state))
                             {
                                 return -1;
                             }
@@ -555,6 +579,27 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                         continue;
                     }
 
+                    if (kind == ChoiceKind.GreedyRun)
+                    {
+                        // Give back one character (one code point when Unicode-aware) and stay armed until the
+                        // run is back at its lower bound, which is the last position the run can offer.
+                        var run = _choices.Slice(index * ChoiceWidth, ChoiceWidth);
+                        var low = run[3];
+                        var position = Position - 1;
+                        if (_owner.Program.Profile.IsUnicodeAware && position > low &&
+                            char.IsLowSurrogate(_input[position]) && char.IsHighSurrogate(_input[position - 1]))
+                        {
+                            position--;
+                        }
+
+                        Position = position;
+                        if (position > low)
+                        {
+                            run[2] = position;
+                            _choiceCount++;
+                        }
+                    }
+
                     resumed = true;
                     break; // ordinary retry or successful negative assertion
                 }
@@ -563,6 +608,101 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                     return 0;
                 }
             }
+        }
+
+        // Jint: a greedy repeat of a single-character atom (/.*/, /[^"]*/, /a+/ once past its minimum) consumes
+        // its whole run in one loop and saves ONE choice that gives the run back a character at a time, where the
+        // generic path saved a choice - and a copy of the task stack and registers - per character. Equivalent,
+        // because every one of those choices held the same task stack and the same registers: the atom captures
+        // nothing, and each was taken after the Repeat task had been popped.
+        private bool GreedyRun(EcmaNode node, int iterations, ref RunState state)
+        {
+            var start = Position;
+            var limit = node.Max == -1 ? int.MaxValue : node.Max - iterations;
+            var count = 0;
+            if (_owner._instructions[node.X].Kind == EcmaNodeKind.Set && _owner._accelerator.FastSets[node.X] is { BmpBits: not null } fastSet)
+            {
+                // A case-sensitive class has an exact membership bitmap, which the accelerator scans vectorized.
+                count = fastSet.CountRun(_input.Slice(Position), limit == int.MaxValue ? -1 : limit, _owner.Program, out var units);
+                if (!state.TryCharge(Math.Max(1, units), Position))
+                {
+                    return false;
+                }
+
+                Position += units;
+                limit = 0;
+            }
+
+            while (count < limit)
+            {
+                var matched = MatchAtom(node.X, ref state);
+                if (state.Failure.Code != RegexExecutionFailureCode.None)
+                {
+                    return false;
+                }
+
+                if (!matched)
+                {
+                    break;
+                }
+
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return true;
+            }
+
+            if (!Save(ChoiceKind.GreedyRun, null, ref state))
+            {
+                return false;
+            }
+
+            _choices[(_choiceCount - 1) * ChoiceWidth + 3] = start;
+            return true;
+        }
+
+        private bool MatchAtom(int nodeId, ref RunState state)
+        {
+            var atom = _owner._instructions[nodeId];
+            if (atom.Kind == EcmaNodeKind.Literal)
+            {
+                if (Read(Position, 1, ref state, out var point, out var next) && Equal(point, atom.Value, atom.EffectiveFlags, ref state))
+                {
+                    Position = next;
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (_owner._accelerator.FastSets[nodeId] is { } fastSet)
+            {
+                if ((uint)Position >= (uint)_input.Length)
+                {
+                    return false;
+                }
+
+                var ch = _input[Position];
+                if (fastSet.MatchesSingleChar(ch))
+                {
+                    if (!state.TryCharge(2, Position))
+                    {
+                        return false;
+                    }
+
+                    Position++;
+                    return true;
+                }
+
+                if (fastSet.BmpBits is not null && (!_owner.Program.Profile.IsUnicodeAware || !char.IsSurrogate(ch)))
+                {
+                    return state.TryCharge(2, Position) && false;
+                }
+            }
+
+            return MatchSet(atom.Value, 0, 1, nodeId, ref state);
         }
 
         private bool Body(Task task, ref RunState state)

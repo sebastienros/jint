@@ -41,10 +41,7 @@ internal sealed class JintRegExpEngine
     // About the depth of V8's backtrack stack; past it the match throws rather than exhausting memory.
     private const int MaxFrames = 1 << 22;
 
-    [ThreadStatic] private static int[]? t_states;
-    [ThreadStatic] private static int[]? t_captures;
-    [ThreadStatic] private static int[]? t_scratch;
-    [ThreadStatic] private static RegexCapture[]? t_groups;
+    [ThreadStatic] private static Scratch? t_scratch;
 
     private readonly EcmaExecutor _executor;
     private readonly string?[] _groupNames;
@@ -62,6 +59,7 @@ internal sealed class JintRegExpEngine
         var aliases = program.NameAliases;
         foreach (var name in program.Names)
         {
+            HasGroupNames = true;
             for (var i = 0; i < name.Length; i++)
             {
                 _groupNames[aliases[name.Offset + i]] = name.Name;
@@ -105,32 +103,41 @@ internal sealed class JintRegExpEngine
     /// <summary>Get the name of a capture group by its 1-based index.</summary>
     public string? GetGroupName(int index) => (uint) index < (uint) _groupNames.Length ? _groupNames[index] : null;
 
+    /// <summary>Whether any capture group has a name.</summary>
+    public bool HasGroupNames { get; private set; }
+
     /// <summary>
-    /// Execute the regex against the input string starting at <paramref name="startIndex"/>, matching only
-    /// there when the pattern is sticky. <paramref name="deadline"/> is an absolute <see cref="Stopwatch.GetTimestamp"/>
-    /// value at/after which the match is abandoned with an <see cref="OperationCanceledException"/>.
+    /// Match from <paramref name="startIndex"/> (only there when the pattern is sticky), writing group <c>i</c>'s span into <paramref name="groups"/>[i] (group 0 is the
+    /// whole match) instead of materializing strings. <paramref name="groups"/> needs <see cref="CaptureCount"/> entries.
     /// </summary>
-    public RegExpMatchResult Execute(string input, int startIndex, long deadline = NoDeadline)
+    internal bool TryMatch(string input, int startIndex, long deadline, Span<RegexCapture> groups)
+        => Search(input, startIndex, SearchOperation.Captures, groups, deadline, out _, _sticky);
+
+    /// <summary>
+    /// <see cref="TryMatch"/> as a forward search from <paramref name="startIndex"/> even when the pattern is sticky,
+    /// for a caller that would otherwise retry a sticky match at every later position (the split matcher).
+    /// </summary>
+    internal bool TryFind(string input, int startIndex, long deadline, Span<RegexCapture> groups)
+        => Search(input, startIndex, SearchOperation.Captures, groups, deadline, out _, sticky: false);
+
+    /// <summary>
+    /// Match like <see cref="TryMatch"/>, reporting only the whole match's range: no capture work at all.
+    /// <paramref name="deadline"/> is an absolute <see cref="Stopwatch.GetTimestamp"/> value at/after which the match
+    /// is abandoned with an <see cref="OperationCanceledException"/> (<see cref="NoDeadline"/> never fires).
+    /// </summary>
+    internal bool TryMatchRange(string input, int startIndex, long deadline, out int index, out int length)
     {
-        var groups = t_groups;
-        if (groups is null || groups.Length < CaptureCount)
-        {
-            t_groups = groups = new RegexCapture[Math.Max(CaptureCount, 16)];
-        }
-
-        if (!Search(input, startIndex, SearchOperation.Captures, groups, deadline, out var match))
-        {
-            return RegExpMatchResult.NoMatch;
-        }
-
-        return BuildResult(input, match, groups);
+        var found = Search(input, startIndex, SearchOperation.Range, [], deadline, out var match, _sticky);
+        index = match.Index;
+        length = match.Length;
+        return found;
     }
 
-    /// <summary>Test if the regex matches the input string. See <see cref="Execute"/> for <paramref name="deadline"/>.</summary>
+    /// <summary>Test if the regex matches the input string. See <see cref="TryMatchRange"/> for <paramref name="deadline"/>.</summary>
     public bool IsMatch(string input, int startIndex = 0, long deadline = NoDeadline)
-        => Search(input, startIndex, SearchOperation.Boolean, [], deadline, out _);
+        => Search(input, startIndex, SearchOperation.Boolean, [], deadline, out _, _sticky);
 
-    private bool Search(string input, int startIndex, SearchOperation operation, Span<RegexCapture> groups, long deadline, out RegexMatchRange match)
+    private bool Search(string input, int startIndex, SearchOperation operation, Span<RegexCapture> groups, long deadline, out RegexMatchRange match, bool sticky)
     {
         if ((uint) startIndex > (uint) input.Length)
         {
@@ -138,17 +145,15 @@ internal sealed class JintRegExpEngine
             return false;
         }
 
+        var scratch = t_scratch ??= new Scratch();
         var frames = Volatile.Read(ref _framesHint);
         while (true)
         {
             var capacity = _executor.GetRequiredCapacity(operation, frames);
-            var states = Rent(ref t_states, capacity.StateSlots);
-            var captures = Rent(ref t_captures, capacity.CaptureSlots);
-            var scratch = Rent(ref t_scratch, capacity.ScratchSlots);
-            var buffers = new WorkspaceBuffers(states.AsSpan(0, capacity.StateSlots), captures.AsSpan(0, capacity.CaptureSlots), scratch.AsSpan(0, capacity.ScratchSlots));
-            var state = new RunState(buffers, long.MaxValue, default, ToTimeout(deadline));
+            var buffers = scratch.Rent(capacity);
+            var state = new RunState(buffers, long.MaxValue, deadline);
 
-            var status = _executor.Search(input.AsSpan(), startIndex, _sticky, EcmaStartPolicy.BuiltinLastIndex, operation, ref state, groups, out match);
+            var status = _executor.Search(input.AsSpan(), startIndex, sticky, EcmaStartPolicy.BuiltinLastIndex, operation, ref state, groups, out match);
             switch (status)
             {
                 case RegexSearchStatus.Match:
@@ -170,42 +175,31 @@ internal sealed class JintRegExpEngine
         }
     }
 
-    private static int[] Rent(ref int[]? slot, int length)
+    /// <summary>One thread's executor partitions, grown on demand and reused by every matcher on that thread.</summary>
+    private sealed class Scratch
     {
-        var array = slot;
-        if (array is null || array.Length < length)
+        private int[] _states = [];
+        private int[] _captures = [];
+        private int[] _scratch = [];
+
+        public WorkspaceBuffers Rent(RegexWorkspaceCapacity capacity)
         {
-            slot = array = new int[Math.Max(length, (array?.Length ?? 0) * 2)];
+            Grow(ref _states, capacity.StateSlots);
+            Grow(ref _captures, capacity.CaptureSlots);
+            Grow(ref _scratch, capacity.ScratchSlots);
+            return new WorkspaceBuffers(
+                _states.AsSpan(0, capacity.StateSlots),
+                _captures.AsSpan(0, capacity.CaptureSlots),
+                _scratch.AsSpan(0, capacity.ScratchSlots));
         }
 
-        return array;
-    }
-
-    private static TimeSpan? ToTimeout(long deadline)
-    {
-        if (deadline == NoDeadline)
+        private static void Grow(ref int[] array, int length)
         {
-            return null;
+            if (array.Length < length)
+            {
+                array = new int[Math.Max(length, array.Length * 2)];
+            }
         }
-
-        var remaining = deadline - Stopwatch.GetTimestamp();
-        return remaining <= 0 ? TimeSpan.Zero : TimeSpan.FromSeconds(remaining / (double) Stopwatch.Frequency);
-    }
-
-    private RegExpMatchResult BuildResult(string input, RegexMatchRange match, RegexCapture[] captures)
-    {
-        var matchValue = input.Substring(match.Index, match.Length);
-        var groups = new RegExpGroupResult[CaptureCount];
-        groups[0] = new RegExpGroupResult(Success: true, Index: match.Index, Length: match.Length, Value: matchValue, Name: null);
-        for (var i = 1; i < groups.Length; i++)
-        {
-            var capture = captures[i];
-            groups[i] = capture.Participated
-                ? new RegExpGroupResult(Success: true, Index: capture.Index, Length: capture.Length, Value: input.Substring(capture.Index, capture.Length), Name: _groupNames[i])
-                : new RegExpGroupResult(Success: false, Index: -1, Length: 0, Value: string.Empty, Name: _groupNames[i]);
-        }
-
-        return new RegExpMatchResult(Success: true, Index: match.Index, Length: match.Length, Value: matchValue, Groups: groups);
     }
 
     private static EcmaScriptFlags ToProfileFlags(RegExpFlags flags)

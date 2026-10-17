@@ -374,7 +374,6 @@ var x = b(7);";
 
         var parsingOptions = new ScriptParsingOptions
         {
-            CompileRegex = false,
             Tolerant = true
         };
         var ex = Invoking(() => engine.Execute(script, "get-item.js", parsingOptions)).Should().ThrowExactly<JavaScriptException>().Which;
@@ -555,7 +554,6 @@ var x = instance.Boom;")).Should().ThrowExactly<InvalidOperationException>().Whi
         {
             return new ScriptParsingOptions
             {
-                CompileRegex = false,
                 Tolerant = true
             };
         }

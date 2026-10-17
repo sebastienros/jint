@@ -49,6 +49,14 @@ internal ref struct RunState
         Failure = default;
     }
 
+    // Jint: see RunBudget(long, CancellationToken, long).
+    internal RunState(WorkspaceBuffers buffers, long maxWork, long absoluteDeadline)
+    {
+        Buffers = buffers;
+        Budget = new(maxWork, default, absoluteDeadline);
+        Failure = default;
+    }
+
     // One charge for a run of one-unit-per-offset work that is known to fit the remaining budget;
     // otherwise per-unit charges reproduce the exact failing offset and consumed work.
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]

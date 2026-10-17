@@ -118,6 +118,19 @@ internal struct RunBudget
         WorkConsumed = 0;
     }
 
+    // Jint: an absolute Stopwatch deadline (long.MaxValue for none), so a search starts without reading the clock;
+    // the host already holds the deadline, and converting it to a TimeSpan and back read the clock twice per search.
+    internal RunBudget(long maxWork, CancellationToken cancellation, long absoluteDeadline)
+    {
+        _maxWork = maxWork;
+        _cancellation = cancellation;
+        _startedAt = 0;
+        _timeoutTicks = absoluteDeadline == long.MaxValue ? double.PositiveInfinity : absoluteDeadline;
+        // The caller read the clock to compute the deadline, so the first stride needs no read of its own.
+        _nextClockCheck = ClockStride;
+        WorkConsumed = 0;
+    }
+
     // Clock reads cost far more than a charge. Without a timeout the clock is never read; with one it is
     // read on the first charge, on every zero-unit checkpoint, and then once per ClockStride work units.
     // Deadline overshoot is therefore bounded by ClockStride units of work, and cancellation and the
@@ -129,8 +142,11 @@ internal struct RunBudget
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal bool TryCharge(long units, int offset, out RegexExecutionFailure failure)
     {
-        if (double.IsPositiveInfinity(_timeoutTicks) && !_cancellation.IsCancellationRequested &&
-            (ulong)units <= (ulong)(_maxWork - WorkConsumed))
+        // Jint: with a timeout the fast path used to be skipped on every charge, so a timed match (every match
+        // under Jint's default RegexTimeout) paid the slow path per unit of work - 30-50% of a scan. A charge that
+        // stays short of the next clock read decides nothing the slow path would decide differently.
+        if ((double.IsPositiveInfinity(_timeoutTicks) || WorkConsumed + units < _nextClockCheck) &&
+            !_cancellation.IsCancellationRequested && (ulong)units <= (ulong)(_maxWork - WorkConsumed))
         {
             WorkConsumed += units;
             failure = default;

@@ -1029,6 +1029,12 @@ public sealed partial class Options
         public ArrayConversionMode ArrayConversion { get; set { ThrowIfReadOnly(); field = value; } } = ArrayConversionMode.Copy;
 
         /// <summary>
+        /// How a CLR <see cref="System.Text.RegularExpressions.Regex"/> crossing into script becomes a <c>RegExp</c>,
+        /// defaults to <see cref="RegexConversionMode.DotNet"/>.
+        /// </summary>
+        public RegexConversionMode RegexConversion { get; set { ThrowIfReadOnly(); field = value; } } = RegexConversionMode.DotNet;
+
+        /// <summary>
         /// How a CLR sequence that is <em>only</em> an <see cref="System.Collections.Generic.IEnumerable{T}"/> — a LINQ
         /// iterator, a generator method's result, any lazily computed sequence with no <c>Count</c> and no indexer — is
         /// exposed to script code. Defaults to <see cref="Jint.EnumerableConversionMode.Lazy"/>, which changes nothing.
@@ -1890,6 +1896,29 @@ public enum ArrayConversionMode
     /// </para>
     /// </summary>
     LiveView,
+}
+
+/// <summary>
+/// How a CLR <see cref="System.Text.RegularExpressions.Regex"/> is exposed to script as a <c>RegExp</c>, see
+/// <see cref="Options.InteropOptions.RegexConversion"/>.
+/// </summary>
+public enum RegexConversionMode
+{
+    /// <summary>
+    /// The default. The <c>RegExp</c> keeps matching with the host's <see cref="System.Text.RegularExpressions.Regex"/>,
+    /// so its .NET syntax, options and match timeout apply exactly as in C#. Its <c>source</c> reads
+    /// <c>?[native regex]</c>, since the pattern is not ECMAScript.
+    /// </summary>
+    DotNet,
+
+    /// <summary>
+    /// The <c>RegExp</c> is compiled from the regex's pattern text as an ECMAScript pattern, with
+    /// <see cref="System.Text.RegularExpressions.RegexOptions.IgnoreCase"/>, <see cref="System.Text.RegularExpressions.RegexOptions.Multiline"/>
+    /// and <see cref="System.Text.RegularExpressions.RegexOptions.Singleline"/> becoming the <c>i</c>, <c>m</c> and
+    /// <c>s</c> flags, and then behaves like any other <c>RegExp</c>. A pattern or option that has no ECMAScript
+    /// meaning throws a <c>SyntaxError</c> at the crossing.
+    /// </summary>
+    EcmaScript,
 }
 
 /// <summary>
