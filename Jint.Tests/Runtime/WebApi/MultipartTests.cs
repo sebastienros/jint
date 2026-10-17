@@ -1,6 +1,8 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using Jint.Native;
 using Jint.Runtime;
@@ -25,6 +27,8 @@ namespace Jint.Tests.Runtime.WebApi;
 public class MultipartTests
 {
     private const string TypePrefix = "multipart/form-data; boundary=";
+
+    private const string ParseFailure = "TypeError: Failed to parse body as multipart/form-data";
 
     private static Engine WebEngine() => new(options => options.UseFetch());
 
@@ -63,6 +67,23 @@ public class MultipartTests
 
         return $"new Response('{escaped}', {{ headers: {{ 'content-type': 'multipart/form-data; boundary=b' }} }}).formData()";
     }
+
+    /// <summary>
+    /// The entries <c>formData()</c> reads out of <paramref name="body"/> (boundary <c>b</c>), one
+    /// <c>name=value</c> per entry and a file as <c>name=File(filename)</c>, joined by <c>|</c> — or the
+    /// rejection, as <c>TypeError: message</c>.
+    /// </summary>
+    private static string Entries(string body)
+    {
+        var engine = WebEngine();
+        return engine.Evaluate(ParseExpression(body) + @".then(
+                fd => [...fd].map(([k, v]) => k + '=' + (typeof v === 'string' ? v : 'File(' + v.name + ')')).join('|'),
+                e => e.constructor.name + ': ' + e.message)")
+            .UnwrapIfPromise().AsString();
+    }
+
+    /// <summary>A one-part body whose only header is a <c>Content-Disposition</c> of <paramref name="disposition"/>.</summary>
+    private static string Part(string disposition) => $"--b\r\nContent-Disposition: {disposition}\r\n\r\nx\r\n--b--\r\n";
 
     [Test]
     public void SerializesEveryEntryShapeExactly()
@@ -370,6 +391,214 @@ public class MultipartTests
             + "--b--\r\n") + ";");
 
         engine.Evaluate("parsed.then(fd => fd.get('a'))").UnwrapIfPromise().AsString().Should().Be("text --b more");
+    }
+
+    [Test]
+    public void ReadsWhatMultipartFormDataContentWrites([Values("Request", "Response")] string owner)
+    {
+        // .NET's own writer is the producer a host is likeliest to meet, and it spells Content-Disposition in
+        // ways the HTML writer never does: a name and a filename unquoted unless they need quoting, and an
+        // RFC 8187 filename* after every file name (sebastienros/jint#4269). The body is .NET's bytes, handed
+        // over as bytes, so the UTF-8 in a value is what reaches the parser.
+        var upload = new ByteArrayContent(Encoding.UTF8.GetBytes("日本"));
+        upload.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
+
+        using var content = new MultipartFormDataContent
+        {
+            { new StringContent("Grace"), "name" },
+            { new StringContent("Grüße, 世界"), "first name" },
+            { new ByteArrayContent("hello"u8.ToArray()), "file", "a.txt" },
+            { upload, "upload", "ファイル.txt" },
+        };
+
+        var contentType = content.Headers.ContentType!.ToString();
+        var body = SerializeContent(content);
+
+        // This is only a test of the issue while .NET still writes the shapes the issue is about, so say so.
+        // .NET quotes its random boundary, too.
+        contentType.Should().StartWith("multipart/form-data; boundary=\"");
+        var wire = Encoding.Latin1.GetString(body);
+        wire.Should().Contain("\r\nContent-Disposition: form-data; name=name\r\n");
+        wire.Should().Contain("\r\nContent-Disposition: form-data; name=\"first name\"\r\n");
+        wire.Should().Contain("\r\nContent-Disposition: form-data; name=file; filename=a.txt; filename*=utf-8''a.txt\r\n");
+        wire.Should().Contain("\r\nContent-Disposition: form-data; name=upload; filename=\"=?utf-8?B?44OV44Kh44Kk44OrLnR4dA==?=\"; filename*=utf-8''%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB.txt\r\n");
+
+        // .NET writes a non-ASCII file name twice: as an RFC 2047 encoded-word in filename, which nothing
+        // decodes, and as RFC 8187 in filename*. The decoded filename* names the File, as it does in Node.
+        ReadAll(owner, contentType, body).Should().Be(
+            "name=Grace"
+            + "|first name=Grüße, 世界"
+            + "|file=File(a.txt, text/plain, hello)"
+            + "|upload=File(ファイル.txt, text/csv, 日本)");
+    }
+
+    // The seven spellings sebastienros/jint#4269 tabulates, each with the answer Node (undici) gives.
+    [TestCase("form-data; name=\"name\"", "name=x")]
+    [TestCase("form-data; name=name", "name=x")]
+    [TestCase("form-data; name=\"file\"; filename=\"a.txt\"", "file=File(a.txt)")]
+    [TestCase("form-data; name=\"file\"; filename=a.txt", "file=File(a.txt)")]
+    [TestCase("form-data; name=\"file\"; filename=\"a.txt\"; filename*=utf-8''a.txt", "file=File(a.txt)")]
+    [TestCase("form-data; name=file; filename=a.txt", "file=File(a.txt)")]
+    [TestCase("form-data; name=file; filename=a.txt; filename*=utf-8''a.txt", "file=File(a.txt)")]
+    public void ReadsEveryContentDispositionSpellingTheIssueTabulates(string disposition, string expected)
+    {
+        Entries(Part(disposition)).Should().Be(expected);
+    }
+
+    // RFC 2183's disposition-type "values are not case-sensitive", and neither are RFC 2045's parameter names.
+    [TestCase("Form-Data; NAME=a; FileName=b", "a=File(b)")]
+    // RFC 9110's parameter separators: whitespace around ';' or none, and an empty parameter...
+    [TestCase("form-data;name=a", "a=x")]
+    [TestCase("form-data; name=a;", "a=x")]
+    [TestCase("form-data; ; name=a", "a=x")]
+    // ...and the RFC 822 whitespace a MIME header allows around '=', and at the end of the line.
+    [TestCase("form-data ; name = a ;\tfilename =\t\"b\" \t", "a=File(b)")]
+    // A repeated name or filename is last-wins, as undici, Chromium and Gecko resolve it.
+    [TestCase("form-data; name=a; name=b", "b=x")]
+    [TestCase("form-data; name=a; filename=x; filename=y", "a=File(y)")]
+    // Every other parameter is skipped, a quoted ';' inside one included.
+    [TestCase("form-data; name=a; foo=\"x;y\"; bar=baz", "a=x")]
+    // A token is taken literally...
+    [TestCase("form-data; name=%22a%22", "%22a%22=x")]
+    // ...while a quoted-string has the writer's escapes undone and keeps a backslash as a backslash.
+    [TestCase("form-data; name=\"%22a%22\"", "\"a\"=x")]
+    [TestCase("form-data; name=\"a\\b\"", "a\\b=x")]
+    [TestCase("form-data; name=\"a\\\"", "a\\=x")]
+    // An empty quoted-string is a value, as it always was.
+    [TestCase("form-data; name=\"\"; filename=\"\"", "=File()")]
+    public void ReadsContentDispositionAsItsRfcGrammar(string disposition, string expected)
+    {
+        Entries(Part(disposition)).Should().Be(expected);
+    }
+
+    // Each row is Node's (undici's) answer unless it says otherwise.
+    // A valid filename* names the File on its own, and wins over filename whichever comes first...
+    [TestCase("form-data; name=a; filename*=utf-8''b%20c", "a=File(b c)")]
+    [TestCase("form-data; name=a; filename*=utf-8''b%20c; filename=d", "a=File(b c)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''b%20c", "a=File(b c)")]
+    // ...even where both are ASCII and simply disagree.
+    [TestCase("form-data; name=a; filename=x.txt; filename*=utf-8''y.txt", "a=File(y.txt)")]
+    // The charset is matched case-insensitively, and so are the hexadecimal digits of an escape.
+    [TestCase("form-data; name=a; filename=d; filename*=UTF-8''%E3%83%95", "a=File(フ)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''%e3%83%95", "a=File(フ)")]
+    // A repeated filename* is last-wins among the valid ones, and an empty one is an empty name.
+    [TestCase("form-data; name=a; filename*=utf-8''b; filename*=utf-8''c", "a=File(c)")]
+    [TestCase("form-data; name=a; filename*=utf-8''", "a=File()")]
+    // FILENAME* is filename* (parameter names are case-insensitive).
+    [TestCase("form-data; name=a; FILENAME*=utf-8''b", "a=File(b)")]
+    // A filename* that is not a UTF-8 ext-value is as though it were absent, so filename stands — where Node
+    // rejects the whole body: another charset, ISO-8859-1 included...
+    [TestCase("form-data; name=a; filename=d; filename*=iso-8859-1''%E9", "a=File(d)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-16''e", "a=File(d)")]
+    // ...a bad or truncated escape, or bytes that are not UTF-8...
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''%zz", "a=File(d)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''%E", "a=File(d)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''%FF", "a=File(d)")]
+    // ...a quoted-string, which an ext-value never is...
+    [TestCase("form-data; name=a; filename=d; filename*=\"utf-8''b\"", "a=File(d)")]
+    // ...and an invalid one after a valid one, which leaves the valid one standing.
+    [TestCase("form-data; name=a; filename*=utf-8''b; filename*=utf-8''%zz", "a=File(b)")]
+    // With no filename to fall back on, an invalid filename* leaves a string entry rather than failing.
+    [TestCase("form-data; name=a; filename*=utf-8''%zz", "a=x")]
+    // Where undici reads past the grammar and Jint follows RFC 8187: Node answers "n'b" for a language tag,
+    // "" for a value missing its second quote or its whole language part, and "a*b" for a '*', which is no
+    // attr-char.
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8'en'b", "a=File(b)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8'b", "a=File(d)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8", "a=File(d)")]
+    [TestCase("form-data; name=a; filename=d; filename*=utf-8''a*b", "a=File(d)")]
+    // name* is decoded as undici decodes it, and takes its turn in last-wins beside name.
+    [TestCase("form-data; name=a; name*=utf-8''b", "b=x")]
+    [TestCase("form-data; name*=utf-8''b; name=a", "a=x")]
+    [TestCase("form-data; name*=utf-8''%E3%83%95", "フ=x")]
+    [TestCase("form-data; NAME*=utf-8''b", "b=x")]
+    // An invalid name* is as though it were absent, where Node rejects the body.
+    [TestCase("form-data; name=a; name*=iso-8859-1''b", "a=x")]
+    // filename* never supplies a name, so this still names no field.
+    [TestCase("form-data; filename*=utf-8''b", ParseFailure)]
+    // And an invalid name* is no name either.
+    [TestCase("form-data; name*=utf-8''%zz", ParseFailure)]
+    public void DecodesTheRfc8187ExtendedParameters(string disposition, string expected)
+    {
+        Entries(Part(disposition)).Should().Be(expected);
+    }
+
+    // Not form-data at all.
+    [TestCase("formdata; name=a")]
+    [TestCase("attachment; name=a")]
+    // No name: RFC 7578 section 4.2's header "MUST also contain an additional parameter of "name"".
+    [TestCase("form-data")]
+    [TestCase("form-data; filename=a")]
+    // A parameter with no '='.
+    [TestCase("form-data; name")]
+    [TestCase("form-data; name=a; foo")]
+    // An empty parameter name, or an empty token value.
+    [TestCase("form-data; =a; name=b")]
+    [TestCase("form-data; name=")]
+    [TestCase("form-data; name=; filename=a")]
+    // An unterminated quoted-string.
+    [TestCase("form-data; name=\"a")]
+    [TestCase("form-data; name=a; filename=\"b")]
+    // Anything between parameters that is not a ';' — a backslash escapes nothing, so `b"` is left over.
+    [TestCase("form-data name=a")]
+    [TestCase("form-data; name=a b")]
+    [TestCase("form-data; name=\"a\"b")]
+    [TestCase("form-data; name=a, filename=b")]
+    [TestCase("form-data; name=\"a\\\"b\"")]
+    // A byte outside ASCII is no token character, so this value is empty.
+    [TestCase("form-data; name=é")]
+    public void RejectsAContentDispositionOutsideItsGrammar(string disposition)
+    {
+        Entries(Part(disposition)).Should().Be(ParseFailure);
+    }
+
+    [Test]
+    public void ASecondContentDispositionDiscardsTheFirst()
+    {
+        // Rather than merging: the first header's filename does not survive the second, so the entry is a string.
+        Entries("--b\r\n"
+            + "Content-Disposition: form-data; name=a; filename=f\r\n"
+            + "Content-Disposition: form-data; name=b\r\n"
+            + "\r\n"
+            + "x\r\n"
+            + "--b--\r\n").Should().Be("b=x");
+
+        // And a second one that names no field fails, though the first named one.
+        Entries("--b\r\n"
+            + "Content-Disposition: form-data; name=a\r\n"
+            + "Content-Disposition: form-data; filename=f\r\n"
+            + "\r\n"
+            + "x\r\n"
+            + "--b--\r\n").Should().Be(ParseFailure);
+    }
+
+    /// <summary>
+    /// What <c>formData()</c> reads out of <paramref name="body"/> under <paramref name="contentType"/>,
+    /// through a <c>Request</c> or a <c>Response</c> as <paramref name="owner"/> says: one <c>name=value</c>
+    /// per entry, a file as <c>name=File(filename, type, text)</c>, joined by <c>|</c>.
+    /// </summary>
+    private static string ReadAll(string owner, string contentType, byte[] body)
+    {
+        var engine = WebEngine();
+        engine.SetValue("contentType", contentType);
+        engine.SetValue("body", engine.Realm.Intrinsics.Uint8Array.Construct(body));
+
+        var source = owner == "Request"
+            ? "new Request('https://example.org/', { method: 'POST', headers: { 'content-type': contentType }, body })"
+            : "new Response(body, { headers: { 'content-type': contentType } })";
+
+        return engine.Evaluate(source + @".formData()
+                .then(fd => Promise.all([...fd].map(async ([k, v]) =>
+                    k + '=' + (typeof v === 'string' ? v : 'File(' + v.name + ', ' + v.type + ', ' + await v.text() + ')'))))
+                .then(entries => entries.join('|'), e => e.constructor.name + ': ' + e.message)")
+            .UnwrapIfPromise().AsString();
+    }
+
+    private static byte[] SerializeContent(HttpContent content)
+    {
+        using var stream = new MemoryStream();
+        content.CopyTo(stream, context: null, CancellationToken.None);
+        return stream.ToArray();
     }
 
     // A preamble before the first delimiter.
