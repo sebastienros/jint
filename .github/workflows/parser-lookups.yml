@@ -34,6 +34,9 @@ jobs:
     - name: Verify pinned html5lib tree corpus
       run: python3 tools/sync_html5lib_corpus.py --check
 
+    - name: Verify vendored GregsEx sources
+      run: python3 tools/sync_gregsex.py
+
     - name: Restore pinned W3C XML archive
       uses: actions/cache@v6
       with:

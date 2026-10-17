@@ -6295,6 +6295,40 @@ Not changed: `gregory` and `iso8601`, the Chinese and Dangi calendars' lane, and
 is written in its Gregorian year with the Gregorian era where ICU writes one of the 232 earlier eras (`1850 AD` for
 `Kaei 3`). Hebrew dates in `he` and `yi`, which CLDR writes in Hebrew numerals, are written in the formatter's digits.
 
+### 4.155 Every regular expression runs on one ECMAScript engine
+
+Jint used to run a regular expression on one of two engines. Most patterns were translated to a .NET `Regex` by
+Acornima and matched by .NET. Patterns .NET could not match faithfully (`u`/`v`, forward references, some
+case-insensitive and quantified-group shapes) went to a port of QuickJS's libregexp. Both are gone. Every pattern
+written in script now runs on Jint's copy of the [GregsEx](https://github.com/sebastienros/gregsex) ECMAScript
+engine, and the same pattern answers the same way whatever its shape. test262 is unchanged at 0 failures; the
+record of the migration, including what it found in both engines, is
+[`docs/design/regexp-gregsex-migration.md`](../design/regexp-gregsex-migration.md).
+
+**What could break:**
+
+- **A `RegExp` written in script reaches the host as the `JsRegExp`, not as a `Regex`.** `ToObject()` (and every
+  conversion built on it) used to hand back the adapted .NET `Regex`, which for a `u`/`v` pattern was a placeholder
+  matching nothing. Read `JsRegExp.Source` and `JsRegExp.Flags` instead. A `Regex` the host supplied still
+  round-trips as itself.
+- **A host `Regex` still matches with .NET semantics by default**, exactly as before. To have it read as an
+  ECMAScript pattern instead, set `options.Interop.RegexConversion = RegexConversionMode.EcmaScript`
+  ([5.42](#5-42-a-host-regex-can-be-read-as-ecmascript)).
+- **A pattern that backtracked catastrophically on .NET may not on this engine**, and the reverse. A test that
+  relied on `^(a+)+$` to provoke a `RegexMatchTimeoutException` now finishes at once. `^(?:a|a)*b` against a long run
+  of `a` followed by `!b` is exponential for any backtracking matcher. The timeout still applies to every match,
+  through the same `Constraints.RegexTimeout` and parsing-options `RegexTimeout`.
+- **A replacer function sees `undefined` for a group that did not participate**, where the generic path used to
+  pass `""` (`'x'.replace(/x(.)?/g, (m, g) => g)`); the specification requires `undefined`.
+
+```csharp
+var engine = new Engine();
+
+// 4.16.x: System.Text.RegularExpressions.Regex; 5.x: Jint.Native.JsRegExp
+var value = engine.Evaluate("/a(?<x>b)/gi").ToObject();
+var regExp = (JsRegExp) value;   // regExp.Source == "a(?<x>b)", regExp.Flags == "gi"
+```
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -7632,6 +7666,22 @@ credential partitioning, lifecycle and disk failure behavior.
 for `serve`, `fetch`, `eval` and `mcp`. `BrowserOptions.ConfigureContext` configures every context, including
 protocol-created contexts; callbacks run on the creating caller's thread after supplied options.
 `BrowserAgentOptions.HttpCache` configures the MCP session's context.
+
+### 5.42 A host `Regex` can be read as ECMAScript
+
+`Options.Interop.RegexConversion` says what a CLR `System.Text.RegularExpressions.Regex` becomes when it crosses
+into script. `RegexConversionMode.DotNet`, the default, keeps today's behaviour: the `RegExp` matches with the
+host's `Regex`, its .NET syntax and its own `MatchTimeout`, and its `source` reads `?[native regex]`.
+`RegexConversionMode.EcmaScript` compiles the regex's pattern text as an ECMAScript pattern instead, with
+`IgnoreCase`, `Multiline` and `Singleline` becoming `i`, `m` and `s`; from then on it is an ordinary `RegExp`. A pattern
+or option with no ECMAScript meaning (`(?i)…`, `ExplicitCapture`, `RightToLeft`, …) throws a `SyntaxError` at the
+crossing rather than matching differently.
+
+```csharp
+var engine = new Engine(options => options.Interop.RegexConversion = RegexConversionMode.EcmaScript);
+engine.SetValue("r", new Regex("^a.c$", RegexOptions.IgnoreCase | RegexOptions.Singleline));
+engine.Evaluate("r.flags");   // "is"
+```
 
 ## 6. AOT and trimming
 

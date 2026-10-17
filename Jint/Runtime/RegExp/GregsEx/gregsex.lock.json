@@ -1,0 +1,29 @@
+{
+  "repository": "sebastienros/gregsex",
+  "revision": "a12c3ce845decf80c3818052cbf8759ebef17307",
+  "files": {
+    "Contracts/Budgets.cs": "825f53a51587a2a7750cc6360dcd3239f4590c3735a674107e8e4ac9716f00ab",
+    "Contracts/EcmaScript/EcmaCaseTables.cs": "874c868ce97e6bec3c6b79001536195cda336b1fc3aa17619e3f13f17cc9d746",
+    "Contracts/EcmaScript/EcmaProgram.cs": "f6186e519cd00ca749f6782f9db6f016c467628b2084d16f9a69dc108eb8172f",
+    "Contracts/EcmaScript/LaneContracts.cs": "81c76464a6758ca589ab358cb99cbc7b272e955160da805f255db707176f4690",
+    "Contracts/LaneContracts.cs": "2d3b2da70423f4bbf1ba2b02fa465c46b43864427ff37f21901df9108039628a",
+    "Execution/Backtracking/EcmaAccelerator.cs": "52c49f08903233c3334875230fba690598cfdd88fc1ca3cdd02b84cfdd9465d0",
+    "Execution/Backtracking/EcmaExecutor.cs": "1b05ae6f9d01ce5cf7ddf0d9d33ca0da58dfc31ddfe165103cdef03f470cafe0",
+    "Execution/Backtracking/EcmaExecutorFactory.cs": "86055c9c2f2a9ba8691fe2b887485dfae6301768f3fdf7d3ab15aa051dadd957",
+    "Flavors/EcmaScript/Parsing/EcmaCompiler.cs": "af786ccfac47981cbff875b682c97c126b419417a1a806facc85162fa5453eeb",
+    "Flavors/EcmaScript/Parsing/EscapesAndClasses.cs": "049a87e8eb38b9315e73bdfb7d23a117dda3aab79976d67e274d9f682e13b5f1",
+    "Flavors/EcmaScript/Parsing/ParserStorage.cs": "75288b766786117ae0010c4897c25ecc902869161acd0218a86b71c18c7724d7",
+    "Flavors/EcmaScript/Parsing/ResolvedSet.cs": "ac2358773c8e6d8b0f4271abc1d7f21d8be68843b327635de114da0df1b8a3d8",
+    "Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs": "a9b28f1a3dd9c8ca28e71ba386cf81f3082df8a2def8e516f21721b27a5528e8",
+    "Flavors/EcmaScript/Unicode/GeneratedUnicode17Tables.cs": "1b648393b8672799d3bfaf4fe69c8e92d098446e099f3bba903e293a9f2f6cec",
+    "Flavors/EcmaScript/Unicode/Unicode-LICENSE.txt": "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96",
+    "GregsEx-LICENSE.txt": "b65577f60d9a79a72eb1875c9fda56064c722d1a1555b6444ee54c6efb4cee12",
+    "Public/EcmaScript/EcmaScriptProfile.cs": "d8feccb80e1ce910623b5d3a33f2201a2d35e8cf7c11cb6e3c7adf75d98c296a",
+    "Public/EcmaScript/EcmaScriptTypes.cs": "a21bd5fccca6ebc218b1246fd2d3fe0b257fc8f818eab6d9b592769012e755e1",
+    "Public/RegexOptions.cs": "f80aab24fc5831bc32299503fce41dadc882485254ff3b70b06adea567961a2c",
+    "Public/RegexProfile.cs": "3263f56c527055e96fdb2ba747af417fdfdc9b0959f4f2f343112ff155a3ab99",
+    "Public/RegexTypes.cs": "4ee2a9f4c45fa9afb86fdb3b8ee25afdfcb17591f090b1fe70c7bfeae82b1b48",
+    "Public/UnicodeVersion.cs": "e092aedd9afd8eb2133065b81ffa469f182131eed596f387d7cf4472cbcae55b",
+    "Text/ValueStringBuilder.cs": "e43f57660455d5b0a9a0f9f92ef208c62bbd0b629d62a66cc0cd759266681112"
+  }
+}

@@ -1,0 +1,108 @@
+# Keeps Jint/Runtime/RegExp/GregsEx in step with GregsEx's main branch.
+#
+# tools/sync_gregsex.py --update is a no-op when the lock already names upstream's head, so most runs end at the
+# first step. When upstream moved, the job re-vendors (upstream files, the mechanical transforms, then
+# tools/gregsex-sync/jint.patch), builds every target framework, runs the regex tests and opens - or refreshes - one
+# pull request from the `gregsex-sync` branch. A patch that no longer applies fails the run instead: that is a
+# conflict for a person to resolve (Jint/Runtime/RegExp/GregsEx/README.md says how).
+#
+# A pull request opened with GITHUB_TOKEN does not trigger pr.yml, which is why this job builds and tests before it
+# opens one; the full gate runs once someone pushes to the branch or re-runs the checks.
+name: GregsEx sync
+
+on:
+  schedule:
+    # Mondays 05:41 UTC, off the hour.
+    - cron: '41 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'GregsEx commit or ref to sync to'
+        type: string
+        default: 'main'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: gregsex-sync
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  SYNC_BRANCH: gregsex-sync
+
+jobs:
+  sync:
+    name: Sync vendored GregsEx
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Setup Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+
+    - name: Sync to upstream
+      id: sync
+      env:
+        REVISION: ${{ inputs.revision || 'main' }}
+      run: |
+        python3 tools/sync_gregsex.py --update --revision "$REVISION"
+        if git diff --quiet && [ -z "$(git status --porcelain)" ]; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "revision=$(python3 -c "import json; print(json.load(open('Jint/Runtime/RegExp/GregsEx/gregsex.lock.json'))['revision'])")" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Setup NET
+      if: steps.sync.outputs.changed == 'true'
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0
+
+    - name: Cache Test262 generated suite
+      if: steps.sync.outputs.changed == 'true'
+      uses: actions/cache@v6
+      with:
+        path: Jint.Tests.Test262/Generated
+        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json', 'Jint.Tests.Test262/.config/dotnet-tools.json') }}
+        enableCrossOsArchive: true
+
+    # Every target framework, so a downlevel API the new upstream code reaches for fails here.
+    - name: Build
+      if: steps.sync.outputs.changed == 'true'
+      run: dotnet build Jint/Jint.csproj -c Release
+
+    - name: Test regular expressions
+      if: steps.sync.outputs.changed == 'true'
+      run: |
+        dotnet test --project Jint.Tests/Jint.Tests.csproj -c Release -f net10.0 --filter "FullyQualifiedName~RegExp"
+        dotnet test --project Jint.Tests.Test262/Jint.Tests.Test262.csproj -c Release -f net10.0 --filter "FullyQualifiedName~RegExp"
+
+    - name: Open or refresh the pull request
+      if: steps.sync.outputs.changed == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REVISION: ${{ steps.sync.outputs.revision }}
+      run: |
+        short="${REVISION:0:12}"
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git switch -C "$SYNC_BRANCH"
+        git add -A Jint/Runtime/RegExp/GregsEx
+        git commit -m "Sync vendored GregsEx to $short"
+        git push --force origin "$SYNC_BRANCH"
+        body="Re-vendors \`Jint/Runtime/RegExp/GregsEx\` at [sebastienros/gregsex@$short](https://github.com/sebastienros/gregsex/commit/$REVISION) with \`tools/sync_gregsex.py --update\`. The Jint build and the RegExp tests (Jint.Tests, test262) passed in the sync run; push to the branch or re-run the checks for the full gate."
+        if gh pr view "$SYNC_BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
+          gh pr edit "$SYNC_BRANCH" --title "Sync vendored GregsEx to $short" --body "$body"
+        else
+          gh pr create --base main --head "$SYNC_BRANCH" --title "Sync vendored GregsEx to $short" --body "$body"
+        fi

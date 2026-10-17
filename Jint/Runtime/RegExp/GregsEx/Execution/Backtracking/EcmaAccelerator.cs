@@ -18,7 +18,7 @@ internal sealed class EcmaFastSet
     internal readonly bool BmpBitsIsExact;
     internal readonly SearchValues<char>? SearchValues;
     internal readonly bool IsNegatedSearchValues;
-    // Jint: for a Unicode-aware class holding every surrogate and astral code point (/./u, /[^"]/u), the BMP code
+    // For a Unicode-aware class holding every surrogate and astral code point (/./u, /[^"]/u), the BMP code
     // units that end a run of it. Such a class matches a pair or a lone surrogate alike, so a run is a span of code
     // units up to the first of these, and is measured vectorized where the inexact bitmap scanned unit by unit.
     internal readonly SearchValues<char>? UnicodeRunStops;
@@ -493,14 +493,14 @@ internal sealed class EcmaAccelerator
     internal readonly string? PrefixLiteral;
     internal readonly EcmaFastSet? FirstSet;
     internal readonly bool StartAnchoredNonMultiline;
-    // Jint: a superset of the characters that can start a match whose first atom is case-insensitive (or a class
-    // without an exact bitmap), which neither PrefixLiteral nor FirstSet covers - /ZZQ/i scanned 65 KiB by starting
-    // the VM at every position.
+    // A superset of the characters that can start a match whose first atom is case-insensitive, or that begins with
+    // nullable atoms, which neither PrefixLiteral nor FirstSet covers: without it /ZZQ/i over 64 KiB started the VM
+    // at every position.
     internal readonly SearchValues<char>? FirstChars;
 #if NET9_0_OR_GREATER
     private SearchValues<string>? _literalSearchValues;
 
-    // Jint: the leading fixed strings of every branch (literals and small classes expanded), a superset prefilter for
+    // The leading fixed strings of every branch (literals and small classes expanded), a superset prefilter for
     // an alternation or a case-insensitive literal run, which FirstChars leaves at nearly every position over a small
     // alphabet: /agggtaaa|tttaccct/i over DNA, /aaaaaaaaaa/i over text.
     internal readonly SearchValues<string>? FirstStrings;
@@ -516,7 +516,7 @@ internal sealed class EcmaAccelerator
         var hasAmbiguousRepeat = new bool[nodes.Length];
 
         var hasBackref = false;
-        // Jint: a lone surrogate literal in a Unicode-aware pattern matches a lone surrogate code point only,
+        // A lone surrogate literal in a Unicode-aware pattern matches a lone surrogate code point only,
         // but the plans below assemble literals into UTF-16 strings, where an escaped lead followed by a raw
         // trail (/\uD83D\uDC38/u spelled with one escape) reads as a valid pair and matches U+1F438.
         var loneSurrogateLiteral = false;
@@ -1542,7 +1542,7 @@ internal sealed class EcmaAccelerator
             totalMinWide += parsed[i].Min;
         }
 
-        // Jint: the offsets below are int sums of step minimums; /.{2147483647}11/ wrapped them negative and
+        // The offsets below are int sums of step minimums; /.{2147483647}11/ wrapped them negative and
         // the scan sliced past the input. No subject can satisfy such a length, so leave it to the VM.
         if (totalMinWide > int.MaxValue / 2)
         {
@@ -2316,9 +2316,9 @@ internal sealed class EcmaAccelerator
 
         while (searchPos <= maxStartPos)
         {
+            // A single-string SearchValues picks rarer anchor characters than IndexOf(string)'s first/last pair, which
+            // is what .NET Regex searches with; IndexOf(string) took twice as long over common-letter text.
 #if NET9_0_OR_GREATER
-            // Jint: a single-string SearchValues picks rarer anchor characters than IndexOf(string)'s first/last pair,
-            // which is what .NET Regex searches with; IndexOf(string) took twice as long over common-letter text.
             var rel = litLen == 0 ? 0 : litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0])
                 : input.Slice(searchPos).IndexOfAny(_literalSearchValues ??= SearchValues.Create([_literal], StringComparison.Ordinal));
 #else

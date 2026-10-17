@@ -14,10 +14,10 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     private readonly int _taskSlots;
     private readonly int _registerSlots;
     private readonly EcmaAccelerator _accelerator;
-    // Jint: per node, whether it is a greedy repeat of a single-character atom (see Machine.GreedyRun).
+    // Per node, whether it is a greedy repeat of a single-character atom (see Machine.GreedyRun).
     private readonly bool[] _greedyRun;
     internal const int TaskWidth = 6;
-    // Jint: a fourth slot holds a greedy run's lower bound (ChoiceKind.GreedyRun).
+    // A fourth slot holds a greedy run's lower bound (ChoiceKind.GreedyRun).
     internal const int ChoiceWidth = 4;
     public EcmaProgram Program { get; }
 
@@ -138,9 +138,9 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             }
         }
 
-        // Jint: the plans read frames only to refuse work the VM could not have done within its reservation, a
-        // memory-bound policy JavaScript does not have. Passing the real count made /a.*a/ over a 64 KiB subject fail
-        // capacity, and the host grow the reservation and rerun the whole search five times before it fitted.
+        // The plans read frames only to refuse a run the VM could not have backtracked within its reservation. Since
+        // the VM keeps a greedy single-character run in one counted choice (Machine.GreedyRun), the frame count no longer
+        // bounds such a run, and refusing it made /a.*a/ over 64 KiB fail capacity in any reservation shorter than the run.
         if (_accelerator.TrySearch(input, startAt, sticky, operation, int.MaxValue, ref state, groups, out match, out var fastStatus))
         {
             return fastStatus;
@@ -215,7 +215,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
 #if NET9_0_OR_GREATER
                 else if (_accelerator.FirstStrings is { } firstStrings)
                 {
-                    // Jint: see EcmaAccelerator.FirstStrings.
+                    // See EcmaAccelerator.FirstStrings.
                     var rel = input.Slice(candidate).IndexOfAny(firstStrings);
                     if (rel < 0)
                     {
@@ -239,7 +239,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
 #endif
                 else if (_accelerator.FirstChars is { } firstChars)
                 {
-                    // Jint: see EcmaAccelerator.FirstChars. A hit on the trail half of a surrogate pair is not a
+                    // See EcmaAccelerator.FirstChars. A hit on the trail half of a surrogate pair is not a
                     // candidate under u/v, where the pair is one code point and matching never starts inside it.
                     var rel = input.Slice(candidate).IndexOfAny(firstChars);
                     while (rel > 0 && Program.Profile.IsUnicodeAware && char.IsLowSurrogate(input[candidate + rel]) &&
@@ -666,7 +666,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             }
         }
 
-        // Jint: a greedy repeat of a single-character atom (/.*/, /[^"]*/, /a+/ once past its minimum) consumes
+        // A greedy repeat of a single-character atom (/.*/, /[^"]*/, /a+/ once past its minimum) consumes
         // its whole run in one loop and saves ONE choice that gives the run back a character at a time, where the
         // generic path saved a choice - and a copy of the task stack and registers - per character. Equivalent,
         // because every one of those choices held the same task stack and the same registers: the atom captures

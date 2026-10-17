@@ -1,49 +1,73 @@
-# GregsEx ECMAScript engine (copied sources)
+# GregsEx ECMAScript engine (vendored sources)
 
 The files under this directory are the ECMAScript flavor of
-[GregsEx](https://github.com/sebastienros/gregsex), copied from commit
-`d989dd8455b0b7e591d48f04d149c8c2f0a9eaea` under its MIT license (`GregsEx-LICENSE.txt`). The Unicode
-tables are generated from Unicode 17.0.0 data under the Unicode License V3
+[GregsEx](https://github.com/sebastienros/gregsex) under its MIT license (`GregsEx-LICENSE.txt`), at the revision
+`gregsex.lock.json` names. The Unicode tables are generated from Unicode 17.0.0 data under the Unicode License V3
 (`Flavors/EcmaScript/Unicode/Unicode-LICENSE.txt`).
 
 Jint consumes them through `Jint/Runtime/RegExp/JintRegExpEngine.cs` and nothing else. The GregsEx package
 is not referenced because it ships `net10.0` only and its public surface stops above what a JavaScript
 engine needs (group names before a match, the executor below the `lastIndex` session); the rest of GregsEx —
-the other flavors, the runtime compiler, the source generator — is not copied.
+the other flavors, the runtime compiler, the source generator — is not vendored.
 
-## Keeping it syncable
+## Do not edit these files by hand
 
-The folder layout mirrors `src/GregsEx/`, so a sync is a `diff -r` against the upstream tree. Every
-divergence is one of the mechanical edits below, or is marked with a `// Jint:` comment at the site.
+They are produced by `tools/sync_gregsex.py`, and `gregsex.lock.json` records the SHA-256 of every one of them. CI
+runs the check (`parser-lookups.yml`), so a hand edit fails the build rather than being lost at the next sync:
 
-Mechanical, applied to every file:
+```bash
+python3 tools/sync_gregsex.py                         # verify against the lock, offline
+python3 tools/sync_gregsex.py --update                # sync to GregsEx main; a no-op when the lock is current
+python3 tools/sync_gregsex.py --update --revision <sha>
+```
+
+A sync is the pinned upstream files, the mechanical transforms below, then `tools/gregsex-sync/jint.patch`.
+`.github/workflows/gregsex-sync.yml` runs `--update` every Monday and, when upstream moved, builds, runs the regex
+tests and opens a pull request from the `gregsex-sync` branch.
+
+**A fix to the matcher belongs upstream.** Make it in GregsEx, then sync. Change the patch only for what stays
+Jint's own (the list below).
+
+### Changing or rebasing the patch
+
+When the patch no longer applies to a new upstream revision, or a Jint-only edit is needed:
+
+```bash
+python3 tools/sync_gregsex.py --no-patch --revision <sha>   # upstream + transforms only
+git add Jint/Runtime/RegExp/GregsEx                         # stage that as the base
+# re-apply the Jint edits (git apply --3way tools/gregsex-sync/jint.patch, then resolve), or make new ones
+git diff -- Jint/Runtime/RegExp/GregsEx > tools/gregsex-sync/jint.patch
+python3 tools/sync_gregsex.py --update --revision <sha>     # rewrite the files and the lock from the patch
+python3 tools/sync_gregsex.py
+```
+
+`--update` skips a revision the lock already names, so delete `gregsex.lock.json` before the last `--update` when
+the revision did not change.
+
+## What differs from upstream
+
+Mechanical, applied by the tool to every C# file:
 
 - `namespace GregsEx…` → `namespace Jint.Runtime.RegExp.GregsEx…` (and the matching `using`s);
 - top-level `public` types → `internal`;
 - `#nullable enable` at the top, because `.editorconfig` marks the folder `generated_code` to keep Jint's
-  style analyzers off it, and generated code is otherwise outside the nullable context.
+  style analyzers off it, and generated code is otherwise outside the nullable context;
+- `using System.Threading;` where the file names a type from it, since Jint's implicit usings do not import it.
 
-Structural:
+In `jint.patch`, every one of them structural or a downlevel port; the behavioural fixes found by this migration
+are upstream since [sebastienros/gregsex#2](https://github.com/sebastienros/gregsex/pull/2):
 
-- `Contracts/LaneContracts.cs` keeps only `SearchOperation`, `WorkspaceBuffers` and `RunState`; the
-  RegularCore descriptor, the `static abstract` text-reader interfaces and the PCRE2 pair buffer are gone.
-- `IR/SemanticProgram.cs` is reduced to `IR/SourceRange.cs`.
-- `Flavors/EcmaScript/Unicode` carries only the Unicode 17.0 tables (the version the pinned test262
-  asserts); `EcmaUnicodeData` refuses any other version.
-- `EcmaAccelerator` keeps its .NET 9 `SearchValues<string>` lane under `#if NET9_0_OR_GREATER` and scans the
-  branch strings downlevel. Other downlevel gaps (`ThrowIfNull`, `ThrowIfNegative[OrZero]`, generic
-  `Enum.IsDefined`, `span.Contains(char)`, `IndexOfAny(SearchValues<char>)`) are polyfilled in
-  `Jint/Extensions/Polyfills.cs`, not here.
+- `Contracts/LaneContracts.cs` keeps only `SearchOperation`, `WorkspaceBuffers` and `RunState` (with an
+  absolute-deadline overload); the RegularCore descriptor, the `static abstract` text-reader interfaces and the
+  PCRE2 pair buffer are gone, which is what lets it compile for `netstandard2.0` and `net472`.
+- `Flavors/EcmaScript/Unicode` carries only the Unicode 17.0 tables (the version the pinned test262 asserts);
+  `EcmaUnicodeData` refuses any other version and `EcmaScriptProfile` defaults to 17.0.
+- `EcmaAccelerator` and `EcmaExecutor` keep their `SearchValues<string>` lanes (the literal plan, literal
+  alternations and the `FirstStrings` prefilter) under `#if NET9_0_OR_GREATER`; downlevel, the literal plans scan
+  with `IndexOf` and the `FirstStrings` prefilter is not built.
+- `ValueStringBuilder` guards the APIs `net472` lacks.
 
-Behavioural (each also a candidate upstream fix; see `docs/design/regexp-gregsex-migration.md`):
-
-- `EcmaCompiler` clamps quantifier bounds above `int.MaxValue` instead of failing `ProgramLimitExceeded`.
-- `EcmaAccelerator` skips its literal plans for a Unicode-aware pattern holding a lone surrogate literal.
-- `EcmaAccelerator` declines the atomic-sequence plan when its minimum length would overflow.
-- `EcmaAccelerator` builds `FirstChars`, a FIRST-set prefilter for a case-insensitive first atom or a nullable prefix
-  (with inverted case-folding tables), and the literal plan searches with `SearchValues<string>` on .NET 9+.
-- `EcmaExecutor` runs a greedy single-character repeat as one counted choice (`ChoiceKind.GreedyRun`, which is why
-  `ChoiceWidth` is 4), passes the accelerated plans an unbounded frame count, and never starts a `FirstChars`
-  candidate inside a surrogate pair under u/v.
-- `RunBudget` takes the fast charge path until its next scheduled clock read when a timeout is set, and has an
-  absolute-deadline constructor that reads no clock (`RunState` gains the matching overload).
+Jint-owned files the tool never touches: `.editorconfig`, this `README.md`, `gregsex.lock.json` and
+`IR/SourceRange.cs` (the one type of upstream's `IR/SemanticProgram.cs` the flavor needs). Other downlevel gaps
+(`ThrowIfNull`, `ThrowIfNegative[OrZero]`, generic `Enum.IsDefined`, `span.Contains(char)`,
+`IndexOfAny(SearchValues<char>)`) are polyfilled in `Jint/Extensions/Polyfills.cs`, not here.
