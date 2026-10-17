@@ -587,8 +587,16 @@ public class PuppeteerSharpPageTests
         (await page.EvaluateExpressionAsync<string>("document.cookie").WaitAsync(Bound)).Should().Contain("seen=yes");
 
         await page.SetOfflineModeAsync(true).WaitAsync(Bound);
+        (await page.EvaluateExpressionAsync<bool>("navigator.onLine").WaitAsync(Bound)).Should().BeFalse();
         var offline = async () => await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound);
         await offline.Should().ThrowAsync<Exception>("a page that believes it is offline cannot navigate");
+
+        // And back on again, through the same client call.
+        await page.SetOfflineModeAsync(false).WaitAsync(Bound);
+        var online = await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound);
+        online.Should().NotBeNull();
+        online!.Ok.Should().BeTrue();
+        (await page.EvaluateExpressionAsync<bool>("navigator.onLine").WaitAsync(Bound)).Should().BeTrue();
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();

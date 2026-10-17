@@ -462,6 +462,197 @@ public class NetworkDomainTests
     }
 
     /// <summary>
+    /// <c>Network.overrideNetworkState</c> is what <c>navigator.onLine</c> answers, and it fails no request —
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-overrideNetworkState.
+    /// </summary>
+    /// <remarks>
+    /// Chrome splits what <c>emulateNetworkConditions</c> did in two, and PuppeteerSharp 25.14 sends both halves:
+    /// this command is what the page <i>believes</i>, and <c>emulateNetworkConditionsByRule</c> is what the
+    /// transport does. Each change fires HTML's <c>offline</c> or <c>online</c> event at the window, once per
+    /// change rather than once per command.
+    /// </remarks>
+    [Test]
+    public async Task OverridingTheNetworkStateIsWhatTheNavigatorAnswersAndFailsNoRequest()
+    {
+        using var server = new LoopbackServer();
+        await using var fixture = await OpenOfflineFixtureAsync(server);
+
+        (await OnLineAsync(fixture)).Should().BeTrue();
+
+        await fixture.Session.ResultAsync("Network.overrideNetworkState", NetworkState(offline: true), fixture.Attachment);
+        await fixture.Session.ResultAsync("Network.overrideNetworkState", NetworkState(offline: true), fixture.Attachment);
+
+        (await OnLineAsync(fixture)).Should().BeFalse();
+        (await FetchAsync(fixture)).Should().Be("went", "the navigator's state is not the transport's");
+
+        // Turning it back off is the same command.
+        await fixture.Session.ResultAsync("Network.overrideNetworkState", NetworkState(offline: false), fixture.Attachment);
+
+        (await OnLineAsync(fixture)).Should().BeTrue();
+        (await fixture.Page.EvaluateAsync<string>("heard.join()")).Should().Be("offline,online");
+    }
+
+    /// <summary>
+    /// <c>Network.emulateNetworkConditionsByRule</c> with a global entry — an empty <c>urlPattern</c> — fails
+    /// every request as offline, and an empty list lifts it —
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-emulateNetworkConditionsByRule.
+    /// </summary>
+    [Test]
+    public async Task AGlobalRuleFailsEveryRequestAndAnEmptyListLiftsIt()
+    {
+        using var server = new LoopbackServer();
+        await using var fixture = await OpenOfflineFixtureAsync(server);
+
+        var result = await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule", Rules(Rule(offline: true), Rule(offline: false)), fixture.Attachment);
+
+        var ruleIds = result.GetProperty("ruleIds").EnumerateArray().Select(id => id.GetString()).ToArray();
+        ruleIds.Should().HaveCount(2, "there is one identifier per entry").And.OnlyHaveUniqueItems();
+
+        // The first entry that matches wins, and both match: offline.
+        (await FetchAsync(fixture)).Should().Be("refused");
+        var failed = await fixture.EventAsync("Network.loadingFailed");
+        failed.GetProperty("errorText").GetString().Should().Be("net::ERR_INTERNET_DISCONNECTED");
+        server.Received.Should().NotContain(request => request.Path == "/data", "offline means no socket is opened at all");
+
+        (await OnLineAsync(fixture)).Should().BeTrue("a rule shapes the transport and leaves the navigator alone");
+
+        // The same two entries the other way round: the first one is online, so nothing is refused.
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule", Rules(Rule(offline: false), Rule(offline: true)), fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("went");
+
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule", Rules(Rule(offline: true)), fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("refused");
+
+        // Turning it back off: a list with no entries is a transport with no conditions.
+        (await fixture.Session.ResultAsync("Network.emulateNetworkConditionsByRule", Rules(), fixture.Attachment))
+            .GetProperty("ruleIds").GetArrayLength().Should().Be(0);
+        (await FetchAsync(fixture)).Should().Be("went");
+    }
+
+    /// <summary>
+    /// The deprecated top-level <c>offline</c> of <c>emulateNetworkConditionsByRule</c> is read the way Chrome
+    /// reads it: it overrides every entry's own, and with no entries there is nothing for it to apply to.
+    /// </summary>
+    [Test]
+    public async Task TheDeprecatedTopLevelOfflineOverridesEveryEntry()
+    {
+        using var server = new LoopbackServer();
+        await using var fixture = await OpenOfflineFixtureAsync(server);
+
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule",
+            $$"""{"offline":true,"matchedNetworkConditions":[{{Rule(offline: false)}}]}""",
+            fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("refused");
+
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule",
+            """{"offline":true,"matchedNetworkConditions":[]}""",
+            fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("went", "Chrome matches requests against entries, and there are none");
+    }
+
+    /// <summary>
+    /// An entry scoped to a URL pattern is refused with a reason, never accepted and then applied to every
+    /// request or to none.
+    /// </summary>
+    [Test]
+    public async Task AUrlScopedRuleIsRefusedRatherThanIgnored()
+    {
+        using var server = new LoopbackServer();
+        await using var fixture = await OpenOfflineFixtureAsync(server);
+
+        var error = await fixture.Session.ErrorAsync(
+            "Network.emulateNetworkConditionsByRule",
+            Rules(Rule(offline: true, urlPattern: server.Url("/data"))),
+            fixture.Attachment);
+
+        error.GetProperty("code").GetInt32().Should().Be(-32000);
+        error.GetProperty("message").GetString().Should().Contain("urlPattern");
+        (await FetchAsync(fixture)).Should().Be("went", "a refused command changes nothing");
+    }
+
+    /// <summary>
+    /// The deprecated <c>emulateNetworkConditions</c> and the pair that replaced it write the same two states,
+    /// so whichever form a client clears through, nothing stays set through the other — Chrome's arrangement.
+    /// </summary>
+    /// <remarks>
+    /// In Chrome the old command is both halves at once: one global rule for the transport, and the navigator
+    /// override. Each command replaces what it writes rather than merging into it, so the last writer of each
+    /// half wins — which is also why clearing through only one half of the pair leaves the other half set.
+    /// </remarks>
+    [Test]
+    public async Task TheOldCommandAndTheNewPairClearEachOther()
+    {
+        using var server = new LoopbackServer();
+        await using var fixture = await OpenOfflineFixtureAsync(server);
+
+        // Set through the old command, cleared through the new pair.
+        await fixture.Session.ResultAsync("Network.emulateNetworkConditions", NetworkState(offline: true), fixture.Attachment);
+        (await OnLineAsync(fixture)).Should().BeFalse("the old command is the navigator's state as well");
+        (await FetchAsync(fixture)).Should().Be("refused");
+
+        await fixture.Session.ResultAsync("Network.overrideNetworkState", NetworkState(offline: false), fixture.Attachment);
+        await fixture.Session.ResultAsync("Network.emulateNetworkConditionsByRule", Rules(), fixture.Attachment);
+        (await OnLineAsync(fixture)).Should().BeTrue();
+        (await FetchAsync(fixture)).Should().Be("went");
+
+        // Set through the new pair, which is what PuppeteerSharp 25.14 sends, cleared through the old command.
+        await fixture.Session.ResultAsync("Network.overrideNetworkState", NetworkState(offline: true), fixture.Attachment);
+        await fixture.Session.ResultAsync("Network.emulateNetworkConditionsByRule", Rules(Rule(offline: true)), fixture.Attachment);
+        (await OnLineAsync(fixture)).Should().BeFalse();
+        (await FetchAsync(fixture)).Should().Be("refused");
+
+        await fixture.Session.ResultAsync("Network.emulateNetworkConditions", NetworkState(offline: false), fixture.Attachment);
+        (await OnLineAsync(fixture)).Should().BeTrue();
+        (await FetchAsync(fixture)).Should().Be("went");
+
+        // Each half of the pair clears only its own half of what the old command set.
+        await fixture.Session.ResultAsync("Network.emulateNetworkConditions", NetworkState(offline: true), fixture.Attachment);
+        await fixture.Session.ResultAsync("Network.emulateNetworkConditionsByRule", Rules(), fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("went");
+        (await OnLineAsync(fixture)).Should().BeFalse("no rule touches the navigator");
+
+        await fixture.Session.ResultAsync("Network.overrideNetworkState", NetworkState(offline: false), fixture.Attachment);
+        (await OnLineAsync(fixture)).Should().BeTrue();
+        (await fixture.Page.EvaluateAsync<string>("heard.join()")).Should().Be("offline,online,offline,online,offline,online");
+    }
+
+    /// <summary>A page at <c>/page</c> listening for <c>offline</c> and <c>online</c>, and a <c>/data</c> to fetch.</summary>
+    private static async Task<NetworkFixture> OpenOfflineFixtureAsync(LoopbackServer server)
+    {
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+        server.Map("/data", _ => LoopbackResponse.Text("went"));
+
+        var fixture = await NetworkFixture.OpenAsync(server);
+        await fixture.NavigateAsync("/page");
+        await fixture.Page.EvaluateAsync(
+            "window.heard = []; addEventListener('offline', () => heard.push('offline')); addEventListener('online', () => heard.push('online'));");
+
+        return fixture;
+    }
+
+    private static async Task<bool> OnLineAsync(NetworkFixture fixture)
+        => await fixture.Page.EvaluateAsync<bool>("navigator.onLine");
+
+    /// <summary>Fetches <c>/data</c> from the page, answering its body or <c>refused</c>.</summary>
+    private static async Task<string?> FetchAsync(NetworkFixture fixture)
+        => await fixture.Page.EvaluateAndAwaitAsync<string>("fetch('/data', {cache: 'no-store'}).then(r => r.text(), () => 'refused')");
+
+    /// <summary>The parameters <c>emulateNetworkConditions</c> and <c>overrideNetworkState</c> share.</summary>
+    private static string NetworkState(bool offline)
+        => $$"""{"offline":{{(offline ? "true" : "false")}},"latency":0,"downloadThroughput":-1,"uploadThroughput":-1}""";
+
+    /// <summary>One <c>Network.NetworkConditions</c> entry, global unless a pattern is named.</summary>
+    private static string Rule(bool offline, string urlPattern = "")
+        => $$"""{"urlPattern":"{{urlPattern}}","offline":{{(offline ? "true" : "false")}},"latency":0,"downloadThroughput":-1,"uploadThroughput":-1}""";
+
+    private static string Rules(params string[] rules) => $$"""{"matchedNetworkConditions":[{{string.Join(",", rules)}}]}""";
+
+    /// <summary>
     /// <c>Network.setUserAgentOverride</c>'s three parameters all reach the document that is <b>already
     /// loaded</b>, with no navigation in between —
     /// https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-setUserAgentOverride.
