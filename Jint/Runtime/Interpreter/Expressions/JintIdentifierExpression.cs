@@ -451,6 +451,21 @@ internal sealed class JintIdentifierExpression : JintExpression
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowNotInitialized(Engine engine)
     {
+        if (_isCallee)
+        {
+            // The message a call through the Reference would have raised from GetBindingValue.
+            Throw.ReferenceError(engine.Realm, $"Cannot access '{_identifier.Key.Name}' before initialization");
+        }
+
         Throw.ReferenceError(engine.Realm, $"{_identifier.Key.Name} has not been initialized");
     }
+
+    /// <summary>
+    /// Set by the call expression that owns this node when it reads its callee through
+    /// <see cref="GetValue"/> instead of through a <see cref="Reference"/>, so the one observable difference
+    /// between the two — the wording of the temporal-dead-zone error — stays the Reference path's.
+    /// </summary>
+    private bool _isCallee;
+
+    internal void MarkAsCallee() => _isCallee = true;
 }
