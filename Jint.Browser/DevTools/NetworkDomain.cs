@@ -196,7 +196,9 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
     /// own and which, with no entries, has nothing to apply to. An entry scoped to a URL is refused with
     /// <c>-32000</c> rather than applied to every request or to none: a request is decided on a transport
     /// thread, and the engine's <c>URLPattern</c> matches with the engine's own regular expressions, which
-    /// only the page loop may run. Throttling is accepted and not honoured, for the reason
+    /// only the page loop may run. PuppeteerSharp's <c>BlockList</c> and <c>Allowlist</c> connect options are
+    /// what send such entries, and it logs the refusal and carries on, as it did with the <c>-32601</c> before
+    /// this command was answered. Throttling is accepted and not honoured, for the reason
     /// <see cref="EmulateNetworkConditionsAsync"/> gives, and <c>emulateOfflineServiceWorker</c> has no service
     /// worker to apply to.
     /// </para>

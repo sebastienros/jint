@@ -603,6 +603,107 @@ public class PuppeteerSharpPageTests
         await context.CloseAsync();
     }
 
+    /// <summary>
+    /// <c>ConnectOptions.BlockList</c> is the one PuppeteerSharp path that sends URL-scoped rules, and this
+    /// server's refusal of them reaches the client's log rather than any call the client made.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// PuppeteerSharp sends the list as <c>Network.emulateNetworkConditionsByRule</c>, one offline entry per
+    /// pattern, from <c>ChromeTargetManager.MaybeSetupNetworkBlockListAsync</c> on every target it attaches to.
+    /// That method catches every exception and logs <c>Failed to setup network block list</c>, so the
+    /// <c>-32000</c> never reaches <c>ConnectAsync</c>, <c>NewPageAsync</c> or <c>GoToAsync</c>. Before the
+    /// command was implemented it answered <c>-32601</c>, which took the same catch.
+    /// </para>
+    /// <para>
+    /// The top-level navigation to a blocked URL is still refused, by PuppeteerSharp's own check before the
+    /// command is sent. What this server does not do is refuse a page's own requests to a blocked URL, because
+    /// it does not match URL patterns.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerConnectsWithABlockListAndHearsTheUrlScopedRulesRefused()
+    {
+        using var origin = new LoopbackServer();
+        origin.MapHtml("/one", "<html><head><title>Allowed</title></head><body>one</body></html>");
+        origin.MapHtml("/blocked", "<html><body>blocked</body></html>");
+
+        await using var pages = new global::Jint.Browser.Browser();
+        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+
+        await using var server = new DevToolsServer();
+        await server.AddBrowser(pages);
+        await server.StartAsync();
+
+        using var log = new RecordingLoggerFactory();
+        await using var browser = await Puppeteer.ConnectAsync(
+            new ConnectOptions
+            {
+                BrowserWSEndpoint = server.BrowserWebSocketUrl,
+                BlockList = [origin.Url("/blocked")],
+            },
+            log).WaitAsync(Bound);
+
+        var page = await browser.NewPageAsync().WaitAsync(Bound);
+
+        var allowed = await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound);
+        allowed.Should().NotBeNull();
+        allowed!.Ok.Should().BeTrue();
+
+        var blocked = async () => await page.GoToAsync(origin.Url("/blocked")).WaitAsync(Bound);
+        await blocked.Should().ThrowAsync<NavigationException>("PuppeteerSharp checks a navigation against its own list first");
+
+        // The page's attachment refuses the rules with the reason. PuppeteerSharp sends the list to the tab's
+        // attachment too, which has no Network domain and answers -32601; that is logged the same way.
+        await WaitUntilAsync(() => log.Errors.Any(entry =>
+            entry.Message == "Failed to setup network block list"
+            && entry.Exception?.Message.Contains("scoped to a urlPattern", StringComparison.Ordinal) == true));
+
+        await page.CloseAsync().WaitAsync(Bound);
+        browser.Disconnect();
+        await context.CloseAsync();
+    }
+
+    /// <summary>An <see cref="Microsoft.Extensions.Logging.ILoggerFactory"/> that keeps every error a client logged.</summary>
+    private sealed class RecordingLoggerFactory : Microsoft.Extensions.Logging.ILoggerFactory
+    {
+        private readonly System.Collections.Concurrent.ConcurrentQueue<(string Message, Exception? Exception)> _errors = new();
+
+        /// <summary>Every entry logged at error level or above, as its message and its exception.</summary>
+        internal IReadOnlyCollection<(string Message, Exception? Exception)> Errors => [.. _errors];
+
+        public Microsoft.Extensions.Logging.ILogger CreateLogger(string categoryName) => new Recorder(this);
+
+        public void AddProvider(Microsoft.Extensions.Logging.ILoggerProvider provider)
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+
+        private sealed class Recorder(RecordingLoggerFactory owner) : Microsoft.Extensions.Logging.ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state)
+                where TState : notnull => null;
+
+            public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+            public void Log<TState>(
+                Microsoft.Extensions.Logging.LogLevel logLevel,
+                Microsoft.Extensions.Logging.EventId eventId,
+                TState state,
+                Exception? exception,
+                Func<TState, Exception?, string> formatter)
+            {
+                if (logLevel >= Microsoft.Extensions.Logging.LogLevel.Error)
+                {
+                    owner._errors.Enqueue((formatter(state, exception), exception));
+                }
+            }
+        }
+    }
+
     /// <summary>Polls a condition, failing rather than hanging.</summary>
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
