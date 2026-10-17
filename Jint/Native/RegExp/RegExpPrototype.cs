@@ -270,6 +270,8 @@ internal sealed partial class RegExpPrototype : Prototype
             int searchStart = 0;
             int maxCount = global ? int.MaxValue : 1;
             int count = 0;
+            using var batch = JintRegExpEngine.BeginBatch();
+            var loopTimeout = GetCustomEngineTimeout(customRei);
 
             while (count < maxCount && searchStart <= s.Length)
             {
@@ -278,7 +280,7 @@ internal sealed partial class RegExpPrototype : Prototype
                     _engine.Constraints.Check();
                 }
 
-                if (!TryMatchRangeWithTimeout(customRei, customEngine, s, searchStart, out var matchIndex, out var matchLength))
+                if (!TryMatchRangeWithTimeout(customRei, customEngine, s, searchStart, out var matchIndex, out var matchLength, loopTimeout))
                 {
                     break;
                 }
@@ -291,6 +293,13 @@ internal sealed partial class RegExpPrototype : Prototype
                     ? (int) AdvanceStringIndex(s, (ulong) matchIndex, fullUnicode)
                     : lastPos;
                 count++;
+            }
+
+            if (count == 0)
+            {
+                // Nothing matched: the result is the subject, which needs no copy.
+                sb.Dispose();
+                return s;
             }
 
             sb.Append(s.AsSpan(lastPos));
@@ -525,32 +534,38 @@ internal sealed partial class RegExpPrototype : Prototype
         var spans = new List<int>();
         var searchStart = 0;
         var matchCount = 0;
-        while (searchStart <= s.Length)
+        // No script runs while matches are collected (the replacer is called afterwards), so the searches may share
+        // clock readings; the scope ends before the first replacer runs.
+        using (JintRegExpEngine.BeginBatch())
         {
-            if (++matchCount % ConstraintCheckInterval == 0)
+            var loopTimeout = GetCustomEngineTimeout(rei);
+            while (searchStart <= s.Length)
             {
-                _engine.Constraints.Check();
-            }
+                if (++matchCount % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
 
-            if (!TryMatchWithTimeout(rei, matcher, s, searchStart, groups))
-            {
-                break;
-            }
+                if (!TryMatchWithTimeout(rei, matcher, s, searchStart, groups, loopTimeout))
+                {
+                    break;
+                }
 
-            foreach (var group in groups)
-            {
-                spans.Add(group.Participated ? group.Index : -1);
-                spans.Add(group.Length);
-            }
+                foreach (var group in groups)
+                {
+                    spans.Add(group.Participated ? group.Index : -1);
+                    spans.Add(group.Length);
+                }
 
-            if (!global)
-            {
-                break;
-            }
+                if (!global)
+                {
+                    break;
+                }
 
-            searchStart = groups[0].Length == 0
-                ? (int) AdvanceStringIndex(s, (ulong) groups[0].Index, fullUnicode)
-                : groups[0].Index + groups[0].Length;
+                searchStart = groups[0].Length == 0
+                    ? (int) AdvanceStringIndex(s, (ulong) groups[0].Index, fullUnicode)
+                    : groups[0].Index + groups[0].Length;
+            }
         }
 
         var stride = 2 * groupCount;
@@ -1112,6 +1127,8 @@ internal sealed partial class RegExpPrototype : Prototype
             var p = 0;
             var q = 0;
             var matchCount = 0;
+            using var batch = JintRegExpEngine.BeginBatch();
+            var loopTimeout = GetCustomEngineTimeout(splitter);
             while (q < size)
             {
                 if (++matchCount % ConstraintCheckInterval == 0)
@@ -1119,7 +1136,7 @@ internal sealed partial class RegExpPrototype : Prototype
                     _engine.Constraints.Check();
                 }
 
-                if (!TryFindWithTimeout(splitter, matcher, s, q, groups))
+                if (!TryFindWithTimeout(splitter, matcher, s, q, groups, loopTimeout))
                 {
                     break;
                 }
@@ -1423,6 +1440,8 @@ internal sealed partial class RegExpPrototype : Prototype
             try
             {
                 int lastIndex = 0;
+                using var batch = JintRegExpEngine.BeginBatch();
+                var loopTimeout = GetCustomEngineTimeout(rei);
                 while (lastIndex <= s.Length)
                 {
                     if (builder.Length > 0 && builder.Length % ConstraintCheckInterval == 0)
@@ -1430,7 +1449,7 @@ internal sealed partial class RegExpPrototype : Prototype
                         _engine.Constraints.Check();
                     }
 
-                    if (!TryMatchRangeWithTimeout(rei, customEngine, s, lastIndex, out var matchIndex, out var matchLength))
+                    if (!TryMatchRangeWithTimeout(rei, customEngine, s, lastIndex, out var matchIndex, out var matchLength, loopTimeout))
                     {
                         break;
                     }
@@ -1819,9 +1838,10 @@ internal sealed partial class RegExpPrototype : Prototype
     /// mirroring how <see cref="Regex.Match(string,int)"/> enforces <see cref="Regex.MatchTimeout"/>. Throws
     /// <see cref="RegexMatchTimeoutException"/> when the timeout elapses.
     /// </summary>
-    private static bool TryMatchRangeWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, out int index, out int length)
+    private static bool TryMatchRangeWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, out int index, out int length, TimeSpan? resolvedTimeout = null)
     {
-        var timeout = GetCustomEngineTimeout(R);
+        // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
+        var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
         if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
         {
             return engine.TryMatchRange(s, startIndex, JintRegExpEngine.NoDeadline, out index, out length);
@@ -1840,9 +1860,10 @@ internal sealed partial class RegExpPrototype : Prototype
     /// <summary>
     /// Capture-writing counterpart of <see cref="TryMatchRangeWithTimeout"/>: group spans, no strings.
     /// </summary>
-    private static bool TryMatchWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, RegexCapture[] groups)
+    private static bool TryMatchWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, RegexCapture[] groups, TimeSpan? resolvedTimeout = null)
     {
-        var timeout = GetCustomEngineTimeout(R);
+        // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
+        var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
         if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
         {
             return engine.TryMatch(s, startIndex, JintRegExpEngine.NoDeadline, groups);
@@ -1861,9 +1882,10 @@ internal sealed partial class RegExpPrototype : Prototype
     /// <summary>
     /// Non-sticky search counterpart of <see cref="TryMatchWithTimeout"/>.
     /// </summary>
-    private static bool TryFindWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, RegexCapture[] groups)
+    private static bool TryFindWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, RegexCapture[] groups, TimeSpan? resolvedTimeout = null)
     {
-        var timeout = GetCustomEngineTimeout(R);
+        // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
+        var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
         if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
         {
             return engine.TryFind(s, startIndex, JintRegExpEngine.NoDeadline, groups);
@@ -1915,7 +1937,7 @@ internal sealed partial class RegExpPrototype : Prototype
             return JintRegExpEngine.NoDeadline;
         }
 
-        var now = Stopwatch.GetTimestamp();
+        var now = JintRegExpEngine.RecentTimestamp();
         var ticks = timeout.TotalSeconds * Stopwatch.Frequency;
         return ticks >= long.MaxValue - now ? JintRegExpEngine.NoDeadline : now + (long) ticks;
     }
@@ -1971,7 +1993,9 @@ internal sealed partial class RegExpPrototype : Prototype
         for (var i = 0; i < actualGroupCount; i++)
         {
             var capture = groups[i];
-            JsValue capturedValue = capture.Participated ? s.Substring(capture.Index, capture.Length) : Undefined;
+            // A slice of the subject rather than a copy, as the .NET lane does: a match spanning most of a large
+            // subject would otherwise copy the subject on every exec.
+            JsValue capturedValue = capture.Participated ? JsString.CreateSliced(s, capture.Index, capture.Length) : Undefined;
 
             if (hasIndices)
             {

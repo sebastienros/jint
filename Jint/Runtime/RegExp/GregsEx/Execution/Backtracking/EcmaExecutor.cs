@@ -212,6 +212,37 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                         candidate += rel;
                     }
                 }
+                else if (_accelerator.FirstChars is { } firstChars)
+                {
+                    // Jint: see EcmaAccelerator.FirstChars. A hit on the trail half of a surrogate pair is not a
+                    // candidate under u/v, where the pair is one code point and matching never starts inside it.
+                    var rel = input.Slice(candidate).IndexOfAny(firstChars);
+                    while (rel > 0 && Program.Profile.IsUnicodeAware && char.IsLowSurrogate(input[candidate + rel]) &&
+                        char.IsHighSurrogate(input[candidate + rel - 1]))
+                    {
+                        var further = input.Slice(candidate + rel + 1).IndexOfAny(firstChars);
+                        rel = further < 0 ? -1 : rel + 1 + further;
+                    }
+
+                    if (rel < 0)
+                    {
+                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
+                        {
+                            return Finish(FailureStatus(state), operation, groups);
+                        }
+
+                        return Finish(RegexSearchStatus.NoMatch, operation, groups);
+                    }
+                    if (rel > 0)
+                    {
+                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
+                        {
+                            return Finish(FailureStatus(state), operation, groups);
+                        }
+
+                        candidate += rel;
+                    }
+                }
                 else if (_accelerator.FirstSet is { } fset)
                 {
                     var rel = fset.FindFirst(input.Slice(candidate), Program);

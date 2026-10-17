@@ -42,6 +42,13 @@ internal sealed class JintRegExpEngine
     private const int MaxFrames = 1 << 22;
 
     [ThreadStatic] private static Scratch? t_scratch;
+    [ThreadStatic] private static long t_recentTimestamp;
+    [ThreadStatic] private static int t_recentTimestampUses;
+    [ThreadStatic] private static int t_batchDepth;
+
+    // How many searches may share one clock reading. A split or a global replace runs one search per match, and a
+    // clock read per search was a third of the cost of a short one; see RecentTimestamp.
+    private const int SearchesPerClockRead = 64;
 
     private readonly EcmaExecutor _executor;
     private readonly string?[] _groupNames;
@@ -137,6 +144,52 @@ internal sealed class JintRegExpEngine
     public bool IsMatch(string input, int startIndex = 0, long deadline = NoDeadline)
         => Search(input, startIndex, SearchOperation.Boolean, [], deadline, out _, _sticky);
 
+    /// <summary>
+    /// Opens a scope in which consecutive searches may share a clock reading (see <see cref="RecentTimestamp"/>). Only
+    /// a native loop that runs no script between its searches may open one: script could run for any length of time,
+    /// which would leave the shared reading arbitrarily stale.
+    /// </summary>
+    internal static SearchBatch BeginBatch()
+    {
+        t_batchDepth++;
+        t_recentTimestamp = 0;
+        return default;
+    }
+
+    internal readonly ref struct SearchBatch
+    {
+        // An instance member because `using` binds Dispose by pattern; the state it resets is per thread.
+#pragma warning disable CA1822
+        public void Dispose()
+        {
+            t_batchDepth--;
+            t_recentTimestamp = 0;
+        }
+#pragma warning restore CA1822
+    }
+
+    /// <summary>
+    /// Inside a <see cref="BeginBatch"/> scope, a <see cref="Stopwatch.GetTimestamp"/> value at most
+    /// <see cref="SearchesPerClockRead"/> short searches old, for arming a match deadline; outside one, the clock. Stale only ever means earlier, so a deadline built on it can fire early - by the time
+    /// those few searches took, each too short to have read the clock itself - and never late: a search long enough
+    /// to read the clock invalidates the reading.
+    /// </summary>
+    internal static long RecentTimestamp()
+    {
+        if (t_batchDepth == 0)
+        {
+            return Stopwatch.GetTimestamp();
+        }
+
+        if (t_recentTimestamp == 0 || ++t_recentTimestampUses >= SearchesPerClockRead)
+        {
+            t_recentTimestamp = Stopwatch.GetTimestamp();
+            t_recentTimestampUses = 0;
+        }
+
+        return t_recentTimestamp;
+    }
+
     private bool Search(string input, int startIndex, SearchOperation operation, Span<RegexCapture> groups, long deadline, out RegexMatchRange match, bool sticky)
     {
         if ((uint) startIndex > (uint) input.Length)
@@ -154,6 +207,12 @@ internal sealed class JintRegExpEngine
             var state = new RunState(buffers, long.MaxValue, deadline);
 
             var status = _executor.Search(input.AsSpan(), startIndex, sticky, EcmaStartPolicy.BuiltinLastIndex, operation, ref state, groups, out match);
+            if (state.Budget.WorkConsumed >= RunBudget.ClockStride)
+            {
+                // Long enough to have read the clock: the cached reading is no longer recent.
+                t_recentTimestamp = 0;
+            }
+
             switch (status)
             {
                 case RegexSearchStatus.Match:
