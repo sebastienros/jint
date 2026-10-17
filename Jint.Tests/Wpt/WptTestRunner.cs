@@ -39,9 +39,10 @@ namespace Jint.Tests.Wpt;
 /// signal</b>: its last entry — an empty <c>FormData</c> body, which no browser serializes to nothing either
 /// — was never a defect, and https://github.com/sebastienros/jint/issues/3261 moved it to
 /// <see cref="WptDivergence.AssertsWhatNothingRequires"/>, the category for a test that asserts what nothing
-/// requires of anybody. <c>Vendor/README.md</c> analyses each. It holds one entry again: the
+/// requires of anybody. <c>Vendor/README.md</c> analyses each. It held one entry again for a while — the
 /// <c>XMLHttpRequest</c> text response's missing BOM sniff, which <c>encoding/unsupported-encodings.any.js</c>
-/// found once the <c>data:</c> arm of scheme fetch let it run (https://github.com/sebastienros/jint/issues/4270).
+/// found once the <c>data:</c> arm of scheme fetch let it run (https://github.com/sebastienros/jint/issues/4270)
+/// — and https://github.com/sebastienros/jint/issues/4282 fixed it, so it is empty again.
 /// </para>
 /// <para>
 /// <b>A corpus with sub-directories is one suite per directory</b> rather than one for the lot, because
@@ -1236,13 +1237,10 @@ public class WptTestRunner
         // TextDecoder half — the same 168 labels, the same expectations — passes.
         new("encoding/single-byte-decoder.any.js", "*(XMLHttpRequest)", WptDivergence.NeedsWptServer),
 
-        // XMLHttpRequest's text response does not BOM-sniff. https://xhr.spec.whatwg.org/#text-response ends in
-        // Encoding's "decode", whose BOM sniff overrides the charset, so bytes beginning FF FE are UTF-16LE
-        // whatever the overridden MIME type named — and JsXmlHttpRequest.TextResponse decodes them with the
-        // charset alone. A real defect, found by vendoring this file once the data: arm let it run (#4270), and
-        // recorded rather than fixed by that change. The file's ten other rows, two of them a BOM the sniff
-        // must not find (00 00 FE FF), pass.
-        new("encoding/unsupported-encodings.any.js", "*with BOM should decode as UTF-16LE", WptDivergence.NeedsTriage),
+        // encoding/unsupported-encodings.any.js has no entry. Its four "… with BOM should decode as UTF-16LE"
+        // rows sat here under NeedsTriage from the change that vendored it (#4270) until #4282 made
+        // XMLHttpRequest's text response run Encoding's "decode", whose BOM sniff overrides the charset; all
+        // fourteen rows pass, two of them a mark the sniff must not find (00 00 FE FF).
 
         // ------------------------------------------- hr-time, user-timing and the performance timeline
         // Nothing. The five NeedsPerformanceObserver rows and the one NeedsPerformanceEventTarget row that

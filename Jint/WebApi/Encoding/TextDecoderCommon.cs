@@ -84,6 +84,34 @@ internal sealed class TextDecoderCommon
     internal static TextDecoderCommon Utf8() => new(in EncodingLabels.Utf8Encoding, fatal: false, ignoreBom: false);
 
     /// <summary>
+    /// The Encoding standard's <i>decode</i>, https://encoding.spec.whatwg.org/#decode: a byte order mark
+    /// overrides <paramref name="fallbackEncoding"/>, and the whole input is decoded in the replacement error mode.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is not <c>TextDecoder</c>'s BOM stripping.</b> A <c>TextDecoder</c> removes a mark only when it
+    /// matches the decoder's own encoding; <i>decode</i> runs <i>BOM sniff</i> first and lets what it finds
+    /// <i>replace</i> the encoding, so <c>FE FF</c> is UTF-16BE under a <c>windows-1252</c> fallback. It is what
+    /// a standard that hands bytes "to decode" means — <c>FileReader.readAsText</c>
+    /// (https://w3c.github.io/FileAPI/#packaging-data) and the <c>XMLHttpRequest</c> text response
+    /// (https://xhr.spec.whatwg.org/#text-response) both do.
+    /// </para>
+    /// <para>
+    /// The decoder built for a sniffed encoding consumes the mark itself, because "serialize I/O queue" drops a
+    /// leading U+FEFF for exactly the three encodings a sniff can find. That is why the whole input is handed
+    /// over rather than the bytes after the mark — and it consumes one mark and no more, as <i>decode</i> does.
+    /// </para>
+    /// </remarks>
+    /// <param name="realm">The realm the decoder belongs to; the replacement error mode never throws into it.</param>
+    /// <param name="input">The bytes, the whole stream.</param>
+    /// <param name="fallbackEncoding">The encoding to decode with when no byte order mark is found.</param>
+    internal static JsString DecodeWithBomSniff(Realm realm, ReadOnlySpan<byte> input, in EncodingEntry fallbackEncoding)
+    {
+        var encoding = EncodingLabels.TryBomSniff(input, out var sniffed) ? sniffed : fallbackEncoding;
+        return new TextDecoderCommon(in encoding, fatal: false, ignoreBom: false).Decode(realm, input, stream: false);
+    }
+
+    /// <summary>
     /// The <c>(label, options)</c> pair both constructors take:
     /// <c>constructor(optional DOMString label = "utf-8", optional TextDecoderOptions options = {})</c>.
     /// </summary>
