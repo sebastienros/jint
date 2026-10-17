@@ -6,9 +6,11 @@ namespace Jint.Native.Object;
 
 public partial class ObjectInstance
 {
-    // [[PrivateElements]] is stored off-object in Engine._privateElementStore (a weak table keyed by this
-    // object) so the reference doesn't cost 8 bytes on every ObjectInstance; only objects of classes that
-    // declare #private members ever allocate an entry. See Engine._privateElementStore.
+    // [[PrivateElements]] of a plain object — every class instance — is a packed array on the JsObject itself;
+    // any other receiver (a base constructor may return an array, a function, a proxy...) keeps it off-object
+    // in Engine._privateElementStore, a weak table keyed by the object, so the reference does not cost 8 bytes
+    // on every ObjectInstance. Elements are found by PrivateName identity, which is what the specification's
+    // PrivateElementFind compares, so a short reference scan replaces a hash lookup.
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-initializeinstanceelements
@@ -53,8 +55,7 @@ public partial class ObjectInstance
             Throw.TypeError(_engine.Realm, "Already present");
         }
 
-        var store = _engine._privateElementStore ??= new();
-        store.GetOrCreateValue(this).Add(method.Key, method);
+        AddPrivateElement(method);
     }
 
     /// <summary>
@@ -76,8 +77,7 @@ public partial class ObjectInstance
             Throw.TypeError(_engine.Realm, "Already present");
         }
 
-        var store = _engine._privateElementStore ??= new();
-        store.GetOrCreateValue(this).Add(property, new PrivateElement { Key = property, Kind = PrivateElementKind.Field, Value = value });
+        AddPrivateElement(new PrivateElement { Key = property, Kind = PrivateElementKind.Field, Value = value });
     }
 
     /// <summary>
@@ -143,13 +143,74 @@ public partial class ObjectInstance
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal PrivateElement? PrivateElementFind(PrivateName property)
     {
-        var store = _engine._privateElementStore;
-        if (store is not null && store.TryGetValue(this, out var elements))
+        var elements = this is JsObject plain ? plain._privateElements : StoredPrivateElements();
+        if (elements is not null)
         {
-            return elements.TryGetValue(property, out var pe) ? pe : null;
+            for (var i = 0; i < elements.Length; i++)
+            {
+                var element = elements[i];
+                if (element is null)
+                {
+                    break;
+                }
+
+                if (ReferenceEquals(element.Key, property))
+                {
+                    return element;
+                }
+            }
         }
 
         return null;
+    }
+
+    private PrivateElement[]? StoredPrivateElements()
+    {
+        var store = _engine._privateElementStore;
+        return store is not null && store.TryGetValue(this, out var holder) ? holder.Elements : null;
+    }
+
+    /// <summary>Appends to [[PrivateElements]]; the caller has checked the name is not already present.</summary>
+    private void AddPrivateElement(PrivateElement element)
+    {
+        if (this is JsObject plain)
+        {
+            plain._privateElements = PrivateElementHolder.Append(plain._privateElements, element);
+            return;
+        }
+
+        var store = _engine._privateElementStore ??= new();
+        var holder = store.GetOrCreateValue(this);
+        holder.Elements = PrivateElementHolder.Append(holder.Elements, element);
+    }
+}
+
+/// <summary>The weak table's value for a receiver that is not a <see cref="JsObject"/>.</summary>
+internal sealed class PrivateElementHolder
+{
+    public PrivateElement[]? Elements;
+
+    /// <summary>Appends <paramref name="element"/> to a packed list, growing it when full.</summary>
+    internal static PrivateElement[] Append(PrivateElement[]? elements, PrivateElement element)
+    {
+        if (elements is null)
+        {
+            return [element, null!, null!, null!];
+        }
+
+        var count = 0;
+        while (count < elements.Length && elements[count] is not null)
+        {
+            count++;
+        }
+
+        if (count == elements.Length)
+        {
+            System.Array.Resize(ref elements, count * 2);
+        }
+
+        elements[count] = element;
+        return elements;
     }
 }
 

@@ -20,6 +20,11 @@ public sealed partial class JsObject : ObjectInstance
     private InlineSlots _inline;
     private JsValue[]? _overflow;
 
+    // [[PrivateElements]] of an instance of a class declaring #private members, in insertion order and
+    // packed from the start (the first null ends the list). Class instances are plain objects, so keeping
+    // the list here spares them the engine's weak table, which every other receiver still uses.
+    internal PrivateElement[]? _privateElements;
+
     // Slots [0, InlineCapacity) live in-object; the rest (rare) in _overflow[slot - InlineCapacity].
     private const int InlineCapacity = 4;
 
