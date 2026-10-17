@@ -95,6 +95,52 @@ public class DataUrlTests
         body.Should().Be("before");
     }
 
+    /// <summary>
+    /// The ceiling a caller passes is held against the <i>decoded</i> length, inclusive, whichever way the
+    /// payload is encoded — percent-encoding, base64, base64 with whitespace and without its padding.
+    /// </summary>
+    [TestCase("data:,hello", 5, true)]
+    [TestCase("data:,hello", 4, false)]
+    [TestCase("data:,%68%65%6C%6C%6F", 5, true)]
+    [TestCase("data:,%68%65%6C%6C%6F", 4, false)]
+    [TestCase("data:;base64,aGVsbG8=", 5, true)]
+    [TestCase("data:;base64,aGVsbG8=", 4, false)]
+    [TestCase("data:;base64,aGVs%20bG8", 5, true)]
+    [TestCase("data:;base64,aGVs%20bG8", 4, false)]
+    [TestCase("data:;base64,aGk=", 2, true)]
+    [TestCase("data:;base64,aGk=", 1, false)]
+    [TestCase("data:,", 0, true)]
+    public void TheCeilingIsHeldAgainstTheDecodedLength(string url, long ceiling, bool fits)
+    {
+        DataUrl.TryProcess(UrlParser.Parse(url)!, ceiling, out var content, out var tooLarge).Should().Be(fits);
+        tooLarge.Should().Be(!fits);
+
+        if (fits)
+        {
+            content.Body.Length.Should().BeLessThanOrEqualTo((int) ceiling);
+        }
+    }
+
+    /// <summary>
+    /// A payload whose length already says it is over the ceiling is refused before anything decodes it.
+    /// </summary>
+    [Test]
+    public void APayloadTooLongForTheCeilingIsRefusedBeforeItIsDecoded()
+    {
+        // Five significant code points are not base64 at all — a remainder of one is forgiving-base64's
+        // failure — so decoding this payload fails. Against a ceiling of two it is refused as too large
+        // instead, which it can only be if its length was measured before anything tried to decode it.
+        var url = UrlParser.Parse("data:;base64,aaaaa")!;
+
+        DataUrl.TryProcess(url, 2, out _, out var tooLarge).Should().BeFalse();
+        tooLarge.Should().BeTrue();
+
+        // With room for what its length says it decodes to, it is decoded — and fails as the processor's
+        // own failure.
+        DataUrl.TryProcess(url, 3, out _, out tooLarge).Should().BeFalse();
+        tooLarge.Should().BeFalse();
+    }
+
     private static bool Process(string url, out string body, out string mimeType)
     {
         var record = UrlParser.Parse(url);

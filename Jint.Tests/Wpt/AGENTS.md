@@ -36,6 +36,10 @@ It went non-zero once more and is empty again: vendoring `fetch/api/request/` fo
 reads. Three rows of `request-disturbed.any.js` named it; [#3618](https://github.com/sebastienros/jint/issues/3618)
 fixed two and moved the third — which asks for a disturbance the constructor's own step makes conditional on
 there being no init body — to `AssertsWhatNothingRequires`, which is the shape the pair of categories is for.
+**It is non-zero now, with one entry:** vendoring `encoding/unsupported-encodings.any.js`, which the `data:` arm
+of scheme fetch let run ([#4270](https://github.com/sebastienros/jint/issues/4270)), found that
+`XMLHttpRequest`'s text response decodes with the charset alone where the standard's *decode* BOM-sniffs first
+— four rows, recorded rather than fixed by that change.
 A row that turns out not to be a defect at all leaves for `AssertsWhatNothingRequires`, the
 analogue of test262's `PERMANENT EXCLUSIONS` banner, earned the same way: a normative citation and an argued
 decision, never a to-do. **The engine supplies its own `setTimeout`** — unlike the test262 harness, which has no web APIs to
@@ -55,15 +59,15 @@ three interfaces and nothing else, which is what let that half of the fetch corp
 there was anything for the other half to talk to. **That other half is `WptServer`** — an in-process HTTP/1.1
 origin on the loopback interface, a raw `TcpListener` on port 0, serving the *vendored* corpus plus a C# port
 of the wptserve `.py` handlers those suites name, which `WptServerTests` holds to the upstream source at the pin. Only the files
-`WptHarness.IsServerBacked` names — the thirty in that list plus the whole vendored `xhr/` directory —
+`WptHarness.IsServerBacked` names — the thirty-one in that list plus the whole vendored `xhr/` directory —
 get `WebApiFeatures.Fetch`, their `Options.WebApi.Fetch.UrlFilter` is the
 server's own port re-checked on every redirect hop, and `TheServerLaneHoldsExactlyTheFilesItNames` pins the
 list in both directions — so *no suite can reach the network*, which is the promise the driver has always
 made, while the files that could not produce a test report at all now do. **A third lane grants the same two
-features and no reach at all**: `WptHarness._blobUrlBackedFiles` is the two `FileAPI/url` files whose only
-requests are of `blob:` URLs, which scheme fetch answers from the engine's own store before a filter is
-consulted, so their `UrlFilter` refuses *every* URL — pinned, in both directions and against double
-membership, by `TheBlobUrlLaneHoldsExactlyTheFilesItNames`. Two things about the server lane
+features and no reach at all**: `WptHarness._localSchemeFiles` is the four files whose only requests are of
+`blob:` and `data:` URLs, which scheme fetch answers from the engine's own store and from the URL itself before
+a filter is consulted, so their `UrlFilter` refuses *every* URL — pinned, in both directions and against double
+membership, by `TheLocalSchemeLaneHoldsExactlyTheFilesItNames`. Two things about the server lane
 are worth knowing before touching it: the driver gives each of its engines the API base URL, the referrer,
 the origin and the cookie jar a browsing environment would supply — `Options.WebApi.Fetch.BaseUrl` is the URL
 the server really serves that file at, and it is what let the whole of `fetch/api/request/` be vendored,

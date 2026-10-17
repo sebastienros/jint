@@ -1,16 +1,8 @@
 #if NET8_0_OR_GREATER
 using System.Globalization;
-using System.Runtime.InteropServices;
 using Jint.WebApi.Fetch;
 
 namespace Jint.WebApi.Files;
-
-/// <summary>
-/// The response a fetch of a <c>blob:</c> URL produces: a status, a header list and the bytes, already sliced
-/// if a <c>Range</c> asked for part of them.
-/// </summary>
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct BlobUrlResponse(int Status, string StatusText, List<HeaderEntry> Headers, ReadOnlyMemory<byte> Body);
 
 /// <summary>
 /// The <c>blob</c> arm of <i>scheme fetch</i>: how a <c>blob:</c> URL becomes a response without a socket.
@@ -43,7 +35,7 @@ internal static class BlobUrlFetch
     /// <param name="method">The request's method, already normalized.</param>
     /// <param name="rangeHeader">The request's <c>Range</c> header, or <see langword="null"/> when it has none.</param>
     /// <param name="response">The response to answer with.</param>
-    internal static bool TryBuild(JsBlob blob, string method, string? rangeHeader, out BlobUrlResponse response)
+    internal static bool TryBuild(JsBlob blob, string method, string? rangeHeader, out LocalSchemeResponse response)
     {
         response = default;
 
@@ -58,7 +50,7 @@ internal static class BlobUrlFetch
         if (rangeHeader is null)
         {
             // Steps 9.1 to 9.4: the whole blob, with the two headers the arm names and no others.
-            response = new BlobUrlResponse(
+            response = new LocalSchemeResponse(
                 200,
                 "OK",
                 [
@@ -111,7 +103,7 @@ internal static class BlobUrlFetch
             CultureInfo.InvariantCulture,
             $"bytes {rangeStart}-{rangeEnd}/{full.Length}");
 
-        response = new BlobUrlResponse(
+        response = new LocalSchemeResponse(
             206,
             "Partial Content",
             [
