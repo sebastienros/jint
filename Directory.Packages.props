@@ -8,7 +8,7 @@
     <PackageVersion Include="Acornima.Extras" Version="1.8.0" />
     <!-- Comparison controls for Jint.HtmlParser only. Production, tests and binding generation use
          native models; historical binding provenance does not constrain these benchmark versions. -->
-    <PackageVersion Include="AngleSharp" Version="1.8.2" />
+    <PackageVersion Include="AngleSharp" Version="1.8.5" />
     <PackageVersion Include="AngleSharp.Css" Version="1.1.2" />
     <PackageVersion Include="AngleSharp.Xml" Version="1.2.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
