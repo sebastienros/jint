@@ -634,6 +634,131 @@ public class XmlHttpRequestTests
             .AsString().Should().Be("InvalidStateError");
     }
 
+    // ---------------------------------------------------------------- decoding the response
+
+    /// <summary>
+    /// https://xhr.spec.whatwg.org/#text-response ends in Encoding's <i>decode</i>
+    /// (https://encoding.spec.whatwg.org/#decode), whose BOM sniff overrides the charset: <c>FF FE</c> is
+    /// UTF-16LE even under a label "get an encoding" does not know, where the fallback is UTF-8 — and the two
+    /// bytes of the mark are consumed rather than decoded. Both getters and both text response types read it.
+    /// </summary>
+    [Test]
+    public Task AUtf16LeByteOrderMarkOverridesAnUnknownCharset() => DedicatedThread.RunAsync(() =>
+    {
+        byte[] body = [0xFF, 0xFE, 0x41, 0x00, 0x42, 0x00];
+
+        CodeUnits(body, "text/plain;charset=utf-32").Should().Be("U+0041/U+0042");
+        CodeUnits(body, "text/plain;charset=utf-32", "xhr.response").Should().Be("U+0041/U+0042");
+        CodeUnits(body, "text/plain;charset=utf-32", "xhr.response", responseType: "text").Should().Be("U+0041/U+0042");
+
+        // No charset at all is the same fallback, and the sniff wins over it the same way.
+        CodeUnits(body, "text/plain").Should().Be("U+0041/U+0042");
+    });
+
+    /// <summary>
+    /// <c>EF BB BF</c> makes the body UTF-8 whatever the charset named, and the mark is stripped — where a
+    /// <c>windows-1252</c> decode would have read it as <c>ï»¿</c> and the rest as mojibake.
+    /// </summary>
+    [Test]
+    public Task AUtf8ByteOrderMarkOverridesALegacyCharsetAndIsStripped() => DedicatedThread.RunAsync(() =>
+    {
+        byte[] body = [0xEF, 0xBB, 0xBF, 0x68, 0xC3, 0xA9];
+
+        CodeUnits(body, "text/plain;charset=windows-1252").Should().Be("U+0068/U+00E9");
+
+        // Decode reads one mark and no more, so a second is content.
+        CodeUnits([0xEF, 0xBB, 0xBF, 0xEF, 0xBB, 0xBF, 0x41], "text/plain;charset=windows-1252").Should().Be("U+FEFF/U+0041");
+    });
+
+    /// <summary>
+    /// <c>FE FF</c> is UTF-16BE, over a UTF-8 charset and over a UTF-16LE one alike: the declared endianness
+    /// loses to the mark.
+    /// </summary>
+    [Test]
+    public Task AUtf16BeByteOrderMarkOverridesTheCharset() => DedicatedThread.RunAsync(() =>
+    {
+        byte[] body = [0xFE, 0xFF, 0x00, 0x41, 0x00, 0x42];
+
+        CodeUnits(body, "text/plain;charset=utf-8").Should().Be("U+0041/U+0042");
+        CodeUnits(body, "text/plain;charset=utf-16le").Should().Be("U+0041/U+0042");
+    });
+
+    /// <summary>
+    /// Without a mark the charset still decides — the sniff overrides it only when it finds one, and
+    /// <c>00 00 FE FF</c> (a UTF-32BE mark) is not one.
+    /// </summary>
+    [Test]
+    public Task ABodyWithoutAByteOrderMarkIsDecodedWithItsCharset() => DedicatedThread.RunAsync(() =>
+    {
+        CodeUnits([0x68, 0xE9, 0x80], "text/plain;charset=windows-1252").Should().Be("U+0068/U+00E9/U+20AC");
+        CodeUnits([0x41, 0x00, 0x42, 0x00], "text/plain;charset=utf-16le").Should().Be("U+0041/U+0042");
+        CodeUnits([0x00, 0x00, 0xFE, 0xFF], "text/plain;charset=utf-32be").Should().Be("U+0000/U+0000/U+FFFD/U+FFFD");
+    });
+
+    /// <summary>
+    /// https://xhr.spec.whatwg.org/#json-response parses JSON from bytes, whose decode is Encoding's
+    /// <i>UTF-8 decode</i> (https://encoding.spec.whatwg.org/#utf-8-decode): the charset is ignored, a UTF-8
+    /// mark is stripped, and nothing else is sniffed — so a UTF-16 body is not JSON and the response is
+    /// <c>null</c>, which is what <c>xhr/json.any.js</c> asserts over a file.
+    /// </summary>
+    [Test]
+    public Task TheJsonResponseStripsAUtf8ByteOrderMarkAndSniffsNoOther() => DedicatedThread.RunAsync(() =>
+    {
+        ReadSync([0xEF, 0xBB, 0xBF, .. "{\"a\":1}"u8], "application/json;charset=utf-16le", "json", "String(xhr.response?.a)")
+            .Should().Be("1");
+
+        ReadSync([0xFF, 0xFE, .. System.Text.Encoding.Unicode.GetBytes("{\"a\":1}")], "application/json;charset=utf-16le", "json", "String(xhr.response)")
+            .Should().Be("null");
+    });
+
+    /// <summary>
+    /// https://xhr.spec.whatwg.org/#document-response decodes before it parses, so the host's
+    /// <c>DocumentParser</c> is handed the sniffed text rather than the charset's reading of the mark.
+    /// </summary>
+    [Test]
+    public Task TheDocumentParserIsHandedTheSniffedText() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = new StubHandler { Responder = _ => BytesResponse([0xEF, 0xBB, 0xBF, .. "<p>é</p>"u8], "text/html;charset=windows-1252") };
+
+        var engine = new Engine(options =>
+        {
+            options.UseXmlHttpRequest(fetch => fetch.HttpClient = new HttpClient(handler));
+            options.WebApi.Xhr.DocumentParser = (e, text, _) => e.Evaluate($"({{ text: {System.Text.Json.JsonSerializer.Serialize(text)} }})");
+        });
+
+        engine.Execute($"var xhr = new XMLHttpRequest(); xhr.open('GET', '{Url}', false); xhr.responseType = 'document'; xhr.send();");
+
+        engine.Evaluate("xhr.response.text").AsString().Should().Be("<p>é</p>");
+    });
+
+    /// <summary>
+    /// The text a synchronous request answered with <paramref name="body"/> under <paramref name="contentType"/>
+    /// decodes to, read through <paramref name="expression"/> as code units — so a leading U+FEFF, or a U+FFFD
+    /// standing in for a byte of a mark, is visible in the assertion.
+    /// </summary>
+    private static string CodeUnits(byte[] body, string contentType, string expression = "xhr.responseText", string responseType = "")
+        => ReadSync(body, contentType, responseType, $"Array.from({expression}, c => 'U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')).join('/')");
+
+    private static string ReadSync(byte[] body, string contentType, string responseType, string expression)
+    {
+        var handler = new StubHandler { Responder = _ => BytesResponse(body, contentType) };
+        var engine = XhrEngine(handler);
+        engine.Execute($"var xhr = new XMLHttpRequest(); xhr.open('GET', '{Url}', false); xhr.responseType = '{responseType}'; xhr.send();");
+        return engine.Evaluate(expression).AsString();
+    }
+
+    /// <summary>
+    /// A 200 whose body is exactly <paramref name="body"/> and whose <c>Content-Type</c> is exactly
+    /// <paramref name="contentType"/>, unvalidated — <see cref="StringContent"/> would encode a string and
+    /// pick the charset itself.
+    /// </summary>
+    private static HttpResponseMessage BytesResponse(byte[] body, string contentType)
+    {
+        var content = new ByteArrayContent(body);
+        content.Headers.TryAddWithoutValidation("Content-Type", contentType);
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
+
     // ---------------------------------------------------------------- send() bodies
 
     /// <summary>

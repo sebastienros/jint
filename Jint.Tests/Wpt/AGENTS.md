@@ -36,10 +36,11 @@ It went non-zero once more and is empty again: vendoring `fetch/api/request/` fo
 reads. Three rows of `request-disturbed.any.js` named it; [#3618](https://github.com/sebastienros/jint/issues/3618)
 fixed two and moved the third — which asks for a disturbance the constructor's own step makes conditional on
 there being no init body — to `AssertsWhatNothingRequires`, which is the shape the pair of categories is for.
-**It is non-zero now, with one entry:** vendoring `encoding/unsupported-encodings.any.js`, which the `data:` arm
-of scheme fetch let run ([#4270](https://github.com/sebastienros/jint/issues/4270)), found that
-`XMLHttpRequest`'s text response decodes with the charset alone where the standard's *decode* BOM-sniffs first
-— four rows, recorded rather than fixed by that change.
+It went non-zero a third time and is **empty again**: vendoring `encoding/unsupported-encodings.any.js`, which
+the `data:` arm of scheme fetch let run ([#4270](https://github.com/sebastienros/jint/issues/4270)), found that
+`XMLHttpRequest`'s text response decoded with the charset alone where the standard's *decode* BOM-sniffs first
+— four rows, recorded rather than fixed by that change and fixed by
+[#4282](https://github.com/sebastienros/jint/issues/4282).
 A row that turns out not to be a defect at all leaves for `AssertsWhatNothingRequires`, the
 analogue of test262's `PERMANENT EXCLUSIONS` banner, earned the same way: a normative citation and an argued
 decision, never a to-do. **The engine supplies its own `setTimeout`** — unlike the test262 harness, which has no web APIs to

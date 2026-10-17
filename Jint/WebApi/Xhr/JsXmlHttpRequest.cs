@@ -591,12 +591,24 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
     private string FinalCharset() => FinalMimeType()?.GetParameter("charset") ?? "UTF-8";
 
     /// <summary>
-    /// https://xhr.spec.whatwg.org/#text-response — the received bytes decoded with the final charset.
+    /// https://xhr.spec.whatwg.org/#text-response — the received bytes run through Encoding's <i>decode</i>,
+    /// with the final charset as the fallback encoding.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>A byte order mark beats the charset</b>, because step 5 is <i>decode</i>
+    /// (https://encoding.spec.whatwg.org/#decode) and not a <c>TextDecoder</c>: <c>FF FE</c> is UTF-16LE under
+    /// a <c>utf-32</c> label, and <c>EF BB BF</c> is UTF-8 under <c>windows-1252</c>, with the mark consumed
+    /// either way. <c>responseText</c>, <c>response</c> for <c>""</c> and <c>"text"</c>, and the text handed to
+    /// a host's <c>DocumentParser</c> all read this.
+    /// </para>
+    /// <para>
     /// The XML encoding-sniffing arm of step 3 is not reached, because it applies only where a document could
     /// be produced and this engine has no XML parser. A <c>charset</c> the encoding registry does not know
-    /// falls back to UTF-8, which is what the standard's <i>get an encoding</i> failure does.
+    /// falls back to UTF-8, which is what the standard's <i>get an encoding</i> failure does; one naming a
+    /// legacy multi-byte encoding or <c>replacement</c> decodes as UTF-8 too, since neither decoder exists
+    /// here (https://github.com/sebastienros/jint/issues/3106).
+    /// </para>
     /// </remarks>
     internal JsString TextResponse()
     {
@@ -605,11 +617,11 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
             return JsString.Empty;
         }
 
-        var decoder = EncodingLabels.TryLookup(FinalCharset(), out var entry)
-            ? new TextDecoderCommon(in entry, fatal: false, ignoreBom: false)
-            : TextDecoderCommon.Utf8();
+        // Steps 2 and 4: the final encoding, or UTF-8 when there is none.
+        var fallback = EncodingLabels.TryLookup(FinalCharset(), out var entry) ? entry : EncodingLabels.Utf8Encoding;
 
-        return decoder.Decode(_realm, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_receivedBytes), stream: false);
+        // Step 5.
+        return TextDecoderCommon.DecodeWithBomSniff(_realm, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_receivedBytes), in fallback);
     }
 
     /// <summary>
@@ -684,8 +696,12 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
 
         try
         {
-            // The byte overload transcodes and strips one leading BOM, which is the UTF-8 decode the standard
-            // runs before parsing.
+            // The byte overload transcodes and strips one leading UTF-8 BOM, which is the UTF-8 decode
+            // (https://encoding.spec.whatwg.org/#utf-8-decode) the standard runs before parsing: the charset is
+            // ignored and no other mark is sniffed, so a UTF-16 body is not JSON whatever it is labelled. It
+            // decodes strictly where UTF-8 decode would put U+FFFD in place of an ill-formed sequence — the
+            // divergence fetch's json() documents — and both answers are null unless the corruption sits
+            // inside a JSON string literal.
             return new JsonParser(_engine).Parse(bytes);
         }
         catch (JavaScriptException)

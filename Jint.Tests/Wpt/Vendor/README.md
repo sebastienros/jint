@@ -42,12 +42,13 @@ root, `blob/`, `file/`, `reading-data-section/` and `url/`), `workers/` as **fou
 **three** (timers, microtask-queuing, structured-clone), `dom/` as **two** (events, abort), `fetch/api/` as
 **seven** (abort, basic, body, headers, redirect, request, response), `WebCryptoAPI/` as **eight** and
 `streams/` as **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 398
-theory cases over 41,677 assertions, of which 2,930 do not pass and every one is named in the driver's
+theory cases over 41,677 assertions, of which 2,926 do not pass and every one is named in the driver's
 table; the whole driver runs in about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
-change moves them; the counts before the four files the `data:` arm of scheme fetch let run
-([#4270](https://github.com/sebastienros/jint/issues/4270)) were 394 / 41,651 / 2,926, before the `web-locks/` suite arrived 382 / 41,581 / 2,932, before the
+change moves them; the counts before [#4282](https://github.com/sebastienros/jint/issues/4282) gave
+`XMLHttpRequest`'s text response its BOM sniff were 398 / 41,677 / 2,930, before the four files the `data:` arm of
+scheme fetch let run ([#4270](https://github.com/sebastienros/jint/issues/4270)) were 394 / 41,651 / 2,926, before the `web-locks/` suite arrived 382 / 41,581 / 2,932, before the
 three File and Performance suites
 348 / 41,435 / 2,939, before the
 `xhr/` corpus 305 / 41,157 / 2,966, before
@@ -1029,10 +1030,12 @@ vendored resource and against every shape it declines.
 `unsupported-encodings.any.js` arrived with the `data:` arm of scheme fetch
 ([#4270](https://github.com/sebastienros/jint/issues/4270)): it decodes every input through the shipped
 `XMLHttpRequest` over a `data:` URL with an overridden charset, so it runs in the
-[local-scheme lane](#the-server-lane) with no server at all. Ten of its fourteen rows pass. The four
-`…with BOM should decode as UTF-16LE` rows are the one `NeedsTriage` entry the corpus carries: the
-[text response](https://xhr.spec.whatwg.org/#text-response) ends in Encoding's *decode*, whose BOM sniff
-overrides the charset, and `JsXmlHttpRequest.TextResponse` decodes with the charset alone.
+[local-scheme lane](#the-server-lane) with no server at all. **All fourteen rows pass.** Four of them — the
+`…with BOM should decode as UTF-16LE` rows — were the corpus's one `NeedsTriage` entry when the file arrived:
+the [text response](https://xhr.spec.whatwg.org/#text-response) ends in Encoding's *decode*, whose BOM sniff
+overrides the charset, and `JsXmlHttpRequest.TextResponse` decoded with the charset alone.
+[#4282](https://github.com/sebastienros/jint/issues/4282) gave it the sniff `FileReader.readAsText` already
+had, and the category is empty again.
 
 ## What the DOM events and abort corpora say about this engine
 
@@ -1542,7 +1545,7 @@ their exclusions without revisiting this table.
 | --- | --- | --- | --- | --- |
 | URL | `url/` | 21 | 2,068 | 0 |
 | URL Pattern | `urlpattern/` | 3 | 373 | 0 |
-| Encoding | `encoding/` | 21 | 11,558 | 326 |
+| Encoding | `encoding/` | 21 | 11,558 | 322 |
 | Web Cryptography | `WebCryptoAPI/` ×8 | 48 | 24,136 | 2,449 |
 | Streams | `streams/` ×7 | 66 | 1,170 | 4 |
 | Compression | `compression/` | 15 | 297 | 22 |
@@ -1556,7 +1559,7 @@ their exclusions without revisiting this table.
 | Fetch | `fetch/api/` ×7 | 64 | 916 | 108 |
 | XMLHttpRequest | `xhr/` | 44 | 289 | 8 |
 | Web Locks | `web-locks/` | 12 | 70 | 2 |
-| **total** | **45** | **398** | **41,677** | **2,930** |
+| **total** | **45** | **398** | **41,677** | **2,926** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
