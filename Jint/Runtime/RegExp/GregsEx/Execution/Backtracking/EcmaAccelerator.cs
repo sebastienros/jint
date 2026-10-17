@@ -2026,7 +2026,9 @@ internal sealed class EcmaAccelerator
 
 #endif
     private const int MaxFirstChars = 2048;
-    private static readonly Dictionary<int, List<int>>?[] InverseFolds = new Dictionary<int, List<int>>?[2];
+    // Per case-table instance, because the tables are per Unicode version: one slot per mode used to let a Unicode 16
+    // program's inverse folds answer for a Unicode 17 program, which lost the 17.0 case pairs from its prefilter.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<EcmaCaseTables, Dictionary<int, List<int>>?[]> InverseFolds = new();
 
     private SearchValues<char>? TryBuildFirstChars(ReadOnlySpan<EcmaNode> nodes, int root, EcmaCaseTables caseTables)
     {
@@ -2214,8 +2216,9 @@ internal sealed class EcmaAccelerator
 
     private static Dictionary<int, List<int>> GetInverseFolds(EcmaCaseTables caseTables, bool unicodeAware)
     {
+        var slots = InverseFolds.GetValue(caseTables, static _ => new Dictionary<int, List<int>>?[2]);
         var slot = unicodeAware ? 1 : 0;
-        if (Volatile.Read(ref InverseFolds[slot]) is { } cached)
+        if (Volatile.Read(ref slots[slot]) is { } cached)
         {
             return cached;
         }
@@ -2231,8 +2234,8 @@ internal sealed class EcmaAccelerator
             sources.Add(mapping.Source);
         }
 
-        Interlocked.CompareExchange(ref InverseFolds[slot], inverse, null);
-        return InverseFolds[slot]!;
+        Interlocked.CompareExchange(ref slots[slot], inverse, null);
+        return slots[slot]!;
     }
 
     private bool TryExtractRequiredLiteral(
