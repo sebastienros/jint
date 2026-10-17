@@ -4,8 +4,8 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Acornima" Version="1.8.0" />
-    <PackageVersion Include="Acornima.Extras" Version="1.8.0" />
+    <PackageVersion Include="Acornima" Version="1.9.0" />
+    <PackageVersion Include="Acornima.Extras" Version="1.9.0" />
     <!-- Comparison controls for Jint.HtmlParser only. Production, tests and binding generation use
          native models; historical binding provenance does not constrain these benchmark versions. -->
     <PackageVersion Include="AngleSharp" Version="1.8.2" />
