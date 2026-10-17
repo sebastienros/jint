@@ -29,6 +29,12 @@ internal sealed class JintIdentifierExpression : JintExpression
     // See SlotChainMemo for the soundness argument; the walk stays authoritative for misses.
     private SlotChainMemo? _slotChainMemo;
 
+    // Layout-described location of the same slot binding (see ScopePath): validated by the layout of each
+    // environment on the chain instead of its identity, so a fresh activation of the function this node
+    // runs in — or a fresh iteration of its loop — still hits, where _cachedSlotEnv and _slotChainMemo
+    // describe the previous one and miss.
+    private ScopePath? _scopePath;
+
     // Version-based inline cache for global bindings: when resolution (from any scope depth)
     // lands on a plain writable data property of the real GlobalObject, remember the
     // descriptor. Valid while the global object's own-property shape and the set of global
@@ -200,6 +206,20 @@ internal sealed class JintIdentifierExpression : JintExpression
             }
         }
 
+        if (_scopePath is { } scopePath && scopePath.Resolve(engine, env) is { _slots: { } pathSlots }
+            && (uint) scopePath.SlotIndex < (uint) pathSlots.Length)
+        {
+            ref var binding = ref pathSlots[scopePath.SlotIndex];
+            value = binding.HasReferenceValue
+                ? binding.Value
+                : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
+            if (value is null)
+            {
+                ThrowNotInitialized(engine);
+            }
+            return MaterializeIfArguments(value);
+        }
+
 
         // Global-binding fast path: top-level identifier reads hit the cached descriptor
         // directly, skipping the property dictionary lookup entirely. The null pre-check keeps
@@ -255,6 +275,7 @@ internal sealed class JintIdentifierExpression : JintExpression
                 {
                     _cachedSlotEnv = denv;
                     _cachedSlotIndex = slotIndex;
+                    _scopePath = ScopePath.TryCreate(engine, env, denv, identifier.Key, slotIndex);
                 }
             }
             else if (identifierEnvironment is GlobalEnvironment globalEnv)

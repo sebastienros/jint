@@ -138,7 +138,7 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
             {
                 // this may CREATE a binding in the pre-existing var env (sloppy set-on-missing)
                 // — invalidate pinned nested-global chain memos
-                engine._envBindingInjectionEpoch++;
+                DeclarativeEnvironment.NoteInjectedBinding(engine, varEnv);
                 varEnv.SetMutableBinding(fn, fo, strict: false);
             }
         }
