@@ -22,6 +22,9 @@ internal sealed class EcmaFastSet
     // units that end a run of it. Such a class matches a pair or a lone surrogate alike, so a run is a span of code
     // units up to the first of these, and is measured vectorized where the inexact bitmap scanned unit by unit.
     internal readonly SearchValues<char>? UnicodeRunStops;
+    // Whether the units that end a run (the negated SearchValues, or UnicodeRunStops) are exactly the line
+    // terminators, as for /./ and /./u: see IndexOfLineTerminator.
+    internal readonly bool StopsAtLineTerminatorsOnly;
     private readonly EcmaInterval[] _intervals;
 
     internal EcmaFastSet(EcmaProgram program, EcmaSetSlice slice, EcmaScriptFlags effectiveFlags, EcmaCaseTables caseTables)
@@ -54,7 +57,11 @@ internal sealed class EcmaFastSet
         AsciiLow = low;
         AsciiHigh = high;
 
-        if (!ignoreCase && slice.StringCount == 0)
+        // Under legacy i (no u/v) every UTF-16 unit is matched alone and Canonicalize maps BMP to BMP, so the folded
+        // membership of each unit is exact too: the intervals, corrected at the few units that have a case mapping.
+        // Without a bitmap an i-flag class took the slow path per character and lost every accelerated plan.
+        var foldedBmp = ignoreCase && !unicodeAware;
+        if ((!ignoreCase || foldedBmp) && slice.StringCount == 0)
         {
             var bmp = new ulong[1024];
             var hasSurrogateOrAstral = false;
@@ -76,6 +83,37 @@ internal sealed class EcmaFastSet
                 totalBmp += last - first + 1;
                 SetBitRange(bmp, first, last);
             }
+            if (foldedBmp)
+            {
+                foreach (var mapping in caseTables.LegacyUppercase)
+                {
+                    if (mapping.Source > 0xFFFF)
+                    {
+                        continue;
+                    }
+
+                    var word = mapping.Source >> 6;
+                    var bit = 1UL << (mapping.Source & 63);
+                    if (ContainsInterval(intervals, mapping.Target))
+                    {
+                        bmp[word] |= bit;
+                    }
+                    else
+                    {
+                        bmp[word] &= ~bit;
+                    }
+                }
+
+                totalBmp = 0;
+                foreach (var word in bmp)
+                {
+                    for (var w = word; w != 0; w &= w - 1)
+                    {
+                        totalBmp++;
+                    }
+                }
+            }
+
             if (unicodeAware)
             {
                 // Clear surrogate range 0xD800..0xDFFF (words 864..895) so a 1-bit in BmpBits
@@ -107,13 +145,34 @@ internal sealed class EcmaFastSet
 
                 if (coversAstral && stops.Count is >= 1 and <= 512)
                 {
+                    StopsAtLineTerminatorsOnly = AreLineTerminators(stops.ToArray());
                     UnicodeRunStops = System.Buffers.SearchValues.Create(stops.ToArray());
                 }
             }
 
             if (BmpBitsIsExact)
             {
-                if (totalBmp is >= 1 and <= 512)
+                if (foldedBmp)
+                {
+                    // The intervals are not the membership here; take the members from the bitmap.
+                    if (totalBmp is >= 1 and <= 512 || (65536 - totalBmp) is >= 1 and <= 512)
+                    {
+                        var negated = totalBmp > 512;
+                        var chars = new char[negated ? 65536 - totalBmp : totalBmp];
+                        var idx = 0;
+                        for (var c = 0; c <= 0xFFFF; c++)
+                        {
+                            if (((bmp[c >> 6] & (1UL << (c & 63))) != 0) != negated)
+                            {
+                                chars[idx++] = (char)c;
+                            }
+                        }
+
+                        SearchValues = System.Buffers.SearchValues.Create(chars);
+                        IsNegatedSearchValues = negated;
+                    }
+                }
+                else if (totalBmp is >= 1 and <= 512)
                 {
                     var chars = new char[totalBmp];
                     var idx = 0;
@@ -156,11 +215,46 @@ internal sealed class EcmaFastSet
                         excluded[idx++] = (char)c;
                     }
 
+                    StopsAtLineTerminatorsOnly = AreLineTerminators(excluded);
                     SearchValues = System.Buffers.SearchValues.Create(excluded);
                     IsNegatedSearchValues = true;
                 }
             }
         }
+    }
+
+    private static bool AreLineTerminators(ReadOnlySpan<char> chars)
+        => chars.Length == 4 && chars.Contains('\n') && chars.Contains('\r') && chars.Contains('\u2028') && chars.Contains('\u2029');
+
+    // The first line terminator. Every one of them is outside 0x0E..0x2027, and an IndexOfAnyExceptInRange for that
+    // range runs as fast as IndexOf(char) - twice the speed of a four-value IndexOfAny - so it finds the candidates
+    // and each is checked; a span with many units outside the range (tabs, CJK) falls back to the exact search.
+    internal static int IndexOfLineTerminator(ReadOnlySpan<char> span, SearchValues<char> lineTerminators)
+    {
+#if NET8_0_OR_GREATER
+        var offset = 0;
+        for (var falseHits = 0; falseHits < 8; falseHits++)
+        {
+            var rel = span.Slice(offset).IndexOfAnyExceptInRange('\u000E', '\u2027');
+            if (rel < 0)
+            {
+                return -1;
+            }
+
+            var index = offset + rel;
+            if (span[index] is '\n' or '\r' or '\u2028' or '\u2029')
+            {
+                return index;
+            }
+
+            offset = index + 1;
+        }
+
+        var tail = span.Slice(offset).IndexOfAny(lineTerminators);
+        return tail < 0 ? -1 : offset + tail;
+#else
+        return span.IndexOfAny(lineTerminators);
+#endif
     }
 
     private static void SetBitRange(ulong[] bits, int first, int last)
@@ -282,7 +376,8 @@ internal sealed class EcmaFastSet
         {
             var limit = maxCount >= 0 && maxCount < span.Length ? maxCount : span.Length;
             var slice = span.Slice(0, limit);
-            var stop = IsNegatedSearchValues ? slice.IndexOfAny(sv) : slice.IndexOfAnyExcept(sv);
+            var stop = !IsNegatedSearchValues ? slice.IndexOfAnyExcept(sv) :
+                StopsAtLineTerminatorsOnly ? IndexOfLineTerminator(slice, sv) : slice.IndexOfAny(sv);
             unitLength = stop < 0 ? limit : stop;
             return unitLength;
         }
@@ -506,10 +601,47 @@ internal sealed class EcmaAccelerator
     internal readonly SearchValues<string>? FirstStrings;
 #endif
 
+    // An i-flag literal that no other character canonicalizes with (`@`, `-`, digits) matches exactly what the
+    // case-sensitive literal matches, so the planners see it without the flag: they refuse i-flag literals, and an i
+    // pattern like /[a-z]+@/i otherwise ran the VM from every position. Only the planners read these nodes.
+    private static ReadOnlySpan<EcmaNode> WithoutCaselessIgnoreCase(ReadOnlySpan<EcmaNode> nodes, bool unicodeAware, EcmaCaseTables caseTables)
+    {
+        EcmaNode[]? copy = null;
+        HashSet<int>? cased = null;
+        for (var i = 0; i < nodes.Length; i++)
+        {
+            var n = nodes[i];
+            if (n.Kind != EcmaNodeKind.Literal || (n.EffectiveFlags & EcmaScriptFlags.IgnoreCase) == 0)
+            {
+                continue;
+            }
+
+            if (cased is null)
+            {
+                cased = [];
+                foreach (var mapping in unicodeAware ? caseTables.UnicodeFold : caseTables.LegacyUppercase)
+                {
+                    cased.Add(mapping.Source);
+                    cased.Add(mapping.Target);
+                }
+            }
+
+            if (cased.Contains(n.Value))
+            {
+                continue;
+            }
+
+            copy ??= nodes.ToArray();
+            copy[i] = n with { EffectiveFlags = n.EffectiveFlags & ~EcmaScriptFlags.IgnoreCase };
+        }
+
+        return copy is null ? nodes : copy;
+    }
+
     internal EcmaAccelerator(EcmaProgram program, EcmaCaseTables caseTables)
     {
         _program = program;
-        var nodes = program.Nodes;
+        var nodes = WithoutCaselessIgnoreCase(program.Nodes, program.Profile.IsUnicodeAware, caseTables);
         FastSets = new EcmaFastSet?[nodes.Length];
         NonNullable = new bool[nodes.Length];
         var minLengths = new int[nodes.Length];
@@ -1413,7 +1545,10 @@ internal sealed class EcmaAccelerator
                 }
                 else if (n.Kind == EcmaNodeKind.Repeat)
                 {
-                    if (n.Lazy || n.Min < 1 || n.CaptureCount > 0)
+                    // A nullable repeat (\s*) is as atomic as a non-nullable one under the same rule: it must be last, or
+                    // followed by a literal whose first character it cannot match, so its run is always taken whole.
+                    // Refusing it left split(/\s*,\s*/) on the VM at every candidate.
+                    if (n.Lazy || n.CaptureCount > 0)
                     {
                         return false;
                     }
@@ -1990,6 +2125,33 @@ internal sealed class EcmaAccelerator
             return true;
         }
 
+        // The characters an item can start with, through groups, alternations and inner sequences: /(?:abc|def)+/ had
+        // no FIRST set and ran the VM at every position. A backreference can start with anything, so it has none.
+        bool AddFirst(int id, ReadOnlySpan<EcmaNode> nodes)
+        {
+            var n = nodes[id];
+            switch (n.Kind)
+            {
+                case EcmaNodeKind.Literal:
+                case EcmaNodeKind.Set:
+                    return AddAtom(n);
+                case EcmaNodeKind.Capture:
+                    return AddFirst(n.X, nodes);
+                case EcmaNodeKind.Repeat:
+                    return n.Max == 0 || AddFirst(n.X, nodes);
+                case EcmaNodeKind.Alternative:
+                    return AddFirst(n.X, nodes) && AddFirst(n.Y, nodes);
+                case EcmaNodeKind.Sequence:
+                    return AddFirst(n.X, nodes) && (NonNullable[n.X] || AddFirst(n.Y, nodes));
+                case EcmaNodeKind.Empty or EcmaNodeKind.Start or EcmaNodeKind.End or EcmaNodeKind.WordBoundary or
+                    EcmaNodeKind.NotWordBoundary or EcmaNodeKind.Lookahead or EcmaNodeKind.NegativeLookahead or
+                    EcmaNodeKind.Lookbehind or EcmaNodeKind.NegativeLookbehind:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         // FIRST set of the sequence: the leading atoms' characters, through every item that can match empty, up to
         // and including the first that cannot. Zero-width assertions only restrict where a match starts, so they add
         // nothing to a superset and are stepped over. A pattern that can match empty has no FIRST set.
@@ -2009,18 +2171,7 @@ internal sealed class EcmaAccelerator
                 continue;
             }
 
-            var atomId = id;
-            if (node.Kind == EcmaNodeKind.Repeat)
-            {
-                atomId = node.X;
-                while (nodes[atomId].Kind == EcmaNodeKind.Capture)
-                {
-                    atomId = nodes[atomId].X;
-                }
-            }
-
-            var atom = nodes[atomId];
-            if (atom.Kind is not (EcmaNodeKind.Literal or EcmaNodeKind.Set) || !AddAtom(atom))
+            if (!AddFirst(id, nodes))
             {
                 return null;
             }

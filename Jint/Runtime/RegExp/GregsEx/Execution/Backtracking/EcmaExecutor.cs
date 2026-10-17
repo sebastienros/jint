@@ -16,6 +16,9 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     private readonly EcmaAccelerator _accelerator;
     // Per node, whether it is a greedy repeat of a single-character atom (see Machine.GreedyRun).
     private readonly bool[] _greedyRun;
+    // Canonicalize for ASCII, from the same case tables Machine.Canonical searches: an i-flag literal compare used to
+    // binary-search the whole table twice per character.
+    private readonly char[] _asciiCanonical;
     internal const int TaskWidth = 6;
     // A fourth slot holds a greedy run's lower bound (ChoiceKind.GreedyRun).
     internal const int ChoiceWidth = 4;
@@ -30,6 +33,12 @@ internal sealed class EcmaExecutor : IEcmaExecutor
         _taskSlots = checked(TaskWidth * _taskCapacity);
         _registerSlots = checked(2 * Program.GroupCount);
         _accelerator = new EcmaAccelerator(program, _caseTables);
+        _asciiCanonical = new char[128];
+        for (var c = 0; c < _asciiCanonical.Length; c++)
+        {
+            _asciiCanonical[c] = (char) EcmaFastSet.Fold(c, program.Profile.IsUnicodeAware, ignoreCase: true, tables);
+        }
+
         _greedyRun = new bool[instructions.Length];
         for (var i = 0; i < instructions.Length; i++)
         {
@@ -183,6 +192,18 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             }
         }
 
+        return SearchMachine(input, startAt, sticky, operation, frames, ref state, groups, out match);
+    }
+
+    // Kept out of SearchCore: the Machine is a large ref struct, and a method holding one zeroes its whole frame on
+    // entry. Inline in SearchCore, every search paid that even when an accelerated plan answered first - 12 ns of a
+    // 25 ns split(/a/) step.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private RegexSearchStatus SearchMachine(ReadOnlySpan<char> input, int startAt, bool sticky,
+        SearchOperation operation, int frames, ref RunState state,
+        Span<RegexCapture> groups, out RegexMatchRange match)
+    {
+        match = default;
         var saveRegisters = Program.GroupCount > 1 && (_accelerator.HasBackreferences || operation == SearchOperation.Captures);
         var machine = new Machine(this, input, state.Buffers, frames, saveRegisters);
         var candidate = startAt;
@@ -681,7 +702,8 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             {
                 // Only the run's extent matters when it is unbounded; see EcmaFastSet.UnicodeRunStops.
                 var rest = _input.Slice(Position);
-                var units = rest.IndexOfAny(stops);
+                var units = _owner._accelerator.FastSets[node.X]!.StopsAtLineTerminatorsOnly
+                    ? EcmaFastSet.IndexOfLineTerminator(rest, stops) : rest.IndexOfAny(stops);
                 units = units < 0 ? rest.Length : units;
                 if (!state.TryCharge(Math.Max(1, units), Position))
                 {
@@ -768,7 +790,11 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                     return true;
                 }
 
-                if (fastSet.BmpBits is not null && (!_owner.Program.Profile.IsUnicodeAware || !char.IsSurrogate(ch)))
+                // The ASCII bitmap is exact whenever the set has no strings: it is built with the same case folding
+                // MatchSet applies, so under i - where there is no BMP bitmap - an ASCII miss is still final. Without
+                // this every non-member ASCII character went through two binary searches (/[a-z]+@/i: 45x slower).
+                if ((fastSet.BmpBits is not null && (!_owner.Program.Profile.IsUnicodeAware || !char.IsSurrogate(ch))) ||
+                    (ch < 128 && fastSet.Slice.StringCount == 0))
                 {
                     return state.TryCharge(2, Position) && false;
                 }
@@ -941,6 +967,11 @@ internal sealed class EcmaExecutor : IEcmaExecutor
         }
         private readonly int Canonical(int point, ref RunState state)
         {
+            if ((uint) point < 128)
+            {
+                return _owner._asciiCanonical[point];
+            }
+
             var mappings = _owner.Program.Profile.IsUnicodeAware ? _owner._caseTables.UnicodeFold : _owner._caseTables.LegacyUppercase;
             var lo = 0;
             var hi = mappings.Length - 1;

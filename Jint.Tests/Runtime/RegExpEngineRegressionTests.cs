@@ -114,6 +114,88 @@ public class RegExpEngineRegressionTests
         Evaluate("var s = 'abc'.repeat(10); s.replace(/zz/g, 'x') === s").AsBoolean().Should().BeTrue();
     }
 
+    // A nullable repeat now runs on the atomic-sequence plan: its run is taken whole only where nothing after it
+    // could have used a shorter one.
+    [TestCase("JSON.stringify('a , b,c ,d, e'.split(/\\s*,\\s*/))", """["a","b","c","d","e"]""")]
+    [TestCase("'x  ,  y'.match(/\\s*,\\s*/)[0]", "  ,  ")]
+    [TestCase("String('x y, z'.match(/\\s*,\\s*/).index)", "3")]
+    [TestCase("String((function () { var re = /\\s*,/g; re.lastIndex = 2; return re.exec('a , b ,c').index; })())", "2")]
+    [TestCase("String(/\\s*,\\s*/y.exec('a ,b'))", "null")]
+    [TestCase("(function () { var re = /\\s*,\\s*/y; re.lastIndex = 1; return re.exec('a ,b')[0]; })()", " ,")]
+    [TestCase("/[a-c]*d/.exec('xxabcabdz')[0]", "abcabd")]
+    [TestCase("/x?y/.exec('aaxyz')[0]", "xy")]
+    [TestCase("String(/^\\s*$/.test(' x '))", "false")]
+    public void NullableRepeatsMatchAsTheyDidOnTheVm(string script, string expected)
+    {
+        Evaluate(script).AsString().Should().Be(expected);
+    }
+
+    // Under legacy i a class has a folded membership bitmap, and a literal no other character canonicalizes with is
+    // planned as a plain literal; Canonicalize's ASCII and BMP rules must survive both.
+    [TestCase("/[a-z]/i.test('K')", true)]
+    [TestCase("/[a-z]/i.test('\\u212A')", false)]
+    [TestCase("/[\\u212A]/i.test('k')", false)]
+    [TestCase("/[\\u017F]/i.test('S')", false)]
+    [TestCase("/[s]/i.test('\\u017F')", false)]
+    [TestCase("/[\\u03c3]/i.test('\\u03c2')", true)]
+    [TestCase("/[\\u0131]/i.test('I')", false)]
+    [TestCase("/[i]/i.test('\\u0130')", false)]
+    [TestCase("/[\\u00df]/i.test('\\u1e9e')", false)]
+    [TestCase("/[a-z]/iu.test('\\u212A')", true)]
+    [TestCase("/[a-z]+@/i.exec('xx-AbC@d')[0] === 'AbC@'", true)]
+    [TestCase("/[^a-z]+/i.exec('abc-12Z')[0] === '-12'", true)]
+    [TestCase("/[\\u0400-\\u04ff]+@/i.exec('\\u0416\\u0436@')[0].length === 3", true)]
+    [TestCase("/[a-z]+@[a-z0-9.]+\\.[a-z]{2,}/i.test('sample-123-text')", false)]
+    [TestCase("/[a-z]+@[a-z0-9.]+\\.[a-z]{2,}/i.exec('mail Bob@Example.COM now')[0] === 'Bob@Example.COM'", true)]
+    public void CaseInsensitiveClassesKeepCanonicalize(string script, bool expected)
+    {
+        Evaluate(script).AsBoolean().Should().Be(expected);
+    }
+
+    // The FIRST-character prefilter now looks through groups, alternations and inner sequences.
+    [TestCase("/(?:abc|def|ghi)+\\d*/.exec('xx-defabc12-')[0] === 'defabc12'", true)]
+    [TestCase("/(https?):\\/\\/([^\\/\\s]+)/i.exec('see HTTPS://host/x')[2] === 'host'", true)]
+    [TestCase("/(?:(?=b)|a)c/.exec('xbac')[0] === 'ac'", true)]
+    [TestCase("/(?:x?)+y/.exec('aay')[0] === 'y'", true)]
+    [TestCase("/(?<=a)b/.exec('cbab').index === 3", true)]
+    [TestCase("/(a)\\1|z/.exec('qaa')[0] === 'aa'", true)]
+    public void FirstCharactersSeeThroughGroups(string script, bool expected)
+    {
+        Evaluate(script).AsBoolean().Should().Be(expected);
+    }
+
+    // A /./ run is measured by a range search for its four line terminators, falling back after a few false hits.
+    [TestCase("/a.*a/.exec('a\\tb\\ta\\u2028a')[0] === 'a\\tb\\ta'", true)]
+    [TestCase("/a.*a/.exec('a\\u4e2d\\u4e2d\\u4e2d\\u4e2d\\u4e2d\\u4e2d\\u4e2d\\u4e2d\\u4e2d\\u4e2da\\rza')[0].length === 12", true)]
+    [TestCase("/^.*$/m.exec('x\\t\\t\\t\\t\\t\\t\\t\\t\\t\\ty\\u2029z')[0].length === 12", true)]
+    [TestCase("/.*/u.exec('\\u{1F600}\\t\\u{1F600}\\nz')[0].length === 5", true)]
+    [TestCase("/a.*b/s.exec('a\\nb')[0] === 'a\\nb'", true)]
+    public void DotRunsStopAtEveryLineTerminator(string script, bool expected)
+    {
+        Evaluate(script).AsBoolean().Should().Be(expected);
+    }
+
+    // Split takes the ranges of a pattern without groups a batch at a time.
+    [TestCase("JSON.stringify('a;b;c'.split(/;/, 2))", """["a","b"]""")]
+    [TestCase("String(('x;'.repeat(100)).split(/;/).length)", "101")]
+    [TestCase("JSON.stringify('abc'.split(/x*/))", """["a","b","c"]""")]
+    [TestCase("JSON.stringify('a1b22c'.split(/\\d*/))", """["a","b","c"]""")]
+    [TestCase("JSON.stringify('\\u{1F600}a'.split(/(?:)/u))", "[\"\U0001F600\",\"a\"]")]
+    [TestCase("JSON.stringify('ab'.split(/$/))", """["ab"]""")]
+    [TestCase("JSON.stringify(';a;'.split(/;/))", """["","a",""]""")]
+    public void SplitWithoutGroupsTakesMatchesInBatches(string script, string expected)
+    {
+        Evaluate(script).AsString().Should().Be(expected);
+    }
+
+    [Test]
+    public void SplitWithoutGroupsStillTimesOut()
+    {
+        var engine = new Engine(o => o.Constraints.RegexTimeout = TimeSpan.FromMilliseconds(50));
+        var act = () => engine.Evaluate("('a'.repeat(30) + '!b,').repeat(20).split(/^(?:a|a)*b/)");
+        act.Should().Throw<System.Text.RegularExpressions.RegexMatchTimeoutException>();
+    }
+
     [Test]
     public void SplitFollowsTheSpecificationsMatcherLoop()
     {

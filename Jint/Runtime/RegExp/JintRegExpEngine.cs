@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Runtime.RegExp.GregsEx;
 using Jint.Runtime.RegExp.GregsEx.Contracts;
@@ -144,6 +145,66 @@ internal sealed class JintRegExpEngine
         return found;
     }
 
+    /// <summary>
+    /// Consecutive forward matches from <paramref name="startIndex"/>, each search starting where the previous match
+    /// ended, written to <paramref name="matches"/>: one entry into the executor and one budget for the batch, where a
+    /// split or global match otherwise paid both per match. Stops after an empty match (where to resume is the
+    /// caller's rule) and when <paramref name="matches"/> is full; returns how many it wrote, 0 for no match.
+    /// </summary>
+    internal int FindRanges(string input, int startIndex, long deadline, Span<RegexMatchRange> matches)
+    {
+        if ((uint) startIndex > (uint) input.Length || matches.IsEmpty)
+        {
+            return 0;
+        }
+
+        var plan = _plan;
+        var scratch = t_scratch;
+        if (scratch is null || !scratch.Fits(plan.Capacity))
+        {
+            scratch = Scratch.ForThread(plan.Capacity);
+        }
+
+        var state = new RunState(scratch.Buffers, long.MaxValue, deadline);
+        var span = input.AsSpan();
+        var count = 0;
+        var position = startIndex;
+        while (count < matches.Length && position <= span.Length)
+        {
+            var status = _executor.SearchPrevalidated(span, position, sticky: false, SearchOperation.Range, plan.Frames, ref state, [], out var match);
+            if (status == RegexSearchStatus.Match)
+            {
+                matches[count++] = match;
+                if (match.Length == 0)
+                {
+                    break;
+                }
+
+                position = match.Index + match.Length;
+                continue;
+            }
+
+            if (status != RegexSearchStatus.NoMatch && count == 0)
+            {
+                // Growth, a timeout or a resource failure: the single search handles each.
+                ForgetTimestampAfterLongSearch(state.Budget.WorkConsumed);
+                if (!Search(input, position, SearchOperation.Range, [], deadline, out match, sticky: false))
+                {
+                    return 0;
+                }
+
+                matches[0] = match;
+                return 1;
+            }
+
+            // No further match, or a failure the next call reaches on its own.
+            break;
+        }
+
+        ForgetTimestampAfterLongSearch(state.Budget.WorkConsumed);
+        return count;
+    }
+
     /// <summary>Test if the regex matches the input string. See <see cref="TryMatchRange"/> for <paramref name="deadline"/>.</summary>
     public bool IsMatch(string input, int startIndex = 0, long deadline = NoDeadline)
         => Search(input, startIndex, SearchOperation.Boolean, [], deadline, out _, _sticky);
@@ -202,42 +263,78 @@ internal sealed class JintRegExpEngine
             return false;
         }
 
-        var scratch = t_scratch ??= new Scratch();
-        var plan = Volatile.Read(ref _plan);
+        // A reference read is atomic, and a stale plan only means one more growth retry.
+        var plan = _plan;
+        var scratch = t_scratch;
+        if (scratch is null || !scratch.Fits(plan.Capacity))
+        {
+            scratch = Scratch.ForThread(plan.Capacity);
+        }
+
+        // The admitted frame count is the planned one, the start index is checked above and every caller passes
+        // CaptureCount groups: what Search would validate is already known, and the prevalidated entry reads the
+        // partitions only up to the planned frame count, so they may be longer than planned.
+        var state = new RunState(scratch.Buffers, long.MaxValue, deadline);
+        var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match);
+        if (status == RegexSearchStatus.Match)
+        {
+            ForgetTimestampAfterLongSearch(state.Budget.WorkConsumed);
+            return true;
+        }
+
+        if (status == RegexSearchStatus.NoMatch)
+        {
+            ForgetTimestampAfterLongSearch(state.Budget.WorkConsumed);
+            return false;
+        }
+
+        return SearchSlow(input, startIndex, operation, groups, deadline, out match, sticky, status, state.Failure.Code, plan);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ForgetTimestampAfterLongSearch(long workConsumed)
+    {
+        if (workConsumed >= RunBudget.ClockStride)
+        {
+            // Long enough to have read the clock: the cached reading is no longer recent.
+            t_recentTimestamp = 0;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool SearchSlow(string input, int startIndex, SearchOperation operation, Span<RegexCapture> groups, long deadline,
+        out RegexMatchRange match, bool sticky, RegexSearchStatus status, RegexExecutionFailureCode failure, FramePlan plan)
+    {
         while (true)
         {
-            // The partitions are rented at exactly the planned capacity, so the admitted frame count is the planned
-            // one, the start index is checked above and every caller passes CaptureCount groups: what Search would
-            // validate is already known.
-            var buffers = scratch.Rent(plan.Capacity);
-            var state = new RunState(buffers, long.MaxValue, deadline);
-
-            var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match);
-            if (state.Budget.WorkConsumed >= RunBudget.ClockStride)
+            t_recentTimestamp = 0;
+            if (status is RegexSearchStatus.TimedOut or RegexSearchStatus.Cancelled)
             {
-                // Long enough to have read the clock: the cached reading is no longer recent.
-                t_recentTimestamp = 0;
+                throw new OperationCanceledException();
             }
 
-            switch (status)
+            if (failure != RegexExecutionFailureCode.WorkspaceCapacityExceeded || plan.Frames >= MaxFrames)
             {
-                case RegexSearchStatus.Match:
-                    return true;
-                case RegexSearchStatus.NoMatch:
-                    return false;
-                case RegexSearchStatus.TimedOut:
-                case RegexSearchStatus.Cancelled:
-                    throw new OperationCanceledException();
-            }
-
-            if (state.Failure.Code != RegexExecutionFailureCode.WorkspaceCapacityExceeded || plan.Frames >= MaxFrames)
-            {
-                throw new RegExpResourceException(state.Failure.Code.ToString());
+                throw new RegExpResourceException(failure.ToString());
             }
 
             var frames = Math.Min(MaxFrames, plan.Frames * 4);
             plan = new FramePlan(frames, _executor.GetRequiredCapacity(SearchOperation.Captures, frames));
             Volatile.Write(ref _plan, plan);
+
+            var state = new RunState(Scratch.ForThread(plan.Capacity).Buffers, long.MaxValue, deadline);
+            status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match);
+            if (status == RegexSearchStatus.Match)
+            {
+                return true;
+            }
+
+            if (status == RegexSearchStatus.NoMatch)
+            {
+                return false;
+            }
+
+            failure = state.Failure.Code;
         }
     }
 
@@ -248,15 +345,20 @@ internal sealed class JintRegExpEngine
         private int[] _captures = [];
         private int[] _scratch = [];
 
-        public WorkspaceBuffers Rent(RegexWorkspaceCapacity capacity)
+        public WorkspaceBuffers Buffers => new(_states, _captures, _scratch);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Fits(RegexWorkspaceCapacity capacity)
+            => _states.Length >= capacity.StateSlots && _captures.Length >= capacity.CaptureSlots && _scratch.Length >= capacity.ScratchSlots;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static Scratch ForThread(RegexWorkspaceCapacity capacity)
         {
-            Grow(ref _states, capacity.StateSlots);
-            Grow(ref _captures, capacity.CaptureSlots);
-            Grow(ref _scratch, capacity.ScratchSlots);
-            return new WorkspaceBuffers(
-                _states.AsSpan(0, capacity.StateSlots),
-                _captures.AsSpan(0, capacity.CaptureSlots),
-                _scratch.AsSpan(0, capacity.ScratchSlots));
+            var scratch = t_scratch ??= new Scratch();
+            Grow(ref scratch._states, capacity.StateSlots);
+            Grow(ref scratch._captures, capacity.CaptureSlots);
+            Grow(ref scratch._scratch, capacity.ScratchSlots);
+            return scratch;
         }
 
         private static void Grow(ref int[] array, int length)

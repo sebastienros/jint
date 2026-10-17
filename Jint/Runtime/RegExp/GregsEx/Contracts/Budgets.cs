@@ -71,6 +71,9 @@ internal struct RunBudget
     private readonly long _startedAt;
     private readonly double _timeoutTicks;
     private long _nextClockCheck;
+    // Set by the absolute-deadline constructor, whose caller reads the clock per search: a zero-unit checkpoint then
+    // waits for the stride like any other charge, instead of reading the clock again at the start of every search.
+    private readonly bool _checkpointsAmortized;
     internal long WorkConsumed { get; private set; }
     internal readonly long StartedAt => _startedAt;
     internal readonly long RemainingWork => _maxWork - WorkConsumed;
@@ -128,6 +131,7 @@ internal struct RunBudget
         _timeoutTicks = absoluteDeadline == long.MaxValue ? double.PositiveInfinity : absoluteDeadline;
         // The caller read the clock to compute the deadline, so the first stride needs no read of its own.
         _nextClockCheck = ClockStride;
+        _checkpointsAmortized = true;
         WorkConsumed = 0;
     }
 
@@ -144,8 +148,10 @@ internal struct RunBudget
     {
         // With a timeout the fast path used to be skipped on every charge, so every timed match paid the slow path per
         // unit of work - 30-50% of a scan. A positive charge that stays short of the next clock read decides nothing
-        // the slow path would decide differently; a zero-unit checkpoint still reads the clock.
-        if ((double.IsPositiveInfinity(_timeoutTicks) || (units > 0 && WorkConsumed + units < _nextClockCheck)) &&
+        // the slow path would decide differently; a zero-unit checkpoint still reads the clock, unless the deadline
+        // was handed in absolute (see _checkpointsAmortized).
+        if ((double.IsPositiveInfinity(_timeoutTicks) ||
+                ((units > 0 || _checkpointsAmortized) && WorkConsumed + units < _nextClockCheck)) &&
             !_cancellation.IsCancellationRequested && (ulong)units <= (ulong)(_maxWork - WorkConsumed))
         {
             WorkConsumed += units;
@@ -158,7 +164,7 @@ internal struct RunBudget
     private bool TryChargeSlow(long units, int offset, out RegexExecutionFailure failure)
     {
         long timestamp;
-        if (!double.IsPositiveInfinity(_timeoutTicks) && (units == 0 || WorkConsumed >= _nextClockCheck))
+        if (!double.IsPositiveInfinity(_timeoutTicks) && ((units == 0 && !_checkpointsAmortized) || WorkConsumed >= _nextClockCheck))
         {
             timestamp = Stopwatch.GetTimestamp();
             var remaining = _timeoutTicks - (timestamp - _startedAt);

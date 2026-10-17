@@ -1119,6 +1119,11 @@ internal sealed partial class RegExpPrototype : Prototype
     private JsArray SplitFused(JsRegExp splitter, string s, bool unicodeMatching, long lim)
     {
         var matcher = splitter.Matcher!;
+        if (matcher.CaptureCount == 1)
+        {
+            return SplitFusedWithoutCaptures(splitter, matcher, s, unicodeMatching, lim);
+        }
+
         var groups = new RegexCapture[matcher.CaptureCount];
         var builder = new JsValueListBuilder(16);
         try
@@ -1180,6 +1185,91 @@ internal sealed partial class RegExpPrototype : Prototype
         finally
         {
             builder.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// <see cref="SplitFused"/> for a pattern without capture groups, which reads only match ranges and so takes them
+    /// from the matcher a batch at a time. A batch's searches each start where the previous match ended, which is
+    /// where this loop would search next after a non-empty match; a batch ends after an empty match, whose resume
+    /// point is the loop's own rule.
+    /// </summary>
+    private JsArray SplitFusedWithoutCaptures(JsRegExp splitter, JintRegExpEngine matcher, string s, bool unicodeMatching, long lim)
+    {
+        Span<RegexMatchRange> ranges = stackalloc RegexMatchRange[32];
+        var builder = new JsValueListBuilder(16);
+        try
+        {
+            var size = s.Length;
+            var p = 0;
+            var q = 0;
+            var matchCount = 0;
+            using var batch = JintRegExpEngine.BeginBatch();
+            var loopTimeout = GetCustomEngineTimeout(splitter);
+            while (q < size)
+            {
+                var found = FindRangesWithTimeout(splitter, matcher, s, q, ranges, loopTimeout);
+                if (found == 0)
+                {
+                    break;
+                }
+
+                for (var i = 0; i < found; i++)
+                {
+                    if (++matchCount % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    var matchStart = ranges[i].Index;
+                    if (matchStart >= size)
+                    {
+                        q = size;
+                        break;
+                    }
+
+                    var e = System.Math.Min(matchStart + ranges[i].Length, size);
+                    if (e == p)
+                    {
+                        // Only an empty match at p, which is the batch's last.
+                        q = (int) AdvanceStringIndex(s, (ulong) matchStart, unicodeMatching);
+                        break;
+                    }
+
+                    builder.Add(s.Substring(p, matchStart - p));
+                    if (builder.Length >= lim)
+                    {
+                        return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+                    }
+
+                    p = e;
+                    q = p;
+                }
+            }
+
+            builder.Add(s.Substring(p));
+            return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+        }
+        finally
+        {
+            builder.Dispose();
+        }
+    }
+
+    private static int FindRangesWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, Span<RegexMatchRange> ranges, TimeSpan resolvedTimeout)
+    {
+        if (resolvedTimeout.TotalMilliseconds <= 0 || resolvedTimeout == Timeout.InfiniteTimeSpan)
+        {
+            return engine.FindRanges(s, startIndex, JintRegExpEngine.NoDeadline, ranges);
+        }
+
+        try
+        {
+            return engine.FindRanges(s, startIndex, ComputeRegexDeadline(resolvedTimeout), ranges);
+        }
+        catch (OperationCanceledException)
+        {
+            throw new RegexMatchTimeoutException(s, R.Source ?? "", resolvedTimeout);
         }
     }
 
