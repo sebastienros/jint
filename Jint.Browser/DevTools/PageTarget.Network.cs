@@ -132,7 +132,7 @@ internal sealed partial class PageTarget : IPageNetworkListener
         if (policy.Offline)
         {
             // Chrome's own code for the offline switch, and the reason it is a refusal rather than a filter:
-            // a page that believes it is offline has to see every request fail, navigations included.
+            // a page whose network conditions are offline has to see every request fail, navigations included.
             return PageNetworkDecision.Fail("net::ERR_INTERNET_DISCONNECTED");
         }
 

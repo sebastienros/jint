@@ -56,6 +56,16 @@ internal sealed class EmulationState
     /// </remarks>
     internal Viewport Viewport { get; set; }
 
+    /// <summary>Whether a client told the page it is offline, which is what <c>navigator.onLine</c> answers.</summary>
+    /// <remarks>
+    /// <b>The page's belief, not its transport.</b> Chrome keeps the two apart and so does this:
+    /// <c>Network.overrideNetworkState</c> writes this and fails no request,
+    /// <c>Network.emulateNetworkConditionsByRule</c> fails requests and leaves this alone, and the deprecated
+    /// <c>Network.emulateNetworkConditions</c> writes both. It is read per get, so a change reaches the document
+    /// already loaded.
+    /// </remarks>
+    internal bool Offline { get; set; }
+
     /// <summary>Whether <c>Emulation.setTouchEmulationEnabled</c> asked for touch.</summary>
     /// <remarks>
     /// It reaches <c>navigator.maxTouchPoints</c>, the presence of <c>ontouchstart</c> on <c>window</c>,
