@@ -576,7 +576,8 @@ public class XmlHttpRequestTests
 
     /// <summary>
     /// <c>Options.WebApi.Xhr.DocumentParser</c> is what makes <c>responseXML</c> answer anything at all; it
-    /// receives the decoded body and the essence of the final MIME type.
+    /// receives the decoded body and the essence of the final MIME type. An HTML response is a document only
+    /// for the <c>document</c> response type — see <see cref="AnHtmlResponseIsADocumentOnlyForTheDocumentResponseType"/>.
     /// </summary>
     [Test]
     public void TheDocumentParserHookBuildsTheDocumentResponse()
@@ -595,13 +596,13 @@ public class XmlHttpRequestTests
             options.WebApi.Xhr.DocumentParser = (e, text, mime) => e.Evaluate($"({{ mime: {System.Text.Json.JsonSerializer.Serialize(mime)}, text: {System.Text.Json.JsonSerializer.Serialize(text)} }})");
         });
 
-        engine.Execute($"var log = []; var xhr = new XMLHttpRequest(); xhr.open('GET', '{Url}'); xhr.send();");
+        engine.Execute($"var log = []; var xhr = new XMLHttpRequest(); xhr.open('GET', '{Url}'); xhr.responseType = 'document'; xhr.send();");
         PumpUntilDone(engine);
 
         engine.Evaluate("xhr.responseXML.mime + '|' + xhr.responseXML.text").AsString().Should().Be("text/html|<p>hi</p>");
 
-        // Steps 4 and 5: the object is cached, so two reads answer the same one.
-        engine.Evaluate("xhr.responseXML === xhr.responseXML").AsBoolean().Should().BeTrue();
+        // The object is cached, so two reads answer the same one, and both getters answer it.
+        engine.Evaluate("xhr.responseXML === xhr.responseXML && xhr.response === xhr.responseXML").AsBoolean().Should().BeTrue();
     }
 
     /// <summary>
@@ -731,20 +732,177 @@ public class XmlHttpRequestTests
         engine.Evaluate("xhr.response.text").AsString().Should().Be("<p>é</p>");
     });
 
+    // ---------------------------------------------------------------- the final encoding
+
+    /// <summary>
+    /// https://xhr.spec.whatwg.org/#final-charset: the response MIME type's <c>charset</c> is the label, and the
+    /// override MIME type replaces it only with a <c>charset</c> of its own — so an override that names none
+    /// keeps the response's.
+    /// </summary>
+    [Test]
+    public Task AnOverrideMimeTypeWithoutACharsetKeepsTheResponseCharset() => DedicatedThread.RunAsync(() =>
+    {
+        byte[] body = [0x68, 0xE9];
+
+        CodeUnits(body, "text/plain;charset=windows-1252", overrideMimeType: "text/plain").Should().Be("U+0068/U+00E9");
+        CodeUnits(body, "text/plain;charset=windows-1252", overrideMimeType: "application/octet-stream").Should().Be("U+0068/U+00E9");
+
+        // An override's charset applies where the response named none, and replaces one the response named.
+        CodeUnits(body, "text/plain", overrideMimeType: "text/plain;charset=windows-1252").Should().Be("U+0068/U+00E9");
+        CodeUnits([0x68, 0xC3, 0xA9], "text/plain;charset=windows-1252", overrideMimeType: "text/plain;charset=utf-8").Should().Be("U+0068/U+00E9");
+
+        // The label is replaced before it is resolved, so an override charset that names no encoding is step 7's
+        // failure — UTF-8 — rather than a way back to the response's.
+        CodeUnits(body, "text/plain;charset=windows-1252", overrideMimeType: "text/plain;charset=bogus").Should().Be("U+0068/U+FFFD");
+    });
+
+    // ---------------------------------------------------------------- the document response
+
+    /// <summary>
+    /// https://xhr.spec.whatwg.org/#document-response step 3: a final MIME type that is neither an HTML nor an
+    /// XML MIME type makes no document, and the host's parser is never asked. The override MIME type is the
+    /// final MIME type, so it decides in both directions.
+    /// </summary>
+    [Test]
+    public Task AMimeTypeThatIsNeitherHtmlNorXmlIsNoDocument() => DedicatedThread.RunAsync(() =>
+    {
+        var plain = ReadDocument("hi"u8.ToArray(), "text/plain", "document", "String(xhr.response)");
+        plain.Value.Should().Be("null");
+        plain.ParserCalls.Should().BeEmpty();
+
+        ReadDocument("{}"u8.ToArray(), "application/json", "document").ParserCalls.Should().BeEmpty();
+        ReadDocument("<a/>"u8.ToArray(), "application/xml", "document", overrideMimeType: "text/plain").ParserCalls.Should().BeEmpty();
+        ReadDocument("<a/>"u8.ToArray(), "text/plain", "document", overrideMimeType: "application/xml").ParserCalls.Should().Equal("application/xml|<a/>");
+    });
+
+    /// <summary>
+    /// Step 4: under the empty response type an HTML response is no document — <c>responseXML</c> is
+    /// <c>null</c> and the parser is never asked — while <c>responseType = "document"</c> parses it.
+    /// </summary>
+    [Test]
+    public Task AnHtmlResponseIsADocumentOnlyForTheDocumentResponseType() => DedicatedThread.RunAsync(() =>
+    {
+        var empty = ReadDocument("<p>hi</p>"u8.ToArray(), "text/html;charset=utf-8", "");
+        empty.Value.Should().Be("null");
+        empty.ParserCalls.Should().BeEmpty();
+
+        var document = ReadDocument("<p>hi</p>"u8.ToArray(), "text/html;charset=utf-8", "document");
+        document.Value.Should().Be("document");
+        document.ParserCalls.Should().Equal("text/html|<p>hi</p>");
+    });
+
+    /// <summary>
+    /// An XML MIME type — <c>text/xml</c>, <c>application/xml</c>, or any subtype ending in <c>+xml</c>
+    /// (https://mimesniff.spec.whatwg.org/#xml-mime-type) — is a document under both response types.
+    /// </summary>
+    [Test]
+    public Task AnXmlResponseIsADocumentUnderBothResponseTypes() => DedicatedThread.RunAsync(() =>
+    {
+        foreach (var type in new[] { "text/xml", "application/xml", "image/svg+xml" })
+        {
+            foreach (var responseType in new[] { "", "document" })
+            {
+                ReadDocument("<a/>"u8.ToArray(), type, responseType).ParserCalls.Should().Equal(type + "|<a/>");
+            }
+        }
+    });
+
+    /// <summary>
+    /// Steps 5.1 to 5.3: an HTML response with no final encoding is prescanned
+    /// (https://html.spec.whatwg.org/multipage/parsing.html#prescan-a-byte-stream-to-determine-its-encoding), so
+    /// an encoding declaration in its first 1024 bytes decides how the text handed to the parser is decoded.
+    /// </summary>
+    [Test]
+    public Task AnHtmlDocumentWithoutAFinalEncodingIsPrescannedForItsDeclaration() => DedicatedThread.RunAsync(() =>
+    {
+        ReadDocument([.. "<meta charset=\"windows-1252\"><p>"u8, 0xE9, .. "</p>"u8], "text/html", "document")
+            .ParserCalls.Should().Equal("text/html|<meta charset=\"windows-1252\"><p>é</p>");
+
+        ReadDocument([.. "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1252\"><p>"u8, 0xE9, .. "</p>"u8], "text/html", "document")
+            .ParserCalls.Should().Equal("text/html|<meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1252\"><p>é</p>");
+
+        // A label for UTF-16 means UTF-8: a document that can declare its encoding in ASCII bytes is not UTF-16.
+        ReadDocument([.. "<meta charset=\"utf-16\"><p>"u8, 0xC3, 0xA9, .. "</p>"u8], "text/html", "document")
+            .ParserCalls.Should().Equal("text/html|<meta charset=\"utf-16\"><p>é</p>");
+
+        // A label that names no encoding is passed over, and the scan goes on to the next declaration.
+        ReadDocument([.. "<meta charset=\"bogus\"><meta charset=\"windows-1252\"><p>"u8, 0xE9, .. "</p>"u8], "text/html", "document")
+            .ParserCalls.Should().Equal("text/html|<meta charset=\"bogus\"><meta charset=\"windows-1252\"><p>é</p>");
+
+        // A charset the registry does not know is no final encoding either, so the prescan runs.
+        ReadDocument([.. "<meta charset=\"windows-1252\"><p>"u8, 0xE9, .. "</p>"u8], "text/html;charset=bogus", "document")
+            .ParserCalls.Should().Equal("text/html|<meta charset=\"windows-1252\"><p>é</p>");
+    });
+
+    /// <summary>
+    /// The prescan is the fallback for "no final encoding" and for nothing else: a charset on the response or
+    /// on the override beats the declaration, a byte order mark beats all three, and the text response —
+    /// which has no prescan step — decodes the same bytes as UTF-8.
+    /// </summary>
+    [Test]
+    public Task ThePrescanAppliesOnlyWhereThereIsNoFinalEncoding() => DedicatedThread.RunAsync(() =>
+    {
+        byte[] utf8 = [.. "<meta charset=\"windows-1252\"><p>"u8, 0xC3, 0xA9, .. "</p>"u8];
+        var expected = "text/html|<meta charset=\"windows-1252\"><p>é</p>";
+
+        ReadDocument(utf8, "text/html;charset=utf-8", "document").ParserCalls.Should().Equal(expected);
+        ReadDocument(utf8, "text/html", "document", overrideMimeType: "text/html;charset=utf-8").ParserCalls.Should().Equal(expected);
+        ReadDocument([0xEF, 0xBB, 0xBF, .. utf8], "text/html", "document").ParserCalls.Should().Equal(expected);
+
+        ReadSync([.. "<meta charset=\"windows-1252\"><p>"u8, 0xE9], "text/html", "", "String(xhr.responseText.endsWith('\\uFFFD'))")
+            .Should().Be("true");
+    });
+
     /// <summary>
     /// The text a synchronous request answered with <paramref name="body"/> under <paramref name="contentType"/>
     /// decodes to, read through <paramref name="expression"/> as code units — so a leading U+FEFF, or a U+FFFD
     /// standing in for a byte of a mark, is visible in the assertion.
     /// </summary>
-    private static string CodeUnits(byte[] body, string contentType, string expression = "xhr.responseText", string responseType = "")
-        => ReadSync(body, contentType, responseType, $"Array.from({expression}, c => 'U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')).join('/')");
+    private static string CodeUnits(byte[] body, string contentType, string expression = "xhr.responseText", string responseType = "", string? overrideMimeType = null)
+        => ReadSync(body, contentType, responseType, $"Array.from({expression}, c => 'U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')).join('/')", overrideMimeType);
 
-    private static string ReadSync(byte[] body, string contentType, string responseType, string expression)
+    private static string ReadSync(byte[] body, string contentType, string responseType, string expression, string? overrideMimeType = null)
     {
         var handler = new StubHandler { Responder = _ => BytesResponse(body, contentType) };
         var engine = XhrEngine(handler);
-        engine.Execute($"var xhr = new XMLHttpRequest(); xhr.open('GET', '{Url}', false); xhr.responseType = '{responseType}'; xhr.send();");
+        engine.Execute(SyncRequest(responseType, overrideMimeType));
         return engine.Evaluate(expression).AsString();
+    }
+
+    /// <summary>
+    /// What a synchronous request answered with <paramref name="body"/> under <paramref name="contentType"/>
+    /// makes of its document response: the value <paramref name="expression"/> reads, and every call the
+    /// host's <c>DocumentParser</c> received, as <c>essence|text</c> — none at all when the engine never asked.
+    /// </summary>
+    private static DocumentRead ReadDocument(
+        byte[] body,
+        string contentType,
+        string responseType,
+        string expression = "String(xhr.responseXML)",
+        string? overrideMimeType = null)
+    {
+        var calls = new List<string>();
+        var handler = new StubHandler { Responder = _ => BytesResponse(body, contentType) };
+        var engine = new Engine(options =>
+        {
+            options.UseXmlHttpRequest(fetch => fetch.HttpClient = new HttpClient(handler));
+            options.WebApi.Xhr.DocumentParser = (e, text, mime) =>
+            {
+                calls.Add(mime + "|" + text);
+                return e.Evaluate("({ toString() { return 'document'; } })");
+            };
+        });
+
+        engine.Execute(SyncRequest(responseType, overrideMimeType));
+        return new DocumentRead(engine.Evaluate(expression).AsString(), calls);
+    }
+
+    private sealed record DocumentRead(string Value, List<string> ParserCalls);
+
+    private static string SyncRequest(string responseType, string? overrideMimeType)
+    {
+        var overriding = overrideMimeType is null ? string.Empty : $"xhr.overrideMimeType('{overrideMimeType}');";
+        return $"var xhr = new XMLHttpRequest(); xhr.open('GET', '{Url}', false); {overriding} xhr.responseType = '{responseType}'; xhr.send();";
     }
 
     /// <summary>

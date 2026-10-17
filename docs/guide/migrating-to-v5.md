@@ -6354,6 +6354,25 @@ exactly as before, and `responseType = "json"` is unchanged: it ignores the char
 as the standard says. There is no switch back; a host that needs the bytes as sent reads
 `responseType = "arraybuffer"`.
 
+### 4.160 `XMLHttpRequest`'s final encoding, HTML documents and `DocumentParser` follow the standard ([#4295](https://github.com/sebastienros/jint/issues/4295))
+
+Three changes, each what the [XMLHttpRequest Standard](https://xhr.spec.whatwg.org/) says:
+
+- **`overrideMimeType()` without a charset keeps the response's.** The response's charset is the label, and an
+  override replaces it only with a charset of its own. So `overrideMimeType('text/plain')` on a response labelled
+  `charset=windows-1252` now decodes as windows-1252 where it used to decode as UTF-8. An override that names a
+  charset still wins, even one that names no encoding, which still falls back to UTF-8.
+- **An HTML document is prescanned for its declaration.** When neither the response nor the override names a
+  usable charset, the first 1024 bytes are searched for `<meta charset>` or `<meta http-equiv="Content-Type"
+  content="…; charset=…">`, as HTML does, and the text handed to `Options.WebApi.Xhr.DocumentParser` is decoded
+  with what that finds before falling back to UTF-8. A byte order mark still wins. `responseText` is unchanged:
+  the text response has no prescan.
+- **`DocumentParser` is called only for a document the standard would build.** That is an HTML or XML MIME type
+  (`text/html`, `text/xml`, `application/xml`, any `+xml` subtype), and for HTML only under
+  `responseType = "document"`. `responseXML` of an HTML response read with the default response type is now
+  `null` where it used to be whatever the delegate built, and any other media type answers `null` without a
+  call. A host that read HTML through `responseXML` sets `responseType = "document"` first.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -6945,8 +6964,8 @@ one; `Options.WebApi.Fetch.Timeout` stays CLR-side and is what bounds such an en
 
 `Options.WebApi.Xhr.DocumentParser` is the one new options group: a
 `Func<Engine, string, string, JsValue?>` handed the engine, the decoded body and the final MIME
-type's essence. Without it `responseXML` and `responseType = "document"` answer `null`, because Jint
-parses no markup.
+type's essence, for an HTML or XML response only. Without it `responseXML` and `responseType = "document"`
+answer `null`, because Jint parses no markup.
 
 ### 5.14 A console sink can ask where each message was logged from ([#3635](https://github.com/sebastienros/jint/pull/3635))
 

@@ -1001,9 +1001,12 @@ public sealed partial class Options
         /// <para>
         /// Jint parses no markup, so a host that wants a document supplies one. The delegate receives the
         /// engine the request belongs to, the response body decoded as text, and the essence of the final MIME
-        /// type (<c>text/html</c>, <c>application/xml</c>, …) — never the parameters. Returning
-        /// <see langword="null"/> is the specification's <i>document response</i> failure and answers
-        /// <c>null</c>, which is also what an unsupported media type should do.
+        /// type (<c>text/html</c>, <c>application/xml</c>, …) — never the parameters.
+        /// </para>
+        /// <para>
+        /// It is called only for an HTML or XML MIME type, and for HTML only under <c>responseType = "document"</c>;
+        /// any other response answers <c>null</c> without a call. Returning <see langword="null"/> is the
+        /// specification's <i>document response</i> failure and answers <c>null</c> too.
         /// </para>
         /// <para>
         /// Called on the engine's thread, once per response, and only when script actually reads

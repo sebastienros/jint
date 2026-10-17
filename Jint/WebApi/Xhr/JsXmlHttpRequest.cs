@@ -562,15 +562,20 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
 
     /// <summary>
     /// https://xhr.spec.whatwg.org/#final-mime-type — the override MIME type when the script set one, and the
-    /// response's own <c>Content-Type</c> otherwise.
+    /// response MIME type otherwise.
     /// </summary>
-    private MimeType? FinalMimeType()
-    {
-        if (OverrideMimeType is { } overridden)
-        {
-            return overridden;
-        }
+    private MimeType? FinalMimeType() => OverrideMimeType ?? ResponseMimeType();
 
+    /// <summary>
+    /// https://xhr.spec.whatwg.org/#response-mime-type — the MIME type the response's <c>Content-Type</c> carries.
+    /// </summary>
+    /// <remarks>
+    /// The standard answers <c>text/xml</c> where the header is missing or is not a MIME type; this answers
+    /// <see langword="null"/> there instead, so such a response gives a <c>blob</c> response no type and makes no
+    /// document. Its charset is the same either way: <c>text/xml</c> has none.
+    /// </remarks>
+    private MimeType? ResponseMimeType()
+    {
         var contentType = ResponseHeaders.Get("content-type");
         return contentType is null ? null : MimeType.Parse(contentType);
     }
@@ -585,10 +590,33 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
     }
 
     /// <summary>
-    /// The label the response is decoded with — https://xhr.spec.whatwg.org/#final-charset. UTF-8 is the
-    /// fallback the standard names, and it is also what an unrecognized label falls back to.
+    /// https://xhr.spec.whatwg.org/#final-charset — <see langword="false"/> for the standard's null, which every
+    /// caller then answers differently: the text response with UTF-8, an HTML document with a prescan first.
     /// </summary>
-    private string FinalCharset() => FinalMimeType()?.GetParameter("charset") ?? "UTF-8";
+    /// <remarks>
+    /// <b>The label is the response MIME type's charset, and the override's replaces it only when the override has
+    /// one</b> — so <c>overrideMimeType('text/plain')</c> keeps a <c>windows-1252</c> response <c>windows-1252</c>.
+    /// The replacing happens before the label is resolved, so an override charset that names no encoding is a
+    /// failure here rather than a way back to the response's.
+    /// </remarks>
+    private bool TryGetFinalEncoding(out EncodingEntry encoding)
+    {
+        // Steps 1 to 4.
+        var label = ResponseMimeType()?.GetParameter("charset");
+        if (OverrideMimeType?.GetParameter("charset") is { } overridden)
+        {
+            label = overridden;
+        }
+
+        // Steps 5 to 8: no label, or "get an encoding" failing on it, is null.
+        if (label is not null && EncodingLabels.TryLookup(label, out encoding))
+        {
+            return true;
+        }
+
+        encoding = default;
+        return false;
+    }
 
     /// <summary>
     /// https://xhr.spec.whatwg.org/#text-response — the received bytes run through Encoding's <i>decode</i>,
@@ -599,8 +627,9 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
     /// <b>A byte order mark beats the charset</b>, because step 5 is <i>decode</i>
     /// (https://encoding.spec.whatwg.org/#decode) and not a <c>TextDecoder</c>: <c>FF FE</c> is UTF-16LE under
     /// a <c>utf-32</c> label, and <c>EF BB BF</c> is UTF-8 under <c>windows-1252</c>, with the mark consumed
-    /// either way. <c>responseText</c>, <c>response</c> for <c>""</c> and <c>"text"</c>, and the text handed to
-    /// a host's <c>DocumentParser</c> all read this.
+    /// either way. <c>responseText</c>, <c>response</c> for <c>""</c> and <c>"text"</c>, and the text an XML
+    /// document hands a host's <c>DocumentParser</c> all read this; an HTML document decodes with a prescan
+    /// before the UTF-8 fallback, which this has no step for — see <see cref="DocumentResponse"/>.
     /// </para>
     /// <para>
     /// The XML encoding-sniffing arm of step 3 is not reached, because it applies only where a document could
@@ -618,7 +647,7 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
         }
 
         // Steps 2 and 4: the final encoding, or UTF-8 when there is none.
-        var fallback = EncodingLabels.TryLookup(FinalCharset(), out var entry) ? entry : EncodingLabels.Utf8Encoding;
+        var fallback = TryGetFinalEncoding(out var encoding) ? encoding : EncodingLabels.Utf8Encoding;
 
         // Step 5.
         return TextDecoderCommon.DecodeWithBomSniff(_realm, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_receivedBytes), in fallback);
@@ -713,11 +742,6 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
     }
 
     /// <summary>
-    /// https://xhr.spec.whatwg.org/#document-response, delegated whole to
-    /// <c>Options.WebApi.Xhr.DocumentParser</c>: Jint parses no markup, so a host that wants a document
-    /// supplies one and an engine without one answers <c>null</c>.
-    /// </summary>
-    /// <summary>
     /// https://xhr.spec.whatwg.org/#dom-xmlhttprequest-responsexml steps 4 to 6 — the same cached
     /// response object <c>response</c> answers with, built here for the one <c>responseType</c> whose
     /// getter is a second name for it.
@@ -745,6 +769,25 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
         return document;
     }
 
+    /// <summary>
+    /// https://xhr.spec.whatwg.org/#document-response: the engine decides whether there is a document and
+    /// decodes its text; parsing it is delegated to <c>Options.WebApi.Xhr.DocumentParser</c>, because Jint parses
+    /// no markup — so an engine without one answers <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Steps 3 and 4 decide before the parser is asked</b>: only an HTML or an XML MIME type makes a document,
+    /// and an HTML one only under <c>responseType = "document"</c>, so <c>responseXML</c> of an HTML response
+    /// read with the default response type is <c>null</c> without a call.
+    /// </para>
+    /// <para>
+    /// <b>An HTML document is decoded the way its parse would decode it</b> (step 5): the final encoding, else
+    /// what <see cref="HtmlEncodingPrescan"/> finds in the first 1024 bytes, else UTF-8 — a "known definite
+    /// encoding", which HTML hands to <i>decode</i>, so a byte order mark still wins. An XML document's bytes go
+    /// to the XML parser in step 6, which sniffs for itself; the host's parser takes text, so it gets the text
+    /// response.
+    /// </para>
+    /// </remarks>
     private JsValue? DocumentResponse()
     {
         var parser = _state.XhrDocumentParser;
@@ -753,13 +796,37 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
             return null;
         }
 
-        var essence = FinalMimeType()?.Essence;
-        if (essence is null)
+        // Steps 2 and 3.
+        var finalMimeType = FinalMimeType();
+        if (finalMimeType is null || !(finalMimeType.IsHtml || finalMimeType.IsXml))
         {
             return null;
         }
 
-        var document = parser(_engine, TextResponse().ToString(), essence);
+        // Step 4.
+        if (finalMimeType.IsHtml && ResponseType is ResponseTypeText)
+        {
+            return null;
+        }
+
+        string text;
+        if (finalMimeType.IsHtml)
+        {
+            // Steps 5.1 to 5.3.
+            var bytes = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_receivedBytes);
+            if (!TryGetFinalEncoding(out var charset) && !HtmlEncodingPrescan.TryPrescan(bytes, out charset))
+            {
+                charset = EncodingLabels.Utf8Encoding;
+            }
+
+            text = TextDecoderCommon.DecodeWithBomSniff(_realm, bytes, in charset).ToString();
+        }
+        else
+        {
+            text = TextResponse().ToString();
+        }
+
+        var document = parser(_engine, text, finalMimeType.Essence);
         return document is null || document.IsNull() || document.IsUndefined() ? null : document;
     }
 
