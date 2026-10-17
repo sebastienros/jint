@@ -2,7 +2,7 @@
 
 **Status: implemented on `sebros/jint-gregsex-regex-engine-a5ccbe`.** Every regular expression written in script runs
 on the ECMAScript flavor of [GregsEx](https://github.com/sebastienros/gregsex), vendored by `tools/sync_gregsex.py`
-at the revision `Jint/Runtime/RegExp/GregsEx/gregsex.lock.json` names (first `d989dd84`, now `a12c3ce8`). The QuickJS libregexp port and the Acornima-to-.NET `Regex`
+from its `main` branch (first `d989dd84`, now `a12c3ce8`). The QuickJS libregexp port and the Acornima-to-.NET `Regex`
 adaptation are gone. This document records the decision, how compliance was held, what the work surfaced in
 either project, and what performance it bought.
 
@@ -12,7 +12,7 @@ either project, and what performance it bought.
 | --- | --- |
 | Reference the `GregsEx` package | **Not viable.** The package ships `lib/net10.0` only, and Jint targets `net472`, `netstandard2.0`, `netstandard2.1`, `net8.0` and `net10.0`. Its public surface also stops above what a JavaScript engine needs: no group names before a match, and no executor entry below the mutable `EcmaScriptMatcher` session, which owns `lastIndex` itself where Jint's `RegExpBuiltinExec` must. |
 | Vendor GregsEx whole | **Not worth it.** 77K lines across six flavors plus FastExpressionCompiler, almost none of it ECMAScript. |
-| **Copy the ECMAScript closure** | **Chosen.** About 9.6K lines of logic plus the Unicode 17.0 tables, under `Jint/Runtime/RegExp/GregsEx/` with GregsEx's folder layout kept. A sync is mechanical: `tools/sync_gregsex.py` takes the pinned upstream files, renames the namespace, makes the types internal, then applies `tools/gregsex-sync/jint.patch`; a lock of per-file digests makes a hand edit fail CI, and `.github/workflows/gregsex-sync.yml` re-vendors weekly and opens a pull request when upstream moved. What the patch holds is in that folder's `README.md`. |
+| **Copy the ECMAScript closure** | **Chosen.** About 9.6K lines of logic plus the Unicode 17.0 tables, under `Jint/Runtime/RegExp/GregsEx/` with GregsEx's folder layout kept. A sync is mechanical: `tools/sync_gregsex.py` takes the pinned upstream files, renames the namespace, makes the types internal, then applies `tools/gregsex-sync/jint.patch`. It keeps no state, so whether there is anything to take is just whether `git diff` is empty: `.github/workflows/gregsex-sync.yml` regenerates weekly and opens a pull request only then. What the patch holds is in that folder's `README.md`. |
 
 The downlevel port needed only polyfills (`ThrowIfNull`, `ThrowIfNegative[OrZero]`, generic `Enum.IsDefined`,
 `span.Contains(char)`, `IndexOfAny(SearchValues<char>)`) and one `#if NET9_0_OR_GREATER` around

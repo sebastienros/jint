@@ -1,10 +1,11 @@
 # Keeps Jint/Runtime/RegExp/GregsEx in step with GregsEx's main branch.
 #
-# tools/sync_gregsex.py --update is a no-op when the lock already names upstream's head, so most runs end at the
-# first step. When upstream moved, the job re-vendors (upstream files, the mechanical transforms, then
-# tools/gregsex-sync/jint.patch), builds every target framework, runs the regex tests and opens - or refreshes - one
-# pull request from the `gregsex-sync` branch. A patch that no longer applies fails the run instead: that is a
-# conflict for a person to resolve (Jint/Runtime/RegExp/GregsEx/README.md says how).
+# Every run regenerates the vendored files from upstream (tools/sync_gregsex.py: the upstream files, the mechanical
+# transforms, then tools/gregsex-sync/jint.patch). Nothing records what was synced last: when upstream changed
+# nothing Jint vendors the output is identical and `git status` is empty, so the run ends there. Otherwise it builds
+# every target framework, runs the regex tests and opens - or refreshes - one pull request from the `gregsex-sync`
+# branch. A patch that no longer applies fails the run instead: that is a conflict for a person to resolve
+# (Jint/Runtime/RegExp/GregsEx/README.md says how).
 #
 # A pull request opened with GITHUB_TOKEN does not trigger pr.yml, which is why this job builds and tests before it
 # opens one; the full gate runs once someone pushes to the branch or re-runs the checks.
@@ -54,12 +55,14 @@ jobs:
       env:
         REVISION: ${{ inputs.revision || 'main' }}
       run: |
-        python3 tools/sync_gregsex.py --update --revision "$REVISION"
-        if git diff --quiet && [ -z "$(git status --porcelain)" ]; then
+        out=$(python3 tools/sync_gregsex.py --revision "$REVISION")
+        echo "$out"
+        echo "revision=$(echo "$out" | tail -n 1 | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
+        if [ -z "$(git status --porcelain -- Jint/Runtime/RegExp/GregsEx)" ]; then
           echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "Nothing vendored changed upstream."
         else
           echo "changed=true" >> "$GITHUB_OUTPUT"
-          echo "revision=$(python3 -c "import json; print(json.load(open('Jint/Runtime/RegExp/GregsEx/gregsex.lock.json'))['revision'])")" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Setup NET
@@ -100,7 +103,7 @@ jobs:
         git add -A Jint/Runtime/RegExp/GregsEx
         git commit -m "Sync vendored GregsEx to $short"
         git push --force origin "$SYNC_BRANCH"
-        body="Re-vendors \`Jint/Runtime/RegExp/GregsEx\` at [sebastienros/gregsex@$short](https://github.com/sebastienros/gregsex/commit/$REVISION) with \`tools/sync_gregsex.py --update\`. The Jint build and the RegExp tests (Jint.Tests, test262) passed in the sync run; push to the branch or re-run the checks for the full gate."
+        body="Re-vendors \`Jint/Runtime/RegExp/GregsEx\` at [sebastienros/gregsex@$short](https://github.com/sebastienros/gregsex/commit/$REVISION) with \`tools/sync_gregsex.py\`. The Jint build and the RegExp tests (Jint.Tests, test262) passed in the sync run; push to the branch or re-run the checks for the full gate."
         if gh pr view "$SYNC_BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
           gh pr edit "$SYNC_BRANCH" --title "Sync vendored GregsEx to $short" --body "$body"
         else

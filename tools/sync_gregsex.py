@@ -1,30 +1,26 @@
 #!/usr/bin/env python3
 """Vendor GregsEx's ECMAScript flavor into Jint/Runtime/RegExp/GregsEx.
 
-    python3 tools/sync_gregsex.py              # verify the vendored files against the lock, offline
-    python3 tools/sync_gregsex.py --update     # sync to the newest GregsEx main (no-op when unchanged)
-    python3 tools/sync_gregsex.py --update --revision <sha-or-ref>
+    python3 tools/sync_gregsex.py                      # regenerate from the newest GregsEx main
+    python3 tools/sync_gregsex.py --revision <sha-or-ref>
 
-A sync is deterministic: the pinned upstream files, the mechanical transforms below, then tools/gregsex-sync/
-jint.patch for what stays Jint's own. The lock records the upstream revision and the digest of every vendored file,
-so a hand edit fails --check instead of being lost at the next sync: put it in the patch instead
-(Jint/Runtime/RegExp/GregsEx/README.md says how).
+The output is the upstream files, the mechanical transforms below, then tools/gregsex-sync/jint.patch for what stays
+Jint's own. Nothing records what was synced: an unchanged upstream regenerates identical files, so `git diff` is the
+whole answer to "is there anything to take". A hand edit to a vendored file is overwritten by the next sync; put it in
+the patch instead (Jint/Runtime/RegExp/GregsEx/README.md says how).
 """
 import argparse
-import hashlib
 import io
 import json
 import re
 import subprocess
 import sys
 import tarfile
-import tempfile
 import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGET = ROOT / "Jint/Runtime/RegExp/GregsEx"
-LOCK = TARGET / "gregsex.lock.json"
 PATCH = ROOT / "tools/gregsex-sync/jint.patch"
 REPOSITORY = "sebastienros/gregsex"
 
@@ -56,7 +52,7 @@ FILES = [
 ROOT_FILES = {"LICENSE": "GregsEx-LICENSE.txt"}
 
 # Files under TARGET that are Jint's own and never come from upstream.
-OWN = {".editorconfig", "README.md", "gregsex.lock.json", "IR/SourceRange.cs"}
+OWN = {".editorconfig", "README.md", "IR/SourceRange.cs"}
 
 # Types from System.Threading the copied code names; Jint's implicit usings do not import the namespace.
 THREADING = re.compile(r"\b(CancellationToken|Lock|Volatile|Interlocked)\b")
@@ -109,29 +105,8 @@ def vendored():
             and "/obj/" not in p.as_posix() and "/bin/" not in p.as_posix()}
 
 
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def check():
-    lock = json.loads(LOCK.read_text())
-    present = {name for name in vendored() if name not in OWN}
-    if present != set(lock["files"]):
-        raise SystemExit(f"Vendored file set differs from {LOCK.name}: {sorted(present ^ set(lock['files']))}")
-    for name, expected in lock["files"].items():
-        if digest(TARGET / name) != expected:
-            raise SystemExit(f"{name} differs from GregsEx {lock['revision'][:12]} plus jint.patch. Move the edit into "
-                             f"tools/gregsex-sync/jint.patch (see Jint/Runtime/RegExp/GregsEx/README.md).")
-    print(f"Verified {len(lock['files'])} vendored GregsEx files at {lock['revision'][:12]}")
-
-
-def update(revision, patch=True):
+def sync(revision, patch=True):
     sha = resolve(revision)
-    lock = json.loads(LOCK.read_text()) if LOCK.exists() else {}
-    if lock.get("revision") == sha and patch:
-        check()
-        print(f"Already at GregsEx {sha[:12]}: nothing to do")
-        return False
     files = download(sha)
     for name, path in vendored().items():
         if name not in OWN:
@@ -146,21 +121,14 @@ def update(revision, patch=True):
         if result.returncode != 0:
             raise SystemExit("tools/gregsex-sync/jint.patch no longer applies to GregsEx " + sha[:12] +
                              ":\n" + result.stderr + "Resolve it by hand and regenerate the patch (see the README).")
-    entries = {name: digest(path) for name, path in sorted(vendored().items()) if name not in OWN}
-    LOCK.write_text(json.dumps({"repository": REPOSITORY, "revision": sha, "files": entries}, indent=2) + "\n",
-                    newline="\n")
-    print(f"Synced {len(entries)} files to GregsEx {sha[:12]}")
-    return True
+    print(f"Generated {len(files)} files from GregsEx {sha}")
+    return sha
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--update", action="store_true", help="sync to --revision (default: main)")
-    parser.add_argument("--revision", default="main", help="GregsEx commit or ref to sync to")
+    parser.add_argument("--revision", default="main", help="GregsEx commit or ref to sync to (default: main)")
     parser.add_argument("--no-patch", action="store_true",
                         help="write the transformed upstream files without jint.patch (to regenerate the patch)")
     args = parser.parse_args()
-    if args.update or args.no_patch:
-        update(args.revision, patch=not args.no_patch)
-    else:
-        check()
+    sync(args.revision, patch=not args.no_patch)

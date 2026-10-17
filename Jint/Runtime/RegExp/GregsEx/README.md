@@ -1,8 +1,8 @@
 # GregsEx ECMAScript engine (vendored sources)
 
 The files under this directory are the ECMAScript flavor of
-[GregsEx](https://github.com/sebastienros/gregsex) under its MIT license (`GregsEx-LICENSE.txt`), at the revision
-`gregsex.lock.json` names. The Unicode tables are generated from Unicode 17.0.0 data under the Unicode License V3
+[GregsEx](https://github.com/sebastienros/gregsex) under its MIT license (`GregsEx-LICENSE.txt`), regenerated from GregsEx `main`; the commit that last
+changed them names the upstream revision. The Unicode tables are generated from Unicode 17.0.0 data under the Unicode License V3
 (`Flavors/EcmaScript/Unicode/Unicode-LICENSE.txt`).
 
 Jint consumes them through `Jint/Runtime/RegExp/JintRegExpEngine.cs` and nothing else. The GregsEx package
@@ -12,17 +12,16 @@ the other flavors, the runtime compiler, the source generator — is not vendore
 
 ## Do not edit these files by hand
 
-They are produced by `tools/sync_gregsex.py`, and `gregsex.lock.json` records the SHA-256 of every one of them. CI
-runs the check (`parser-lookups.yml`), so a hand edit fails the build rather than being lost at the next sync:
+They are produced by `tools/sync_gregsex.py`, which keeps no state: it regenerates every file from upstream, so an
+unchanged upstream gives an empty `git diff`, and a hand edit is overwritten by the next sync.
 
 ```bash
-python3 tools/sync_gregsex.py                         # verify against the lock, offline
-python3 tools/sync_gregsex.py --update                # sync to GregsEx main; a no-op when the lock is current
-python3 tools/sync_gregsex.py --update --revision <sha>
+python3 tools/sync_gregsex.py                       # regenerate from GregsEx main
+python3 tools/sync_gregsex.py --revision <sha>
 ```
 
-A sync is the pinned upstream files, the mechanical transforms below, then `tools/gregsex-sync/jint.patch`.
-`.github/workflows/gregsex-sync.yml` runs `--update` every Monday and, when upstream moved, builds, runs the regex
+A sync is the upstream files, the mechanical transforms below, then `tools/gregsex-sync/jint.patch`.
+`.github/workflows/gregsex-sync.yml` runs it every Monday and, when the diff is not empty, builds, runs the regex
 tests and opens a pull request from the `gregsex-sync` branch.
 
 **A fix to the matcher belongs upstream.** Make it in GregsEx, then sync. Change the patch only for what stays
@@ -37,12 +36,8 @@ python3 tools/sync_gregsex.py --no-patch --revision <sha>   # upstream + transfo
 git add Jint/Runtime/RegExp/GregsEx                         # stage that as the base
 # re-apply the Jint edits (git apply --3way tools/gregsex-sync/jint.patch, then resolve), or make new ones
 git diff -- Jint/Runtime/RegExp/GregsEx > tools/gregsex-sync/jint.patch
-python3 tools/sync_gregsex.py --update --revision <sha>     # rewrite the files and the lock from the patch
-python3 tools/sync_gregsex.py
+python3 tools/sync_gregsex.py --revision <sha>              # must reproduce the working tree exactly
 ```
-
-`--update` skips a revision the lock already names, so delete `gregsex.lock.json` before the last `--update` when
-the revision did not change.
 
 ## What differs from upstream
 
@@ -67,7 +62,6 @@ are upstream since [sebastienros/gregsex#2](https://github.com/sebastienros/greg
   with `IndexOf` and the `FirstStrings` prefilter is not built.
 - `ValueStringBuilder` guards the APIs `net472` lacks.
 
-Jint-owned files the tool never touches: `.editorconfig`, this `README.md`, `gregsex.lock.json` and
-`IR/SourceRange.cs` (the one type of upstream's `IR/SemanticProgram.cs` the flavor needs). Other downlevel gaps
+Jint-owned files the tool never touches: `.editorconfig`, this `README.md` and `IR/SourceRange.cs` (the one type of upstream's `IR/SemanticProgram.cs` the flavor needs). Other downlevel gaps
 (`ThrowIfNull`, `ThrowIfNegative[OrZero]`, generic `Enum.IsDefined`, `span.Contains(char)`,
 `IndexOfAny(SearchValues<char>)`) are polyfilled in `Jint/Extensions/Polyfills.cs`, not here.
