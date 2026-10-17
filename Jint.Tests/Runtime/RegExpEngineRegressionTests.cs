@@ -86,6 +86,28 @@ public class RegExpEngineRegressionTests
         Evaluate(script).AsBoolean().Should().Be(expected);
     }
 
+    // The FIRST-strings prefilter searches OrdinalIgnoreCase, which agrees with Canonicalize only on ASCII and not on
+    // k/s under u/v (KELVIN SIGN, LONG S): those must stay findable through the VM.
+    [TestCase("/agggtaaa|tttaccct/i.exec('xxAgGgTaAaxx').index === 2", true)]
+    [TestCase("'xCgggtaaaxTTTACCCgx'.match(/[cgt]gggtaaa|tttaccc[acg]/ig).join() === 'Cgggtaaa,TTTACCCg'", true)]
+    [TestCase("'GGGTAAAc'.match(/[cgt]gggtaaa|tttaccc[acg]/ig) === null", true)]
+    [TestCase("/kk/iu.test('\u212A\u212A')", true)]
+    [TestCase("/ss/iu.test('\u017Fs')", true)]
+    [TestCase("/kk/i.test('\u212A\u212A')", false)]
+    [TestCase("/(?:ab|cd)\\b/i.exec('xx CD yy').index === 3", true)]
+    public void StringPrefiltersFindEveryMatch(string script, bool expected)
+    {
+        Evaluate(script).AsBoolean().Should().Be(expected);
+    }
+
+    [Test]
+    public void AUnicodeGreedyRunGivesBackWholeCodePoints()
+    {
+        Evaluate("/a.*a/u.exec('xa\\u{1F600}a\\u{1F600}b')[0]").AsString().Should().Be("a\U0001F600a");
+        Evaluate("/q[^z]*\\u{1F600}/u.exec('q1\\u{1F600}2\\u{1F600}3')[0]").AsString().Should().Be("q1\U0001F6002\U0001F600");
+        Evaluate("/.*\\uDE00/u.exec('a\\u{1F600}b')").IsNull().Should().BeTrue();
+    }
+
     [Test]
     public void AReplacementWithNoMatchReturnsTheSubject()
     {

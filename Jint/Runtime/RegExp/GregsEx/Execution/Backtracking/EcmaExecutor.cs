@@ -212,6 +212,31 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                         candidate += rel;
                     }
                 }
+#if NET9_0_OR_GREATER
+                else if (_accelerator.FirstStrings is { } firstStrings)
+                {
+                    // Jint: see EcmaAccelerator.FirstStrings.
+                    var rel = input.Slice(candidate).IndexOfAny(firstStrings);
+                    if (rel < 0)
+                    {
+                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
+                        {
+                            return Finish(FailureStatus(state), operation, groups);
+                        }
+
+                        return Finish(RegexSearchStatus.NoMatch, operation, groups);
+                    }
+                    if (rel > 0)
+                    {
+                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
+                        {
+                            return Finish(FailureStatus(state), operation, groups);
+                        }
+
+                        candidate += rel;
+                    }
+                }
+#endif
                 else if (_accelerator.FirstChars is { } firstChars)
                 {
                     // Jint: see EcmaAccelerator.FirstChars. A hit on the trail half of a surrogate pair is not a
@@ -651,7 +676,23 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             var start = Position;
             var limit = node.Max == -1 ? int.MaxValue : node.Max - iterations;
             var count = 0;
-            if (_owner._instructions[node.X].Kind == EcmaNodeKind.Set && _owner._accelerator.FastSets[node.X] is { BmpBits: not null } fastSet)
+            if (limit == int.MaxValue && _owner._instructions[node.X].Kind == EcmaNodeKind.Set &&
+                _owner._accelerator.FastSets[node.X] is { UnicodeRunStops: { } stops })
+            {
+                // Only the run's extent matters when it is unbounded; see EcmaFastSet.UnicodeRunStops.
+                var rest = _input.Slice(Position);
+                var units = rest.IndexOfAny(stops);
+                units = units < 0 ? rest.Length : units;
+                if (!state.TryCharge(Math.Max(1, units), Position))
+                {
+                    return false;
+                }
+
+                Position += units;
+                count = units > 0 ? 1 : 0;
+                limit = 0;
+            }
+            else if (_owner._instructions[node.X].Kind == EcmaNodeKind.Set && _owner._accelerator.FastSets[node.X] is { BmpBits: not null } fastSet)
             {
                 // A case-sensitive class has an exact membership bitmap, which the accelerator scans vectorized.
                 count = fastSet.CountRun(_input.Slice(Position), limit == int.MaxValue ? -1 : limit, _owner.Program, out var units);

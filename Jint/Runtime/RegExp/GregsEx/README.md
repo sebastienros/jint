@@ -35,8 +35,15 @@ Structural:
   `Enum.IsDefined`, `span.Contains(char)`, `IndexOfAny(SearchValues<char>)`) are polyfilled in
   `Jint/Extensions/Polyfills.cs`, not here.
 
-Behavioural (each also a candidate upstream fix; see `docs/regexp-engine-migration.md`):
+Behavioural (each also a candidate upstream fix; see `docs/design/regexp-gregsex-migration.md`):
 
 - `EcmaCompiler` clamps quantifier bounds above `int.MaxValue` instead of failing `ProgramLimitExceeded`.
 - `EcmaAccelerator` skips its literal plans for a Unicode-aware pattern holding a lone surrogate literal.
 - `EcmaAccelerator` declines the atomic-sequence plan when its minimum length would overflow.
+- `EcmaAccelerator` builds `FirstChars`, a FIRST-set prefilter for a case-insensitive first atom or a nullable prefix
+  (with inverted case-folding tables), and the literal plan searches with `SearchValues<string>` on .NET 9+.
+- `EcmaExecutor` runs a greedy single-character repeat as one counted choice (`ChoiceKind.GreedyRun`, which is why
+  `ChoiceWidth` is 4), passes the accelerated plans an unbounded frame count, and never starts a `FirstChars`
+  candidate inside a surrogate pair under u/v.
+- `RunBudget` takes the fast charge path until its next scheduled clock read when a timeout is set, and has an
+  absolute-deadline constructor that reads no clock (`RunState` gains the matching overload).

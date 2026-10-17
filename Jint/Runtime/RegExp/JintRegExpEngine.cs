@@ -53,13 +53,17 @@ internal sealed class JintRegExpEngine
     private readonly EcmaExecutor _executor;
     private readonly string?[] _groupNames;
     private readonly bool _sticky;
-    private int _framesHint = InitialFrames;
+    // The frame count every search starts with and the partition sizes it needs, computed once per growth rather than
+    // on every search, so a search can go straight to the executor's prevalidated entry.
+    private sealed record FramePlan(int Frames, RegexWorkspaceCapacity Capacity);
+    private FramePlan _plan;
 
     private JintRegExpEngine(EcmaExecutor executor, RegExpFlags flags)
     {
         _executor = executor;
         Flags = flags;
         _sticky = (flags & RegExpFlags.Sticky) != RegExpFlags.None;
+        _plan = new FramePlan(InitialFrames, executor.GetRequiredCapacity(SearchOperation.Captures, InitialFrames));
         var program = executor.Program;
         CaptureCount = program.GroupCount;
         _groupNames = new string?[CaptureCount];
@@ -199,14 +203,16 @@ internal sealed class JintRegExpEngine
         }
 
         var scratch = t_scratch ??= new Scratch();
-        var frames = Volatile.Read(ref _framesHint);
+        var plan = Volatile.Read(ref _plan);
         while (true)
         {
-            var capacity = _executor.GetRequiredCapacity(operation, frames);
-            var buffers = scratch.Rent(capacity);
+            // The partitions are rented at exactly the planned capacity, so the admitted frame count is the planned
+            // one, the start index is checked above and every caller passes CaptureCount groups: what Search would
+            // validate is already known.
+            var buffers = scratch.Rent(plan.Capacity);
             var state = new RunState(buffers, long.MaxValue, deadline);
 
-            var status = _executor.Search(input.AsSpan(), startIndex, sticky, EcmaStartPolicy.BuiltinLastIndex, operation, ref state, groups, out match);
+            var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match);
             if (state.Budget.WorkConsumed >= RunBudget.ClockStride)
             {
                 // Long enough to have read the clock: the cached reading is no longer recent.
@@ -224,13 +230,14 @@ internal sealed class JintRegExpEngine
                     throw new OperationCanceledException();
             }
 
-            if (state.Failure.Code != RegexExecutionFailureCode.WorkspaceCapacityExceeded || frames >= MaxFrames)
+            if (state.Failure.Code != RegexExecutionFailureCode.WorkspaceCapacityExceeded || plan.Frames >= MaxFrames)
             {
                 throw new RegExpResourceException(state.Failure.Code.ToString());
             }
 
-            frames = Math.Min(MaxFrames, frames * 4);
-            Volatile.Write(ref _framesHint, frames);
+            var frames = Math.Min(MaxFrames, plan.Frames * 4);
+            plan = new FramePlan(frames, _executor.GetRequiredCapacity(SearchOperation.Captures, frames));
+            Volatile.Write(ref _plan, plan);
         }
     }
 

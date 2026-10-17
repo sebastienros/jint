@@ -18,6 +18,10 @@ internal sealed class EcmaFastSet
     internal readonly bool BmpBitsIsExact;
     internal readonly SearchValues<char>? SearchValues;
     internal readonly bool IsNegatedSearchValues;
+    // Jint: for a Unicode-aware class holding every surrogate and astral code point (/./u, /[^"]/u), the BMP code
+    // units that end a run of it. Such a class matches a pair or a lone surrogate alike, so a run is a span of code
+    // units up to the first of these, and is measured vectorized where the inexact bitmap scanned unit by unit.
+    internal readonly SearchValues<char>? UnicodeRunStops;
     private readonly EcmaInterval[] _intervals;
 
     internal EcmaFastSet(EcmaProgram program, EcmaSetSlice slice, EcmaScriptFlags effectiveFlags, EcmaCaseTables caseTables)
@@ -80,6 +84,32 @@ internal sealed class EcmaFastSet
             }
             BmpBits = bmp;
             BmpBitsIsExact = !unicodeAware || !hasSurrogateOrAstral;
+
+            if (unicodeAware && hasSurrogateOrAstral)
+            {
+                var coversAstral = false;
+                foreach (var iv in intervals)
+                {
+                    if (iv.First <= 0xD800 && iv.Last >= 0x10FFFF)
+                    {
+                        coversAstral = true;
+                    }
+                }
+
+                var stops = new List<char>();
+                for (var c = 0; coversAstral && c < 0xD800 && stops.Count <= 512; c++)
+                {
+                    if ((bmp[c >> 6] & (1UL << (c & 63))) == 0)
+                    {
+                        stops.Add((char)c);
+                    }
+                }
+
+                if (coversAstral && stops.Count is >= 1 and <= 512)
+                {
+                    UnicodeRunStops = System.Buffers.SearchValues.Create(stops.ToArray());
+                }
+            }
 
             if (BmpBitsIsExact)
             {
@@ -469,6 +499,11 @@ internal sealed class EcmaAccelerator
     internal readonly SearchValues<char>? FirstChars;
 #if NET9_0_OR_GREATER
     private SearchValues<string>? _literalSearchValues;
+
+    // Jint: the leading fixed strings of every branch (literals and small classes expanded), a superset prefilter for
+    // an alternation or a case-insensitive literal run, which FirstChars leaves at nearly every position over a small
+    // alphabet: /agggtaaa|tttaccct/i over DNA, /aaaaaaaaaa/i over text.
+    internal readonly SearchValues<string>? FirstStrings;
 #endif
 
     internal EcmaAccelerator(EcmaProgram program, EcmaCaseTables caseTables)
@@ -589,6 +624,9 @@ internal sealed class EcmaAccelerator
 
         if (!StartAnchoredNonMultiline && PrefixLiteral is null && FirstSet is null)
         {
+#if NET9_0_OR_GREATER
+            FirstStrings = TryBuildFirstStrings(nodes, root);
+#endif
             FirstChars = TryBuildFirstChars(nodes, root, caseTables);
         }
 
@@ -1718,6 +1756,140 @@ internal sealed class EcmaAccelerator
         return false;
     }
 
+#if NET9_0_OR_GREATER
+    private const int MaxStringsPerBranch = 64;
+    private const int MaxFirstStrings = 256;
+
+    private SearchValues<string>? TryBuildFirstStrings(ReadOnlySpan<EcmaNode> nodes, int root)
+    {
+        var unicodeAware = _program.Profile.IsUnicodeAware;
+        var branches = new List<int>();
+        CollectBranches(nodes, root, branches);
+        var ignoreCase = false;
+        var all = new List<string>();
+        var items = new List<int>();
+        var members = new List<int>();
+        foreach (var branch in branches)
+        {
+            items.Clear();
+            FlattenSequence(nodes, branch, items);
+            var prefixes = new List<string> { string.Empty };
+            foreach (var item in items)
+            {
+                var id = item;
+                while (nodes[id].Kind == EcmaNodeKind.Capture)
+                {
+                    id = nodes[id].X;
+                }
+
+                var node = nodes[id];
+                if (node.Kind is EcmaNodeKind.WordBoundary or EcmaNodeKind.NotWordBoundary or EcmaNodeKind.Lookahead or
+                    EcmaNodeKind.NegativeLookahead or EcmaNodeKind.Lookbehind or EcmaNodeKind.NegativeLookbehind)
+                {
+                    // Zero-width: it only restricts where the strings may sit, and consumes nothing between them.
+                    continue;
+                }
+
+                members.Clear();
+                var atomIgnoreCase = (node.EffectiveFlags & EcmaScriptFlags.IgnoreCase) != 0;
+                if (node.Kind == EcmaNodeKind.Literal)
+                {
+                    members.Add(node.Value);
+                }
+                else if (node.Kind == EcmaNodeKind.Set && _program.Sets[node.Value] is { StringCount: 0 } set)
+                {
+                    foreach (var interval in _program.Intervals.Slice(set.IntervalOffset, set.IntervalCount))
+                    {
+                        for (var point = interval.First; point <= interval.Last && members.Count <= MaxStringsPerBranch; point++)
+                        {
+                            members.Add(point);
+                        }
+                    }
+                }
+                else
+                {
+                    break;
+                }
+
+                if (!AdmitsPrefilter(members, atomIgnoreCase, unicodeAware) || prefixes.Count * members.Count > MaxStringsPerBranch)
+                {
+                    break;
+                }
+
+                ignoreCase |= atomIgnoreCase;
+                var next = new List<string>(prefixes.Count * members.Count);
+                foreach (var prefix in prefixes)
+                {
+                    foreach (var member in members)
+                    {
+                        next.Add(prefix + (char)member);
+                    }
+                }
+
+                prefixes = next;
+            }
+
+            // A branch whose fixed start is shorter than two characters filters no better than FirstChars.
+            if (prefixes[0].Length < 2)
+            {
+                return null;
+            }
+
+            all.AddRange(prefixes);
+            if (all.Count > MaxFirstStrings)
+            {
+                return null;
+            }
+        }
+
+        var distinct = new HashSet<string>(all, StringComparer.Ordinal);
+        var strings = new string[distinct.Count];
+        distinct.CopyTo(strings);
+        return SearchValues.Create(strings,
+            ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    }
+
+    private static void CollectBranches(ReadOnlySpan<EcmaNode> nodes, int id, List<int> branches)
+    {
+        while (nodes[id].Kind == EcmaNodeKind.Capture)
+        {
+            id = nodes[id].X;
+        }
+
+        if (nodes[id].Kind == EcmaNodeKind.Alternative)
+        {
+            CollectBranches(nodes, nodes[id].X, branches);
+            CollectBranches(nodes, nodes[id].Y, branches);
+        }
+        else
+        {
+            branches.Add(id);
+        }
+    }
+
+    // OrdinalIgnoreCase finds every match the specification's Canonicalize admits only where both agree on which
+    // characters a point can match: ASCII, where a legacy Canonicalize never leaves ASCII, except k and s under u/v,
+    // whose simple case folding also admits KELVIN SIGN and LATIN SMALL LETTER LONG S. Case-sensitive points need only
+    // to be whole UTF-16 code units.
+    private static bool AdmitsPrefilter(List<int> members, bool ignoreCase, bool unicodeAware)
+    {
+        if (members.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var point in members)
+        {
+            if (ignoreCase ? point >= 0x80 || (unicodeAware && point is 'k' or 'K' or 's' or 'S') : point > 0xFFFF || point is >= 0xD800 and <= 0xDFFF)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+#endif
     private const int MaxFirstChars = 2048;
     private static readonly Dictionary<int, List<int>>?[] InverseFolds = new Dictionary<int, List<int>>?[2];
 
