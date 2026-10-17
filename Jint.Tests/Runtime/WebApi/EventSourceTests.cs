@@ -277,6 +277,18 @@ public class EventSourceTests
         public override void OnFailed(FetchRequestId id, string reason, Exception? exception)
             => Add($"failed {id} {reason}");
 
+        /// <summary>How many notifications have arrived so far.</summary>
+        internal int Count
+        {
+            get
+            {
+                lock (_events)
+                {
+                    return _events.Count;
+                }
+            }
+        }
+
         /// <summary>Waits for <paramref name="count"/> notifications and answers exactly those.</summary>
         internal IReadOnlyList<string> Take(int count)
         {
@@ -903,6 +915,458 @@ public class EventSourceTests
 
         engine.Execute("third.close();");
         stream.Complete();
+    }
+
+    // ---------------------------------------------------------------- data: URLs
+
+    /// <summary>
+    /// One event, <c>data: hi</c>, as the issue that asked for this lane spelled it (sebastienros/jint#4283).
+    /// </summary>
+    private const string HelloDataUrl = "data:text/event-stream,data:%20hi%0A%0A";
+
+    /// <summary>
+    /// What one pass of <see cref="HelloDataUrl"/> logs: the announcement, the event, and the end of the body —
+    /// which is not a network error, so it reestablishes the connection rather than failing it. The origin is
+    /// <c>null</c>, because a <c>data:</c> URL's origin is opaque.
+    /// </summary>
+    private const string HelloPass = "open~1|message~message~hi~~null|error~0";
+
+    /// <summary>
+    /// Pumps an engine whose only work is a <c>data:</c> URL's. Every job that lane queues is queued from the
+    /// engine thread itself, so a fixed number of turns drains it; nothing here waits on another thread.
+    /// </summary>
+    private static void Drain(Engine engine)
+    {
+        for (var i = 0; i < 10; i++)
+        {
+            engine.Tasks.ProcessTasks();
+        }
+    }
+
+    /// <summary>
+    /// Main fetch sends a <c>data:</c> URL to scheme fetch's <c>data</c> arm whatever the request's mode, so an
+    /// <c>EventSource</c> gets a 200 whose <c>Content-Type</c> is the URL's own: announced, parsed line by line,
+    /// and — because the end of a body that was not a network error reestablishes the connection — followed by
+    /// <c>error</c> with <c>CONNECTING</c>. No request reaches the host's client, and the constructor returns
+    /// before any of it, as constructor step 16 does for every URL.
+    /// </summary>
+    [Test]
+    public void ADataUrlIsAnnouncedParsedAndReestablishedWithoutATransport()
+    {
+        var handler = new StubHandler();
+        var (engine, _) = SseEngine(handler);
+
+        engine.Evaluate($"(() => {{ var s = watch(new EventSource('{HelloDataUrl}')); var seen = s.readyState + ':' + log.length; s.close(); return seen; }})()")
+            .AsString().Should().Be("0:0");
+        Drain(engine);
+        Log(engine).Should().BeEmpty("a source closed before its first task ran dispatches nothing");
+
+        engine.Execute($"var es = watch(new EventSource('{HelloDataUrl}'));");
+        PumpUntilLogHas(engine, 3, "the open, message and error events");
+
+        Log(engine).Should().Be(HelloPass);
+        engine.Evaluate("es.readyState").AsNumber().Should().Be(0);
+        engine.Evaluate("es.url").AsString().Should().Be(HelloDataUrl);
+        handler.Requests.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The end of the body reestablishes the connection, so the same URL is fetched again every reconnection
+    /// time — and the replay is a task on the engine's timer queue, the default three seconds of it until a
+    /// <c>retry</c> field says otherwise.
+    /// </summary>
+    [Test]
+    public void TheReplayWaitsTheDefaultReconnectionTimeOnTheTimerQueue()
+    {
+        var handler = new StubHandler();
+        var (engine, clock) = SseEngine(handler);
+
+        engine.Execute($"var es = watch(new EventSource('{HelloDataUrl}'));");
+        PumpUntilLogHas(engine, 3, "the first pass");
+
+        // The only thing scheduled is the reconnect delay, and it is a timer: an engine nobody pumps replays
+        // nothing, and this clock has not moved.
+        engine.Tasks.TimeUntilNextScheduledWork.Should().Be(TimeSpan.FromMilliseconds(3000));
+
+        clock.Advance(2999);
+        Drain(engine);
+        Log(engine).Should().Be(HelloPass);
+
+        clock.Advance(1);
+        PumpUntilLogHas(engine, 6, "the replay");
+        Log(engine).Should().Be(HelloPass + "|" + HelloPass);
+        handler.Requests.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A <c>retry</c> field sets the reconnection time the replay waits, and an <c>id</c> field is the last
+    /// event ID every event of the next pass starts from.
+    /// </summary>
+    [Test]
+    public void TheReplayHonoursRetryAndCarriesTheLastEventId()
+    {
+        var handler = new StubHandler();
+        var (engine, clock) = SseEngine(handler);
+
+        engine.Execute("var es = watch(new EventSource('data:text/event-stream,retry:%20250%0Aid:%207%0Adata:%20tick%0A%0Adata:%20tock%0A%0A'));");
+        PumpUntilLogHas(engine, 4, "the first pass");
+
+        const string Pass = "open~1|message~message~tick~7~null|message~message~tock~7~null|error~0";
+        Log(engine).Should().Be(Pass);
+
+        clock.Advance(200);
+        Drain(engine);
+        Log(engine).Should().Be(Pass);
+
+        clock.Advance(60);
+        PumpUntilLogHas(engine, 8, "the replay after the announced 250ms");
+        Log(engine).Should().Be(Pass + "|" + Pass);
+    }
+
+    /// <summary>
+    /// <c>close()</c> during the reconnect delay cancels the replay — "if the EventSource object's readyState
+    /// attribute is not set to CONNECTING, then return" — and leaves the engine nothing scheduled.
+    /// </summary>
+    [Test]
+    public void CloseDuringTheReplayDelayCancelsTheReplay()
+    {
+        var handler = new StubHandler();
+        var (engine, clock) = SseEngine(handler);
+
+        engine.Execute($"var es = watch(new EventSource('{HelloDataUrl}'));");
+        PumpUntilLogHas(engine, 3, "the first pass");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().NotBeNull();
+
+        engine.Execute("es.close();");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+
+        clock.Advance(60_000);
+        Drain(engine);
+
+        Log(engine).Should().Be(HelloPass);
+        engine.Evaluate("es.readyState").AsNumber().Should().Be(2);
+    }
+
+    /// <summary>
+    /// A listener that closes the source stops the rest of the pass — the events after it and the end of the
+    /// body that would have reestablished the connection — and nothing is left queued or scheduled.
+    /// </summary>
+    [TestCase("open", "open~1")]
+    [TestCase("message", "open~1|message~message~one~~null")]
+    public void CloseFromAListenerEndsThePass(string type, string expected)
+    {
+        var handler = new StubHandler();
+        var (engine, clock) = SseEngine(handler);
+
+        engine.Execute($$"""
+            var es = watch(new EventSource('data:text/event-stream,data:%20one%0A%0Adata:%20two%0A%0A'));
+            es.addEventListener('{{type}}', () => es.close());
+            """);
+        Drain(engine);
+
+        Log(engine).Should().Be(expected);
+        engine.Evaluate("es.readyState").AsNumber().Should().Be(2);
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+
+        clock.Advance(60_000);
+        Drain(engine);
+        Log(engine).Should().Be(expected);
+    }
+
+    /// <summary>
+    /// "If res's status is not 200, or if res's Content-Type is not text/event-stream, then fail the
+    /// connection" — the arm's 200 carries the URL's own MIME type, so any other one fails, for good. A
+    /// <c>data:</c> URL naming none is <c>text/plain;charset=US-ASCII</c>.
+    /// </summary>
+    [TestCase("data:,data:%20hi%0A%0A")]
+    [TestCase("data:text/plain,data:%20hi%0A%0A")]
+    [TestCase("data:application/json;base64,ZGF0YTogaGkKCg==")]
+    [TestCase("data:text/event-stream/x,data:%20hi%0A%0A")]
+    public void ADataUrlOfAnotherMimeTypeFailsTheConnectionForGood(string url)
+    {
+        var handler = new StubHandler();
+        var (engine, clock) = SseEngine(handler);
+
+        engine.Execute($"var es = watch(new EventSource('{url}'));");
+        PumpUntilLogHas(engine, 1, "the error event");
+
+        Log(engine).Should().Be("error~2");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+
+        clock.Advance(60_000);
+        Drain(engine);
+        Log(engine).Should().Be("error~2");
+        handler.Requests.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The check is on the MIME type essence, so a parameter — or a case the URL parser keeps — changes nothing.
+    /// </summary>
+    [TestCase("data:TEXT/Event-Stream;charset=utf-8,data:%20ok%0A%0A")]
+    [TestCase("data:text/event-stream;,data:%20ok%0A%0A")]
+    public void AMimeTypeWithParametersIsStillAnEventStream(string url)
+    {
+        var (engine, _) = SseEngine(new StubHandler());
+
+        engine.Execute($"var es = watch(new EventSource('{url}'));");
+        PumpUntilLogHas(engine, 2, "the message event");
+
+        engine.Evaluate("log[1]").AsString().Should().Be("message~message~ok~~null");
+        engine.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// A base64 payload is decoded by the <c>data:</c> URL processor before the event stream parser sees a
+    /// byte, and the stream is then UTF-8 whatever the URL's charset says.
+    /// </summary>
+    [TestCase("data: hi\n\n", "hi")]
+    [TestCase("data: héllo\r\ndata: wörld\r\n\r\n", "héllo\nwörld")]
+    public void ABase64DataUrlIsDecodedBeforeItIsParsed(string stream, string data)
+    {
+        var (engine, _) = SseEngine(new StubHandler());
+        var url = "data:text/event-stream;charset=windows-1252;base64," + Convert.ToBase64String(Encoding.UTF8.GetBytes(stream));
+
+        engine.Execute($"var es = watch(new EventSource('{url}'));");
+        PumpUntilLogHas(engine, 3, "the first pass");
+
+        Log(engine).Should().Be($"open~1|message~message~{data}~~null|error~0");
+        engine.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// A URL the processor refuses is a network error that every later attempt would meet again, which is the
+    /// case step 15.ii lets a user agent fail rather than reestablish: "unless the user agent knows that to be
+    /// futile".
+    /// </summary>
+    [TestCase("data:text/event-stream")]
+    [TestCase("data:text/event-stream;base64,%%%")]
+    public void AnUnprocessableDataUrlFailsTheConnectionForGood(string url)
+    {
+        var (engine, clock) = SseEngine(new StubHandler());
+
+        engine.Execute($"var es = watch(new EventSource('{url}'));");
+        PumpUntilLogHas(engine, 1, "the error event");
+
+        Log(engine).Should().Be("error~2");
+        clock.Advance(60_000);
+        Drain(engine);
+        Log(engine).Should().Be("error~2");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+    }
+
+    /// <summary>
+    /// <c>MaxResponseBytes</c> bounds the decoded body, so a script cannot escape the host's size ceiling by
+    /// inlining a stream: over it, the connection fails before it is announced and is not retried. The bound is
+    /// on what the payload decodes to, not on its length — a base64 payload of sixteen characters is ten bytes.
+    /// </summary>
+    [TestCase("data:text/event-stream,data:%20hi%0A%0A", "open~1|message~message~hi~~null|error~0")]
+    [TestCase("data:text/event-stream;base64,ZGF0YTogaGkKCg==", "open~1|message~message~hi~~null|error~0")]
+    [TestCase("data:text/event-stream,data:%20hi!%0A%0A", "error~2")]
+    public void MaxResponseBytesBoundsTheDecodedBody(string url, string expected)
+    {
+        var (engine, clock) = SseEngine(new StubHandler(), net => net.MaxResponseBytes = 10);
+
+        engine.Execute($"var es = watch(new EventSource('{url}'));");
+        PumpUntilLogHas(engine, expected.Split('|').Length, "the first pass");
+
+        Log(engine).Should().Be(expected);
+        engine.Execute("es.close();");
+        clock.Advance(60_000);
+        Drain(engine);
+        Log(engine).Should().Be(expected);
+    }
+
+    /// <summary>
+    /// No request happens, so an observer hears nothing — not of the pass, not of a replay, not of a failure.
+    /// The control proves the observer is wired: a network URL the policy refuses is reported to it.
+    /// </summary>
+    [Test]
+    public void AnObserverIsToldNothingOfADataUrl()
+    {
+        var observer = new RecordingObserver();
+        var (engine, clock) = SseEngine(new StubHandler(), net =>
+        {
+            net.Observer = observer;
+            net.MaxResponseBytes = 16;
+            net.UrlFilter = uri => uri.Scheme != "https";
+        });
+
+        engine.Execute($$"""
+            var es = watch(new EventSource('{{HelloDataUrl}}'));
+            var refused = new EventSource('data:text/plain,data:%20hi%0A%0A');
+            var tooLarge = new EventSource('data:text/event-stream,data:%20more%20than%20sixteen%0A%0A');
+            """);
+        PumpUntilLogHas(engine, 3, "the first pass");
+
+        clock.Advance(3000);
+        PumpUntilLogHas(engine, 6, "the replay");
+        engine.Execute("es.close();");
+        observer.Count.Should().Be(0);
+
+        engine.Execute($"new EventSource('{StreamUrl}');");
+        observer.Take(1).Single().Should().StartWith("failed ").And.EndWith($" The fetch policy refused '{StreamUrl}'.");
+    }
+
+    /// <summary>
+    /// The bytes are in the URL, so the destination policy has nothing to decide: a scheme list without
+    /// <c>data</c>, a filter that refuses everything and a concurrency cap of zero all leave the stream
+    /// working — the filter is never even asked, on the first pass or on a replay.
+    /// </summary>
+    [Test]
+    public void TheSchemeListTheFilterAndTheConcurrencyCapDoNotApplyToADataUrl()
+    {
+        var handler = new StubHandler();
+        var filterCalls = 0;
+        var (engine, clock) = SseEngine(handler, net =>
+        {
+            net.AllowedSchemes.Clear();
+            net.AllowedSchemes.Add("https");
+            net.UrlFilter = _ =>
+            {
+                Interlocked.Increment(ref filterCalls);
+                return false;
+            };
+            net.MaxConcurrentRequests = 0;
+        });
+
+        engine.Execute($"var es = watch(new EventSource('{HelloDataUrl}'));");
+        PumpUntilLogHas(engine, 3, "the first pass");
+
+        clock.Advance(3000);
+        PumpUntilLogHas(engine, 6, "the replay");
+
+        Log(engine).Should().Be(HelloPass + "|" + HelloPass);
+        Volatile.Read(ref filterCalls).Should().Be(0);
+        handler.Requests.Should().BeEmpty();
+        engine.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// Listing <c>data</c> among the allowed schemes used to hand the URL to the host's client; the engine
+    /// answers it either way, and the client is never asked.
+    /// </summary>
+    [Test]
+    public void ADataUrlOnTheSchemeListStillNeverReachesTheTransport()
+    {
+        var handler = new StubHandler { Responder = _ => Answer("data: from the network\n\n") };
+        var (engine, _) = SseEngine(handler, net => net.AllowedSchemes.Add("data"));
+
+        engine.Execute($"var es = watch(new EventSource('{HelloDataUrl}'));");
+        PumpUntilLogHas(engine, 3, "the first pass");
+
+        Log(engine).Should().Be(HelloPass);
+        handler.Requests.Should().BeEmpty();
+        engine.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// An engine whose listeners report to a host-side list rather than to a script array, for the tests whose
+    /// engine can no longer be asked to evaluate anything — one that has been cancelled, or restored.
+    /// </summary>
+    private static (Engine Engine, ManualClock Clock, List<string> Records) RecordingDataUrlEngine(CancellationToken cancellationToken = default)
+    {
+        var clock = new ManualClock();
+        var records = new List<string>();
+        var engine = new Engine(options =>
+        {
+            options.WebApi.Timers.TimeProvider = clock;
+            if (cancellationToken.CanBeCanceled)
+            {
+                options.ObserveCancellation(cancellationToken);
+            }
+
+            options.UseEventSource();
+        });
+
+        engine.SetValue("record", new Action<string>(records.Add));
+        return (engine, clock, records);
+    }
+
+    private const string RecordedHello = $$"""
+        var es = new EventSource('{{HelloDataUrl}}');
+        es.onopen = () => record('open');
+        es.onmessage = e => record(e.data);
+        es.onerror = () => record('error' + es.readyState);
+        """;
+
+    /// <summary>
+    /// The engine's cancellation ends a <c>data:</c> URL's replay as it ends a network connection: silently,
+    /// with no event a listener could carry on from — which here would also be a listener throwing out of the
+    /// pump every reconnection time — and with nothing left scheduled.
+    /// </summary>
+    [Test]
+    public void AnEngineCancellationEndsTheReplaySilently()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var (engine, clock, records) = RecordingDataUrlEngine(cancellation.Token);
+
+        engine.Execute(RecordedHello);
+        Drain(engine);
+        string.Join("|", records).Should().Be("open|hi|error0");
+
+        cancellation.Cancel();
+        clock.Advance(60_000);
+        Drain(engine);
+
+        string.Join("|", records).Should().Be("open|hi|error0");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+    }
+
+    /// <summary>
+    /// A restore clears the timer queue the replay waits on, so the pass a cycle started never replays into the
+    /// restored globals.
+    /// </summary>
+    [Test]
+    public void ARestoreTakesTheDataUrlReplayWithIt()
+    {
+        var (engine, clock, records) = RecordingDataUrlEngine();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Execute(RecordedHello);
+        Drain(engine);
+        string.Join("|", records).Should().Be("open|hi|error0");
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+        clock.Advance(60_000);
+        Drain(engine);
+
+        string.Join("|", records).Should().Be("open|hi|error0");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+        engine.Evaluate("typeof es").AsString().Should().Be("undefined");
+    }
+
+    /// <summary>
+    /// The replay holds nothing outside the engine — no thread, no operating-system timer — so an engine left
+    /// in a reconnect delay is collectable once the host lets go of it.
+    /// </summary>
+    [Test]
+    public void AnEngineInADataUrlsReplayDelayIsCollectable()
+    {
+        const int count = 4;
+        var references = new List<WeakReference>(count);
+        for (var i = 0; i < count; i++)
+        {
+            references.Add(OpenAndForget());
+        }
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+
+        references.Count(static reference => reference.IsAlive).Should().Be(0,
+            "a data: URL's replay must be held by the engine's own timer queue and nothing else");
+
+        // NoInlining so the engine cannot stay rooted in this frame across the collection.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static WeakReference OpenAndForget()
+        {
+            var (engine, _) = SseEngine(new StubHandler());
+            engine.Execute($"var es = watch(new EventSource('{HelloDataUrl}'));");
+            Drain(engine);
+            Log(engine).Should().Be(HelloPass);
+            engine.Tasks.TimeUntilNextScheduledWork.Should().NotBeNull();
+            return new WeakReference(engine);
+        }
     }
 
     [Test]

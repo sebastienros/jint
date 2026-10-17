@@ -42,10 +42,10 @@ internal enum EventSourceOutcome
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The same threading discipline as <c>FetchOperation</c>, which is not a coincidence.</b> The realm and
-/// the event-loop generation are captured <i>here</i>, when the connection is created on the engine thread,
-/// and every result crosses back as a job stamped with that generation — so a chunk that arrives after
-/// <c>RestoreGlobalSnapshot</c> is discarded at dequeue rather than dispatched into the restored engine.
+/// <b>The same threading discipline as <c>FetchOperation</c>, which is not a coincidence.</b> The event-loop
+/// generation is captured <i>here</i>, when the connection is created on the engine thread, and every result
+/// crosses back as a job stamped with it and run in the event source's own realm — so a chunk that arrives
+/// after <c>RestoreGlobalSnapshot</c> is discarded at dequeue rather than dispatched into the restored engine.
 /// Nothing on the pool thread touches the engine: the read loop hands the parser bytes and the parser answers
 /// with plain CLR records.
 /// </para>
@@ -60,17 +60,10 @@ internal enum EventSourceOutcome
 internal sealed class EventSourceConnection
 {
     /// <summary>The MIME type essence a response must carry, https://html.spec.whatwg.org/multipage/server-sent-events.html#text/event-stream.</summary>
-    private const string EventStreamMimeType = "text/event-stream";
+    internal const string EventStreamMimeType = "text/event-stream";
 
     private readonly JsEventSource _source;
     private readonly Engine _engine;
-
-    /// <summary>
-    /// The realm the connection was opened in, captured at creation for the same reason
-    /// <c>FetchOperation</c> captures one: a job running on a later turn would otherwise build its
-    /// <c>MessageEvent</c> against whatever realm happened to be ambient.
-    /// </summary>
-    private readonly Realm _realm;
 
     /// <summary>The evaluation cycle this connection belongs to; every job it queues carries it.</summary>
     private readonly int _generation;
@@ -112,11 +105,10 @@ internal sealed class EventSourceConnection
 
     private int _finished;
 
-    internal EventSourceConnection(JsEventSource source, Engine engine, Realm realm, EngineCancellation cancellation, long maxEventLength, string lastEventId)
+    internal EventSourceConnection(JsEventSource source, Engine engine, EngineCancellation cancellation, long maxEventLength, string lastEventId)
     {
         _source = source;
         _engine = engine;
-        _realm = realm;
         _generation = engine.EventLoopGeneration;
         _cancellation = cancellation.CreateLinkedTokenSource();
         _token = _cancellation.Token;
@@ -232,7 +224,7 @@ internal sealed class EventSourceConnection
     private void Deliver(byte[] buffer, int count, string origin)
     {
         var messages = new List<EventStreamMessage>();
-        _parser.Feed(buffer, count, messages);
+        _parser.Feed(buffer.AsSpan(0, count), messages);
 
         var reconnectionTime = _parser.TakeReconnectionTime();
         if (reconnectionTime is null && messages.Count == 0)
@@ -334,24 +326,11 @@ internal sealed class EventSourceConnection
     }
 
     /// <summary>
-    /// Runs an engine-thread job in the connection's own realm.
+    /// Runs an engine-thread job in the realm the event source — and so this connection — was opened in,
+    /// captured at creation for the same reason <c>FetchOperation</c> captures one: a job running on a later
+    /// turn would otherwise build its <c>MessageEvent</c> against whatever realm happened to be ambient.
     /// </summary>
-    /// <remarks>
-    /// A listener that throws erupts from whatever is pumping the event loop, which is the contract every
-    /// event Jint fires already has — see <c>JsEventTarget</c>. There is no promise here to reject it into.
-    /// </remarks>
-    private void Run(Action job)
-    {
-        var entered = EnterRealm();
-        try
-        {
-            job();
-        }
-        finally
-        {
-            LeaveRealm(entered);
-        }
-    }
+    private void Run(Action job) => _source.RunInRealm(job);
 
     /// <summary>
     /// Ends the connection from the engine thread: <c>close()</c>, or the fence a
@@ -376,25 +355,6 @@ internal sealed class EventSourceConnection
         // Runs here rather than from a job, because a job is exactly what an abandoned connection may no
         // longer queue. The caller is on the engine thread either way — close() or the restore fence.
         _source.AbandonConnection(this);
-    }
-
-    private bool EnterRealm()
-    {
-        if (ReferenceEquals(_engine.Realm, _realm))
-        {
-            return false;
-        }
-
-        _engine.EnterExecutionContext(_realm.GlobalEnv, _realm.GlobalEnv, _realm, privateEnvironment: null, strict: _engine.Options.Strict);
-        return true;
-    }
-
-    private void LeaveRealm(bool entered)
-    {
-        if (entered)
-        {
-            _engine.LeaveExecutionContext();
-        }
     }
 }
 #endif

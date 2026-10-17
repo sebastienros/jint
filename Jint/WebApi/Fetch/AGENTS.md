@@ -72,7 +72,11 @@ not even a refusal. The `data` arm still owes `MaxResponseBytes` on the decoded 
 refuses from the length before decoding where that is enough), answers any method, and runs *after* `fetch`'s
 already-aborted check, which the standard puts before main fetch; the `blob` arm still runs before it. A
 redirect to either scheme is refused in `FetchTransport`'s loop whatever `AllowedSchemes` holds — HTTP-redirect
-fetch step 6 — so the arms answer a request's own URL and never a `Location`.
+fetch step 6 — so the arms answer a request's own URL and never a `Location`. `EventSource` takes the `data` arm
+too, and only that one: `JsEventSource.ConnectDataUrl` feeds the decoded body straight to `EventStreamParser`,
+with no `EventSourceConnection`, outside `MaxConcurrentRequests`, and the end of the body reestablishes the
+connection, so the URL replays every reconnection time on the timer queue
+([#4283](https://github.com/sebastienros/jint/issues/4283)).
 
 **Three callbacks answer, and where each is asked is the decision.** `OnRequestAsync` is asked per hop,
 inside the redirect loop. `OnAuthRequiredAsync` is asked beside it, in the loop's core, because a `401` on a

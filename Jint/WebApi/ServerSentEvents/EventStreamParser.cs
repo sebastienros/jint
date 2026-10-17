@@ -114,10 +114,9 @@ internal sealed class EventStreamParser
     /// browser's event stream is bounded by the tab's memory — but a stream is unbounded by nature and an
     /// engine embedded in a server cannot buffer whatever a server chooses to send.
     /// </exception>
-    internal void Feed(byte[] buffer, int count, List<EventStreamMessage> messages)
+    internal void Feed(ReadOnlySpan<byte> bytes, List<EventStreamMessage> messages)
     {
         Span<char> chars = stackalloc char[512];
-        var bytes = new ReadOnlySpan<byte>(buffer, 0, count);
 
         while (!bytes.IsEmpty)
         {

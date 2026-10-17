@@ -6339,6 +6339,20 @@ What does bound it is `MaxResponseBytes`, on the decoded body: over the limit, t
 the limit from the network does. A redirect to a `data:` or `blob:` URL is always a network error, whatever
 `AllowedSchemes` holds. There is no switch to refuse `data:` again; a host that must, wraps `fetch` in script.
 
+### 4.158 `EventSource` answers a `data:` URL ([#4283](https://github.com/sebastienros/jint/issues/4283))
+
+Earlier previews failed `new EventSource('data:…')` with an `error` event and `CLOSED`, unless the host added
+`data` to `AllowedSchemes` — and then sent the URL to its own `HttpClient`. Now the engine answers it as `fetch`
+does since §4.156: a `text/event-stream` URL is announced (`open`), its decoded body is parsed into `message`
+events, and the end of the body reestablishes the connection, so **the same URL replays every reconnection
+time** — three seconds, or what a `retry:` field says — until the script calls `close()`. Any other MIME type
+fails the connection, as a network response of that type does.
+
+`AllowedSchemes`, `UrlFilter`, `MaxConcurrentRequests` and a `FetchObserver` never see a `data:` event stream,
+so **a host that narrowed `AllowedSchemes` or set a `UrlFilter` now lets one through**. `MaxResponseBytes`
+bounds its decoded body whole, not one event at a time as on a network stream: over it, the connection fails
+and is not retried. The replay waits on the timer queue, so an engine nobody pumps replays nothing.
+
 ### 4.159 `XMLHttpRequest`'s text response honours a byte order mark ([#4282](https://github.com/sebastienros/jint/issues/4282))
 
 Earlier previews decoded `responseText` — and `response` for the `""` and `"text"` response types, and the text

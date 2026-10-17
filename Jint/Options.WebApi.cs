@@ -653,7 +653,8 @@ public sealed partial class Options
         /// change it between evaluations; it is not read on a background thread.
         /// </para>
         /// <para>
-        /// <b><c>blob:</c> and <c>data:</c> URLs are answered by the engine itself, not the transport</b>, so
+        /// <b><c>blob:</c> and <c>data:</c> URLs are answered by the engine itself, not the transport</b> —
+        /// by <c>fetch</c> and <c>XMLHttpRequest</c>, and a <c>data:</c> one by <c>EventSource</c> too — so
         /// this list, <see cref="UrlFilter"/> and <see cref="Observer"/> never see them, and they work with the
         /// list narrowed or emptied. <see cref="MaxResponseBytes"/> still bounds a <c>data:</c> body, and a
         /// redirect to either scheme is always refused.
@@ -1423,6 +1424,14 @@ public enum WebApiFeatures
     /// this is the setting that stops a script from opening them without end.
     /// </description></item>
     /// </list>
+    /// <para>
+    /// <b>A <c>data:</c> URL is answered by the engine itself</b>, as <c>fetch</c> answers one: no request is
+    /// made, so the scheme list, the filter, the concurrency cap, the client and
+    /// <see cref="Options.FetchOptions.Observer"/> never see it. Its decoded body is bounded whole by
+    /// <see cref="Options.FetchOptions.MaxResponseBytes"/>; a <c>text/event-stream</c> one is announced and
+    /// parsed, any other type fails the connection, and the end of the body reestablishes it, so the URL is
+    /// replayed every reconnection time.
+    /// </para>
     /// </remarks>
     EventSource = 1 << 17,
 

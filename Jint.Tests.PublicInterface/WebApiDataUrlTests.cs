@@ -99,5 +99,44 @@ public class WebApiDataUrlTests
         Pump(engine);
         engine.Evaluate("result").AsString().Should().Be("200|application/json|1");
     }
+
+    /// <summary>
+    /// <c>EventSource</c> takes the same arm: on an engine whose scheme list and URL filter refuse every
+    /// request, a <c>text/event-stream</c> <c>data:</c> URL is announced, dispatches its events and — because
+    /// the end of a body reestablishes the connection — replays every reconnection time until it is closed.
+    /// </summary>
+    [Test]
+    public void EventSourceReplaysADataUrlUnderANarrowedPolicy()
+    {
+        var filterCalls = 0;
+        var engine = new Engine(options => options.UseEventSource(network =>
+        {
+            network.AllowedSchemes.Clear();
+            network.UrlFilter = _ =>
+            {
+                Interlocked.Increment(ref filterCalls);
+                return false;
+            };
+        }));
+
+        engine.Execute("""
+            var log = [];
+            var es = new EventSource('data:text/event-stream,retry:%2010%0Adata:%20hi%0A%0A');
+            es.onopen = () => log.push('open');
+            es.onmessage = e => log.push(e.data + '@' + e.origin);
+            es.onerror = () => { log.push('error' + es.readyState); if (log.length >= 6) { es.close(); } };
+            """);
+
+        // The replay waits a real ten milliseconds on the engine's timer queue, which only a pump can run.
+        var deadline = DateTime.UtcNow + TestBudgets.WedgeCeiling;
+        while (engine.Evaluate("es.readyState").AsNumber() != 2 && DateTime.UtcNow < deadline)
+        {
+            engine.Tasks.ProcessTasks();
+            Thread.Sleep(1);
+        }
+
+        engine.Evaluate("log.join('|')").AsString().Should().Be("open|hi@null|error0|open|hi@null|error0");
+        filterCalls.Should().Be(0);
+    }
 }
 #endif
