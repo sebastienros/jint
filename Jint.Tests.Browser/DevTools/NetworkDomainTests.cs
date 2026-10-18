@@ -393,6 +393,228 @@ public class NetworkDomainTests
             because: "a blocked URL is refused before the transport opens a socket");
     }
 
+    /// <summary>
+    /// <c>urlPatterns</c> are URLPattern constructor strings, and a page's own <c>fetch</c> to a URL one matches
+    /// fails with the <c>blockedReason</c> Chrome reports for it —
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-setBlockedURLs.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Chromium's renderer (<c>InspectorNetworkAgent::ShouldBlockRequest</c>) matches each entry with
+    /// <c>SimpleUrlPatternMatcher</c>, component by component and case-sensitively, so <c>:file</c> is one path
+    /// segment — which the older <c>*</c> glob cannot say — and <c>*.example.com</c> names a subdomain.
+    /// </para>
+    /// <para>
+    /// The hosts are not the loopback origin, so the context's client answers them in-process: a blocked request
+    /// that slipped through would be answered there rather than reach the network, which is also what the test
+    /// reads to prove that none did.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AUrlPatternBlocksWhatUrlPatternMatches()
+    {
+        using var server = new LoopbackServer();
+        using var hosts = new InProcessHosts(server);
+        await using var fixture = await OpenBlockingFixtureAsync(server, hosts);
+
+        await fixture.Session.ResultAsync(
+            "Network.setBlockedURLs",
+            BlockPatterns(Block("*://*.example.com/*"), Block("https://example.org/:file"), Block("https://example.net/data")),
+            fixture.Attachment);
+
+        (await FetchAsync(fixture, "https://example.org/data")).Should().Be("refused");
+        var failed = await fixture.FailureOfAsync("https://example.org/data");
+        failed.GetProperty("errorText").GetString().Should().Be("net::ERR_BLOCKED_BY_CLIENT");
+        failed.GetProperty("blockedReason").GetString().Should().Be("inspector");
+
+        (await FetchAsync(fixture, "http://cdn.example.com/tracker.js")).Should().Be("refused");
+        (await FetchAsync(fixture, "http://example.com/data")).Should().Be("went", "*.example.com names a subdomain, and URLPattern reads it so");
+        (await FetchAsync(fixture, "https://example.org/a/b")).Should().Be("went", "a named group matches one path segment");
+        (await FetchAsync(fixture, "http://example.org/data")).Should().Be("went", "the pattern names https and nothing else");
+        (await FetchAsync(fixture, "https://example.net/Data")).Should().Be("went", "a pattern is matched case-sensitively");
+        (await FetchAsync(fixture)).Should().Be("went", "the origin is on no pattern");
+
+        hosts.Answered.Should().Equal(
+            ["http://example.com/data", "https://example.org/a/b", "http://example.org/data", "https://example.net/Data"],
+            "a blocked request is refused before any connection is opened");
+    }
+
+    /// <summary>
+    /// The first of the <c>urlPatterns</c> that matches decides, allowing as well as blocking, and the deprecated
+    /// <c>urls</c> are read only when none of them matched.
+    /// </summary>
+    /// <remarks>
+    /// That is the protocol's word — <c>block: false</c> lets a request through "even if it matches a later
+    /// <c>BlockPattern</c>", and the patterns "take precedence over any wildcard patterns defined in <c>urls</c>" —
+    /// and Chromium's <c>ShouldBlockRequest</c> returns on the first pattern that matches, whichever its flag.
+    /// </remarks>
+    [Test]
+    public async Task TheFirstMatchingPatternDecidesBeforeAnyGlobIsRead()
+    {
+        using var server = new LoopbackServer();
+        using var hosts = new InProcessHosts(server);
+        await using var fixture = await OpenBlockingFixtureAsync(server, hosts);
+
+        await fixture.Session.ResultAsync(
+            "Network.setBlockedURLs",
+            BlockPatternsAndUrls(["example"], Block("http://example.com/data", block: false), Block("*://example.com/*")),
+            fixture.Attachment);
+
+        (await FetchAsync(fixture, "http://example.com/data")).Should().Be("went",
+            "an allowance is not overridden by a later pattern, nor by a glob that matches the same URL");
+        (await FetchAsync(fixture, "http://example.com/other")).Should().Be("refused", "the second pattern matches");
+        (await FetchAsync(fixture, "http://example.net/data")).Should().Be("refused",
+            "no pattern matches, so the globs are read, and 'example' is anywhere in the URL");
+        (await FetchAsync(fixture, "http://other.test/data")).Should().Be("went");
+
+        hosts.Answered.Should().Equal(["http://example.com/data", "http://other.test/data"]);
+    }
+
+    /// <summary>
+    /// The deprecated <c>urls</c> are still honoured, as Chromium's own glob reads them: literal text, <c>*</c>
+    /// for any run of characters, and an implicit <c>*</c> at either end.
+    /// </summary>
+    /// <remarks>
+    /// Chromium's <c>Matches</c> in <c>inspector_network_agent.cc</c> finds each piece between the stars in order,
+    /// each after the last, and nothing anchors the first or the last — so a glob with no star at all blocks every
+    /// URL that contains it. It is a case-sensitive search over the URL's serialization.
+    /// </remarks>
+    [Test]
+    public async Task AGlobIsMatchedAnywhereInTheUrlAsChromeMatchesIt()
+    {
+        using var server = new LoopbackServer();
+        using var hosts = new InProcessHosts(server);
+        await using var fixture = await OpenBlockingFixtureAsync(server, hosts);
+
+        await fixture.Session.ResultAsync("Network.setBlockedURLs", """{"urls":["tracker.js"]}""", fixture.Attachment);
+        (await FetchAsync(fixture, "http://cdn.other.test/tracker.js?v=2")).Should().Be("refused",
+            "a glob with no star matches wherever it occurs");
+        (await FetchAsync(fixture, "http://cdn.other.test/TRACKER.js")).Should().Be("went", "a glob is matched case-sensitively");
+
+        await fixture.Session.ResultAsync("Network.setBlockedURLs", """{"urls":["http://*.other.test/*.js"]}""", fixture.Attachment);
+        (await FetchAsync(fixture, "http://cdn.other.test/app.js?x=1")).Should().Be("refused");
+        (await FetchAsync(fixture, "https://cdn.other.test/app.js")).Should().Be("went", "the text between the stars is literal");
+
+        // A command naming nothing clears the block.
+        await fixture.Session.ResultAsync("Network.setBlockedURLs", "{}", fixture.Attachment);
+        (await FetchAsync(fixture, "http://cdn.other.test/tracker.js?v=2")).Should().Be("went");
+
+        hosts.Answered.Should().Equal(
+            ["http://cdn.other.test/TRACKER.js", "https://cdn.other.test/app.js", "http://cdn.other.test/tracker.js?v=2"]);
+    }
+
+    /// <summary>
+    /// A pattern that is not an absolute URLPattern this browser can match is refused in Chrome's words, and the
+    /// refusal changes nothing — neither the block in force nor the rest of the same command.
+    /// </summary>
+    /// <remarks>
+    /// Chromium's <c>InspectorNetworkAgent::setBlockedURLs</c> compiles every entry with
+    /// <c>SimpleUrlPatternMatcher</c> before it clears anything, and answers the first that fails with
+    /// <c>-32602 Pattern "…" failed to parse as a URLPattern.</c>: a relative pattern (there is no base URL), an
+    /// empty one, one with a regexp group, which that matcher refuses, and one that does not parse at all.
+    /// </remarks>
+    [Test]
+    public async Task APatternThatIsNotOneIsRefusedAndChangesNothing()
+    {
+        using var server = new LoopbackServer();
+        using var hosts = new InProcessHosts(server);
+        await using var fixture = await OpenBlockingFixtureAsync(server, hosts);
+
+        await fixture.Session.ResultAsync(
+            "Network.setBlockedURLs", BlockPatternsAndUrls(["other.test"], Block(server.Url("/data"))), fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("refused");
+        (await FetchAsync(fixture, "http://other.test/data")).Should().Be("refused");
+
+        foreach (var refused in new[] { "/other", "", @"https://example.com/(\d+)", @"https://example.com/:id(\d+)", "https://example.com/(" })
+        {
+            var error = await fixture.Session.ErrorAsync(
+                "Network.setBlockedURLs", BlockPatternsAndUrls(["*"], Block("*://*:*/*"), Block(refused)), fixture.Attachment);
+            error.GetProperty("code").GetInt32().Should().Be(-32602, "'{0}' is not an absolute pattern without a regexp group", refused);
+            error.GetProperty("message").GetString().Should().Be($"Pattern \"{refused}\" failed to parse as a URLPattern.");
+        }
+
+        (await FetchAsync(fixture, "/other")).Should().Be("went", "neither the pattern beside a refused one nor the globs were applied");
+        (await FetchAsync(fixture)).Should().Be("refused", "a refused command leaves the block in force as it was");
+        (await FetchAsync(fixture, "http://other.test/data")).Should().Be("refused", "and the globs in force with it");
+        hosts.Answered.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A page at <c>/page</c> on the loopback origin, and a <c>/data</c> and an <c>/other</c> to fetch, in the
+    /// browser's default context with <paramref name="hosts"/> sending its requests.
+    /// </summary>
+    private static async Task<NetworkFixture> OpenBlockingFixtureAsync(LoopbackServer server, InProcessHosts hosts)
+    {
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+        server.Map("/data", _ => LoopbackResponse.Text("went"));
+        server.Map("/other", _ => LoopbackResponse.Text("went"));
+
+        var fixture = await NetworkFixture.OpenOnDefaultContextAsync(server, hosts.Client);
+        await fixture.NavigateAsync("/page");
+        return fixture;
+    }
+
+    /// <summary>One <c>Network.BlockPattern</c>.</summary>
+    private static string Block(string urlPattern, bool block = true)
+        => $$"""{"urlPattern":{{JsonSerializer.Serialize(urlPattern)}},"block":{{(block ? "true" : "false")}}}""";
+
+    /// <summary><c>setBlockedURLs</c>' parameters: these <c>urlPatterns</c>, and no <c>urls</c>.</summary>
+    private static string BlockPatterns(params string[] patterns) => $$"""{"urlPatterns":[{{string.Join(",", patterns)}}]}""";
+
+    /// <summary><c>setBlockedURLs</c>' parameters: these <c>urlPatterns</c>, and the deprecated <paramref name="urls"/> beside them.</summary>
+    private static string BlockPatternsAndUrls(string[] urls, params string[] patterns)
+        => $$"""{"urlPatterns":[{{string.Join(",", patterns)}}],"urls":{{JsonSerializer.Serialize(urls)}}}""";
+
+    /// <summary>
+    /// A handler that sends what is addressed to the loopback origin over a real socket and answers every other
+    /// host in-process, recording the URLs it answered — so a test can name hosts on the internet and reach none.
+    /// </summary>
+    private sealed class InProcessHosts : DelegatingHandler
+    {
+        private readonly LoopbackServer _origin;
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _answered = new();
+
+        internal InProcessHosts(LoopbackServer origin)
+            : base(new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false })
+        {
+            _origin = origin;
+            Client = new HttpClient(this, disposeHandler: false);
+        }
+
+        /// <summary>The client a context sends its requests with.</summary>
+        internal HttpClient Client { get; }
+
+        /// <summary>Every URL answered in-process, in the order it was asked for.</summary>
+        internal IReadOnlyList<string> Answered => [.. _answered];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri is { } uri && _origin.Owns(uri))
+            {
+                return base.SendAsync(request, cancellationToken);
+            }
+
+            _answered.Enqueue(request.RequestUri!.AbsoluteUri);
+            var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("went"),
+                RequestMessage = request,
+            };
+            response.Headers.Add("Access-Control-Allow-Origin", "*");
+            return Task.FromResult(response);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Client.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+    }
+
     [Test]
     public async Task ExtraHeadersReachTheServerOnEveryRequest()
     {
@@ -1085,7 +1307,18 @@ public class NetworkDomainTests
         {
             var contextOptions = new BrowserContextOptions { UrlFilter = urlFilter ?? server.Owns };
             configureContext?.Invoke(contextOptions);
-            var session = await PageSession.CreateAsync(contextOptions, options);
+            return await AttachAsync(server, await PageSession.CreateAsync(contextOptions, options));
+        }
+
+        /// <summary>
+        /// A fixture in the browser's <i>default</i> context, whose requests <paramref name="client"/> sends — so a
+        /// test can name hosts other than the loopback origin and have them answered in-process.
+        /// </summary>
+        internal static async Task<NetworkFixture> OpenOnDefaultContextAsync(LoopbackServer server, HttpClient client)
+            => await AttachAsync(server, await PageSession.CreateAsync(options: new BrowserOptions().ConfigureContext(o => o.HttpClient = client)));
+
+        private static async Task<NetworkFixture> AttachAsync(LoopbackServer server, PageSession session)
+        {
             var page = await session.NewPageAsync();
             var target = await session.TargetForAsync(page);
             var attachment = await session.AttachAsync(target);
@@ -1143,6 +1376,35 @@ public class NetworkDomainTests
 
             Assert.Fail($"no requestWillBeSent named '{url}' arrived within 30 seconds.");
             return "";
+        }
+
+        /// <summary>The <c>loadingFailed</c> parameters of the request for <paramref name="url"/>.</summary>
+        internal async Task<JsonElement> FailureOfAsync(string url)
+        {
+            var deadline = Environment.TickCount64 + 30_000L;
+
+            while (Environment.TickCount64 < deadline)
+            {
+                var requestIds = Session.EventsOf("Network.requestWillBeSent", Attachment)
+                    .Select(entry => entry.GetProperty("params"))
+                    .Where(parameters => parameters.GetProperty("request").GetProperty("url").GetString() == url)
+                    .Select(parameters => parameters.GetProperty("requestId").GetString())
+                    .ToHashSet(StringComparer.Ordinal);
+
+                foreach (var entry in Session.EventsOf("Network.loadingFailed", Attachment))
+                {
+                    var parameters = entry.GetProperty("params");
+                    if (requestIds.Contains(parameters.GetProperty("requestId").GetString()))
+                    {
+                        return parameters;
+                    }
+                }
+
+                await Task.Delay(10);
+            }
+
+            Assert.Fail($"no loadingFailed for '{url}' arrived within 30 seconds.");
+            return default;
         }
 
         internal async Task WaitForDataAsync(string path, int bytes)
