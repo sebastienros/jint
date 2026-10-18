@@ -842,33 +842,40 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             }
         }
 
+        /// <remarks>
+        /// The memo test and a string index, with the chunk walk out of line: a method with a loop is compiled with
+        /// patchpoints and its own instrumentation, and inlined where a caller guards on this type it left that
+        /// caller (charAt, charCodeAt, a computed member read) on synthesized rather than measured profile data.
+        /// </remarks>
         public override char this[int index]
         {
             get
             {
                 var value = _value;
-                if (value is not null)
-                {
-                    return value[index];
-                }
-
-                // The chunk holds characters past this value's end that belong to other values, so the bound is
-                // this value's own length rather than the array's.
-                if ((uint) index >= (uint) _length)
-                {
-                    Throw.ArgumentOutOfRangeException(nameof(index), "Index was outside the bounds of the string.");
-                }
-
-                // Walks back from the end, as StringBuilder's indexer does, so a read near the end of a value
-                // being built stays cheap.
-                var chunk = _chunk!;
-                while (index < chunk.Offset)
-                {
-                    chunk = chunk.Previous!;
-                }
-
-                return chunk.Chars[index - chunk.Offset];
+                return value is not null ? value[index] : CharInChunks(index);
             }
+        }
+
+        /// <summary>The character at <paramref name="index"/> of a value with no memo, read from its chunks.</summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private char CharInChunks(int index)
+        {
+            // The chunk holds characters past this value's end that belong to other values, so the bound is this
+            // value's own length rather than the array's.
+            if ((uint) index >= (uint) _length)
+            {
+                Throw.ArgumentOutOfRangeException(nameof(index), "Index was outside the bounds of the string.");
+            }
+
+            // Walks back from the end, as StringBuilder's indexer does, so a read near the end of a value being built
+            // stays cheap.
+            var chunk = _chunk!;
+            while (index < chunk.Offset)
+            {
+                chunk = chunk.Previous!;
+            }
+
+            return chunk.Chars[index - chunk.Offset];
         }
 
         internal override JsString Append(Realm realm, string value)
