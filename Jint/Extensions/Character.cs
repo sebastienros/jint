@@ -1,5 +1,5 @@
-﻿using System.Buffers;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Jint.Extensions;
 
@@ -10,7 +10,16 @@ internal static class Character
     /// </summary>
     public const string AsciiWordCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
 
-    public const string JsWhiteSpaceCharacters = "\x20\x09\x0A\x0B\x0C\x0D\xA0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF";
+    public static ReadOnlySpan<char> JsWhiteSpaceCharacters
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get =>
+        [
+            '\x20', '\x09', '\x0A', '\x0B', '\x0C', '\x0D',
+            '\xA0', '\u1680', '\u2028', '\u2029', '\u202F', '\u205F', '\u3000', '\uFEFF',
+            '\u2000', '\u2001', '\u2002', '\u2003', '\u2004', '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200A'
+        ];
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsInRange(this char c, ushort min, ushort max) => (uint) (c - min) <= (uint) (max - min);
@@ -49,8 +58,6 @@ internal static class Character
         return (long) (shift & mask) < 0 ? true : false;
     }
 
-    private static SearchValues<char> JsWhiteSpaceSearchValues { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; } = SearchValues.Create(JsWhiteSpaceCharacters);
-
     /// <summary>
     /// Whether <paramref name="c"/> is JavaScript white space: the union of the <c>WhiteSpace</c> and
     /// <c>LineTerminator</c> productions. https://tc39.es/ecma262/#sec-trimstring
@@ -65,7 +72,15 @@ internal static class Character
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsJsWhiteSpace(this char c)
     {
-        return JsWhiteSpaceSearchValues.Contains(c);
+        return c < 0x80
+            ? c == ' ' || c.IsInRange('\t', '\r')
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
+            // Avoid bounds check.
+            : MemoryMarshal.CreateReadOnlySpan(ref Unsafe.Add(ref MemoryMarshal.GetReference(JsWhiteSpaceCharacters), 6), 8)
+#else
+            : JsWhiteSpaceCharacters.Slice(6, 8)
+#endif
+                .IndexOf(c) >= 0 || c.IsInRange('\u2000', '\u200A');
     }
 
     /// <summary>
