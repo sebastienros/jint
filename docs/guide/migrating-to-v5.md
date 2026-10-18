@@ -6469,6 +6469,21 @@ forms re-tested the new value, so `n ??= await x` returned and kept a value writ
 of assigning `x`. A property target (`o.n += yield inc`) and the spelled-out form (`n = n + (yield inc)`) were
 already right. A script that relied on the second read must now read the variable after the assignment.
 
+### 4.164 DevTools honours URL-scoped network conditions, so PuppeteerSharp's `BlockList` and `Allowlist` reach a page's own requests ([#4297](https://github.com/sebastienros/jint/issues/4297))
+
+Earlier previews refused every `Network.emulateNetworkConditionsByRule` entry with a non-empty `urlPattern`
+(`-32000`). PuppeteerSharp's `BlockList` and `Allowlist` send only such entries and log the refusal rather than
+throw, so the client refused a blocked `GoToAsync` itself while the page's own `fetch`, `XMLHttpRequest` and
+subresource requests to a blocked URL still went out.
+
+Now each `urlPattern` is matched as Chrome matches it: URLPattern constructor-string syntax, absolute, compared
+case-sensitively against every redirect hop, and the first entry that matches decides. A matched request that is
+offline fails with `net::ERR_INTERNET_DISCONNECTED` before any connection is opened. A pattern that does not
+parse, is relative or contains a regexp group is refused with `-32602 Pattern "…" failed to parse as a
+URLPattern.`, as Chrome refuses it, and the conditions in force stay as they were. There is no switch back: a host
+that wants a page's own requests left alone leaves `BlockList` and `Allowlist` unset, which also drops the
+client's own navigation check.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

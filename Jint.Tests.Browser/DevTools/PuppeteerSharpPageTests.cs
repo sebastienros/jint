@@ -604,32 +604,38 @@ public class PuppeteerSharpPageTests
     }
 
     /// <summary>
-    /// <c>ConnectOptions.BlockList</c> is the one PuppeteerSharp path that sends URL-scoped rules, and this
-    /// server's refusal of them reaches the client's log rather than any call the client made.
+    /// <c>ConnectOptions.BlockList</c> refuses a page's <b>own</b> requests to a blocked URL, as Chrome does, and
+    /// not only the navigations PuppeteerSharp checks itself.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// PuppeteerSharp sends the list as <c>Network.emulateNetworkConditionsByRule</c>, one offline entry per
-    /// pattern, from <c>ChromeTargetManager.MaybeSetupNetworkBlockListAsync</c> on every target it attaches to.
-    /// That method catches every exception and logs <c>Failed to setup network block list</c>, so the
-    /// <c>-32000</c> never reaches <c>ConnectAsync</c>, <c>NewPageAsync</c> or <c>GoToAsync</c>. Before the
-    /// command was implemented it answered <c>-32601</c>, which took the same catch.
+    /// PuppeteerSharp sends the list as <c>Network.emulateNetworkConditionsByRule</c> — one offline entry per
+    /// pattern, beside the deprecated top-level <c>offline</c> — from
+    /// <c>ChromeTargetManager.MaybeSetupNetworkBlockListAsync</c> on every target it attaches to, and checks a
+    /// <c>GoToAsync</c> against the list itself. A <c>fetch</c> the page makes reaches no client-side check: it is
+    /// refused here, by the page's network conditions, with Chrome's <c>net::ERR_INTERNET_DISCONNECTED</c>.
     /// </para>
     /// <para>
-    /// The top-level navigation to a blocked URL is still refused, by PuppeteerSharp's own check before the
-    /// command is sent. What this server does not do is refuse a page's own requests to a blocked URL, because
-    /// it does not match URL patterns.
+    /// The patterns are the URLPattern syntax the protocol names. <c>example.com</c> and <c>*.evil.com</c> are
+    /// not the loopback origin, so the context's <see cref="System.Net.Http.HttpClient"/> answers every such
+    /// host in-process: a blocked request that slipped through would be answered there rather than reach the
+    /// network, which is also what the test reads to prove that none did. It is the <i>default</i> context's
+    /// client, because that is where <c>browser.NewPageAsync()</c> opens a page: it names no
+    /// <c>browserContextId</c>, so a context created beside the default one would not be the page's.
     /// </para>
     /// </remarks>
     [Test]
-    public async Task PuppeteerConnectsWithABlockListAndHearsTheUrlScopedRulesRefused()
+    public async Task PuppeteerBlockListFailsThePagesOwnRequestsToABlockedUrl()
     {
         using var origin = new LoopbackServer();
         origin.MapHtml("/one", "<html><head><title>Allowed</title></head><body>one</body></html>");
-        origin.MapHtml("/blocked", "<html><body>blocked</body></html>");
+        origin.Map("/data", _ => LoopbackResponse.Text("went"));
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        using var hosts = new LoopbackOnlyHandler(origin);
+        using var client = new HttpClient(hosts);
+
+        await using var pages = new global::Jint.Browser.Browser(
+            new BrowserOptions().ConfigureContext(options => options.HttpClient = client));
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -640,28 +646,71 @@ public class PuppeteerSharpPageTests
             new ConnectOptions
             {
                 BrowserWSEndpoint = server.BrowserWebSocketUrl,
-                BlockList = [origin.Url("/blocked")],
+                BlockList = ["*://example.com/*", "*://*.evil.com/*"],
             },
             log).WaitAsync(Bound);
 
         var page = await browser.NewPageAsync().WaitAsync(Bound);
+        var failures = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.RequestFailed += (_, e) => failures.Enqueue(e.Request.Url + " " + e.Request.FailureText);
 
         var allowed = await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound);
         allowed.Should().NotBeNull();
         allowed!.Ok.Should().BeTrue();
 
-        var blocked = async () => await page.GoToAsync(origin.Url("/blocked")).WaitAsync(Bound);
-        await blocked.Should().ThrowAsync<NavigationException>("PuppeteerSharp checks a navigation against its own list first");
+        (await FetchAsync(page, "http://example.com/data")).Should().Be("refused");
+        (await FetchAsync(page, "https://cdn.evil.com/tracker.js")).Should().Be("refused");
 
-        // The page's attachment refuses the rules with the reason. PuppeteerSharp sends the list to the tab's
-        // attachment too, which has no Network domain and answers -32601; that is logged the same way.
-        await WaitUntilAsync(() => log.Errors.Any(entry =>
-            entry.Message == "Failed to setup network block list"
-            && entry.Exception?.Message.Contains("scoped to a urlPattern", StringComparison.Ordinal) == true));
+        (await FetchAsync(page, "/data")).Should().Be("went", "the origin is on neither pattern");
+        (await FetchAsync(page, "http://evil.com/data")).Should().Be("went", "*.evil.com names a subdomain, and URLPattern reads it so");
+
+        await WaitUntilAsync(() => failures.Count >= 2);
+        failures.Should().BeEquivalentTo(
+            "http://example.com/data net::ERR_INTERNET_DISCONNECTED",
+            "https://cdn.evil.com/tracker.js net::ERR_INTERNET_DISCONNECTED");
+        hosts.Answered.Should().Equal(["http://evil.com/data"], "a blocked request opens no connection, so only the allowed one was answered");
+
+        // PuppeteerSharp logs and swallows a refused list, so the log is where a refusal would show. The page's
+        // attachment accepted it; the tab's has no Network domain and answers -32601.
+        log.Errors.Where(entry => entry.Message == "Failed to setup network block list").Should().OnlyContain(
+            entry => entry.Exception != null && entry.Exception.Message.Contains("wasn't found", StringComparison.Ordinal));
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
-        await context.CloseAsync();
+    }
+
+    /// <summary>Fetches <paramref name="url"/> from the page, answering its body or <c>refused</c>.</summary>
+    private static Task<string> FetchAsync(IPage page, string url)
+        => page.EvaluateFunctionAsync<string>("url => fetch(url, {cache: 'no-store'}).then(r => r.text(), () => 'refused')", url).WaitAsync(Bound);
+
+    /// <summary>
+    /// A handler that sends what is addressed to the loopback origin over a real socket and answers every other
+    /// host in-process, recording the URLs it answered — so a test can name hosts on the internet and reach none.
+    /// </summary>
+    private sealed class LoopbackOnlyHandler(LoopbackServer origin)
+        : DelegatingHandler(new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false })
+    {
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _answered = new();
+
+        /// <summary>Every URL answered in-process, in the order it was asked for.</summary>
+        internal IReadOnlyList<string> Answered => [.. _answered];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri is { } uri && origin.Owns(uri))
+            {
+                return base.SendAsync(request, cancellationToken);
+            }
+
+            _answered.Enqueue(request.RequestUri!.AbsoluteUri);
+            var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("went"),
+                RequestMessage = request,
+            };
+            response.Headers.Add("Access-Control-Allow-Origin", "*");
+            return Task.FromResult(response);
+        }
     }
 
     /// <summary>An <see cref="Microsoft.Extensions.Logging.ILoggerFactory"/> that keeps every error a client logged.</summary>

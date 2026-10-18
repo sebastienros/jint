@@ -5,6 +5,7 @@ using Jint.DevTools.Domains;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Protocol.Network;
 using Jint.DevTools.Session;
+using Jint.WebApi.Url.Pattern;
 
 namespace Jint.Browser.DevTools;
 
@@ -175,7 +176,8 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
     /// </remarks>
     protected override ValueTask<EmptyResult> EmulateNetworkConditionsAsync(EmulateNetworkConditionsRequest parameters, CommandContext context)
     {
-        _target.UpdateNetworkPolicy(policy => policy with { Offline = parameters.Offline });
+        PageNetworkCondition[] conditions = parameters.Offline ? [PageNetworkCondition.GlobalOffline] : [];
+        _target.UpdateNetworkPolicy(policy => policy with { Conditions = conditions });
         OverrideNavigatorState(parameters.Offline);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
@@ -190,21 +192,29 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
     /// 25.14 sends the two together.
     /// </para>
     /// <para>
-    /// <b>Only a global entry, one with an empty <c>urlPattern</c>, is accepted.</b> It matches every request
-    /// and the first entry that matches wins, so whether the page is offline is the first entry's
-    /// <c>offline</c> — or the deprecated top-level <c>offline</c>, which Chrome lets override every entry's
-    /// own and which, with no entries, has nothing to apply to. An entry scoped to a URL is refused with
-    /// <c>-32000</c> rather than applied to every request or to none: a request is decided on a transport
-    /// thread, and the engine's <c>URLPattern</c> matches with the engine's own regular expressions, which
-    /// only the page loop may run. PuppeteerSharp's <c>BlockList</c> and <c>Allowlist</c> connect options are
-    /// what send such entries, and it logs the refusal and carries on, as it did with the <c>-32601</c> before
-    /// this command was answered. Throttling is accepted and not honoured, for the reason
-    /// <see cref="EmulateNetworkConditionsAsync"/> gives, and <c>emulateOfflineServiceWorker</c> has no service
-    /// worker to apply to.
+    /// <b>The first entry that matches a request decides it</b>, and a request no entry matches is online. An
+    /// entry with an empty <c>urlPattern</c> is global and matches every request; any other is a URLPattern
+    /// constructor string, which must be absolute — <c>*://*.example.com/*</c> — and is matched against each
+    /// redirect hop's URL. Whether a matched request goes offline is the entry's own <c>offline</c>, or the
+    /// deprecated top-level <c>offline</c>, which Chrome lets override every entry's and which, with no
+    /// entries, has nothing to apply to. That is the whole of PuppeteerSharp's <c>BlockList</c> (one offline
+    /// entry per pattern, sent with the top-level <c>offline</c>) and <c>Allowlist</c> (one online entry per
+    /// pattern, then a global offline one), so a page's own <c>fetch</c>, <c>XMLHttpRequest</c> and
+    /// subresources are refused as Chrome refuses them, not only the navigations the client checks itself.
     /// </para>
     /// <para>
-    /// One identifier is minted per entry, as Chrome mints one. Chrome also names the rule on each request it
-    /// affected, in <c>requestWillBeSentExtraInfo</c>; that field is not sent here.
+    /// <b>A pattern is compiled here, on the page loop, and matched on a transport thread.</b>
+    /// <see cref="UrlPatternMatcher.TryCompile"/> parses it with the engine's own <c>URLPattern</c> parser and
+    /// keeps nothing of the engine, so the transport never touches it. Two refusals follow, both Chrome's and
+    /// both answered <c>-32602</c> in Chrome's wording, with the reason in <c>data</c>: a string that is not an
+    /// absolute pattern, and a pattern with a regexp group, whose body is JavaScript regular-expression source
+    /// that only the engine can read. A refused command changes nothing, whichever entry was refused.
+    /// </para>
+    /// <para>
+    /// Throttling is accepted and not honoured, for the reason <see cref="EmulateNetworkConditionsAsync"/> gives,
+    /// and <c>emulateOfflineServiceWorker</c> has no service worker to apply to. One identifier is minted per
+    /// entry, as Chrome mints one. Chrome also names the rule on each request it affected, in
+    /// <c>requestWillBeSentExtraInfo</c>; that field is not sent here.
     /// </para>
     /// <para>
     /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-emulateNetworkConditionsByRule"/>.
@@ -215,25 +225,29 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
         CommandContext context)
     {
         var entries = parameters.MatchedNetworkConditions;
-
-        foreach (var entry in entries)
-        {
-            if (entry.UrlPattern is { Length: > 0 })
-            {
-                return Throw.ServerError<ValueTask<EmulateNetworkConditionsByRuleResponse>>(
-                    "Network conditions scoped to a urlPattern are not supported",
-                    "this browser applies network conditions to every request or to none; leave urlPattern empty for an entry that applies to every request");
-            }
-        }
-
-        var offline = entries.Length > 0 && (parameters.Offline ?? entries[0].Offline ?? false);
-        _target.UpdateNetworkPolicy(policy => policy with { Offline = offline });
-
+        var conditions = new PageNetworkCondition[entries.Length];
         var ruleIds = new string[entries.Length];
-        for (var i = 0; i < ruleIds.Length; i++)
+
+        for (var i = 0; i < entries.Length; i++)
         {
+            var entry = entries[i];
+            UrlPatternMatcher? pattern = null;
+
+            if (entry.UrlPattern is { Length: > 0 } constructorString
+                && !UrlPatternMatcher.TryCompile(_target.Runtime.Engine, constructorString, out pattern, out var reason))
+            {
+                // Chrome's own answer, content/browser/devtools/protocol/network_handler.cc, and before anything is
+                // applied: a refused command leaves the conditions in force as they were.
+                return Throw.InvalidParams<ValueTask<EmulateNetworkConditionsByRuleResponse>>(
+                    $"Pattern \"{constructorString}\" failed to parse as a URLPattern.",
+                    reason);
+            }
+
+            conditions[i] = new PageNetworkCondition(pattern, parameters.Offline ?? entry.Offline ?? false);
             ruleIds[i] = Guid.NewGuid().ToString("N").ToUpperInvariant();
         }
+
+        _target.UpdateNetworkPolicy(policy => policy with { Conditions = conditions });
 
         return new ValueTask<EmulateNetworkConditionsByRuleResponse>(new EmulateNetworkConditionsByRuleResponse { RuleIds = ruleIds });
     }
