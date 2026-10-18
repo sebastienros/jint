@@ -3,12 +3,16 @@
 # Every run regenerates the vendored files from upstream (tools/sync_gregsex.py: the upstream files, the mechanical
 # transforms, then tools/gregsex-sync/jint.patch). Nothing records what was synced last: when upstream changed
 # nothing Jint vendors the output is identical and `git status` is empty, so the run ends there. Otherwise it builds
-# every target framework, runs the regex tests and opens - or refreshes - one pull request from the `gregsex-sync`
-# branch. A patch that no longer applies fails the run instead: that is a conflict for a person to resolve
+# every target framework, runs the regex tests and opens a pull request from `gregsex-sync/<revision>`. A patch that no
+# longer applies fails the run instead: that is a conflict for a person to resolve
 # (Jint/Runtime/RegExp/GregsEx/README.md says how).
 #
-# A pull request opened with GITHUB_TOKEN does not trigger pr.yml, which is why this job builds and tests before it
-# opens one; the full gate runs once someone pushes to the branch or re-runs the checks.
+# Two jobs, because the first runs code this workflow just downloaded (the upstream files, and the packages a build
+# restores): `verify` holds a read-only token and no persisted credentials, and hands its diff on as an artifact;
+# `propose` holds the write permissions, applies that diff and opens the pull request, and runs no repository code.
+#
+# A pull request opened with GITHUB_TOKEN does not trigger pr.yml, which is why `verify` builds and tests; the full
+# gate runs once someone pushes to the branch or re-runs the checks.
 name: GregsEx sync
 
 on:
@@ -23,8 +27,7 @@ on:
         default: 'main'
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: gregsex-sync
@@ -33,17 +36,23 @@ concurrency:
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  SYNC_BRANCH: gregsex-sync
 
 jobs:
-  sync:
-    name: Sync vendored GregsEx
+  verify:
+    name: Regenerate, build and test
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.sync.outputs.changed }}
+      revision: ${{ steps.sync.outputs.revision }}
 
     steps:
     - name: Checkout source code
       uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - name: Setup Python
       uses: actions/setup-python@v7
@@ -63,6 +72,8 @@ jobs:
           echo "Nothing vendored changed upstream."
         else
           echo "changed=true" >> "$GITHUB_OUTPUT"
+          git add -A Jint/Runtime/RegExp/GregsEx
+          git diff --cached --binary > "$RUNNER_TEMP/gregsex.diff"
         fi
 
     - name: Setup NET
@@ -87,25 +98,56 @@ jobs:
     - name: Test regular expressions
       if: steps.sync.outputs.changed == 'true'
       run: |
-        dotnet test --project Jint.Tests/Jint.Tests.csproj -c Release -f net10.0 --filter "FullyQualifiedName~RegExp"
-        dotnet test --project Jint.Tests.Test262/Jint.Tests.Test262.csproj -c Release -f net10.0 --filter "FullyQualifiedName~RegExp"
+        dotnet test --project Jint.Tests/Jint.Tests.csproj -c Release -f net10.0 --filter "FullyQualifiedName~RegExp|FullyQualifiedName~Regex|FullyQualifiedName~UrlPattern"
+        dotnet test --project Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj -c Release -f net10.0 --filter "FullyQualifiedName~Regex"
+        dotnet test --project Jint.Tests.Test262/Jint.Tests.Test262.csproj -c Release -f net10.0 --filter "FullyQualifiedName~RegExp|FullyQualifiedName~String_prototype_match|FullyQualifiedName~String_prototype_replace|FullyQualifiedName~String_prototype_search|FullyQualifiedName~String_prototype_split"
 
-    - name: Open or refresh the pull request
+    - name: Hand the diff to the propose job
       if: steps.sync.outputs.changed == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: gregsex-diff
+        path: ${{ runner.temp }}/gregsex.diff
+        retention-days: 7
+
+  propose:
+    name: Open the pull request
+    needs: verify
+    if: needs.verify.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Fetch the verified diff
+      uses: actions/download-artifact@v8
+      with:
+        name: gregsex-diff
+        path: ${{ runner.temp }}
+
+    # One branch per upstream revision, never force-pushed: a revision already proposed is left alone, together with
+    # whatever someone pushed onto its branch since.
+    - name: Push a branch and open the pull request
       env:
         GH_TOKEN: ${{ github.token }}
-        REVISION: ${{ steps.sync.outputs.revision }}
+        REVISION: ${{ needs.verify.outputs.revision }}
       run: |
         short="${REVISION:0:12}"
+        branch="gregsex-sync/$short"
+        if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+          echo "$branch already exists; GregsEx $short was proposed before."
+          exit 0
+        fi
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git switch -C "$SYNC_BRANCH"
-        git add -A Jint/Runtime/RegExp/GregsEx
+        git switch -c "$branch"
+        git apply --index "$RUNNER_TEMP/gregsex.diff"
         git commit -m "Sync vendored GregsEx to $short"
-        git push --force origin "$SYNC_BRANCH"
-        body="Re-vendors \`Jint/Runtime/RegExp/GregsEx\` at [sebastienros/gregsex@$short](https://github.com/sebastienros/gregsex/commit/$REVISION) with \`tools/sync_gregsex.py\`. The Jint build and the RegExp tests (Jint.Tests, test262) passed in the sync run; push to the branch or re-run the checks for the full gate."
-        if gh pr view "$SYNC_BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
-          gh pr edit "$SYNC_BRANCH" --title "Sync vendored GregsEx to $short" --body "$body"
-        else
-          gh pr create --base main --head "$SYNC_BRANCH" --title "Sync vendored GregsEx to $short" --body "$body"
-        fi
+        git push origin "$branch"
+        body="Re-vendors \`Jint/Runtime/RegExp/GregsEx\` at [sebastienros/gregsex@$short](https://github.com/sebastienros/gregsex/commit/$REVISION) with \`tools/sync_gregsex.py\`. The Jint build and the regex tests (Jint.Tests, Jint.Tests.PublicInterface, test262) passed in the sync run; push to the branch or re-run the checks for the full gate."
+        gh pr create --base main --head "$branch" --title "Sync vendored GregsEx to $short" --body "$body"

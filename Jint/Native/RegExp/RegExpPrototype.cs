@@ -1258,18 +1258,20 @@ internal sealed partial class RegExpPrototype : Prototype
 
     private static int FindRangesWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, Span<RegexMatchRange> ranges, TimeSpan resolvedTimeout)
     {
-        if (resolvedTimeout.TotalMilliseconds <= 0 || resolvedTimeout == Timeout.InfiniteTimeSpan)
-        {
-            return engine.FindRanges(s, startIndex, JintRegExpEngine.NoDeadline, ranges);
-        }
-
+        var deadline = resolvedTimeout.TotalMilliseconds <= 0 || resolvedTimeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(resolvedTimeout);
         try
         {
-            return engine.FindRanges(s, startIndex, ComputeRegexDeadline(resolvedTimeout), ranges);
+            return engine.FindRanges(s, startIndex, deadline, ranges);
         }
         catch (OperationCanceledException)
         {
             throw new RegexMatchTimeoutException(s, R.Source ?? "", resolvedTimeout);
+        }
+        catch (RegExpResourceException e)
+        {
+            // V8 throws a RangeError when its backtracking stack is exhausted.
+            Throw.RangeError(R.Engine.Realm, e.Message);
+            return 0;
         }
     }
 
@@ -1477,7 +1479,30 @@ internal sealed partial class RegExpPrototype : Prototype
         // when the property is non-writable.
         if (rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false, Global: false, Sticky: false } customR)
         {
-            var found = TryMatchRangeWithTimeout(customR, customR.Matcher!, s, 0, out var searchIndex, out _);
+            // RegExpExec would update the legacy statics on a match, so this lane does too: with only the match's
+            // range when there are no groups, from its captures otherwise.
+            var matcher = customR.Matcher!;
+            bool found;
+            int searchIndex;
+            if (matcher.CaptureCount == 1)
+            {
+                found = TryMatchRangeWithTimeout(customR, matcher, s, 0, out searchIndex, out var searchLength);
+                if (found)
+                {
+                    UpdateLegacyStaticProperties(_engine, s, [new RegexCapture(true, searchIndex, searchLength)], 1);
+                }
+            }
+            else
+            {
+                var groups = new RegexCapture[matcher.CaptureCount];
+                found = TryMatchWithTimeout(customR, matcher, s, 0, groups);
+                searchIndex = groups[0].Index;
+                if (found)
+                {
+                    UpdateLegacyStaticProperties(_engine, s, groups, groups.Length);
+                }
+            }
+
             var currentLastIndex2 = rx.Get(JsRegExp.PropertyLastIndex);
             if (!SameValue(currentLastIndex2, previousLastIndex))
             {
@@ -1916,9 +1941,7 @@ internal sealed partial class RegExpPrototype : Prototype
     /// a prepared script or module carries, having had no engine to resolve one against.
     /// </summary>
     private static TimeSpan GetCustomEngineTimeout(JsRegExp R) =>
-        Options.ConstraintOptions.NormalizeRegexTimeout(
-            R.ConversionOptions?.Timeout
-            ?? R.Engine.Options.Constraints.RegexTimeout);
+        Engine.RegexConversionOptions.ResolveTimeout(R.ConversionOptions, R.Engine);
 
     /// <summary>
     /// Runs the matcher under the configured timeout, reporting only the match range, for the lanes that read the
@@ -1932,18 +1955,21 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
         var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
-        if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
-        {
-            return engine.TryMatchRange(s, startIndex, JintRegExpEngine.NoDeadline, out index, out length);
-        }
-
+        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
         try
         {
-            return engine.TryMatchRange(s, startIndex, ComputeRegexDeadline(timeout), out index, out length);
+            return engine.TryMatchRange(s, startIndex, deadline, out index, out length);
         }
         catch (OperationCanceledException)
         {
             throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+        }
+        catch (RegExpResourceException e)
+        {
+            // V8 throws a RangeError when its backtracking stack is exhausted.
+            index = length = 0;
+            Throw.RangeError(R.Engine.Realm, e.Message);
+            return false;
         }
     }
 
@@ -1954,18 +1980,20 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
         var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
-        if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
-        {
-            return engine.TryMatch(s, startIndex, JintRegExpEngine.NoDeadline, groups);
-        }
-
+        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
         try
         {
-            return engine.TryMatch(s, startIndex, ComputeRegexDeadline(timeout), groups);
+            return engine.TryMatch(s, startIndex, deadline, groups);
         }
         catch (OperationCanceledException)
         {
             throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+        }
+        catch (RegExpResourceException e)
+        {
+            // V8 throws a RangeError when its backtracking stack is exhausted.
+            Throw.RangeError(R.Engine.Realm, e.Message);
+            return false;
         }
     }
 
@@ -1976,18 +2004,20 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
         var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
-        if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
-        {
-            return engine.TryFind(s, startIndex, JintRegExpEngine.NoDeadline, groups);
-        }
-
+        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
         try
         {
-            return engine.TryFind(s, startIndex, ComputeRegexDeadline(timeout), groups);
+            return engine.TryFind(s, startIndex, deadline, groups);
         }
         catch (OperationCanceledException)
         {
             throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+        }
+        catch (RegExpResourceException e)
+        {
+            // V8 throws a RangeError when its backtracking stack is exhausted.
+            Throw.RangeError(R.Engine.Realm, e.Message);
+            return false;
         }
     }
 
@@ -1997,18 +2027,20 @@ internal sealed partial class RegExpPrototype : Prototype
     private static bool IsMatchWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex)
     {
         var timeout = GetCustomEngineTimeout(R);
-        if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
-        {
-            return engine.IsMatch(s, startIndex);
-        }
-
+        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
         try
         {
-            return engine.IsMatch(s, startIndex, ComputeRegexDeadline(timeout));
+            return engine.IsMatch(s, startIndex, deadline);
         }
         catch (OperationCanceledException)
         {
             throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+        }
+        catch (RegExpResourceException e)
+        {
+            // V8 throws a RangeError when its backtracking stack is exhausted.
+            Throw.RangeError(R.Engine.Realm, e.Message);
+            return false;
         }
     }
 
@@ -2110,7 +2142,16 @@ internal sealed partial class RegExpPrototype : Prototype
             array.CreateDataPropertyOrThrow("indices", indicesArray);
         }
 
-        // Update the legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B)
+        UpdateLegacyStaticProperties(engine, s, groups, actualGroupCount);
+        return array;
+    }
+
+    /// <summary>
+    /// The legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B) after a successful match:
+    /// <paramref name="groups"/>[0] is the match, the next <paramref name="groupCount"/> - 1 its captures.
+    /// </summary>
+    private static void UpdateLegacyStaticProperties(Engine engine, string s, ReadOnlySpan<RegexCapture> groups, int groupCount)
+    {
         var constructor = engine.Realm.Intrinsics.RegExp;
         constructor._legacyInput = s;
         // lastMatch/leftContext/rightContext are all derived from this position on read.
@@ -2119,7 +2160,7 @@ internal sealed partial class RegExpPrototype : Prototype
         for (var i = 0; i < 9; i++)
         {
             var group = i + 1;
-            if (group < actualGroupCount && groups[group].Participated)
+            if (group < groupCount && groups[group].Participated)
             {
                 var groupValue = s.Substring(groups[group].Index, groups[group].Length);
                 constructor._legacyParens[i] = groupValue;
@@ -2132,7 +2173,6 @@ internal sealed partial class RegExpPrototype : Prototype
         }
 
         constructor._legacyLastParen = lastParen;
-        return array;
     }
 
     private static JsArray CreateReturnValueArray(

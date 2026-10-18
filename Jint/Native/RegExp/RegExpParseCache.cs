@@ -31,9 +31,10 @@ internal static class RegExpParseCache
 
     /// <summary>
     /// Returns the cached matcher for <paramref name="pattern"/> and <paramref name="flags"/>, compiling (and
-    /// caching) it on a miss. An invalid pattern or flags string throws the <c>SyntaxError</c> and is not cached.
+    /// caching) it on a miss. An invalid pattern or flags string throws the <c>SyntaxError</c> and is not cached, nor
+    /// is a compile that outran <paramref name="timeout"/> (see <see cref="JintRegExpEngine.Compile"/>).
     /// </summary>
-    public static JintRegExpEngine GetOrCompile(Realm realm, string pattern, string flags)
+    public static JintRegExpEngine GetOrCompile(Realm realm, string pattern, string flags, TimeSpan timeout)
     {
         var key = new Key(pattern, flags);
         if (_cache.TryGetValue(key, out var cached))
@@ -41,7 +42,7 @@ internal static class RegExpParseCache
             return cached;
         }
 
-        var compiled = RegExpConstructor.Compile(realm, pattern, flags);
+        var compiled = RegExpConstructor.Compile(realm, pattern, flags, timeout);
         if (_cache.Count >= Capacity)
         {
             _cache.Clear();

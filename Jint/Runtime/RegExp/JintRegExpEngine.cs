@@ -24,23 +24,40 @@ internal sealed class JintRegExpEngine
     /// <summary>An absolute deadline that never fires.</summary>
     internal const long NoDeadline = long.MaxValue;
 
-    // JavaScript places no ceiling on these; GregsEx's defaults are a library's bounded policy. Compilation
-    // stays bounded by the work and memory budgets, matching by the regex timeout and by MaxFrames below.
-    private static readonly RegexCompileLimits CompileLimits = new(
+    // JavaScript places no ceiling on a pattern's size; GregsEx's defaults are a library's bounded policy. What
+    // bounds compiling a script-supplied pattern is the regex timeout, as a work budget (CompileWorkPerMillisecond),
+    // since GregsEx's compiler charges work but reads no clock; matching is bounded by the timeout itself and by the
+    // scratch ceiling below.
+    private static RegexCompileLimits CompileLimits(long maxCompileWork) => new(
         maxPatternUnits: int.MaxValue,
         maxNestingDepth: 4096,
         maxInstructions: int.MaxValue,
         maxClassRanges: int.MaxValue,
         maxCaptureGroups: int.MaxValue,
-        maxCompileWork: long.MaxValue,
+        maxCompileWork: maxCompileWork,
         maxPlanBytes: long.MaxValue,
         maxCompileMemoryBytes: long.MaxValue);
 
+    // Compile work units per millisecond of the regex timeout: about what the compiler gets through in a millisecond
+    // on current hardware (a 100K-unit literal charges 3.4M units in 53 ms; 1,000 i-flag classes 540M in 860 ms), so a
+    // compile is abandoned after roughly the time the timeout allows a match. A floor keeps tiny timeouts from refusing
+    // ordinary patterns.
+    private const long CompileWorkPerMillisecond = 1_000_000;
+    private const long MinimumCompileWork = 50_000_000;
+
     // A backtracking frame is the executor's only input-sized storage. Start small and grow geometrically,
-    // retrying the search from its start, so a regex that never backtracks deeply never pays for frames.
+    // retrying the search from its start, so a regex that never backtracks deeply never pays for frames. A frame
+    // holds a copy of the task stack and the registers, so its size depends on the pattern (from a few dozen ints to
+    // thousands): the bounds below are on the storage, not on the frame count.
     private const int InitialFrames = 64;
-    // About the depth of V8's backtrack stack; past it the match throws rather than exhausting memory.
     private const int MaxFrames = 1 << 22;
+    // The ceiling on one search's storage, the QuickJS port's 16M-int stack; past it the match throws a RangeError
+    // instead of exhausting memory.
+    private const long MaxScratchInts = 16L * 1024 * 1024;
+    // The storage a thread keeps between searches, and the largest growth published to every user of a shared
+    // matcher. A search needing more allocates for itself and drops it afterwards, so one large input does not make
+    // every later search of the same pattern, on any thread or engine, allocate its storage.
+    private const long RetainedScratchInts = 256L * 1024;
 
     [ThreadStatic] private static Scratch? t_scratch;
     [ThreadStatic] private static long t_recentTimestamp;
@@ -54,17 +71,31 @@ internal sealed class JintRegExpEngine
     private readonly EcmaExecutor _executor;
     private readonly string?[] _groupNames;
     private readonly bool _sticky;
-    // The frame count every search starts with and the partition sizes it needs, computed once per growth rather than
-    // on every search, so a search can go straight to the executor's prevalidated entry.
-    private sealed record FramePlan(int Frames, RegexWorkspaceCapacity Capacity);
+    // The frame count a search starts with and the partition sizes it needs, computed once per growth rather than on
+    // every search, so a search can go straight to the executor's prevalidated entry.
+    private sealed record FramePlan(int Frames, RegexWorkspaceCapacity Capacity)
+    {
+        public long Ints => (long) Capacity.StateSlots + Capacity.CaptureSlots + Capacity.ScratchSlots;
+    }
+
+    // The one mutable field: a sizing hint, never above RetainedScratchInts, shared by every search of this matcher.
+    // A stale read only costs a growth retry, so it is published without ordering.
     private FramePlan _plan;
+    // The most frames whose storage fits MaxScratchInts, so a capacity is never asked of the executor that its
+    // checked arithmetic would overflow.
+    private readonly int _maxFrames;
 
     private JintRegExpEngine(EcmaExecutor executor, RegExpFlags flags)
     {
         _executor = executor;
         Flags = flags;
         _sticky = (flags & RegExpFlags.Sticky) != RegExpFlags.None;
-        _plan = new FramePlan(InitialFrames, executor.GetRequiredCapacity(SearchOperation.Captures, InitialFrames));
+        // Storage is affine in the frame count: base + frames * perFrame.
+        var one = new FramePlan(1, executor.GetRequiredCapacity(SearchOperation.Captures, 1)).Ints;
+        var perFrame = new FramePlan(2, executor.GetRequiredCapacity(SearchOperation.Captures, 2)).Ints - one;
+        _maxFrames = (int) Math.Max(1, Math.Min(MaxFrames, (MaxScratchInts - (one - perFrame)) / Math.Max(1, perFrame)));
+        var initial = Math.Min(InitialFrames, _maxFrames);
+        _plan = new FramePlan(initial, executor.GetRequiredCapacity(SearchOperation.Captures, initial));
         var program = executor.Program;
         CaptureCount = program.GroupCount;
         _groupNames = new string?[CaptureCount];
@@ -79,32 +110,41 @@ internal sealed class JintRegExpEngine
         }
     }
 
-    /// <summary>Compile a JavaScript regex pattern; throws <see cref="RegExpSyntaxException"/> for an early error.</summary>
-    public static JintRegExpEngine Compile(string pattern, RegExpFlags flags, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Compile a JavaScript regex pattern; throws <see cref="RegExpSyntaxException"/> for an early error, and
+    /// <see cref="System.Text.RegularExpressions.RegexMatchTimeoutException"/> when compiling would take longer than <paramref name="timeout"/> allows
+    /// (an infinite or non-positive timeout leaves compilation unbounded).
+    /// </summary>
+    public static JintRegExpEngine Compile(string pattern, RegExpFlags flags, TimeSpan? timeout = null)
     {
         // The executor reads only i/m/s/u/v from the profile; g, y and d are RegExp object state that
         // RegExpBuiltinExec owns, so the compiled program is the same for every combination of them.
         var profile = new EcmaScriptProfile(ToProfileFlags(flags & ~(RegExpFlags.Global | RegExpFlags.Sticky | RegExpFlags.Indices)), UnicodeVersion.Unicode17_0);
-        var budget = new CompileBudget(CompileLimits);
+        var maxWork = timeout is { } t && t > TimeSpan.Zero && t != System.Threading.Timeout.InfiniteTimeSpan
+            ? (long) Math.Min(long.MaxValue / 2, Math.Max(MinimumCompileWork, t.TotalMilliseconds * CompileWorkPerMillisecond))
+            : long.MaxValue;
+        var budget = new CompileBudget(CompileLimits(maxWork));
         if (!EcmaUnicodeData.TryCreate(UnicodeVersion.Unicode17_0, ref budget, out var unicode, out var failure))
         {
-            throw new RegExpSyntaxException(DescribeFailure(failure.Code, pattern));
+            throw Failure(failure.Code, pattern, timeout);
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
         if (!new EcmaCompiler().TryCompile(pattern.AsSpan(), profile, unicode!, ref budget, out var program, out var diagnostic))
         {
-            throw new RegExpSyntaxException(DescribeFailure(diagnostic.Diagnostic.Code, pattern));
+            throw Failure(diagnostic.Diagnostic.Code, pattern, timeout);
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
         if (!new EcmaExecutorFactory().TryCreate(program!, unicode!, ref budget, out var executor, out failure))
         {
-            throw new RegExpSyntaxException(DescribeFailure(failure.Code, pattern));
+            throw Failure(failure.Code, pattern, timeout);
         }
 
         return new JintRegExpEngine((EcmaExecutor) executor!, flags);
     }
+
+    /// <summary>The frame count a search of this matcher starts with: the shared growth hint, never above what
+    /// <c>RetainedScratchInts</c> holds.</summary>
+    internal int PlannedFrames => _plan.Frames;
 
     /// <summary>Capture group count, including group 0 for the full match.</summary>
     public int CaptureCount { get; }
@@ -313,16 +353,30 @@ internal sealed class JintRegExpEngine
                 throw new OperationCanceledException();
             }
 
-            if (failure != RegexExecutionFailureCode.WorkspaceCapacityExceeded || plan.Frames >= MaxFrames)
+            if (failure != RegexExecutionFailureCode.WorkspaceCapacityExceeded || plan.Frames >= _maxFrames)
             {
-                throw new RegExpResourceException(failure.ToString());
+                throw new RegExpResourceException(failure == RegexExecutionFailureCode.WorkspaceCapacityExceeded
+                    ? "Maximum regular expression backtracking depth exceeded"
+                    : "Regular expression failed: " + failure);
             }
 
-            var frames = Math.Min(MaxFrames, plan.Frames * 4);
+            var frames = (int) Math.Min(_maxFrames, (long) plan.Frames * 4);
             plan = new FramePlan(frames, _executor.GetRequiredCapacity(SearchOperation.Captures, frames));
-            Volatile.Write(ref _plan, plan);
 
-            var state = new RunState(Scratch.ForThread(plan.Capacity).Buffers, long.MaxValue, deadline);
+            WorkspaceBuffers buffers;
+            if (plan.Ints <= RetainedScratchInts)
+            {
+                // Small enough for every search of this pattern to keep: later searches start here.
+                _plan = plan;
+                buffers = Scratch.ForThread(plan.Capacity).Buffers;
+            }
+            else
+            {
+                // This search's alone, collected once it returns.
+                buffers = new WorkspaceBuffers(new int[plan.Capacity.StateSlots], new int[plan.Capacity.CaptureSlots], new int[plan.Capacity.ScratchSlots]);
+            }
+
+            var state = new RunState(buffers, long.MaxValue, deadline);
             status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match);
             if (status == RegexSearchStatus.Match)
             {
@@ -383,6 +437,11 @@ internal sealed class JintRegExpEngine
         if ((flags & RegExpFlags.UnicodeSets) != RegExpFlags.None) result |= EcmaScriptFlags.UnicodeSets;
         return result;
     }
+
+    private static Exception Failure(RegexDiagnosticCode code, string pattern, TimeSpan? timeout)
+        => code == RegexDiagnosticCode.CompileWorkLimitExceeded
+            ? new System.Text.RegularExpressions.RegexMatchTimeoutException(pattern, pattern, timeout ?? System.Threading.Timeout.InfiniteTimeSpan)
+            : new RegExpSyntaxException(DescribeFailure(code, pattern));
 
     private static string DescribeFailure(RegexDiagnosticCode code, string pattern) => code switch
     {

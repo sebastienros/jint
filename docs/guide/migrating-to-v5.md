@@ -6405,14 +6405,33 @@ record of the migration, including what it found in both engines, is
 - **A `RegExp` written in script reaches the host as the `JsRegExp`, not as a `Regex`.** `ToObject()` (and every
   conversion built on it) used to hand back the adapted .NET `Regex`, which for a `u`/`v` pattern was a placeholder
   matching nothing. Read `JsRegExp.Source` and `JsRegExp.Flags` instead. A `Regex` the host supplied still
-  round-trips as itself.
+  round-trips as itself. Three consequences follow:
+  - **A script `RegExp` no longer binds to a `Regex`-typed parameter, property or delegate.** `host.Use(/a/)` against
+    `string Use(Regex r)` stops resolving. Take a `JsRegExp` (or the pattern as a `string`) instead.
+  - **`ToObject()` of a graph puts the `JsRegExp` itself where a `Regex` used to be**, so `{ re: /x/ }` becomes an
+    `ExpandoObject` or dictionary holding an object bound to the engine that created it. Do not hand it to another
+    engine, and note that a serializer walking public properties reaches its `Engine`. Convert the pattern to its
+    `Source` and `Flags` before the value leaves the engine.
+  - **To match from C#, call the script method**, which keeps ECMAScript semantics:
+    `regExp.Get("exec").Call(regExp, new JsValue[] { "input" })`. `new Regex(regExp.Source)` also works for many
+    patterns, but .NET reads `\d`, `\w`, `\b`, `$` and `.` differently and has no `u`/`v` modes. `new JsRegExp(engine)`
+    is the empty pattern `/(?:)/`; build any other with `engine.Intrinsics.RegExp.Construct(new JsValue[] { pattern,
+    flags })`.
 - **A host `Regex` still matches with .NET semantics by default**, exactly as before. To have it read as an
   ECMAScript pattern instead, set `options.Interop.RegexConversion = RegexConversionMode.EcmaScript`
   ([5.42](#5-42-a-host-regex-can-be-read-as-ecmascript)).
 - **A pattern that backtracked catastrophically on .NET may not on this engine**, and the reverse. A test that
   relied on `^(a+)+$` to provoke a `RegexMatchTimeoutException` now finishes at once. `^(?:a|a)*b` against a long run
   of `a` followed by `!b` is exponential for any backtracking matcher. The timeout still applies to every match,
-  through the same `Constraints.RegexTimeout` and parsing-options `RegexTimeout`.
+  through the same `Constraints.RegexTimeout` and parsing-options `RegexTimeout`; a `split` on a pattern without
+  groups takes its matches 32 at a time, and each batch shares one deadline. Compiling a pattern runs under the same
+  budget (converted to compile work) and throws `RegexMatchTimeoutException` when it runs out.
+- **Exhausting the backtracking storage throws a `RangeError`, as V8 does.** A match whose backtracking needs more
+  than 64 MiB of storage stops with `RangeError: Maximum regular expression backtracking depth exceeded`, a
+  `JavaScriptException` for the host. The QuickJS port threw `RegexMatchTimeoutException` ("backtracking stack
+  overflow") at its own 64 MB stack. A frame on this engine holds more than one on QuickJS, so a few patterns that
+  backtracked through a megabyte or more of input on 4.16.x now reach the ceiling: `/"(?:[^"\\]|\\.)*"/` over a
+  1 MB string literal is one.
 - **A replacer function sees `undefined` for a group that did not participate**, where the generic path used to
   pass `""` (`'x'.replace(/x(.)?/g, (m, g) => g)`); the specification requires `undefined`.
 
@@ -7768,9 +7787,12 @@ protocol-created contexts; callbacks run on the creating caller's thread after s
 into script. `RegexConversionMode.DotNet`, the default, keeps today's behaviour: the `RegExp` matches with the
 host's `Regex`, its .NET syntax and its own `MatchTimeout`, and its `source` reads `?[native regex]`.
 `RegexConversionMode.EcmaScript` compiles the regex's pattern text as an ECMAScript pattern instead, with
-`IgnoreCase`, `Multiline` and `Singleline` becoming `i`, `m` and `s`; from then on it is an ordinary `RegExp`. A pattern
-or option with no ECMAScript meaning (`(?i)…`, `ExplicitCapture`, `RightToLeft`, …) throws a `SyntaxError` at the
-crossing rather than matching differently.
+`IgnoreCase`, `Multiline` and `Singleline` becoming `i`, `m` and `s` (`ECMAScript`, `Compiled` and `CultureInvariant`
+are accepted and translate to nothing), and the regex's own `MatchTimeout` still applying; from then on it is an
+ordinary `RegExp`. A pattern or option with no ECMAScript meaning (`(?i)…`, `ExplicitCapture`, `RightToLeft`, …) throws
+a `SyntaxError` at the crossing. A pattern valid in both syntaxes is not checked for meaning the same thing, and several
+do not: `\d`, `\w` and `\b` are ASCII-only in ECMAScript, `$` does not match before a final newline, and `.` does not
+match `\r`, U+2028 or U+2029.
 
 ```csharp
 var engine = new Engine(options => options.Interop.RegexConversion = RegexConversionMode.EcmaScript);

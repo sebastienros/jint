@@ -1915,9 +1915,13 @@ public enum RegexConversionMode
     /// The <c>RegExp</c> is compiled from the regex's pattern text as an ECMAScript pattern, with
     /// <see cref="System.Text.RegularExpressions.RegexOptions.IgnoreCase"/>, <see cref="System.Text.RegularExpressions.RegexOptions.Multiline"/>
     /// and <see cref="System.Text.RegularExpressions.RegexOptions.Singleline"/> becoming the <c>i</c>, <c>m</c> and
-    /// <c>s</c> flags, and then behaves like any other <c>RegExp</c>. A pattern or option that has no ECMAScript
-    /// meaning throws a <c>SyntaxError</c> at the crossing.
+    /// <c>s</c> flags and the regex's match timeout still applying, and then behaves like any other <c>RegExp</c>.
     /// </summary>
+    /// <remarks>
+    /// A pattern or option with no ECMAScript meaning throws a <c>SyntaxError</c> at the crossing. A pattern valid in
+    /// both syntaxes matches with ECMAScript semantics, which differ from .NET's for <c>\d</c>, <c>\w</c> and <c>\b</c>
+    /// (ASCII only), <c>$</c> (no match before a final newline) and <c>.</c> (no match on <c>\r</c>, U+2028 or U+2029).
+    /// </remarks>
     EcmaScript,
 }
 

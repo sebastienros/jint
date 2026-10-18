@@ -206,4 +206,65 @@ public class RegExpEngineRegressionTests
             .AsString().Should().Be("""["A",null,"B","bold","/","B","and",null,"CODE","coded","/","CODE",""]""");
         Evaluate("JSON.stringify('test'.split(/(?:)/, 2))").AsString().Should().Be("""["t","e"]""");
     }
+
+    // Review of #4300: one large input used to grow the shared matcher's frame plan for every later search, on every
+    // thread and engine, and keep the storage for the thread's life; exhausting it threw an internal exception type.
+    [Test]
+    public void ExhaustingBacktrackingStorageThrowsARangeErrorAndDoesNotGrowTheSharedMatcher()
+    {
+        var engine = new Engine();
+        var error = engine.Evaluate("""
+            try { /"(?:[^"\\]|\\.)*"/.exec('"' + 'a\\"b'.repeat(250000) + '"'); 'no error' }
+            catch (e) { e.name + ': ' + e.message }
+            """).AsString();
+        error.Should().Be("RangeError: Maximum regular expression backtracking depth exceeded");
+
+        // The next search of the same pattern runs from the small, shared plan.
+        engine.Evaluate("""/"(?:[^"\\]|\\.)*"/.exec('x"ab"y')[0]""").AsString().Should().Be("\"ab\"");
+        var matcher = Jint.Runtime.RegExp.JintRegExpEngine.Compile("\"(?:[^\"\\\\]|\\\\.)*\"", Jint.Runtime.RegExp.RegExpFlags.None);
+        var groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[matcher.CaptureCount];
+        var big = "\"" + string.Concat(Enumerable.Repeat("a\\\"b", 20_000)) + "\"";
+        matcher.TryMatch(big, 0, Jint.Runtime.RegExp.JintRegExpEngine.NoDeadline, groups).Should().BeTrue();
+        groups[0].Length.Should().Be(big.Length);
+        matcher.PlannedFrames.Should().BeLessThan(20_000, "growth beyond the retained ceiling stays with the search");
+    }
+
+    [Test]
+    public void ARangeErrorFromTheMatcherIsCatchableInScript()
+    {
+        Evaluate("""
+            var n = 0;
+            for (var i = 0; i < 3; i++) {
+                try { /"(?:[^"\\]|\\.)*"/.test('"' + 'ab'.repeat(600000) + '"'); } catch (e) { if (e instanceof RangeError) n++; }
+            }
+            n
+            """).AsNumber().Should().Be(3);
+    }
+
+    // Review of #4300: RegExp.prototype[@@search] goes through RegExpBuiltinExec, which updates the legacy statics.
+    [TestCase("'zzq'.match(/(z)/); 'xaby'.search(/(a)(b)/); RegExp.$1 + RegExp.$2 + '|' + RegExp.lastMatch", "ab|ab")]
+    [TestCase("'zzq'.match(/(z)/); 'xaby'.search(/b/); JSON.stringify(RegExp.$1) + '|' + RegExp.lastMatch + '|' + RegExp.leftContext", "\"\"|b|xa")]
+    [TestCase("'zzq'.match(/(z)/); 'xaby'.search(/nope/); RegExp.$1", "z")]
+    public void SearchUpdatesTheLegacyStatics(string script, string expected)
+    {
+        Evaluate(script).AsString().Should().Be(expected);
+    }
+
+    // Review of #4300: compiling a script-supplied pattern runs under the regex timeout, as a compile-work budget.
+    [Test]
+    public void CompilingRunsUnderTheRegexTimeout()
+    {
+        var tight = new Engine(o => o.Constraints.RegexTimeout = TimeSpan.FromMilliseconds(1));
+        var act = () => tight.Evaluate("new RegExp('[\\u0100-\\uffff]'.repeat(1000) + 'tight', 'i')");
+        act.Should().Throw<System.Text.RegularExpressions.RegexMatchTimeoutException>();
+
+        // An ordinary pattern is far below the budget's floor, whatever the timeout.
+        tight.Evaluate("new RegExp('[a-z]+@[a-z0-9.]+\\\\.[a-z]{2,}', 'i').test('a@b.cd')").AsBoolean().Should().BeTrue();
+    }
+
+    [Test]
+    public void TheEmptyJsRegExpConstructorBuildsAUsableMatcher()
+    {
+        new JsRegExp(new Engine()).Matcher.Should().NotBeNull();
+    }
 }

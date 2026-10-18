@@ -87,4 +87,25 @@ public class HostRegexConversionTests
         var error = Invoking(() => engine.SetValue("r", new Regex("a", RegexOptions.ExplicitCapture))).Should().Throw<JavaScriptException>().Which;
         error.Message.Should().Contain("ExplicitCapture");
     }
+
+    [Test]
+    public void EcmaScriptConversionAcceptsTheEcmaScriptOption()
+    {
+        var engine = new Engine(options => options.Interop.RegexConversion = RegexConversionMode.EcmaScript);
+        engine.SetValue("r", new Regex("^a\\d$", RegexOptions.ECMAScript | RegexOptions.IgnoreCase));
+
+        engine.Evaluate("r.flags").AsString().Should().Be("i");
+        engine.Evaluate("r.test('A1')").AsBoolean().Should().BeTrue();
+    }
+
+    [Test]
+    public void EcmaScriptConversionKeepsTheRegexMatchTimeout()
+    {
+        // The engine allows ten seconds; the host's Regex says 100 ms, and that is what fires.
+        var engine = new Engine(options => options.Interop.RegexConversion = RegexConversionMode.EcmaScript);
+        engine.SetValue("r", new Regex("^(?:a|a)*b", RegexOptions.None, TimeSpan.FromMilliseconds(100)));
+
+        var act = () => engine.Evaluate("r.test('a'.repeat(40) + '!b')");
+        act.Should().Throw<RegexMatchTimeoutException>().Which.MatchTimeout.Should().Be(TimeSpan.FromMilliseconds(100));
+    }
 }

@@ -21,9 +21,15 @@ RegularCore path, which the ECMAScript executor never touches, so they were drop
 
 ## 2. What changed in Jint
 
-- `JintRegExpEngine` wraps the GregsEx executor. Matchers are immutable and shared: `RegExpParseCache` holds them
-  process-wide (keyed by pattern and flags), literals memoize theirs on the AST node, and mutable executor storage is
-  per-thread scratch. A backtracking reservation starts at 64 frames and grows on demand up to 4M.
+- `JintRegExpEngine` wraps the GregsEx executor. A matcher's compiled program is immutable and shared:
+  `RegExpParseCache` holds matchers process-wide (keyed by pattern and flags), and literals memoize theirs on the AST
+  node. Its one mutable field is a frame-count hint, published without ordering because a stale read costs only a
+  growth retry. A search's backtracking storage starts at 64 frames and grows ×4 per retry, bounded by size rather
+  than by frame count, since a frame's size depends on the pattern:
+  - up to 1 MiB, a thread keeps the storage between searches, and growth is published as the matcher's hint;
+  - beyond that, the storage is the search's own and dropped when it returns, so one large input does not make every
+    later search of the pattern, on any thread or engine, allocate it;
+  - at 64 MiB the match throws a `RangeError`, as V8 does when its backtracking stack is exhausted.
 - The timeout is read at match time from the source's conversion options or `Constraints.RegexTimeout`, as before;
   a match that overruns it throws `RegexMatchTimeoutException`, as before.
 - `RegExpConstructor.NeedCustomEngine`, the case-folding hazard analysis, the per-subject fallback engine and
@@ -99,8 +105,10 @@ upstream as [sebastienros/gregsex#3](https://github.com/sebastienros/gregsex/pul
 | --- | --- | --- | --- |
 | J1 | The generic `RegExp.prototype[@@replace]` turned an `undefined` capture into `""` before calling a replacer. | Wrong argument to a replacer function (`staging/sm/String/regress-369778.js`); latent before because non-`u` patterns took the .NET fast path. | Keep `undefined` (step 14.k). |
 | J2 | The two regex-timeout tests used `^(a+)+$`, which is catastrophic for .NET and not for GregsEx. | They stopped exercising the timeout. | `^(?:a\|a)*b` against `a…a!b`, which is exponential for any backtracking matcher. |
-| J3 | The fused lanes (global `match`, `split`, plain-string replace) do not update the legacy `RegExp.$1`… statics. | Pre-existing; unchanged by this work. | Not fixed — noted for a follow-up. |
+| J3 | The fused lanes (global `match`, `split`, plain-string replace) do not update the legacy `RegExp.$1`… statics. | Pre-existing for those lanes; for `search` it was new, since non-`u` patterns used to reach it through `RegExpExec`. | `search` updates them (review of #4300); the other lanes are a follow-up. Replace now sets them from its last match. |
 | J4 | Each adapter search went through the validating entry's checks and sliced its scratch, and split searched one match per call. | About 15 ns per search above the executor. | A leaner prevalidated search, and split on a pattern without groups takes match ranges 32 at a time. |
+| J5 | A search's backtracking storage grew on the shared matcher and stayed in thread scratch, and frames were capped by count. | One 1 MB input made every later search of the pattern, on every thread and engine, allocate up to gigabytes, kept for the thread's life; exhaustion threw an internal exception type. | Bounded by size (1 MiB retained, 64 MiB per search), with a `RangeError` at the ceiling (review of #4300). |
+| J6 | Compiling a script-supplied pattern ran with every GregsEx budget at its maximum. | A `new RegExp(src)` whose compile is expensive was unbounded, where `main` compiled the custom engine's patterns under the regex timeout. | The timeout becomes a compile-work budget; exhausting it throws `RegexMatchTimeoutException`. |
 
 ## 5. Performance
 
@@ -171,6 +179,14 @@ three-round bar.
 
 ## 6. Follow-ups
 
+- **Variable-length backtracking frames upstream.** A frame reserves a full copy of the task stack plus the registers
+  (`6 × (2·depth + 4) + 2·groups + 4` ints), so `/"(?:[^"\\]|\\.)*"/` over a 1 MB literal needs about 100 ints per
+  character and reaches the 64 MiB ceiling (J5) where QuickJS did not. Saving only the ints in use would cut that by an
+  order of magnitude.
+- **Compile cost per pattern upstream** (review of #4300, item 5): one 8 KiB bitmap per set *node* rather than per
+  distinct set; a legacy-`i` class building its bitmap and search values over all 65,536 BMP code units (1,000 such
+  classes compile in about 860 ms); and the cased-character set rebuilt on every `i` compile. A cold-compile benchmark
+  row (`RegExpColdCompileBenchmark`) now measures what the process cache hides.
 - **The literal scan** (+16…+18%, §5): anchor characters chosen by frequency, as .NET Regex does, and the fixed
   cost of a call that does almost no work (`AnchoredLiteral`, 13 ns → 19 ns). Re-measure `icase-literal-test` at six
   rounds.

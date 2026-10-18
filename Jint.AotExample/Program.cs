@@ -89,6 +89,24 @@ Probe("member, field, indexer and method access", static () =>
     Expect("Hello Mary!", engine.Evaluate("company.sayHello('Mary')"));
 });
 
+// Every RegExp written in script runs on the vendored GregsEx ECMAScript engine; this walks its lanes natively:
+// the accelerated plans, the backtracking VM, case folding, Unicode properties and set operations, and the RangeError
+// at the backtracking-storage ceiling.
+Probe("regular expressions (GregsEx ECMAScript engine)", static () =>
+{
+    var engine = new Engine();
+    Expect("2025-01-31", engine.Evaluate("/\\d{4}-\\d{2}-\\d{2}/.exec('due 2025-01-31.')[0]"));
+    Expect("Bob@Example.COM", engine.Evaluate("/[a-z]+@[a-z0-9.]+\\.[a-z]{2,}/i.exec('mail Bob@Example.COM now')[0]"));
+    Expect("y=2", engine.Evaluate("/(?<k>\\w)=(?<v>\\d)/.exec('x y=2').groups.k + '=' + /(?<k>\\w)=(?<v>\\d)/.exec('x y=2').groups.v"));
+    Expect(2, engine.Evaluate("'\\u00e9t\\u00e9 \\u{1F600} caf\\u00e9'.match(/\\p{L}+/gu).length"));
+    Expect("bc", engine.Evaluate("'abc'.match(/[\\p{L}--[a]]+/v)[0]"));
+    Expect("b", engine.Evaluate("/(?<=a)b/.exec('cbab')[0]"));
+    Expect("a,b,c,d,e", engine.Evaluate("'a , b,c ,d, e'.split(/\\s*,\\s*/).join()"));
+    Expect("XbXc", engine.Evaluate("'abac'.replace(/a/g, function (m) { return m.toUpperCase() === 'A' ? 'X' : m; })"));
+    Expect(true, engine.Evaluate("var re = /b/y; re.lastIndex = 1; re.test('abc')"));
+    Expect("RangeError", engine.Evaluate("try { /\"(?:[^\"\\\\]|\\\\.)*\"/.exec('\"' + 'a\\\\\"b'.repeat(250000) + '\"'); 'no error' } catch (e) { e.name }"));
+});
+
 // Binds to SetValue<T>(string, T[]), which infers T = int rather than T = int[]. That is what keeps
 // this registration free of the four IL3050 an embedder used to pay here: annotating an ARRAY type
 // preserves all public methods of System.Array, Array.CreateInstance among them, which is

@@ -54,10 +54,11 @@ public partial class Engine
         public TimeSpan? Timeout { get; } = timeout;
 
         /// <summary>
-        /// Resolves <see cref="Timeout"/> against the engine that is about to run the pattern.
+        /// The timeout a pattern from a source with <paramref name="options"/> (null for none) compiles and matches
+        /// under on <paramref name="engine"/>: the source's own, or the engine's constraint.
         /// </summary>
-        public TimeSpan ResolveTimeout(Engine engine)
-            => Timeout ?? Jint.Options.ConstraintOptions.NormalizeRegexTimeout(engine.Options.Constraints.RegexTimeout);
+        public static TimeSpan ResolveTimeout(RegexConversionOptions? options, Engine engine)
+            => options?.Timeout ?? Jint.Options.ConstraintOptions.NormalizeRegexTimeout(engine.Options.Constraints.RegexTimeout);
 
         internal RegExpParseResult HandleOnRegExp(in RegExpParsingContext ctx)
         {

@@ -473,12 +473,12 @@ public sealed partial class RegExpConstructor : Constructor
         // Options.Constraints.RegexTimeout when the active script or module was parsed (sebastienros/jint#3431).
         // A null instance - parser options that did not come from Jint's handler, or a preparation, which has no
         // engine to resolve a timeout against (sebastienros/jint#3442) - leaves it on the engine's constraint,
-        // which RegExpPrototype.GetMatchTimeout reads at match time.
+        // which RegExpPrototype.GetCustomEngineTimeout reads at match time. Compiling runs under the same budget.
         var conversionOptions = _engine.GetActiveParserOptions().OnRegExp?.Target as Engine.RegexConversionOptions;
 
         // Compiling is also what validates: the flags and the pattern's early errors are both the matcher's
         // to report, so a pattern is parsed once rather than once by Acornima and again here.
-        r.Matcher = RegExpParseCache.GetOrCompile(_realm, p, f);
+        r.Matcher = RegExpParseCache.GetOrCompile(_realm, p, f, Engine.RegexConversionOptions.ResolveTimeout(conversionOptions, _engine));
         r.ConversionOptions = conversionOptions;
 
         // The pattern may contain characters that are not valid in a regexp literal ('/' and new line characters),
@@ -566,14 +566,14 @@ AppendEscapedNewLine:
     /// flags or an early error in the pattern.
     /// https://tc39.es/ecma262/#sec-regexpinitialize
     /// </summary>
-    internal static JintRegExpEngine Compile(Realm realm, string pattern, string flags)
+    internal static JintRegExpEngine Compile(Realm realm, string pattern, string flags, TimeSpan timeout)
     {
         var regExpFlags = ParseFlags(flags);
         if (regExpFlags is not null)
         {
             try
             {
-                return JintRegExpEngine.Compile(pattern, regExpFlags.Value);
+                return JintRegExpEngine.Compile(pattern, regExpFlags.Value, timeout);
             }
             catch (RegExpSyntaxException ex)
             {
@@ -704,8 +704,10 @@ AppendEscapedNewLine:
 
     private JsRegExp ConstructFromHostRegexAsEcmaScript(Regex regExp)
     {
+        // ECMAScript only narrows .NET's own syntax toward JavaScript's, and Compiled and CultureInvariant only say how
+        // .NET runs the pattern, so all three translate to nothing.
         const RegexOptions Translatable = RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Singleline
-                                          | RegexOptions.Compiled | RegexOptions.CultureInvariant;
+                                          | RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ECMAScript;
         var options = regExp.Options;
         if ((options & ~Translatable) != RegexOptions.None)
         {
@@ -719,7 +721,13 @@ AppendEscapedNewLine:
 
         var pattern = regExp.ToString();
         var r = RegExpAlloc(this);
-        r.Matcher = RegExpParseCache.GetOrCompile(_realm, pattern, flags);
+        // The host chose a match timeout for this Regex; it keeps applying, to compiling it and to every match.
+        if (regExp.MatchTimeout != Regex.InfiniteMatchTimeout)
+        {
+            r.ConversionOptions = new Engine.RegexConversionOptions(Options.ConstraintOptions.NormalizeRegexTimeout(regExp.MatchTimeout));
+        }
+
+        r.Matcher = RegExpParseCache.GetOrCompile(_realm, pattern, flags, Engine.RegexConversionOptions.ResolveTimeout(r.ConversionOptions, _engine));
         r.Source = EscapeRegExpSource(pattern.Length == 0 ? JsRegExp.regExpForMatchingAllCharacters : pattern);
         r.Flags = flags;
         RegExpInitialize(r);

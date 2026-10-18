@@ -71,17 +71,18 @@ internal sealed class JintLiteralExpression : JintExpression
             var engine = context.Engine;
             var regExpConstructor = engine.Realm.Intrinsics.RegExp;
 
-            // The matcher is memoized on the AST node. It embeds no timeout - every match reads the budget in
-            // force from the conversion options or the engine - and is immutable and thread-safe, so the memo is
-            // engine-neutral and serves every engine sharing a Prepared<Script>, as the AST UserData invariant
-            // requires. The unsynchronized write is the usual last-writer-wins AST publication: two engines
+            // The matcher is memoized on the AST node. It embeds no timeout - compiling it ran under the engine's
+            // budget, and every match reads the budget in force from the conversion options or the engine - and its
+            // compiled program is immutable and thread-safe (its one mutable field, a frame-count hint, is benign to
+            // race), so the memo is engine-neutral and serves every engine sharing a Prepared<Script>, as the AST
+            // UserData invariant requires. The unsynchronized write is the usual last-writer-wins AST publication: two engines
             // racing it compile the same pattern into equivalent matchers.
             var conversionOptions = regExpLiteral.ParseResult.AdditionalData as Engine.RegexConversionOptions;
             if (regExpLiteral.UserData is not JintRegExpEngine matcher)
             {
                 // Process-wide cache: a fresh-parse (source-mode) literal would otherwise recompile the same
                 // pattern every run, because the node memo only survives in a reused Prepared<Script>.
-                matcher = RegExpParseCache.GetOrCompile(engine.Realm, pattern, flags);
+                matcher = RegExpParseCache.GetOrCompile(engine.Realm, pattern, flags, Engine.RegexConversionOptions.ResolveTimeout(conversionOptions, engine));
                 regExpLiteral.UserData = matcher;
             }
 

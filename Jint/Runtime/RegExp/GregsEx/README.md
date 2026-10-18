@@ -21,8 +21,9 @@ python3 tools/sync_gregsex.py --revision <sha>
 ```
 
 A sync is the upstream files, the mechanical transforms below, then `tools/gregsex-sync/jint.patch`.
-`.github/workflows/gregsex-sync.yml` runs it every Monday and, when the diff is not empty, builds, runs the regex
-tests and opens a pull request from the `gregsex-sync` branch.
+`.github/workflows/gregsex-sync.yml` runs it every Monday and, when the diff is not empty, builds and runs the regex
+tests in a job with a read-only token, then a second job opens a pull request from `gregsex-sync/<revision>` (one
+branch per upstream revision, never force-pushed).
 
 **A fix to the matcher belongs upstream.** Make it in GregsEx, then sync. Change the patch only for what stays
 Jint's own (the list below).

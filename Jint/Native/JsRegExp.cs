@@ -20,7 +20,9 @@ public sealed class JsRegExp : ObjectInstance
     public JsRegExp(Engine engine)
         : base(engine, ObjectClass.RegExp)
     {
+        // The empty pattern, matching what its Source says; Intrinsics.RegExp.Construct builds any other.
         Source = regExpForMatchingAllCharacters;
+        Matcher = RegExpParseCache.GetOrCompile(engine.Realm, "", "", System.Threading.Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>The pattern text, escaped as <c>RegExp.prototype.source</c> reports it.</summary>
