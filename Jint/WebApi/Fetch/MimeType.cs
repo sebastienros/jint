@@ -36,6 +36,20 @@ internal sealed class MimeType
     internal string Essence { get; }
 
     /// <summary>
+    /// https://mimesniff.spec.whatwg.org/#html-mime-type — the essence is <c>text/html</c>.
+    /// </summary>
+    internal bool IsHtml => string.Equals(Essence, "text/html", StringComparison.Ordinal);
+
+    /// <summary>
+    /// https://mimesniff.spec.whatwg.org/#xml-mime-type — the subtype ends in <c>+xml</c>, or the essence is
+    /// <c>text/xml</c> or <c>application/xml</c>. The essence ends with the subtype, so its suffix is the
+    /// subtype's.
+    /// </summary>
+    internal bool IsXml => Essence.EndsWith("+xml", StringComparison.Ordinal)
+        || string.Equals(Essence, "text/xml", StringComparison.Ordinal)
+        || string.Equals(Essence, "application/xml", StringComparison.Ordinal);
+
+    /// <summary>
     /// The value of the parameter named <paramref name="name"/>, which must already be lowercased, or
     /// <see langword="null"/> when the record carries none.
     /// </summary>
