@@ -1,6 +1,7 @@
 #nullable enable
 using System.Threading;
 using System.Buffers;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Runtime.RegExp.GregsEx.Contracts;
 using Jint.Runtime.RegExp.GregsEx.Contracts.EcmaScript;
@@ -25,18 +26,25 @@ internal sealed class EcmaFastSet
     // Whether the units that end a run (the negated SearchValues, or UnicodeRunStops) are exactly the line
     // terminators, as for /./ and /./u: see IndexOfLineTerminator.
     internal readonly bool StopsAtLineTerminatorsOnly;
+    internal readonly bool IgnoreCase;
     private readonly EcmaInterval[] _intervals;
 
     internal EcmaFastSet(EcmaProgram program, EcmaSetSlice slice, EcmaScriptFlags effectiveFlags, EcmaCaseTables caseTables)
     {
         Slice = slice;
-        var ignoreCase = (effectiveFlags & EcmaScriptFlags.IgnoreCase) != 0;
+        var ignoreCase = IgnoreCase = (effectiveFlags & EcmaScriptFlags.IgnoreCase) != 0;
         var unicodeAware = program.Profile.IsUnicodeAware;
         var intervals = program.Intervals.Slice(slice.IntervalOffset, slice.IntervalCount);
         _intervals = intervals.ToArray();
 
+        // Under legacy i (no u/v) every UTF-16 unit is matched alone and Canonicalize maps BMP to BMP, so the folded
+        // membership of each unit is exact too: the intervals, corrected at the few units that have a case mapping.
+        // Without a bitmap an i-flag class took the slow path per character and lost every accelerated plan.
+        var foldedBmp = ignoreCase && !unicodeAware;
+        var hasBmp = (!ignoreCase || foldedBmp) && slice.StringCount == 0;
         ulong low = 0, high = 0;
-        if (slice.StringCount == 0)
+        // A bitmap's first two words are the ASCII membership, folded or not; only u/v with i folds here.
+        if (slice.StringCount == 0 && !hasBmp)
         {
             for (var c = 0; c < 128; c++)
             {
@@ -57,11 +65,7 @@ internal sealed class EcmaFastSet
         AsciiLow = low;
         AsciiHigh = high;
 
-        // Under legacy i (no u/v) every UTF-16 unit is matched alone and Canonicalize maps BMP to BMP, so the folded
-        // membership of each unit is exact too: the intervals, corrected at the few units that have a case mapping.
-        // Without a bitmap an i-flag class took the slow path per character and lost every accelerated plan.
-        var foldedBmp = ignoreCase && !unicodeAware;
-        if ((!ignoreCase || foldedBmp) && slice.StringCount == 0)
+        if (hasBmp)
         {
             var bmp = new ulong[1024];
             var hasSurrogateOrAstral = false;
@@ -85,32 +89,39 @@ internal sealed class EcmaFastSet
             }
             if (foldedBmp)
             {
-                foreach (var mapping in caseTables.LegacyUppercase)
+                // A unit with a mapping is a member exactly when its target is. Only the mappings whose source or
+                // target lies in the class can change a bit: clear the sources inside it, then set the sources whose
+                // target is inside it. Testing each of the ~1,400 mappings cost more than the rest of the set.
+                var bySource = caseTables.LegacyUppercase;
+                var byTarget = GetLegacyByTarget(caseTables);
+                foreach (var iv in intervals)
                 {
-                    if (mapping.Source > 0xFFFF)
+                    for (var m = FirstAtOrAfter(bySource, iv.First, byTarget: false); m < bySource.Length && bySource[m].Source <= iv.Last; m++)
                     {
-                        continue;
+                        var source = bySource[m].Source;
+                        if (source <= 0xFFFF)
+                        {
+                            bmp[source >> 6] &= ~(1UL << (source & 63));
+                        }
                     }
+                }
 
-                    var word = mapping.Source >> 6;
-                    var bit = 1UL << (mapping.Source & 63);
-                    if (ContainsInterval(intervals, mapping.Target))
+                foreach (var iv in intervals)
+                {
+                    for (var m = FirstAtOrAfter(byTarget, iv.First, byTarget: true); m < byTarget.Length && byTarget[m].Target <= iv.Last; m++)
                     {
-                        bmp[word] |= bit;
-                    }
-                    else
-                    {
-                        bmp[word] &= ~bit;
+                        var source = byTarget[m].Source;
+                        if (source <= 0xFFFF)
+                        {
+                            bmp[source >> 6] |= 1UL << (source & 63);
+                        }
                     }
                 }
 
                 totalBmp = 0;
                 foreach (var word in bmp)
                 {
-                    for (var w = word; w != 0; w &= w - 1)
-                    {
-                        totalBmp++;
-                    }
+                    totalBmp += BitOperations.PopCount(word);
                 }
             }
 
@@ -121,6 +132,8 @@ internal sealed class EcmaFastSet
                 Array.Clear(bmp, 0xD800 >> 6, (0xE000 - 0xD800) >> 6);
             }
             BmpBits = bmp;
+            AsciiLow = bmp[0];
+            AsciiHigh = bmp[1];
             BmpBitsIsExact = !unicodeAware || !hasSurrogateOrAstral;
 
             if (unicodeAware && hasSurrogateOrAstral)
@@ -135,11 +148,11 @@ internal sealed class EcmaFastSet
                 }
 
                 var stops = new List<char>();
-                for (var c = 0; coversAstral && c < 0xD800 && stops.Count <= 512; c++)
+                for (var w = 0; coversAstral && w < 0xD800 >> 6 && stops.Count <= 512; w++)
                 {
-                    if ((bmp[c >> 6] & (1UL << (c & 63))) == 0)
+                    for (var missing = ~bmp[w]; missing != 0 && stops.Count <= 512; missing &= missing - 1)
                     {
-                        stops.Add((char)c);
+                        stops.Add((char)((w << 6) + BitOperations.TrailingZeroCount(missing)));
                     }
                 }
 
@@ -159,12 +172,14 @@ internal sealed class EcmaFastSet
                     {
                         var negated = totalBmp > 512;
                         var chars = new char[negated ? 65536 - totalBmp : totalBmp];
+                        // Walk the set bits of the 1,024 words: testing all 65,536 units one by one was most of the
+                        // cost of compiling an i-flag pattern.
                         var idx = 0;
-                        for (var c = 0; c <= 0xFFFF; c++)
+                        for (var w = 0; w < bmp.Length; w++)
                         {
-                            if (((bmp[c >> 6] & (1UL << (c & 63))) != 0) != negated)
+                            for (var bits = negated ? ~bmp[w] : bmp[w]; bits != 0; bits &= bits - 1)
                             {
-                                chars[idx++] = (char)c;
+                                chars[idx++] = (char)((w << 6) + BitOperations.TrailingZeroCount(bits));
                             }
                         }
 
@@ -488,6 +503,36 @@ internal sealed class EcmaFastSet
         return false;
     }
 
+    // The legacy mappings ordered by target, per case-table instance (the tables are per Unicode version).
+    private static readonly ConditionalWeakTable<EcmaCaseTables, EcmaCaseMapping[]> LegacyByTarget = new();
+
+    private static EcmaCaseMapping[] GetLegacyByTarget(EcmaCaseTables caseTables)
+        => LegacyByTarget.GetValue(caseTables, static tables =>
+        {
+            var sorted = tables.LegacyUppercase.ToArray();
+            Array.Sort(sorted, static (a, b) => a.Target != b.Target ? a.Target.CompareTo(b.Target) : a.Source.CompareTo(b.Source));
+            return sorted;
+        });
+
+    // The first mapping whose source (or target) is at least `point`, in mappings sorted by that key.
+    private static int FirstAtOrAfter(ReadOnlySpan<EcmaCaseMapping> mappings, int point, bool byTarget)
+    {
+        int lo = 0, hi = mappings.Length;
+        while (lo < hi)
+        {
+            var mid = (lo + hi) >> 1;
+            if ((byTarget ? mappings[mid].Target : mappings[mid].Source) < point)
+            {
+                lo = mid + 1;
+            }
+            else
+            {
+                hi = mid;
+            }
+        }
+        return lo;
+    }
+
     internal static int Fold(int cp, bool unicodeAware, bool ignoreCase, EcmaCaseTables caseTables)
     {
         if (!ignoreCase)
@@ -616,16 +661,7 @@ internal sealed class EcmaAccelerator
                 continue;
             }
 
-            if (cased is null)
-            {
-                cased = [];
-                foreach (var mapping in unicodeAware ? caseTables.UnicodeFold : caseTables.LegacyUppercase)
-                {
-                    cased.Add(mapping.Source);
-                    cased.Add(mapping.Target);
-                }
-            }
-
+            cased ??= GetCasedPoints(caseTables, unicodeAware);
             if (cased.Contains(n.Value))
             {
                 continue;
@@ -636,6 +672,58 @@ internal sealed class EcmaAccelerator
         }
 
         return copy is null ? nodes : copy;
+    }
+
+    // Every source and target of a case mapping, per case-table instance like InverseFolds: rebuilt per compile, the
+    // ~2,500-point set cost more than compiling the rest of an i-flag pattern.
+    private static readonly ConditionalWeakTable<EcmaCaseTables, HashSet<int>?[]> CasedPoints = new();
+
+    internal static HashSet<int> GetCasedPoints(EcmaCaseTables caseTables, bool unicodeAware)
+    {
+        var slots = CasedPoints.GetValue(caseTables, static _ => new HashSet<int>?[2]);
+        var slot = unicodeAware ? 1 : 0;
+        if (Volatile.Read(ref slots[slot]) is { } cached)
+        {
+            return cached;
+        }
+
+        var cased = new HashSet<int>();
+        foreach (var mapping in unicodeAware ? caseTables.UnicodeFold : caseTables.LegacyUppercase)
+        {
+            cased.Add(mapping.Source);
+            cased.Add(mapping.Target);
+        }
+
+        Interlocked.CompareExchange(ref slots[slot], cased, null);
+        return slots[slot]!;
+    }
+
+    // Set nodes with the same members and case mode share one EcmaFastSet: each builds an 8 KiB bitmap and possibly a
+    // SearchValues, and a pattern such as /[a-z]+@[a-z]+\.[a-z]+/ repeats its classes.
+    private static EcmaFastSet GetOrCreateFastSet(EcmaProgram program, EcmaSetSlice slice, EcmaScriptFlags effectiveFlags,
+        EcmaCaseTables caseTables, ref List<EcmaFastSet>? built)
+    {
+        var ignoreCase = (effectiveFlags & EcmaScriptFlags.IgnoreCase) != 0;
+        var intervals = program.Intervals.Slice(slice.IntervalOffset, slice.IntervalCount);
+        if (slice.StringCount == 0 && built is not null)
+        {
+            foreach (var candidate in built)
+            {
+                if (candidate.IgnoreCase == ignoreCase &&
+                    program.Intervals.Slice(candidate.Slice.IntervalOffset, candidate.Slice.IntervalCount).SequenceEqual(intervals))
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        var fastSet = new EcmaFastSet(program, slice, effectiveFlags, caseTables);
+        if (slice.StringCount == 0)
+        {
+            (built ??= []).Add(fastSet);
+        }
+
+        return fastSet;
     }
 
     internal EcmaAccelerator(EcmaProgram program, EcmaCaseTables caseTables)
@@ -653,6 +741,7 @@ internal sealed class EcmaAccelerator
         // trail (/\uD83D\uDC38/u spelled with one escape) reads as a valid pair and matches U+1F438.
         var loneSurrogateLiteral = false;
         var unicodeAwareProgram = program.Profile.IsUnicodeAware;
+        List<EcmaFastSet>? builtSets = null;
         for (var i = 0; i < nodes.Length; i++)
         {
             var n = nodes[i];
@@ -668,7 +757,7 @@ internal sealed class EcmaAccelerator
 
             if (n.Kind == EcmaNodeKind.Set)
             {
-                FastSets[i] = new EcmaFastSet(program, program.Sets[n.Value], n.EffectiveFlags, caseTables);
+                FastSets[i] = GetOrCreateFastSet(program, program.Sets[n.Value], n.EffectiveFlags, caseTables, ref builtSets);
             }
 
             var minLen = n.Kind switch
@@ -2108,7 +2197,24 @@ internal sealed class EcmaAccelerator
                 return false;
             }
 
-            foreach (var interval in _program.Intervals.Slice(set.IntervalOffset, set.IntervalCount))
+            // Every BMP member is added, so a class with more of them than the cap fails anyway: \p{L} used to hash
+            // 2,049 characters into the set first.
+            var intervals = _program.Intervals.Slice(set.IntervalOffset, set.IntervalCount);
+            var bmpMembers = 0L;
+            foreach (var interval in intervals)
+            {
+                if (interval.First <= 0xFFFF)
+                {
+                    bmpMembers += Math.Min(interval.Last, 0xFFFF) - interval.First + 1;
+                }
+            }
+
+            if (bmpMembers > MaxFirstChars)
+            {
+                return false;
+            }
+
+            foreach (var interval in intervals)
             {
                 if ((long)interval.Last - interval.First >= MaxFirstChars)
                 {

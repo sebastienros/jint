@@ -20,9 +20,29 @@ internal sealed class ResolvedSet
     internal void AddRange(int first, int last)
     {
         _storage.Work();
-        var i = 0;
-        while (i < Ranges.Count && (long)Ranges[i].Last + 1 < first)
-        { _storage.Work(); i++; }
+        // The first range that touches or follows `first`. Property data, complements and folds add in ascending
+        // order, so most adds land past the last range; a scan from the start made loading \p{L}'s ~700 ranges
+        // quadratic, hundreds of microseconds per compile.
+        var count = Ranges.Count;
+        var i = count;
+        if (count != 0 && (long)Ranges[count - 1].Last + 1 >= first)
+        {
+            int lo = 0, hi = count - 1;
+            while (lo < hi)
+            {
+                _storage.Work();
+                var mid = lo + (hi - lo) / 2;
+                if ((long)Ranges[mid].Last + 1 < first)
+                {
+                    lo = mid + 1;
+                }
+                else
+                {
+                    hi = mid;
+                }
+            }
+            i = lo;
+        }
         var end = i;
         while (end < Ranges.Count && Ranges[end].First <= (long)last + 1)
         {

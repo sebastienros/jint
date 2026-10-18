@@ -255,7 +255,7 @@ public class RegExpEngineRegressionTests
     public void CompilingRunsUnderTheRegexTimeout()
     {
         var tight = new Engine(o => o.Constraints.RegexTimeout = TimeSpan.FromMilliseconds(1));
-        var act = () => tight.Evaluate("new RegExp('[\\u0100-\\uffff]'.repeat(1000) + 'tight', 'i')");
+        var act = () => tight.Evaluate("new RegExp('[\\\\p{L}--\\\\p{Lu}]'.repeat(1500) + 'tight', 'iv')");
         act.Should().Throw<System.Text.RegularExpressions.RegexMatchTimeoutException>();
 
         // An ordinary pattern is far below the budget's floor, whatever the timeout.
@@ -268,17 +268,18 @@ public class RegExpEngineRegressionTests
         new JsRegExp(new Engine()).Matcher.Should().NotBeNull();
     }
 
-    // Review of #4300: the initial plan was 64 frames whatever a frame cost, so a pattern with thousands of groups kept
-    // more than RetainedScratchInts in every thread's scratch before its first search.
+    // Review of #4300: the initial plan was 64 frames whatever its storage cost, so a pattern with enough groups kept
+    // more than RetainedScratchInts in every thread's scratch before its first search. Since GregsEx #4 a frame is a
+    // small fixed width and the registers are the fixed part, so the boundary is the group count.
     [Test]
-    public void APatternWithLargeFramesStartsWithinTheRetainedStorage()
+    public void APatternWhoseStorageExceedsTheRetainedCapStartsAtOneFrame()
     {
         var thousands = Jint.Runtime.RegExp.JintRegExpEngine.Compile(string.Concat(Enumerable.Repeat("(a)", 3000)), Jint.Runtime.RegExp.RegExpFlags.None);
-        thousands.PlannedFrames.Should().BeLessThan(64);
+        thousands.PlannedFrames.Should().Be(64);
         var groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[thousands.CaptureCount];
         thousands.TryMatch(new string('a', 3000), 0, Jint.Runtime.RegExp.JintRegExpEngine.NoDeadline, groups).Should().BeTrue();
 
-        // A single frame over the cap: the plan is one frame, and every search brings storage of its own.
+        // Registers alone over the cap: the plan is one frame, and every search brings storage of its own.
         var huge = Jint.Runtime.RegExp.JintRegExpEngine.Compile(string.Concat(Enumerable.Repeat("(a)", 140_000)), Jint.Runtime.RegExp.RegExpFlags.None);
         huge.PlannedFrames.Should().Be(1);
         groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[huge.CaptureCount];

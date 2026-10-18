@@ -13,6 +13,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     private readonly int _taskCapacity;
     private readonly int _taskSlots;
     private readonly int _registerSlots;
+    private readonly int _registerTrailPerFrame;
     private readonly EcmaAccelerator _accelerator;
     // Per node, whether it is a greedy repeat of a single-character atom (see Machine.GreedyRun).
     private readonly bool[] _greedyRun;
@@ -20,8 +21,17 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     // binary-search the whole table twice per character.
     private readonly char[] _asciiCanonical;
     internal const int TaskWidth = 6;
-    // A fourth slot holds a greedy run's lower bound (ChoiceKind.GreedyRun).
-    internal const int ChoiceWidth = 4;
+    // Kind (and whether an appended task waits in the trail), task-stack height, position, a greedy run's lower bound
+    // (ChoiceKind.GreedyRun), and where the frame's task and register trails begin.
+    internal const int ChoiceWidth = 6;
+    // A choice frame no longer copies the task stack and the registers. It keeps what it needs to undo: the tasks
+    // popped from under its height (Machine.Pop) and the registers written after it (Machine.SetRegister), so its
+    // size varies. The trails are pooled: each admitted frame adds this many ints to a pool any frame may draw from,
+    // and an empty pool is WorkspaceCapacityExceeded like an exhausted choice stack.
+    internal const int TaskTrailPerFrame = 2 * TaskWidth;
+    // A register trail entry: register, previous value, previous stamp (Machine.SetRegister).
+    private const int RegisterEntryWidth = 3;
+    private const int MaxTrailedRegistersPerFrame = 4;
     public EcmaProgram Program { get; }
 
     internal EcmaExecutor(EcmaProgram program, EcmaCaseTables tables, EcmaNode[] instructions, int taskCapacity)
@@ -32,6 +42,8 @@ internal sealed class EcmaExecutor : IEcmaExecutor
         _taskCapacity = taskCapacity;
         _taskSlots = checked(TaskWidth * _taskCapacity);
         _registerSlots = checked(2 * Program.GroupCount);
+        // Group 0 is never written by the VM, so a pattern without other groups never trails a register.
+        _registerTrailPerFrame = Program.GroupCount > 1 ? RegisterEntryWidth * Math.Min(_registerSlots, MaxTrailedRegistersPerFrame) : 0;
         _accelerator = new EcmaAccelerator(program, _caseTables);
         _asciiCanonical = new char[128];
         for (var c = 0; c < _asciiCanonical.Length; c++)
@@ -60,17 +72,23 @@ internal sealed class EcmaExecutor : IEcmaExecutor
         }
 
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(frameCapacity);
+        // States: the task stack, then the choice frames. Captures: the registers, their stamps, then the register
+        // trail. Scratch: the task trail.
         return new(checked(_taskSlots + ChoiceWidth * frameCapacity),
-            checked(_registerSlots * checked(frameCapacity + 1)), checked(_taskSlots * frameCapacity));
+            checked(2 * _registerSlots + _registerTrailPerFrame * frameCapacity), checked(TaskTrailPerFrame * frameCapacity));
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal int ComputeAdmittedFrames(RegexWorkspaceCapacity capacity)
     {
-        var tasks = _taskSlots;
-        var registers = _registerSlots;
-        return Math.Min(Math.Max(0, capacity.StateSlots - tasks) / ChoiceWidth,
-            Math.Min(Math.Max(0, capacity.CaptureSlots / registers - 1), capacity.ScratchSlots / tasks));
+        var spareCaptures = capacity.CaptureSlots - 2 * _registerSlots;
+        if (spareCaptures < 0)
+        {
+            return 0;
+        }
+
+        var frames = Math.Min(Math.Max(0, capacity.StateSlots - _taskSlots) / ChoiceWidth, capacity.ScratchSlots / TaskTrailPerFrame);
+        return _registerTrailPerFrame == 0 ? frames : Math.Min(frames, spareCaptures / _registerTrailPerFrame);
     }
 
     public RegexSearchStatus Search(ReadOnlySpan<char> input, int startAt, bool sticky,
@@ -364,6 +382,9 @@ internal sealed class EcmaExecutor : IEcmaExecutor
 
     private enum TaskKind { Evaluate, Repeat, RepeatBody, RepeatAfter, CaptureEnd, AssertionEnd, SetResume }
     private enum ChoiceKind { Branch, PositiveAssertionFailure, NegativeAssertionFailure, GreedyRun }
+    // Set on a frame's kind when its task to resume with waits at the start of its task trail segment.
+    private const int AppendFlag = 1 << 8;
+    private const int ChoiceKindMask = AppendFlag - 1;
     // A/B/C interpretation is specific to Kind. Direction is always explicit, including
     // tasks saved before entering a nested assertion with a different direction.
     private readonly record struct Task(TaskKind Kind, int Node, int A, int B, int Direction, int C = 0);
@@ -372,10 +393,13 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     {
         private readonly EcmaExecutor _owner;
         private readonly ReadOnlySpan<char> _input;
-        private readonly Span<int> _tasks, _choices, _savedTasks, _savedRegisters;
-        private readonly int _frames, _taskSlots;
+        private readonly Span<int> _tasks, _choices, _taskTrail, _registerTrail, _stamps;
+        private readonly int _frames;
         private readonly bool _saveRegisters;
-        private int _taskCount, _choiceCount;
+        private int _taskCount, _choiceCount, _taskTrailCount, _registerTrailCount;
+        // The top choice's low-water mark: every task slot from here up to the top choice's height has had its value
+        // at that choice copied to the task trail (see Pop). No choice: 0, so nothing is trailed.
+        private int _low;
         internal readonly Span<int> Registers;
         internal int Position;
         internal Machine(EcmaExecutor owner, ReadOnlySpan<char> input, WorkspaceBuffers buffers, int frames, bool saveRegisters)
@@ -384,19 +408,19 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             _input = input;
             _frames = frames;
             _saveRegisters = saveRegisters;
-            _taskSlots = owner._taskSlots;
-            _tasks = buffers.States[.._taskSlots];
-            _choices = buffers.States.Slice(_taskSlots, frames * ChoiceWidth);
-            Registers = buffers.Captures[..(2 * owner.Program.GroupCount)];
-            _savedRegisters = buffers.Captures.Slice(Registers.Length, frames * Registers.Length);
-            _savedTasks = buffers.Scratch[..(frames * _taskSlots)];
-            _taskCount = _choiceCount = Position = 0;
+            _tasks = buffers.States[..owner._taskSlots];
+            _choices = buffers.States.Slice(owner._taskSlots, frames * ChoiceWidth);
+            Registers = buffers.Captures[..owner._registerSlots];
+            _stamps = buffers.Captures.Slice(owner._registerSlots, owner._registerSlots);
+            _registerTrail = buffers.Captures.Slice(2 * owner._registerSlots, frames * owner._registerTrailPerFrame);
+            _taskTrail = buffers.Scratch[..(frames * TaskTrailPerFrame)];
+            _taskCount = _choiceCount = _taskTrailCount = _registerTrailCount = _low = Position = 0;
         }
 
         internal int Run(int candidate, ref RunState state)
         {
             Position = candidate;
-            _taskCount = _choiceCount = 0;
+            _taskCount = _choiceCount = _taskTrailCount = _registerTrailCount = _low = 0;
             if (!state.TryCharge(Registers.Length, Position))
             {
                 return -1;
@@ -405,6 +429,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             if (_saveRegisters)
             {
                 Registers.Fill(-1);
+                _stamps.Fill(0);
             }
 
             if (!Push(new(TaskKind.Evaluate, _owner.Program.Root, 0, 0, 1), ref state))
@@ -439,8 +464,12 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                             return -1;
                         }
 
-                        Registers[2 * node.Value] = Math.Min(task.A, Position);
-                        Registers[2 * node.Value + 1] = Math.Max(task.A, Position);
+                        if (!SetRegister(2 * node.Value, Math.Min(task.A, Position), ref state) ||
+                            !SetRegister(2 * node.Value + 1, Math.Max(task.A, Position), ref state))
+                        {
+                            return -1;
+                        }
+
                         break;
                     case TaskKind.Repeat:
                         if (node.Max != -1 && task.A == node.Max)
@@ -501,11 +530,12 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                             }
 
                             _choiceCount = task.C;
+                            ResetLow();
                             succeeds = false;
                         }
                         else
                         {
-                            _choiceCount = task.C;
+                            Discard(task.C);
                             Position = task.B;
                         }
                         break;
@@ -644,15 +674,17 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                 var resumed = false;
                 while (_choiceCount > 0)
                 {
-                    var index = --_choiceCount;
-                    var kind = (ChoiceKind)_choices[index * ChoiceWidth];
+                    var index = _choiceCount - 1;
+                    var kind = (ChoiceKind)(_choices[index * ChoiceWidth] & ChoiceKindMask);
                     if (!Restore(index, ref state))
                     {
                         return -1;
                     }
 
+                    _choiceCount = index;
                     if (kind == ChoiceKind.PositiveAssertionFailure)
                     {
+                        ResetLow();
                         continue;
                     }
 
@@ -677,6 +709,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                         }
                     }
 
+                    ResetLow();
                     resumed = true;
                     break; // ordinary retry or successful negative assertion
                 }
@@ -689,9 +722,9 @@ internal sealed class EcmaExecutor : IEcmaExecutor
 
         // A greedy repeat of a single-character atom (/.*/, /[^"]*/, /a+/ once past its minimum) consumes
         // its whole run in one loop and saves ONE choice that gives the run back a character at a time, where the
-        // generic path saved a choice - and a copy of the task stack and registers - per character. Equivalent,
-        // because every one of those choices held the same task stack and the same registers: the atom captures
-        // nothing, and each was taken after the Repeat task had been popped.
+        // generic path saved a choice per character. Equivalent, because every one of those choices restored the same
+        // task stack and the same registers: the atom captures nothing, and each was taken after the Repeat task had
+        // been popped.
         private bool GreedyRun(EcmaNode node, int iterations, ref RunState state)
         {
             var start = Position;
@@ -813,7 +846,13 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                     return false;
                 }
 
-                Registers.Slice(2 * node.FirstCapture, 2 * node.CaptureCount).Fill(-1);
+                for (var r = 2 * node.FirstCapture; r < 2 * (node.FirstCapture + node.CaptureCount); r++)
+                {
+                    if (!SetRegister(r, -1, ref state))
+                    {
+                        return false;
+                    }
+                }
             }
             if (_owner._accelerator.NonNullable[task.Node] && task.A >= node.Min && node.Max == -1)
             {
@@ -845,15 +884,34 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             s[5] = task.C;
             return true;
         }
+        // Copy-on-pop: the first time a slot under the top choice's height is popped, its value at that choice goes to
+        // the trail. The stack moves one slot at a time, so those slots are popped in descending order from the choice's
+        // height: the trail segment needs no slot numbers, only the height, and holds at most the choice's stack. A
+        // slot pushed and popped again above the low-water mark is not the choice's and is not kept.
         private bool Pop(ref RunState state, out Task task)
         {
             task = default;
-            if (!state.TryCharge(TaskWidth, Position))
+            var slot = _taskCount - 1;
+            var trail = slot < _low;
+            if (trail && _taskTrailCount + TaskWidth > _taskTrail.Length)
+            {
+                return Exhaust(ref state);
+            }
+
+            if (!state.TryCharge(trail ? 2 * TaskWidth : TaskWidth, Position))
             {
                 return false;
             }
 
-            var s = _tasks.Slice(--_taskCount * TaskWidth, TaskWidth);
+            var s = _tasks.Slice(slot * TaskWidth, TaskWidth);
+            if (trail)
+            {
+                CopyTask(s, _taskTrail.Slice(_taskTrailCount, TaskWidth));
+                _taskTrailCount += TaskWidth;
+                _low = slot;
+            }
+
+            _taskCount = slot;
             task = new((TaskKind)s[0], s[1], s[2], s[3], s[4], s[5]);
             return true;
         }
@@ -864,52 +922,171 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                 return Exhaust(ref state);
             }
 
-            if (append.HasValue && !Push(append.Value, ref state))
+            // The task to resume with is pushed by Restore, at this height: refuse it here, as pushing it did.
+            var appended = append.HasValue ? TaskWidth : 0;
+            if ((append.HasValue && _taskCount == _owner._taskCapacity) || _taskTrailCount + appended > _taskTrail.Length)
+            {
+                return Exhaust(ref state);
+            }
+
+            if (!state.TryCharge(ChoiceWidth + appended, Position))
             {
                 return false;
             }
 
-            var used = _taskCount * TaskWidth;
-            if (!state.TryCharge((long)used + Registers.Length + ChoiceWidth, Position))
+            if (append.HasValue)
             {
-                return false;
-            }
-
-            _tasks[..used].CopyTo(_savedTasks.Slice(_choiceCount * _taskSlots, used));
-            if (_saveRegisters)
-            {
-                Registers.CopyTo(_savedRegisters.Slice(_choiceCount * Registers.Length, Registers.Length));
+                var task = append.Value;
+                var t = _taskTrail.Slice(_taskTrailCount, TaskWidth);
+                t[0] = (int)task.Kind;
+                t[1] = task.Node;
+                t[2] = task.A;
+                t[3] = task.B;
+                t[4] = task.Direction;
+                t[5] = task.C;
+                _taskTrailCount += TaskWidth;
             }
 
             var s = _choices.Slice(_choiceCount++ * ChoiceWidth, ChoiceWidth);
-            s[0] = (int)kind;
+            s[0] = (int)kind | (append.HasValue ? AppendFlag : 0);
             s[1] = _taskCount;
             s[2] = Position;
-            if (append.HasValue)
-            {
-                _taskCount--;
-            }
-
+            s[3] = 0;
+            s[4] = _taskTrailCount;
+            s[5] = _registerTrailCount;
+            _low = _taskCount;
             return true;
         }
+        // Rewinds to the state the choice at index saved, undoing every choice above it, and pushes its appended task.
+        // The caller decides whether the choice survives (_choiceCount) and then calls ResetLow.
         private bool Restore(int index, ref RunState state)
         {
             var s = _choices.Slice(index * ChoiceWidth, ChoiceWidth);
-            var count = s[1];
-            if (!state.TryCharge((long)count * TaskWidth + Registers.Length + ChoiceWidth, Position))
+            if (!state.TryCharge((long)(_taskTrailCount - s[4]) + (_registerTrailCount - s[5]) + ChoiceWidth, Position))
             {
                 return false;
             }
 
-            _savedTasks.Slice(index * _taskSlots, count * TaskWidth).CopyTo(_tasks);
-            if (_saveRegisters)
+            var end = _taskTrailCount;
+            for (var i = _choiceCount - 1; i >= index; i--)
             {
-                _savedRegisters.Slice(index * Registers.Length, Registers.Length).CopyTo(Registers);
+                var frame = _choices.Slice(i * ChoiceWidth, ChoiceWidth);
+                var mark = frame[4];
+                for (int from = mark, slot = frame[1] - 1; from < end; from += TaskWidth, slot--)
+                {
+                    CopyTask(_taskTrail.Slice(from, TaskWidth), _tasks.Slice(slot * TaskWidth, TaskWidth));
+                }
+
+                end = (frame[0] & AppendFlag) != 0 ? mark - TaskWidth : mark;
             }
 
-            _taskCount = count;
+            for (var e = _registerTrailCount - RegisterEntryWidth; e >= s[5]; e -= RegisterEntryWidth)
+            {
+                var r = _registerTrail[e];
+                Registers[r] = _registerTrail[e + 1];
+                _stamps[r] = _registerTrail[e + 2];
+            }
+
+            _registerTrailCount = s[5];
+            _taskCount = s[1];
             Position = s[2];
+            if ((s[0] & AppendFlag) != 0)
+            {
+                CopyTask(_taskTrail.Slice(end, TaskWidth), _tasks.Slice(_taskCount++ * TaskWidth, TaskWidth));
+            }
+
+            _taskTrailCount = end;
             return true;
+        }
+        // A positive assertion succeeded: drop the choices from index up without rewinding. Its body never popped
+        // below its AssertionEnd task, so the task trail above the assertion's frame belongs to the dropped choices
+        // alone. The register trail does not: a capture inside the assertion stays set, and the first value it
+        // overwrote is what the surviving top choice must restore. Keep one entry per register, the oldest, unless
+        // that choice already trailed the register.
+        private void Discard(int index)
+        {
+            var s = _choices.Slice(index * ChoiceWidth, ChoiceWidth);
+            _taskTrailCount = s[4];
+            var write = s[5];
+            for (var read = write; read < _registerTrailCount; read += RegisterEntryWidth)
+            {
+                // Every register trailed above the frame is stamped deeper than index until this loop visits it.
+                var r = _registerTrail[read];
+                if (_stamps[r] <= index)
+                {
+                    continue;
+                }
+
+                _stamps[r] = index;
+                var previous = _registerTrail[read + 2];
+                if (index > 0 && previous != index)
+                {
+                    _registerTrail[write] = r;
+                    _registerTrail[write + 1] = _registerTrail[read + 1];
+                    _registerTrail[write + 2] = previous;
+                    write += RegisterEntryWidth;
+                }
+            }
+
+            _registerTrailCount = write;
+            _choiceCount = index;
+            ResetLow();
+        }
+        // The top choice's trail segment holds its slots from its height down to its low-water mark.
+        private void ResetLow()
+        {
+            if (_choiceCount == 0)
+            {
+                _low = 0;
+                return;
+            }
+
+            var s = _choices.Slice((_choiceCount - 1) * ChoiceWidth, ChoiceWidth);
+            _low = s[1] - (_taskTrailCount - s[4]) / TaskWidth;
+        }
+        // A register write the top choice must be able to undo is trailed once per choice: _stamps holds the choice
+        // count (the depth) at the register's last trailing, and an undo puts the previous stamp back.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private bool SetRegister(int register, int value, ref RunState state)
+        {
+            if (_choiceCount > 0 && _stamps[register] != _choiceCount && !TrailRegister(register, ref state))
+            {
+                return false;
+            }
+
+            Registers[register] = value;
+            return true;
+        }
+        private bool TrailRegister(int register, ref RunState state)
+        {
+            var count = _registerTrailCount;
+            if (count + RegisterEntryWidth > _registerTrail.Length)
+            {
+                return Exhaust(ref state);
+            }
+
+            if (!state.TryCharge(RegisterEntryWidth, Position))
+            {
+                return false;
+            }
+
+            var entry = _registerTrail.Slice(count, RegisterEntryWidth);
+            entry[2] = _stamps[register];
+            entry[1] = Registers[register];
+            entry[0] = register;
+            _registerTrailCount = count + RegisterEntryWidth;
+            _stamps[register] = _choiceCount;
+            return true;
+        }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private static void CopyTask(ReadOnlySpan<int> from, Span<int> to)
+        {
+            to[5] = from[5];
+            to[4] = from[4];
+            to[3] = from[3];
+            to[2] = from[2];
+            to[1] = from[1];
+            to[0] = from[0];
         }
         private readonly bool Exhaust(ref RunState state)
         {

@@ -2,7 +2,7 @@
 
 **Status: implemented on `sebros/jint-gregsex-regex-engine-a5ccbe`.** Every regular expression written in script runs
 on the ECMAScript flavor of [GregsEx](https://github.com/sebastienros/gregsex), vendored by `tools/sync_gregsex.py`
-from its `main` branch (first `d989dd84`, then `a12c3ce8`, now `dc455e97`). The QuickJS libregexp port and the Acornima-to-.NET `Regex`
+from its `main` branch (first `d989dd84`, then `a12c3ce8` and `dc455e97`, now `c48524b1`). The QuickJS libregexp port and the Acornima-to-.NET `Regex`
 adaptation are gone. This document records the decision, how compliance was held, what the work surfaced in
 either project, and what performance it bought.
 
@@ -66,7 +66,7 @@ The four failures and the skip are the same on both builds:
 
 ## 4. What the work surfaced
 
-### 4.1 In GregsEx (all fixed upstream in [sebastienros/gregsex#2](https://github.com/sebastienros/gregsex/pull/2) and [#3](https://github.com/sebastienros/gregsex/pull/3), each pinned by a test on both sides)
+### 4.1 In GregsEx (all fixed upstream in [sebastienros/gregsex#2](https://github.com/sebastienros/gregsex/pull/2), [#3](https://github.com/sebastienros/gregsex/pull/3) and [#4](https://github.com/sebastienros/gregsex/pull/4), each pinned by a test on both sides)
 
 The same pull request made every GregsEx source and generator output `#nullable enable`, so the copied files no
 longer need it added (the sync tool still asserts it), and added `JintRegressionTests` and `NullableContextTests`
@@ -179,15 +179,16 @@ three-round bar.
 
 ## 6. Follow-ups
 
-- **Variable-length backtracking frames upstream.** A frame reserves a full copy of the task stack plus the registers
-  (`6 × (2·depth + 4) + 2·groups + 4` ints), so `/"(?:[^"\\]|\\.)*"/` needs about 200 ints per character and reaches
-  the 64 MiB ceiling (J5) at about 82,000 characters, where QuickJS and V8 match far longer literals (measured:
-  `/(a|b)*c/` stops at about 120,000 characters, `/(?:a|b)*c/` at about 140,000). Saving only the ints in use would cut that by an
-  order of magnitude.
-- **Compile cost per pattern upstream** (review of #4300, item 5): one 8 KiB bitmap per set *node* rather than per
-  distinct set; a legacy-`i` class building its bitmap and search values over all 65,536 BMP code units (1,000 such
-  classes compile in about 860 ms); and the cased-character set rebuilt on every `i` compile. A cold-compile benchmark
-  row (`RegExpColdCompileBenchmark`) now measures what the process cache hides.
+- **The backtracking ceiling (J5).** [sebastienros/gregsex#4](https://github.com/sebastienros/gregsex/pull/4) made
+  frames variable-length: a choice now saves a fixed-width frame and trails only the task and register slots it
+  changes, where it used to copy the whole task stack and the registers. The longest run the 64 MiB ceiling admits went
+  from about 82,000 to about 466,000 characters for `/"(?:[^"\\]|\\.)*"/`, from 121,573 to 372,823 for `/(a|b)*c/`
+  and from 143,393 to 621,375 for `/(?:a|b)*c/`. QuickJS and V8 still match longer runs.
+- **Cold compile** (review of #4300, item 5). gregsex#4 also shares fast sets, walks bitmap words instead of all 65,536
+  code units, and caches the cased-character set and resolved property intervals. Against `main`, 50 unique patterns
+  per operation (`RegExpColdCompileBenchmark`'s shapes, alternating runs on a loaded machine) now read: `literal` −26%,
+  `\p{L}` under `u` +1% (it was +1,596%), `email` +57%, an alternation +59%, an `i` class +101% (was +461%), the email
+  pattern under `i` +131% (was +1,225%). What is left is per-pattern setup in the compiler and accelerator.
 - **The literal scan** (+16…+18%, §5): anchor characters chosen by frequency, as .NET Regex does, and the fixed
   cost of a call that does almost no work (`AnchoredLiteral`, 13 ns → 19 ns). Re-measure `icase-literal-test` at six
   rounds.
