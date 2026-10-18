@@ -363,6 +363,7 @@ public sealed partial class Document : Node
     public DomRange CreateRange() => new(this);
 
     public Text CreateTextNode(string data) => new(this, data);
+    internal Text CreateParsedTextNode(StringSlice data) => new(this, data);
     public Comment CreateComment(string data) => new(this, data);
     public CDataSection CreateCDataSection(string data)
     {

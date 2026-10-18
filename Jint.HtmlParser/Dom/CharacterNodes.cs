@@ -17,6 +17,10 @@ public sealed class Text : Node
 
     internal Text(Document owner, string data) : base(owner) =>
         _data = new StringSliceStorage(new StringSlice(data ?? throw new ArgumentNullException(nameof(data))));
+
+    // A parser's fresh node with its first run of source text: nothing has observed the node yet, so
+    // this is the state an empty node reaches after AppendParsedData, without that path's bookkeeping.
+    internal Text(Document owner, StringSlice data) : base(owner) => _data = new StringSliceStorage(data);
     public override NodeType NodeType => NodeType.Text;
     internal int DataLength => _parsedStorage is null ? _data.Length : _parsedLength;
     internal ReadOnlySpan<char> DataSpan => _parsedStorage is null ? _data.Span : _parsedStorage.AsSpan(0, _parsedLength);

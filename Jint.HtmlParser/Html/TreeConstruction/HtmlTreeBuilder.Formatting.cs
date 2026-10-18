@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace Jint.HtmlParser.Html;
 
@@ -85,7 +87,18 @@ internal sealed partial class HtmlTreeBuilder
     // The marker is part of the index: entries in an older scope must not
     // lengthen either lookup or removal in a younger scope.
     private readonly Dictionary<(FormattingMarker? Marker, ulong Key), FormattingKeyChain> _formattingByKey = [];
-    private readonly HashSet<Element> _openIdentity = new(ReferenceEqualityComparer.Instance);
+    // Membership in the stack of open elements is a mark on the element instead of an identity
+    // set: the runtime identity hash is a header write on each new element's first use. Only the
+    // builder that creates an element pushes it. Tokens repeat only after 2^31 builders, so a host
+    // query would also need a foreign element left marked by a builder that never popped it.
+    private static int s_lastOpenToken;
+    private readonly int _openToken = Interlocked.Increment(ref s_lastOpenToken) | int.MinValue;
+    private void MarkOpen(Element element) => element.OpenElementsMark = _openToken;
+    private bool IsOpen(Element element) => element.OpenElementsMark == _openToken;
+    private void ClearOpen(Element element)
+    {
+        if (element.OpenElementsMark == _openToken) element.OpenElementsMark = 0;
+    }
     private FormattingMarker? _lastFormattingMarker;
     // Null is idle; otherwise this is the next entry examined or recreated.
     private FormattingEntry? _reconstructionNode;
@@ -142,6 +155,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private bool TryAddFormattingElement()
     {
+        _rareTokenState = true;
         var element = _pendingFormattingElement ?? throw new InvalidOperationException("No formatting start is pending.");
         InitializeFormattingKey();
         ReadOnlySpan<ParserAttribute> attributes = PreparedAttributes;
@@ -351,13 +365,22 @@ internal sealed partial class HtmlTreeBuilder
         entry.NameNext = null;
     }
 
+    // HTML Standard §13.2.4.3, reconstruct the active formatting elements: nothing to do while no
+    // reconstruction is under way and the list is empty, ends in a marker or its last entry is open,
+    // which is nearly every token, so that answer is given without a call.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryReconstructFormatting()
+    {
+        if (_reconstructionNode is null &&
+            (_formattingLast is null or FormattingMarker || _formattingLast is FormattingElementEntry last && IsOpen(last.Element)))
+            return true;
+        return ReconstructFormatting();
+    }
+
+    private bool ReconstructFormatting()
     {
         if (_reconstructionNode is null)
         {
-            if (_formattingLast is null or FormattingMarker ||
-                _formattingLast is FormattingElementEntry last && _openIdentity.Contains(last.Element))
-                return true;
             _reconstructionNode = _formattingLast;
             _reconstructionForward = false;
         }
@@ -371,7 +394,7 @@ internal sealed partial class HtmlTreeBuilder
             if (!_reconstructionForward)
             {
                 if (node is FormattingMarker ||
-                    node is FormattingElementEntry prior && _openIdentity.Contains(prior.Element))
+                    node is FormattingElementEntry prior && IsOpen(prior.Element))
                 {
                     _reconstructionNode = node.ListNext;
                     _reconstructionForward = true;
@@ -405,6 +428,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private void InitializeFormattingKey()
     {
+        _rareTokenState = true;
         if (_preparedFormattingKeyInitialized) return;
         var comparer = StringComparer.Ordinal;
         var name = _token.Name!;
@@ -418,6 +442,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private long PrepareFormattingAttribute(HtmlAttribute attribute)
     {
+        _rareTokenState = true;
         InitializeFormattingKey();
         var key = new FormattingAttribute(null, attribute.Name, attribute.Value);
         if (_token.Attributes.Length > CountedFormattingAttributeThreshold)

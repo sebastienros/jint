@@ -293,7 +293,7 @@ internal sealed partial class HtmlTreeBuilder
         while (_textIndex < data.Length && _remaining > 0)
         {
             _cancellationToken.ThrowIfCancellationRequested();
-            if (ShouldUseForeignRules(_token))
+            if (ShouldUseForeignRules(in _token))
             {
                 var foreignCharacter = span[_textIndex++];
                 if (foreignCharacter == '\0')
@@ -381,6 +381,7 @@ internal sealed partial class HtmlTreeBuilder
                     {
                         Error("unexpected-token-in-table");
                         _tableFosterCharacterErrorReported = true;
+                        _rareTokenState = true;
                     }
                     if (c == '\0') { Error("unexpected-null-character"); _textIndex++; Charge(1); continue; }
                     _fosterParenting = true;

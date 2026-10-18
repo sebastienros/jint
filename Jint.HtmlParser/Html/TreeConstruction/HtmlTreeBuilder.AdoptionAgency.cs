@@ -65,6 +65,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private bool TrySpecialFormattingStart(string name)
     {
+        _rareTokenState = true;
         var advanced = false;
         if (_specialFormattingStartStage == SpecialFormattingStartStage.Idle)
         {
@@ -214,7 +215,7 @@ internal sealed partial class HtmlTreeBuilder
                     advanced = true;
                     break;
                 case AdoptionStage.FindOpen:
-                    if (!_openIdentity.Contains(_adoptionFormatting!.Element))
+                    if (!IsOpen(_adoptionFormatting!.Element))
                     {
                         Error("adoption-formatting-not-open");
                         RemoveFormattingEntry(_adoptionFormatting);
@@ -310,7 +311,7 @@ internal sealed partial class HtmlTreeBuilder
                 case AdoptionStage.RemoveInnerOpen:
                     var removedInner = _open[_adoptionNodeIndex];
                     _adoptionRemovedOpen.Add(removedInner);
-                    _openIdentity.Remove(removedInner);
+                    ClearOpen(removedInner);
                     _annotationXmlHtmlIntegration.Remove(removedInner);
                     Charge(1);
                     _adoptionStage = AdoptionStage.Inner;
@@ -347,8 +348,9 @@ internal sealed partial class HtmlTreeBuilder
                     if (!_adoptionRemovedOpen.Contains(retained))
                     {
                         var destination = _adoptionCompactWrite++;
-                        _open[destination] = retained;
-                        AddIndexes(retained, destination);
+                        var retainedNames = _nameIndexes.GetOrAdd(retained);
+                        _open.Set(destination, retained, retainedNames);
+                        AddIndexes(retained, destination, retainedNames);
                         if (!AllowedOpenAtEof(retained)) _unexpectedOpenCount++;
                         if (ReferenceEquals(retained, _adoptionFormatting!.Element)) _adoptionFormattingIndex = destination;
                         if (ReferenceEquals(retained, _adoptionFurthestBlock)) _adoptionFurthestIndex = destination;
@@ -440,7 +442,7 @@ internal sealed partial class HtmlTreeBuilder
                 case AdoptionStage.RemoveFormattingOpen:
                     var removedFormatting = _open[_adoptionFormattingIndex];
                     RemoveIndexes(removedFormatting, _adoptionFormattingIndex);
-                    _openIdentity.Remove(removedFormatting);
+                    ClearOpen(removedFormatting);
                     if (!AllowedOpenAtEof(removedFormatting)) _unexpectedOpenCount--;
                     _adoptionInsertIndex = _adoptionFormattingIndex;
                     Charge(1);
@@ -496,13 +498,7 @@ internal sealed partial class HtmlTreeBuilder
         }
     }
 
-    private static bool IsSpecialElement(Element element) => element.NamespaceUri switch
-    {
-        Namespaces.Html => IsSpecial(element.LocalName),
-        Namespaces.MathMl => HtmlMiMoMnNames.Match(element.LocalName),
-        Namespaces.Svg => HtmlForeignObjectDescTitleNames.Match(element.LocalName),
-        _ => false
-    };
+    private static bool IsSpecialElement(Element element) => (StackFlagsOf(element) & StackFlags.Special) != 0;
 
     private Element CreateFromFormattingEntry(FormattingElementEntry entry, Node destination)
     {
@@ -541,16 +537,18 @@ internal sealed partial class HtmlTreeBuilder
     {
         var original = _open[index];
         RemoveIndexes(original, index);
-        _openIdentity.Remove(original);
+        ClearOpen(original);
         if (!AllowedOpenAtEof(original)) _unexpectedOpenCount--;
-        _open[index] = replacement;
-        _openIdentity.Add(replacement);
-        AddIndexesAt(replacement, index);
+        var names = _nameIndexes.GetOrAdd(replacement);
+        _open.Set(index, replacement, names);
+        MarkOpen(replacement);
+        AddIndexesAt(replacement, index, names);
         if (!AllowedOpenAtEof(replacement)) _unexpectedOpenCount++;
         Charge(1);
     }
 
-    private void AddIndexesAt(Element element, int index)
+    // The element is at index on the stack, with names as its name-index list.
+    private void AddIndexesAt(Element element, int index, List<int> names)
     {
         void Insert(List<int> indexes, int value)
         {
@@ -559,16 +557,16 @@ internal sealed partial class HtmlTreeBuilder
             Charge(1L + SearchCost(indexes.Count) + indexes.Count - position);
             indexes.Insert(position, value);
         }
-        var names = _nameIndexes.GetOrAdd(element);
         Insert(names, index);
-        if (IsSpecialElement(element))
+        var flags = StackFlagsOf(element);
+        if ((flags & StackFlags.Special) != 0)
         {
             Insert(_specialIndexes, index);
-            if (!HtmlAddressDivPNames.Match(element.LocalName)) Insert(_liStops, index);
-            if (!HtmlAddressDivPDdNames.Match(element.LocalName)) Insert(_ddDtStops, index);
+            if ((flags & StackFlags.LiStop) != 0) Insert(_liStops, index);
+            if ((flags & StackFlags.DdDtStop) != 0) Insert(_ddDtStops, index);
         }
-        if (IsScopeBoundary(element)) Insert(_scopeStops, index);
-        if (IsResetModeElement(element)) Insert(_resetModeIndexes, index);
+        if ((flags & StackFlags.ScopeBoundary) != 0) Insert(_scopeStops, index);
+        if ((flags & StackFlags.ResetMode) != 0) Insert(_resetModeIndexes, index);
         Charge(1);
     }
 
@@ -578,7 +576,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             if (index == _open.Count - 1) { Pop(); return true; }
             var removed = _open[index];
-            _openIdentity.Remove(removed);
+            ClearOpen(removed);
             if (!AllowedOpenAtEof(removed)) _unexpectedOpenCount--;
             RemoveIndexes(removed, index);
             _open.RemoveAt(index);
@@ -603,15 +601,16 @@ internal sealed partial class HtmlTreeBuilder
             if (_remaining <= 0 && advanced) return false;
             var source = _adoptionInsertIndex + 1;
             var moved = _open[source];
-            _open[_adoptionInsertIndex++] = moved;
+            _open.Move(source, _adoptionInsertIndex++);
             ShiftIndexes(moved, source);
             advanced = true;
         }
         if (_remaining <= 0 && advanced) return false;
         var element = _adoptionReplacement!;
-        _open[_adoptionFurthestIndex] = element;
-        _openIdentity.Add(element);
-        AddIndexesAt(element, _adoptionFurthestIndex);
+        var elementNames = _nameIndexes.GetOrAdd(element);
+        _open.Set(_adoptionFurthestIndex, element, elementNames);
+        MarkOpen(element);
+        AddIndexesAt(element, _adoptionFurthestIndex, elementNames);
         if (!AllowedOpenAtEof(element)) _unexpectedOpenCount++;
         _adoptionInsertIndex = -1;
         Charge(1);
@@ -646,7 +645,7 @@ internal sealed partial class HtmlTreeBuilder
                 _adoptionOffsetEnumerating = true;
                 break;
             }
-            _adoptionOffsetLists.Add(_nameIndexes.For(_open[_adoptionOffsetScan++]));
+            _adoptionOffsetLists.Add(_open.NamesAt(_adoptionOffsetScan++));
             Charge(1);
             advanced = true;
         }

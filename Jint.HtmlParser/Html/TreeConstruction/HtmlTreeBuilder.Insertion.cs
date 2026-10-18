@@ -23,8 +23,8 @@ internal sealed partial class HtmlTreeBuilder
         if (_fosterParenting && target is Element element && element.NamespaceUri == Namespaces.Html &&
             HtmlTableTbodyTfootNames.Match(element.LocalName))
         {
-            var tableIndex = Last("table");
-            var templateIndex = Last("template");
+            var tableIndex = Last(_nameIndexes.Table);
+            var templateIndex = Last(_nameIndexes.Template);
             Charge(1);
             if (templateIndex > tableIndex)
             {

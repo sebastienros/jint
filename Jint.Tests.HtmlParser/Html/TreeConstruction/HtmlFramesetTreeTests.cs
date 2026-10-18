@@ -211,7 +211,7 @@ public partial class HtmlTreeConstructionTests
                 sawCleanup = true;
                 body.ParentNode.Should().BeNull();
                 html.LastChild!.Should().BeSameAs(html.FirstChild);
-                var open = (System.Collections.IList) openField.GetValue(builder)!;
+                var open = (System.Collections.Generic.IReadOnlyList<Element>) openField.GetValue(builder)!;
                 open.Count.Should().BeGreaterThan(0);
                 open[0].Should().BeSameAs(html);
             }

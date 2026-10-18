@@ -6,8 +6,9 @@ using System.Threading;
 namespace Jint.HtmlParser.Html;
 
 // HTML Standard §13.2.5, Data state through the DOCTYPE and CDATA states.
-// Scalar states consume one input unit; ordinary runs are bounded by quota,
-// source slice and text-buffer size. Declaration probes use at most sixteen units.
+// Scalar states consume one input unit; ordinary runs and error-free whole tags are
+// bounded by quota and source slice, runs also by text-buffer size. Declaration probes
+// use at most sixteen units.
 internal sealed partial class HtmlTokenizer
 {
     private readonly HtmlInput _input;
@@ -29,6 +30,9 @@ internal sealed partial class HtmlTokenizer
     private string? _piName;
     private readonly List<HtmlAttribute> _attributes = new();
     private readonly HashSet<string> _attributeNames = new(StringComparer.Ordinal);
+    // The names the current tag has finished. A whole tag checked its names against each other
+    // before any was finished, so it counts them without entering them in the set.
+    private int _attributeNameCount;
     private State _state;
     private State _returnState;
     private HtmlToken _pending;
@@ -171,9 +175,32 @@ internal sealed partial class HtmlTokenizer
                     token = new HtmlToken(HtmlTokenKind.EndOfFile, offset: _input.Offset);
                     return HtmlReadStatus.Token;
                 }
-                if (!stopAhead && IsRunState(_state) && TryConsumeRun(current, out stopAhead))
+                if (current == '<' && _state == State.Data && TextLength == 0)
+                {
+                    var tag = TryConsumeTag(out token);
+                    if (tag == WholeTagResult.Token) return HtmlReadStatus.Token;
+                    // The scalar states continue inside the tag from the unit the scan stopped on.
+                    if (tag == WholeTagResult.Resumed) continue;
+                }
+                if (current == '&' && (_state is State.Data or State.RcData) && TryConsumeTextReference())
+                {
+                    stopAhead = false;
+                    if (TextLength >= 4096) return FlushText(out token);
+                    continue;
+                }
+                if (!stopAhead && IsRunState(_state) && TryConsumeRun(current, out stopAhead, out var stop))
                 {
                     if (TextLength >= 4096) return FlushText(out token);
+                    if (stopAhead && stop == '<' && _state == State.Data && _remainingWork > 0)
+                    {
+                        // The Data state's '<' step after text: it only delivers the text, consuming
+                        // nothing, and costs the scanner iteration it would have taken.
+                        _remainingWork--;
+                        if (_work < long.MaxValue) _work++;
+                        cancellationToken.ThrowIfCancellationRequested();
+                        _markupOpenerAfterText = true;
+                        return FlushText(out token);
+                    }
                     continue;
                 }
                 stopAhead = false;
@@ -222,7 +249,7 @@ internal sealed partial class HtmlTokenizer
         return HtmlReadStatus.Token;
     }
 
-    private bool Emit(HtmlToken produced, out HtmlToken token)
+    private bool Emit(in HtmlToken produced, out HtmlToken token)
     {
         if (TextLength != 0)
         {
@@ -295,9 +322,10 @@ internal sealed partial class HtmlTokenizer
         _name.Clear();
         _value.Clear();
         Poll();
-        ChargeCopy((long) _attributes.Count + _attributeNames.Count);
+        ChargeCopy((long) _attributes.Count + _attributeNameCount);
         _attributes.Clear();
         _attributeNames.Clear();
+        _attributeNameCount = 0;
         Poll();
     }
 
@@ -311,7 +339,11 @@ internal sealed partial class HtmlTokenizer
         ChargeCopy(name.Length); // Hashing the candidate name scans its UTF-16 units.
         Poll();
         if (!unique) Error("duplicate-attribute");
-        else AddAttribute(new HtmlAttribute(name, TakeValue(_value)));
+        else
+        {
+            _attributeNameCount++;
+            AddAttribute(new HtmlAttribute(name, TakeValue(_value)));
+        }
         if (_endTag) _endTagHadAttributes = true;
         _name.Clear();
         _value.Clear();
@@ -325,6 +357,11 @@ internal sealed partial class HtmlTokenizer
         if (_endTag && _endTagHadSelfClosing) Error("end-tag-with-trailing-solidus");
         var attributes = CopyAttributes();
         var name = MaterializeName(_tagName);
+        return EmitTag(name, attributes, out token);
+    }
+
+    private bool EmitTag(string name, HtmlAttribute[] attributes, out HtmlToken token)
+    {
         HtmlSourceLocation? source = null;
         if (!_endTag && name == "script")
         {
@@ -435,11 +472,14 @@ internal sealed partial class HtmlTokenizer
 
     private void EnsureAppendCapacity(CharBuffer buffer, int extra)
     {
-        if (extra <= buffer.Capacity - buffer.Length) return;
+        // A buffer not yet used takes the default capacity on its first append without a copy, so
+        // its growth is charged from that capacity, as if it had been allocated with the tokenizer.
+        var capacity = Math.Max(buffer.Capacity, CharBuffer.DefaultCapacity);
+        if (extra <= capacity - buffer.Length) return;
         Poll();
         var existing = buffer.Length;
         var required = checked(existing + extra);
-        var doubled = Math.Min(Array.MaxLength, (long) buffer.Capacity * 2);
+        var doubled = Math.Min(Array.MaxLength, (long) capacity * 2);
         buffer.EnsureCapacity((int) Math.Max(required, doubled));
         ChargeCopy(existing);
         Poll();
@@ -486,11 +526,11 @@ internal sealed partial class HtmlTokenizer
     private void EnsureAttributeNameCapacity()
     {
         var capacity = _attributeNames.EnsureCapacity(0);
-        if (_attributeNames.Count < capacity) return;
+        if (_attributeNameCount < capacity) return;
         Poll();
         var target = capacity == 0 ? 4 : Math.Min(int.MaxValue, (long) capacity * 2);
         _attributeNames.EnsureCapacity((int) target);
-        ChargeCopy(_attributeNames.Count);
+        ChargeCopy(_attributeNameCount);
         Poll();
     }
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Jint.HtmlParser.Html;
@@ -51,6 +52,18 @@ internal sealed class HtmlEntityLookup
         foreach (var character in name)
             if (!TryAdvance(state, character, out state, out _)) return null;
         return TryAdvance(state, ';', out _, out var value) ? value : null;
+    }
+
+    // The replacement of a terminal state, or null for a prefix of a longer name.
+    internal string? ValueAt(int state) => _entries[state].Value;
+
+    // The state a complete name reaches; the name must be in the table.
+    internal int StateOf(ReadOnlySpan<char> name)
+    {
+        var state = 0;
+        foreach (var character in name)
+            if (!TryAdvance(state, character, out state, out _)) throw new ArgumentException("Unknown character reference name.", nameof(name));
+        return state;
     }
 
     internal bool TryAdvance(int state, char character, out int next, out string? value)

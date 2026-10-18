@@ -45,7 +45,7 @@ internal sealed partial class HtmlTreeBuilder
                         return true;
                     case HtmlTableStartKind.Table:
                         Error("nested-table-start-tag");
-                        if (InTableScope("table")) SchedulePopTo(Last("table"), reprocess: true, resetMode: true);
+                        if (InTableScope("table")) SchedulePopTo(Last(_nameIndexes.Table), reprocess: true, resetMode: true);
                         return false;
                     case HtmlTableStartKind.Style or HtmlTableStartKind.Script or HtmlTableStartKind.Template: return InHead();
                     case HtmlTableStartKind.Input:
@@ -68,7 +68,7 @@ internal sealed partial class HtmlTreeBuilder
                 {
                     case HtmlTableEndKind.Table:
                         if (!InTableScope("table")) { Error("unexpected-table-end-tag"); return false; }
-                        SchedulePopTo(Last("table"), reprocess: false, resetMode: true);
+                        SchedulePopTo(Last(_nameIndexes.Table), reprocess: false, resetMode: true);
                         return false;
                     case HtmlTableEndKind.Body or HtmlTableEndKind.Caption or HtmlTableEndKind.Col or HtmlTableEndKind.Colgroup or HtmlTableEndKind.Html or HtmlTableEndKind.Tbody or HtmlTableEndKind.Td or
                         HtmlTableEndKind.Tfoot or HtmlTableEndKind.Th or HtmlTableEndKind.Thead or HtmlTableEndKind.Tr:
@@ -267,6 +267,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private bool InspectInputType()
     {
+        _rareTokenState = true;
         var inspected = false;
         while (_inputAttributeIndex < _token.Attributes.Length && !_inputTypeFound)
         {
@@ -284,13 +285,13 @@ internal sealed partial class HtmlTreeBuilder
     private int LastTableBodyInScope()
     {
         var index = Math.Max(Last("tbody"), Math.Max(Last("thead"), Last("tfoot")));
-        return index >= Math.Max(Last("html"), Math.Max(Last("table"), Last("template"))) ? index : -1;
+        return index >= Math.Max(Last(_nameIndexes.HtmlRoot), Math.Max(Last(_nameIndexes.Table), Last(_nameIndexes.Template))) ? index : -1;
     }
 
     private int LastCellInTableScope()
     {
         var index = Math.Max(Last("td"), Last("th"));
-        return index >= Math.Max(Last("html"), Math.Max(Last("table"), Last("template"))) ? index : -1;
+        return index >= Math.Max(Last(_nameIndexes.HtmlRoot), Math.Max(Last(_nameIndexes.Table), Last(_nameIndexes.Template))) ? index : -1;
     }
 
     private void ResetInsertionMode()
