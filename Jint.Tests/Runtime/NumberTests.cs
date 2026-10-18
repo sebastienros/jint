@@ -184,6 +184,20 @@ public class NumberTests
     }
 
     [Test]
+    public void NonDecimalInt32BoundaryDoesNotOverflow()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("Number('0x80000000')").AsNumber().Should().Be(2147483648);
+        engine.Evaluate("Number('0o20000000000')").AsNumber().Should().Be(2147483648);
+        engine.Evaluate("Number('0b10000000000000000000000000000000')").AsNumber().Should().Be(2147483648);
+
+        engine.Evaluate("Number('0X80000000')").AsNumber().Should().Be(2147483648);
+        engine.Evaluate("Number('0O20000000000')").AsNumber().Should().Be(2147483648);
+        engine.Evaluate("Number('0B10000000000000000000000000000000')").AsNumber().Should().Be(2147483648);
+    }
+
+    [Test]
     public void CompoundAssignmentMatchesBinaryOperatorSemantics()
     {
         var engine = new Engine();
