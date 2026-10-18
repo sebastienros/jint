@@ -267,4 +267,22 @@ public class RegExpEngineRegressionTests
     {
         new JsRegExp(new Engine()).Matcher.Should().NotBeNull();
     }
+
+    // Review of #4300: the initial plan was 64 frames whatever a frame cost, so a pattern with thousands of groups kept
+    // more than RetainedScratchInts in every thread's scratch before its first search.
+    [Test]
+    public void APatternWithLargeFramesStartsWithinTheRetainedStorage()
+    {
+        var thousands = Jint.Runtime.RegExp.JintRegExpEngine.Compile(string.Concat(Enumerable.Repeat("(a)", 3000)), Jint.Runtime.RegExp.RegExpFlags.None);
+        thousands.PlannedFrames.Should().BeLessThan(64);
+        var groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[thousands.CaptureCount];
+        thousands.TryMatch(new string('a', 3000), 0, Jint.Runtime.RegExp.JintRegExpEngine.NoDeadline, groups).Should().BeTrue();
+
+        // A single frame over the cap: the plan is one frame, and every search brings storage of its own.
+        var huge = Jint.Runtime.RegExp.JintRegExpEngine.Compile(string.Concat(Enumerable.Repeat("(a)", 140_000)), Jint.Runtime.RegExp.RegExpFlags.None);
+        huge.PlannedFrames.Should().Be(1);
+        groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[huge.CaptureCount];
+        huge.TryMatch(new string('a', 140_000), 0, Jint.Runtime.RegExp.JintRegExpEngine.NoDeadline, groups).Should().BeTrue();
+        groups[140_000].Index.Should().Be(139_999);
+    }
 }

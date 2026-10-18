@@ -180,8 +180,9 @@ three-round bar.
 ## 6. Follow-ups
 
 - **Variable-length backtracking frames upstream.** A frame reserves a full copy of the task stack plus the registers
-  (`6 × (2·depth + 4) + 2·groups + 4` ints), so `/"(?:[^"\\]|\\.)*"/` over a 1 MB literal needs about 100 ints per
-  character and reaches the 64 MiB ceiling (J5) where QuickJS did not. Saving only the ints in use would cut that by an
+  (`6 × (2·depth + 4) + 2·groups + 4` ints), so `/"(?:[^"\\]|\\.)*"/` needs about 200 ints per character and reaches
+  the 64 MiB ceiling (J5) at about 82,000 characters, where QuickJS and V8 match far longer literals (measured:
+  `/(a|b)*c/` stops at about 120,000 characters, `/(?:a|b)*c/` at about 140,000). Saving only the ints in use would cut that by an
   order of magnitude.
 - **Compile cost per pattern upstream** (review of #4300, item 5): one 8 KiB bitmap per set *node* rather than per
   distinct set; a legacy-`i` class building its bitmap and search values over all 65,536 BMP code units (1,000 such

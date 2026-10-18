@@ -78,7 +78,8 @@ internal sealed class JintRegExpEngine
         public long Ints => (long) Capacity.StateSlots + Capacity.CaptureSlots + Capacity.ScratchSlots;
     }
 
-    // The one mutable field: a sizing hint, never above RetainedScratchInts, shared by every search of this matcher.
+    // The one mutable field: a sizing hint shared by every search of this matcher. Growth is published only while its
+    // storage fits RetainedScratchInts; a plan above it (a single frame over the cap) is never kept in thread scratch.
     // A stale read only costs a growth retry, so it is published without ordering.
     private FramePlan _plan;
     // The most frames whose storage fits MaxScratchInts, so a capacity is never asked of the executor that its
@@ -94,7 +95,10 @@ internal sealed class JintRegExpEngine
         var one = new FramePlan(1, executor.GetRequiredCapacity(SearchOperation.Captures, 1)).Ints;
         var perFrame = new FramePlan(2, executor.GetRequiredCapacity(SearchOperation.Captures, 2)).Ints - one;
         _maxFrames = (int) Math.Max(1, Math.Min(MaxFrames, (MaxScratchInts - (one - perFrame)) / Math.Max(1, perFrame)));
-        var initial = Math.Min(InitialFrames, _maxFrames);
+        // Start where a thread may keep the storage: a pattern whose frames are large (thousands of groups, a deep task
+        // stack) starts lower, and one whose single frame is over the cap searches with storage of its own every time.
+        var retainedFrames = (int) Math.Max(1, (RetainedScratchInts - (one - perFrame)) / Math.Max(1, perFrame));
+        var initial = Math.Min(InitialFrames, Math.Min(_maxFrames, retainedFrames));
         _plan = new FramePlan(initial, executor.GetRequiredCapacity(SearchOperation.Captures, initial));
         var program = executor.Program;
         CaptureCount = program.GroupCount;
@@ -142,8 +146,8 @@ internal sealed class JintRegExpEngine
         return new JintRegExpEngine((EcmaExecutor) executor!, flags);
     }
 
-    /// <summary>The frame count a search of this matcher starts with: the shared growth hint, never above what
-    /// <c>RetainedScratchInts</c> holds.</summary>
+    /// <summary>The frame count a search of this matcher starts with: the shared growth hint, whose storage fits
+    /// <c>RetainedScratchInts</c> unless a single frame does not.</summary>
     internal int PlannedFrames => _plan.Frames;
 
     /// <summary>Capture group count, including group 0 for the full match.</summary>
@@ -199,13 +203,8 @@ internal sealed class JintRegExpEngine
         }
 
         var plan = _plan;
-        var scratch = t_scratch;
-        if (scratch is null || !scratch.Fits(plan.Capacity))
-        {
-            scratch = Scratch.ForThread(plan.Capacity);
-        }
 
-        var state = new RunState(scratch.Buffers, long.MaxValue, deadline);
+        var state = new RunState(Rent(plan), long.MaxValue, deadline);
         var span = input.AsSpan();
         var count = 0;
         var position = startIndex;
@@ -305,16 +304,11 @@ internal sealed class JintRegExpEngine
 
         // A reference read is atomic, and a stale plan only means one more growth retry.
         var plan = _plan;
-        var scratch = t_scratch;
-        if (scratch is null || !scratch.Fits(plan.Capacity))
-        {
-            scratch = Scratch.ForThread(plan.Capacity);
-        }
 
         // The admitted frame count is the planned one, the start index is checked above and every caller passes
         // CaptureCount groups: what Search would validate is already known, and the prevalidated entry reads the
         // partitions only up to the planned frame count, so they may be longer than planned.
-        var state = new RunState(scratch.Buffers, long.MaxValue, deadline);
+        var state = new RunState(Rent(plan), long.MaxValue, deadline);
         var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match);
         if (status == RegexSearchStatus.Match)
         {
@@ -329,6 +323,32 @@ internal sealed class JintRegExpEngine
         }
 
         return SearchSlow(input, startIndex, operation, groups, deadline, out match, sticky, status, state.Failure.Code, plan);
+    }
+
+    // The thread's storage when the plan fits what a thread may keep, otherwise storage of the search's own, collected
+    // once it returns.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static WorkspaceBuffers Rent(FramePlan plan)
+    {
+        var scratch = t_scratch;
+        if (scratch is not null && scratch.Fits(plan.Capacity))
+        {
+            return scratch.Buffers;
+        }
+
+        return RentSlow(plan);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WorkspaceBuffers RentSlow(FramePlan plan)
+    {
+        if (plan.Ints <= RetainedScratchInts)
+        {
+            return Scratch.ForThread(plan.Capacity).Buffers;
+        }
+
+        var capacity = plan.Capacity;
+        return new WorkspaceBuffers(new int[capacity.StateSlots], new int[capacity.CaptureSlots], new int[capacity.ScratchSlots]);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -363,20 +383,13 @@ internal sealed class JintRegExpEngine
             var frames = (int) Math.Min(_maxFrames, (long) plan.Frames * 4);
             plan = new FramePlan(frames, _executor.GetRequiredCapacity(SearchOperation.Captures, frames));
 
-            WorkspaceBuffers buffers;
             if (plan.Ints <= RetainedScratchInts)
             {
                 // Small enough for every search of this pattern to keep: later searches start here.
                 _plan = plan;
-                buffers = Scratch.ForThread(plan.Capacity).Buffers;
-            }
-            else
-            {
-                // This search's alone, collected once it returns.
-                buffers = new WorkspaceBuffers(new int[plan.Capacity.StateSlots], new int[plan.Capacity.CaptureSlots], new int[plan.Capacity.ScratchSlots]);
             }
 
-            var state = new RunState(buffers, long.MaxValue, deadline);
+            var state = new RunState(Rent(plan), long.MaxValue, deadline);
             status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match);
             if (status == RegexSearchStatus.Match)
             {
@@ -419,7 +432,8 @@ internal sealed class JintRegExpEngine
         {
             if (array.Length < length)
             {
-                array = new int[Math.Max(length, array.Length * 2)];
+                // Doubling amortizes growth, but never past what a thread may keep.
+                array = new int[array.Length * 2L <= RetainedScratchInts ? Math.Max(length, array.Length * 2) : length];
             }
         }
     }
