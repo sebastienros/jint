@@ -77,6 +77,31 @@ public class StringAppendAliasingTests
     }
 
     /// <summary>
+    /// A <c>+=</c> to a global, a property or a String object copies a right operand whose flat text would be a large
+    /// object, and which has none yet, from its chunks rather than flattening it
+    /// (<see cref="Jint.Native.JsString.ConcatenatedString.CopiesThroughBuffer"/>). Each script makes a string past
+    /// that length and checks the result and every copy against text built another way; the local, whose binding can
+    /// own its string and whose lane flattens such an operand, is the control. <c>'ab'</c> doubled 16 times is
+    /// 131,072 characters, past the 42,500 at which an operand qualifies. The string somebody appended past is built
+    /// by small appends instead, so the chunk it ends in has room and the <c>'x'</c> appended past it lands there: an
+    /// append to it that wrote into that chunk rather than branching off would overwrite the <c>'x'</c>.
+    /// </summary>
+    [TestCase("var s = 'ab'; for (var i = 0; i < 17; i++) { s += s; } s === 'ab'.repeat(1 << 17)", TestName = "doubling a global")]
+    [TestCase("function f() { var s = 'ab'; for (var i = 0; i < 17; i++) { s += s; } return s; } f() === 'ab'.repeat(1 << 17)", TestName = "doubling a local")]
+    [TestCase("var o = { p: 'ab' }; for (var i = 0; i < 17; i++) { o.p += o.p; } o.p === 'ab'.repeat(1 << 17)", TestName = "doubling a property")]
+    [TestCase("var s = 'ab'; for (var i = 0; i < 16; i++) { s += s; } var t = s; s += s; t === 'ab'.repeat(1 << 16) && s === t + t", TestName = "a copy keeps its text")]
+    [TestCase("var s = ''; for (var i = 0; i < 50000; i++) { s += 'ab'; } var u = s; s += 'x'; u += u; u === 'ab'.repeat(100000) && s === 'ab'.repeat(50000) + 'x'", TestName = "an operand somebody appended past")]
+    [TestCase("var s = 'ab'; for (var i = 0; i < 16; i++) { s += s; } var w = new String(s); w += w; typeof w === 'string' && w === s + s", TestName = "a String object")]
+    [TestCase("var s = 'ab'; for (var i = 0; i < 16; i++) { s += s; } var f = 'x'; f += s; f === 'x' + 'ab'.repeat(1 << 16)", TestName = "a flat receiver")]
+    [TestCase("var s = 'ab'; for (var i = 0; i < 16; i++) { s += s; } var g = 'x'; g += 'y'; g += s; g === 'xy' + 'ab'.repeat(1 << 16)", TestName = "a receiver with its text and no chunk")]
+    public void ALongOperandAppendsAsItsText(string script)
+    {
+        var engine = new Engine();
+
+        engine.Evaluate(script).AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
     /// The copies compare and hash by content against every other representation of the same text.
     /// </summary>
     [Test]

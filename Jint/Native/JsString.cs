@@ -498,6 +498,13 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return new ConcatenatedString(string.Concat(self, value));
     }
 
+    /// <summary>
+    /// <see cref="Append(Realm, string)"/> for a right operand whose <see cref="ConcatenatedString.CopiesThroughBuffer"/>
+    /// holds, so that a <see cref="ConcatenatedString"/> receiver can copy its chunks without first making its flat
+    /// text: a large-object allocation made only to be copied once, as in <c>s += s</c>.
+    /// </summary>
+    internal virtual JsString Append(Realm realm, ConcatenatedString value) => Append(realm, value.ToString());
+
     public sealed override object ToObject() => ToString();
 
     internal sealed override bool ToBoolean()
@@ -891,6 +898,43 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         }
 
         /// <summary>
+        /// The length at which a string's text reaches the large object heap's 85,000 bytes.
+        /// </summary>
+        private const int LargeTextLength = 85_000 / sizeof(char);
+
+        /// <summary>
+        /// Whether a <c>+=</c> to a global, a property, or anything else that cannot own a string copies this right
+        /// operand through a pooled buffer (<see cref="Append(Realm, ConcatenatedString)"/>) rather than making its
+        /// flat text: it has none yet, and the text would be a large object. Every large-object allocation draws on
+        /// the budget that starts a full collection, and in <c>s += s</c>, where the result replaces the operand, the
+        /// text would be read only by this copy. The lanes for a binding that can own its string do not ask: those
+        /// are the small appends' lanes, and a type test on every append, for an operand this long, is not worth it.
+        /// </summary>
+        internal bool CopiesThroughBuffer => _value is null && _length >= LargeTextLength;
+
+        internal override JsString Append(Realm realm, ConcatenatedString value)
+        {
+            Debug.Assert(value.CopiesThroughBuffer, "a short or flat operand is appended as a string");
+
+            var length = _length;
+            var valueLength = value._length;
+            ThrowIfLengthExceeded(realm, (long) length + valueLength);
+
+            // The operand is read into the buffer before anything is written: it may be this value itself, whose
+            // chunk the append extends.
+            var buffer = System.Buffers.ArrayPool<char>.Shared.Rent(valueLength);
+            try
+            {
+                value.CopyTo(buffer);
+                return new ConcatenatedString(ExtendWithText(realm, buffer.AsSpan(0, valueLength)), length + valueLength);
+            }
+            finally
+            {
+                System.Buffers.ArrayPool<char>.Shared.Return(buffer);
+            }
+        }
+
+        /// <summary>
         /// Appends <paramref name="value"/> to this instance itself rather than returning a new one. Only for the
         /// <c>+=</c> lane, and only while <see cref="IsExtensibleInPlace"/> and the binding that owns this instance
         /// still holds it: nothing else can then see it change.
@@ -958,48 +1002,91 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         }
 
         /// <summary>
+        /// <see cref="Extend"/> for text no string holds: the operand <see cref="Append(Realm, ConcatenatedString)"/>
+        /// has copied into a buffer. Apart from Extend, which the <c>+=</c> lanes inline, so that their helper calls
+        /// keep passing a string: a span argument costs the method that makes the call a zeroed stack slot on every
+        /// call, the in-place append's included.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private Chunk ExtendWithText(Realm realm, ReadOnlySpan<char> value)
+        {
+            var chunk = _chunk;
+            if (chunk is null)
+            {
+                return StartFirstChunk(realm, value);
+            }
+
+            var used = _length - chunk.Offset;
+            if (chunk.Used != used || !ReferenceEquals(chunk.Owner, realm._concatenationOwner))
+            {
+                return StartBranchChunk(realm, value);
+            }
+
+            if (value.Length > chunk.Chars.Length - used)
+            {
+                return FillAndStartChunk(realm, chunk, used, value);
+            }
+
+            value.CopyTo(chunk.Chars.AsSpan(used));
+            chunk.Used = used + value.Length;
+            return chunk;
+        }
+
+        /// <inheritdoc cref="FillAndStartChunk(Realm, Chunk, int, ReadOnlySpan{char})"/>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private Chunk FillAndStartChunk(Realm realm, Chunk chunk, int used, string value) => FillAndStartChunk(realm, chunk, used, value.AsSpan());
+
+        /// <summary>
         /// This value ends its chunk and <paramref name="value"/> does not fit in what is left: fills the chunk, as
         /// <see cref="StringBuilder"/> does, so that no chunk but the last is left part-empty, and starts the next
         /// one sized with the text, doubling up to <see cref="MaxChunkLength"/>.
         /// </summary>
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private Chunk FillAndStartChunk(Realm realm, Chunk chunk, int used, string value)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private Chunk FillAndStartChunk(Realm realm, Chunk chunk, int used, ReadOnlySpan<char> value)
         {
             var head = chunk.Chars.Length - used;
-            value.AsSpan(0, head).CopyTo(chunk.Chars.AsSpan(used));
+            value.Slice(0, head).CopyTo(chunk.Chars.AsSpan(used));
             chunk.Used = chunk.Chars.Length;
 
             var offset = _length + head;
             var rest = value.Length - head;
             var chars = GC.AllocateUninitializedArray<char>(System.Math.Max(rest, System.Math.Max(MinChunkLength, System.Math.Min(offset, MaxChunkLength))));
-            value.AsSpan(head).CopyTo(chars);
+            value.Slice(head).CopyTo(chars);
             return new Chunk(chars, chunk, offset, realm._concatenationOwner, rest);
         }
+
+        /// <inheritdoc cref="StartBranchChunk(Realm, ReadOnlySpan{char})"/>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private Chunk StartBranchChunk(Realm realm, string value) => StartBranchChunk(realm, value.AsSpan());
 
         /// <summary>
         /// Somebody already appended past this value, or another engine writes its chunk: starts a chunk of this
         /// append's own after this value's end, sharing everything before it. A branch is usually a copy that grows
         /// by a little or not at all, so its chunk is small; the doubling takes over if it does keep growing.
         /// </summary>
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private Chunk StartBranchChunk(Realm realm, string value)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private Chunk StartBranchChunk(Realm realm, ReadOnlySpan<char> value)
         {
             var chars = GC.AllocateUninitializedArray<char>(System.Math.Max(value.Length, MinChunkLength));
-            value.AsSpan().CopyTo(chars);
+            value.CopyTo(chars);
             return new Chunk(chars, _chunk, _length, realm._concatenationOwner, value.Length);
         }
+
+        /// <inheritdoc cref="StartFirstChunk(Realm, ReadOnlySpan{char})"/>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private Chunk StartFirstChunk(Realm realm, string value) => StartFirstChunk(realm, value.AsSpan());
 
         /// <summary>
         /// The first append to a value one concatenation produced: copies its text into a chunk with room to grow.
         /// </summary>
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private Chunk StartFirstChunk(Realm realm, string value)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private Chunk StartFirstChunk(Realm realm, ReadOnlySpan<char> value)
         {
             var text = _value;
             var length = text.Length + value.Length;
             var chars = GC.AllocateUninitializedArray<char>(length + System.Math.Max(MinChunkLength, System.Math.Min(length, MaxChunkLength)));
             text.AsSpan().CopyTo(chars);
-            value.AsSpan().CopyTo(chars.AsSpan(text.Length));
+            value.CopyTo(chars.AsSpan(text.Length));
             return new Chunk(chars, previous: null, offset: 0, realm._concatenationOwner, length);
         }
 

@@ -440,8 +440,11 @@ internal sealed class JintAssignmentExpression : JintExpression
                         // itself refuses a result past JsString.MaxLength, before allocating it.
                         // Deliberately not checked here: reading the receiver's Length at this call site
                         // costs a virtual dispatch on every `s += t`, which the override does not, because
-                        // it already holds the field it measures.
-                        return jsString.Append(context.Engine.Realm, TypeConverter.ToString(rprim));
+                        // it already holds the field it measures. A long right operand with no flat text yet is
+                        // copied from its chunks rather than flattened (ConcatenatedString.CopiesThroughBuffer).
+                        return rprim is JsString.ConcatenatedString { CopiesThroughBuffer: true } longText
+                            ? jsString.Append(context.Engine.Realm, longText)
+                            : jsString.Append(context.Engine.Realm, TypeConverter.ToString(rprim));
                     }
 
                     if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))

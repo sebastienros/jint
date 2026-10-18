@@ -138,6 +138,71 @@ public class ConcatenatedStringMemoTests
     }
 
     /// <summary>
+    /// A right operand whose flat text would be a large object, and which has none yet, is copied from its chunks
+    /// through a buffer instead (<see cref="JsString.ConcatenatedString.CopiesThroughBuffer"/>): the operand keeps no
+    /// memo, and whether the append extends the receiver's own chunk (<c>s += s</c>), branches off a value somebody
+    /// already appended past, or starts the first chunk of a flat receiver, every value reads as the text it was
+    /// made with. Both operands are built from small appends, so the chunk each ends in has room left: the branch has
+    /// characters after the receiver's end that it must not write over.
+    /// </summary>
+    [Test]
+    public void ALongOperandIsCopiedFromItsChunksWithoutAMemo()
+    {
+        using var engine = new Engine();
+
+        var (value, text) = BuildBySmallAppends(engine, i => (char) ('0' + i % 10));
+        var (other, otherText) = BuildBySmallAppends(engine, i => (char) ('a' + i % 26));
+        value.CopiesThroughBuffer.Should().BeTrue("the premise: a long value an append produced, with no memo");
+        other.CopiesThroughBuffer.Should().BeTrue("the premise: a long value an append produced, with no memo");
+
+        // s += s, where the receiver ends the chunk's written characters
+        var doubled = (JsString.ConcatenatedString) value.Append(engine.Realm, value);
+        AssertMemoIsAbsent(value, text);
+        AssertMemoIsAbsent(doubled, text + text);
+
+        // the doubled value has written past the receiver's end, so this append branches off
+        var branch = (JsString.ConcatenatedString) value.Append(engine.Realm, other);
+        AssertMemoIsAbsent(value, text);
+        AssertMemoIsAbsent(other, otherText);
+        AssertMemoIsAbsent(branch, text + otherText);
+
+        // a receiver that has its flat text and no chunk yet
+        var first = (JsString.ConcatenatedString) new JsString.ConcatenatedString("x").Append(engine.Realm, value);
+        AssertMemoIsAbsent(value, text);
+        AssertMemoIsAbsent(first, "x" + text);
+
+        doubled[text.Length + 12_345].Should().Be(text[12_345]);
+        branch[text.Length + 12_345].Should().Be(otherText[12_345]);
+        first[12_346].Should().Be(text[12_345]);
+        AssertReadsAs(doubled, text + text);
+        AssertReadsAs(branch, text + otherText);
+        AssertReadsAs(first, "x" + text);
+        AssertReadsAs(other, otherText);
+        AssertReadsAs(value, text);
+
+        // once the operand has its memo, an append takes it as a string
+        value.CopiesThroughBuffer.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// The lane that asks <see cref="JsString.ConcatenatedString.CopiesThroughBuffer"/>: a <c>+=</c> to a global
+    /// leaves a long operand without the flat text it would otherwise have made only to copy.
+    /// </summary>
+    [Test]
+    public void APlusEqualsToAGlobalLeavesALongOperandUnflattened()
+    {
+        using var engine = new Engine();
+
+        engine.Execute("var s = 'ab'; for (var i = 0; i < 16; i++) { s += s; } var t = s; s += t;");
+
+        var text = new System.Text.StringBuilder().Insert(0, "ab", 1 << 16).ToString();
+        var operand = engine.GetValue("t").Should().BeOfType<JsString.ConcatenatedString>().Subject;
+        AssertMemoIsAbsent(operand, text);
+        AssertReadsAs((JsString) engine.GetValue("s"), text + text);
+        AssertReadsAs(operand, text);
+    }
+
+    /// <summary>
     /// The shape a host is handed: a script's <c>+=</c> result returned as the completion value, and read off
     /// an object property, before anything has read its text.
     /// </summary>
@@ -159,6 +224,23 @@ public class ConcatenatedStringMemoTests
 
         AssertReadsAs((JsString) fromEvaluate, "abc");
         AssertReadsAs((JsString) fromProperty, "xyz");
+    }
+
+    /// <summary>
+    /// A value of 50,000 characters built one character per append, so it has no memo.
+    /// </summary>
+    private static (JsString.ConcatenatedString Value, string Text) BuildBySmallAppends(Engine engine, Func<int, char> character)
+    {
+        var value = new JsString.ConcatenatedString(character(0).ToString());
+        var expected = new System.Text.StringBuilder().Append(character(0));
+        for (var i = 1; i < 50_000; i++)
+        {
+            var piece = character(i).ToString();
+            value = Append(engine, value, piece);
+            expected.Append(piece);
+        }
+
+        return (value, expected.ToString());
     }
 
     private static JsString.ConcatenatedString Append(Engine engine, JsString.ConcatenatedString value, string text)
