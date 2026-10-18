@@ -2,7 +2,7 @@
 
 **Status: implemented on `sebros/jint-gregsex-regex-engine-a5ccbe`.** Every regular expression written in script runs
 on the ECMAScript flavor of [GregsEx](https://github.com/sebastienros/gregsex), vendored by `tools/sync_gregsex.py`
-from its `main` branch (first `d989dd84`, now `a12c3ce8`). The QuickJS libregexp port and the Acornima-to-.NET `Regex`
+from its `main` branch (first `d989dd84`, then `a12c3ce8`, now `dc455e97`). The QuickJS libregexp port and the Acornima-to-.NET `Regex`
 adaptation are gone. This document records the decision, how compliance was held, what the work surfaced in
 either project, and what performance it bought.
 
@@ -105,7 +105,8 @@ upstream as [sebastienros/gregsex#3](https://github.com/sebastienros/gregsex/pul
 ## 5. Performance
 
 `Jint.Benchmark/measure-paired.ps1`, 3 rounds in alternating order, `main` at `82b0efbaa` against this branch with
-the vendored copy at GregsEx `008b4aa8` (gregsex#3), on one Apple M4 Pro, .NET 10.0.11, macOS 15. The 41 rows are
+the vendored copy at GregsEx `dc455e97` (gregsex#3, measured at its branch head `008b4aa8`, whose
+vendored files are byte-identical), on one Apple M4 Pro, .NET 10.0.11, macOS 15. The 41 rows are
 every regex benchmark the suite has, plus SunSpider `regexp-dna` and Dromaeo `ObjectRegExp`. A row is a change only
 when its 95% CI excludes zero; `control-indexOf` never reaches regex code and reads +0.9% [+0.1, +3.0], the run's
 floor. Three rounds is enough for the large effects; a ±5% one wants six before it is believed
