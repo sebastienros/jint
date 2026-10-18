@@ -191,15 +191,14 @@ internal sealed class JintAssignmentExpression : JintExpression
 
         JsValue originalLeftValue;
         Reference lref;
-        bool lhsHasSideEffects;
         if (suspendable is { IsResuming: true }
             && suspendable.Data.TryGet(this, out AssignmentSuspendData? suspendData))
         {
-            // Resuming: skip LHS re-evaluation. The slow path may have observable
-            // side effects (obj[++i]), so we reuse the saved Reference + original value.
+            // Resuming: the left-hand side was evaluated and read before the right-hand side suspended
+            // (HandleSuspendedRight), so neither happens again. Re-evaluating would repeat a side effect
+            // (obj[++i]), and re-reading would see a write made while the frame was suspended.
             lref = suspendData!.Lref;
             originalLeftValue = suspendData.OriginalLeftValue;
-            lhsHasSideEffects = true;
         }
         else if (_leftIdentifier is not null && JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 engine.ExecutionContext.LexicalEnvironment,
@@ -211,7 +210,6 @@ internal sealed class JintAssignmentExpression : JintExpression
         {
             originalLeftValue = temp;
             lref = engine._referencePool.Rent(identifierEnvironment, _leftIdentifier.Identifier.Value, strict, thisValue: null);
-            lhsHasSideEffects = false;
         }
         else
         {
@@ -235,7 +233,6 @@ internal sealed class JintAssignmentExpression : JintExpression
                 Throw.ReferenceError(context.Engine.Realm, "Invalid left-hand side in assignment");
             }
             originalLeftValue = context.Engine.GetValue(lref, returnReferenceToPool: false);
-            lhsHasSideEffects = true;
         }
 
         var handledByOverload = false;
@@ -249,7 +246,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             // so the operator-switch below doesn't double-evaluate _right.
             if (context.IsSuspended())
             {
-                HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
+                HandleSuspendedRight(engine, suspendable, lref, originalLeftValue);
                 return newLeftValue!;
             }
         }
@@ -270,7 +267,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = NamedEvaluation(context, _right);
                         if (context.IsSuspended())
                         {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue);
                             return rval;
                         }
 
@@ -290,7 +287,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = NamedEvaluation(context, _right);
                         if (context.IsSuspended())
                         {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue);
                             return rval;
                         }
 
@@ -310,7 +307,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = NamedEvaluation(context, _right);
                         if (context.IsSuspended())
                         {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue);
                             return rval;
                         }
 
@@ -323,7 +320,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue);
                             return rval;
                         }
 
@@ -723,13 +720,19 @@ internal sealed class JintAssignmentExpression : JintExpression
         return outcome;
     }
 
-    private void HandleSuspendedRight(Engine engine, ISuspendable? suspendable, Reference lref, JsValue originalLeftValue, bool lhsHasSideEffects)
+    /// <summary>
+    /// The right-hand side suspended on a <c>yield</c> or an <c>await</c>: parks the Reference and the value read from
+    /// it, which the resume combines with in place of evaluating and reading the left-hand side again. That holds for
+    /// an identifier as much as for a member expression: evaluating an identifier has no side effect, but the
+    /// specification reads the value once, before the right-hand side
+    /// (https://tc39.es/ecma262/#sec-assignment-operators-runtime-semantics-evaluation), so a write made while the
+    /// frame was suspended must not reach the result, and the store goes to the binding resolved then
+    /// (sebastienros/jint#4268). Only the suspension path comes here; a right-hand side that does not suspend never
+    /// touches the parked state.
+    /// </summary>
+    private void HandleSuspendedRight(Engine engine, ISuspendable? suspendable, Reference lref, JsValue originalLeftValue)
     {
-        // Only the slow path's LHS can have observable side effects (e.g. obj[++i]).
-        // For that case, hold the Reference + value across the suspension so the next
-        // resume reuses them. For the side-effect-free fast path, return the Reference
-        // to the pool — no benefit in retaining it.
-        if (lhsHasSideEffects && suspendable is not null)
+        if (suspendable is not null)
         {
             var data = suspendable.Data.GetOrCreate<AssignmentSuspendData>(this);
             data.Lref = lref;
