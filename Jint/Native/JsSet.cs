@@ -28,7 +28,7 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
 
     public int Size => _data.Count;
 
-    public void Add(JsValue value) => _data.Add(SameValueZeroComparer.ToStableKey(value));
+    public void Add(JsValue value) => _data.Add(value);
 
     public void Clear() => _data.Clear();
 

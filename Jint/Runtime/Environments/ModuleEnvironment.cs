@@ -47,6 +47,15 @@ internal sealed class ModuleEnvironment : DeclarativeEnvironment
         return base.GetBindingValue(name, strict);
     }
 
+    // Import bindings live beside the module's own, so a module's bindings are read as usual and never own a
+    // string; a module-level += allocates, as a script-level one does.
+    internal override bool TryGetBindingForAppend(BindingName name, bool strict, out JsValue? value, out bool ownsString, out bool canOwnStrings)
+    {
+        ownsString = false;
+        canOwnStrings = false;
+        return TryGetBinding(name, strict, out value);
+    }
+
     internal override bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value)
     {
         if (_importBindings.TryGetValue(name.Key, out var indirectBinding))

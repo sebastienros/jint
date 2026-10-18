@@ -133,7 +133,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                         }
                         else
                         {
-                            laneValue = declaration.Init.GetValue(context).Clone();
+                            laneValue = declaration.Init.GetValue(context);
 
                             // Check for generator suspension after evaluating initializer
                             if (context.IsSuspended())
@@ -197,11 +197,11 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     JsValue value;
                     if (declaration.Init is JintClassExpression classExpr && declaration.Init._expression.IsAnonymousFunctionDefinition())
                     {
-                        value = classExpr.EvaluateWithName(context, lhs.ReferencedName.ToString()).Clone();
+                        value = classExpr.EvaluateWithName(context, lhs.ReferencedName.ToString());
                     }
                     else
                     {
-                        value = declaration.Init.GetValue(context).Clone();
+                        value = declaration.Init.GetValue(context);
                     }
 
                     // Check for generator suspension after evaluating initializer
@@ -239,11 +239,11 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
         {
             if (declaration.Init is JintClassExpression classExpr && declaration.Init._expression.IsAnonymousFunctionDefinition())
             {
-                value = classExpr.EvaluateWithName(context, lhs.ReferencedName.ToString()).Clone();
+                value = classExpr.EvaluateWithName(context, lhs.ReferencedName.ToString());
             }
             else
             {
-                value = declaration.Init.GetValue(context).Clone();
+                value = declaration.Init.GetValue(context);
             }
 
             // Check for generator suspension after evaluating initializer

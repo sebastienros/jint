@@ -123,7 +123,7 @@ internal sealed class JintFunctionDefinition
 
             argumentsInstance = context.Engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList, state);
             context.RunBeforeExecuteStatementChecks(Function.Body);
-            var jsValue = _bodyExpression.GetValue(context).Clone();
+            var jsValue = _bodyExpression.GetValue(context);
             result = new Completion(CompletionType.Return, jsValue, Function.Body);
         }
         else if (Function.Generator)
@@ -170,7 +170,7 @@ internal sealed class JintFunctionDefinition
 
             context.Engine.FunctionDeclarationInstantiationFast(state, in argumentsList);
             context.RunBeforeExecuteStatementChecks(Function.Body);
-            var jsValue = _bodyExpression.GetValue(context).Clone();
+            var jsValue = _bodyExpression.GetValue(context);
             return new Completion(CompletionType.Return, jsValue, Function.Body);
         }
 
@@ -224,7 +224,7 @@ internal sealed class JintFunctionDefinition
                 jsValues = null;
             }
             context.RunBeforeExecuteStatementChecks(bodyExpression._expression);
-            var jsValue = bodyExpression.GetValue(context).Clone();
+            var jsValue = bodyExpression.GetValue(context);
 
             // Check for async suspension - if suspended, return early to allow resumption
             if (context.IsSuspended())
