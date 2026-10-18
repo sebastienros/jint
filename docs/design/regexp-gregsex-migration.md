@@ -60,7 +60,7 @@ The four failures and the skip are the same on both builds:
 
 ## 4. What the work surfaced
 
-### 4.1 In GregsEx (all fixed upstream in [sebastienros/gregsex#2](https://github.com/sebastienros/gregsex/pull/2), and pinned by a test on both sides)
+### 4.1 In GregsEx (all fixed upstream in [sebastienros/gregsex#2](https://github.com/sebastienros/gregsex/pull/2) and [#3](https://github.com/sebastienros/gregsex/pull/3), each pinned by a test on both sides)
 
 The same pull request made every GregsEx source and generator output `#nullable enable`, so the copied files no
 longer need it added (the sync tool still asserts it), and added `JintRegressionTests` and `NullableContextTests`
@@ -80,6 +80,19 @@ tables alone, and the `#if NET9_0_OR_GREATER` guards (the folder's `README.md`).
 | G9 | Repository: the benchmark comparator `jint-quickjs` compiles `$(JintRoot)/Jint/Runtime/RegExp/**`. | It stops compiling against this branch, and would be benchmarking GregsEx against a copy of itself. | Removed upstream (comparator, `JINT_QUICKJS` blocks and manifest entry); the release report's earlier `jint-quickjs` columns stay as history. |
 | G10 | Defaults: Unicode 16.0, a 4096-frame cap, a 10M work limit and ~1.7 MB reserved per matcher session. | Right for a bounded library and wrong for a JavaScript engine (test262 asserts Unicode 17.0). | Not a defect: Jint binds the 17.0 tables, starts at 64 frames, removes the work limit and relies on the regex timeout. |
 
+A second pass, after the first paired benchmark left split, `.*` and fresh-engine rows slower than `main`, went
+upstream as [sebastienros/gregsex#3](https://github.com/sebastienros/gregsex/pull/3):
+
+| # | Defect | Effect | Fix |
+| --- | --- | --- | --- |
+| G11 | `SearchCore` held the VM's `Machine`, a large ref struct whose frame is zeroed on entry. | Every search paid for a VM even when an accelerated plan answered: 12 ns of a 25 ns `split(/a/)` step. | The VM path is its own non-inlined method. |
+| G12 | An absolute-deadline budget still read the clock at each search's zero-unit checkpoint. | 17 ns per search under Jint, which always sets a timeout. | Its checkpoints wait for the clock stride like any other charge. |
+| G13 | The atomic-sequence plan refused nullable repeats. | `split(/\s*,\s*/)` ran the VM at every candidate. | Admitted under the plan's existing last-or-followed-by-a-foreign-literal rule. |
+| G14 | Under `i` a class had no BMP bitmap, ASCII `Canonicalize` was a binary search, and every `i` literal blocked the plans. | `/[a-z]+@[a-z0-9.]+\.[a-z]{2,}/i` over 15 characters: 4.7 µs. | A folded bitmap under legacy `i`, an ASCII table, and caseless `i` literals planned as plain ones: 51 ns. |
+| G15 | The FIRST-character prefilter stopped at a group or alternation. | `/(https?):\/\//` 500 ns, `/(?:abc|def|ghi)+\d*/` 2.5 µs on a 15-character subject. | It looks through groups, alternations and inner sequences: 37 ns and 119 ns. |
+| G16 | A `.` run searched its four line terminators with a four-value `IndexOfAny`. | Twice .NET's `IndexOf('\n')` over 64 KiB. | One `IndexOfAnyExceptInRange('\u000E', '\u2027')`, verified, with an exact fallback after 8 false hits. |
+| G17 | The inverse-fold cache behind the FIRST prefilters was per mode, not per Unicode version (introduced with G6). | After a Unicode 16 program built it, a Unicode 17 program missed the 17.0 case pairs: wrong `NoMatch`. Not reachable from Jint, which has the 17.0 tables only. | Keyed by its case-table instance. |
+
 ### 4.2 In Jint
 
 | # | Defect | Effect | Fix |
@@ -87,78 +100,81 @@ tables alone, and the `#if NET9_0_OR_GREATER` guards (the folder's `README.md`).
 | J1 | The generic `RegExp.prototype[@@replace]` turned an `undefined` capture into `""` before calling a replacer. | Wrong argument to a replacer function (`staging/sm/String/regress-369778.js`); latent before because non-`u` patterns took the .NET fast path. | Keep `undefined` (step 14.k). |
 | J2 | The two regex-timeout tests used `^(a+)+$`, which is catastrophic for .NET and not for GregsEx. | They stopped exercising the timeout. | `^(?:a\|a)*b` against `a…a!b`, which is exponential for any backtracking matcher. |
 | J3 | The fused lanes (global `match`, `split`, plain-string replace) do not update the legacy `RegExp.$1`… statics. | Pre-existing; unchanged by this work. | Not fixed — noted for a follow-up. |
+| J4 | Each adapter search went through the validating entry's checks and sliced its scratch, and split searched one match per call. | About 15 ns per search above the executor. | A leaner prevalidated search, and split on a pattern without groups takes match ranges 32 at a time. |
 
 ## 5. Performance
 
-`Jint.Benchmark/measure-paired.ps1`, 3 rounds in alternating order, `main` at `82b0efbaa` against this branch at
-`e4d62e219` (the vendored copy is byte-identical at `d16b83758`), on one Apple M4 Pro, .NET 10.0.11, macOS 15. The
-41 rows are every regex benchmark the suite has, plus SunSpider `regexp-dna` and Dromaeo `ObjectRegExp`. A row is a
-change only when its 95% CI excludes zero; `control-indexOf` never reaches regex code and reads +1.0%, the run's
-floor. Three rounds is enough for the large effects; the ±5% ones (Dromaeo below) want six before they are believed
-([`Jint.Benchmark/AGENTS.md`](../../Jint.Benchmark/AGENTS.md)).
+`Jint.Benchmark/measure-paired.ps1`, 3 rounds in alternating order, `main` at `82b0efbaa` against this branch with
+the vendored copy at GregsEx `008b4aa8` (gregsex#3), on one Apple M4 Pro, .NET 10.0.11, macOS 15. The 41 rows are
+every regex benchmark the suite has, plus SunSpider `regexp-dna` and Dromaeo `ObjectRegExp`. A row is a change only
+when its 95% CI excludes zero; `control-indexOf` never reaches regex code and reads +0.9% [+0.1, +3.0], the run's
+floor. Three rounds is enough for the large effects; a ±5% one wants six before it is believed
+([`Jint.Benchmark/AGENTS.md`](../../Jint.Benchmark/AGENTS.md)). Another session was building on the same machine
+for part of the run, which both sides shared.
 
-**Faster**
+**Faster** — 36 of the 41 rows (the others are the four below and the floor); the fourth column is the first paired run's figure, before gregsex#3 and J4.
 
-| Row | Median Δ | 95% CI |
-| --- | ---: | --- |
-| `RegExpShapeBenchmark.Run[template-replace-g]` | −97.8% | [−97.8, −97.7] |
-| `RegExpShapeBenchmark.Run[uprop-match-g]` | −92.1% | [−92.2, −92.0] |
-| `RegExpSplitBenchmark.SplitUnicode` | −89.9% | [−90.4, −89.8] |
-| `RegExpCustomEngineBenchmark.VariableLength` | −67.5% | [−71.6, −66.0] |
-| `RegExpFreshEngineBenchmark.FreshEngineSource` | −61.1% | [−63.0, −61.0] |
-| `RegExpSplitBenchmark.SplitWithCaptures` | −47.7% | [−49.1, −47.5] |
-| `RegExpCustomEngineBenchmark.NamedCapture` | −44.5% | [−45.0, −43.9] |
-| `RegExpShapeBenchmark.Run[capture-match-g]` | −40.3% | [−41.0, −38.4] |
-| `RegExpCustomEngineBenchmark.IsMatchOnly` | −38.1% | [−41.7, −37.5] |
-| `RegExpCustomEngineBenchmark.GlobalMatchAll` | −37.7% | [−39.9, −37.0] |
-| `RegExpCustomEngineBenchmark.LiteralScan` | −36.2% | [−39.2, −35.8] |
-| `RegExpMatchBenchmark.MatchGlobalUnicode` | −34.2% | [−36.2, −31.7] |
-| `RegExpShapeBenchmark.Run[class-match-g]` | −33.9% | [−35.9, −33.2] |
-| `RegExpCustomEngineBenchmark.NoMatchScan` | −32.6% | [−33.3, −32.1] |
-| `RegExpCustomEngineBenchmark.CaseInsensitiveScan` | −23.7% | [−24.8, −22.0] |
-| `RegExpMatchBenchmark.MatchGlobal` | −23.5% | [−24.9, −22.3] |
-| `RegExpShapeBenchmark.Run[construct-100]` | −18.3% | [−21.4, −17.3] |
-| `RegExpExecLoopBenchmark.NamedGroupsAccess` | −14.5% | [−18.8, −13.6] |
-| `RegExpShapeBenchmark.Run[exec-loop]` | −12.8% | [−14.0, −11.4] |
-| `RegExpShapeBenchmark.Run[function-replace-g]` | −12.4% | [−14.3, −12.0] |
-| `RegExpExecLoopBenchmark.MatchAllIterate` | −9.9% | [−10.6, −9.2] |
-| `RegExpExecLoopBenchmark.ExecWhileLoop` | −9.4% | [−10.2, −3.9] |
-| `RegExpExecLoopBenchmark.StickyExec` | −5.1% | [−6.9, −4.1] |
+| Row | Median Δ | 95% CI | Before the second pass |
+| --- | ---: | --- | ---: |
+| `RegExpShapeBenchmark.Run[template-replace-g]` | −97.9% | [−98.0, −97.8] | −97.8% |
+| `RegExpSplitBenchmark.SplitUnicode` | −92.1% | [−92.2, −92.1] | −89.9% |
+| `RegExpShapeBenchmark.Run[uprop-match-g]` | −92.0% | [−92.2, −92.0] | −92.1% |
+| `RegExpCustomEngineBenchmark.VariableLength` | −83.8% | [−83.9, −82.8] | −67.5% |
+| `SunSpiderBenchmark.Run[regexp-dna]` | −73.5% | [−74.4, −72.8] | −2.6% |
+| `RegExpFreshEngineBenchmark.FreshEngineSource` | −73.0% | [−73.5, −71.2] | −61.1% |
+| `RegExpSplitBenchmark.SplitWithCaptures` | −59.9% | [−60.0, −59.0] | −47.7% |
+| `RegExpShapeBenchmark.Run[capture-match-g]` | −50.9% | [−51.9, −48.3] | −40.3% |
+| `RegExpCustomEngineBenchmark.NamedCapture` | −46.3% | [−46.3, −45.7] | −44.5% |
+| `RegExpShapeBenchmark.Run[class-match-g]` | −45.4% | [−45.5, −44.7] | −33.9% |
+| `RegExpCustomEngineBenchmark.GlobalMatchAll` | −40.5% | [−41.1, −40.4] | −37.7% |
+| `RegExpCustomEngineBenchmark.IsMatchOnly` | −40.2% | [−40.7, −39.7] | −38.1% |
+| `RegExpMatchBenchmark.MatchGlobalUnicode` | −39.2% | [−39.5, −38.7] | −34.2% |
+| `RegExpCustomEngineBenchmark.LiteralScan` | −38.2% | [−38.5, −37.1] | −36.2% |
+| `RegExpShapeBenchmark.Run[nullable-split]` | −35.6% | [−38.5, −34.4] | +72.7% |
+| `RegExpCustomEngineBenchmark.NoMatchScan` | −34.9% | [−35.9, −34.3] | −32.6% |
+| `RegExpMatchBenchmark.MatchGlobal` | −31.9% | [−31.9, −30.5] | −23.5% |
+| `RegExpShapeBenchmark.Run[greedy-dotstar-exec]` | −30.3% | [−30.6, −27.7] | +22.6% |
+| `RegExpShapeBenchmark.Run[greedy-dotstar-test]` | −27.1% | [−29.5, −26.3] | +24.2% |
+| `RegExpShapeBenchmark.Run[construct-100]` | −26.9% | [−30.3, −26.7] | −18.3% |
+| `RegExpShapeBenchmark.Run[function-replace-g]` | −26.1% | [−26.7, −25.6] | −12.4% |
+| `RegExpCustomEngineBenchmark.CaseInsensitiveScan` | −25.7% | [−25.7, −25.6] | −23.7% |
+| `RegExpShapeBenchmark.Run[char-split]` | −21.9% | [−24.1, −20.9] | +49.2% |
+| `RegExpExecLoopBenchmark.NamedGroupsAccess` | −21.2% | [−23.6, −18.8] | −14.5% |
+| `RegExpExecLoopBenchmark.MatchAllIterate` | −18.6% | [−25.4, −17.8] | −9.9% |
+| `RegExpExecLoopBenchmark.ExecWhileLoop` | −17.9% | [−18.2, −14.2] | −9.4% |
+| `RegExpShapeBenchmark.Run[exec-loop]` | −17.1% | [−18.1, −16.6] | −12.8% |
+| `RegExpExecLoopBenchmark.StickyExec` | −16.4% | [−18.8, −15.3] | −5.1% |
+| `RegExpSplitBenchmark.Split` | −10.2% | [−10.6, −9.1] | +30.1% |
+| Dromaeo `ObjectRegExp` (four rows) | −7.9% … −10.0% | each excludes zero | +1.8% … +6.5% |
+| `RegExpFreshEngineBenchmark.FreshEnginePrepared` | −6.5% | [−15.0, −6.4] | +80.0% |
+| `RegExpCustomEngineBenchmark.CharClassScan` | −2.9% | [−3.0, −0.3] | +0.9% |
+| `RegExpCustomEngineBenchmark.DigitScan` | −2.0% | [−3.9, −1.6] | +3.5% |
 
 Allocation fell with time on the capture-heavy rows: `template-replace-g` from 177 MB to 0.6 MB per operation,
 `SplitUnicode` 25 MB to 1.6 MB, `capture-match-g` 10.5 MB to 2.3 MB, `MatchGlobal` 5.8 MB to 1.4 MB.
-
-**No change:** SunSpider `regexp-dna` −2.6% [−5.8, +0.1] (it was +2,679% before the `FirstStrings` prefilter),
-`CharClassScan` +0.9% [−4.3, +5.5], `DigitScan` +3.5% [−0.8, +3.8], Dromaeo `ObjectRegExp[True,False]` +1.8%
-[−8.1, +5.7].
 
 **Slower**
 
 | Row | Median Δ | 95% CI | Absolute |
 | --- | ---: | --- | --- |
-| `RegExpCustomEngineBenchmark.AnchoredLiteral` | +169.1% | [+166.0, +180.1] | 12 ns → 33 ns |
-| `RegExpFreshEngineBenchmark.FreshEnginePrepared` | +80.0% | [+79.1, +82.5] | 5.7 µs → 10.1 µs |
-| `RegExpShapeBenchmark.Run[nullable-split]` | +72.7% | [+72.1, +79.7] | 406 µs → 701 µs |
-| `RegExpShapeBenchmark.Run[char-split]` | +49.2% | [+43.5, +51.5] | 99 µs → 142 µs |
-| `RegExpSplitBenchmark.Split` | +30.1% | [+27.7, +35.4] | 615 µs → 786 µs |
-| `RegExpShapeBenchmark.Run[greedy-dotstar-test]` | +24.2% | [+22.6, +25.0] | 4.7 µs → 5.7 µs |
-| `RegExpShapeBenchmark.Run[greedy-dotstar-exec]` | +22.6% | [+18.8, +24.3] | 4.9 µs → 5.9 µs |
-| `RegExpShapeBenchmark.Run[literal-test]` | +18.2% | [+14.0, +20.7] | 3.3 µs → 3.7 µs |
-| `RegExpShapeBenchmark.Run[literal-replace-g]` | +17.6% | [+11.4, +17.9] | 3.4 µs → 3.8 µs |
-| `RegExpShapeBenchmark.Run[icase-literal-test]` | +6.8% | [+6.5, +8.2] | 3.7 µs → 4.0 µs |
-| Dromaeo `ObjectRegExp` `[False,False]` / `[False,True]` / `[True,True]` | +6.5% / +5.0% / +5.8% | [+3.9, +6.6] / [+0.7, +9.8] / [+4.9, +6.4] | ~30 ms |
+| `RegExpCustomEngineBenchmark.AnchoredLiteral` | +50.6% | [+49.1, +61.8] | 13 ns → 19 ns |
+| `RegExpShapeBenchmark.Run[literal-test]` | +17.6% | [+16.7, +21.6] | 3.2 µs → 3.7 µs |
+| `RegExpShapeBenchmark.Run[literal-replace-g]` | +15.6% | [+13.5, +15.7] | 3.3 µs → 3.8 µs |
+| `RegExpShapeBenchmark.Run[icase-literal-test]` | +4.7% | [+4.5, +5.7] | 3.8 µs → 4.0 µs |
 
-Every slower row is one where a single search does little work, so a fixed cost per search dominates: the
-executor's workspace and run state are set up per call, and split pays it once per piece (`char-split` makes ~2,600
-searches). `AnchoredLiteral` is 21 ns of that cost on its own. `FreshEnginePrepared` (+4.4 µs per fresh engine running a
-prepared script) has not been profiled yet. The matching itself is faster wherever a search does real
-work. The Dromaeo rows are below the three-round bar and need a six-round run before they count.
+The literal rows scan 64 KiB for a 10-character literal that is not there. GregsEx already searches with the fastest
+of `IndexOf(string)`, `IndexOf(string, Ordinal)` and `SearchValues<string>` measured over that subject (3.1 µs against
+4.9 µs); .NET Regex picks its anchor characters from a frequency table, which is what the remaining 0.5 µs would take.
+`AnchoredLiteral` is the fixed cost of one call that does almost no work. `icase-literal-test` is below the
+three-round bar.
 
 ## 6. Follow-ups
 
-- **Per-search overhead in split and other many-match loops** (`split(/a/)` +49%, `split(/\s*,\s*/)` +73%,
-  an anchored literal 12 ns → 33 ns; §5): workspace setup per search, and the VM started per candidate where a plan
-  could run the whole loop. Then re-measure Dromaeo `ObjectRegExp` at six rounds.
+- **The literal scan** (+16…+18%, §5): anchor characters chosen by frequency, as .NET Regex does, and the fixed
+  cost of a call that does almost no work (`AnchoredLiteral`, 13 ns → 19 ns). Re-measure `icase-literal-test` at six
+  rounds.
+- **Batches beyond split**: global `match` and plain-string replace still search once per match; the same
+  `FindRanges` batch would serve them.
 - **Acornima still validates every regex literal at parse time** (an early error is a parse-time error), so a
   literal is parsed twice. A parse-time validator on the GregsEx parser would remove one pass and one source of
   disagreement; error messages would then need their own text, since GregsEx diagnostics are codes.
