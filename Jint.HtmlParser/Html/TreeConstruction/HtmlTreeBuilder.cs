@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Jint.HtmlParser.Html;
@@ -47,7 +48,7 @@ internal sealed partial class HtmlTreeBuilder
         ClosedScript = null;
         ClosedScriptIsSvg = false;
     }
-    private readonly List<Element> _open = [];
+    private readonly OpenElements _open = new();
     private OpenNameIndex _nameIndexes = new();
     private List<int> _specialIndexes = [];
     private List<int> _liStops = [];
@@ -142,13 +143,26 @@ internal sealed partial class HtmlTreeBuilder
         _hasToken = true;
         _textIndex = 0;
         _acknowledgedSelfClosing = false;
-        _inputAttributeIndex = 0;
-        _inputTypeFound = false;
-        _inputTypeHidden = false;
         _preparedAttributeCount = 0;
         _preparedIsValue = null;
         _preparedAttributeIndex = 0;
         _preparedAttributeWork = 0;
+        _fosterParenting = false;
+        _delegateToBody = false;
+        _foreignHtmlReprocess = false;
+        if (_rareTokenState) ResetRareTokenState();
+    }
+
+    // Set by every path that writes the per-token state below, which most tokens never touch, so
+    // accepting a token resets it only after one that did.
+    private bool _rareTokenState;
+
+    private void ResetRareTokenState()
+    {
+        _rareTokenState = false;
+        _inputAttributeIndex = 0;
+        _inputTypeFound = false;
+        _inputTypeHidden = false;
         _templateHasFor = false;
         _templateHasValidShadowMode = false;
         _templateForValue = null;
@@ -158,10 +172,7 @@ internal sealed partial class HtmlTreeBuilder
         _templateManualSlotAssignment = false;
         _templateKeepRegistryNull = false;
         ResetFormattingToken();
-        _fosterParenting = false;
-        _delegateToBody = false;
         _tableFosterCharacterErrorReported = false;
-        _foreignHtmlReprocess = false;
         _foreignEndScan = -1;
         _foreignEndStarted = false;
         _foreignInitialEndComparison = false;
@@ -229,7 +240,7 @@ internal sealed partial class HtmlTreeBuilder
                 while (_pendingShiftIndex < _open.Count - 1 && _remaining > 0)
                 {
                     var moved = _open[_pendingShiftIndex + 1];
-                    _open[_pendingShiftIndex] = moved;
+                    _open.Move(_pendingShiftIndex + 1, _pendingShiftIndex);
                     ShiftIndexes(moved, _pendingShiftIndex + 1);
                     _pendingShiftIndex++;
                 }
@@ -277,7 +288,7 @@ internal sealed partial class HtmlTreeBuilder
             if (_remaining <= 0) return new HtmlParseStep(HtmlParseStepKind.Yielded);
             Charge(1);
             if (_delegateToBody && _mode != _delegatedFromMode) _delegateToBody = false;
-            var reprocess = !_foreignHtmlReprocess && (_foreignBreakout || ShouldUseForeignRules(_token))
+            var reprocess = !_foreignHtmlReprocess && (_foreignBreakout || ShouldUseForeignRules(in _token))
                 ? InForeign() : Dispatch(_delegateToBody ? Mode.InBody : _mode);
             if (ScriptBoundary is not null) return new HtmlParseStep(HtmlParseStepKind.Yielded);
             if (_missing is { } family)
@@ -390,18 +401,23 @@ internal sealed partial class HtmlTreeBuilder
             if (_attributeScratch.Length < attributes.Length) _attributeScratch = new ParserAttribute[Math.Max(attributes.Length, 8)];
             _preparedAttributeCount = attributes.Length;
         }
+        var formatting = IsFormatting(_token.Name!);
+        var template = _token.Name == "template";
         while (_preparedAttributeIndex < attributes.Length && _remaining > 0)
         {
             var item = attributes[_preparedAttributeIndex];
-            var formatting = IsFormatting(_token.Name!);
             if (formatting) item = new HtmlAttribute(item.Name, item.Value);
             _attributeScratch[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.ValueSlice);
             if (item.Name == "is") _preparedIsValue = item.Value;
-            if (HtmlColorFaceSizeNames.Match(item.Name)) _foreignFontBreakout = true;
+            if (HtmlColorFaceSizeNames.Match(item.Name)) { _foreignFontBreakout = true; _rareTokenState = true; }
             if (item.Name == "encoding")
-                _foreignAnnotationEncoding = AsciiEquals(item.ValueSlice.Span, "text/html") || AsciiEquals(item.ValueSlice.Span, "application/xhtml+xml");
-            if (_token.Name == "template")
             {
+                _foreignAnnotationEncoding = AsciiEquals(item.ValueSlice.Span, "text/html") || AsciiEquals(item.ValueSlice.Span, "application/xhtml+xml");
+                _rareTokenState = true;
+            }
+            if (template)
+            {
+                _rareTokenState = true;
                 if (item.Name == "for") { _templateHasFor = true; _templateForValue = item.Value; }
                 if (item.Name == "shadowrootmode" &&
                     (item.ValueSlice.Span.Equals("open", StringComparison.OrdinalIgnoreCase) ||
@@ -432,51 +448,58 @@ internal sealed partial class HtmlTreeBuilder
     private void Push(Element element)
     {
         var index = _open.Count;
-        _open.Add(element);
-        _openIdentity.Add(element);
-        AddIndexes(element, index);
+        var names = _nameIndexes.GetOrAdd(element);
+        _open.Add(element, names);
+        MarkOpen(element);
+        AddIndexes(element, index, names);
         if (!AllowedOpenAtEof(element)) _unexpectedOpenCount++;
         Charge(1);
     }
 
-    private void AddIndexes(Element element, int index)
+    // The element is at index on the stack, with names as its name-index list.
+    private void AddIndexes(Element element, int index, List<int> names)
     {
-        _nameIndexes.GetOrAdd(element).Add(index);
-        if (IsSpecialElement(element))
+        names.Add(index);
+        var flags = StackFlagsOf(element);
+        if ((flags & StackFlags.Special) != 0)
         {
             _specialIndexes.Add(index);
-            if (!HtmlAddressDivPNames.Match(element.LocalName)) _liStops.Add(index);
-            if (!HtmlAddressDivPDdNames.Match(element.LocalName)) _ddDtStops.Add(index);
+            if ((flags & StackFlags.LiStop) != 0) _liStops.Add(index);
+            if ((flags & StackFlags.DdDtStop) != 0) _ddDtStops.Add(index);
         }
-        if (IsScopeBoundary(element)) _scopeStops.Add(index);
-        if (IsResetModeElement(element)) _resetModeIndexes.Add(index);
+        if ((flags & StackFlags.ScopeBoundary) != 0) _scopeStops.Add(index);
+        if ((flags & StackFlags.ResetMode) != 0) _resetModeIndexes.Add(index);
     }
 
+    // The element is still at index on the stack.
     private void RemoveIndexes(Element element, int index)
     {
         if (_annotationXmlHtmlIntegration.Count != 0) _annotationXmlHtmlIntegration.Remove(element);
-        RemoveIndex(_nameIndexes.For(element), index);
-        if (IsSpecialElement(element))
+        RemoveIndex(_open.NamesAt(index), index);
+        var flags = StackFlagsOf(element);
+        if ((flags & StackFlags.Special) != 0)
         {
             RemoveIndex(_specialIndexes, index);
-            if (!HtmlAddressDivPNames.Match(element.LocalName)) RemoveIndex(_liStops, index);
-            if (!HtmlAddressDivPDdNames.Match(element.LocalName)) RemoveIndex(_ddDtStops, index);
+            if ((flags & StackFlags.LiStop) != 0) RemoveIndex(_liStops, index);
+            if ((flags & StackFlags.DdDtStop) != 0) RemoveIndex(_ddDtStops, index);
         }
-        if (IsScopeBoundary(element)) RemoveIndex(_scopeStops, index);
-        if (IsResetModeElement(element)) RemoveIndex(_resetModeIndexes, index);
+        if ((flags & StackFlags.ScopeBoundary) != 0) RemoveIndex(_scopeStops, index);
+        if ((flags & StackFlags.ResetMode) != 0) RemoveIndex(_resetModeIndexes, index);
     }
 
+    // The element has moved from oldIndex to the position below it.
     private void ShiftIndexes(Element element, int oldIndex)
     {
-        ShiftIndex(_nameIndexes.For(element), oldIndex);
-        if (IsSpecialElement(element))
+        ShiftIndex(_open.NamesAt(oldIndex - 1), oldIndex);
+        var flags = StackFlagsOf(element);
+        if ((flags & StackFlags.Special) != 0)
         {
             ShiftIndex(_specialIndexes, oldIndex);
-            if (!HtmlAddressDivPNames.Match(element.LocalName)) ShiftIndex(_liStops, oldIndex);
-            if (!HtmlAddressDivPDdNames.Match(element.LocalName)) ShiftIndex(_ddDtStops, oldIndex);
+            if ((flags & StackFlags.LiStop) != 0) ShiftIndex(_liStops, oldIndex);
+            if ((flags & StackFlags.DdDtStop) != 0) ShiftIndex(_ddDtStops, oldIndex);
         }
-        if (IsScopeBoundary(element)) ShiftIndex(_scopeStops, oldIndex);
-        if (IsResetModeElement(element)) ShiftIndex(_resetModeIndexes, oldIndex);
+        if ((flags & StackFlags.ScopeBoundary) != 0) ShiftIndex(_scopeStops, oldIndex);
+        if ((flags & StackFlags.ResetMode) != 0) ShiftIndex(_resetModeIndexes, oldIndex);
         Charge(1);
     }
 
@@ -504,22 +527,23 @@ internal sealed partial class HtmlTreeBuilder
     {
         var index = _open.Count - 1;
         var element = _open[index];
+        var indexes = _open.NamesAt(index);
         _open.RemoveAt(index);
-        _openIdentity.Remove(element);
+        ClearOpen(element);
         if (_annotationXmlHtmlIntegration.Count != 0) _annotationXmlHtmlIntegration.Remove(element);
-        var indexes = _nameIndexes.For(element);
         indexes.RemoveAt(indexes.Count - 1);
         if (_specialIndexes.Count > 0 && _specialIndexes[^1] == index) _specialIndexes.RemoveAt(_specialIndexes.Count - 1);
         if (_liStops.Count > 0 && _liStops[^1] == index) _liStops.RemoveAt(_liStops.Count - 1);
         if (_ddDtStops.Count > 0 && _ddDtStops[^1] == index) _ddDtStops.RemoveAt(_ddDtStops.Count - 1);
         if (_scopeStops.Count > 0 && _scopeStops[^1] == index) _scopeStops.RemoveAt(_scopeStops.Count - 1);
         if (_resetModeIndexes.Count > 0 && _resetModeIndexes[^1] == index) _resetModeIndexes.RemoveAt(_resetModeIndexes.Count - 1);
-        if (!AllowedOpenAtEof(element)) _unexpectedOpenCount--;
+        var flags = StackFlagsOf(element);
+        if ((flags & StackFlags.AllowedOpenAtEof) == 0) _unexpectedOpenCount--;
         Charge(1);
         // HTML Standard §13.2.6: option completion runs after its contents are
         // parsed, including implied closure and EOF recovery. Native selectedcontent
         // replacement is one coherent mutation boundary, not a cooperative walk.
-        if (IsHtmlElement(element, "option"))
+        if ((flags & StackFlags.Option) != 0)
         {
             HtmlSelectedContent.MaybeCloneOption(element, _cancellationToken);
             _cancellationToken.ThrowIfCancellationRequested();
@@ -539,26 +563,78 @@ internal sealed partial class HtmlTreeBuilder
         _resetAfterPop = resetMode;
     }
 
-    private int Last(string name) => _nameIndexes.Html(name) is { Count: > 0 } indexes ? indexes[^1] : -1;
+    private int Last(string name) => Last(_nameIndexes.Html(name));
+    private static int Last(List<int>? indexes) => indexes is { Count: > 0 } ? indexes[^1] : -1;
     private int LastSpecial => _specialIndexes.Count == 0 ? -1 : _specialIndexes[^1];
     private int LastLiStop => _liStops.Count == 0 ? -1 : _liStops[^1];
     private int LastDdDtStop => _ddDtStops.Count == 0 ? -1 : _ddDtStops[^1];
     private int LastScopeStop => _scopeStops.Count == 0 ? -1 : _scopeStops[^1];
-    private bool InScope(string name) => Last(name) >= 0 && Last(name) >= LastScopeStop;
-    private bool InButtonScope(string name) => Last(name) >= 0 && Last(name) >= Math.Max(LastScopeStop, Last("button"));
-    private bool InListItemScope(string name) => Last(name) >= 0 && Last(name) >= Math.Max(LastScopeStop, Math.Max(Last("ol"), Last("ul")));
-    private bool InTableScope(string name) => Last(name) >= 0 && Last(name) >= Math.Max(Last("html"), Math.Max(Last("table"), Last("template")));
+    // HTML Standard §13.2.4.2, the scope checks: each is the topmost element of the name against
+    // the topmost boundary of the scope's kind, looked up once per check.
+    private bool InScope(string name) => Last(name) is var last && last >= 0 && last >= LastScopeStop;
+    private bool InButtonScope(string name) => InButtonScopeOf(_nameIndexes.Html(name));
+    private bool InButtonScopeOf(List<int>? indexes) =>
+        Last(indexes) is var last && last >= 0 && last >= Math.Max(LastScopeStop, Last(_nameIndexes.Button));
+    private bool InListItemScope(string name) =>
+        Last(name) is var last && last >= 0 && last >= Math.Max(LastScopeStop, Math.Max(Last(_nameIndexes.Ol), Last(_nameIndexes.Ul)));
+    private bool InTableScope(string name) => Last(name) is var last && last >= 0 &&
+        last >= Math.Max(Last(_nameIndexes.HtmlRoot), Math.Max(Last(_nameIndexes.Table), Last(_nameIndexes.Template)));
     private static bool IsHtmlElement(Element element, string name) =>
         element.NamespaceUri == Namespaces.Html && element.LocalName == name;
-    private static bool IsScopeBoundary(Element element) => element.NamespaceUri switch
+    private static bool IsScopeBoundary(Element element) => (StackFlagsOf(element) & StackFlags.ScopeBoundary) != 0;
+    private static bool IsResetModeElement(Element element) => (StackFlagsOf(element) & StackFlags.ResetMode) != 0;
+
+    // What the stack bookkeeping asks about an element, decided by its namespace and name, so an
+    // element answers once and then from its own flags on every push, pop and shift.
+    [Flags]
+    private enum StackFlags : byte
     {
-        Namespaces.Html => HtmlAppletCaptionHtmlNames.Match(element.LocalName),
-        Namespaces.MathMl => HtmlMiMoMnNames.Match(element.LocalName),
-        Namespaces.Svg => HtmlForeignObjectDescTitleNames.Match(element.LocalName),
-        _ => false
-    };
-    private static bool IsResetModeElement(Element element) => element.NamespaceUri == Namespaces.Html &&
-        HtmlTdThTrNames.Match(element.LocalName);
+        Computed = 1,
+        Special = 2,
+        LiStop = 4,
+        DdDtStop = 8,
+        ScopeBoundary = 16,
+        ResetMode = 32,
+        AllowedOpenAtEof = 64,
+        Option = 128,
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static StackFlags StackFlagsOf(Element element)
+    {
+        var flags = (StackFlags) element.StackFlags;
+        return flags != 0 ? flags : ComputeStackFlags(element);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static StackFlags ComputeStackFlags(Element element)
+    {
+        var flags = StackFlags.Computed;
+        var name = element.LocalName;
+        switch (element.NamespaceUri)
+        {
+            case Namespaces.Html:
+                if (IsSpecial(name))
+                {
+                    flags |= StackFlags.Special;
+                    if (!HtmlAddressDivPNames.Match(name)) flags |= StackFlags.LiStop;
+                    if (!HtmlAddressDivPDdNames.Match(name)) flags |= StackFlags.DdDtStop;
+                }
+                if (HtmlAppletCaptionHtmlNames.Match(name)) flags |= StackFlags.ScopeBoundary;
+                if (HtmlTdThTrNames.Match(name)) flags |= StackFlags.ResetMode;
+                if (HtmlDdDtLiNames.Match(name)) flags |= StackFlags.AllowedOpenAtEof;
+                if (name == "option") flags |= StackFlags.Option;
+                break;
+            case Namespaces.MathMl:
+                if (HtmlMiMoMnNames.Match(name)) flags |= StackFlags.Special | StackFlags.LiStop | StackFlags.DdDtStop | StackFlags.ScopeBoundary;
+                break;
+            case Namespaces.Svg:
+                if (HtmlForeignObjectDescTitleNames.Match(name)) flags |= StackFlags.Special | StackFlags.LiStop | StackFlags.DdDtStop | StackFlags.ScopeBoundary;
+                break;
+        }
+        element.StackFlags = (byte) flags;
+        return flags;
+    }
 
     private bool TryGenerateImpliedEndTags(string? except = null)
     {
@@ -578,7 +654,7 @@ internal sealed partial class HtmlTreeBuilder
     {
         if (!TryGenerateImpliedEndTags("p")) return false;
         if (!IsHtmlElement(Current, "p")) Error("misnested-p-end-tag");
-        SchedulePopTo(Last("p"), reprocess);
+        SchedulePopTo(Last(_nameIndexes.P), reprocess);
         return true;
     }
 
@@ -608,9 +684,7 @@ internal sealed partial class HtmlTreeBuilder
         else
         {
             var owner = location.Parent as Document ?? location.Parent.OwnerDocument!;
-            var node = owner.CreateTextNode(string.Empty);
-            node.AppendParsedData(text, _cancellationToken);
-            InsertAt(location, node);
+            InsertAt(location, owner.CreateParsedTextNode(text));
         }
         Charge(text.Length);
     }
@@ -626,7 +700,7 @@ internal sealed partial class HtmlTreeBuilder
     private static bool White(char c) => c is '\t' or '\n' or '\f' or '\r' or ' ';
     private static bool IsHeading(string name) => HtmlHeadingLookup.Match(name);
     private static bool IsImpliedEndTag(string name) => HtmlImpliedEndLookup.Match(name);
-    private static bool AllowedOpenAtEof(Element element) => element.NamespaceUri == Namespaces.Html && HtmlDdDtLiNames.Match(element.LocalName);
+    private static bool AllowedOpenAtEof(Element element) => (StackFlagsOf(element) & StackFlags.AllowedOpenAtEof) != 0;
 
     private static bool IsSpecial(string name) => HtmlSpecialElementLookup.Match(name);
 }

@@ -8,7 +8,7 @@ internal sealed partial class HtmlTreeBuilder
     private Queue<Element>? _completedStyles;
     internal bool HasCompletedStyles => _completedStyles is { Count: > 0 };
 
-    internal bool IsStyleOpen(Element element) => ScriptRequestsEnabled && IsStyle(element) && _openIdentity.Contains(element);
+    internal bool IsStyleOpen(Element element) => ScriptRequestsEnabled && IsStyle(element) && IsOpen(element);
 
     private static bool IsStyle(Element element) => element.LocalName == "style" &&
         element.NamespaceUri is Namespaces.Html or Namespaces.Svg;

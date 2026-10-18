@@ -33,6 +33,24 @@ internal sealed class HtmlInput
             _column += length;
             _cr = false;
         }
+
+        // A run without CR that may contain LF, counted as Consume would count each unit.
+        internal void ConsumeRun(ReadOnlySpan<char> run)
+        {
+            var last = run.LastIndexOf('\n');
+            if (last < 0)
+            {
+                ConsumeOrdinaryRun(run.Length);
+                return;
+            }
+            var lines = run.Count('\n');
+            // The LF of a CRLF pair was already counted with its CR.
+            if (_cr && run[0] == '\n') lines--;
+            _offset += run.Length;
+            _line += lines;
+            _column = run.Length - last - 1;
+            _cr = false;
+        }
     }
 
     internal sealed class Node
@@ -66,7 +84,8 @@ internal sealed class HtmlInput
 
     // All declarations probe fewer than sixteen units. Suspended probes retain
     // traversal progress; completed probes also locate an atomic matched keyword.
-    private readonly Probe[] _probes = new Probe[16];
+    // Allocated by the first declaration: ordinary documents never probe.
+    private Probe[]? _probes;
     private CrossingBatch? _crossings;
     private int _probeCount;
     private readonly Node _head = new();
@@ -86,6 +105,14 @@ internal sealed class HtmlInput
     {
         var node = _head.Next;
         return new StringSlice(node.Source!, node.Start + _offset, length);
+    }
+
+    // A slice of the current source at a distance from the current unit, which a caller has
+    // already seen in CurrentSpan.
+    internal StringSlice GetCurrentSource(int distance, int length)
+    {
+        var node = _head.Next;
+        return new StringSlice(node.Source!, node.Start + _offset + distance, length);
     }
 
     private void ConsumeSource(Node node, char value)
@@ -176,7 +203,7 @@ internal sealed class HtmlInput
         value = default;
         if (WorkExhausted) return false;
         if (distance >= _probeCount) _probeCount = distance + 1;
-        ref var probe = ref _probes[distance];
+        ref var probe = ref (_probes ??= new Probe[16])[distance];
         if (probe.Node is null)
         {
             probe.Node = _head.Next;
@@ -245,7 +272,7 @@ internal sealed class HtmlInput
 
     internal char ConsumeKeywordCharacter(int distance)
     {
-        var probe = _probes[distance];
+        var probe = _probes![distance];
         var node = probe.Node!;
         var value = node.Source![probe.Position];
         var previous = node.Previous;
@@ -298,11 +325,29 @@ internal sealed class HtmlInput
         InvalidateProbes();
     }
 
+    // A run of CurrentSpan without CR; it may contain LF and never crosses a slice or marker.
+    internal void ConsumeRun(ReadOnlySpan<char> run)
+    {
+        var node = _head.Next;
+        var unit = node.Unit!;
+        if (_lastUnit is not null && _lastUnit != unit) SourceChanges++;
+        _lastUnit = unit;
+        unit.ConsumeRun(run);
+        Offset += run.Length;
+        _offset += run.Length;
+        if (node.Start + _offset == node.End)
+        {
+            Unlink(node);
+            _offset = 0;
+        }
+        InvalidateProbes();
+    }
+
     private void InvalidateProbes()
     {
         if (_probeCount == 0) return;
         // Release only populated lookahead slots and their saved source references.
-        Array.Clear(_probes, 0, _probeCount);
+        Array.Clear(_probes!, 0, _probeCount);
         _probeCount = 0;
         _crossings = null;
     }

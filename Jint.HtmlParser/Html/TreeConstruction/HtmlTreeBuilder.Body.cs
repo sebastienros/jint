@@ -59,20 +59,20 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (IsBlockStart(name))
         {
-            if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (InButtonScopeOf(_nameIndexes.P)) { CloseP(reprocess: true); return true; }
             InsertTokenElement();
             return false;
         }
         if (IsHeading(name))
         {
-            if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (InButtonScopeOf(_nameIndexes.P)) { CloseP(reprocess: true); return true; }
             if (Current.NamespaceUri == Namespaces.Html && IsHeading(Current.LocalName)) { Error("nested-heading"); Pop(); }
             InsertTokenElement();
             return false;
         }
         if (HtmlPreListingNames.Match(name))
         {
-            if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (InButtonScopeOf(_nameIndexes.P)) { CloseP(reprocess: true); return true; }
             InsertTokenElement();
             _ignoreNextLf = true;
             _framesetOk = false;
@@ -81,7 +81,7 @@ internal sealed partial class HtmlTreeBuilder
         if (name == "form")
         {
             if (_form is not null && !IsParsingTemplateContents) { Error("nested-form"); return false; }
-            if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (InButtonScopeOf(_nameIndexes.P)) { CloseP(reprocess: true); return true; }
             var form = InsertTokenElement();
             if (!IsParsingTemplateContents) _form = form;
             return false;
@@ -97,7 +97,7 @@ internal sealed partial class HtmlTreeBuilder
                 SchedulePopTo(li, reprocess: true);
                 return true;
             }
-            if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (InButtonScopeOf(_nameIndexes.P)) { CloseP(reprocess: true); return true; }
             InsertTokenElement();
             return false;
         }
@@ -114,13 +114,13 @@ internal sealed partial class HtmlTreeBuilder
                 SchedulePopTo(target, reprocess: true);
                 return true;
             }
-            if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (InButtonScopeOf(_nameIndexes.P)) { CloseP(reprocess: true); return true; }
             InsertTokenElement();
             return false;
         }
         if (name == "plaintext")
         {
-            if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (InButtonScopeOf(_nameIndexes.P)) { CloseP(reprocess: true); return true; }
             InsertTokenElement();
             _tokenizer.SetTextMode(HtmlTextMode.PlainText, null);
             return false;
@@ -131,7 +131,7 @@ internal sealed partial class HtmlTreeBuilder
             {
                 if (!TryGenerateImpliedEndTags()) return true;
                 Error("nested-button");
-                SchedulePopTo(Last("button"), reprocess: true);
+                SchedulePopTo(Last(_nameIndexes.Button), reprocess: true);
                 return true;
             }
             if (!TryReconstructFormatting()) return true;
@@ -141,7 +141,7 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (name == "table")
         {
-            if (_document.Mode != DocumentMode.Quirks && InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (_document.Mode != DocumentMode.Quirks && InButtonScopeOf(_nameIndexes.P)) { CloseP(reprocess: true); return true; }
             InsertTokenElement(); _framesetOk = false; _mode = Mode.InTable;
             return false;
         }
@@ -151,6 +151,7 @@ internal sealed partial class HtmlTreeBuilder
             if (_pendingFormattingElement is null)
             {
                 if (!TryReconstructFormatting()) return true;
+                _rareTokenState = true;
                 _pendingFormattingElement = InsertTokenElement();
             }
             if (!TryAddFormattingElement()) return true;
@@ -188,6 +189,7 @@ internal sealed partial class HtmlTreeBuilder
                 return true;
             }
             var inspected = false;
+            _rareTokenState = true;
             while (_inputAttributeIndex < _token.Attributes.Length && !_inputTypeFound)
             {
                 if (_remaining <= 0 && inspected) break;
@@ -211,7 +213,7 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (name == "hr")
         {
-            if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (InButtonScopeOf(_nameIndexes.P)) { CloseP(reprocess: true); return true; }
             if (InScope("select"))
             {
                 if (!TryGenerateImpliedEndTags()) return true;
@@ -236,7 +238,7 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (name == "xmp")
         {
-            if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (InButtonScopeOf(_nameIndexes.P)) { CloseP(reprocess: true); return true; }
             if (!TryReconstructFormatting()) return true;
             _framesetOk = false;
             EnterText(HtmlTextMode.RawText, name);
@@ -287,7 +289,7 @@ internal sealed partial class HtmlTreeBuilder
         if (name == "table")
         {
             if (!InTableScope("table")) { Error("unexpected-table-end-tag"); return false; }
-            SchedulePopTo(Last("table"), reprocess: false, resetMode: true);
+            SchedulePopTo(Last(_nameIndexes.Table), reprocess: false, resetMode: true);
             return false;
         }
         if (HtmlBodyHtmlNames.Match(name))
@@ -325,7 +327,7 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (name == "p")
         {
-            if (!InButtonScope("p")) { Error("unexpected-p-end-tag"); InsertElement("p"); }
+            if (!InButtonScopeOf(_nameIndexes.P)) { Error("unexpected-p-end-tag"); InsertElement("p"); }
             if (!CloseP(reprocess: false)) return true;
             return false;
         }
@@ -394,7 +396,7 @@ internal sealed partial class HtmlTreeBuilder
             return;
         }
         var removed = _open[index];
-        _openIdentity.Remove(removed);
+        ClearOpen(removed);
         if (!AllowedOpenAtEof(removed)) _unexpectedOpenCount--;
         RemoveIndexes(removed, index);
         Charge(1);

@@ -136,7 +136,7 @@ public partial class HtmlTreeConstructionTests
             var builder = builderField.GetValue(session)!;
             var openField = typeof(HtmlTreeBuilder).GetField("_open",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-            var open = (System.Collections.Generic.List<Element>) openField.GetValue(builder)!;
+            var open = (System.Collections.Generic.IReadOnlyList<Element>) openField.GetValue(builder)!;
             foreach (var (methodName, extra) in scopes)
             {
                 var method = typeof(HtmlTreeBuilder).GetMethod(methodName,
