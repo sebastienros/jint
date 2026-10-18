@@ -46,6 +46,8 @@ internal sealed class ScopePath
     private readonly int _injectionEpoch;
     internal readonly int SlotIndex;
 
+    internal int Hops => _hops;
+
     private ScopePath(int hops, object? token0, object? token1, object? token2, Key[] terminalLayout, int slotIndex, int injectionEpoch)
     {
         _hops = hops;

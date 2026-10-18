@@ -35,6 +35,13 @@ internal sealed class JintIdentifierExpression : JintExpression
     // describe the previous one and miss.
     private ScopePath? _scopePath;
 
+    // How many times this node has tried to build a ScopePath. A build only happens after both the identity
+    // caches and the current path missed, so a site whose chain never yields a path (too deep, a with object,
+    // an injected binding) would otherwise re-walk on every fresh activation; past the cap it keeps whatever
+    // path it has and goes straight to the ordinary walk.
+    private byte _scopePathAttempts;
+    private const int MaxScopePathAttempts = 4;
+
     // Version-based inline cache for global bindings: when resolution (from any scope depth)
     // lands on a plain writable data property of the real GlobalObject, remember the
     // descriptor. Valid while the global object's own-property shape and the set of global
@@ -172,52 +179,44 @@ internal sealed class JintIdentifierExpression : JintExpression
         // cached resolving env IS the current lexical environment, so it gets a straight-line
         // identity check before any loop machinery and needs no shadow probes — no environment
         // sits between the reader and the binding. Reads at hops 1-3 (closure reads of outer
-        // bindings) take the out-of-line bounded reachability check: a pinned chain memo
-        // answers with reference compares, everything else re-walks with per-intermediate
-        // shadow probes and refuses to cross an ObjectEnvironment; see SlotLocationCache and
-        // SlotChainMemo for why those probes (and the memo's identity + epoch guard) are
-        // load-bearing.
+        // bindings) next try a pinned chain memo, which answers with reference compares; the
+        // probing walk behind it runs out of line in ReadSlotOffIdentityLane, after the scope
+        // path. See SlotLocationCache and SlotChainMemo for why those probes (and the memo's
+        // identity + epoch guard) are load-bearing.
         // Engine-identity gate: a Prepared<Script> reused across multiple Engine instances
         // shares JintIdentifierExpression nodes, so the cached env may be from a previous
         // Engine and must not be dereferenced for slots. Gating up front also skips the walk —
         // significant on harnesses (DromaeoBenchmark, SunSpiderBenchmark) that create a
         // new Engine per iteration.
         var cachedSlotEnv = _cachedSlotEnv;
-        if (cachedSlotEnv is not null && ReferenceEquals(cachedSlotEnv._engine, engine))
+        if (cachedSlotEnv is not null && !ReferenceEquals(cachedSlotEnv._engine, engine))
         {
-            if (ReferenceEquals(env, cachedSlotEnv)
-                || SlotLocationCache.CanReachAtOuterHop(engine, env, cachedSlotEnv, identifier.Key, ref _slotChainMemo))
-            {
-                var slots = cachedSlotEnv._slots;
-                var idx = _cachedSlotIndex;
-                if (slots is not null && (uint) idx < (uint) slots.Length)
-                {
-                    ref var binding = ref slots[idx];
-                    value = binding.HasReferenceValue
-                        ? binding.Value
-                        : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
-                    if (value is null)
-                    {
-                        ThrowNotInitialized(engine);
-                    }
-                    return MaterializeIfArguments(value);
-                }
-                // stale slot metadata for a reachable env — fall through to full resolution
-            }
+            cachedSlotEnv = null;
         }
 
-        if (_scopePath is { } scopePath && scopePath.Resolve(engine, env) is { _slots: { } pathSlots }
-            && (uint) scopePath.SlotIndex < (uint) pathSlots.Length)
+        if (cachedSlotEnv is not null
+            && (ReferenceEquals(env, cachedSlotEnv) || SlotLocationCache.MemoPins(_slotChainMemo, engine, env, cachedSlotEnv)))
         {
-            ref var binding = ref pathSlots[scopePath.SlotIndex];
-            value = binding.HasReferenceValue
-                ? binding.Value
-                : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
-            if (value is null)
+            var slots = cachedSlotEnv._slots;
+            var idx = _cachedSlotIndex;
+            if (slots is not null && (uint) idx < (uint) slots.Length)
             {
-                ThrowNotInitialized(engine);
+                ref var binding = ref slots[idx];
+                value = binding.HasReferenceValue
+                    ? binding.Value
+                    : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
+                if (value is null)
+                {
+                    ThrowNotInitialized(engine);
+                }
+                return MaterializeIfArguments(value);
             }
-            return MaterializeIfArguments(value);
+            // stale slot metadata for a reachable env — fall through to full resolution
+        }
+        else if ((_scopePath is not null || cachedSlotEnv is not null)
+                 && ReadSlotOffIdentityLane(engine, env, cachedSlotEnv) is { } slotValue)
+        {
+            return slotValue;
         }
 
 
@@ -275,7 +274,10 @@ internal sealed class JintIdentifierExpression : JintExpression
                 {
                     _cachedSlotEnv = denv;
                     _cachedSlotIndex = slotIndex;
-                    _scopePath = ScopePath.TryCreate(engine, env, denv, identifier.Key, slotIndex);
+                    if (_scopePathAttempts < MaxScopePathAttempts)
+                    {
+                        TryRememberScopePath(engine, env, denv, slotIndex);
+                    }
                 }
             }
             else if (identifierEnvironment is GlobalEnvironment globalEnv)
@@ -297,6 +299,76 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
 
         return MaterializeIfArguments(value);
+    }
+
+    /// <summary>
+    /// The slot lanes after the identity checks miss: the layout-described <see cref="_scopePath"/> first, since it
+    /// validates with reference compares, then the probing reachability walk to <paramref name="cachedSlotEnv"/>.
+    /// Null when neither reaches the binding. A path hit re-pins the identity cache on the environment it found, and
+    /// past hop 0 pins the chain as a memo, so the rest of a fresh activation's reads — and every read of an
+    /// environment the engine reuses — take the inline identity lanes instead of coming back here.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue? ReadSlotOffIdentityLane(Engine engine, Environment env, DeclarativeEnvironment? cachedSlotEnv)
+    {
+        DeclarativeEnvironment holder;
+        int index;
+        if (_scopePath is { } scopePath && scopePath.Resolve(engine, env) is { } pathHolder)
+        {
+            holder = pathHolder;
+            index = scopePath.SlotIndex;
+            if (!ReferenceEquals(holder, cachedSlotEnv))
+            {
+                _cachedSlotEnv = holder;
+                _cachedSlotIndex = index;
+            }
+
+            if (scopePath.Hops != 0)
+            {
+                _slotChainMemo = SlotChainMemo.ForValidatedChain(engine, env, scopePath.Hops);
+            }
+        }
+        else if (cachedSlotEnv is not null
+                 && !ReferenceEquals(env, cachedSlotEnv)
+                 && SlotLocationCache.WalkAndMemoize(engine, env, cachedSlotEnv, Identifier.Key, ref _slotChainMemo))
+        {
+            holder = cachedSlotEnv;
+            index = _cachedSlotIndex;
+        }
+        else
+        {
+            return null;
+        }
+
+        if (holder._slots is not { } slots || (uint) index >= (uint) slots.Length)
+        {
+            return null;
+        }
+
+        ref var binding = ref slots[index];
+        var value = binding.HasReferenceValue
+            ? binding.Value
+            : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
+        if (value is null)
+        {
+            ThrowNotInitialized(engine);
+        }
+        return MaterializeIfArguments(value);
+    }
+
+    /// <summary>
+    /// Builds a <see cref="ScopePath"/> for the slot binding the walk just found, counting the attempt. A failed
+    /// build keeps the current path: it still validates in full on every read, so a site that alternates between
+    /// a describable chain and one that is not keeps hitting on the first.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void TryRememberScopePath(Engine engine, Environment env, DeclarativeEnvironment holder, int slotIndex)
+    {
+        _scopePathAttempts++;
+        if (ScopePath.TryCreate(engine, env, holder, Identifier.Key, slotIndex) is { } path)
+        {
+            _scopePath = path;
+        }
     }
 
     /// <summary>

@@ -103,4 +103,35 @@ public class ScopePathTests
             outer({}) + ',' + outer({ x: 'with' }) + ',' + outer({})
             """).Should().Be("outer,with,outer");
     }
+
+    [Test]
+    public void APathHitPinsTheChainOfTheActivationItFound()
+    {
+        // A path hit re-pins the identity cache and memoizes the chain it validated, so the later reads in the
+        // same activation take the identity lanes; they must still land on that activation's bindings, and the
+        // next activation's first read must move them.
+        Run("""
+            function outer(n) {
+              let total = 0;
+              const add = () => { for (let i = 0; i < 3; i++) { total += n; } };
+              add();
+              add();
+              return total;
+            }
+            [1, 2, 3, 4].map(outer).join()
+            """).Should().Be("6,12,18,24");
+    }
+
+    [Test]
+    public void ASiteThatCannotBuildAPathResolvesPastTheRetryCap()
+    {
+        // A with object between the reader and the binding means no path can be built; after a few attempts the
+        // site stops trying, and the ordinary walk keeps answering — including for the with object's own x.
+        Run("""
+            function outer(o) { var x = 'o'; with (o) { return (() => x)(); } }
+            let r = '';
+            for (let i = 0; i < 10; i++) r += outer(i % 3 === 0 ? { x: 'w' } : {});
+            r
+            """).Should().Be("woowoowoow");
+    }
 }
