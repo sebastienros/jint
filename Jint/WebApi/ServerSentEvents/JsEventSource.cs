@@ -4,6 +4,7 @@ using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.Events;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.Files;
 using Jint.WebApi.Timers;
 using Jint.WebApi.Url.Parsing;
 
@@ -31,9 +32,10 @@ namespace Jint.WebApi.ServerSentEvents;
 /// a destination between two attempts really does stop the next one.
 /// </para>
 /// <para>
-/// <b>A <c>data:</c> URL is the exception, and is answered by the engine itself</b> — the <c>data</c> arm of
-/// scheme fetch, as <c>fetch</c> and <c>XMLHttpRequest</c> take it — before the policy, with no connection, no
-/// transport and nothing for an observer to see. See <see cref="ConnectDataUrl"/>.
+/// <b>A <c>data:</c> or <c>blob:</c> URL is the exception, and is answered by the engine itself</b> — the two
+/// local arms of scheme fetch, as <c>fetch</c> and <c>XMLHttpRequest</c> take them — before the policy, with no
+/// connection, no transport and nothing for an observer to see. See <see cref="ConnectDataUrl"/> and
+/// <see cref="ConnectBlobUrl"/>.
 /// </para>
 /// </remarks>
 internal sealed class JsEventSource : JsEventTarget
@@ -131,12 +133,19 @@ internal sealed class JsEventSource : JsEventTarget
     /// </summary>
     internal void Connect()
     {
-        // Scheme fetch's `data` arm, before every network check and before an observation exists, exactly as
-        // fetch takes it: the bytes are in the URL, so there is nothing for the policy to decide and no request
-        // for an observer to be told about, not even as a refusal.
+        // Scheme fetch's `data` and `blob` arms, before every network check and before an observation exists,
+        // exactly as fetch takes them: the bytes are in the URL or in a Blob this engine's own script created,
+        // so there is nothing for the policy to decide and no request for an observer to be told about, not
+        // even as a refusal.
         if (DataUrl.Is(Url))
         {
             ConnectDataUrl();
+            return;
+        }
+
+        if (string.Equals(Url.Scheme, "blob", StringComparison.Ordinal))
+        {
+            ConnectBlobUrl();
             return;
         }
 
@@ -276,8 +285,72 @@ internal sealed class JsEventSource : JsEventTarget
             return;
         }
 
-        if (!DataUrlFetch.TryBuild(Url, "GET", _options.MaxResponseBytes, out var response, out _)
-            || !IsEventStream(response.Headers))
+        if (!DataUrlFetch.TryBuild(Url, "GET", _options.MaxResponseBytes, out var response, out _))
+        {
+            FailConnectionLater();
+            return;
+        }
+
+        ProcessLocalResponse(in response);
+    }
+
+    /// <summary>
+    /// Constructor step 15 for a <c>blob:</c> URL. A blob URL is same-origin with the environment that minted
+    /// it, so https://fetch.spec.whatwg.org/#main-fetch sends the <c>cors</c>-mode request to
+    /// https://fetch.spec.whatwg.org/#scheme-fetch, and the <c>blob</c> arm answers it from the blob URL store;
+    /// see <see cref="BlobUrlFetch"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The store is asked on every connection, and the first one is inside the constructor.</b> A revoke on
+    /// the line after <c>new EventSource(url)</c> therefore does not take the first pass away, as it does not for
+    /// a <c>Request</c> built before the revoke; and a reconnection asks again, so a URL revoked since is the arm's
+    /// network error. That error, like a URL that never named an entry, is one every later attempt would meet
+    /// again — a store never mints the same URL twice — so it fails the connection rather than reestablishing
+    /// it, which step 15.ii allows "if the user agent knows that to be futile". It also means the source holds
+    /// no blob between passes: revoking the URL is what lets the bytes go, as it is for every other holder.
+    /// </para>
+    /// <para>
+    /// <b>The store is the engine's own, and nothing else is consulted</b>, exactly as for <c>fetch</c> and
+    /// <c>XMLHttpRequest</c>: every realm of this engine resolves against it, a URL another engine minted — a
+    /// worker's or a parent's — names nothing here, and a URL naming another origin can never match an entry,
+    /// since this engine mints only <c>blob:null/…</c>.
+    /// </para>
+    /// <para>
+    /// <b>Bounded by <c>MaxResponseBytes</c> on the blob's bytes, which <c>fetch</c>'s arm is not.</b> A
+    /// <c>fetch</c> hands the blob back as a body a script already held; here it is parsed whole on the engine
+    /// thread, with no per-event cap, and replayed every reconnection time, so this is the bound a network
+    /// stream's events have — the one a <c>data:</c> URL's decoded body already answers to. The request is
+    /// always <c>GET</c> and carries no <c>Range</c>, so the arm's other two failures cannot arise.
+    /// </para>
+    /// </remarks>
+    private void ConnectBlobUrl()
+    {
+        if (_cancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        var blob = _state.BlobUrls.Resolve(Url);
+        if (blob is null
+            || blob.Data.Length > _options.MaxResponseBytes
+            || !BlobUrlFetch.TryBuild(blob, "GET", rangeHeader: null, out var response))
+        {
+            FailConnectionLater();
+            return;
+        }
+
+        ProcessLocalResponse(in response);
+    }
+
+    /// <summary>
+    /// Processes the response one of the two local arms built, exactly as a network one is: a
+    /// <c>text/event-stream</c> body is parsed and delivered as a <see cref="LocalSchemePass"/>, and any other
+    /// type fails the connection.
+    /// </summary>
+    private void ProcessLocalResponse(in LocalSchemeResponse response)
+    {
+        if (!IsEventStream(response.Headers))
         {
             FailConnectionLater();
             return;
@@ -289,7 +362,7 @@ internal sealed class JsEventSource : JsEventTarget
         var messages = new List<EventStreamMessage>();
         parser.Feed(response.Body.GetValueOrDefault().Span, messages);
 
-        new DataUrlPass(this, parser.TakeReconnectionTime(), messages).Post();
+        new LocalSchemePass(this, parser.TakeReconnectionTime(), messages).Post();
     }
 
     /// <summary>
@@ -568,7 +641,7 @@ internal sealed class JsEventSource : JsEventTarget
     /// Runs an engine-thread job in the realm this object was created in.
     /// </summary>
     /// <remarks>
-    /// Every task a connection or a <c>data:</c> pass queues comes through here: one running on a later turn
+    /// Every task a connection or a local-scheme pass queues comes through here: one running on a later turn
     /// would otherwise run its listeners under whatever realm happened to be ambient. A listener that throws
     /// erupts from whatever is pumping the event loop, which is the contract every event Jint fires already
     /// has — see <c>JsEventTarget</c>. There is no promise here to reject it into.
@@ -595,8 +668,9 @@ internal sealed class JsEventSource : JsEventTarget
     }
 
     /// <summary>
-    /// One pass of a <c>data:</c> URL's body, delivered as the three tasks a network connection queues for one
-    /// response: the announcement, the events, and the end of the body, which reestablishes the connection.
+    /// One pass of a <c>data:</c> URL's or a <c>blob:</c> URL's body, delivered as the three tasks a network
+    /// connection queues for one response: the announcement, the events, and the end of the body, which
+    /// reestablishes the connection.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -611,7 +685,7 @@ internal sealed class JsEventSource : JsEventTarget
     /// already queued, exactly as it discards a connection's.
     /// </para>
     /// </remarks>
-    private sealed class DataUrlPass
+    private sealed class LocalSchemePass
     {
         private const int AnnounceStep = 0;
         private const int DispatchStep = 1;
@@ -626,7 +700,7 @@ internal sealed class JsEventSource : JsEventTarget
 
         private int _step = AnnounceStep;
 
-        internal DataUrlPass(JsEventSource source, long? reconnectionTime, List<EventStreamMessage> messages)
+        internal LocalSchemePass(JsEventSource source, long? reconnectionTime, List<EventStreamMessage> messages)
         {
             _source = source;
             _reconnectionTime = reconnectionTime;
@@ -658,7 +732,8 @@ internal sealed class JsEventSource : JsEventTarget
                     break;
 
                 case DispatchStep:
-                    // The origin of a data: URL is opaque, which serializes as "null".
+                    // The origin of a data: URL is opaque, which serializes as "null"; a blob: URL's is the one
+                    // its path names, which for every URL this engine mints is "null" too.
                     _source.Dispatch(_reconnectionTime, _messages, _source.Url.SerializeOrigin());
                     _step = EndOfBodyStep;
                     break;
