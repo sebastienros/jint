@@ -24,7 +24,12 @@ internal enum InternalTypes
 
     // internal usage
     ObjectEnvironmentRecord = 1024,
-    RequiresCloning = 2048,
+
+    // An identifier read must act on this value before handing it on: a pooled arguments object leaving its frame
+    // (JsArguments carries the bit for life), or a string a binding owns and may still extend in place
+    // (JsString.ConcatenatedString carries it only while owned). One bit, so the identifier lane's existing check
+    // answers both with a single test of the _type it already loads.
+    ReadHook = 2048,
     Module = 4096,
 
     // the object doesn't override important GetOwnProperty etc which change behavior. Set only through the
@@ -145,5 +150,5 @@ internal enum InternalTypes
     // FastCallGuardValuesMatchInternalTypes fails loudly if anything grows into them.
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots | BuiltinShapeIndexAuthoritative | TailCall | Map | Set
+    InternalFlags = ObjectEnvironmentRecord | ReadHook | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots | BuiltinShapeIndexAuthoritative | TailCall | Map | Set
 }

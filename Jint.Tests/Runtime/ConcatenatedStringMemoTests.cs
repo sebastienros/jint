@@ -5,68 +5,209 @@ using Jint.Native;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// <see cref="JsString.ConcatenatedString"/> is the builder behind <c>s += t</c>: appends land in a
-/// <see cref="System.Text.StringBuilder"/> and the flat text is memoized on the first read after them. A host
-/// gets that instance back from <see cref="Engine.Evaluate(string, string, Jint.ScriptParsingOptions)"/>,
-/// <see cref="Engine.GetValue(string)"/> or a property read with its appends still pending, and may read it
-/// from several threads while the engine is idle. Those reads are safe without a fence only if the memo is
-/// the one field a read consults — so it must be either absent or the whole text, at every point. A memo
-/// left standing, stale, beside a "dirty" flag is what let a reader on a weakly ordered CPU see the flag
-/// cleared before the new text and return the value from before the appends (sebastienros/jint#4171).
+/// <see cref="JsString.ConcatenatedString"/> is what <c>s += t</c> produces: an immutable value whose characters
+/// live in chunks it shares with the value it was appended to, and whose flat text is memoized on the first read
+/// that needs it. A host gets such a value back from <see cref="Engine.Evaluate(string, string, Jint.ScriptParsingOptions)"/>,
+/// <see cref="Engine.GetValue(string)"/> or a property read, and may read it from several threads at once. Those
+/// reads are safe without a fence only if the memo is the one field a read consults — so it must be either absent
+/// or the whole text, at every point (sebastienros/jint#4171) — and only if nothing an append writes is something
+/// a reader of an earlier value reads (sebastienros/jint#4259).
 /// <para>
-/// The race itself cannot be reproduced on demand — x64 keeps the two stores in order anyway — so these
-/// tests pin the representation that removes it, which any CPU can check.
+/// A race cannot be reproduced on demand, so these tests pin the representation that removes it, which any CPU
+/// can check.
 /// </para>
 /// </summary>
 public class ConcatenatedStringMemoTests
 {
     [Test]
-    public void AnAppendDropsTheMemoAndAReadRestoresTheWholeText()
+    public void AnAppendLeavesItsReceiverAsItWas()
     {
         using var engine = new Engine();
 
-        var value = new JsString.ConcatenatedString("a");
-        AssertMemoIsAbsentOrWhole(value, "a");
+        var a = new JsString.ConcatenatedString("a");
+        AssertMemoIsAbsentOrWhole(a, "a");
 
-        // The first append creates the builder, every later one grows it.
-        Append(engine, value, "b");
-        AssertMemoIsAbsent(value, "ab");
+        // The first append starts the shared chunk, every later one writes into it.
+        var ab = Append(engine, a, "b");
+        var abc = Append(engine, ab, "c");
+        AssertMemoIsAbsent(abc, "abc");
+        AssertReadsAs(abc, "abc");
 
-        Append(engine, value, "c");
+        var abcd = Append(engine, abc, "d");
+        AssertMemoIsAbsent(abcd, "abcd");
+        AssertReadsAs(abcd, "abcd");
+
+        // Every value is still the text it was made with, memoized or not.
+        AssertReadsAs(a, "a");
+        AssertReadsAs(ab, "ab");
+        AssertReadsAs(abc, "abc");
+    }
+
+    /// <summary>
+    /// A value somebody already appended past, appended to again: the second append branches off rather than
+    /// writing over the characters the first one wrote, and both results keep their own text.
+    /// </summary>
+    [Test]
+    public void AppendingTwiceToOneValueBuildsTwoValues()
+    {
+        using var engine = new Engine();
+
+        var ab = Append(engine, Append(engine, new JsString.ConcatenatedString("a"), "b"), "");
+        var abc = Append(engine, ab, "c");
+        var abx = Append(engine, ab, "x");
+        var abxy = Append(engine, abx, "y");
+        var abcd = Append(engine, abc, "d");
+
+        AssertReadsAs(ab, "ab");
+        AssertReadsAs(abc, "abc");
+        AssertReadsAs(abx, "abx");
+        AssertReadsAs(abxy, "abxy");
+        AssertReadsAs(abcd, "abcd");
+    }
+
+    /// <summary>
+    /// Characters past one chunk: the value reads across the chunks it spans, by index as well as whole, and an
+    /// earlier value still reads only its own part of the chunk the later ones went on writing into.
+    /// </summary>
+    [Test]
+    public void AValueSpanningChunksReadsAcrossThem()
+    {
+        using var engine = new Engine();
+
+        var value = new JsString.ConcatenatedString("0");
+        var expected = new System.Text.StringBuilder("0");
+        JsString? early = null;
+        for (var i = 1; i < 20_000; i++)
+        {
+            var piece = (i % 10).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            value = Append(engine, value, piece);
+            expected.Append(piece);
+            if (i == 100)
+            {
+                early = value;
+            }
+        }
+
+        var text = expected.ToString();
+        value.Length.Should().Be(text.Length);
+        value[0].Should().Be('0');
+        value[12_345].Should().Be(text[12_345]);
+        value[text.Length - 1].Should().Be(text[text.Length - 1]);
+        value.Equals(text).Should().BeTrue();
+        value.Equals(new JsString(text)).Should().BeTrue();
+        value.Equals(new JsString(text.Substring(0, text.Length - 1) + "!")).Should().BeFalse();
+        AssertReadsAs(value, text);
+        AssertReadsAs(early!, text.Substring(0, 101));
+    }
+
+    /// <summary>
+    /// The one instance that changes: a value a binding owns, extended in place by its <c>+=</c> before anything
+    /// has read it. The memo stays absent-or-whole through every step, from the flat first value through the
+    /// chunks, and the first read that marks it shared ends the extensibility for good.
+    /// </summary>
+    [Test]
+    public void AnOwnedValueExtendedInPlaceKeepsTheMemoAbsentOrWhole()
+    {
+        using var engine = new Engine();
+
+        var value = (JsString.ConcatenatedString) new JsString("a").Append(engine.Realm, "b");
+        value.IsExtensibleInPlace.Should().BeFalse("nothing owns a value until a binding claims it");
+
+        value.TryClaimForBinding().Should().BeTrue();
+        value.AppendInPlace(engine.Realm, "c");
         AssertMemoIsAbsent(value, "abc");
 
-        AssertReadsAs(value, "abc");
+        for (var i = 0; i < 10_000; i++)
+        {
+            value.AppendInPlace(engine.Realm, "d");
+        }
 
-        Append(engine, value, "d");
-        AssertMemoIsAbsent(value, "abcd");
+        var expected = "abc" + new string('d', 10_000);
+        AssertMemoIsAbsent(value, expected);
 
-        AssertReadsAs(value, "abcd");
+        value.MarkShared();
+        value.IsExtensibleInPlace.Should().BeFalse();
+        value.TryClaimForBinding().Should().BeFalse("shared is final: a value once handed on is never claimed again");
+        value.IsExtensibleInPlace.Should().BeFalse();
+        AssertReadsAs(value, expected);
+
+        // shared now, so an append makes a new value and leaves this one as it was
+        var longer = Append(engine, value, "e");
+        AssertReadsAs(longer, expected + "e");
+        AssertReadsAs(value, expected);
     }
 
     /// <summary>
-    /// <see cref="JsString.EnsureCapacity"/> builds the other shape: a builder from the start, so the first
-    /// append grows an existing builder instead of creating one.
+    /// A right operand whose flat text would be a large object, and which has none yet, is copied from its chunks
+    /// through a buffer instead (<see cref="JsString.ConcatenatedString.CopiesThroughBuffer"/>): the operand keeps no
+    /// memo, and whether the append extends the receiver's own chunk (<c>s += s</c>), branches off a value somebody
+    /// already appended past, or starts the first chunk of a flat receiver, every value reads as the text it was
+    /// made with. Both operands are built from small appends, so the chunk each ends in has room left: the branch has
+    /// characters after the receiver's end that it must not write over.
     /// </summary>
     [Test]
-    public void AnAppendDropsTheMemoWhenTheBuilderIsPresized()
+    public void ALongOperandIsCopiedFromItsChunksWithoutAMemo()
     {
         using var engine = new Engine();
 
-        var value = (JsString.ConcatenatedString) new JsString("a").EnsureCapacity(16);
-        AssertMemoIsAbsentOrWhole(value, "a");
+        var (value, text) = BuildBySmallAppends(engine, i => (char) ('0' + i % 10));
+        var (other, otherText) = BuildBySmallAppends(engine, i => (char) ('a' + i % 26));
+        value.CopiesThroughBuffer.Should().BeTrue("the premise: a long value an append produced, with no memo");
+        other.CopiesThroughBuffer.Should().BeTrue("the premise: a long value an append produced, with no memo");
 
-        Append(engine, value, "b");
-        AssertMemoIsAbsent(value, "ab");
+        // s += s, where the receiver ends the chunk's written characters
+        var doubled = (JsString.ConcatenatedString) value.Append(engine.Realm, value);
+        AssertMemoIsAbsent(value, text);
+        AssertMemoIsAbsent(doubled, text + text);
 
-        AssertReadsAs(value, "ab");
+        // the doubled value has written past the receiver's end, so this append branches off
+        var branch = (JsString.ConcatenatedString) value.Append(engine.Realm, other);
+        AssertMemoIsAbsent(value, text);
+        AssertMemoIsAbsent(other, otherText);
+        AssertMemoIsAbsent(branch, text + otherText);
+
+        // a receiver that has its flat text and no chunk yet
+        var first = (JsString.ConcatenatedString) new JsString.ConcatenatedString("x").Append(engine.Realm, value);
+        AssertMemoIsAbsent(value, text);
+        AssertMemoIsAbsent(first, "x" + text);
+
+        doubled[text.Length + 12_345].Should().Be(text[12_345]);
+        branch[text.Length + 12_345].Should().Be(otherText[12_345]);
+        first[12_346].Should().Be(text[12_345]);
+        AssertReadsAs(doubled, text + text);
+        AssertReadsAs(branch, text + otherText);
+        AssertReadsAs(first, "x" + text);
+        AssertReadsAs(other, otherText);
+        AssertReadsAs(value, text);
+
+        // once the operand has its memo, an append takes it as a string
+        value.CopiesThroughBuffer.Should().BeFalse();
     }
 
     /// <summary>
-    /// The shape a host is handed: a script's <c>+=</c> result with its appends still pending, returned as
-    /// the completion value, and read off an object property.
+    /// The lane that asks <see cref="JsString.ConcatenatedString.CopiesThroughBuffer"/>: a <c>+=</c> to a global
+    /// leaves a long operand without the flat text it would otherwise have made only to copy.
     /// </summary>
     [Test]
-    public void AResultHandedToTheHostWithAppendsPendingCarriesNoStaleMemo()
+    public void APlusEqualsToAGlobalLeavesALongOperandUnflattened()
+    {
+        using var engine = new Engine();
+
+        engine.Execute("var s = 'ab'; for (var i = 0; i < 16; i++) { s += s; } var t = s; s += t;");
+
+        var text = new System.Text.StringBuilder().Insert(0, "ab", 1 << 16).ToString();
+        var operand = engine.GetValue("t").Should().BeOfType<JsString.ConcatenatedString>().Subject;
+        AssertMemoIsAbsent(operand, text);
+        AssertReadsAs((JsString) engine.GetValue("s"), text + text);
+        AssertReadsAs(operand, text);
+    }
+
+    /// <summary>
+    /// The shape a host is handed: a script's <c>+=</c> result returned as the completion value, and read off
+    /// an object property, before anything has read its text.
+    /// </summary>
+    [Test]
+    public void AResultHandedToTheHostCarriesNoStaleMemo()
     {
         using var engine = new Engine();
 
@@ -75,8 +216,8 @@ public class ConcatenatedStringMemoTests
 
         // The premise. Should a host ever be handed a flat copy instead, this test covers nothing; the two
         // above still pin the representation.
-        fromEvaluate.Should().BeOfType<JsString.ConcatenatedString>("the host is handed the builder itself, appends pending");
-        fromProperty.Should().BeOfType<JsString.ConcatenatedString>("the host is handed the builder itself, appends pending");
+        fromEvaluate.Should().BeOfType<JsString.ConcatenatedString>("the host is handed the value += produced");
+        fromProperty.Should().BeOfType<JsString.ConcatenatedString>("the host is handed the value += produced");
 
         AssertMemoIsAbsent((JsString) fromEvaluate, "abc");
         AssertMemoIsAbsent((JsString) fromProperty, "xyz");
@@ -85,9 +226,34 @@ public class ConcatenatedStringMemoTests
         AssertReadsAs((JsString) fromProperty, "xyz");
     }
 
-    private static void Append(Engine engine, JsString.ConcatenatedString value, string text)
+    /// <summary>
+    /// A value of 50,000 characters built one character per append, so it has no memo.
+    /// </summary>
+    private static (JsString.ConcatenatedString Value, string Text) BuildBySmallAppends(Engine engine, Func<int, char> character)
     {
-        value.Append(engine.Realm, text).Should().BeSameAs(value, "a ConcatenatedString appends in place");
+        var value = new JsString.ConcatenatedString(character(0).ToString());
+        var expected = new System.Text.StringBuilder().Append(character(0));
+        for (var i = 1; i < 50_000; i++)
+        {
+            var piece = character(i).ToString();
+            value = Append(engine, value, piece);
+            expected.Append(piece);
+        }
+
+        return (value, expected.ToString());
+    }
+
+    private static JsString.ConcatenatedString Append(Engine engine, JsString.ConcatenatedString value, string text)
+    {
+        var before = value.Length;
+        var result = value.Append(engine.Realm, text);
+        value.Length.Should().Be(before, "an append leaves its receiver as it was");
+        if (text.Length > 0)
+        {
+            result.Should().NotBeSameAs(value, "an append returns a new value");
+        }
+
+        return result.Should().BeOfType<JsString.ConcatenatedString>().Subject;
     }
 
     /// <summary>
@@ -100,31 +266,33 @@ public class ConcatenatedStringMemoTests
         var memo = value._value;
         if (memo is not null)
         {
-            memo.Should().Be(expected, "a memo that is present is returned as the value without consulting the builder");
+            memo.Should().Be(expected, "a memo that is present is returned as the value without consulting the chunks");
         }
 
         value.Length.Should().Be(expected.Length);
     }
 
     /// <summary>
-    /// Pending appends leave no memo at all: the previous text must not be left standing in front of them.
+    /// A value an append produced has no memo until something reads its text.
     /// </summary>
     private static void AssertMemoIsAbsent(JsString value, string expected)
     {
-        value._value.Should().BeNull("an append must drop the memo rather than leave the previous text standing in front of it");
+        value._value.Should().BeNull("nothing has read the value's text yet");
         AssertMemoIsAbsentOrWhole(value, expected);
     }
 
     /// <summary>
-    /// Reads through every member that materializes, then checks the read memoized the whole text.
+    /// Reads through every member that materializes, then checks the read memoized the whole text. The
+    /// comparisons go first because they answer from the chunks without materializing.
     /// </summary>
     private static void AssertReadsAs(JsString value, string expected)
     {
         var flat = new JsString(expected);
 
-        value.ToString().Should().Be(expected);
         value.Equals(expected).Should().BeTrue();
         value.Equals(flat).Should().BeTrue();
+        flat.Equals(value).Should().BeTrue();
+        value.ToString().Should().Be(expected);
         value.GetHashCode().Should().Be(flat.GetHashCode());
 
         value._value.Should().Be(expected, "a read memoizes the whole text");

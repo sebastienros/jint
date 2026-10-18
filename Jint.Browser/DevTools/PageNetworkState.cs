@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Net;
 using Jint.Browser.Runtime;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.Url.Parsing;
+using Jint.WebApi.Url.Pattern;
 using ProtocolNetwork = Jint.DevTools.Protocol.Network;
 
 namespace Jint.Browser.DevTools;
@@ -29,15 +31,62 @@ namespace Jint.Browser.DevTools;
 /// <see cref="Apply"/> is handed that state rather than keeping a copy of it.
 /// </para>
 /// <param name="ExtraHeaders">What <c>Network.setExtraHTTPHeaders</c> asked to add to every request.</param>
-/// <param name="Offline">Whether <c>Network.emulateNetworkConditions</c> pulled the plug.</param>
+/// <param name="Conditions">
+/// The network conditions in force, in the order a client listed them; <see cref="IsOffline"/> reads them.
+/// <c>Network.emulateNetworkConditions</c> and <c>Network.emulateNetworkConditionsByRule</c> both write the
+/// whole list and each replaces what the other set, so the last one sent decides. What <c>navigator.onLine</c>
+/// answers is the page's <c>EmulationState.Offline</c> instead.
+/// </param>
 /// <param name="BlockedUrls">The patterns <c>Network.setBlockedURLs</c> refuses.</param>
 internal sealed record PageNetworkPolicy(
     IReadOnlyList<PageHeader> ExtraHeaders,
-    bool Offline,
+    IReadOnlyList<PageNetworkCondition> Conditions,
     IReadOnlyList<string> BlockedUrls)
 {
     /// <summary>A page nobody has configured: every request goes as the page composed it.</summary>
-    internal static PageNetworkPolicy None { get; } = new([], false, []);
+    internal static PageNetworkPolicy None { get; } = new([], [], []);
+
+    /// <summary>Whether the network conditions in force take <paramref name="url"/> offline.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first entry that matches decides</b>, offline or not, and a URL no entry matches is online. That
+    /// is the protocol's rule, and Chromium's network service keeps it exactly: it mints a distinct rule
+    /// identifier per entry, so two entries with the same conditions are never merged and their order is never
+    /// lost. A global entry matches every URL, so nothing after one is ever read.
+    /// </para>
+    /// <para>
+    /// <b>Called on a transport thread, once per redirect hop</b>, so a redirect into a pattern is refused at the
+    /// hop that enters it. Nothing here reaches an engine: a pattern is a <see cref="UrlPatternMatcher"/>, and the
+    /// URL is parsed at most once, and only when a pattern has to read it.
+    /// </para>
+    /// </remarks>
+    internal bool IsOffline(string url)
+    {
+        UrlRecord? parsed = null;
+        var unparsed = true;
+
+        foreach (var condition in Conditions)
+        {
+            if (condition.Pattern is not { } pattern)
+            {
+                return condition.Offline;
+            }
+
+            if (unparsed)
+            {
+                parsed = UrlParser.Parse(url);
+                unparsed = false;
+            }
+
+            // A URL that does not parse matches no pattern; only a global entry can reach it.
+            if (parsed is not null && pattern.Matches(parsed))
+            {
+                return condition.Offline;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Whether <paramref name="url"/> is one <c>setBlockedURLs</c> refuses.</summary>
     internal bool Blocks(string url)
@@ -120,6 +169,24 @@ internal sealed record PageNetworkPolicy(
         result.Add(new PageHeader("cache-control", "no-store"));
         return result;
     }
+}
+
+/// <summary>One entry of the network conditions in force: the requests it applies to, and whether it takes them offline.</summary>
+/// <remarks>
+/// Latency, throughput and the WebRTC packet settings are not kept, because nothing honours them — see
+/// <c>NetworkDomain.EmulateNetworkConditionsAsync</c>. An entry that only throttles is still kept, as one
+/// whose <see cref="Offline"/> is <see langword="false"/>: being the first to match is what lets it keep a
+/// request online that a later entry would have taken offline.
+/// </remarks>
+/// <param name="Pattern">
+/// The requests the entry applies to, compiled on the page loop from the entry's <c>urlPattern</c> and matched on a
+/// transport thread; <see langword="null"/> for a global entry, which applies to every request.
+/// </param>
+/// <param name="Offline">Whether a request this entry decides fails with <c>net::ERR_INTERNET_DISCONNECTED</c>.</param>
+internal sealed record PageNetworkCondition(UrlPatternMatcher? Pattern, bool Offline)
+{
+    /// <summary>The single global entry the deprecated <c>Network.emulateNetworkConditions</c> amounts to when offline.</summary>
+    internal static PageNetworkCondition GlobalOffline { get; } = new(null, true);
 }
 
 /// <summary>

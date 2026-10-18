@@ -138,6 +138,24 @@ public sealed class JsonParser
     private const int InternedValueSlots = 256; // power of two, indexed by hash & (InternedValueSlots - 1)
     private InternedValueEntry[]? _internedValues;
 
+    // Both tables are sized to the document rather than allocated at their full size: a document of n
+    // characters holds fewer than n / 4 keys (the shortest member, `"":0,`, is five characters) and as
+    // few string values, so a small document such as a configuration blob or a request's locals cannot
+    // use more than a handful of slots, yet paid for 2 x 256 entries on every parse. The floor keeps
+    // collisions rare for a small document; the cap stays the table size a large payload always had.
+    private const int MinInternedSlots = 16;
+
+    private static int InternedSlotsFor(int documentLength, int maxSlots)
+    {
+        var slots = MinInternedSlots;
+        while (slots < maxSlots && slots * 8 < documentLength)
+        {
+            slots <<= 1;
+        }
+
+        return slots;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsDecimalDigit(char ch)
     {
@@ -594,8 +612,8 @@ public sealed class JsonParser
         }
 
         var hash = Hash.GetFNVHashCode(span);
-        var entries = _internedKeys ??= new InternedKeyEntry[InternedKeySlots];
-        ref var entry = ref entries[hash & (InternedKeySlots - 1)];
+        var entries = _internedKeys ??= new InternedKeyEntry[InternedSlotsFor(_length, InternedKeySlots)];
+        ref var entry = ref entries[hash & (entries.Length - 1)];
         if (entry.Hash == hash && entry.Name is not null && span.SequenceEqual(entry.Name.AsSpan()))
         {
             return new InternedKey(entry.Name, entry.Value);
@@ -625,8 +643,8 @@ public sealed class JsonParser
         }
 
         var hash = Hash.GetFNVHashCode(span);
-        var entries = _internedValues ??= new InternedValueEntry[InternedValueSlots];
-        ref var entry = ref entries[hash & (InternedValueSlots - 1)];
+        var entries = _internedValues ??= new InternedValueEntry[InternedSlotsFor(_length, InternedValueSlots)];
+        ref var entry = ref entries[hash & (entries.Length - 1)];
         if (entry.Hash == hash && entry.Text is not null && span.SequenceEqual(entry.Text.AsSpan()))
         {
             return new InternedValue(entry.Text, entry.Value);
@@ -1155,13 +1173,29 @@ public sealed class JsonParser
         _length = code.Length;
         _lookahead = null!;
         _shapeBudget = ShapeTransitionBudget;
+        // A table sized for a smaller document is dropped rather than cleared, so the next intern
+        // allocates one sized for this document.
         if (_internedKeys is not null)
         {
-            System.Array.Clear(_internedKeys, 0, _internedKeys.Length);
+            if (_internedKeys.Length < InternedSlotsFor(code.Length, InternedKeySlots))
+            {
+                _internedKeys = null;
+            }
+            else
+            {
+                System.Array.Clear(_internedKeys, 0, _internedKeys.Length);
+            }
         }
         if (_internedValues is not null)
         {
-            System.Array.Clear(_internedValues, 0, _internedValues.Length);
+            if (_internedValues.Length < InternedSlotsFor(code.Length, InternedValueSlots))
+            {
+                _internedValues = null;
+            }
+            else
+            {
+                System.Array.Clear(_internedValues, 0, _internedValues.Length);
+            }
         }
         _expectKey = false;
 

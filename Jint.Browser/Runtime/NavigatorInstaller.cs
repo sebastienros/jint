@@ -93,11 +93,13 @@ internal static class NavigatorInstaller
     }
 
     internal static string PlatformOf(PageRuntime runtime) => runtime.Emulation.Platform ?? "";
-    internal static JsValue Online(PageRuntime runtime)
-    {
-        _ = runtime;
-        return JsBoolean.True;
-    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/system-state.html#dom-navigator-online — <see langword="false"/>
+    /// only while a client has told the page it is offline (<see cref="EmulationState.Offline"/>), because the
+    /// host's own connectivity is not this page's to report.
+    /// </summary>
+    internal static JsValue Online(PageRuntime runtime) => runtime.Emulation.Offline ? JsBoolean.False : JsBoolean.True;
 
     private static void Attach(Engine engine, ObjectInstance navigatorPrototype)
     {

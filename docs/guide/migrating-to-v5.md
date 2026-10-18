@@ -6292,6 +6292,198 @@ Not changed: `gregory` and `iso8601`, the Chinese and Dangi calendars' lane, and
 is written in its Gregorian year with the Gregorian era where ICU writes one of the 232 earlier eras (`1850 AD` for
 `Kaei 3`). Hebrew dates in `he` and `yi`, which CLDR writes in Hebrew numerals, are written in the formatter's digits.
 
+### 4.155 An `await` or `yield` on the right-hand side of a destructuring assignment no longer replays the body ([#4273](https://github.com/sebastienros/jint/issues/4273))
+
+The one consumer of the suspension placeholder that
+[§4.137](#4-137-an-await-or-yield-inside-an-optional-chain-or-a-computed-member-access-no-longer-replays-the-body-4086)
+did not reach was the destructuring *assignment* itself — the pattern as an assignment target,
+`({ a } = await p)` or `[a] = await p`, as opposed to a declaration (`const { a } = await p`), a plain
+assignment or a member target, all of which were already right. It destructured the placeholder as though it
+were the awaited value, which raised the same swallowed `TypeError` and lost the resume position the same way,
+so the resume started again from the first statement:
+
+```js
+var log = [];
+var a = null;
+async function m() {
+    log.push("pre");
+    ({ a } = await Promise.resolve({ a: 1 }));
+    log.push("post");
+    return a;
+}
+
+// 4.16.x / earlier 5.0: log is 'pre,pre,post' - one extra 'pre' per awaited destructuring assignment
+// 5.x:                  log is 'pre,post'
+```
+
+Inside a loop it is the iteration that repeats (`it0,it0,it1,it1,…`), and behind a re-entrancy guard the
+replay takes the early return, so the assignment never happens at all. The answer itself was right in every
+shape — the memoized await makes the replayed `await` return instantly — which is why the defect showed only
+in the side effects.
+
+In a generator the placeholder is the yielded operand rather than `undefined`, so `({ a } = yield src)` did
+not throw: it destructured `src` during the suspension, running its getters and writing `a` before `next()`
+had been given the value `a` was due, and `[b] = yield 1` threw `TypeError: The value is not iterable`
+straight out of `next()`. Both now wait for the resume, as a declaration always did.
+
+### 4.156 `fetch()` and `XMLHttpRequest` answer a `data:` URL ([#4270](https://github.com/sebastienros/jint/issues/4270))
+
+Earlier previews rejected `fetch('data:…')` with a `TypeError` and failed an `XMLHttpRequest` to one, unless
+the host added `data` to `AllowedSchemes` and served it from its own `HttpClient`. Now the engine answers it
+itself, as it already answered a `blob:` URL: a 200 `OK` whose only header is the `Content-Type` the URL names
+and whose body is the URL's decoded bytes — no I/O, and no network grant needed for `XMLHttpRequest`.
+
+So `AllowedSchemes`, `UrlFilter`, `MaxConcurrentRequests` and a `FetchObserver` never see a `data:` URL, and
+**a host that narrowed `AllowedSchemes` or set a `UrlFilter` now lets one through** where it used to be refused.
+What does bound it is `MaxResponseBytes`, on the decoded body: over the limit, the request fails as a body over
+the limit from the network does. A redirect to a `data:` or `blob:` URL is always a network error, whatever
+`AllowedSchemes` holds. There is no switch to refuse `data:` again; a host that must, wraps `fetch` in script.
+
+### 4.157 A string stays the string it was when script appends to where it came from ([#4259](https://github.com/sebastienros/jint/issues/4259))
+
+`s += t` appended into the string `s` held, which was correct only while nothing else held that string. Copying it
+at a declaration, an identifier assignment, an argument or a `return` kept that true there, but not for a member
+assignment, a built-in that copies values (`slice`, `concat`, spread, `Array.from`, `Object.assign`,
+`Object.values`, `filter`, …), or any value handed to the host. Each of those saw its text change when script
+appended to the original:
+
+```js
+var s = 'a'; s += 'b';
+var o = {}; o.p = s;            // or a.slice(), [...a], Object.assign({}, x), …
+s += 'c';
+o.p;                            // 4.16.x / earlier 5.0: "abc"    5.x: "ab"
+```
+
+```csharp
+var result = engine.Evaluate("var s = 'a'; s += 'b'; s += 'c'; s");
+engine.Execute("s += 'd'");
+result.AsString();              // 4.16.x / earlier 5.0: "abcd"   5.x: "abc"
+```
+
+The same held for `Engine.GetValue`, a property or array element read through `Get`, a descriptor's `Value`, an
+argument a built-in passes to a host delegate (`a.forEach(hostDelegate)`), a `JsValue` host property, a module
+export, and a string passed to a second engine. Now a string never changes once anything can hold it: a `+=` on a
+function or block variable still extends the string in place while that variable is the only place holding it, and
+every other `+=` produces a new string sharing its characters with the one it extended. A host may read a string on
+any thread, even while its engine keeps running (see [Thread safety](thread-safety.md#values-and-construction)).
+
+**What could break:**
+
+- **A host that expected a held string to follow later appends** was relying on the bug; read the binding again.
+- **`LimitMemory` charges more for some `+=` loops.** An append to a property or array element (`o.p += x`), to a
+  script's or a module's top-level variable, inside a generator or an async function, or to a variable read since
+  its last append (`while (s.length < n) s += x`) allocates a 48-byte value (on 64-bit) where it used to append into
+  a builder. `LimitMemory` counts the bytes an operation allocates, so 300,000 such appends in one operation are
+  charged about 14 MB more than before, most of `ForUntrustedCode`'s 16 MB budget. An append to a function or block
+  variable, including one a direct `eval` declared inside a function, costs what it did.
+- **Copying a string no longer copies its text.** `var t = s`, passing `s` to a function or returning it used to
+  copy the whole text of a `+=` result; it now costs nothing, and so does `s += x; t = s` in a loop, which was
+  quadratic.
+
+### 4.158 `EventSource` answers a `data:` URL ([#4283](https://github.com/sebastienros/jint/issues/4283))
+
+Earlier previews failed `new EventSource('data:…')` with an `error` event and `CLOSED`, unless the host added
+`data` to `AllowedSchemes` — and then sent the URL to its own `HttpClient`. Now the engine answers it as `fetch`
+does since §4.156: a `text/event-stream` URL is announced (`open`), its decoded body is parsed into `message`
+events, and the end of the body reestablishes the connection, so **the same URL replays every reconnection
+time** — three seconds, or what a `retry:` field says — until the script calls `close()`. Any other MIME type
+fails the connection, as a network response of that type does.
+
+`AllowedSchemes`, `UrlFilter`, `MaxConcurrentRequests` and a `FetchObserver` never see a `data:` event stream,
+so **a host that narrowed `AllowedSchemes` or set a `UrlFilter` now lets one through**. `MaxResponseBytes`
+bounds its decoded body whole, not one event at a time as on a network stream: over it, the connection fails
+and is not retried. The replay waits on the timer queue, so an engine nobody pumps replays nothing.
+
+### 4.159 `XMLHttpRequest`'s text response honours a byte order mark ([#4282](https://github.com/sebastienros/jint/issues/4282))
+
+Earlier previews decoded `responseText` — and `response` for the `""` and `"text"` response types, and the text
+`Options.WebApi.Xhr.DocumentParser` is handed — with the response's charset alone. Now it runs the Encoding
+Standard's [decode](https://encoding.spec.whatwg.org/#decode), as `FileReader.readAsText` already did: a body that
+starts with a byte order mark is decoded in the encoding the mark names, whatever the charset said, and the mark
+is removed.
+
+So a body beginning `EF BB BF` under `charset=windows-1252` used to read `ï»¿` followed by mojibake and now reads
+as UTF-8; one beginning `FF FE` or `FE FF` under a UTF-8 charset, or under a label the engine does not know such as
+`utf-32`, used to read `U+FFFD U+FFFD …` and now reads as UTF-16LE or UTF-16BE. A body without a mark decodes
+exactly as before, and `responseType = "json"` is unchanged: it ignores the charset and strips only a UTF-8 mark,
+as the standard says. There is no switch back; a host that needs the bytes as sent reads
+`responseType = "arraybuffer"`.
+
+### 4.160 `XMLHttpRequest`'s final encoding, HTML documents and `DocumentParser` follow the standard ([#4295](https://github.com/sebastienros/jint/issues/4295))
+
+Three changes, each what the [XMLHttpRequest Standard](https://xhr.spec.whatwg.org/) says:
+
+- **`overrideMimeType()` without a charset keeps the response's.** The response's charset is the label, and an
+  override replaces it only with a charset of its own. So `overrideMimeType('text/plain')` on a response labelled
+  `charset=windows-1252` now decodes as windows-1252 where it used to decode as UTF-8. An override that names a
+  charset still wins, even one that names no encoding, which still falls back to UTF-8.
+- **An HTML document is prescanned for its declaration.** When neither the response nor the override names a
+  usable charset, the first 1024 bytes are searched for `<meta charset>` or `<meta http-equiv="Content-Type"
+  content="…; charset=…">`, as HTML does, and the text handed to `Options.WebApi.Xhr.DocumentParser` is decoded
+  with what that finds before falling back to UTF-8. A byte order mark still wins. `responseText` is unchanged:
+  the text response has no prescan.
+- **`DocumentParser` is called only for a document the standard would build.** That is an HTML or XML MIME type
+  (`text/html`, `text/xml`, `application/xml`, any `+xml` subtype), and for HTML only under
+  `responseType = "document"`. `responseXML` of an HTML response read with the default response type is now
+  `null` where it used to be whatever the delegate built, and any other media type answers `null` without a
+  call. A host that read HTML through `responseXML` sets `responseType = "document"` first.
+
+### 4.162 `EventSource` answers a `blob:` URL ([#4299](https://github.com/sebastienros/jint/issues/4299))
+
+Earlier previews failed `new EventSource(URL.createObjectURL(blob))` with an `error` event and `CLOSED`, unless
+the host added `blob` to `AllowedSchemes` — and then sent the URL to its own `HttpClient`, which cannot resolve
+it. Now the engine answers it from its blob URL store, as `fetch` and `XMLHttpRequest` do, and as it answers a
+`data:` URL since §4.158: a `text/event-stream` blob is announced (`open`), its bytes are parsed into `message`
+events, and the end of the body reestablishes the connection, so **the blob replays every reconnection time**
+until the script calls `close()` or revokes the URL. Any other blob type fails the connection.
+
+The store is asked when the constructor runs, so revoking the URL on the next line still delivers the first pass,
+and again on every reconnection: **a URL revoked since fails the connection** rather than retrying. A URL this
+engine never minted — another engine's or a worker's — fails it at once, as `fetch` rejects one.
+
+`AllowedSchemes`, `UrlFilter`, `MaxConcurrentRequests` and a `FetchObserver` never see a `blob:` event stream,
+so **a host that set a `UrlFilter` now lets one through**. `MaxResponseBytes` bounds the blob's bytes whole, which
+`fetch` does not do for a blob URL: over it, the connection fails and is not retried.
+
+### 4.163 A compound assignment to a variable keeps the value it read when its right-hand side suspends ([#4268](https://github.com/sebastienros/jint/issues/4268))
+
+A compound assignment reads its left-hand side before it evaluates the right-hand side. When the left-hand side
+was a variable and the right-hand side suspended on a `yield` or an `await`, Jint read the variable a second time
+on resume, so a write made while the function was suspended leaked into the result:
+
+```js
+function* g() {
+    var n = 1;
+    const inc = () => { n += 10; };
+    n += (yield inc);
+    return n;
+}
+var it = g();
+it.next().value();   // n becomes 11 while g is suspended
+it.next(5).value;    // 4.16.x / earlier 5.0: 16    5.x: 6
+```
+
+Every compound operator did it (`-=`, `*=`, `**=`, `<<=`, `&=`, …), in generators, async functions, async
+generators and a module's top-level `await`, for a local, captured, global or `with`-scope variable. The logical
+forms re-tested the new value, so `n ??= await x` returned and kept a value written while it was suspended instead
+of assigning `x`. A property target (`o.n += yield inc`) and the spelled-out form (`n = n + (yield inc)`) were
+already right. A script that relied on the second read must now read the variable after the assignment.
+
+### 4.164 DevTools honours URL-scoped network conditions, so PuppeteerSharp's `BlockList` and `Allowlist` reach a page's own requests ([#4297](https://github.com/sebastienros/jint/issues/4297))
+
+Earlier previews refused every `Network.emulateNetworkConditionsByRule` entry with a non-empty `urlPattern`
+(`-32000`). PuppeteerSharp's `BlockList` and `Allowlist` send only such entries and log the refusal rather than
+throw, so the client refused a blocked `GoToAsync` itself while the page's own `fetch`, `XMLHttpRequest` and
+subresource requests to a blocked URL still went out.
+
+Now each `urlPattern` is matched as Chrome matches it: URLPattern constructor-string syntax, absolute, compared
+case-sensitively against every redirect hop, and the first entry that matches decides. A matched request that is
+offline fails with `net::ERR_INTERNET_DISCONNECTED` before any connection is opened. A pattern that does not
+parse, is relative or contains a regexp group is refused with `-32602 Pattern "…" failed to parse as a
+URLPattern.`, as Chrome refuses it, and the conditions in force stay as they were. There is no switch back: a host
+that wants a page's own requests left alone leaves `BlockList` and `Allowlist` unset, which also drops the
+client's own navigation check.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -6883,8 +7075,8 @@ one; `Options.WebApi.Fetch.Timeout` stays CLR-side and is what bounds such an en
 
 `Options.WebApi.Xhr.DocumentParser` is the one new options group: a
 `Func<Engine, string, string, JsValue?>` handed the engine, the decoded body and the final MIME
-type's essence. Without it `responseXML` and `responseType = "document"` answer `null`, because Jint
-parses no markup.
+type's essence, for an HTML or XML response only. Without it `responseXML` and `responseType = "document"`
+answer `null`, because Jint parses no markup.
 
 ### 5.14 A console sink can ask where each message was logged from ([#3635](https://github.com/sebastienros/jint/pull/3635))
 

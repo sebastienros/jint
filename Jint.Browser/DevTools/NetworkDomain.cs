@@ -5,6 +5,7 @@ using Jint.DevTools.Domains;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Protocol.Network;
 using Jint.DevTools.Session;
+using Jint.WebApi.Url.Pattern;
 
 namespace Jint.Browser.DevTools;
 
@@ -153,17 +154,151 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
-    /// <summary>Pulls the plug: every request fails with <c>net::ERR_INTERNET_DISCONNECTED</c>.</summary>
+    /// <summary>
+    /// Pulls the plug: every request fails with <c>net::ERR_INTERNET_DISCONNECTED</c>, and
+    /// <c>navigator.onLine</c> answers <see langword="false"/>.
+    /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Deprecated, and still both halves of the pair that replaced it.</b> Chrome splits what this did
+    /// between <see cref="EmulateNetworkConditionsByRuleAsync"/>, the transport, and
+    /// <see cref="OverrideNetworkStateAsync"/>, the navigator — and answers this one as a single global rule
+    /// plus the navigator override. So it writes both states here, replacing whatever either of the other two
+    /// set: a client that went offline through the pair and comes back through this, or the other way round,
+    /// leaves nothing set behind it.
+    /// </para>
+    /// <para>
     /// <b>Only <c>offline</c> is honoured.</b> Latency and throughput would have to be simulated by the
     /// transport, which measures none of it and would be reporting numbers it invented; a client that sets
     /// them and then asserts on a load time would be asserting on a fiction. Offline is different in kind —
     /// it is a refusal, and a refusal is something this browser can make truthfully.
+    /// </para>
     /// </remarks>
     protected override ValueTask<EmptyResult> EmulateNetworkConditionsAsync(EmulateNetworkConditionsRequest parameters, CommandContext context)
     {
-        _target.UpdateNetworkPolicy(policy => policy with { Offline = parameters.Offline });
+        PageNetworkCondition[] conditions = parameters.Offline ? [PageNetworkCondition.GlobalOffline] : [];
+        _target.UpdateNetworkPolicy(policy => policy with { Conditions = conditions });
+        OverrideNavigatorState(parameters.Offline);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
+    }
+
+    /// <summary>Sets the network conditions every request is sent under, of which only offline is honoured.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The transport half of what <c>emulateNetworkConditions</c> did, and nothing of the navigator.</b>
+    /// Each call replaces the conditions in force — whichever of this and <c>emulateNetworkConditions</c> set
+    /// them — rather than adding to them, which is Chrome's rule. So an empty list is how a client goes back
+    /// online, and <c>navigator.onLine</c> is left to <see cref="OverrideNetworkStateAsync"/>: PuppeteerSharp
+    /// 25.14 sends the two together.
+    /// </para>
+    /// <para>
+    /// <b>The first entry that matches a request decides it</b>, and a request no entry matches is online. An
+    /// entry with an empty <c>urlPattern</c> is global and matches every request; any other is a URLPattern
+    /// constructor string, which must be absolute — <c>*://*.example.com/*</c> — and is matched against each
+    /// redirect hop's URL. Whether a matched request goes offline is the entry's own <c>offline</c>, or the
+    /// deprecated top-level <c>offline</c>, which Chrome lets override every entry's and which, with no
+    /// entries, has nothing to apply to. That is the whole of PuppeteerSharp's <c>BlockList</c> (one offline
+    /// entry per pattern, sent with the top-level <c>offline</c>) and <c>Allowlist</c> (one online entry per
+    /// pattern, then a global offline one), so a page's own <c>fetch</c>, <c>XMLHttpRequest</c> and
+    /// subresources are refused as Chrome refuses them, not only the navigations the client checks itself.
+    /// </para>
+    /// <para>
+    /// <b>A pattern is compiled here, on the page loop, and matched on a transport thread.</b>
+    /// <see cref="UrlPatternMatcher.TryCompile"/> parses it with the engine's own <c>URLPattern</c> parser and
+    /// keeps nothing of the engine, so the transport never touches it. Two refusals follow, both Chrome's and
+    /// both answered <c>-32602</c> in Chrome's wording, with the reason in <c>data</c>: a string that is not an
+    /// absolute pattern, and a pattern with a regexp group, whose body is JavaScript regular-expression source
+    /// that only the engine can read. A refused command changes nothing, whichever entry was refused.
+    /// </para>
+    /// <para>
+    /// Throttling is accepted and not honoured, for the reason <see cref="EmulateNetworkConditionsAsync"/> gives,
+    /// and <c>emulateOfflineServiceWorker</c> has no service worker to apply to. One identifier is minted per
+    /// entry, as Chrome mints one. Chrome also names the rule on each request it affected, in
+    /// <c>requestWillBeSentExtraInfo</c>; that field is not sent here.
+    /// </para>
+    /// <para>
+    /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-emulateNetworkConditionsByRule"/>.
+    /// </para>
+    /// </remarks>
+    protected override ValueTask<EmulateNetworkConditionsByRuleResponse> EmulateNetworkConditionsByRuleAsync(
+        EmulateNetworkConditionsByRuleRequest parameters,
+        CommandContext context)
+    {
+        var entries = parameters.MatchedNetworkConditions;
+        var conditions = new PageNetworkCondition[entries.Length];
+        var ruleIds = new string[entries.Length];
+
+        for (var i = 0; i < entries.Length; i++)
+        {
+            var entry = entries[i];
+            UrlPatternMatcher? pattern = null;
+
+            if (entry.UrlPattern is { Length: > 0 } constructorString
+                && !UrlPatternMatcher.TryCompile(_target.Runtime.Engine, constructorString, out pattern, out var reason))
+            {
+                // Chrome's own answer, content/browser/devtools/protocol/network_handler.cc, and before anything is
+                // applied: a refused command leaves the conditions in force as they were.
+                return Throw.InvalidParams<ValueTask<EmulateNetworkConditionsByRuleResponse>>(
+                    $"Pattern \"{constructorString}\" failed to parse as a URLPattern.",
+                    reason);
+            }
+
+            conditions[i] = new PageNetworkCondition(pattern, parameters.Offline ?? entry.Offline ?? false);
+            ruleIds[i] = Guid.NewGuid().ToString("N").ToUpperInvariant();
+        }
+
+        _target.UpdateNetworkPolicy(policy => policy with { Conditions = conditions });
+
+        return new ValueTask<EmulateNetworkConditionsByRuleResponse>(new EmulateNetworkConditionsByRuleResponse { RuleIds = ruleIds });
+    }
+
+    /// <summary>Sets what <c>navigator.onLine</c> answers, and fails no request.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The navigator half of what <c>emulateNetworkConditions</c> did, and nothing of the transport.</b>
+    /// Chrome's renderer answers the old command with this very one, so the two write one state and the last
+    /// of them wins. A request still goes out: a page that believes it is offline and is not is what a client
+    /// sending only this asked for, and <see cref="EmulateNetworkConditionsByRuleAsync"/> is what fails one.
+    /// </para>
+    /// <para>
+    /// The state is the page's, so it outlives the document; <c>connectionType</c>, latency and throughput
+    /// would reach <c>navigator.connection</c>, which this browser does not have.
+    /// </para>
+    /// <para>
+    /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-overrideNetworkState"/>.
+    /// </para>
+    /// </remarks>
+    protected override ValueTask<EmptyResult> OverrideNetworkStateAsync(OverrideNetworkStateRequest parameters, CommandContext context)
+    {
+        OverrideNavigatorState(parameters.Offline);
+        return new ValueTask<EmptyResult>(EmptyResult.Instance);
+    }
+
+    /// <summary>
+    /// Writes what <c>navigator.onLine</c> answers and, when that changes, fires <c>offline</c> or
+    /// <c>online</c> at the window of the document showing.
+    /// </summary>
+    /// <remarks>
+    /// https://html.spec.whatwg.org/multipage/system-state.html#dom-navigator-online — the event is for a
+    /// <i>change</i>, so repeating a command fires nothing. Every command runs on the page loop, which is what
+    /// lets this dispatch at all, as <c>Emulation.setFocusEmulationEnabled</c> dispatches
+    /// <c>visibilitychange</c>.
+    /// </remarks>
+    private void OverrideNavigatorState(bool offline)
+    {
+        var emulation = _target.Emulation;
+        if (emulation.Offline == offline)
+        {
+            return;
+        }
+
+        emulation.Offline = offline;
+
+        if (PageRuntime.Find(_target.Runtime.Engine) is { } runtime
+            && runtime.Engine._webApi?.GlobalEventTarget is { } window)
+        {
+            Jint.Browser.Runtime.PageEvents.Fire(runtime, window, offline ? "offline" : "online");
+        }
     }
 
     /// <summary>Refuses every request whose URL matches one of the patterns.</summary>

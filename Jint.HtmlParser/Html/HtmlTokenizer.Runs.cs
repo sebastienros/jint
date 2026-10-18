@@ -6,13 +6,13 @@ namespace Jint.HtmlParser.Html;
 
 internal sealed partial class HtmlTokenizer
 {
-    private static readonly SearchValues<char> DataStops = SearchValues.Create("&<\0\r\n");
-    private static readonly SearchValues<char> RawTextStops = SearchValues.Create("<\0\r\n");
-    private static readonly SearchValues<char> PlainTextStops = SearchValues.Create("\0\r\n");
+    private static readonly SearchValues<char> DataStops = SearchValues.Create("&<\0\r");
+    private static readonly SearchValues<char> RawTextStops = SearchValues.Create("<\0\r");
+    private static readonly SearchValues<char> PlainTextStops = SearchValues.Create("\0\r");
     private static readonly SearchValues<char> TagNameStops = SearchValues.Create(" \t\n\f\r/>\0ABCDEFGHIJKLMNOPQRSTUVWXYZ");
     private static readonly SearchValues<char> AttributeNameStops = SearchValues.Create(" \t\n\f\r/=>\0\"'<ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-    private static readonly SearchValues<char> DoubleQuotedStops = SearchValues.Create("\"&\0\r\n");
-    private static readonly SearchValues<char> SingleQuotedStops = SearchValues.Create("'&\0\r\n");
+    private static readonly SearchValues<char> DoubleQuotedStops = SearchValues.Create("\"&\0\r");
+    private static readonly SearchValues<char> SingleQuotedStops = SearchValues.Create("'&\0\r");
     private static readonly SearchValues<char> UnquotedStops = SearchValues.Create(" \t\n\f\r>&\0\"'<=`");
     private static readonly SearchValues<char> CommentStops = SearchValues.Create("<-\0\r\n");
 
@@ -30,9 +30,10 @@ internal sealed partial class HtmlTokenizer
 
     // HTML Standard §13.2.5: batch only characters whose state transition is an
     // ordinary append. Delimiters, errors and input preprocessing stay scalar.
-    private bool TryConsumeRun(char current, out bool stopAhead)
+    private bool TryConsumeRun(char current, out bool stopAhead, out char stop)
     {
         stopAhead = false;
+        stop = default;
         CharBuffer buffer;
         SearchValues<char> stops;
         switch (_state)
@@ -69,6 +70,7 @@ internal sealed partial class HtmlTokenizer
         if (length < (sliced ? 1 : 2)) return false;
         // A stop inside the slice is the next unit, and a run leaves the state unchanged.
         stopAhead = length < source.Length;
+        if (stopAhead) stop = source[length];
 
         Poll();
         if (buffer == _text && TextLength == 0) _textStart = _input.Offset;
@@ -78,7 +80,8 @@ internal sealed partial class HtmlTokenizer
             EnsureAppendCapacity(buffer, length);
             buffer.Append(source[..length]);
         }
-        _input.ConsumeOrdinaryRun(length);
+        // Text and value runs may cross LF, which needs no preprocessing; the input counts its lines.
+        _input.ConsumeRun(source[..length]);
         // ReadCore already charged the first unit of this scanner iteration.
         ChargeCopy(length - 1);
         Poll();

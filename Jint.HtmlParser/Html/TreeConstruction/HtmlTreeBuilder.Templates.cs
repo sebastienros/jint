@@ -18,7 +18,7 @@ internal sealed partial class HtmlTreeBuilder
     private bool _templateManualSlotAssignment;
     private bool _templateKeepRegistryNull;
 
-    private bool IsParsingTemplateContents => Last("template") >= 0 || _fragmentContext is { NamespaceUri: Namespaces.Html, LocalName: "template" };
+    private bool IsParsingTemplateContents => Last(_nameIndexes.Template) >= 0 || _fragmentContext is { NamespaceUri: Namespaces.Html, LocalName: "template" };
 
     private void StartTemplate()
     {
@@ -46,7 +46,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private bool EndTemplate()
     {
-        var template = Last("template");
+        var template = Last(_nameIndexes.Template);
         if (template < 0)
         {
             Error("unexpected-template-end-tag");
@@ -112,7 +112,7 @@ internal sealed partial class HtmlTreeBuilder
                 Error("unexpected-template-end-tag");
                 return false;
             case HtmlTokenKind.EndOfFile:
-                var template = Last("template");
+                var template = Last(_nameIndexes.Template);
                 if (template < 0) return false;
                 Error("eof-in-template");
                 ScheduleTemplatePop(template, reprocess: true);

@@ -220,10 +220,17 @@ a second truth about the same request.
   which is what makes that safe: the frame identifier is a string, and the loader identifier and document
   URL are read off `Page`'s own volatile fields as the request goes out.
 - **The listener may answer, so the recorder intercepts as well as watches.** The extra headers a client
-  set, its user-agent override, its blocked URLs, its offline switch and a `Fetch` pause all come back as a
+  set, its user-agent override, its blocked URLs, its network conditions and a `Fetch` pause all come back as a
   `PageNetworkDecision`, which the recorder turns into the engine's own `FetchInterception`. With no
   listener registered it answers `null` to every hop and copies nothing, which is what a page with no client
   attached costs.
+- **A URL pattern a client names is compiled on the loop and matched off it.** The engine's `URLPattern`
+  matches through engine `RegExp`s, which the transport thread may not run, so
+  `emulateNetworkConditionsByRule` compiles each `urlPattern` through `UrlPatternMatcher.TryCompile` — the
+  engine's own parser, then a .NET `Regex` or an ordinal comparison generated from the part list, nothing of
+  the engine kept — and refuses a regexp group with `-32602`, as Chromium does. A listener throw lets the
+  request through, so a matcher must not throw either. `setBlockedURLs` still reads its `urlPatterns` as the
+  older `*` glob (`UrlPattern`), not as URLPattern syntax.
 - **A navigation's request is addressed by its `loaderId`**, passed into `DocumentFetch.LoadAsync` rather
   than read from the page: the field still holds the document that is showing while the fetch is in flight,
   and a client tells the navigation apart from every other request by exactly that string.

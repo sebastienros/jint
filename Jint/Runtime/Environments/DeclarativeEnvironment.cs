@@ -58,9 +58,44 @@ internal class DeclarativeEnvironment : Environment
     }
 
     /// <summary>
+    /// Reads a slot whose value is not plain (<see cref="Binding.IsPlainValue"/>): materializes an unboxed number,
+    /// or marks an owned string shared because the caller is about to hand it somewhere, and in both cases writes
+    /// the plain form back so later reads take the fast path. Returns null for an uninitialized (TDZ) binding.
+    /// Cold by design: it runs at most once per unboxed write or owned store.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static JsValue? ReadSlotSlow(ref Binding binding)
+    {
+        // The unboxed number first: it is the case numeric code reaches here with, and an unboxed number may carry a
+        // stale OwnsString (see Binding.WithUnboxedNumber), which must not be acted on.
+        if (binding.IsUnboxedNumber)
+        {
+            var number = JsNumber.Create(binding.UnboxedNumber);
+            binding = binding.ChangeValue(number);
+            return number;
+        }
+
+        var value = binding.PeekValue;
+        if (binding.OwnsString)
+        {
+            // a type test rather than a cast on the strength of the flag (see BindingFlags.OwnsString)
+            if (value is JsString.ConcatenatedString owned)
+            {
+                owned.MarkShared();
+            }
+
+            binding = binding.ChangeValue(value!);
+        }
+
+        return value;
+    }
+
+    /// <summary>
     /// Materializes an unboxed number binding with write-back caching so subsequent reads
     /// return the same instance, or returns null when the binding is uninitialized (TDZ).
-    /// Cold by design: it runs at most once per unboxed write.
+    /// Cold by design: it runs at most once per unboxed write. Marks nothing: its callers
+    /// either hand the value through <c>JintIdentifierExpression.HandOn</c> or never let a
+    /// string escape.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal static JsValue? MaterializeUnboxedOrNull(ref Binding binding)
@@ -73,6 +108,16 @@ internal class DeclarativeEnvironment : Environment
         var value = JsNumber.Create(binding.UnboxedNumber);
         binding = binding.ChangeValue(value);
         return value;
+    }
+
+    /// <summary>
+    /// A slot's value as any reader may see it, or null for an uninitialized (TDZ) binding: the one flags test,
+    /// then <see cref="ReadSlotSlow"/> for an unboxed number or an owned string.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static JsValue? ReadSlot(ref Binding binding)
+    {
+        return binding.IsPlainValue ? binding.PeekValue : ReadSlotSlow(ref binding);
     }
 
     /// <summary>
@@ -100,7 +145,8 @@ internal class DeclarativeEnvironment : Environment
                 return true;
             }
 
-            if (binding.HasReferenceValue && binding.Value is JsNumber number)
+            // A number is never owned, and nothing but its double leaves this method.
+            if (binding.PeekValue is JsNumber number)
             {
                 value = number._value;
                 return true;
@@ -133,7 +179,8 @@ internal class DeclarativeEnvironment : Environment
             return true;
         }
 
-        if (binding.HasReferenceValue && binding.Value is JsNumber number)
+        // A number is never owned, and nothing but its double leaves this method.
+        if (binding.PeekValue is JsNumber number)
         {
             value = number._value;
             return true;
@@ -147,7 +194,9 @@ internal class DeclarativeEnvironment : Environment
     /// Pure slot read returning the binding's value object for the arithmetic-lane leaves
     /// (an unboxed number materializes with the standard write-back). Returns false for
     /// out-of-range/stale indices and uninitialized (TDZ) bindings so the caller declines
-    /// to the generic path before any side effect.
+    /// to the generic path before any side effect. It does not end a string's ownership,
+    /// because no caller lets a string escape: TryReadLengthBound reads only its length, and
+    /// TryReadLeaf accepts only an array.
     /// </summary>
     internal bool TryGetSlotValueForRead(int slotIndex, [NotNullWhen(true)] out JsValue? value)
     {
@@ -159,7 +208,7 @@ internal class DeclarativeEnvironment : Environment
         }
 
         ref var binding = ref slots[slotIndex];
-        value = binding.HasReferenceValue ? binding.Value : MaterializeUnboxedOrNull(ref binding);
+        value = binding.HasReferenceValue ? binding.PeekValue : MaterializeUnboxedOrNull(ref binding);
         return value is not null;
     }
 
@@ -188,6 +237,52 @@ internal class DeclarativeEnvironment : Environment
         return -1;
     }
 
+    /// <summary>
+    /// Whether the binding still owns <paramref name="value"/>, which the <c>+=</c> lane read with
+    /// <see cref="TryGetBindingForAppend"/> before running the right-hand side.
+    /// </summary>
+    internal bool StillOwns(Key name, JsString.ConcatenatedString value)
+    {
+        ref var binding = ref FindBinding(name);
+        return !Unsafe.IsNullRef(ref binding) && binding.OwnsString && ReferenceEquals(binding.PeekValue, value);
+    }
+
+    /// <summary>
+    /// Stores a string the <c>+=</c> lane has just produced, owned (<see cref="Binding.ChangeValueOwned"/>). Declines
+    /// for an immutable or uninitialized binding, whose errors the caller's ordinary store raises.
+    /// </summary>
+    internal bool TryStoreOwnedString(Key name, JsString.ConcatenatedString value)
+    {
+        ref var binding = ref FindBinding(name);
+        if (Unsafe.IsNullRef(ref binding) || !binding.Mutable || !binding.IsInitialized())
+        {
+            return false;
+        }
+
+        binding = binding.ChangeValueOwned(value);
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ref Binding FindBinding(Key name)
+    {
+        if (_slots is not null)
+        {
+            var index = SlotIndexOf(name);
+            if (index >= 0)
+            {
+                return ref _slots[index];
+            }
+        }
+
+        if (_dictionary is not null)
+        {
+            return ref _dictionary.GetValueRefOrNullRef(name);
+        }
+
+        return ref Unsafe.NullRef<Binding>();
+    }
+
     internal sealed override bool HasBinding(BindingName name) => HasBinding(name.Key);
 
     internal sealed override bool HasBinding(Key name)
@@ -199,6 +294,35 @@ internal class DeclarativeEnvironment : Environment
         return _dictionary is not null && _dictionary.ContainsKey(name);
     }
 
+    /// <summary>
+    /// The <c>+=</c> lane's own read of one of this environment's bindings: what <see cref="TryGetBinding"/> reads,
+    /// except that an owned string is returned without being marked shared (the lane hands it nowhere but into its
+    /// result) and is reported in <paramref name="ownsString"/>. The value is null for an uninitialized (TDZ) binding.
+    /// </summary>
+    internal override bool TryGetBindingForAppend(BindingName name, bool strict, out JsValue? value, out bool ownsString, out bool canOwnStrings)
+    {
+        canOwnStrings = true;
+        ref var binding = ref FindBinding(name.Key);
+        if (Unsafe.IsNullRef(ref binding))
+        {
+            value = null;
+            ownsString = false;
+            return false;
+        }
+
+        // the unboxed number first, since it may carry a stale OwnsString (see Binding.WithUnboxedNumber)
+        if (binding.IsUnboxedNumber)
+        {
+            ownsString = false;
+            value = MaterializeUnboxedOrNull(ref binding);
+            return true;
+        }
+
+        ownsString = binding.OwnsString;
+        value = binding.PeekValue;
+        return true;
+    }
+
     internal override bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value)
     {
         if (_slots is not null)
@@ -206,8 +330,7 @@ internal class DeclarativeEnvironment : Environment
             var index = SlotIndexOf(name.Key);
             if (index >= 0)
             {
-                ref var binding = ref _slots[index];
-                value = binding.HasReferenceValue ? binding.Value : MaterializeUnboxedOrNull(ref binding)!;
+                value = ReadSlot(ref _slots[index])!;
                 return true;
             }
         }
@@ -410,16 +533,10 @@ internal class DeclarativeEnvironment : Environment
             var index = SlotIndexOf(name);
             if (index >= 0)
             {
-                ref var binding = ref _slots[index];
-                if (binding.HasReferenceValue)
+                var value = ReadSlot(ref _slots[index]);
+                if (value is not null)
                 {
-                    return binding.Value;
-                }
-
-                var materialized = MaterializeUnboxedOrNull(ref binding);
-                if (materialized is not null)
-                {
-                    return materialized;
+                    return value;
                 }
 
                 ThrowUninitializedBindingError(name);

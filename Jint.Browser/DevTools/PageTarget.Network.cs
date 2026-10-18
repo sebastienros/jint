@@ -18,7 +18,8 @@ namespace Jint.Browser.DevTools;
 /// <para>
 /// <b>So nothing here may touch the engine or the DOM</b>, and nothing does: the frame identifier is the
 /// target's own string, the loader identifier and the document URL are read off the page's volatile fields by
-/// the log itself, and everything else is protocol data.
+/// the log itself, a URL-scoped network condition is a <c>UrlPatternMatcher</c> the page loop compiled, and
+/// everything else is protocol data.
 /// </para>
 /// <para>
 /// <b>The events go out through <c>EmitDetached</c></b>, which queues rather than writes, so a slow client
@@ -129,10 +130,11 @@ internal sealed partial class PageTarget : IPageNetworkListener
             domain.RequestWillBeSent(effective, FrameId);
         }
 
-        if (policy.Offline)
+        if (policy.IsOffline(effective.Url))
         {
             // Chrome's own code for the offline switch, and the reason it is a refusal rather than a filter:
-            // a page that believes it is offline has to see every request fail, navigations included.
+            // a request whose network conditions are offline has to fail, navigations included. This hop's URL
+            // is what a URL-scoped condition is matched against, so a redirect into one fails where it enters.
             return PageNetworkDecision.Fail("net::ERR_INTERNET_DISCONNECTED");
         }
 

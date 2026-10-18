@@ -546,6 +546,16 @@ internal enum WptDivergence
     /// </description></item>
     /// </list>
     /// </para>
+    /// <para>
+    /// <b>It held one entry again, and is empty again.</b> <c>encoding/unsupported-encodings.any.js</c> could
+    /// not run until the <c>data:</c> arm of scheme fetch existed
+    /// (https://github.com/sebastienros/jint/issues/4270), and the change that vendored it found that
+    /// <c>JsXmlHttpRequest.TextResponse</c> decoded with the charset alone, where
+    /// https://xhr.spec.whatwg.org/#text-response ends in Encoding's <i>decode</i>, whose BOM sniff overrides
+    /// it. Four rows, one entry, recorded rather than fixed for the reason above — and fixed by
+    /// https://github.com/sebastienros/jint/issues/4282, which gave the text response the sniff
+    /// <c>FileReadOperation</c> already performed for <c>readAsText</c>, now one shared algorithm.
+    /// </para>
     /// </summary>
     NeedsTriage,
 

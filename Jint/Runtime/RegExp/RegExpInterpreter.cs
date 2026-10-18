@@ -42,12 +42,18 @@ namespace Jint.Runtime.RegExp;
 internal static class RegExpInterpreter
 {
     /// <summary>Pre-computed scan loop info, extracted once at compile time.</summary>
+    /// <remarks>
+    /// <c>RangeHoldsPairTrails</c> is set under <c>u</c> or <c>v</c> when the scan range holds the trail
+    /// surrogates, so that a hit can be the second half of a pair, which is not a position a match can
+    /// start at; see <see cref="FindScanChar"/>.
+    /// </remarks>
     internal readonly record struct ScanLoopInfo(
         bool HasFastScan, int PatternStartPc,
         char ScanChar, char ScanCharAlt,
         bool IsAnchored,
         bool IsRange, char RangeLow, char RangeHigh,
-        string? ScanLiteral);
+        string? ScanLiteral,
+        bool RangeHoldsPairTrails = false);
 
     /// <summary>Unset capture position sentinel (mirrors NULL in the C code).</summary>
     private const int Unset = -1;
@@ -829,7 +835,8 @@ internal static class RegExpInterpreter
                     return new ScanLoopInfo(HasFastScan: true, PatternStartPc: 11,
                         ScanChar: '\0', ScanCharAlt: '\0', IsAnchored: false,
                         IsRange: true, RangeLow: low, RangeHigh: high,
-                        ScanLiteral: null);
+                        ScanLiteral: null,
+                        RangeHoldsPairTrails: isUnicode && low <= '\uDFFF' && high >= '\uDC00');
                 }
             }
         }
@@ -858,6 +865,14 @@ internal static class RegExpInterpreter
     /// Find the next position of the scan character(s) in the input string.
     /// Handles exact char, case-insensitive pair, and character range scanning.
     /// </summary>
+    /// <remarks>
+    /// The scan stands for the compiled <c>SplitGotoFirst</c>/<c>Any</c>/<c>Goto</c> loop, whose <c>Any</c>
+    /// steps over a whole surrogate pair under <c>u</c> or <c>v</c>, so the loop never tries a match from
+    /// between the two halves of one. A scan character is never a surrogate, and a scan range never has
+    /// one at either end, so the only range that can hit such a position is one that holds the whole
+    /// surrogate block: <see cref="ScanLoopInfo.RangeHoldsPairTrails"/>, which
+    /// <see cref="FindRangeScanStartOutsidePairs"/> scans for.
+    /// </remarks>
     // Keep the SIMD scan independent of the large bytecode interpreter's inlining budget.
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static int FindScanChar(string input, int startIndex, in ScanLoopInfo info)
@@ -873,6 +888,11 @@ internal static class RegExpInterpreter
 
         if (info.IsRange)
         {
+            if (info.RangeHoldsPairTrails)
+            {
+                return FindRangeScanStartOutsidePairs(input, startIndex, info.RangeLow, info.RangeHigh);
+            }
+
             var idx = input.AsSpan(startIndex).IndexOfAnyInRange(info.RangeLow, info.RangeHigh);
             return idx < 0 ? -1 : idx + startIndex;
         }
@@ -946,6 +966,98 @@ internal static class RegExpInterpreter
         }
 
         return -1;
+    }
+
+    /// <summary>
+    /// The end of the run a greedy <see cref="RegExpOpcode.Char"/> or single-pair
+    /// <see cref="RegExpOpcode.Range"/> atom takes from <paramref name="start"/>, for a set
+    /// [<paramref name="low"/>, <paramref name="high"/>] that reaches the lead surrogates. The interpreter
+    /// scans every other set inline, deciding on one compare of <paramref name="high"/>, and leaves the
+    /// rest of the decision here.
+    /// </summary>
+    /// <remarks>
+    /// Under <c>u</c> or <c>v</c> the input is a list of code points
+    /// (<see href="https://tc39.es/ecma262/#sec-regexpbuiltinexec">RegExpBuiltinExec</see>) and the atom
+    /// reads one (<see cref="GetChar"/>): a lead surrogate followed by a trail is a single astral code
+    /// point, which a 16-bit atom never matches, even where its set holds both halves on their own. When
+    /// the set holds a lead surrogate, the run therefore ends at the first unit in it that starts a pair. A
+    /// set that holds no trail surrogate has none inside the run, so only the run's last unit can start a
+    /// pair, with the trail the code-unit scan stopped at. Without <c>u</c> or <c>v</c>, or for a set above
+    /// the leads, code units are the unit and the code-unit run stands.
+    /// </remarks>
+    // Out of line, so that the interpreter's own codegen for the common bulk advance stays as it was.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int ScanRunReachingSurrogates(string input, int start, char low, char high, bool isUnicode)
+    {
+        var skipLen = input.AsSpan(start).IndexOfAnyExceptInRange(low, high);
+        int scanEnd = skipLen < 0 ? input.Length : start + skipLen;
+
+        if (!isUnicode || low > '\uDBFF')
+        {
+            return scanEnd;
+        }
+
+        if (high >= '\uDC00')
+        {
+            // A pair with both halves inside the run: find each lead before the run's last unit.
+            int i = start;
+            while (i < scanEnd - 1)
+            {
+                int lead = input.AsSpan(i, scanEnd - 1 - i).IndexOfAnyInRange('\uD800', '\uDBFF');
+                if (lead < 0)
+                {
+                    break;
+                }
+
+                i += lead;
+                if (char.IsLowSurrogate(input[i + 1]))
+                {
+                    return i;
+                }
+
+                i++;
+            }
+        }
+
+        // The run's last unit as the lead of a pair whose trail the scan stopped at.
+        if (scanEnd > start
+            && scanEnd < input.Length
+            && char.IsHighSurrogate(input[scanEnd - 1])
+            && char.IsLowSurrogate(input[scanEnd]))
+        {
+            return scanEnd - 1;
+        }
+
+        return scanEnd;
+    }
+
+    /// <summary>
+    /// <see cref="FindScanChar"/> for a range that holds the trail surrogates under <c>u</c> or <c>v</c>:
+    /// the first position from <paramref name="startIndex"/> whose code unit is in
+    /// [<paramref name="low"/>, <paramref name="high"/>] and that is not the trail of a pair, or -1. The
+    /// pair's lead may sit before <paramref name="startIndex"/>, which is how a retry after the lead's own
+    /// failed match lands on the trail.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int FindRangeScanStartOutsidePairs(string input, int startIndex, char low, char high)
+    {
+        int idx = startIndex;
+        while (true)
+        {
+            var hit = input.AsSpan(idx).IndexOfAnyInRange(low, high);
+            if (hit < 0)
+            {
+                return -1;
+            }
+
+            idx += hit;
+            if (idx == 0 || !char.IsLowSurrogate(input[idx]) || !char.IsHighSurrogate(input[idx - 1]))
+            {
+                return idx;
+            }
+
+            idx++;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -1217,10 +1329,22 @@ internal static class RegExpInterpreter
                                 && gotoTarget + 3 == splitOpcodePos)
                             {
                                 char targetChar = (char) ReadU16(bc, gotoTarget + 1);
-                                int scanEnd = cindex;
-                                while (scanEnd < inputEnd && input[scanEnd] == targetChar)
+                                int scanEnd;
+
+                                // Under u or v a lead surrogate can be half of a pair the atom never
+                                // matches. That rare atom scans out of line on this one test, which also
+                                // checks the flags; any other keeps this loop.
+                                if (char.IsHighSurrogate(targetChar))
                                 {
-                                    scanEnd++;
+                                    scanEnd = ScanRunReachingSurrogates(input, cindex, targetChar, targetChar, isUnicode);
+                                }
+                                else
+                                {
+                                    scanEnd = cindex;
+                                    while (scanEnd < inputEnd && input[scanEnd] == targetChar)
+                                    {
+                                        scanEnd++;
+                                    }
                                 }
 
                                 PushFrame(ref stackBuf, ref stackPooled, ref sp,
@@ -1242,8 +1366,22 @@ internal static class RegExpInterpreter
                                     char low = (char) ReadU16(bc, gotoTarget + 3);
                                     char high = (char) ReadU16(bc, gotoTarget + 5);
 
-                                    var skipLen = input.AsSpan(cindex).IndexOfAnyExceptInRange(low, high);
-                                    var scanEnd = skipLen < 0 ? inputEnd : cindex + skipLen;
+                                    int scanEnd;
+
+                                    // Under u or v a range holding a lead surrogate can hold half of a pair
+                                    // the atom never matches. A range that reaches the leads scans out of
+                                    // line on this one test, which also checks the flags; a range below
+                                    // them, the common case, keeps this scan.
+                                    if (high >= '\uD800')
+                                    {
+                                        scanEnd = ScanRunReachingSurrogates(input, cindex, low, high, isUnicode);
+                                    }
+                                    else
+                                    {
+                                        var skipLen = input.AsSpan(cindex).IndexOfAnyExceptInRange(low, high);
+                                        scanEnd = skipLen < 0 ? inputEnd : cindex + skipLen;
+                                    }
+
                                     PushFrame(ref stackBuf, ref stackPooled, ref sp,
                                         capture, allocCount, pc1, scanEnd, ExecStateType.Split);
                                     cindex = scanEnd;

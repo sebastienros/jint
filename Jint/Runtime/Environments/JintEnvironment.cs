@@ -84,6 +84,68 @@ internal static class JintEnvironment
     }
 
     /// <summary>
+    /// <see cref="TryGetIdentifierEnvironmentWithBindingValue"/> for the <c>+=</c> lane's own read of its left operand,
+    /// in the same shape, one virtual call per environment: a binding that owns its string is read without ending its
+    /// ownership (<see cref="Environment.TryGetBindingForAppend"/>), so the lane may extend the string in place.
+    /// <paramref name="canOwnStrings"/> says whether the environment found is one whose bindings can own a string: a
+    /// function, block, catch or eval environment, never the global, a module or an object environment. The global
+    /// environment is called directly rather than through the virtual.
+    /// </summary>
+    internal static bool TryGetIdentifierEnvironmentWithBindingValueForAppend(
+        Environment env,
+        Environment.BindingName name,
+        bool strict,
+        [NotNullWhen(true)] out Environment? record,
+        out JsValue? value,
+        out bool ownsString,
+        out bool canOwnStrings)
+    {
+        record = env;
+
+        if (env._outerEnv is null)
+        {
+            ownsString = false;
+            canOwnStrings = false;
+            return ((GlobalEnvironment) env).TryGetBinding(name, strict, out value);
+        }
+
+        while (record is not null)
+        {
+            // The global environment ends every walk from a running context, and never owns a string: a direct call
+            // into its TryGetBinding, where the virtual TryGetBindingForAppend would make two. A type test rather than
+            // an _outerEnv test, because the global's declarative record and a debugger scope have no outer either.
+            if (record is GlobalEnvironment global)
+            {
+                ownsString = false;
+                canOwnStrings = false;
+                return global.TryGetBinding(name, strict, out value);
+            }
+
+            // See TryGetIdentifierEnvironmentWithBinding; skip empty FunctionEnvironments outright.
+            if (record is FunctionEnvironment fenv
+                && fenv._slots is null
+                && fenv._dictionary is null
+                && record._outerEnv is not null)
+            {
+                record = record._outerEnv;
+                continue;
+            }
+
+            if (record.TryGetBindingForAppend(name, strict, out value, out ownsString, out canOwnStrings))
+            {
+                return true;
+            }
+
+            record = record._outerEnv;
+        }
+
+        value = default;
+        ownsString = false;
+        canOwnStrings = false;
+        return false;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-newdeclarativeenvironment
     /// </summary>
     internal static DeclarativeEnvironment NewDeclarativeEnvironment(Engine engine, Environment? outer, bool catchEnvironment = false)

@@ -201,15 +201,17 @@ internal sealed class JintIdentifierExpression : JintExpression
             var idx = _cachedSlotIndex;
             if (slots is not null && (uint) idx < (uint) slots.Length)
             {
+                // PeekValue rather than Value: an owned string is marked by HandOn below, which tests the
+                // value's _type bit in place of the arguments type test this lane always made.
                 ref var binding = ref slots[idx];
                 value = binding.HasReferenceValue
-                    ? binding.Value
+                    ? binding.PeekValue
                     : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
                 if (value is null)
                 {
                     ThrowNotInitialized(engine);
                 }
-                return MaterializeIfArguments(value);
+                return HandOn(value);
             }
             // stale slot metadata for a reachable env — fall through to full resolution
         }
@@ -234,7 +236,7 @@ internal sealed class JintIdentifierExpression : JintExpression
                 {
                     ThrowNotInitialized(engine);
                 }
-                return MaterializeIfArguments(value);
+                return HandOn(value);
             }
         }
 
@@ -298,7 +300,7 @@ internal sealed class JintIdentifierExpression : JintExpression
             value = engine.GetValue(reference, returnReferenceToPool: true);
         }
 
-        return MaterializeIfArguments(value);
+        return HandOn(value);
     }
 
     /// <summary>
@@ -347,13 +349,13 @@ internal sealed class JintIdentifierExpression : JintExpression
 
         ref var binding = ref slots[index];
         var value = binding.HasReferenceValue
-            ? binding.Value
+            ? binding.PeekValue
             : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
         if (value is null)
         {
             ThrowNotInitialized(engine);
         }
-        return MaterializeIfArguments(value);
+        return HandOn(value);
     }
 
     /// <summary>
@@ -529,15 +531,35 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
     }
 
+    /// <summary>
+    /// Every value this read returns comes through here, and the two kinds a read must act on carry
+    /// <see cref="InternalTypes.ReadHook"/>: an arguments object (materialized, so the frame's pooled
+    /// one is not reused under whoever now holds it) and a string a binding owns (marked shared, so the
+    /// binding's next <c>+=</c> allocates rather than extending what this read hands on). One test of the
+    /// value's _type, which is what the arguments type test it replaced cost.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static JsValue MaterializeIfArguments(JsValue value)
+    private static JsValue HandOn(JsValue value)
     {
-        // make sure arguments access freezes state
+        if ((value._type & InternalTypes.ReadHook) != InternalTypes.Empty)
+        {
+            OnReadHook(value);
+        }
+
+        return value;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void OnReadHook(JsValue value)
+    {
         if (value is JsArguments argumentsInstance)
         {
             argumentsInstance.Materialize();
         }
-        return value;
+        else if (value is JsString.ConcatenatedString owned)
+        {
+            owned.MarkShared();
+        }
     }
 
     [DoesNotReturn]

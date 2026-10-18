@@ -13,11 +13,18 @@ internal sealed partial class HtmlTreeBuilder
         private readonly Dictionary<string, List<int>> _html = [];
         private Dictionary<(string? Namespace, string Name), List<int>>? _foreign;
 
-        internal List<int>? Html(string name) => _html.TryGetValue(name, out var indexes) ? indexes : null;
+        // The lists of the names the scope checks ask about on nearly every token, each resolved
+        // once it exists: a list is never removed from the map, so these stay the map's own entries.
+        private List<int>? _p, _button, _ol, _ul, _html_, _table, _template;
+        internal List<int>? P => _p ??= Html("p");
+        internal List<int>? Button => _button ??= Html("button");
+        internal List<int>? Ol => _ol ??= Html("ol");
+        internal List<int>? Ul => _ul ??= Html("ul");
+        internal List<int>? HtmlRoot => _html_ ??= Html("html");
+        internal List<int>? Table => _table ??= Html("table");
+        internal List<int>? Template => _template ??= Html("template");
 
-        internal List<int> For(Element element) => element.NamespaceUri == Namespaces.Html
-            ? _html[element.LocalName]
-            : _foreign![(element.NamespaceUri, element.LocalName)];
+        internal List<int>? Html(string name) => _html.TryGetValue(name, out var indexes) ? indexes : null;
 
         // An emptied list is kept: the same name reopens constantly and would reallocate it.
         internal List<int> GetOrAdd(Element element)

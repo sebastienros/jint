@@ -32,6 +32,18 @@ internal abstract class Environment : JsValue
     internal abstract bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value);
 
     /// <summary>
+    /// The <c>+=</c> lane's own read of its left operand. By default it is <see cref="TryGetBinding"/>, and the
+    /// binding can never own a string. A function, block, catch or eval environment overrides it to read an owned
+    /// string without ending its ownership, and reports that its bindings can own one.
+    /// </summary>
+    internal virtual bool TryGetBindingForAppend(BindingName name, bool strict, out JsValue? value, out bool ownsString, out bool canOwnStrings)
+    {
+        ownsString = false;
+        canOwnStrings = false;
+        return TryGetBinding(name, strict, out value);
+    }
+
+    /// <summary>
     /// Creates a new mutable binding in an environment record.
     /// </summary>
     /// <param name="name">The identifier of the binding.</param>

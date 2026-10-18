@@ -123,7 +123,7 @@ internal sealed class JintFunctionDefinition
 
             argumentsInstance = context.Engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList, state);
             context.RunBeforeExecuteStatementChecks(Function.Body);
-            var jsValue = _bodyExpression.GetValue(context).Clone();
+            var jsValue = _bodyExpression.GetValue(context);
             result = new Completion(CompletionType.Return, jsValue, Function.Body);
         }
         else if (Function.Generator)
@@ -170,7 +170,7 @@ internal sealed class JintFunctionDefinition
 
             context.Engine.FunctionDeclarationInstantiationFast(state, in argumentsList);
             context.RunBeforeExecuteStatementChecks(Function.Body);
-            var jsValue = _bodyExpression.GetValue(context).Clone();
+            var jsValue = _bodyExpression.GetValue(context);
             return new Completion(CompletionType.Return, jsValue, Function.Body);
         }
 
@@ -224,7 +224,7 @@ internal sealed class JintFunctionDefinition
                 jsValues = null;
             }
             context.RunBeforeExecuteStatementChecks(bodyExpression._expression);
-            var jsValue = bodyExpression.GetValue(context).Clone();
+            var jsValue = bodyExpression.GetValue(context);
 
             // Check for async suspension - if suspended, return early to allow resumption
             if (context.IsSuspended())
@@ -252,11 +252,11 @@ internal sealed class JintFunctionDefinition
         // The statement list is immutable and shareable across invocations: each invocation's
         // resume position lives on its AsyncFunctionInstance (SuspendDataDictionary).
         var bodyStatementList = _bodyStatementList ??= new JintStatementList(Function);
-        AsyncFunctionStart(context, promiseCapability, bodyStatementList, context =>
-        {
-            context.Engine.FunctionDeclarationInstantiation(context, function, arguments);
-            return bodyStatementList.Execute(context);
-        });
+
+        // No delegate: the start step (instantiation, then the statement list) reads the function and the
+        // arguments off the AsyncFunctionInstance, and a resume replays the statement list without either, so a
+        // closure and a delegate per call would only carry what the instance already holds.
+        AsyncFunctionStart(context, promiseCapability, bodyStatementList, asyncFunctionBody: null, function, arguments);
         return new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
     }
 
@@ -267,7 +267,9 @@ internal sealed class JintFunctionDefinition
         EvaluationContext context,
         PromiseCapability promiseCapability,
         JintStatementList? body,
-        Func<EvaluationContext, Completion> asyncFunctionBody)
+        Func<EvaluationContext, Completion>? asyncFunctionBody,
+        Function? startFunction = null,
+        JsCallArguments? startArguments = null)
     {
         var engine = context.Engine;
         var runningContext = engine.ExecutionContext;
@@ -279,7 +281,9 @@ internal sealed class JintFunctionDefinition
             _state = AsyncFunctionState.Executing,
             _capability = promiseCapability,
             _body = body,
-            _bodyFunction = asyncFunctionBody
+            _bodyFunction = asyncFunctionBody,
+            _startFunction = startFunction,
+            _startArguments = startArguments,
         };
 
         // Step 3: "Let asyncContext be a copy of runningContext"
@@ -301,12 +305,26 @@ internal sealed class JintFunctionDefinition
     }
 
     /// <summary>
+    /// The start step of an async function with a statement body: FunctionDeclarationInstantiation, then the
+    /// statement list. The function and arguments are released once bound; a resume replays the statement list.
+    /// </summary>
+    private static Completion StartStatementBody(EvaluationContext context, AsyncFunctionInstance asyncInstance)
+    {
+        var function = asyncInstance._startFunction!;
+        var arguments = asyncInstance._startArguments!;
+        asyncInstance._startFunction = null;
+        asyncInstance._startArguments = null;
+        context.Engine.FunctionDeclarationInstantiation(context, function, arguments);
+        return asyncInstance._body!.Execute(context);
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-asyncblockstart
     /// </summary>
     private static void AsyncBlockStart(
         EvaluationContext context,
         AsyncFunctionInstance asyncInstance,
-        Func<EvaluationContext, Completion> asyncBody)
+        Func<EvaluationContext, Completion>? asyncBody)
     {
         var engine = context.Engine;
 
@@ -319,7 +337,7 @@ internal sealed class JintFunctionDefinition
         Completion result;
         try
         {
-            result = asyncBody(context);
+            result = asyncBody is not null ? asyncBody(context) : StartStatementBody(context, asyncInstance);
         }
         catch (JavaScriptException e)
         {

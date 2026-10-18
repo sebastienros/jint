@@ -1750,13 +1750,11 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue Concat(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> arguments)
     {
+        // Append returns a new string and leaves its receiver as it was, so the receiver is the starting
+        // point as it stands.
         if (thisObject is not JsString jsString)
         {
-            jsString = new JsString.ConcatenatedString(TypeConverter.ToString(thisObject));
-        }
-        else
-        {
-            jsString = jsString.EnsureCapacity(0);
+            jsString = JsString.Create(TypeConverter.ToString(thisObject));
         }
 
         foreach (var argument in arguments)

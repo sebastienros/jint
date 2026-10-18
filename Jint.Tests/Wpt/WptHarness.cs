@@ -294,6 +294,7 @@ internal static class WptHarness
         "fetch/api/redirect/redirect-empty-location.any.js",
         "fetch/api/redirect/redirect-location.any.js",
         "fetch/api/redirect/redirect-method.any.js",
+        "fetch/api/response/json.any.js",
         "fetch/api/response/response-cancel-stream.any.js",
         "fetch/api/response/response-clone.any.js",
         "fetch/api/response/response-headers-guard.any.js",
@@ -329,26 +330,33 @@ internal static class WptHarness
 
     /// <summary>
     /// The third lane: files that need the shipped <c>fetch</c> and <c>XMLHttpRequest</c> and no server at
-    /// all, because the only URLs they open are <c>blob:</c> ones.
+    /// all, because the only URLs they open are <c>blob:</c> and <c>data:</c> ones — two of the Fetch
+    /// Standard's local schemes, https://fetch.spec.whatwg.org/#local-scheme.
     /// </summary>
     /// <remarks>
-    /// A blob URL names bytes the script itself created, so scheme fetch answers it without a transport and
-    /// with no port to check it against. That is why these two cannot join the server lane — there is nothing
-    /// for a server to serve — and why granting them the network features costs the driver's promise nothing:
-    /// their <c>UrlFilter</c> refuses <b>every</b> URL, which is a stricter bound than the server lane's own,
-    /// and the blob arm is reached before a filter is consulted at all.
+    /// A blob URL names bytes the script itself created and a data URL carries its bytes in itself, so scheme
+    /// fetch answers both without a transport and with no port to check them against. That is why these files
+    /// cannot join the server lane — there is nothing for a server to serve — and why granting them the
+    /// network features costs the driver's promise nothing: their <c>UrlFilter</c> refuses <b>every</b> URL,
+    /// which is a stricter bound than the server lane's own, and both arms are reached before a filter is
+    /// consulted at all.
     /// </remarks>
-    private static readonly HashSet<string> _blobUrlBackedFiles = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> _localSchemeFiles = new(StringComparer.Ordinal)
     {
         "FileAPI/url/url-with-fetch.any.js",
         "FileAPI/url/url-with-xhr.any.js",
+
+        // Every request either makes is of a data: URL — scheme-data.any.js through fetch, and
+        // unsupported-encodings.any.js through XMLHttpRequest with an overridden charset.
+        "fetch/api/basic/scheme-data.any.js",
+        "encoding/unsupported-encodings.any.js",
     };
 
-    /// <summary>Whether a file runs in the blob-URL lane. Read by the runner's inventory checks as well.</summary>
-    internal static bool IsBlobUrlBacked(string testFilePath) => _blobUrlBackedFiles.Contains(testFilePath);
+    /// <summary>Whether a file runs in the local-scheme lane. Read by the runner's inventory checks as well.</summary>
+    internal static bool IsLocalSchemeBacked(string testFilePath) => _localSchemeFiles.Contains(testFilePath);
 
-    /// <summary>Every file the blob-URL lane claims, so the inventory can hold the list to the corpus.</summary>
-    internal static IEnumerable<string> BlobUrlBackedFiles => _blobUrlBackedFiles;
+    /// <summary>Every file the local-scheme lane claims, so the inventory can hold the list to the corpus.</summary>
+    internal static IEnumerable<string> LocalSchemeBackedFiles => _localSchemeFiles;
 
 
     internal static WptRunOutcome Run(string testFilePath)
@@ -666,7 +674,7 @@ internal static class WptHarness
         {
             timerClock = WptTimerClock.ForFile(sourceName, source, WptCorpus.Prelude, metaScripts.Count != 0);
             engine = BuildEngine(directory, sink, workers, IsServerBacked(sourceName), sourceName,
-                IsBlobUrlBacked(sourceName), timerClock);
+                IsLocalSchemeBacked(sourceName), timerClock);
 
             // Before the shim, which reads it: `setup({single_test: true})` names its one test after the file.
             engine.SetValue("__wptTestFile", sourceName);
@@ -778,7 +786,7 @@ internal static class WptHarness
         WptWorkerProvider? workers = null,
         bool serverBacked = false,
         string? sourceName = null,
-        bool blobUrlBacked = false,
+        bool localSchemeBacked = false,
         WptTimerClock? timerClock = null)
     {
         Debug.Assert(!serverBacked || sourceName is not null, "the server lane needs the file's own URL");
@@ -793,15 +801,15 @@ internal static class WptHarness
             // corpus is about and is also what retired the two fetch/api/headers rows that used to read the
             // shim's corpus reader instead. Every other engine still gets that reader, because a file with no
             // server has nothing for a real one to talk to — see the shim's own header.
-            options.UseWebApis(serverBacked || blobUrlBacked
+            options.UseWebApis(serverBacked || localSchemeBacked
                 ? WebApiFeatures.Default | WebApiFeatures.Fetch | WebApiFeatures.XmlHttpRequest
                 : WebApiFeatures.Default);
 
-            if (blobUrlBacked)
+            if (localSchemeBacked)
             {
-                // The blob-URL lane: the shipped fetch and XMLHttpRequest, and a filter that refuses every URL
-                // there is. Scheme fetch answers a `blob:` URL before a filter is consulted, so these files
-                // get exactly the reach they need and nothing else — see _blobUrlBackedFiles.
+                // The local-scheme lane: the shipped fetch and XMLHttpRequest, and a filter that refuses every
+                // URL there is. Scheme fetch answers a `blob:` or `data:` URL before a filter is consulted, so
+                // these files get exactly the reach they need and nothing else — see _localSchemeFiles.
                 options.WebApi.Fetch.UrlFilter = static _ => false;
             }
 

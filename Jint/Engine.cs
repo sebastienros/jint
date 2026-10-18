@@ -1812,7 +1812,7 @@ public sealed partial class Engine : IDisposable
     // per-object private-element storage ([[PrivateElements]]). Kept off ObjectInstance in a weak table
     // (keyed by the owning object) so the 8-byte reference doesn't bloat every object on the heap — only
     // instances of JS classes that declare #private members ever allocate an entry here.
-    internal ConditionalWeakTable<ObjectInstance, Dictionary<PrivateName, PrivateElement>>? _privateElementStore;
+    internal ConditionalWeakTable<ObjectInstance, PrivateElementHolder>? _privateElementStore;
 
     // WebIDL callback interfaces need the object's creation realm, including null-prototype objects and
     // revoked proxies. Keep secondary-realm records weakly, without another pointer on every JS object.

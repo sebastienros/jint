@@ -299,7 +299,7 @@ internal sealed partial class SetPrototype : Prototype
 
             if (set.Has(nextValue) && !resultData.ContainsKey(nextValue))
             {
-                resultData.Append(SameValueZeroComparer.ToStableKey(nextValue), null);
+                resultData.Append(nextValue, null);
             }
         }
 
@@ -364,7 +364,7 @@ internal sealed partial class SetPrototype : Prototype
             {
                 if (!alreadyInResult)
                 {
-                    resultData.Append(SameValueZeroComparer.ToStableKey(nextValue), null);
+                    resultData.Append(nextValue, null);
                 }
             }
         }
@@ -534,9 +534,7 @@ internal sealed partial class SetPrototype : Prototype
 
             if (!resultData.ContainsKey(nextValue))
             {
-                // this is the one adder that reaches the ordering set directly rather than through
-                // JsSet.Add, so it has to flatten a concatenated key itself
-                resultData.Append(SameValueZeroComparer.ToStableKey(nextValue), null);
+                resultData.Append(nextValue, null);
             }
         }
 

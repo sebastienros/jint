@@ -4,6 +4,7 @@ using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.Events;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.Files;
 using Jint.WebApi.Timers;
 using Jint.WebApi.Url.Parsing;
 
@@ -29,6 +30,12 @@ namespace Jint.WebApi.ServerSentEvents;
 /// is being pumped, and it counts against <c>Options.WebApi.Timers.MaxActiveTimers</c>. Each attempt re-runs
 /// the URL policy from scratch: the scheme list and the host's <c>UrlFilter</c> are asked again, so revoking
 /// a destination between two attempts really does stop the next one.
+/// </para>
+/// <para>
+/// <b>A <c>data:</c> or <c>blob:</c> URL is the exception, and is answered by the engine itself</b> — the two
+/// local arms of scheme fetch, as <c>fetch</c> and <c>XMLHttpRequest</c> take them — before the policy, with no
+/// connection, no transport and nothing for an observer to see. See <see cref="ConnectDataUrl"/> and
+/// <see cref="ConnectBlobUrl"/>.
 /// </para>
 /// </remarks>
 internal sealed class JsEventSource : JsEventTarget
@@ -126,6 +133,22 @@ internal sealed class JsEventSource : JsEventTarget
     /// </summary>
     internal void Connect()
     {
+        // Scheme fetch's `data` and `blob` arms, before every network check and before an observation exists,
+        // exactly as fetch takes them: the bytes are in the URL or in a Blob this engine's own script created,
+        // so there is nothing for the policy to decide and no request for an observer to be told about, not
+        // even as a refusal.
+        if (DataUrl.Is(Url))
+        {
+            ConnectDataUrl();
+            return;
+        }
+
+        if (string.Equals(Url.Scheme, "blob", StringComparison.Ordinal))
+        {
+            ConnectBlobUrl();
+            return;
+        }
+
         var urlFilter = _options.UrlFilter ?? (static _ => true);
 
         // One observation per connection, created before the three refusals below so that a stream the host
@@ -186,7 +209,7 @@ internal sealed class JsEventSource : JsEventTarget
 
         // The new stream's last event ID buffer starts as this object's last event ID string, so an event
         // that carries no id of its own still reports the last one the server sent — see the parser.
-        var connection = new EventSourceConnection(this, _engine, _realm, _cancellation, _options.MaxResponseBytes, LastEventId);
+        var connection = new EventSourceConnection(this, _engine, _cancellation, _options.MaxResponseBytes, LastEventId);
         _connection = connection;
         _state.RegisterEventSource(connection);
         connection.Start(client, BuildRequest(), policy, observation);
@@ -227,13 +250,157 @@ internal sealed class JsEventSource : JsEventTarget
     }
 
     /// <summary>
+    /// Constructor step 15 for a <c>data:</c> URL. https://fetch.spec.whatwg.org/#main-fetch sends one to
+    /// https://fetch.spec.whatwg.org/#scheme-fetch whatever the request's mode — <c>cors</c>, here — and the
+    /// <c>data</c> arm answers it from the URL itself; see <see cref="DataUrlFetch"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Before every network check, as <c>fetch</c> and <c>XMLHttpRequest</c> take it.</b> No request is made,
+    /// so <c>AllowedSchemes</c>, the host's <c>UrlFilter</c>, an <c>HttpClient</c> and a <c>FetchObserver</c>
+    /// have nothing to decide or to see, and nothing is counted against <c>MaxConcurrentRequests</c>, which
+    /// bounds the sockets streams hold. What does bound it is <c>MaxResponseBytes</c>, on the decoded body:
+    /// the whole body is in hand, so unlike a network stream it is bounded whole rather than one event at a
+    /// time, and a script cannot escape the host's ceiling by inlining a stream.
+    /// </para>
+    /// <para>
+    /// <b>The response is processed exactly as a network one is.</b> The arm's 200 carries the URL's own MIME
+    /// type, so a <c>text/event-stream</c> one is announced and interpreted line by line and any other type
+    /// fails the connection. A URL the processor refuses, or a body over the limit, is a network error every
+    /// later attempt would meet again — the case step 15.ii lets a user agent fail rather than reestablish,
+    /// "unless the user agent knows that to be futile". The end of a body is not a network error, so it
+    /// reestablishes the connection: the same URL replays every reconnection time, honouring <c>retry</c>, and
+    /// the delay is the timer-queue task every reconnection waits on, so an engine nobody pumps replays nothing.
+    /// </para>
+    /// <para>
+    /// <b>The engine's cancellation ends it silently</b>, as it ends a network connection — here and at every
+    /// task of the pass — so a host's token stops the replay rather than a listener throwing out of the pump
+    /// every reconnection time.
+    /// </para>
+    /// </remarks>
+    private void ConnectDataUrl()
+    {
+        if (_cancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (!DataUrlFetch.TryBuild(Url, "GET", _options.MaxResponseBytes, out var response, out _))
+        {
+            FailConnectionLater();
+            return;
+        }
+
+        ProcessLocalResponse(in response);
+    }
+
+    /// <summary>
+    /// Constructor step 15 for a <c>blob:</c> URL. A blob URL is same-origin with the environment that minted
+    /// it, so https://fetch.spec.whatwg.org/#main-fetch sends the <c>cors</c>-mode request to
+    /// https://fetch.spec.whatwg.org/#scheme-fetch, and the <c>blob</c> arm answers it from the blob URL store;
+    /// see <see cref="BlobUrlFetch"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The store is asked on every connection, and the first one is inside the constructor.</b> A revoke on
+    /// the line after <c>new EventSource(url)</c> therefore does not take the first pass away, as it does not for
+    /// a <c>Request</c> built before the revoke; and a reconnection asks again, so a URL revoked since is the arm's
+    /// network error. That error, like a URL that never named an entry, is one every later attempt would meet
+    /// again — a store never mints the same URL twice — so it fails the connection rather than reestablishing
+    /// it, which step 15.ii allows "if the user agent knows that to be futile". It also means the source holds
+    /// no blob between passes: revoking the URL is what lets the bytes go, as it is for every other holder.
+    /// </para>
+    /// <para>
+    /// <b>The store is the engine's own, and nothing else is consulted</b>, exactly as for <c>fetch</c> and
+    /// <c>XMLHttpRequest</c>: every realm of this engine resolves against it, a URL another engine minted — a
+    /// worker's or a parent's — names nothing here, and a URL naming another origin can never match an entry,
+    /// since this engine mints only <c>blob:null/…</c>.
+    /// </para>
+    /// <para>
+    /// <b>Bounded by <c>MaxResponseBytes</c> on the blob's bytes, which <c>fetch</c>'s arm is not.</b> A
+    /// <c>fetch</c> hands the blob back as a body a script already held; here it is parsed whole on the engine
+    /// thread, with no per-event cap, and replayed every reconnection time, so this is the bound a network
+    /// stream's events have — the one a <c>data:</c> URL's decoded body already answers to. The request is
+    /// always <c>GET</c> and carries no <c>Range</c>, so the arm's other two failures cannot arise.
+    /// </para>
+    /// </remarks>
+    private void ConnectBlobUrl()
+    {
+        if (_cancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        var blob = _state.BlobUrls.Resolve(Url);
+        if (blob is null
+            || blob.Data.Length > _options.MaxResponseBytes
+            || !BlobUrlFetch.TryBuild(blob, "GET", rangeHeader: null, out var response))
+        {
+            FailConnectionLater();
+            return;
+        }
+
+        ProcessLocalResponse(in response);
+    }
+
+    /// <summary>
+    /// Processes the response one of the two local arms built, exactly as a network one is: a
+    /// <c>text/event-stream</c> body is parsed and delivered as a <see cref="LocalSchemePass"/>, and any other
+    /// type fails the connection.
+    /// </summary>
+    private void ProcessLocalResponse(in LocalSchemeResponse response)
+    {
+        if (!IsEventStream(response.Headers))
+        {
+            FailConnectionLater();
+            return;
+        }
+
+        // The body is within MaxResponseBytes already, and UTF-8 never decodes to more characters than it has
+        // bytes, so no event can outgrow the cap a network stream's parser is given: this one needs none.
+        var parser = new EventStreamParser(long.MaxValue, LastEventId);
+        var messages = new List<EventStreamMessage>();
+        parser.Feed(response.Body.GetValueOrDefault().Span, messages);
+
+        new LocalSchemePass(this, parser.TakeReconnectionTime(), messages).Post();
+    }
+
+    /// <summary>
+    /// Whether the arm's <c>Content-Type</c> is <c>text/event-stream</c>, compared by essence as a network
+    /// response's is — so a parameter changes nothing.
+    /// </summary>
+    private static bool IsEventStream(List<HeaderEntry> headers)
+    {
+        foreach (var header in headers)
+        {
+            if (string.Equals(header.LowerName, "content-type", StringComparison.Ordinal))
+            {
+                return MimeType.Parse(header.Value) is { Essence: EventSourceConnection.EventStreamMimeType };
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// https://html.spec.whatwg.org/multipage/server-sent-events.html#announce-the-connection — "queue a task
     /// which, if the readyState attribute is set to a value other than CLOSED, sets the readyState attribute
     /// to OPEN and fires an event named open".
     /// </summary>
     internal void AnnounceConnection(EventSourceConnection connection)
     {
-        if (!ReferenceEquals(_connection, connection) || ReadyState == Closed)
+        if (!ReferenceEquals(_connection, connection))
+        {
+            return;
+        }
+
+        Announce();
+    }
+
+    /// <summary>The task <see cref="AnnounceConnection"/> describes, for whichever lane queued it.</summary>
+    private void Announce()
+    {
+        if (ReadyState == Closed)
         {
             return;
         }
@@ -261,6 +428,12 @@ internal sealed class JsEventSource : JsEventTarget
             return;
         }
 
+        Dispatch(reconnectionTime, messages, origin);
+    }
+
+    /// <summary>The tasks <see cref="DeliverMessages"/> describes, for whichever lane queued them.</summary>
+    private void Dispatch(long? reconnectionTime, List<EventStreamMessage> messages, string origin)
+    {
         if (reconnectionTime is { } milliseconds)
         {
             ReconnectionTime = milliseconds;
@@ -462,6 +635,120 @@ internal sealed class JsEventSource : JsEventTarget
         // The queue this id belongs to has been cleared by the same restore; forgetting it keeps a later
         // close() from cancelling an id another timer has since been given.
         _reconnectTimerId = 0;
+    }
+
+    /// <summary>
+    /// Runs an engine-thread job in the realm this object was created in.
+    /// </summary>
+    /// <remarks>
+    /// Every task a connection or a local-scheme pass queues comes through here: one running on a later turn
+    /// would otherwise run its listeners under whatever realm happened to be ambient. A listener that throws
+    /// erupts from whatever is pumping the event loop, which is the contract every event Jint fires already
+    /// has — see <c>JsEventTarget</c>. There is no promise here to reject it into.
+    /// </remarks>
+    internal void RunInRealm(Action job)
+    {
+        var entered = !ReferenceEquals(_engine.Realm, _realm);
+        if (entered)
+        {
+            _engine.EnterExecutionContext(_realm.GlobalEnv, _realm.GlobalEnv, _realm, privateEnvironment: null, strict: _engine.Options.Strict);
+        }
+
+        try
+        {
+            job();
+        }
+        finally
+        {
+            if (entered)
+            {
+                _engine.LeaveExecutionContext();
+            }
+        }
+    }
+
+    /// <summary>
+    /// One pass of a <c>data:</c> URL's or a <c>blob:</c> URL's body, delivered as the three tasks a network
+    /// connection queues for one response: the announcement, the events, and the end of the body, which
+    /// reestablishes the connection.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Each task is queued by the one before it, once it has run</b>, rather than all three at once. The
+    /// engine's one queue is also its microtask queue, so a reaction a listener queues then runs before the next
+    /// of these tasks — the checkpoint a task ends with — instead of after the whole pass.
+    /// </para>
+    /// <para>
+    /// <b>Nothing holds a pass but the queue it is on.</b> Every task first asks whether the source is still
+    /// open, so <c>close()</c> — from a listener or between two tasks — ends it without queueing another; and
+    /// each carries the generation it was started in, so a <c>RestoreGlobalSnapshot</c> discards the one
+    /// already queued, exactly as it discards a connection's.
+    /// </para>
+    /// </remarks>
+    private sealed class LocalSchemePass
+    {
+        private const int AnnounceStep = 0;
+        private const int DispatchStep = 1;
+        private const int EndOfBodyStep = 2;
+
+        private readonly JsEventSource _source;
+        private readonly long? _reconnectionTime;
+        private readonly List<EventStreamMessage> _messages;
+
+        /// <summary>The evaluation cycle the pass was started in; every task it queues carries it.</summary>
+        private readonly int _generation;
+
+        private int _step = AnnounceStep;
+
+        internal LocalSchemePass(JsEventSource source, long? reconnectionTime, List<EventStreamMessage> messages)
+        {
+            _source = source;
+            _reconnectionTime = reconnectionTime;
+            _messages = messages;
+            _generation = source._engine.EventLoopGeneration;
+        }
+
+        /// <summary>
+        /// Queues the next task, without an allocation budget — a source that replays for as long as the script
+        /// leaves it open must not accumulate against one operation's, as a network stream's frames do not.
+        /// </summary>
+        internal void Post() => _source._engine.AddToEventLoop(() => _source.RunInRealm(Run), _generation, EventLoopJobKind.Task);
+
+        private void Run()
+        {
+            if (_source.ReadyState == Closed || _source._cancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            switch (_step)
+            {
+                case AnnounceStep:
+                    _source.Announce();
+
+                    // A body that completed no event and set no reconnection time — a comment, or half a line —
+                    // has nothing to dispatch, as a network chunk that completed nothing queues nothing.
+                    _step = _messages.Count != 0 || _reconnectionTime is not null ? DispatchStep : EndOfBodyStep;
+                    break;
+
+                case DispatchStep:
+                    // The origin of a data: URL is opaque, which serializes as "null"; a blob: URL's is the one
+                    // its path names, which for every URL this engine mints is "null" too.
+                    _source.Dispatch(_reconnectionTime, _messages, _source.Url.SerializeOrigin());
+                    _step = EndOfBodyStep;
+                    break;
+
+                default:
+                    // processResponseEndOfBody: "if res is not a network error, then reestablish the connection".
+                    _source.ReestablishConnection();
+                    return;
+            }
+
+            if (_source.ReadyState != Closed)
+            {
+                Post();
+            }
+        }
     }
 
     /// <summary>
