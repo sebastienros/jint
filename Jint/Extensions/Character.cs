@@ -1,5 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 namespace Jint.Extensions;
 
@@ -72,15 +71,13 @@ internal static class Character
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsJsWhiteSpace(this char c)
     {
-        return c < 0x80
-            ? c == ' ' || c.IsInRange('\t', '\r')
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
-            // Avoid bounds check.
-            : MemoryMarshal.CreateReadOnlySpan(ref Unsafe.Add(ref MemoryMarshal.GetReference(JsWhiteSpaceCharacters), 6), 8)
-#else
-            : JsWhiteSpaceCharacters.Slice(6, 8)
-#endif
-                .IndexOf(c) >= 0 || c.IsInRange('\u2000', '\u200A');
+        if (c < 0x80)
+        {
+            // SP, then the TAB..CR run, which holds VT and FF along with the two ASCII line terminators.
+            return c == ' ' || c.IsInRange('\t', '\r');
+        }
+
+        return IsNonAsciiJsWhiteSpace(c);
     }
 
     /// <summary>
@@ -96,4 +93,24 @@ internal static class Character
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsJsLineTerminator(this char c) => c is '\n' or '\r' or '\u2028' or '\u2029';
+
+    /// <summary>
+    /// The members above U+007F: the non-ASCII half of <c>Space_Separator</c>, ZWNBSP, and the two
+    /// non-ASCII line terminators.
+    /// </summary>
+    /// <remarks>
+    /// The <c>Space_Separator</c> members are enumerated rather than read out of
+    /// <c>char.GetUnicodeCategory</c> so that every target framework answers alike: .NET Framework carries
+    /// an older Unicode table than .NET 10 does, and the whole point of one definition is that it does not
+    /// move under an embedder. The category has not gained or lost a code point since Unicode 6.3 dropped
+    /// U+180E from it, and <c>Jint.Tests/Runtime/WhiteSpaceDefinitionTests.cs</c> checks the enumeration
+    /// against the running framework's table on every target framework so a future addition cannot land
+    /// unnoticed.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static bool IsNonAsciiJsWhiteSpace(char c) => c switch
+    {
+        '\u00A0' or '\u1680' or '\u2028' or '\u2029' or '\u202F' or '\u205F' or '\u3000' or '\uFEFF' => true,
+        _ => c.IsInRange('\u2000', '\u200A'),
+    };
 }
