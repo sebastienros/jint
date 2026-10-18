@@ -9,17 +9,6 @@ internal static class Character
     /// </summary>
     public const string AsciiWordCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
 
-    public static ReadOnlySpan<char> JsWhiteSpaceCharacters
-    {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get =>
-        [
-            '\x20', '\x09', '\x0A', '\x0B', '\x0C', '\x0D',
-            '\xA0', '\u1680', '\u2028', '\u2029', '\u202F', '\u205F', '\u3000', '\uFEFF',
-            '\u2000', '\u2001', '\u2002', '\u2003', '\u2004', '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200A'
-        ];
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsInRange(this char c, ushort min, ushort max) => (uint) (c - min) <= (uint) (max - min);
 
