@@ -553,26 +553,171 @@ public class NetworkDomainTests
             """{"offline":true,"matchedNetworkConditions":[]}""",
             fixture.Attachment);
         (await FetchAsync(fixture)).Should().Be("went", "Chrome matches requests against entries, and there are none");
+
+        // PuppeteerSharp's BlockList sends exactly this: the top-level offline beside one offline entry per pattern.
+        // The override reaches the requests an entry matches and no others.
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule",
+            $$"""{"offline":true,"matchedNetworkConditions":[{{Rule(offline: false, urlPattern: server.Url("/data"))}}]}""",
+            fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("refused", "the top-level offline overrides the entry's own");
+        (await FetchAsync(fixture, "/other")).Should().Be("went", "no entry matches it, so nothing is there to override");
     }
 
     /// <summary>
-    /// An entry scoped to a URL pattern is refused with a reason, never accepted and then applied to every
-    /// request or to none.
+    /// An entry scoped to a URL pattern fails the requests it matches and no others —
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Network/#type-NetworkConditions.
     /// </summary>
+    /// <remarks>
+    /// The pattern is the URLPattern constructor-string syntax the protocol names, compiled on the page loop and
+    /// matched on the transport thread that decides the request; nothing about it may wait for the loop.
+    /// </remarks>
     [Test]
-    public async Task AUrlScopedRuleIsRefusedRatherThanIgnored()
+    public async Task AUrlScopedRuleFailsOnlyTheRequestsItMatches()
     {
         using var server = new LoopbackServer();
         await using var fixture = await OpenOfflineFixtureAsync(server);
 
+        var result = await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule",
+            Rules(Rule(offline: true, urlPattern: server.Url("/data")), Rule(offline: true, urlPattern: "*://*.evil.test/*")),
+            fixture.Attachment);
+        result.GetProperty("ruleIds").GetArrayLength().Should().Be(2);
+
+        (await FetchAsync(fixture)).Should().Be("refused");
+        var failed = await fixture.EventAsync("Network.loadingFailed");
+        failed.GetProperty("errorText").GetString().Should().Be("net::ERR_INTERNET_DISCONNECTED");
+        server.Received.Should().NotContain(request => request.Path == "/data", "offline means no socket is opened at all");
+
+        (await FetchAsync(fixture, "/other")).Should().Be("went", "the pattern names /data and nothing else");
+        (await FetchAsync(fixture, "/data?q=1")).Should().Be("refused", "a pattern that names no search matches any search");
+        (await OnLineAsync(fixture)).Should().BeTrue("a rule shapes the transport and leaves the navigator alone");
+
+        // The same command with no entries lifts it.
+        await fixture.Session.ResultAsync("Network.emulateNetworkConditionsByRule", Rules(), fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("went");
+    }
+
+    /// <summary>
+    /// The first entry that matches a request decides it, whatever later entries say —
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-emulateNetworkConditionsByRule.
+    /// </summary>
+    /// <remarks>
+    /// PuppeteerSharp's <c>Allowlist</c> is the first shape below: an online entry per allowed pattern, then a
+    /// global offline entry for everything else. Chromium's network service keeps the order exactly, because it
+    /// mints a distinct rule identifier per entry and so never merges two entries with the same conditions.
+    /// </remarks>
+    [Test]
+    public async Task TheFirstMatchingEntryDecides()
+    {
+        using var server = new LoopbackServer();
+        await using var fixture = await OpenOfflineFixtureAsync(server);
+        var data = server.Url("/data");
+        const string Everything = "*://*:*/*";
+
+        // The allow-list shape: /data is let through, everything else is offline.
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule", Rules(Rule(offline: false, urlPattern: data), Rule(offline: true)), fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("went");
+        (await FetchAsync(fixture, "/other")).Should().Be("refused");
+
+        // A global entry first matches everything, so the allowance after it is never read.
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule", Rules(Rule(offline: true), Rule(offline: false, urlPattern: data)), fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("refused");
+
+        // Two patterns that both match /data: whichever comes first wins, in both orders.
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule",
+            Rules(Rule(offline: true, urlPattern: data), Rule(offline: false, urlPattern: Everything)),
+            fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("refused");
+        (await FetchAsync(fixture, "/other")).Should().Be("went");
+
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule",
+            Rules(Rule(offline: false, urlPattern: Everything), Rule(offline: true, urlPattern: data)),
+            fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("went");
+
+        // An online entry, an offline one and another online one with the same conditions as the first: grouping
+        // the two online entries together would put the offline entry last and let /data through.
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule",
+            Rules(
+                Rule(offline: false, urlPattern: server.Url("/other")),
+                Rule(offline: true, urlPattern: data),
+                Rule(offline: false, urlPattern: Everything)),
+            fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("refused");
+        (await FetchAsync(fixture, "/other")).Should().Be("went");
+    }
+
+    /// <summary>
+    /// A redirect into a URL-scoped rule fails at the hop that enters it, because every hop is a request the
+    /// rules are asked about — the same per-hop rule a <c>UrlFilter</c> keeps.
+    /// </summary>
+    [Test]
+    public async Task ARedirectIntoAUrlScopedRuleFailsAtTheHopThatEntersIt()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/hop", _ => LoopbackResponse.Redirect(302, "/data"));
+        await using var fixture = await OpenOfflineFixtureAsync(server);
+
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule", Rules(Rule(offline: true, urlPattern: server.Url("/data"))), fixture.Attachment);
+
+        (await FetchAsync(fixture, "/hop")).Should().Be("refused");
+        server.Received.Should().Contain(request => request.Path == "/hop", "the first hop matches nothing and goes out");
+        server.Received.Should().NotContain(request => request.Path == "/data", "the hop into the pattern never opens a socket");
+    }
+
+    /// <summary>
+    /// A pattern this browser cannot match is refused in Chrome's words, and the refusal changes nothing —
+    /// neither the conditions already in force nor the other entries of the same command.
+    /// </summary>
+    /// <remarks>
+    /// Chrome answers <c>-32602 Pattern "…" failed to parse as a URLPattern.</c> for a string that is not an
+    /// absolute pattern, and for one with a regexp group, which its network service refuses because the body of
+    /// one is a user-written regular expression. Here the body is JavaScript regular-expression source, which only
+    /// the engine can read, and a request is decided where the engine is out of reach.
+    /// </remarks>
+    [Test]
+    public async Task APatternThatCannotBeMatchedIsRefusedAndChangesNothing()
+    {
+        using var server = new LoopbackServer();
+        await using var fixture = await OpenOfflineFixtureAsync(server);
+
+        await fixture.Session.ResultAsync(
+            "Network.emulateNetworkConditionsByRule", Rules(Rule(offline: true, urlPattern: server.Url("/data"))), fixture.Attachment);
+        (await FetchAsync(fixture)).Should().Be("refused");
+
+        const string RegexpGroup = @"https://example.com/(\d+)";
         var error = await fixture.Session.ErrorAsync(
             "Network.emulateNetworkConditionsByRule",
-            Rules(Rule(offline: true, urlPattern: server.Url("/data"))),
+            Rules(Rule(offline: true), Rule(offline: true, urlPattern: RegexpGroup)),
             fixture.Attachment);
+        error.GetProperty("code").GetInt32().Should().Be(-32602);
+        error.GetProperty("message").GetString().Should().Be($"Pattern \"{RegexpGroup}\" failed to parse as a URLPattern.");
+        error.GetProperty("data").GetString().Should().Contain("Regexp groups");
 
-        error.GetProperty("code").GetInt32().Should().Be(-32000);
-        error.GetProperty("message").GetString().Should().Contain("urlPattern");
-        (await FetchAsync(fixture)).Should().Be("went", "a refused command changes nothing");
+        // A named group with a regexp body is a regexp group too.
+        (await fixture.Session.ErrorAsync(
+            "Network.emulateNetworkConditionsByRule", Rules(Rule(offline: true, urlPattern: @"https://example.com/:id(\d+)")), fixture.Attachment))
+            .GetProperty("code").GetInt32().Should().Be(-32602);
+
+        // The protocol says a pattern must be absolute, and there is no base URL to resolve one against.
+        var relative = await fixture.Session.ErrorAsync(
+            "Network.emulateNetworkConditionsByRule", Rules(Rule(offline: true, urlPattern: "/other")), fixture.Attachment);
+        relative.GetProperty("code").GetInt32().Should().Be(-32602);
+        relative.GetProperty("data").GetString().Should().Contain("base URL");
+
+        (await fixture.Session.ErrorAsync(
+            "Network.emulateNetworkConditionsByRule", Rules(Rule(offline: true, urlPattern: "https://example.com/(")), fixture.Attachment))
+            .GetProperty("code").GetInt32().Should().Be(-32602);
+
+        (await FetchAsync(fixture)).Should().Be("refused", "a refused command leaves the conditions in force as they were");
+        (await FetchAsync(fixture, "/other")).Should().Be("went", "the global offline entry beside the refused one was never applied");
     }
 
     /// <summary>
@@ -621,11 +766,15 @@ public class NetworkDomainTests
         (await fixture.Page.EvaluateAsync<string>("heard.join()")).Should().Be("offline,online,offline,online,offline,online");
     }
 
-    /// <summary>A page at <c>/page</c> listening for <c>offline</c> and <c>online</c>, and a <c>/data</c> to fetch.</summary>
+    /// <summary>
+    /// A page at <c>/page</c> listening for <c>offline</c> and <c>online</c>, and a <c>/data</c> and an <c>/other</c>
+    /// to fetch.
+    /// </summary>
     private static async Task<NetworkFixture> OpenOfflineFixtureAsync(LoopbackServer server)
     {
         server.MapHtml("/page", "<html><body>ok</body></html>");
         server.Map("/data", _ => LoopbackResponse.Text("went"));
+        server.Map("/other", _ => LoopbackResponse.Text("went"));
 
         var fixture = await NetworkFixture.OpenAsync(server);
         await fixture.NavigateAsync("/page");
@@ -638,9 +787,10 @@ public class NetworkDomainTests
     private static async Task<bool> OnLineAsync(NetworkFixture fixture)
         => await fixture.Page.EvaluateAsync<bool>("navigator.onLine");
 
-    /// <summary>Fetches <c>/data</c> from the page, answering its body or <c>refused</c>.</summary>
-    private static async Task<string?> FetchAsync(NetworkFixture fixture)
-        => await fixture.Page.EvaluateAndAwaitAsync<string>("fetch('/data', {cache: 'no-store'}).then(r => r.text(), () => 'refused')");
+    /// <summary>Fetches <paramref name="path"/> from the page, answering its body or <c>refused</c>.</summary>
+    private static async Task<string?> FetchAsync(NetworkFixture fixture, string path = "/data")
+        => await fixture.Page.EvaluateAndAwaitAsync<string>(
+            $"fetch({JsonSerializer.Serialize(path)}, {{cache: 'no-store'}}).then(r => r.text(), () => 'refused')");
 
     /// <summary>The parameters <c>emulateNetworkConditions</c> and <c>overrideNetworkState</c> share.</summary>
     private static string NetworkState(bool offline)
@@ -648,7 +798,7 @@ public class NetworkDomainTests
 
     /// <summary>One <c>Network.NetworkConditions</c> entry, global unless a pattern is named.</summary>
     private static string Rule(bool offline, string urlPattern = "")
-        => $$"""{"urlPattern":"{{urlPattern}}","offline":{{(offline ? "true" : "false")}},"latency":0,"downloadThroughput":-1,"uploadThroughput":-1}""";
+        => $$"""{"urlPattern":{{JsonSerializer.Serialize(urlPattern)}},"offline":{{(offline ? "true" : "false")}},"latency":0,"downloadThroughput":-1,"uploadThroughput":-1}""";
 
     private static string Rules(params string[] rules) => $$"""{"matchedNetworkConditions":[{{string.Join(",", rules)}}]}""";
 
