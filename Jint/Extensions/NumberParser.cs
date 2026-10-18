@@ -436,9 +436,10 @@ internal static class NumberParser
     /// </summary>
     /// <param name="text">Digits, and whatever follows the first character that is not one.</param>
     /// <param name="radix">The base the digits are read in, between 2 and 36.</param>
+    /// <param name="exact">Controls whether the entire string must match, that is, no leftover characters are allowed.</param>
     /// <param name="result">The value read, non-negative; the caller applies the sign.</param>
     /// <returns><see langword="true"/> when at least one digit was read.</returns>
-    internal static bool TryParseRadixInteger(ReadOnlySpan<char> text, int radix, out double result)
+    internal static bool TryParseRadixInteger(ReadOnlySpan<char> text, int radix, bool exact, out double result)
     {
         var length = text.Length;
         var i = 0;
@@ -498,7 +499,7 @@ internal static class NumberParser
             i++;
         }
 
-        if (!sawDigit)
+        if (!sawDigit || exact && i != length)
         {
             result = 0;
             return false;

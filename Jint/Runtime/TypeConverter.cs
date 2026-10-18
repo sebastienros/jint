@@ -306,7 +306,9 @@ public static class TypeConverter
 
             if (fromBase > 0)
             {
-                return NumberParser.TryParseRadixInteger(input.AsSpan(2), fromBase, out n) ? n : double.NaN;
+                return NumberParser.TryParseRadixInteger(input.AsSpan(2), fromBase, exact: true, out n)
+                    ? n
+                    : double.NaN;
             }
         }
 
