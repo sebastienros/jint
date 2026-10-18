@@ -110,8 +110,8 @@ vendored files are byte-identical), on one Apple M4 Pro, .NET 10.0.11, macOS 15.
 every regex benchmark the suite has, plus SunSpider `regexp-dna` and Dromaeo `ObjectRegExp`. A row is a change only
 when its 95% CI excludes zero; `control-indexOf` never reaches regex code and reads +0.9% [+0.1, +3.0], the run's
 floor. Three rounds is enough for the large effects; a ±5% one wants six before it is believed
-([`Jint.Benchmark/AGENTS.md`](../../Jint.Benchmark/AGENTS.md)). Another session was building on the same machine
-for part of the run, which both sides shared.
+([`Jint.Benchmark/AGENTS.md`](https://github.com/sebastienros/jint/blob/main/Jint.Benchmark/AGENTS.md)). The machine was
+not idle for part of the run (a concurrent build); both sides shared that.
 
 **Faster** — 36 of the 41 rows (the others are the four below and the floor); the fourth column is the first paired run's figure, before gregsex#3 and J4.
 
