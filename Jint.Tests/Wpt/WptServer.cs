@@ -675,8 +675,18 @@ internal sealed class WptServer : IDisposable
         var context = new WptSubstitutionContext(port, request);
         var headers = WptServerFiles.LoadHeaders(request.Path, context, WptCorpus.TryRead);
 
-        // The corpus is held as text, so its bytes are the UTF-8 of that text — which is how it was
-        // vendored, and why nothing binary is in the tree.
+        // A fixture that is not UTF-8 is not text, and is served as its own bytes: wptserve writes a file's
+        // bytes, and reading this one as text would transcode it. The one such file is
+        // xhr/resources/utf16-bom.json — UTF-16 behind its byte order mark, which is the whole of what the two
+        // json.any.js files that fetch it assert a JSON parser must refuse.
+        var raw = WptCorpus.ReadBytes(request.Path);
+        if (!System.Text.Unicode.Utf8.IsValid(raw))
+        {
+            return new WptServerResponse(200, "OK", headers, raw);
+        }
+
+        // Everything else is held as text, so its bytes are the UTF-8 of that text — which is how it was
+        // vendored.
         var content = WptCorpus.Read(request.Path);
 
         if (WptServerFiles.WantsSubstitution(request.Path))

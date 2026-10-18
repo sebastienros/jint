@@ -277,40 +277,25 @@ internal sealed class FileReadOperation
     /// </para>
     /// <para>
     /// <b>Decoding sniffs a byte order mark, and that is not the same thing as
-    /// <c>TextDecoder</c>'s BOM stripping.</b> https://encoding.spec.whatwg.org/#decode runs
-    /// <i>BOM sniff</i> first and lets what it finds <i>override</i> the fallback encoding, so a blob
-    /// beginning <c>FE FF</c> decodes as UTF-16BE even though the fallback was UTF-8 —
-    /// <c>FileAPI/reading-data-section/Determining-Encoding.any.js</c> asserts exactly that, in both
-    /// endiannesses. The decoder built for the sniffed encoding then strips the mark itself, which is why
-    /// the whole input is handed to it rather than the bytes after the mark.
+    /// <c>TextDecoder</c>'s BOM stripping.</b> https://encoding.spec.whatwg.org/#decode lets a mark
+    /// <i>override</i> the fallback encoding, so a blob beginning <c>FE FF</c> decodes as UTF-16BE even
+    /// though the fallback was UTF-8 — <c>FileAPI/reading-data-section/Determining-Encoding.any.js</c>
+    /// asserts exactly that, in both endiannesses. <see cref="TextDecoderCommon.DecodeWithBomSniff"/> is that
+    /// algorithm, shared with the <c>XMLHttpRequest</c> text response.
     /// </para>
     /// </remarks>
     private JsString DecodeText()
     {
-        var encoding = ResolveTextEncoding();
-        var common = new TextDecoderCommon(in encoding, fatal: false, ignoreBom: false);
-        return common.Decode(_realm, _bytes.Span, stream: false);
+        var fallback = ResolveFallbackEncoding();
+        return TextDecoderCommon.DecodeWithBomSniff(_realm, _bytes.Span, in fallback);
     }
 
-    private EncodingEntry ResolveTextEncoding()
+    /// <summary>
+    /// The fallback encoding https://w3c.github.io/FileAPI/#packaging-data hands to <i>decode</i>, which a
+    /// byte order mark still overrides.
+    /// </summary>
+    private EncodingEntry ResolveFallbackEncoding()
     {
-        // BOM sniff, https://encoding.spec.whatwg.org/#bom-sniff, which wins over both named sources.
-        var span = _bytes.Span;
-        if (span.Length >= 3 && span[0] == 0xEF && span[1] == 0xBB && span[2] == 0xBF)
-        {
-            return EncodingLabels.Utf8Encoding;
-        }
-
-        if (span.Length >= 2 && span[0] == 0xFE && span[1] == 0xFF && EncodingLabels.TryLookup("utf-16be", out var utf16Be))
-        {
-            return utf16Be;
-        }
-
-        if (span.Length >= 2 && span[0] == 0xFF && span[1] == 0xFE && EncodingLabels.TryLookup("utf-16le", out var utf16Le))
-        {
-            return utf16Le;
-        }
-
         if (_encodingName is not null && EncodingLabels.TryLookup(_encodingName, out var named))
         {
             return named;

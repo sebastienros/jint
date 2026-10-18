@@ -169,9 +169,13 @@ internal sealed class FetchOperation
         var options = state.FetchOptions!;
         var network = state.FetchNetwork;
 
+        // A data: URL is answered below, by scheme fetch's `data` arm, and never reaches a transport — so,
+        // like a blob URL, it is no request for a FetchObserver to be told about, not even as a refusal.
+        var isDataUrl = DataUrl.Is(request.Url);
+
         // Created before the first thing that can refuse the request, so that every refusal is reported — a
         // request the transport never sees still reaches OnFailed, with no OnRequest before it.
-        var observation = FetchObservation.Create(network.Observer, FetchInitiator.Script);
+        var observation = isDataUrl ? null : FetchObservation.Create(network.Observer, FetchInitiator.Script);
 
         // Step 6: an already-aborted signal ends the fetch before anything is sent, with the signal's own
         // reason — https://fetch.spec.whatwg.org/#abort-fetch.
@@ -179,6 +183,16 @@ internal sealed class FetchOperation
         {
             observation?.Failed("The request was aborted before it was sent.", null);
             capability.Reject(request.Signal.Reason);
+            return capability.PromiseInstance;
+        }
+
+        // Scheme fetch's `data` arm: after step 6, which precedes main fetch and therefore scheme fetch, and
+        // before every network check, for the reasons the blob arm above gives — the bytes are in the URL, so
+        // AllowedSchemes, the UrlFilter, the concurrency cap and an HttpClient have nothing to decide. What it
+        // does answer to is MaxResponseBytes. See DataUrlFetch.
+        if (isDataUrl)
+        {
+            SettleDataUrl(realm, request, capability, options.MaxResponseBytes);
             return capability.PromiseInstance;
         }
 
@@ -331,6 +345,36 @@ internal sealed class FetchOperation
             return;
         }
 
+        ResolveWithLocalResponse(realm, request, capability, in built);
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#scheme-fetch, the <c>data</c> arm: resolve with the URL's own bytes, or
+    /// reject with a network error when the processor refuses the URL or the body is over
+    /// <c>Options.WebApi.Fetch.MaxResponseBytes</c>.
+    /// </summary>
+    /// <remarks>
+    /// Settled synchronously, as <see cref="SettleBlobUrl"/> is and for the same reason: there is nothing to
+    /// wait for. The size failure carries the transport's own message, which <see cref="NetworkError"/> lets
+    /// through to the script because it names the host's limit and nothing about a network.
+    /// </remarks>
+    private static void SettleDataUrl(Realm realm, JsRequest request, PromiseCapability capability, long maxResponseBytes)
+    {
+        if (!DataUrlFetch.TryBuild(request.Url, request.Method, maxResponseBytes, out var built, out var failure))
+        {
+            capability.Reject(NetworkError(realm, failure));
+            return;
+        }
+
+        ResolveWithLocalResponse(realm, request, capability, in built);
+    }
+
+    /// <summary>
+    /// "Create a Response object" for a response scheme fetch built without a transport — a <c>blob:</c> or a
+    /// <c>data:</c> URL's. Its URL is the request's, serialized without its fragment, and nothing redirected.
+    /// </summary>
+    private static void ResolveWithLocalResponse(Realm realm, JsRequest request, PromiseCapability capability, in LocalSchemeResponse built)
+    {
         var list = new HeaderList();
         list.Entries.AddRange(built.Headers);
 
@@ -338,7 +382,12 @@ internal sealed class FetchOperation
         response.Status = built.Status;
         response.StatusText = built.StatusText;
         response.Url = request.Url.Serialize(excludeFragment: true);
-        response.SetBufferedBody(built.Body);
+
+        // A HEAD of a data: URL has no body at all, which is not the same as an empty one: its body stays null.
+        if (built.Body is { } body)
+        {
+            response.SetBufferedBody(body);
+        }
 
         capability.Resolve(response);
     }

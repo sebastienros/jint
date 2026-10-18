@@ -647,9 +647,18 @@ public sealed partial class Options
         /// else is refused with a <c>TypeError</c> before a socket is opened.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Compared ASCII-case-insensitively against the scheme the WHATWG URL parser produced, which is
         /// already lowercased. Emptying the list refuses every request. Read once per request, so a host may
         /// change it between evaluations; it is not read on a background thread.
+        /// </para>
+        /// <para>
+        /// <b><c>blob:</c> and <c>data:</c> URLs are answered by the engine itself, not the transport</b> —
+        /// by <c>fetch</c> and <c>XMLHttpRequest</c>, and a <c>data:</c> one by <c>EventSource</c> too — so
+        /// this list, <see cref="UrlFilter"/> and <see cref="Observer"/> never see them, and they work with the
+        /// list narrowed or emptied. <see cref="MaxResponseBytes"/> still bounds a <c>data:</c> body, and a
+        /// redirect to either scheme is always refused.
+        /// </para>
         /// </remarks>
         public OptionsList<string> AllowedSchemes { get; private set; } = new("Options.WebApi.Fetch.AllowedSchemes") { "https", "http" };
 
@@ -661,7 +670,8 @@ public sealed partial class Options
         /// <para>
         /// <b>Re-run on every redirect hop</b>, which is the point: a filter that only saw the first URL would
         /// be defeated by a server answering <c>302 Location: http://169.254.169.254/</c>. The <see cref="Uri"/>
-        /// passed is the absolute URL about to be requested.
+        /// passed is the absolute URL about to be requested. A <c>blob:</c> or <c>data:</c> URL is never passed,
+        /// because the engine answers it without a request; see <see cref="AllowedSchemes"/>.
         /// </para>
         /// <para>
         /// <b>Must be thread-safe and must not block.</b> The first call is on the engine's thread; the
@@ -683,7 +693,8 @@ public sealed partial class Options
         /// <remarks>
         /// Counted after decompression, so a compression bomb is bounded by the number a host actually chose
         /// rather than by its compressed size, and enforced on the running total as the body streams — the
-        /// connection is dropped at the chunk that crosses the line.
+        /// connection is dropped at the chunk that crosses the line. A <c>data:</c> URL's body is held to it
+        /// too, once decoded, and over it the <c>fetch</c> promise rejects.
         /// <para>
         /// <b>Where the failure surfaces depends on when it is known.</b> A <c>Content-Length</c> that already
         /// exceeds the cap is refused while the headers are being read, so the <c>fetch</c> promise itself
@@ -908,7 +919,8 @@ public sealed partial class Options
         /// <para>
         /// <b>Its callbacks run on transport threads and must never touch the <see cref="Engine"/>.</b> See
         /// <see cref="WebApi.Fetch.FetchObserver"/> for the callback order and for what an observer may do
-        /// with what it is handed.
+        /// with what it is handed. A <c>blob:</c> or <c>data:</c> URL is answered without a request, so it is
+        /// never observed.
         /// </para>
         /// <para>
         /// The shape of this seam is a preview: it exists for a protocol layer above Jint that is still being
@@ -990,9 +1002,12 @@ public sealed partial class Options
         /// <para>
         /// Jint parses no markup, so a host that wants a document supplies one. The delegate receives the
         /// engine the request belongs to, the response body decoded as text, and the essence of the final MIME
-        /// type (<c>text/html</c>, <c>application/xml</c>, …) — never the parameters. Returning
-        /// <see langword="null"/> is the specification's <i>document response</i> failure and answers
-        /// <c>null</c>, which is also what an unsupported media type should do.
+        /// type (<c>text/html</c>, <c>application/xml</c>, …) — never the parameters.
+        /// </para>
+        /// <para>
+        /// It is called only for an HTML or XML MIME type, and for HTML only under <c>responseType = "document"</c>;
+        /// any other response answers <c>null</c> without a call. Returning <see langword="null"/> is the
+        /// specification's <i>document response</i> failure and answers <c>null</c> too.
         /// </para>
         /// <para>
         /// Called on the engine's thread, once per response, and only when script actually reads
@@ -1412,6 +1427,14 @@ public enum WebApiFeatures
     /// this is the setting that stops a script from opening them without end.
     /// </description></item>
     /// </list>
+    /// <para>
+    /// <b>A <c>data:</c> URL is answered by the engine itself</b>, as <c>fetch</c> answers one: no request is
+    /// made, so the scheme list, the filter, the concurrency cap, the client and
+    /// <see cref="Options.FetchOptions.Observer"/> never see it. Its decoded body is bounded whole by
+    /// <see cref="Options.FetchOptions.MaxResponseBytes"/>; a <c>text/event-stream</c> one is announced and
+    /// parsed, any other type fails the connection, and the end of the body reestablishes it, so the URL is
+    /// replayed every reconnection time.
+    /// </para>
     /// </remarks>
     EventSource = 1 << 17,
 
@@ -1594,7 +1617,8 @@ public enum WebApiFeatures
     /// <para>
     /// <b>Without a network grant <c>send()</c> fails the way a blocked <c>fetch</c> does</b> — a network
     /// error, which for an asynchronous request is an <c>error</c> event and for a synchronous one is a
-    /// <c>NetworkError</c> <c>DOMException</c>. The grant is <see cref="Fetch"/>, or an
+    /// <c>NetworkError</c> <c>DOMException</c> — except for a <c>blob:</c> or <c>data:</c> URL, which the
+    /// engine answers without the network. The grant is <see cref="Fetch"/>, or an
     /// <see cref="Options.FetchOptions.HttpClient"/> or <see cref="Options.FetchOptions.HttpClientFactory"/>
     /// the host supplied, which is the same decision said a different way.
     /// </para>

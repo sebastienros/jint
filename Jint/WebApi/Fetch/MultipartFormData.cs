@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Unicode;
 using SystemEncoding = System.Text.Encoding;
 using Jint.Runtime;
 using Jint.WebApi.Files;
@@ -13,10 +14,13 @@ namespace Jint.WebApi.Fetch;
 /// <summary>
 /// One part of a parsed <c>multipart/form-data</c> body, as a plain CLR value.
 /// </summary>
-/// <param name="Name">The <c>name</c> parameter of the part's <c>Content-Disposition</c>, unescaped.</param>
+/// <param name="Name">
+/// The last <c>name</c> or valid <c>name*</c> parameter of the part's <c>Content-Disposition</c>, decoded.
+/// </param>
 /// <param name="FileName">
-/// The <c>filename</c> parameter, unescaped, or <see langword="null"/> when the part carried none — which is
-/// what decides whether the entry's value becomes a <c>File</c> or a string.
+/// The <c>filename*</c> parameter decoded when the part carried a valid one, otherwise the <c>filename</c>
+/// parameter unescaped, or <see langword="null"/> when it carried neither — which is what decides whether
+/// the entry's value becomes a <c>File</c> or a string.
 /// </param>
 /// <param name="ContentType">The part's <c>Content-Type</c>, or <see langword="null"/> when it had none.</param>
 /// <param name="Bytes">The part's body, verbatim.</param>
@@ -44,7 +48,7 @@ internal readonly record struct MultipartPart(string Name, string? FileName, str
 /// <c>TypeError</c> to raise.
 /// </para>
 /// <para>
-/// Three places where the parser is deliberately not the draft, each in the direction of the RFC:
+/// Four places where the parser is deliberately not the draft, each in the direction of the RFC:
 /// </para>
 /// <list type="bullet">
 /// <item>
@@ -63,12 +67,23 @@ internal readonly record struct MultipartPart(string Name, string? FileName, str
 /// epilogue optional, and a producer that omits it — Node's undici, for one — writes a body every other
 /// implementation reads.
 /// </item>
+/// <item>
+/// A part's <c>Content-Disposition</c> is read as RFC 7578 section 4.2 defines it — RFC 2183's header, whose
+/// parameter values are RFC 2045 section 5.1's <c>token / quoted-string</c> — where the draft accepts only
+/// the one spelling HTML writes: <c>form-data; name="</c>, one space, lowercased, the value quoted, then an
+/// optional <c>; filename="</c> and the end of the line. .NET's <c>MultipartFormDataContent</c> is a
+/// mainstream producer, the one a host is likeliest to meet, and it does not write that spelling: it leaves a
+/// <c>name</c> and a <c>filename</c> unquoted unless they need quoting, and appends an RFC 8187
+/// <c>filename*</c> to every file name, which is the only place it writes a non-ASCII one properly. Node
+/// reads all of it and prefers the decoded <c>filename*</c>, and so does this
+/// (<see href="https://github.com/sebastienros/jint/issues/4269">sebastienros/jint#4269</see>), though
+/// RFC 7578 tells senders not to use it. <see cref="TryParseContentDisposition"/> states the grammar and the
+/// choices made inside it.
+/// </item>
 /// </list>
 /// <para>
-/// And two where it is deliberately strict, following the draft: a preamble before the first delimiter is a
-/// failure, and a part's <c>Content-Disposition</c> must begin with exactly
-/// <c>form-data; name="</c> — one space, lowercased, the value quoted. Both are what browsers accept, and
-/// neither is a shape a conforming producer emits.
+/// And one where it is deliberately strict, following the draft: a preamble before the first delimiter is a
+/// failure. That is what browsers accept, and not a shape a conforming producer emits.
 /// </para>
 /// </remarks>
 internal static class MultipartFormData
@@ -96,6 +111,8 @@ internal static class MultipartFormData
     private const byte Lf = 0x0A;
     private const byte Quote = 0x22;
     private const byte Colon = 0x3A;
+    private const byte Semicolon = 0x3B;
+    private const byte EqualsSign = 0x3D;
     private const byte Tab = 0x09;
     private const byte Space = 0x20;
 
@@ -107,8 +124,12 @@ internal static class MultipartFormData
     private static readonly byte[] _dashDash = [(byte) '-', (byte) '-'];
     private static readonly byte[] _contentDispositionName = SystemEncoding.ASCII.GetBytes("content-disposition");
     private static readonly byte[] _contentTypeName = SystemEncoding.ASCII.GetBytes("content-type");
-    private static readonly byte[] _formDataName = SystemEncoding.ASCII.GetBytes("form-data; name=\"");
-    private static readonly byte[] _fileName = SystemEncoding.ASCII.GetBytes(FileNamePrefix);
+    private static readonly byte[] _formDataType = SystemEncoding.ASCII.GetBytes("form-data");
+    private static readonly byte[] _nameParameter = SystemEncoding.ASCII.GetBytes("name");
+    private static readonly byte[] _fileNameParameter = SystemEncoding.ASCII.GetBytes("filename");
+    private static readonly byte[] _nameStarParameter = SystemEncoding.ASCII.GetBytes("name*");
+    private static readonly byte[] _fileNameStarParameter = SystemEncoding.ASCII.GetBytes("filename*");
+    private static readonly byte[] _utf8Charset = SystemEncoding.ASCII.GetBytes("utf-8");
 
     /// <summary>
     /// The prefix every generated boundary carries. Recognizable in a capture, and — being all dashes and
@@ -297,7 +318,8 @@ internal static class MultipartFormData
         {
             if (StartsWith(input, position, _crLf))
             {
-                // A part with no Content-Disposition, or one naming no field, is a failure.
+                // A part with no Content-Disposition names no field, which is a failure; a Content-Disposition
+                // that names none has failed already.
                 return name is not null;
             }
 
@@ -323,28 +345,11 @@ internal static class MultipartFormData
 
             if (EqualsIgnoreAsciiCase(headerName, _contentDispositionName))
             {
-                // A second Content-Disposition discards what the first said, rather than merging.
-                name = null;
-                fileName = null;
-
-                if (!StartsWith(input, position, _formDataName))
+                // A second Content-Disposition discards what the first said, rather than merging: both outs
+                // start again from null.
+                if (!TryParseContentDisposition(input, ref position, out name, out fileName))
                 {
                     return false;
-                }
-
-                position += _formDataName.Length;
-                if (!TryParseName(input, ref position, out name))
-                {
-                    return false;
-                }
-
-                if (StartsWith(input, position, _fileName))
-                {
-                    position += _fileName.Length;
-                    if (!TryParseName(input, ref position, out fileName))
-                    {
-                        return false;
-                    }
                 }
             }
             else if (EqualsIgnoreAsciiCase(headerName, _contentTypeName))
@@ -369,28 +374,304 @@ internal static class MultipartFormData
     }
 
     /// <summary>
-    /// Parse a multipart/form-data name,
-    /// https://andreubotella.github.io/multipart-form-data/#parse-a-multipart-form-data-name — the quoted run
-    /// after a <c>name="</c> or <c>filename="</c>, with the writer's three escapes undone.
+    /// A part's <c>Content-Disposition</c> value, read as RFC 7578 section 4.2 defines it: RFC 2183's header,
+    /// whose parameter values are RFC 2045 section 5.1's <c>value := token / quoted-string</c>. On entry
+    /// <paramref name="position"/> is on the disposition type; on success it is left on the line break that
+    /// ends the header, which the caller checks.
     /// </summary>
-    private static bool TryParseName(ReadOnlySpan<byte> input, ref int position, [NotNullWhen(true)] out string? value)
+    /// <remarks>
+    /// <para>
+    /// The grammar, with <c>OWS</c> being HTTP tab or space:
+    /// </para>
+    /// <code>
+    /// value     = "form-data" *( OWS ";" OWS [ parameter ] ) OWS
+    /// parameter = token OWS "=" OWS ( token / quoted-string )
+    /// </code>
+    /// <para>
+    /// The disposition type and the parameter names are matched ASCII case-insensitively — RFC 2183's
+    /// disposition-type "values are not case-sensitive", and RFC 2045's parameter names are not either. The
+    /// separators are RFC 9110 section 5.6.6's <c>parameters</c>, whose <c>[ parameter ]</c> makes a trailing
+    /// or doubled <c>;</c> an empty parameter rather than an error. The whitespace around <c>=</c> is not
+    /// RFC 9110's, which allows none there; it is the linear whitespace RFC 822 lets a header put between any
+    /// two lexical tokens, the lexical model RFC 2183 is written in. A token is a run of RFC 9110
+    /// <c>tchar</c>, taken literally: no escape is undone in one, so <c>name=%22</c> is the three characters
+    /// it says.
+    /// </para>
+    /// <para>
+    /// A quoted-string is read the way the draft reads a name: every byte up to the next <c>"</c>, a line
+    /// break being a failure, with the writer's <c>%22</c>, <c>%0D</c> and <c>%0A</c> undone by
+    /// <see cref="DecodeName"/>. <b>A backslash is a literal byte, not the start of RFC 9110's
+    /// <c>quoted-pair</c>.</b> HTML's writer — this file's, and every browser's — escapes a quote as
+    /// <c>%22</c> and writes a backslash raw; .NET's <c>MultipartFormDataContent</c> refuses a quote inside a
+    /// name outright and writes a backslash raw too. Reading <c>\</c> as an escape would turn
+    /// <c>C:\dir\a.txt</c> into <c>C:dira.txt</c> and make a name that ends in a backslash unterminated. The
+    /// draft, undici and Gecko read it literally; Chromium is the one that unescapes, and loses its own
+    /// writer's backslashes doing so.
+    /// </para>
+    /// <para>
+    /// <c>name</c> and <c>filename</c> are used, and so are their RFC 8187 extended forms <c>name*</c> and
+    /// <c>filename*</c>; every other parameter is parsed and then skipped. A repeated parameter is
+    /// <b>last-wins</b>: that is how undici, Chromium and Gecko all resolve it, and how a second
+    /// <c>Content-Disposition</c> header already was.
+    /// </para>
+    /// <para>
+    /// <b>A valid <c>filename*</c> wins over <c>filename</c>, whichever comes first.</b> RFC 7578 section
+    /// 4.2's "MUST NOT be used" binds senders, and its section 5.1.3 tells parsers to "be aware of the variety
+    /// of implementations". The implementation this reads most often is .NET's — <c>Response.formData()</c>
+    /// against a .NET server, <c>Request.formData()</c> behind an ASP.NET host — and
+    /// <c>MultipartFormDataContent</c> writes a non-ASCII file name properly only in <c>filename*</c>: its
+    /// <c>filename</c> is an RFC 2047 encoded-word that nothing decodes. Undici, the runtime this API is most
+    /// often compared with on a server, prefers the decoded <c>filename*</c> in just this way, and RFC 6266
+    /// section 4.3 asks it of any recipient that sees both. <c>filename*</c> never supplies a <c>name</c>.
+    /// <c>name*</c> is decoded because undici decodes it, and as in undici it takes its turn in last-wins
+    /// beside <c>name</c> rather than winning over it, since RFC 6266 states that preference for
+    /// <c>filename</c> alone.
+    /// </para>
+    /// <para>
+    /// What counts as valid is <see cref="TryDecodeExtendedValue"/>'s to say: an RFC 8187 <c>ext-value</c>
+    /// whose charset is UTF-8. Anything else — another charset, a malformed value, a bad percent-escape, bytes
+    /// that are not UTF-8, a quoted-string — is ignored as though the parameter were absent, so the plain
+    /// form stands, and it never fails the body. That is where this parts from undici, which rejects the whole
+    /// <c>formData()</c> for each of them.
+    /// </para>
+    /// <para>
+    /// Still a failure: a type other than <c>form-data</c>, a parameter with no <c>=</c>, an empty parameter
+    /// name or token value, an unterminated quoted-string, anything between parameters that is not a
+    /// <c>;</c>, and a header that carries no <c>name</c> — RFC 7578 section 4.2's "MUST also contain".
+    /// </para>
+    /// </remarks>
+    private static bool TryParseContentDisposition(
+        ReadOnlySpan<byte> input,
+        ref int position,
+        [NotNullWhen(true)] out string? name,
+        out string? fileName)
     {
-        var start = position;
-        while (position < input.Length && input[position] is not (Cr or Lf or Quote))
-        {
-            position++;
-        }
+        name = null;
+        fileName = null;
+        string? extendedFileName = null;
 
-        if (position >= input.Length || input[position] != Quote)
+        var typeStart = position;
+        position = SkipToken(input, position);
+        if (!EqualsIgnoreAsciiCase(input.Slice(typeStart, position - typeStart), _formDataType))
         {
-            value = null;
             return false;
         }
 
-        value = DecodeName(input.Slice(start, position - start));
-        position++;
+        while (true)
+        {
+            position = SkipTabOrSpace(input, position);
+            if (position >= input.Length || input[position] is Cr or Lf)
+            {
+                fileName = extendedFileName ?? fileName;
+                return name is not null;
+            }
+
+            if (input[position] != Semicolon)
+            {
+                return false;
+            }
+
+            position = SkipTabOrSpace(input, position + 1);
+            if (position >= input.Length || input[position] is Cr or Lf or Semicolon)
+            {
+                // RFC 9110's `[ parameter ]`: an empty one is no parameter at all.
+                continue;
+            }
+
+            var parameterStart = position;
+            position = SkipToken(input, position);
+            var parameterName = input.Slice(parameterStart, position - parameterStart);
+            if (parameterName.IsEmpty)
+            {
+                return false;
+            }
+
+            position = SkipTabOrSpace(input, position);
+            if (position >= input.Length || input[position] != EqualsSign)
+            {
+                return false;
+            }
+
+            position = SkipTabOrSpace(input, position + 1);
+
+            var quoted = position < input.Length && input[position] == Quote;
+            ReadOnlySpan<byte> value;
+            if (quoted)
+            {
+                if (!TryParseQuotedString(input, ref position, out value))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                var valueStart = position;
+                position = SkipToken(input, position);
+                value = input.Slice(valueStart, position - valueStart);
+                if (value.IsEmpty)
+                {
+                    return false;
+                }
+            }
+
+            // Decoded only once it is known to be wanted, so a skipped parameter costs no string. An extended
+            // value that is not a valid one is as though it were absent.
+            if (EqualsIgnoreAsciiCase(parameterName, _nameParameter))
+            {
+                name = DecodeParameterValue(value, quoted);
+            }
+            else if (EqualsIgnoreAsciiCase(parameterName, _fileNameParameter))
+            {
+                fileName = DecodeParameterValue(value, quoted);
+            }
+            else if (EqualsIgnoreAsciiCase(parameterName, _nameStarParameter))
+            {
+                if (TryDecodeExtendedValue(value, quoted, out var decodedName))
+                {
+                    name = decodedName;
+                }
+            }
+            else if (EqualsIgnoreAsciiCase(parameterName, _fileNameStarParameter))
+            {
+                if (TryDecodeExtendedValue(value, quoted, out var decodedFileName))
+                {
+                    extendedFileName = decodedFileName;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// An RFC 8187 section 3.2.1 <c>ext-value</c> — <c>charset "'" [ language ] "'" value-chars</c> —
+    /// decoded, or <see langword="false"/> when <paramref name="value"/> is not one this reads.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The charset must be <c>UTF-8</c>, in any case. It is the one charset RFC 8187 requires; RFC 5987's
+    /// ISO-8859-1 is down to an encouragement "for compatibility with legacy code", and undici refuses it, so
+    /// it is refused here too. The language tag is checked only for its characters — letters, digits and
+    /// <c>-</c> — and then dropped. Each value-char is an <c>attr-char</c>, "token except ( "*" / "'" / "%" )",
+    /// or a <c>%</c> and two hexadecimal digits of either case, and the bytes they spell must be well-formed
+    /// UTF-8.
+    /// </para>
+    /// <para>
+    /// An <c>ext-value</c> "is a token", so a quoted-string is not one, which RFC 8187 calls invalid even
+    /// though some parsers accept it.
+    /// </para>
+    /// </remarks>
+    private static bool TryDecodeExtendedValue(ReadOnlySpan<byte> value, bool quoted, [NotNullWhen(true)] out string? decoded)
+    {
+        decoded = null;
+        if (quoted)
+        {
+            return false;
+        }
+
+        var charsetEnd = value.IndexOf((byte) '\'');
+        if (charsetEnd < 0 || !EqualsIgnoreAsciiCase(value.Slice(0, charsetEnd), _utf8Charset))
+        {
+            return false;
+        }
+
+        var rest = value.Slice(charsetEnd + 1);
+        var languageEnd = rest.IndexOf((byte) '\'');
+        if (languageEnd < 0)
+        {
+            return false;
+        }
+
+        foreach (var b in rest.Slice(0, languageEnd))
+        {
+            if (!char.IsAsciiLetterOrDigit((char) b) && b != (byte) '-')
+            {
+                return false;
+            }
+        }
+
+        var valueChars = rest.Slice(languageEnd + 1);
+        Span<byte> bytes = valueChars.Length <= 256 ? stackalloc byte[256] : new byte[valueChars.Length];
+        var length = 0;
+        for (var i = 0; i < valueChars.Length; i++)
+        {
+            var b = valueChars[i];
+            if (b == (byte) '%')
+            {
+                if (i + 2 >= valueChars.Length)
+                {
+                    return false;
+                }
+
+                var high = FromHexDigit(valueChars[i + 1]);
+                var low = FromHexDigit(valueChars[i + 2]);
+                if (high < 0 || low < 0)
+                {
+                    return false;
+                }
+
+                bytes[length++] = (byte) ((high << 4) | low);
+                i += 2;
+            }
+            else if (b is not ((byte) '*' or (byte) '\'') && HeaderList.IsTokenChar((char) b))
+            {
+                bytes[length++] = b;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        var written = bytes.Slice(0, length);
+        if (!Utf8.IsValid(written))
+        {
+            return false;
+        }
+
+        decoded = Utf8DecodeWithoutBom(written);
         return true;
     }
+
+    private static int FromHexDigit(byte b) => b switch
+    {
+        >= (byte) '0' and <= (byte) '9' => b - '0',
+        >= (byte) 'A' and <= (byte) 'F' => b - 'A' + 10,
+        >= (byte) 'a' and <= (byte) 'f' => b - 'a' + 10,
+        _ => -1,
+    };
+
+    /// <summary>
+    /// The scan half of the draft's parse a multipart/form-data name,
+    /// https://andreubotella.github.io/multipart-form-data/#parse-a-multipart-form-data-name — every byte up
+    /// to the next <c>"</c>, a CR or LF before it being a failure. On entry <paramref name="position"/> is on
+    /// the opening quote; on success it is past the closing one and <paramref name="content"/> is what lay
+    /// between, still escaped.
+    /// </summary>
+    private static bool TryParseQuotedString(ReadOnlySpan<byte> input, scoped ref int position, out ReadOnlySpan<byte> content)
+    {
+        var start = position + 1;
+        var end = start;
+        while (end < input.Length && input[end] is not (Cr or Lf or Quote))
+        {
+            end++;
+        }
+
+        if (end >= input.Length || input[end] != Quote)
+        {
+            content = default;
+            return false;
+        }
+
+        content = input.Slice(start, end - start);
+        position = end + 1;
+        return true;
+    }
+
+    /// <summary>
+    /// A quoted-string's content has the writer's escapes undone; a token is ASCII by construction and is
+    /// taken as it stands.
+    /// </summary>
+    private static string DecodeParameterValue(ReadOnlySpan<byte> value, bool quoted)
+        => quoted ? DecodeName(value) : Utf8DecodeWithoutBom(value);
 
     /// <summary>
     /// Undoes the escaping the writer applied — <c>%0A</c>, <c>%0D</c> and <c>%22</c>, and nothing else,
@@ -658,6 +939,20 @@ internal static class MultipartFormData
     private static int SkipTabOrSpace(ReadOnlySpan<byte> input, int position)
     {
         while (position < input.Length && input[position] is Tab or Space)
+        {
+            position++;
+        }
+
+        return position;
+    }
+
+    /// <summary>
+    /// Past a run of RFC 9110 <c>tchar</c> — a <c>token</c>, or nothing when the run is empty, which each
+    /// caller decides about.
+    /// </summary>
+    private static int SkipToken(ReadOnlySpan<byte> input, int position)
+    {
+        while (position < input.Length && HeaderList.IsTokenChar((char) input[position]))
         {
             position++;
         }

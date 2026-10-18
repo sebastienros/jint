@@ -115,7 +115,8 @@ public class WebApiXmlHttpRequestTests
 
     /// <summary>
     /// <c>Options.WebApi.Xhr.DocumentParser</c> is what makes <c>responseXML</c> answer anything; it is
-    /// handed the engine, the decoded body and the essence of the final MIME type.
+    /// handed the engine, the decoded body and the essence of the final MIME type. An HTML response is a
+    /// document only under <c>responseType = "document"</c>, which is why this one sets it.
     /// </summary>
     [Test]
     public Task TheDocumentParserHookReceivesTheBodyAndTheMimeTypeEssence() => DedicatedThread.RunAsync(() =>
@@ -123,31 +124,69 @@ public class WebApiXmlHttpRequestTests
         using var server = new LoopbackServer("text/html;charset=UTF-8", "<p>hi</p>");
 
         var seen = new List<string>();
-        var engine = new Engine(options =>
-        {
-            options.UseFetch().UseXmlHttpRequest(fetch =>
-            {
-                fetch.BaseUrl = new Uri(server.Origin + "/");
-                fetch.UrlFilter = uri => uri.Port == server.Port;
-            });
-
-            options.WebApi.Xhr.DocumentParser = (e, text, mimeType) =>
-            {
-                seen.Add(mimeType + "|" + text);
-                return e.Evaluate("({ tag: 'document' })");
-            };
-        });
+        var engine = DocumentEngine(server, seen);
 
         engine.Evaluate("""
             (() => {
                 const xhr = new XMLHttpRequest();
                 xhr.open('GET', '/doc', false);
+                xhr.responseType = 'document';
                 xhr.send();
                 return xhr.responseXML.tag;
             })()
             """).AsString().Should().Be("document");
 
         seen.Should().ContainSingle().Which.Should().Be("text/html|<p>hi</p>");
+    });
+
+    /// <summary>
+    /// The hook is asked only for a document the standard would build
+    /// (https://xhr.spec.whatwg.org/#document-response steps 3 and 4): an HTML response read through
+    /// <c>responseXML</c> under the default response type, and a response that is neither HTML nor XML, both
+    /// answer <c>null</c> without a call. An XML response is a document under either response type.
+    /// </summary>
+    [Test]
+    public Task TheDocumentParserHookIsAskedOnlyForAnHtmlOrXmlDocument() => DedicatedThread.RunAsync(() =>
+    {
+        Read("text/html;charset=UTF-8", "<p>hi</p>", "").Should().Be("null|");
+        Read("text/plain;charset=UTF-8", "hi", "document").Should().Be("null|");
+        Read("application/xml", "<a/>", "").Should().Be("document|application/xml|<a/>");
+        Read("image/svg+xml", "<svg/>", "document").Should().Be("document|image/svg+xml|<svg/>");
+
+        static string Read(string contentType, string body, string responseType)
+        {
+            using var server = new LoopbackServer(contentType, body);
+
+            var seen = new List<string>();
+            var engine = DocumentEngine(server, seen);
+
+            var read = engine.Evaluate($$"""
+                (() => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', '/doc', false);
+                    xhr.responseType = '{{responseType}}';
+                    xhr.send();
+                    return xhr.responseXML === null ? 'null' : xhr.responseXML.tag;
+                })()
+                """).AsString();
+
+            return read + "|" + string.Join("|", seen);
+        }
+    });
+
+    private static Engine DocumentEngine(LoopbackServer server, List<string> seen) => new(options =>
+    {
+        options.UseFetch().UseXmlHttpRequest(fetch =>
+        {
+            fetch.BaseUrl = new Uri(server.Origin + "/");
+            fetch.UrlFilter = uri => uri.Port == server.Port;
+        });
+
+        options.WebApi.Xhr.DocumentParser = (e, text, mimeType) =>
+        {
+            seen.Add(mimeType + "|" + text);
+            return e.Evaluate("({ tag: 'document' })");
+        };
     });
 
     /// <summary>

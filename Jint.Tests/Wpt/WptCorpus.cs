@@ -249,6 +249,24 @@ internal static class WptCorpus
         => _resourceNames.TryGetValue(path, out var resourceName) ? ReadResource(resourceName) : null;
 
     /// <summary>
+    /// Reads a vendored file's bytes exactly as they were vendored, with no decoding — for the one kind of
+    /// fixture that is not text, which <see cref="Read"/> would transcode.
+    /// </summary>
+    internal static byte[] ReadBytes(string path)
+    {
+        if (!_resourceNames.TryGetValue(path, out var resourceName))
+        {
+            throw new FileNotFoundException($"The vendored web-platform-tests corpus has no \"{path}\".", path);
+        }
+
+        using var stream = typeof(WptCorpus).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new FileNotFoundException($"Embedded resource \"{resourceName}\" is missing.", resourceName);
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        return copy.ToArray();
+    }
+
+    /// <summary>
     /// Resolves a reference made from inside <paramref name="fromDirectory"/> — a <c>// META: script=</c>
     /// line or a <c>fetch()</c> of a corpus file — to a path in the tree.
     /// </summary>

@@ -20,8 +20,8 @@ output by inflating it with pako rather than with the engine's own `Decompressio
 
 `Jint.Tests/Wpt/WptTestRunner.cs`, one test case per `.any.js` file, on a fresh engine built with
 `UseWebApis(WebApiFeatures.Default)` plus the fetch object model — `Headers`, `Request` and `Response`, and,
-for every file but the thirty the [server lane](#the-server-lane) names, pointedly not `fetch`, so no suite
-gets outbound network access — and a `DiagnosticsSink`, which is what makes
+for every file but the thirty-one the [server lane](#the-server-lane) names and the four the local-scheme lane
+names, pointedly not `fetch`, so no suite gets outbound network access — and a `DiagnosticsSink`, which is what makes
 an exception escaping a timer callback, an event listener or a `queueMicrotask` callback report-and-continue
 rather than erupt from the pump. `WptDiagnosticsSink` says why the driver needs one and why it records the
 reports instead of discarding them; the timers-and-microtask section below has the same account in prose.
@@ -41,12 +41,14 @@ Fifteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern
 root, `blob/`, `file/`, `reading-data-section/` and `url/`), `workers/` as **four**, `html/webappapis/` as
 **three** (timers, microtask-queuing, structured-clone), `dom/` as **two** (events, abort), `fetch/api/` as
 **seven** (abort, basic, body, headers, redirect, request, response), `WebCryptoAPI/` as **eight** and
-`streams/` as **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 394
-theory cases over 41,651 assertions, of which 2,934 do not pass and every one is named in the driver's
+`streams/` as **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 398
+theory cases over 41,677 assertions, of which 2,926 do not pass and every one is named in the driver's
 table; the whole driver runs in about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
-change moves them; the counts before the `web-locks/` suite arrived were 382 / 41,581 / 2,932, before the
+change moves them; the counts before [#4282](https://github.com/sebastienros/jint/issues/4282) gave
+`XMLHttpRequest`'s text response its BOM sniff were 398 / 41,677 / 2,930, before the four files the `data:` arm of
+scheme fetch let run ([#4270](https://github.com/sebastienros/jint/issues/4270)) were 394 / 41,651 / 2,926, before the `web-locks/` suite arrived 382 / 41,581 / 2,932, before the
 three File and Performance suites
 348 / 41,435 / 2,939, before the
 `xhr/` corpus 305 / 41,157 / 2,966, before
@@ -127,8 +129,8 @@ leave a permanent exemption behind — the run fails until the table is brought 
 
 ## The server lane
 
-A third lane, added by [#3260](https://github.com/sebastienros/jint/issues/3260). Seventy-two files —
-`WptHarness._serverBackedFiles` names thirty and the whole of `xhr/` is the rest — run on an engine
+A third lane, added by [#3260](https://github.com/sebastienros/jint/issues/3260). Seventy-five files —
+`WptHarness._serverBackedFiles` names thirty-one and the whole of `xhr/` is the rest — run on an engine
 that has the shipped `fetch` and the shipped `XMLHttpRequest`, against `WptServer`: an in-process
 HTTP/1.1 origin on the loopback interface, started once per test run.
 
@@ -225,11 +227,13 @@ that transport limit — see [what the fetch *network* corpus says](#what-the-fe
 below for the arithmetic.
 
 **There is a third lane, and it has no server.** `FileAPI/url/url-with-fetch.any.js` and its `url-with-xhr`
-sibling need the shipped `fetch` and `XMLHttpRequest` and nothing to reach with them: the only URLs they open
-are `blob:` ones, which scheme fetch answers from the engine's own blob URL store without a transport. So
-`WptHarness._blobUrlBackedFiles` grants those two the same two features and then sets a `UrlFilter` that
-refuses **every** URL there is — a stricter bound than the server lane's own port check, and one the blob arm
-never consults. `TheBlobUrlLaneHoldsExactlyTheFilesItNames` holds the list to the corpus in both directions
+sibling, `fetch/api/basic/scheme-data.any.js` and `encoding/unsupported-encodings.any.js` need the shipped
+`fetch` and `XMLHttpRequest` and nothing to reach with them: the only URLs they open are `blob:` and `data:`
+ones — the Fetch Standard's [local schemes](https://fetch.spec.whatwg.org/#local-scheme) — which scheme fetch
+answers from the engine's own blob URL store and from the URL itself, without a transport. So
+`WptHarness._localSchemeFiles` grants those four the same two features and then sets a `UrlFilter` that
+refuses **every** URL there is — a stricter bound than the server lane's own port check, and one neither arm
+ever consults. `TheLocalSchemeLaneHoldsExactlyTheFilesItNames` holds the list to the corpus in both directions
 and refuses a file that is in both lanes, since the two filters contradict each other.
 
 ## Serving a file: content types, `.headers` sidecars and `.sub.` substitution
@@ -412,7 +416,6 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `url/idlharness.any.js`, `encoding/idlharness.any.js` | Need `/resources/idlharness.js` and `/resources/WebIDLParser.js` — a WebIDL conformance framework an order of magnitude larger than the shim, testing a layer Jint's source-generated built-ins do not have. |
 | `url/IdnaTestV2.any.js`, `url/IdnaTestV2-removed.any.js` | A 314 kB UTS-46 conformance corpus. `Jint.WebApi.Url.Parsing.Idna` builds on `IdnMapping` and documents where that diverges (VerifyDnsLength, CheckHyphens, ICU version skew); running it is an IDNA triage of its own rather than part of standing the harness up. |
 | `encoding/legacy-mb-*`, `encoding/iso-2022-jp-decoder.any.js`, `encoding/replacement-encodings.any.js` | The Encoding Standard's legacy multi-byte decoders and the replacement encoding, which [issue #3106](https://github.com/sebastienros/jint/issues/3106) implements. `replacement-encodings` additionally needs `XMLHttpRequest`. The single-byte families that used to share this row are implemented, and their two files are vendored — see [Encoding, the single-byte half](#encoding-the-single-byte-half). |
-| `encoding/unsupported-encodings.any.js` | Decodes through `XMLHttpRequest` and `data:` URLs (`encoding/resources/decoding-helpers.js`). |
 | `WebCryptoAPI/*.tentative.https.any.js` (and the helpers only they use) | Upstream marks a file `.tentative` when it tests a proposal the specification has not adopted: ML-KEM, ML-DSA, KMAC, cSHAKE, SHA-3, TurboSHAKE, KangarooTwelve, AES-OCB, ChaCha20-Poly1305, Argon2, Ed448/X448, `getPublicKey`, `supports`. Jint registers what [the algorithm overview](https://w3c.github.io/webcrypto/#algorithm-overview) lists and nothing else. |
 | `WebCryptoAPI/**/*_Ed25519.https.any.js`, `*_X25519.https.any.js`, `*/eddsa*`, `*/cfrg_curves*`, `*/okp_importKey*` | Curve25519. The BCL ships no X25519 or Ed25519 primitive — there is no `ECCurve` for either — so the whole family is out of scope for a crypto layer written against it. The campaign that built `crypto.subtle` excluded them for the same reason. Rows that sit *inside* a file which is otherwise about something else (the X25519 rows of `derived_bits_length`) are excluded one by one under `NeedsCurve25519` instead. |
 | `WebCryptoAPI/serialization/*` | Round-trips a `CryptoKey` through `structuredClone`, which is HTML's serialization steps for a platform object rather than anything `crypto.subtle` does. |
@@ -465,7 +468,7 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `fetch/api/basic/referrer.any.js`, `fetch/api/redirect/redirect-referrer.any.js`, `redirect-referrer-override.any.js` | `get-host-info` substitution at file scope, for the cross-origin half of the referrer-policy table. `request-referrer.any.js` is vendored: `Options.WebApi.Fetch.Referrer` and `ReferrerPolicy` are what the engine now decides a `Referer` with, and the driver hands every server-lane engine the URL its own server serves the file at. |
 | `fetch/api/basic/request-forbidden-headers.any.js` | The forbidden-header names, which `HeadersGuard` documents declining — the same reason the `headers-forbidden-override` rows are excluded one by one. Here it is the whole file. |
 | `fetch/api/basic/request-headers.any.js` | Asserts the `Accept` and `Accept-Language` a browser adds, over most of its table. The `Accept` half is a real defect and is filed; see `NeedsBrowserRequestHeaders` for why the other half is not. |
-| `fetch/api/basic/scheme-data.any.js`, `fetch/api/redirect/redirect-to-dataurl.any.js` | A `data:` URL fetch, and a `data:` redirect target. |
+| `fetch/api/redirect/redirect-to-dataurl.any.js` | `/common/get-host-info.sub.js` at file scope, which the `.any.js` lane loads unsubstituted — and here that would be worse than a harness error: its literal `{{ports[http][0]}}` makes every redirect URL unparsable, which is a `TypeError`, which is exactly what all five rows expect. They would pass without a request being made. The behaviour they pin — a redirect to a `data:` URL is a network error, whatever `AllowedSchemes` holds — is asserted by `DataUrlFetchTests` instead. |
 | `fetch/api/body/textstream.any.js` | `Response.prototype.textStream`, a Fetch pull the standard has not merged. The directory's other two files are vendored: they build their own `Request` and `Response` and never ask for a URL, which is what made the old glob wrong about them. |
 | `fetch/api/redirect/redirect-back-to-original-origin.any.js`, `redirect-mode.any.js`, `redirect-origin.any.js` | A second origin, and for `redirect-mode` the opaque filtered response as well. |
 | `fetch/api/redirect/redirect-schemes.any.js` | Redirects to `blob:` and other schemes, and `get-host-info` substitution. |
@@ -473,7 +476,6 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `fetch/api/*/*.h2.any.js` | Needs an HTTP/2 server. `WptServer` speaks HTTP/1.1 on a raw socket, which is what lets it trickle a body. |
 | `fetch/api/*/*keepalive*` | The `keepalive` init member, and a window creating iframes. |
 | `fetch/api/headers/headers-no-cors.any.js` | The `"no-cors"` request mode. The rest of that directory is vendored. |
-| `fetch/api/response/json.any.js` | Fetches a `data:` url and `/xhr/resources/utf16-bom.json`. |
 | `fetch/api/response/response-blob-realm.any.js` | Needs a document and a second realm: it builds an `iframe` to obtain one. |
 | `web-locks/non-secure-context.any.js`, `web-locks/secure-context.https.any.js` | The two files whose whole subject is the `[SecureContext]` gate on the interface. That gate is about an origin and a transport, and an embedded engine has neither — `LockManagerConstructor` records the decision: the feature is present exactly when `WebApiFeatures.WebLocks` names it, and nothing is faked either way. So one file would assert an API that is there and the other an `isSecureContext` that is not. The second also calls `assert_idl_attribute`, which the shim does not implement. |
 | `web-locks/*.html`, `web-locks/resources/*.html` | Documents: `frames`, `clientids`, `opaque-origin`, `query-ordering`, `workers.html`, `non-fully-active` and the `partitioned-web-locks` tentative, plus the iframe, window and service-worker pages they load. A browsing context in every case, and for `opaque-origin` and `partitioned` a second origin as well. |
@@ -728,7 +730,7 @@ everything this corpus has caught.
 
 `url/` arrived with `URL.createObjectURL`, and it is the one part of this corpus that reaches outside the
 File API: two of its three files fetch the blob URLs they mint, once through `fetch` and once through
-`XMLHttpRequest`. They run in a **third lane** — see `WptHarness._blobUrlBackedFiles` — which grants the
+`XMLHttpRequest`. They run in a **third lane** — see `WptHarness._localSchemeFiles` — which grants the
 shipped `fetch` and `XMLHttpRequest` and then sets a `UrlFilter` that refuses every URL there is. That is a
 stricter bound than the server lane's own, and it costs these files nothing: scheme fetch answers a `blob:`
 URL from the engine's own blob URL store, before a filter is consulted at all. What the suite is really about
@@ -1024,6 +1026,16 @@ dispatched on the engine's own timer — whose real job is the refusal: a reques
 inside the test body naming what was asked for, so "there is no server here" arrives as a failing test rather
 than as a missing global or a dead file. `WptHarnessTests` exercises it from both sides, against a real
 vendored resource and against every shape it declines.
+
+`unsupported-encodings.any.js` arrived with the `data:` arm of scheme fetch
+([#4270](https://github.com/sebastienros/jint/issues/4270)): it decodes every input through the shipped
+`XMLHttpRequest` over a `data:` URL with an overridden charset, so it runs in the
+[local-scheme lane](#the-server-lane) with no server at all. **All fourteen rows pass.** Four of them — the
+`…with BOM should decode as UTF-16LE` rows — were the corpus's one `NeedsTriage` entry when the file arrived:
+the [text response](https://xhr.spec.whatwg.org/#text-response) ends in Encoding's *decode*, whose BOM sniff
+overrides the charset, and `JsXmlHttpRequest.TextResponse` decoded with the charset alone.
+[#4282](https://github.com/sebastienros/jint/issues/4282) gave it the sniff `FileReader.readAsText` already
+had, and the category is empty again.
 
 ## What the DOM events and abort corpora say about this engine
 
@@ -1348,7 +1360,7 @@ Unlike the object-model half above, most of what the lane first found were not d
 making a real request for the first time, and five things it asserts turned out not to hold. Each was filed as
 its own issue and deliberately **not** fixed by the change that first ran the suite: the change that first runs
 a suite must not also be the change that moves the engine, or nobody can tell which of the two a number came
-from. All five are fixed, and `WptDivergence.NeedsTriage` is empty again — which is the state that makes a
+from. All five are fixed, and `WptDivergence.NeedsTriage` was empty again — which is the state that makes a
 future non-zero count in it mean something.
 
 1. **No `Accept: */*` was appended** ([#3279](https://github.com/sebastienros/jint/issues/3279)). Step 12 of
@@ -1413,8 +1425,8 @@ group below, which is the reason its `fetch` sibling was already there.
 
 ## What the XMLHttpRequest corpus says about this engine
 
-Forty-two files, 260 assertions, nine of which do not pass — and the nine are four decisions rather than
-four defects. The corpus arrived with the interface, so unlike the fetch one it found no bugs to file: what
+Forty-four files, 289 assertions, eight of which do not pass — and the eight are decisions rather than
+defects. The corpus arrived with the interface, so unlike the fetch one it found no bugs to file: what
 it found while the implementation was being written it found *before* the code was committed, and three of
 those are worth recording because they are the kind of thing prose alone would not have caught.
 
@@ -1451,7 +1463,14 @@ blob the script itself created — ten whitespace and boundary cases that must a
 `Content-Range`, and seventeen refusals that must be a network error rather than a whole-blob response. The
 row of `request-content-length.any.js` that used to sit in the table beside it passes for the same reason.
 
-Twenty-four files are not vendored, and twenty of those are one reason: the `xhr/` corpus is largely a CORS
+`json.any.js` joined it with the `data:` arm of scheme fetch
+([#4270](https://github.com/sebastienros/jint/issues/4270)), and both of its rows pass: a `data:` URL with a
+byte order mark in front of JSON whose duplicate key only the right parser resolves, and
+`resources/utf16-bom.json`, which must come back `null` because JSON is decoded as UTF-8. That second row is
+also why `WptServer` serves a fixture that is not UTF-8 as its own bytes — read as text, the UTF-16 file
+arrived transcoded and parsed.
+
+Twenty-three files are not vendored, and twenty of those are one reason: the `xhr/` corpus is largely a CORS
 corpus, and every one of those files fetches `get_host_info().HTTP_REMOTE_ORIGIN`. An engine has one origin
 and no CORS model, so there is nothing in them to run. The [not-vendored table](#deliberately-not-vendored)
 has the rest.
@@ -1526,7 +1545,7 @@ their exclusions without revisiting this table.
 | --- | --- | --- | --- | --- |
 | URL | `url/` | 21 | 2,068 | 0 |
 | URL Pattern | `urlpattern/` | 3 | 373 | 0 |
-| Encoding | `encoding/` | 20 | 11,544 | 322 |
+| Encoding | `encoding/` | 21 | 11,558 | 322 |
 | Web Cryptography | `WebCryptoAPI/` ×8 | 48 | 24,136 | 2,449 |
 | Streams | `streams/` ×7 | 66 | 1,170 | 4 |
 | Compression | `compression/` | 15 | 297 | 22 |
@@ -1537,10 +1556,10 @@ their exclusions without revisiting this table.
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
-| Fetch | `fetch/api/` ×7 | 62 | 906 | 108 |
-| XMLHttpRequest | `xhr/` | 43 | 287 | 8 |
+| Fetch | `fetch/api/` ×7 | 64 | 916 | 108 |
+| XMLHttpRequest | `xhr/` | 44 | 289 | 8 |
 | Web Locks | `web-locks/` | 12 | 70 | 2 |
-| **total** | **45** | **394** | **41,651** | **2,926** |
+| **total** | **45** | **398** | **41,677** | **2,926** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
@@ -1550,7 +1569,7 @@ carrying a number a later fix had already improved. That class of drift is what 
 rows were arithmetic the driver already did, and nothing checked the prose against it.
 
 Three of those rows are worth a caveat. The Fetch row is the only one whose files reach a socket at all — the
-thirty [server-lane](#the-server-lane) files, over the loopback interface to a server in this same
+thirty-one [server-lane](#the-server-lane) files, over the loopback interface to a server in this same
 process — so it is the only row whose figures could in principle depend on the machine. They do not: the
 suite was run five times over and reported the same 458 cases every time, and the driver's own idle rule
 is reset by a test settling rather than by a wall clock. The Encoding figure is dominated by
@@ -1686,7 +1705,7 @@ find . -type f \( $TYPES \) | sort | while read -r f; do
 done
 ```
 
-Silence is a clean corpus, and at this pin there are 950 files in 85 directories to be silent
+Silence is a clean corpus, and at this pin there are 955 files in 85 directories to be silent
 about — 402 of them the documents the browser lane navigates to, the rest the scripts, payloads and
 sidecars every lane reads.
 

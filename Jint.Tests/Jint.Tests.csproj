@@ -39,7 +39,8 @@
   <ItemGroup>
     <!--
       Text extensions only, and that is a property the corpus has rather than an oversight: WptCorpus hands
-      every file back as a string, so a .png or a .webm could not survive the round trip. wptserve's own
+      every file back as a string (or, for xhr/resources/utf16-bom.json, the one fixture that is text but not
+      UTF-8, as its bytes), so a .png or a .webm could not survive the round trip. wptserve's own
       content-type table names those types and WptServer answers with them, but nothing binary is vendored -
       a suite that needs one is a not-vendored row in Vendor/README.md with that as its reason.
     -->

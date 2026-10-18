@@ -862,6 +862,18 @@ internal static class FetchTransport
                     observation.Response(redirectResponse);
                 }
 
+                // https://fetch.spec.whatwg.org/#http-redirect-fetch step 6: "If locationURL's scheme is not an
+                // HTTP(S) scheme, then return a network error." Held here, whatever AllowedSchemes says, for the
+                // two schemes the engine answers itself: scheme fetch answers a blob: or data: URL for a
+                // request's own URL only, so a redirect to one must neither be answered nor be handed to an
+                // HttpClient. Any other scheme is still AllowedSchemes's to refuse, on the next hop.
+                if (location.Scheme is "blob" or DataUrl.Scheme)
+                {
+                    throw new FetchFailureException(
+                        FetchFailureKind.Network,
+                        $"'{uri}' answered a redirect to a {location.Scheme}: URL, which is never followed.");
+                }
+
                 // https://fetch.spec.whatwg.org/#http-redirect-fetch step 12: "If internalResponse's status
                 // is not 303, request's body is non-null, and request's body's source is null, then return a
                 // network error." A streamed body has already gone down the wire and cannot go again; a 303

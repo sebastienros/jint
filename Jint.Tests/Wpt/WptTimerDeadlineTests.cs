@@ -147,7 +147,7 @@ public sealed class WptTimerDeadlineTests
         WptHarness.RunInline("test(() => assert_true(true), 'ordinary');")
             .TimerClockEvidence.Should().BeNull();
         WptHarness.IsServerBacked(WptTimerClock.File).Should().BeFalse();
-        WptHarness.IsBlobUrlBacked(WptTimerClock.File).Should().BeFalse();
+        WptHarness.IsLocalSchemeBacked(WptTimerClock.File).Should().BeFalse();
         WptHarness.RunsInAWorker(WptTimerClock.File).Should().BeFalse();
     }
 

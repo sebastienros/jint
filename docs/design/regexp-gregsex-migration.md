@@ -35,7 +35,7 @@ RegularCore path, which the ECMAScript executor never touches, so they were drop
 - **Breaking:** `JsRegExp.Value`, `JsRegExp.ParseResult` and `CompileRegex` on the parsing options are removed; a
   script `RegExp` converts to the CLR as the `JsRegExp` itself; a host `Regex` keeps .NET semantics unless
   `Options.Interop.RegexConversion = RegexConversionMode.EcmaScript`. All of it is in
-  [`docs/guide/migrating-to-v5.md`](../guide/migrating-to-v5.md) §2 and §4.155.
+  [`docs/guide/migrating-to-v5.md`](../guide/migrating-to-v5.md) §2 and §4.161.
 
 ## 3. Compliance
 

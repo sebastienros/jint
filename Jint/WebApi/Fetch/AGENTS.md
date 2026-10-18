@@ -64,6 +64,20 @@ compare-and-swap is what makes `OnCompleted`/`OnFailed` fire exactly once betwee
 throws is ignored — there is no engine thread to report it to — while a throw from `OnRequestAsync` or
 `OnResponseAsync` fails the fetch, because those are the callbacks that were asked to decide.
 
+**`blob:` and `data:` never reach the transport, so no policy and no observer sees them.** Scheme fetch's two
+local arms — `BlobUrlFetch` and `DataUrlFetch`, both delivering one `LocalSchemeResponse` to `fetch` and to
+`XMLHttpRequest` — answer the request's own URL on the engine thread before `AllowedSchemes`, the `UrlFilter`,
+the concurrency cap and the `HttpClient`, and before an observation exists, so an observer is told nothing,
+not even a refusal. The `data` arm still owes `MaxResponseBytes` on the decoded body (`DataUrl.TryProcess`
+refuses from the length before decoding where that is enough), answers any method, and runs *after* `fetch`'s
+already-aborted check, which the standard puts before main fetch; the `blob` arm still runs before it. A
+redirect to either scheme is refused in `FetchTransport`'s loop whatever `AllowedSchemes` holds — HTTP-redirect
+fetch step 6 — so the arms answer a request's own URL and never a `Location`. `EventSource` takes the `data` arm
+too, and only that one: `JsEventSource.ConnectDataUrl` feeds the decoded body straight to `EventStreamParser`,
+with no `EventSourceConnection`, outside `MaxConcurrentRequests`, and the end of the body reestablishes the
+connection, so the URL replays every reconnection time on the timer queue
+([#4283](https://github.com/sebastienros/jint/issues/4283)).
+
 **Three callbacks answer, and where each is asked is the decision.** `OnRequestAsync` is asked per hop,
 inside the redirect loop. `OnAuthRequiredAsync` is asked beside it, in the loop's core, because a `401` on a
 document fetch, a subresource and an `XMLHttpRequest` is the case it is for. `OnResponseAsync` is asked once,
@@ -75,7 +89,7 @@ tells the observer about the final response is still per lane (`BeginResponseAsy
 the socket said. What `Continue` may not rewrite is the body — it has not been read and is still coming — and
 that is the whole difference from `Fulfill`, which discards the socket's bytes unread. Two ordering facts matter before mapping it
 onto a protocol: **a refusal before the transport** (a `UrlFilter` denial, the concurrency cap, an
-already-aborted signal) reports `OnFailed` with no `OnRequest` before it, because `fetch`'s synchronous half
+already-aborted signal on a URL that is not `blob:` or `data:`) reports `OnFailed` with no `OnRequest` before it, because `fetch`'s synchronous half
 cannot await one; and **a body nobody reads never completes**, because it is only pulled when script consumes
 it. **An authentication challenge is asked about and only `Basic` can be answered, and the second half is a
 *stated* behaviour rather than a shortfall.** A `401` carrying a `WWW-Authenticate` reaches

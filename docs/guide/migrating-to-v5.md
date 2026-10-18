@@ -75,7 +75,7 @@ This table is filled by the pull request that removes the member. A member that 
 | `JsonSerializer.Serialize(JsValue, JsValue, JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space, writer)` — see [2.6](#2-6-a-json-serializer-s-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
 | `ObjectInstance.GetOwnProperties()` → **no longer `virtual`** | nothing to call instead — the method is still there, and still public. What is gone is the ability to *override* it: it is derived from `GetOwnPropertyKeys` + `GetOwnProperty` now. A host that overrode it declares the same properties by overriding `GetOwnPropertyKeys` (and `ProbeOwnProperty` beside it), which is what every script-visible enumeration already read — see [2.6](#2-7-getownproperties-is-derived-not-overridden-3461) | [#3461](https://github.com/sebastienros/jint/pull/3461) |
 | `ICldrProvider.GetSupportedCalendars` (and `DefaultCldrProvider`'s override) | `ICalendarProvider.GetSupportedCalendars`. ECMA-402 has one list of calendars, not two, and defines it as the calendars the implementation can format — which in Jint means the ones it can *convert*, because that is what formatting a non-ISO calendar goes through. A calendar with conversions and no names still formats numerically; one with names and no conversions cannot be formatted at all. Adding a calendar was already three overrides on `ICalendarProvider`, and it now reaches `Intl` as well as `Temporal` | [#3404](https://github.com/sebastienros/jint/issues/3404) |
-| `JsRegExp.Value` (the `System.Text.RegularExpressions.Regex` behind a `RegExp`) | nothing for a pattern written in script: it runs on Jint's own ECMAScript engine, and .NET `Regex` is not one, so there is no equivalent to hand out. A `Regex` the host supplied still round-trips — `ToObject()` on it returns that `Regex` — and a script `RegExp` now converts to the `JsRegExp` itself. See [4.155](#4-155-every-regular-expression-runs-on-one-ecmascript-engine) | this PR |
+| `JsRegExp.Value` (the `System.Text.RegularExpressions.Regex` behind a `RegExp`) | nothing for a pattern written in script: it runs on Jint's own ECMAScript engine, and .NET `Regex` is not one, so there is no equivalent to hand out. A `Regex` the host supplied still round-trips — `ToObject()` on it returns that `Regex` — and a script `RegExp` now converts to the `JsRegExp` itself. See [4.161](#4-161-every-regular-expression-runs-on-one-ecmascript-engine) | this PR |
 | `JsRegExp.ParseResult` (Acornima's `RegExpParseResult`) | `JsRegExp.Source` and `JsRegExp.Flags`. The parse result was where the .NET adaptation lived; with the adaptation gone it carried nothing a host could use | this PR |
 | `IParsingOptions.CompileRegex`, `ScriptParsingOptions.CompileRegex`, `ModuleParsingOptions.CompileRegex` | nothing. They chose between interpreted and `RegexOptions.Compiled` .NET regexes, and no pattern written in script is a .NET regex any more; compiled patterns are cached process-wide whatever the options say | this PR |
 
@@ -6295,7 +6295,102 @@ Not changed: `gregory` and `iso8601`, the Chinese and Dangi calendars' lane, and
 is written in its Gregorian year with the Gregorian era where ICU writes one of the 232 earlier eras (`1850 AD` for
 `Kaei 3`). Hebrew dates in `he` and `yi`, which CLDR writes in Hebrew numerals, are written in the formatter's digits.
 
-### 4.155 Every regular expression runs on one ECMAScript engine
+### 4.155 An `await` or `yield` on the right-hand side of a destructuring assignment no longer replays the body ([#4273](https://github.com/sebastienros/jint/issues/4273))
+
+The one consumer of the suspension placeholder that
+[§4.137](#4-137-an-await-or-yield-inside-an-optional-chain-or-a-computed-member-access-no-longer-replays-the-body-4086)
+did not reach was the destructuring *assignment* itself — the pattern as an assignment target,
+`({ a } = await p)` or `[a] = await p`, as opposed to a declaration (`const { a } = await p`), a plain
+assignment or a member target, all of which were already right. It destructured the placeholder as though it
+were the awaited value, which raised the same swallowed `TypeError` and lost the resume position the same way,
+so the resume started again from the first statement:
+
+```js
+var log = [];
+var a = null;
+async function m() {
+    log.push("pre");
+    ({ a } = await Promise.resolve({ a: 1 }));
+    log.push("post");
+    return a;
+}
+
+// 4.16.x / earlier 5.0: log is 'pre,pre,post' - one extra 'pre' per awaited destructuring assignment
+// 5.x:                  log is 'pre,post'
+```
+
+Inside a loop it is the iteration that repeats (`it0,it0,it1,it1,…`), and behind a re-entrancy guard the
+replay takes the early return, so the assignment never happens at all. The answer itself was right in every
+shape — the memoized await makes the replayed `await` return instantly — which is why the defect showed only
+in the side effects.
+
+In a generator the placeholder is the yielded operand rather than `undefined`, so `({ a } = yield src)` did
+not throw: it destructured `src` during the suspension, running its getters and writing `a` before `next()`
+had been given the value `a` was due, and `[b] = yield 1` threw `TypeError: The value is not iterable`
+straight out of `next()`. Both now wait for the resume, as a declaration always did.
+
+### 4.156 `fetch()` and `XMLHttpRequest` answer a `data:` URL ([#4270](https://github.com/sebastienros/jint/issues/4270))
+
+Earlier previews rejected `fetch('data:…')` with a `TypeError` and failed an `XMLHttpRequest` to one, unless
+the host added `data` to `AllowedSchemes` and served it from its own `HttpClient`. Now the engine answers it
+itself, as it already answered a `blob:` URL: a 200 `OK` whose only header is the `Content-Type` the URL names
+and whose body is the URL's decoded bytes — no I/O, and no network grant needed for `XMLHttpRequest`.
+
+So `AllowedSchemes`, `UrlFilter`, `MaxConcurrentRequests` and a `FetchObserver` never see a `data:` URL, and
+**a host that narrowed `AllowedSchemes` or set a `UrlFilter` now lets one through** where it used to be refused.
+What does bound it is `MaxResponseBytes`, on the decoded body: over the limit, the request fails as a body over
+the limit from the network does. A redirect to a `data:` or `blob:` URL is always a network error, whatever
+`AllowedSchemes` holds. There is no switch to refuse `data:` again; a host that must, wraps `fetch` in script.
+
+### 4.158 `EventSource` answers a `data:` URL ([#4283](https://github.com/sebastienros/jint/issues/4283))
+
+Earlier previews failed `new EventSource('data:…')` with an `error` event and `CLOSED`, unless the host added
+`data` to `AllowedSchemes` — and then sent the URL to its own `HttpClient`. Now the engine answers it as `fetch`
+does since §4.156: a `text/event-stream` URL is announced (`open`), its decoded body is parsed into `message`
+events, and the end of the body reestablishes the connection, so **the same URL replays every reconnection
+time** — three seconds, or what a `retry:` field says — until the script calls `close()`. Any other MIME type
+fails the connection, as a network response of that type does.
+
+`AllowedSchemes`, `UrlFilter`, `MaxConcurrentRequests` and a `FetchObserver` never see a `data:` event stream,
+so **a host that narrowed `AllowedSchemes` or set a `UrlFilter` now lets one through**. `MaxResponseBytes`
+bounds its decoded body whole, not one event at a time as on a network stream: over it, the connection fails
+and is not retried. The replay waits on the timer queue, so an engine nobody pumps replays nothing.
+
+### 4.159 `XMLHttpRequest`'s text response honours a byte order mark ([#4282](https://github.com/sebastienros/jint/issues/4282))
+
+Earlier previews decoded `responseText` — and `response` for the `""` and `"text"` response types, and the text
+`Options.WebApi.Xhr.DocumentParser` is handed — with the response's charset alone. Now it runs the Encoding
+Standard's [decode](https://encoding.spec.whatwg.org/#decode), as `FileReader.readAsText` already did: a body that
+starts with a byte order mark is decoded in the encoding the mark names, whatever the charset said, and the mark
+is removed.
+
+So a body beginning `EF BB BF` under `charset=windows-1252` used to read `ï»¿` followed by mojibake and now reads
+as UTF-8; one beginning `FF FE` or `FE FF` under a UTF-8 charset, or under a label the engine does not know such as
+`utf-32`, used to read `U+FFFD U+FFFD …` and now reads as UTF-16LE or UTF-16BE. A body without a mark decodes
+exactly as before, and `responseType = "json"` is unchanged: it ignores the charset and strips only a UTF-8 mark,
+as the standard says. There is no switch back; a host that needs the bytes as sent reads
+`responseType = "arraybuffer"`.
+
+### 4.160 `XMLHttpRequest`'s final encoding, HTML documents and `DocumentParser` follow the standard ([#4295](https://github.com/sebastienros/jint/issues/4295))
+
+Three changes, each what the [XMLHttpRequest Standard](https://xhr.spec.whatwg.org/) says:
+
+- **`overrideMimeType()` without a charset keeps the response's.** The response's charset is the label, and an
+  override replaces it only with a charset of its own. So `overrideMimeType('text/plain')` on a response labelled
+  `charset=windows-1252` now decodes as windows-1252 where it used to decode as UTF-8. An override that names a
+  charset still wins, even one that names no encoding, which still falls back to UTF-8.
+- **An HTML document is prescanned for its declaration.** When neither the response nor the override names a
+  usable charset, the first 1024 bytes are searched for `<meta charset>` or `<meta http-equiv="Content-Type"
+  content="…; charset=…">`, as HTML does, and the text handed to `Options.WebApi.Xhr.DocumentParser` is decoded
+  with what that finds before falling back to UTF-8. A byte order mark still wins. `responseText` is unchanged:
+  the text response has no prescan.
+- **`DocumentParser` is called only for a document the standard would build.** That is an HTML or XML MIME type
+  (`text/html`, `text/xml`, `application/xml`, any `+xml` subtype), and for HTML only under
+  `responseType = "document"`. `responseXML` of an HTML response read with the default response type is now
+  `null` where it used to be whatever the delegate built, and any other media type answers `null` without a
+  call. A host that read HTML through `responseXML` sets `responseType = "document"` first.
+
+### 4.161 Every regular expression runs on one ECMAScript engine
 
 Jint used to run a regular expression on one of two engines. Most patterns were translated to a .NET `Regex` by
 Acornima and matched by .NET. Patterns .NET could not match faithfully (`u`/`v`, forward references, some
@@ -6920,8 +7015,8 @@ one; `Options.WebApi.Fetch.Timeout` stays CLR-side and is what bounds such an en
 
 `Options.WebApi.Xhr.DocumentParser` is the one new options group: a
 `Func<Engine, string, string, JsValue?>` handed the engine, the decoded body and the final MIME
-type's essence. Without it `responseXML` and `responseType = "document"` answer `null`, because Jint
-parses no markup.
+type's essence, for an HTML or XML response only. Without it `responseXML` and `responseType = "document"`
+answer `null`, because Jint parses no markup.
 
 ### 5.14 A console sink can ask where each message was logged from ([#3635](https://github.com/sebastienros/jint/pull/3635))
 

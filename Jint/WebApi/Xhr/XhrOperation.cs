@@ -178,6 +178,13 @@ internal sealed class XhrOperation : IDisposable
             return;
         }
 
+        if (IsDataUrl)
+        {
+            // Scheme fetch's `data` arm, queued for the same reason as the blob arm above.
+            Post(() => DeliverDataUrl(reportProgress: true));
+            return;
+        }
+
         if (!TryBegin(out var client, out var policy, out var failure))
         {
             // Every one of these failures is the standard's network error, and for an asynchronous request a
@@ -227,6 +234,12 @@ internal sealed class XhrOperation : IDisposable
             // No task and no wait: the bytes are already in hand, and a synchronous request fires its events
             // on the caller's own stack anyway.
             DeliverBlobUrl(reportProgress: false);
+            return;
+        }
+
+        if (IsDataUrl)
+        {
+            DeliverDataUrl(reportProgress: false);
             return;
         }
 
@@ -311,38 +324,107 @@ internal sealed class XhrOperation : IDisposable
         if (_blobUrlEntry is null
             || !BlobUrlFetch.TryBuild(_blobUrlEntry, _method, _xhr.AuthorRequestHeaders.Get("Range"), out var built))
         {
-            if (reportProgress)
-            {
-                Settle(XhrOutcome.NetworkError);
-            }
-            else
-            {
-                _xhr.RunRequestErrorSteps(
-                    JsXmlHttpRequestEventTarget.ErrorEventType,
-                    DomExceptionNames.Network,
-                    "The request failed.");
-            }
-
+            FailLocalResponse(reportProgress);
             return;
         }
 
+        DeliverLocalResponse(in built);
+    }
+
+    /// <summary>
+    /// Whether this request names a <c>data:</c> URL, which scheme fetch answers without a transport.
+    /// </summary>
+    private bool IsDataUrl => DataUrl.Is(_url);
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#scheme-fetch, the <c>data</c> arm, delivered through the same three
+    /// calls a real response takes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every network check is skipped and the network grant is not needed, exactly as for a blob URL: the
+    /// bytes are in the URL. <c>Options.WebApi.Fetch.MaxResponseBytes</c> still bounds the decoded body, with
+    /// the network error a body over it gets from the transport — see <see cref="DataUrlFetch"/>.
+    /// </para>
+    /// <para>
+    /// Unlike the blob arm, any method is answered: a <c>POST</c> gets the body, and a <c>HEAD</c> gets the
+    /// <c>Content-Type</c> and no body. The response carries no <c>Content-Length</c>, so the progress events
+    /// report a total of 0 and <c>lengthComputable</c> false, which is what
+    /// https://xhr.spec.whatwg.org/#dom-xmlhttprequest-send's "extracting a length from this's response's
+    /// header list" gives.
+    /// </para>
+    /// </remarks>
+    private void DeliverDataUrl(bool reportProgress)
+    {
+        if (_state.FetchOptions is not { } options
+            || !DataUrlFetch.TryBuild(_url, _method, options.MaxResponseBytes, out var built, out _))
+        {
+            FailLocalResponse(reportProgress);
+            return;
+        }
+
+        DeliverLocalResponse(in built);
+    }
+
+    /// <summary>
+    /// A blob or data URL that scheme fetch refused: the network error, as an <c>error</c> event for an
+    /// asynchronous request and as a <c>NetworkError</c> thrown out of <c>send()</c> for a synchronous one.
+    /// </summary>
+    private void FailLocalResponse(bool reportProgress)
+    {
+        Release();
+
+        if (reportProgress)
+        {
+            Settle(XhrOutcome.NetworkError);
+            return;
+        }
+
+        _xhr.RunRequestErrorSteps(
+            JsXmlHttpRequestEventTarget.ErrorEventType,
+            DomExceptionNames.Network,
+            "The request failed.");
+    }
+
+    /// <summary>
+    /// A response scheme fetch built without a transport, handed over the way a transport's is: the head,
+    /// the bytes as one chunk, then the end of the body.
+    /// </summary>
+    private void DeliverLocalResponse(in LocalSchemeResponse built)
+    {
+        Release();
+
         var headers = new HeaderList();
         headers.Entries.AddRange(built.Headers);
+
+        // The upload, if there was one, is over by the time there is a response, as on the transport's path.
+        _xhr.UploadedLength = _body?.Length ?? 0;
 
         _xhr.ReceiveResponseHead(
             built.Status,
             built.StatusText,
             headers,
             _url.Serialize(excludeFragment: true),
-            built.Body.Length);
+            ExtractLength(headers));
 
-        if (built.Body.Length > 0)
+        if (built.Body is { Length: > 0 } body)
         {
-            _xhr.ReceiveBodyChunk(built.Body.ToArray());
+            _xhr.ReceiveBodyChunk(body.ToArray());
         }
 
         _xhr.HandleResponseEndOfBody();
     }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#content-length-header's "extracting a length", reduced to the one
+    /// header a response built in memory carries: its value when it is a single non-negative integer, and 0
+    /// otherwise — which is what https://xhr.spec.whatwg.org/#dom-xmlhttprequest-send does with a length that
+    /// is not an integer.
+    /// </summary>
+    private static long ExtractLength(HeaderList headers)
+        => long.TryParse(headers.Get("content-length"), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var length)
+            ? length
+            : 0;
 
     /// <summary>
     /// The checks <c>fetch</c> makes on the engine thread before a socket is opened: the network grant, the

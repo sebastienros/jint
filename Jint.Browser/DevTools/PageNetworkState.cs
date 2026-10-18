@@ -29,7 +29,11 @@ namespace Jint.Browser.DevTools;
 /// <see cref="Apply"/> is handed that state rather than keeping a copy of it.
 /// </para>
 /// <param name="ExtraHeaders">What <c>Network.setExtraHTTPHeaders</c> asked to add to every request.</param>
-/// <param name="Offline">Whether <c>Network.emulateNetworkConditions</c> pulled the plug.</param>
+/// <param name="Offline">
+/// Whether the network conditions in force pulled the plug. <c>Network.emulateNetworkConditions</c> and
+/// <c>Network.emulateNetworkConditionsByRule</c> both write it and each replaces what the other set, so the last
+/// one sent decides. What <c>navigator.onLine</c> answers is the page's <c>EmulationState.Offline</c> instead.
+/// </param>
 /// <param name="BlockedUrls">The patterns <c>Network.setBlockedURLs</c> refuses.</param>
 internal sealed record PageNetworkPolicy(
     IReadOnlyList<PageHeader> ExtraHeaders,
