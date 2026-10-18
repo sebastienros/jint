@@ -7,7 +7,6 @@ using Jint.Tests.Browser.Fixtures;
 using Jint.Tests.Browser.Layout;
 using Jint.Tests.Browser.Navigation;
 using Microsoft.Playwright;
-using PageContextOptions = Jint.Browser.BrowserContextOptions;
 
 namespace Jint.Tests.Browser.DevTools;
 
@@ -876,6 +875,7 @@ public partial class PlaywrightCourseTests
 
         private ClientLane(
             LoopbackServer server,
+            LoopbackOnlyTransport network,
             global::Jint.Browser.Browser pages,
             DevToolsServer protocol,
             IPlaywright playwright,
@@ -883,6 +883,7 @@ public partial class PlaywrightCourseTests
             IBrowserContext context)
         {
             Server = server;
+            Network = network;
             Pages = pages;
             Protocol = protocol;
             _playwright = playwright;
@@ -891,6 +892,9 @@ public partial class PlaywrightCourseTests
         }
 
         internal LoopbackServer Server { get; }
+
+        /// <summary>What every context of <see cref="Pages"/> sends through; read once the lane is closed.</summary>
+        internal LoopbackOnlyTransport Network { get; }
 
         internal global::Jint.Browser.Browser Pages { get; }
 
@@ -907,8 +911,10 @@ public partial class PlaywrightCourseTests
             var server = FixtureOrigin.Serve(new LoopbackServer());
             routes?.Invoke(server);
 
-            var pages = new global::Jint.Browser.Browser(options);
-            await pages.NewContextAsync(new PageContextOptions { UrlFilter = server.Owns }).ConfigureAwait(false);
+            // Every context is bounded: the default one, which is the Contexts[0] below, and any the client
+            // creates with Target.createBrowserContext.
+            var network = new LoopbackOnlyTransport();
+            var pages = new global::Jint.Browser.Browser(network.Install(options ?? new BrowserOptions(), server.Owns));
 
             var protocol = new DevToolsServer();
             await protocol.AddBrowser(pages).ConfigureAwait(false);
@@ -926,7 +932,7 @@ public partial class PlaywrightCourseTests
                 ? client.Contexts[0]
                 : await client.NewContextAsync().ConfigureAwait(false);
 
-            return new ClientLane(server, pages, protocol, playwright, client, context);
+            return new ClientLane(server, network, pages, protocol, playwright, client, context);
         }
 
         internal string Url(string fixture) => FixtureOrigin.Url(Server, fixture);
@@ -938,6 +944,7 @@ public partial class PlaywrightCourseTests
             return page;
         }
 
+        /// <summary>Closes the lane, then fails the test if any of its pages reached for a host that is not loopback.</summary>
         public async ValueTask DisposeAsync()
         {
             await Client.CloseAsync().ConfigureAwait(false);
@@ -945,6 +952,11 @@ public partial class PlaywrightCourseTests
             await Protocol.DisposeAsync().ConfigureAwait(false);
             await Pages.CloseAsync().ConfigureAwait(false);
             Server.Dispose();
+
+            using (Network)
+            {
+                Network.AssertNothingEscaped();
+            }
         }
     }
 }
