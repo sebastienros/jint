@@ -222,6 +222,11 @@ internal sealed class TrySuspendData : SuspendData
 /// inside the right-hand side. Reused on resume so the LHS — which may have observable side effects
 /// in its base or its computed key — is not re-evaluated.
 /// <para>
+/// A compound assignment parks every left-hand side, a plain identifier included (<c>n += await y</c>):
+/// its value is read once, before the right-hand side, so a write made while the frame is suspended
+/// must not reach the result (sebastienros/jint#4268).
+/// </para>
+/// <para>
 /// The parked Reference is owned by the suspendable until the resume consumes it, so the
 /// suspension site deliberately does <em>not</em> return it to <c>Engine._referencePool</c>; the
 /// completing resume does, alongside clearing this entry.

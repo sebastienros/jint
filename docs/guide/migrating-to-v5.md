@@ -6445,6 +6445,30 @@ engine never minted — another engine's or a worker's — fails it at once, as 
 so **a host that set a `UrlFilter` now lets one through**. `MaxResponseBytes` bounds the blob's bytes whole, which
 `fetch` does not do for a blob URL: over it, the connection fails and is not retried.
 
+### 4.163 A compound assignment to a variable keeps the value it read when its right-hand side suspends ([#4268](https://github.com/sebastienros/jint/issues/4268))
+
+A compound assignment reads its left-hand side before it evaluates the right-hand side. When the left-hand side
+was a variable and the right-hand side suspended on a `yield` or an `await`, Jint read the variable a second time
+on resume, so a write made while the function was suspended leaked into the result:
+
+```js
+function* g() {
+    var n = 1;
+    const inc = () => { n += 10; };
+    n += (yield inc);
+    return n;
+}
+var it = g();
+it.next().value();   // n becomes 11 while g is suspended
+it.next(5).value;    // 4.16.x / earlier 5.0: 16    5.x: 6
+```
+
+Every compound operator did it (`-=`, `*=`, `**=`, `<<=`, `&=`, …), in generators, async functions, async
+generators and a module's top-level `await`, for a local, captured, global or `with`-scope variable. The logical
+forms re-tested the new value, so `n ??= await x` returned and kept a value written while it was suspended instead
+of assigning `x`. A property target (`o.n += yield inc`) and the spelled-out form (`n = n + (yield inc)`) were
+already right. A script that relied on the second read must now read the variable after the assignment.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
