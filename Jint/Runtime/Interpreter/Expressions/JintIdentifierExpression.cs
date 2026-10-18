@@ -189,36 +189,34 @@ internal sealed class JintIdentifierExpression : JintExpression
         // significant on harnesses (DromaeoBenchmark, SunSpiderBenchmark) that create a
         // new Engine per iteration.
         var cachedSlotEnv = _cachedSlotEnv;
-        if (cachedSlotEnv is not null && !ReferenceEquals(cachedSlotEnv._engine, engine))
+        if (cachedSlotEnv is not null && ReferenceEquals(cachedSlotEnv._engine, engine))
         {
-            cachedSlotEnv = null;
-        }
-
-        if (cachedSlotEnv is not null
-            && (ReferenceEquals(env, cachedSlotEnv) || SlotLocationCache.MemoPins(_slotChainMemo, engine, env, cachedSlotEnv)))
-        {
-            var slots = cachedSlotEnv._slots;
-            var idx = _cachedSlotIndex;
-            if (slots is not null && (uint) idx < (uint) slots.Length)
+            if (ReferenceEquals(env, cachedSlotEnv) || SlotLocationCache.MemoPins(_slotChainMemo, engine, env, cachedSlotEnv))
             {
-                // PeekValue rather than Value: an owned string is marked by HandOn below, which tests the
-                // value's _type bit in place of the arguments type test this lane always made.
-                ref var binding = ref slots[idx];
-                value = binding.HasReferenceValue
-                    ? binding.PeekValue
-                    : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
-                if (value is null)
+                var slots = cachedSlotEnv._slots;
+                var idx = _cachedSlotIndex;
+                if (slots is not null && (uint) idx < (uint) slots.Length)
                 {
-                    ThrowNotInitialized(engine);
+                    // PeekValue rather than Value: an owned string is marked by HandOn below, which tests the
+                    // value's _type bit in place of the arguments type test this lane always made.
+                    ref var binding = ref slots[idx];
+                    value = binding.HasReferenceValue
+                        ? binding.PeekValue
+                        : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
+                    if (value is null)
+                    {
+                        ThrowNotInitialized(engine);
+                    }
+                    return HandOn(value);
                 }
-                return HandOn(value);
+                // stale slot metadata for a reachable env — fall through to full resolution
             }
-            // stale slot metadata for a reachable env — fall through to full resolution
-        }
-        else if ((_scopePath is not null || cachedSlotEnv is not null)
-                 && ReadSlotOffIdentityLane(engine, env, cachedSlotEnv) is { } slotValue)
-        {
-            return slotValue;
+            else if (ReadSlotOffIdentityLane(engine, env, cachedSlotEnv) is { } slotValue)
+            {
+                // A scope path is only ever built right after _cachedSlotEnv is set, so nesting this lane here
+                // costs the dictionary and global reads below nothing beyond the null test they always paid.
+                return slotValue;
+            }
         }
 
 
@@ -304,14 +302,15 @@ internal sealed class JintIdentifierExpression : JintExpression
     }
 
     /// <summary>
-    /// The slot lanes after the identity checks miss: the layout-described <see cref="_scopePath"/> first, since it
-    /// validates with reference compares, then the probing reachability walk to <paramref name="cachedSlotEnv"/>.
+    /// The slot lanes after the identity checks miss (<paramref name="env"/> is not <paramref name="cachedSlotEnv"/> and no
+    /// memo pins the chain): the layout-described <see cref="_scopePath"/> first, since it validates with reference
+    /// compares, then the probing reachability walk to <paramref name="cachedSlotEnv"/>.
     /// Null when neither reaches the binding. A path hit re-pins the identity cache on the environment it found, and
     /// past hop 0 pins the chain as a memo, so the rest of a fresh activation's reads — and every read of an
     /// environment the engine reuses — take the inline identity lanes instead of coming back here.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private JsValue? ReadSlotOffIdentityLane(Engine engine, Environment env, DeclarativeEnvironment? cachedSlotEnv)
+    private JsValue? ReadSlotOffIdentityLane(Engine engine, Environment env, DeclarativeEnvironment cachedSlotEnv)
     {
         DeclarativeEnvironment holder;
         int index;
@@ -330,9 +329,7 @@ internal sealed class JintIdentifierExpression : JintExpression
                 _slotChainMemo = SlotChainMemo.ForValidatedChain(engine, env, scopePath.Hops);
             }
         }
-        else if (cachedSlotEnv is not null
-                 && !ReferenceEquals(env, cachedSlotEnv)
-                 && SlotLocationCache.WalkAndMemoize(engine, env, cachedSlotEnv, Identifier.Key, ref _slotChainMemo))
+        else if (SlotLocationCache.WalkAndMemoize(engine, env, cachedSlotEnv, Identifier.Key, ref _slotChainMemo))
         {
             holder = cachedSlotEnv;
             index = _cachedSlotIndex;
