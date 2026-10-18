@@ -654,10 +654,10 @@ public sealed partial class Options
         /// </para>
         /// <para>
         /// <b><c>blob:</c> and <c>data:</c> URLs are answered by the engine itself, not the transport</b> —
-        /// by <c>fetch</c> and <c>XMLHttpRequest</c>, and a <c>data:</c> one by <c>EventSource</c> too — so
-        /// this list, <see cref="UrlFilter"/> and <see cref="Observer"/> never see them, and they work with the
-        /// list narrowed or emptied. <see cref="MaxResponseBytes"/> still bounds a <c>data:</c> body, and a
-        /// redirect to either scheme is always refused.
+        /// by <c>fetch</c>, <c>XMLHttpRequest</c> and <c>EventSource</c> — so this list,
+        /// <see cref="UrlFilter"/> and <see cref="Observer"/> never see them, and they work with the list
+        /// narrowed or emptied. <see cref="MaxResponseBytes"/> still bounds a <c>data:</c> body, and an
+        /// <c>EventSource</c>'s <c>blob:</c> one, and a redirect to either scheme is always refused.
         /// </para>
         /// </remarks>
         public OptionsList<string> AllowedSchemes { get; private set; } = new("Options.WebApi.Fetch.AllowedSchemes") { "https", "http" };
@@ -1428,12 +1428,14 @@ public enum WebApiFeatures
     /// </description></item>
     /// </list>
     /// <para>
-    /// <b>A <c>data:</c> URL is answered by the engine itself</b>, as <c>fetch</c> answers one: no request is
-    /// made, so the scheme list, the filter, the concurrency cap, the client and
-    /// <see cref="Options.FetchOptions.Observer"/> never see it. Its decoded body is bounded whole by
-    /// <see cref="Options.FetchOptions.MaxResponseBytes"/>; a <c>text/event-stream</c> one is announced and
-    /// parsed, any other type fails the connection, and the end of the body reestablishes it, so the URL is
-    /// replayed every reconnection time.
+    /// <b>A <c>data:</c> or <c>blob:</c> URL is answered by the engine itself</b>, as <c>fetch</c> answers
+    /// one: no request is made, so the scheme list, the filter, the concurrency cap, the client and
+    /// <see cref="Options.FetchOptions.Observer"/> never see it. Its body — a <c>data:</c> URL's decoded one, or
+    /// the blob's bytes — is bounded whole by <see cref="Options.FetchOptions.MaxResponseBytes"/>; a
+    /// <c>text/event-stream</c> one is announced and parsed, any other type fails the connection, and the end of
+    /// the body reestablishes it, so the URL is replayed every reconnection time. A <c>blob:</c> URL is looked
+    /// up in the engine's blob URL store on every connection, the first one inside the constructor, so revoking
+    /// it ends the replay: the next reconnection fails the connection.
     /// </para>
     /// </remarks>
     EventSource = 1 << 17,

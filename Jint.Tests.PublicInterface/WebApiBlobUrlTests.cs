@@ -1,4 +1,5 @@
 #if NET8_0_OR_GREATER
+using System.Threading;
 using Jint;
 using Jint.WebApi;
 
@@ -184,6 +185,47 @@ public class WebApiBlobUrlTests
         engine.Evaluate("status").AsNumber().Should().Be(200);
         engine.Evaluate("text").AsString().Should().Be("blah");
         engine.Evaluate("length").AsString().Should().Be("4");
+    }
+
+    /// <summary>
+    /// <c>EventSource</c> takes the same arm: on an engine whose scheme list and URL filter refuse every
+    /// request, a <c>text/event-stream</c> blob is announced, dispatches its events and — because the end of a
+    /// body reestablishes the connection — replays every reconnection time. Revoking the URL is what ends it:
+    /// the next reconnection finds no entry and fails the connection rather than retrying.
+    /// </summary>
+    [Test]
+    public void EventSourceReplaysABlobUrlUntilItIsRevoked()
+    {
+        var filterCalls = 0;
+        var engine = new Engine(options => options.UseWebApis().UseEventSource(network =>
+        {
+            network.AllowedSchemes.Clear();
+            network.UrlFilter = _ =>
+            {
+                Interlocked.Increment(ref filterCalls);
+                return false;
+            };
+        }));
+
+        engine.Execute("""
+            var log = [];
+            var url = URL.createObjectURL(new Blob(['retry: 10\ndata: hi\n\n'], { type: 'text/event-stream' }));
+            var es = new EventSource(url);
+            es.onopen = () => log.push('open');
+            es.onmessage = e => log.push(e.data + '@' + e.origin);
+            es.onerror = () => { log.push('error' + es.readyState); if (log.length >= 6) { URL.revokeObjectURL(url); } };
+            """);
+
+        // The replay waits a real ten milliseconds on the engine's timer queue, which only a pump can run.
+        var deadline = DateTime.UtcNow + TestBudgets.WedgeCeiling;
+        while (engine.Evaluate("es.readyState").AsNumber() != 2 && DateTime.UtcNow < deadline)
+        {
+            engine.Tasks.ProcessTasks();
+            Thread.Sleep(1);
+        }
+
+        engine.Evaluate("log.join('|')").AsString().Should().Be("open|hi@null|error0|open|hi@null|error0|error2");
+        filterCalls.Should().Be(0);
     }
 }
 #endif
