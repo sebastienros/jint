@@ -464,13 +464,25 @@ internal static class NumberParser
         while (i < length)
         {
             var digit = DigitValue(text[i]);
-            if (digit < 0 || digit >= radix)
+            if ((uint) digit >= (uint) radix)
             {
                 break;
             }
 
             if (i >= overflowIndex)
             {
+                if (exact)
+                {
+                    for (i++; i < length; i++)
+                    {
+                        if ((uint) DigitValue(text[i]) >= (uint) radix)
+                        {
+                            result = 0;
+                            return false;
+                        }
+                    }
+                }
+
                 result = double.PositiveInfinity;
                 return true;
             }
