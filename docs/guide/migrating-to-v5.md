@@ -6387,6 +6387,23 @@ Three changes, each what the [XMLHttpRequest Standard](https://xhr.spec.whatwg.o
   `null` where it used to be whatever the delegate built, and any other media type answers `null` without a
   call. A host that read HTML through `responseXML` sets `responseType = "document"` first.
 
+### 4.162 `EventSource` answers a `blob:` URL ([#4299](https://github.com/sebastienros/jint/issues/4299))
+
+Earlier previews failed `new EventSource(URL.createObjectURL(blob))` with an `error` event and `CLOSED`, unless
+the host added `blob` to `AllowedSchemes` — and then sent the URL to its own `HttpClient`, which cannot resolve
+it. Now the engine answers it from its blob URL store, as `fetch` and `XMLHttpRequest` do, and as it answers a
+`data:` URL since §4.158: a `text/event-stream` blob is announced (`open`), its bytes are parsed into `message`
+events, and the end of the body reestablishes the connection, so **the blob replays every reconnection time**
+until the script calls `close()` or revokes the URL. Any other blob type fails the connection.
+
+The store is asked when the constructor runs, so revoking the URL on the next line still delivers the first pass,
+and again on every reconnection: **a URL revoked since fails the connection** rather than retrying. A URL this
+engine never minted — another engine's or a worker's — fails it at once, as `fetch` rejects one.
+
+`AllowedSchemes`, `UrlFilter`, `MaxConcurrentRequests` and a `FetchObserver` never see a `blob:` event stream,
+so **a host that set a `UrlFilter` now lets one through**. `MaxResponseBytes` bounds the blob's bytes whole, which
+`fetch` does not do for a blob URL: over it, the connection fails and is not retried.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

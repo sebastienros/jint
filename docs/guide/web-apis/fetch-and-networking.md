@@ -47,9 +47,10 @@ var engine = new Engine(options => options
 Enable only what the script needs. Event streams reconnect through scheduled work; XHR progress and WebSocket
 events also require pumping. Apply the same destination and tenant isolation rules to every transport.
 
-XHR answers `blob:` and `data:` URLs as `fetch` does, and an event stream answers a `data:` URL: the engine
-replays its decoded body, bounded by `MaxResponseBytes`, every reconnection time, without the policy, the
-concurrency cap or an observer ever seeing it.
+XHR answers `blob:` and `data:` URLs as `fetch` does, and so does an event stream: the engine replays the
+`data:` URL's decoded body or the blob's bytes, bounded by `MaxResponseBytes`, every reconnection time, without
+the policy, the concurrency cap or an observer ever seeing it. Revoking a `blob:` URL ends its replay: the next
+reconnection fails the connection.
 
 ## Hosting an inbound fetch handler
 

@@ -179,12 +179,16 @@ public class EventSourceTests
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
     }
 
-    private static (Engine Engine, ManualClock Clock) SseEngine(HttpMessageHandler handler, Action<Options.FetchOptions>? configure = null)
+    private static (Engine Engine, ManualClock Clock) SseEngine(
+        HttpMessageHandler handler,
+        Action<Options.FetchOptions>? configure = null,
+        WebApiFeatures features = WebApiFeatures.None)
     {
         var clock = new ManualClock();
         var engine = new Engine(options =>
         {
             options.WebApi.Timers.TimeProvider = clock;
+            options.WebApi.Features |= features;
             options.UseEventSource(net =>
             {
                 net.HttpClient = new HttpClient(handler);
@@ -1263,13 +1267,16 @@ public class EventSourceTests
     /// An engine whose listeners report to a host-side list rather than to a script array, for the tests whose
     /// engine can no longer be asked to evaluate anything — one that has been cancelled, or restored.
     /// </summary>
-    private static (Engine Engine, ManualClock Clock, List<string> Records) RecordingDataUrlEngine(CancellationToken cancellationToken = default)
+    private static (Engine Engine, ManualClock Clock, List<string> Records) RecordingEngine(
+        CancellationToken cancellationToken = default,
+        WebApiFeatures features = WebApiFeatures.None)
     {
         var clock = new ManualClock();
         var records = new List<string>();
         var engine = new Engine(options =>
         {
             options.WebApi.Timers.TimeProvider = clock;
+            options.WebApi.Features |= features;
             if (cancellationToken.CanBeCanceled)
             {
                 options.ObserveCancellation(cancellationToken);
@@ -1298,7 +1305,7 @@ public class EventSourceTests
     public void AnEngineCancellationEndsTheReplaySilently()
     {
         using var cancellation = new CancellationTokenSource();
-        var (engine, clock, records) = RecordingDataUrlEngine(cancellation.Token);
+        var (engine, clock, records) = RecordingEngine(cancellation.Token);
 
         engine.Execute(RecordedHello);
         Drain(engine);
@@ -1319,7 +1326,7 @@ public class EventSourceTests
     [Test]
     public void ARestoreTakesTheDataUrlReplayWithIt()
     {
-        var (engine, clock, records) = RecordingDataUrlEngine();
+        var (engine, clock, records) = RecordingEngine();
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
         engine.Execute(RecordedHello);
@@ -1367,6 +1374,444 @@ public class EventSourceTests
             engine.Tasks.TimeUntilNextScheduledWork.Should().NotBeNull();
             return new WeakReference(engine);
         }
+    }
+
+    // ---------------------------------------------------------------- blob: URLs
+
+    /// <summary>The two features <c>URL.createObjectURL</c> needs, on top of the event source's own.</summary>
+    private const WebApiFeatures BlobUrls = WebApiFeatures.Url | WebApiFeatures.Files;
+
+    /// <summary>
+    /// An engine that can mint blob URLs, with <c>blobUrl(body, type)</c> to mint one — of type
+    /// <c>text/event-stream</c> unless the test names another.
+    /// </summary>
+    private static (Engine Engine, ManualClock Clock) BlobSseEngine(
+        HttpMessageHandler handler,
+        Action<Options.FetchOptions>? configure = null,
+        WebApiFeatures features = WebApiFeatures.None)
+    {
+        var (engine, clock) = SseEngine(handler, configure, BlobUrls | features);
+        engine.Execute("function blobUrl(body, type = 'text/event-stream') { return URL.createObjectURL(new Blob([body], { type })); }");
+        return (engine, clock);
+    }
+
+    /// <summary>
+    /// A handler that would answer a stream of its own. With <see cref="AllowBlobOnTheSchemeList"/> it is what a
+    /// <c>blob:</c> URL reaches if it is ever handed to the transport, so a failure the engine answers locally
+    /// cannot be mistaken for one the policy refused, and a URL that leaked shows up as a message.
+    /// </summary>
+    private static StubHandler NetworkThatWouldAnswer() => new() { Responder = _ => Answer("data: from the network\n\n") };
+
+    private static void AllowBlobOnTheSchemeList(Options.FetchOptions net) => net.AllowedSchemes.Add("blob");
+
+    /// <summary>
+    /// Main fetch sends a <c>blob:</c> URL to scheme fetch's <c>blob</c> arm, which answers a 200 whose
+    /// <c>Content-Type</c> is the blob's type: announced, parsed line by line, and — because the end of a body
+    /// that was not a network error reestablishes the connection — followed by <c>error</c> with
+    /// <c>CONNECTING</c>. No request reaches the host's client, the constructor returns before any of it, and a
+    /// source closed before its first task dispatches nothing. The origin is <c>null</c>, because the engine
+    /// mints <c>blob:null/…</c> URLs and that is the origin of one.
+    /// </summary>
+    [Test]
+    public void ABlobUrlIsAnnouncedParsedAndReestablishedWithoutATransport()
+    {
+        var handler = new StubHandler();
+        var (engine, _) = BlobSseEngine(handler);
+
+        engine.Evaluate("""(() => { var s = watch(new EventSource(blobUrl('data: hi\n\n'))); var seen = s.readyState + ':' + log.length; s.close(); return seen; })()""")
+            .AsString().Should().Be("0:0");
+        Drain(engine);
+        Log(engine).Should().BeEmpty("a source closed before its first task ran dispatches nothing");
+
+        engine.Execute("""var url = blobUrl('data: hi\n\n'); var es = watch(new EventSource(url));""");
+        PumpUntilLogHas(engine, 3, "the open, message and error events");
+
+        Log(engine).Should().Be(HelloPass);
+        engine.Evaluate("es.readyState").AsNumber().Should().Be(0);
+        engine.Evaluate("es.url === url && url.startsWith('blob:null/')").AsBoolean().Should().BeTrue();
+        handler.Requests.Should().BeEmpty();
+        engine.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// The end of the body reestablishes the connection, so the blob is replayed every reconnection time, on
+    /// the engine's timer queue — the default three seconds of it until a <c>retry</c> field says otherwise.
+    /// </summary>
+    [Test]
+    public void ABlobUrlReplaysEveryReconnectionTimeOnTheTimerQueue()
+    {
+        var handler = new StubHandler();
+        var (engine, clock) = BlobSseEngine(handler);
+
+        engine.Execute("""var es = watch(new EventSource(blobUrl('data: hi\n\n')));""");
+        PumpUntilLogHas(engine, 3, "the first pass");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().Be(TimeSpan.FromMilliseconds(3000));
+
+        clock.Advance(2999);
+        Drain(engine);
+        Log(engine).Should().Be(HelloPass);
+
+        clock.Advance(1);
+        PumpUntilLogHas(engine, 6, "the replay");
+        Log(engine).Should().Be(HelloPass + "|" + HelloPass);
+        handler.Requests.Should().BeEmpty();
+        engine.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// A <c>retry</c> field sets the reconnection time the replay waits, and an <c>id</c> field is the last
+    /// event ID every event of the next pass starts from.
+    /// </summary>
+    [Test]
+    public void TheBlobReplayHonoursRetryAndCarriesTheLastEventId()
+    {
+        var (engine, clock) = BlobSseEngine(new StubHandler());
+
+        engine.Execute("""var es = watch(new EventSource(blobUrl('retry: 250\nid: 7\ndata: tick\n\ndata: tock\n\n')));""");
+        PumpUntilLogHas(engine, 4, "the first pass");
+
+        const string Pass = "open~1|message~message~tick~7~null|message~message~tock~7~null|error~0";
+        Log(engine).Should().Be(Pass);
+
+        clock.Advance(200);
+        Drain(engine);
+        Log(engine).Should().Be(Pass);
+
+        clock.Advance(60);
+        PumpUntilLogHas(engine, 8, "the replay after the announced 250ms");
+        Log(engine).Should().Be(Pass + "|" + Pass);
+        engine.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// The lookup excludes the fragment, as it does for <c>fetch</c>, so <c>url + '#x'</c> names the same blob —
+    /// while <c>url</c> answers what the script passed, fragment and all.
+    /// </summary>
+    [Test]
+    public void AFragmentNamesTheSameBlob()
+    {
+        var (engine, _) = BlobSseEngine(new StubHandler());
+
+        engine.Execute("""var url = blobUrl('data: hi\n\n') + '#frag'; var es = watch(new EventSource(url));""");
+        PumpUntilLogHas(engine, 3, "the first pass");
+
+        Log(engine).Should().Be(HelloPass);
+        engine.Evaluate("es.url === url").AsBoolean().Should().BeTrue();
+        engine.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// The store is asked when the constructor runs, so a revoke on the next line — or one during the replay
+    /// delay — does not take the first pass away. Every reconnection asks it again, and a URL revoked since is a
+    /// network error no later attempt can recover from, so the connection fails rather than retrying.
+    /// </summary>
+    [TestCase(false)]
+    [TestCase(true)]
+    public void TheStoreIsAskedWhenTheConstructorRunsAndAgainOnEveryReconnection(bool revokeDuringTheDelay)
+    {
+        var handler = NetworkThatWouldAnswer();
+        var (engine, clock) = BlobSseEngine(handler, AllowBlobOnTheSchemeList);
+
+        engine.Execute("""var url = blobUrl('data: hi\n\n'); var es = watch(new EventSource(url));""");
+        if (!revokeDuringTheDelay)
+        {
+            engine.Execute("URL.revokeObjectURL(url);");
+        }
+
+        PumpUntilLogHas(engine, 3, "the first pass");
+        Log(engine).Should().Be(HelloPass);
+
+        if (revokeDuringTheDelay)
+        {
+            engine.Execute("URL.revokeObjectURL(url);");
+        }
+
+        clock.Advance(3000);
+        PumpUntilLogHas(engine, 4, "the failed reconnection");
+
+        Log(engine).Should().Be(HelloPass + "|error~2");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+
+        clock.Advance(60_000);
+        Drain(engine);
+        Log(engine).Should().Be(HelloPass + "|error~2");
+        handler.Requests.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A URL that names no live entry is the arm's network error, which every later attempt would meet again —
+    /// so the connection fails for good. That is a URL revoked before the constructor ran, one this engine never
+    /// minted, and one naming another origin: the store holds only what this engine's script created, and a
+    /// <c>blob:</c> URL is never handed to the transport whatever the scheme list says.
+    /// </summary>
+    [TestCase("(() => { var u = blobUrl('data: hi\\n\\n'); URL.revokeObjectURL(u); return u; })()")]
+    [TestCase("'blob:null/0c0ffee0-0000-4000-8000-000000000000'")]
+    [TestCase("'blob:https://example.org/0c0ffee0-0000-4000-8000-000000000000'")]
+    public void ABlobUrlThatNamesNoEntryFailsTheConnectionForGood(string url)
+    {
+        var handler = NetworkThatWouldAnswer();
+        var (engine, clock) = BlobSseEngine(handler, AllowBlobOnTheSchemeList);
+
+        engine.Execute($"var es = watch(new EventSource({url}));");
+        PumpUntilLogHas(engine, 1, "the error event");
+
+        Log(engine).Should().Be("error~2");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+
+        clock.Advance(60_000);
+        Drain(engine);
+        Log(engine).Should().Be("error~2");
+        handler.Requests.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The store is the engine's own, as it is for <c>fetch</c> and <c>XMLHttpRequest</c>: a URL another engine
+    /// minted — a worker's, say — names nothing here, and <c>fetch</c> and <c>EventSource</c> both answer it
+    /// with the arm's network error, while in the engine that minted it both are answered.
+    /// </summary>
+    [Test]
+    public void AnotherEnginesBlobUrlNamesNothingHereForEventSourceAsForFetch()
+    {
+        var (minter, _) = BlobSseEngine(new StubHandler(), features: WebApiFeatures.Fetch);
+        var url = minter.Evaluate("""blobUrl('data: hi\n\n')""").AsString();
+
+        var handler = NetworkThatWouldAnswer();
+        var (engine, _) = BlobSseEngine(handler, AllowBlobOnTheSchemeList, WebApiFeatures.Fetch);
+
+        engine.Execute($$"""
+            var fetched = 'pending';
+            fetch('{{url}}').then(() => { fetched = 'resolved'; }, e => { fetched = e.constructor.name; });
+            var es = watch(new EventSource('{{url}}'));
+            """);
+        PumpUntilLogHas(engine, 1, "the error event");
+        Pump(engine, () => engine.Evaluate("fetched").AsString() != "pending", "the fetch to settle");
+
+        Log(engine).Should().Be("error~2");
+        engine.Evaluate("fetched").AsString().Should().Be("TypeError");
+        handler.Requests.Should().BeEmpty();
+
+        minter.Execute($$"""
+            var fetched = 'pending';
+            fetch('{{url}}').then(r => r.text()).then(t => { fetched = t; });
+            var es = watch(new EventSource('{{url}}'));
+            """);
+        PumpUntilLogHas(minter, 3, "the first pass in the engine that minted the URL");
+        Pump(minter, () => minter.Evaluate("fetched").AsString() != "pending", "the fetch to settle");
+
+        Log(minter).Should().Be(HelloPass);
+        minter.Evaluate("fetched").AsString().Should().Be("data: hi\n\n");
+        minter.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// "If res's status is not 200, or if res's Content-Type is not text/event-stream, then fail the
+    /// connection" — the arm's 200 carries the blob's own type, so any other one fails, for good. A blob that
+    /// names no type answers an empty <c>Content-Type</c>, which is not a MIME type at all.
+    /// </summary>
+    [TestCase("")]
+    [TestCase("text/plain")]
+    [TestCase("application/json")]
+    [TestCase("text/event-stream/x")]
+    public void ABlobOfAnotherTypeFailsTheConnectionForGood(string type)
+    {
+        var handler = NetworkThatWouldAnswer();
+        var (engine, clock) = BlobSseEngine(handler, AllowBlobOnTheSchemeList);
+
+        engine.Execute($"""var es = watch(new EventSource(blobUrl('data: hi\n\n', '{type}')));""");
+        PumpUntilLogHas(engine, 1, "the error event");
+
+        Log(engine).Should().Be("error~2");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+
+        clock.Advance(60_000);
+        Drain(engine);
+        Log(engine).Should().Be("error~2");
+        handler.Requests.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The check is on the MIME type essence, so a parameter changes nothing — and the stream is UTF-8 whatever
+    /// a charset parameter says. <c>Blob</c> lowercases its type, so case never reaches the check.
+    /// </summary>
+    [TestCase("text/event-stream;charset=utf-8")]
+    [TestCase("TEXT/Event-Stream; charset=windows-1252")]
+    public void ABlobTypeWithParametersIsStillAnEventStream(string type)
+    {
+        var (engine, _) = BlobSseEngine(new StubHandler());
+
+        engine.Execute($"""var es = watch(new EventSource(blobUrl('data: héllo\n\n', '{type}')));""");
+        PumpUntilLogHas(engine, 2, "the message event");
+
+        engine.Evaluate("log[1]").AsString().Should().Be("message~message~héllo~~null");
+        engine.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// <c>MaxResponseBytes</c> bounds the blob's bytes whole, as it bounds a <c>data:</c> URL's decoded body: the
+    /// parser is given no per-event cap, so this is what bounds an event. Over it, the connection fails before it
+    /// is announced and is not retried. The measure is bytes, not characters: <c>é</c> is two of them.
+    /// </summary>
+    [TestCase(@"data: hi\n\n", "open~1|message~message~hi~~null|error~0")]
+    [TestCase(@"data: hi!\n\n", "error~2")]
+    [TestCase(@"data: hé\n\n", "error~2")]
+    public void MaxResponseBytesBoundsTheBlob(string body, string expected)
+    {
+        var handler = NetworkThatWouldAnswer();
+        var (engine, clock) = BlobSseEngine(handler, net =>
+        {
+            AllowBlobOnTheSchemeList(net);
+            net.MaxResponseBytes = 10;
+        });
+
+        engine.Execute($"var es = watch(new EventSource(blobUrl('{body}')));");
+        PumpUntilLogHas(engine, expected.Split('|').Length, "the first pass");
+
+        Log(engine).Should().Be(expected);
+        engine.Execute("es.close();");
+        clock.Advance(60_000);
+        Drain(engine);
+        Log(engine).Should().Be(expected);
+        handler.Requests.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// No request happens, so an observer hears nothing — not of the pass, not of a replay, not of a revoked
+    /// URL, a wrong type or a body over the limit. The control proves the observer is wired: a network URL the
+    /// policy refuses is reported to it.
+    /// </summary>
+    [Test]
+    public void AnObserverIsToldNothingOfABlobUrl()
+    {
+        var observer = new RecordingObserver();
+        var (engine, clock) = BlobSseEngine(new StubHandler(), net =>
+        {
+            net.Observer = observer;
+            net.MaxResponseBytes = 16;
+            net.UrlFilter = uri => uri.Scheme != "https";
+        });
+
+        engine.Execute("""
+            var es = watch(new EventSource(blobUrl('data: hi\n\n')));
+            var revokedUrl = blobUrl('data: hi\n\n');
+            URL.revokeObjectURL(revokedUrl);
+            var revoked = new EventSource(revokedUrl);
+            var refused = new EventSource(blobUrl('data: hi\n\n', 'text/plain'));
+            var tooLarge = new EventSource(blobUrl('data: more than sixteen\n\n'));
+            """);
+        PumpUntilLogHas(engine, 3, "the first pass");
+
+        clock.Advance(3000);
+        PumpUntilLogHas(engine, 6, "the replay");
+        engine.Execute("es.close();");
+        engine.Evaluate("[revoked, refused, tooLarge].map(s => s.readyState).join()").AsString().Should().Be("2,2,2");
+        observer.Count.Should().Be(0);
+
+        engine.Execute($"new EventSource('{StreamUrl}');");
+        observer.Take(1).Single().Should().StartWith("failed ").And.EndWith($" The fetch policy refused '{StreamUrl}'.");
+    }
+
+    /// <summary>
+    /// A blob URL names bytes this engine's own script created, so the destination policy has nothing to
+    /// decide: a scheme list without <c>blob</c>, a filter that refuses everything and a concurrency cap of zero
+    /// all leave the stream working — the filter is never even asked, on the first pass or on a replay.
+    /// </summary>
+    [Test]
+    public void TheSchemeListTheFilterAndTheConcurrencyCapDoNotApplyToABlobUrl()
+    {
+        var handler = new StubHandler();
+        var filterCalls = 0;
+        var (engine, clock) = BlobSseEngine(handler, net =>
+        {
+            net.AllowedSchemes.Clear();
+            net.AllowedSchemes.Add("https");
+            net.UrlFilter = _ =>
+            {
+                Interlocked.Increment(ref filterCalls);
+                return false;
+            };
+            net.MaxConcurrentRequests = 0;
+        });
+
+        engine.Execute("""var es = watch(new EventSource(blobUrl('data: hi\n\n')));""");
+        PumpUntilLogHas(engine, 3, "the first pass");
+
+        clock.Advance(3000);
+        PumpUntilLogHas(engine, 6, "the replay");
+
+        Log(engine).Should().Be(HelloPass + "|" + HelloPass);
+        Volatile.Read(ref filterCalls).Should().Be(0);
+        handler.Requests.Should().BeEmpty();
+        engine.Execute("es.close();");
+    }
+
+    /// <summary>
+    /// Listing <c>blob</c> among the allowed schemes used to hand the URL to the host's client, which cannot
+    /// resolve it; the engine answers it either way, and the client is never asked.
+    /// </summary>
+    [Test]
+    public void ABlobUrlOnTheSchemeListStillNeverReachesTheTransport()
+    {
+        var handler = NetworkThatWouldAnswer();
+        var (engine, _) = BlobSseEngine(handler, AllowBlobOnTheSchemeList);
+
+        engine.Execute("""var es = watch(new EventSource(blobUrl('data: hi\n\n')));""");
+        PumpUntilLogHas(engine, 3, "the first pass");
+
+        Log(engine).Should().Be(HelloPass);
+        handler.Requests.Should().BeEmpty();
+        engine.Execute("es.close();");
+    }
+
+    private const string RecordedBlob = """
+        var es = new EventSource(URL.createObjectURL(new Blob(['data: hi\n\n'], { type: 'text/event-stream' })));
+        es.onopen = () => record('open');
+        es.onmessage = e => record(e.data);
+        es.onerror = () => record('error' + es.readyState);
+        """;
+
+    /// <summary>
+    /// The engine's cancellation ends a blob URL's replay as it ends a network connection: silently, and with
+    /// nothing left scheduled.
+    /// </summary>
+    [Test]
+    public void AnEngineCancellationEndsTheBlobReplaySilently()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var (engine, clock, records) = RecordingEngine(cancellation.Token, BlobUrls);
+
+        engine.Execute(RecordedBlob);
+        Drain(engine);
+        string.Join("|", records).Should().Be("open|hi|error0");
+
+        cancellation.Cancel();
+        clock.Advance(60_000);
+        Drain(engine);
+
+        string.Join("|", records).Should().Be("open|hi|error0");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+    }
+
+    /// <summary>
+    /// A restore clears the timer queue the replay waits on and the blob URL store the URL was minted into, so
+    /// the pass a cycle started never replays into the restored globals.
+    /// </summary>
+    [Test]
+    public void ARestoreTakesTheBlobUrlReplayWithIt()
+    {
+        var (engine, clock, records) = RecordingEngine(features: BlobUrls);
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Execute(RecordedBlob);
+        Drain(engine);
+        string.Join("|", records).Should().Be("open|hi|error0");
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+        clock.Advance(60_000);
+        Drain(engine);
+
+        string.Join("|", records).Should().Be("open|hi|error0");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+        engine.Evaluate("typeof es").AsString().Should().Be("undefined");
     }
 
     [Test]
