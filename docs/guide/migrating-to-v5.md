@@ -6469,7 +6469,7 @@ forms re-tested the new value, so `n ??= await x` returned and kept a value writ
 of assigning `x`. A property target (`o.n += yield inc`) and the spelled-out form (`n = n + (yield inc)`) were
 already right. A script that relied on the second read must now read the variable after the assignment.
 
-### 4.163 DevTools honours URL-scoped network conditions, so PuppeteerSharp's `BlockList` and `Allowlist` reach a page's own requests ([#4297](https://github.com/sebastienros/jint/issues/4297))
+### 4.164 DevTools honours URL-scoped network conditions, so PuppeteerSharp's `BlockList` and `Allowlist` reach a page's own requests ([#4297](https://github.com/sebastienros/jint/issues/4297))
 
 Earlier previews refused every `Network.emulateNetworkConditionsByRule` entry with a non-empty `urlPattern`
 (`-32000`). PuppeteerSharp's `BlockList` and `Allowlist` send only such entries and log the refusal rather than
