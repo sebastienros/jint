@@ -1126,6 +1126,340 @@ public class GeneratorTests
         return engine.Evaluate(generatorSource + Environment.NewLine + driver).UnwrapIfPromise().AsString();
     }
 
+    // The tests below are the other way an async delegation goes wrong: not where the generator stands
+    // when its delegate suspends, but where its delegate's FAILURE lands. Each drives `outer()` through
+    // `for await`, the consumer the defect was reported from, and reports what that consumer saw.
+
+    public static TheoryData<string> DelegatesThatFailAfterOneValue() =>
+    [
+        // The delegate's own body throws after its first yield: its next() promise settles rejected.
+        "async function* source() { yield 1; throw new Error('boom'); }",
+        // The throw comes after an await, so the rejection lands a microtask later than the next() call.
+        "async function* source() { yield 1; await null; throw new Error('boom'); }",
+        // A sync generator behind the async-from-sync wrapper GetIterator(value, async) puts on it: its
+        // synchronous throw becomes a rejected promise on the way through.
+        "function* source() { yield 1; throw new Error('boom'); }",
+        // No generator at all: an async iterator whose second next() hands back a rejected promise, which
+        // is the shape the three above reduce to once Await has done its work.
+        """
+        function source() {
+            let step = 0;
+            return {
+                [Symbol.asyncIterator]() { return this; },
+                next() {
+                    return step++ === 0
+                        ? Promise.resolve({ value: 1, done: false })
+                        : Promise.reject(new Error('boom'));
+                },
+            };
+        }
+        """,
+        // A poisoned `done` getter on the awaited result: the step right after the Await, where the result
+        // is read, rather than the Await itself.
+        """
+        function source() {
+            let step = 0;
+            return {
+                [Symbol.asyncIterator]() { return this; },
+                next() {
+                    return Promise.resolve(step++ === 0
+                        ? { value: 1, done: false }
+                        : { get done() { throw new Error('boom'); } });
+                },
+            };
+        }
+        """,
+    ];
+
+    [Theory(Timeout = 10000)]
+    [MemberData(nameof(DelegatesThatFailAfterOneValue))]
+    public void AnAsyncDelegatingYieldHandsItsDelegatesFailureToTheEnclosingCatch(string delegateSource)
+    {
+        // https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation: in an
+        // async generator each inner step of `yield * AssignmentExpression` is `? Await(innerResult)`, so a
+        // delegate whose next() settles rejected is a throw completion of the yield* expression itself,
+        // raised inside the generator body where a try/catch around the yield* sees it -- just as a sync
+        // generator's yield* re-raises a throw out of its delegate's next(). Jint forwarded the rejection
+        // straight to the consumer's pending next() instead: the catch never ran, so a generator written
+        // to translate or recover from its delegate's failure silently did neither, and the consumer got
+        // the raw error. V8 runs the catch.
+        var script = delegateSource + """
+
+            async function* outer() {
+                try {
+                    return yield* source();
+                } catch (e) {
+                    throw new Error('caught: ' + e.message);
+                }
+            }
+            """;
+
+        ConsumeOuter(script, TestContext.Current.CancellationToken).Should().Be("saw [1] threw caught: boom");
+    }
+
+    [Theory(Timeout = 10000)]
+    [MemberData(nameof(DelegatesThatFailAfterOneValue))]
+    public void AnAsyncGeneratorCarriesOnAfterCatchingItsDelegatesFailure(string delegateSource)
+    {
+        // The recovering shape: once the catch has run the generator is still live and goes on yielding.
+        // Pinned separately because a fix that routed the error through the catch but left the generator
+        // completed behind it would pass the test above and still lose everything after the try.
+        var script = delegateSource + """
+
+            async function* outer() {
+                try {
+                    yield* source();
+                } catch (e) {
+                    yield 'recovered: ' + e.message;
+                }
+                yield 'after';
+            }
+            """;
+
+        ConsumeOuter(script, TestContext.Current.CancellationToken).Should().Be("saw [1,recovered: boom,after] no throw");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void AnAsyncDelegatingYieldHandsAFailureBeforeTheFirstValueToTheEnclosingCatch()
+    {
+        // The very first inner next() rejects, so the delegation fails before it has yielded anything and
+        // the outer generator's own first next() is the request still pending.
+        const string Script = """
+            async function* source() { throw new Error('boom'); }
+            async function* outer() {
+                try {
+                    return yield* source();
+                } catch (e) {
+                    throw new Error('caught: ' + e.message);
+                }
+            }
+            """;
+
+        ConsumeOuter(Script, TestContext.Current.CancellationToken).Should().Be("saw [] threw caught: boom");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void AnAsyncDelegatingYieldThrowsATypeErrorIntoTheBodyForANonObjectResult()
+    {
+        // The same rule for the step after the Await: a result that is not an object is a TypeError of
+        // the yield* expression ("If innerResult is not an Object, throw a TypeError exception"), so it
+        // is the body's catch that sees a TypeError, not the consumer that sees a rejection.
+        const string Script = """
+            function source() {
+                let step = 0;
+                return {
+                    [Symbol.asyncIterator]() { return this; },
+                    next() { return Promise.resolve(step++ === 0 ? { value: 1, done: false } : 42); },
+                };
+            }
+            async function* outer() {
+                try {
+                    yield* source();
+                } catch (e) {
+                    yield 'recovered: ' + e.constructor.name;
+                }
+                yield 'after';
+            }
+            """;
+
+        ConsumeOuter(Script, TestContext.Current.CancellationToken).Should().Be("saw [1,recovered: TypeError,after] no throw");
+    }
+
+    public static TheoryData<string> DelegatesThatFailWhenReturned() =>
+    [
+        // The delegate's finally throws while it is being closed: its return() promise settles rejected.
+        "async function* source() { try { yield 1; } finally { throw new Error('boom'); } }",
+        // A return method that throws on the call itself.
+        """
+        function source() {
+            return {
+                [Symbol.asyncIterator]() { return this; },
+                next() { return Promise.resolve({ value: 1, done: false }); },
+                return() { throw new Error('boom'); },
+            };
+        }
+        """,
+        // A return method whose promise rejects.
+        """
+        function source() {
+            return {
+                [Symbol.asyncIterator]() { return this; },
+                next() { return Promise.resolve({ value: 1, done: false }); },
+                return() { return Promise.reject(new Error('boom')); },
+            };
+        }
+        """,
+    ];
+
+    [Theory(Timeout = 10000)]
+    [MemberData(nameof(DelegatesThatFailWhenReturned))]
+    public void AnAsyncDelegatingYieldHandsItsDelegatesFailureOnReturnToTheEnclosingCatch(string delegateSource)
+    {
+        // The return branch of the same algorithm: when the consumer calls return() during a delegation
+        // the generator closes its delegate through the delegate's return method, and every step of that
+        // -- reading the method, calling it, awaiting and unpacking its result -- is `?` as well. A
+        // delegate that fails while being closed therefore throws at the yield*, and a catch there
+        // swallows the return the way a sync generator's would: the generator carries on.
+        var script = delegateSource + """
+
+            async function* outer() {
+                try {
+                    yield* source();
+                } catch (e) {
+                    yield 'recovered: ' + e.message;
+                }
+                yield 'after';
+            }
+
+            function makeIterator() { return outer(); }
+            """;
+
+        ReturnAfterFirstValue(script, TestContext.Current.CancellationToken).Should().Be("1:false recovered: boom:false after:false");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void AnAsyncDelegatingYieldForwardsARejectedReturnValueToTheDelegatesThrow()
+    {
+        // https://tc39.es/ecma262/#sec-asyncgeneratorunwrapyieldresumption: a return() request's value is
+        // awaited before the delegation acts on it, and if that await rejects the delegation RECEIVES a
+        // throw completion -- which the loop hands to the delegate's throw method like any other, rather
+        // than a return it closes the delegate with. The delegate here answers that throw with a done
+        // result, so the yield* completes normally with its value and the generator runs on to its end.
+        // Jint used to abandon the delegation and reject the return() request with the reason, so the
+        // delegate never heard of it.
+        const string Script = """
+            const log = [];
+            function source() {
+                return {
+                    [Symbol.asyncIterator]() { return this; },
+                    next() { return Promise.resolve({ value: 1, done: false }); },
+                    return(v) { log.push('return:' + v); return Promise.resolve({ value: v, done: true }); },
+                    throw(e) { log.push('throw:' + e.message); return Promise.resolve({ value: 'answered', done: true }); },
+                };
+            }
+            async function* outer() {
+                const result = yield* source();
+                log.push('yield* gave ' + result);
+                return 'end';
+            }
+
+            (async function () {
+                const it = outer();
+                await it.next();
+                const result = await it.return(Promise.reject(new Error('boom')));
+                log.push(result.value + ':' + result.done);
+                return log.join(' ');
+            })()
+            """;
+
+        var engine = new Engine(options => options.CancellationToken(TestContext.Current.CancellationToken));
+        engine.Evaluate(Script).UnwrapIfPromise().AsString().Should().Be("throw:boom yield* gave answered end:true");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void AnAsyncGeneratorsOwnThrowReachesTheEnclosingCatch()
+    {
+        // Control: the same try/catch around a throw in the generator's own body, which was always caught.
+        // Here so the defect reads as specific to delegation rather than to try/catch in async generators.
+        const string Script = """
+            async function* outer() {
+                try {
+                    yield 1;
+                    throw new Error('boom');
+                } catch (e) {
+                    throw new Error('caught: ' + e.message);
+                }
+            }
+            """;
+
+        ConsumeOuter(Script, TestContext.Current.CancellationToken).Should().Be("saw [1] threw caught: boom");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void ADelegatingYieldHandsItsDelegatesThrowToTheEnclosingCatch()
+    {
+        // The synchronous half, which was always right, pinned beside the asynchronous one because the
+        // delegation bookkeeping is per instance type and the two have drifted apart before.
+        const string Script = """
+            function* source() { yield 1; throw new Error('boom'); }
+            function* outer() {
+                try {
+                    return yield* source();
+                } catch (e) {
+                    throw new Error('caught: ' + e.message);
+                }
+            }
+
+            var seen = [];
+            var outcome;
+            try {
+                for (const v of outer()) {
+                    seen.push(v);
+                    if (seen.length > 20) { seen.push('RUNAWAY'); break; }
+                }
+                outcome = 'saw [' + seen.join(',') + '] no throw';
+            } catch (e) {
+                outcome = 'saw [' + seen.join(',') + '] threw ' + e.message;
+            }
+            outcome;
+            """;
+
+        var engine = new Engine(options => options.CancellationToken(TestContext.Current.CancellationToken));
+        engine.Evaluate(Script).AsString().Should().Be("saw [1] threw caught: boom");
+    }
+
+    /// <summary>
+    /// Drives the script's <c>outer()</c> through <c>for await</c> and reports what the consumer saw, as
+    /// <c>"saw [v,v] no throw"</c> or <c>"saw [v,v] threw message"</c>.
+    /// </summary>
+    /// <remarks>
+    /// Reporting through a string rather than a thrown exception keeps the assertion on the generator's
+    /// protocol -- what was yielded, and what, if anything, its consumer caught -- instead of on which .NET
+    /// exception reached the test. The twenty-value cap is a guard, as in <see cref="Drain" />.
+    /// </remarks>
+    private static string ConsumeOuter(string generatorSource, CancellationToken cancellationToken)
+    {
+        const string Driver = """
+            (async function () {
+                const seen = [];
+                try {
+                    for await (const v of outer()) {
+                        seen.push(v);
+                        if (seen.length > 20) { seen.push('RUNAWAY'); break; }
+                    }
+                    return 'saw [' + seen.join(',') + '] no throw';
+                } catch (e) {
+                    return 'saw [' + seen.join(',') + '] threw ' + e.message;
+                }
+            })()
+            """;
+
+        var engine = new Engine(options => options.CancellationToken(cancellationToken));
+        return engine.Evaluate(generatorSource + Environment.NewLine + Driver).UnwrapIfPromise().AsString();
+    }
+
+    /// <summary>
+    /// Takes one value from the script's <c>makeIterator()</c>, calls <c>return('x')</c> on it, then asks
+    /// for one more, as <c>"value:done value:done value:done"</c>.
+    /// </summary>
+    private static string ReturnAfterFirstValue(string generatorSource, CancellationToken cancellationToken)
+    {
+        const string Driver = """
+            (async function () {
+                const it = makeIterator();
+                const results = [];
+                for (const step of [() => it.next(), () => it.return('x'), () => it.next()]) {
+                    const result = await step();
+                    results.push(result.value + ':' + result.done);
+                }
+                return results.join(' ');
+            })()
+            """;
+
+        var engine = new Engine(options => options.CancellationToken(cancellationToken));
+        return engine.Evaluate(generatorSource + Environment.NewLine + Driver).UnwrapIfPromise().AsString();
+    }
+
     [Fact]
     public void GeneratorFunctionConstructorsInheritFromTheFunctionConstructor()
     {
