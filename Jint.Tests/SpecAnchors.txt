@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1284
+anchors: 1285
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -152,6 +152,7 @@ ecma262 sec-asyncgeneratorenqueue
 ecma262 sec-asyncgeneratorfunction-constructor
 ecma262 sec-asyncgeneratorresume
 ecma262 sec-asyncgeneratorstart
+ecma262 sec-asyncgeneratorunwrapyieldresumption
 ecma262 sec-asyncgeneratoryield
 ecma262 sec-asynciteratorclose
 ecma262 sec-asynciteratorprototype

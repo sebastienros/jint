@@ -462,8 +462,8 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     }
 
     /// <summary>
-    /// Resumes execution after a yield* delegation has completed.
-    /// Called when the delegated iterator returns done=true.
+    /// Resumes the body at the yield* expression with the delegation's outcome: its final value, or the
+    /// completion parked in <see cref="_resumeCompletionType"/>.
     /// </summary>
     internal void ResumeAfterDelegation(JsValue returnValue, PromiseCapability promiseCapability)
     {
@@ -563,20 +563,6 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     }
 
     /// <summary>
-    /// Clears all delegation state and marks the generator as completed.
-    /// Used when yield* delegation encounters an error that terminates the generator.
-    /// </summary>
-    internal void AbortDelegation()
-    {
-        _delegatingIterator = null;
-        _delegatingYieldNode = null;
-        _delegatingNextMethod = null;
-        _currentPromiseCapability = null;
-        _asyncGeneratorState = AsyncGeneratorState.Completed;
-        _completedAwaits = null;
-    }
-
-    /// <summary>
     /// Clears iterator/method delegation state but preserves _delegatingYieldNode
     /// so ResumeAfterDelegation can re-enter at the yield* expression.
     /// </summary>
@@ -584,6 +570,35 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     {
         _delegatingIterator = null;
         _delegatingNextMethod = null;
+    }
+
+    /// <summary>
+    /// Resumes the body with <paramref name="error"/> thrown at the yield* expression, which ends the
+    /// delegation: the twin of <see cref="ResumeAfterDelegation"/> for a step the spec marks <c>?</c>.
+    /// </summary>
+    internal void ThrowAfterDelegation(JsValue error, PromiseCapability? promiseCapability)
+    {
+        // Only the iterator and its cached next go. _delegatingYieldNode stays, so the replay re-enters
+        // at the yield*, finds no iterator, and reads the Throw completion parked here.
+        ClearDelegationIterator();
+        _resumeCompletionType = CompletionType.Throw;
+        if (promiseCapability is not null)
+        {
+            ResumeAfterDelegation(error, promiseCapability);
+        }
+    }
+
+    /// <summary>
+    /// Resumes the delegation loop with <paramref name="reason"/> as the throw completion it received,
+    /// which the loop forwards to the delegate's <c>throw</c> method; the delegation itself goes on.
+    /// </summary>
+    internal void ThrowIntoDelegation(JsValue reason, PromiseCapability? promiseCapability)
+    {
+        _resumeCompletionType = CompletionType.Throw;
+        if (promiseCapability is not null)
+        {
+            ResumeAfterDelegation(reason, promiseCapability);
+        }
     }
 
     /// <summary>
