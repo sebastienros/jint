@@ -3,6 +3,7 @@ using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter;
@@ -73,6 +74,7 @@ internal sealed class JintStatementList
             var stmt = blockLevel
                 ? JintStatement.BuildBlockLevel(esprimaStatement)
                 : JintStatement.Build(esprimaStatement);
+            (stmt as JintExpressionStatement)?.MarkStatementPosition(YieldStatementPosition.StatementList);
             // FastResolve pre-evaluates literal return values.
             // Debug mode check moved to Execute loop to preserve stepping behavior.
             var value = JintStatement.FastResolve(esprimaStatement);
@@ -297,7 +299,8 @@ internal sealed class JintStatementList
     /// </para>
     /// <para>
     /// The two <c>true</c> arms are the two things this frame really does, and both have to keep matching
-    /// their handler: the exceptions <see cref="HandleException"/> turns into a Throw completion, and a
+    /// their handler: the exceptions <see cref="HandleException"/> turns into a Throw completion (or, for a
+    /// <see cref="GeneratorReturnException"/>, into the Return completion it carries), and a
     /// CLR exception that has not been annotated with a JavaScript location yet — the innermost frame
     /// alone, since the annotation is idempotent and the frames above it would only redo the same test.
     /// </para>
@@ -305,13 +308,21 @@ internal sealed class JintStatementList
     internal static bool ShouldCatch(Exception exception) => exception switch
     {
         // Keep in lock-step with HandleException's switch below.
-        JavaScriptException or TypeErrorException or RangeErrorException or SyntaxErrorException => true,
+        JavaScriptException or TypeErrorException or RangeErrorException or SyntaxErrorException or GeneratorReturnException => true,
         JintException => false,
         _ => !ExceptionDataHelper.HasJavaScriptLocation(exception),
     };
 
     internal static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
     {
+        // A return() resumption that a yield inside this statement received: the statement ends with that return
+        // completion, exactly as it would had the yield been the whole statement (the ReturnRequested test in
+        // Execute). It is not an exception as far as the script or the debugger is concerned.
+        if (exception is GeneratorReturnException generatorReturn)
+        {
+            return new Completion(CompletionType.Return, generatorReturn.Value, s!._statement);
+        }
+
         var completion = exception switch
         {
             JavaScriptException javaScriptException => CreateThrowCompletion(s, javaScriptException),
@@ -323,6 +334,12 @@ internal sealed class JintStatementList
             _ => throw exception
         };
 
+        // A throw raised while a return() resumption is on its way out - an iterator's return() failing as the loop
+        // or pattern it belongs to is closed (https://tc39.es/ecma262/#sec-iteratorclose) - replaces that return
+        // completion, so nothing requests a return any more. Left set, the request turned the throw back into the
+        // return in the very next test of it, and a catch clause never saw the throw.
+        ClearReturnRequest(context.Engine);
+
         if (context.DebugMode)
         {
             // A throw that unwinds through several frames arrives here once per frame, as a fresh
@@ -333,6 +350,26 @@ internal sealed class JintStatementList
         }
 
         return completion;
+    }
+
+    /// <summary>
+    /// Drops the request a generator's return() resumption raised, once something has taken over from the return
+    /// completion it stands for: a throw that replaced it, or the <c>catch</c> or <c>finally</c> block that runs next.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ClearReturnRequest(Engine engine)
+    {
+        var generator = engine.ExecutionContext.Generator;
+        if (generator is not null)
+        {
+            generator._returnRequested = false;
+        }
+
+        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
+        if (asyncGenerator is not null)
+        {
+            asyncGenerator._returnRequested = false;
+        }
     }
 
     private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, Node s)

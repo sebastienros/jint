@@ -165,6 +165,8 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
                     _asyncGeneratorState = AsyncGeneratorState.Executing;
                     _nextValue = completion.Value;
                     _isResuming = true;
+                    // a next() is a normal completion; see GeneratorInstance.GeneratorResume
+                    _resumeCompletionType = CompletionType.Normal;
                     ResumeExecution(promiseCapability);
                 }
                 else if (_asyncGeneratorState == AsyncGeneratorState.Completed)

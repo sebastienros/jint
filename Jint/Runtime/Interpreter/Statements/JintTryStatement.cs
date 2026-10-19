@@ -207,6 +207,15 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
             var oldEnv = engine.ExecutionContext.LexicalEnvironment;
             var suspendable = engine.ExecutionContext.Suspendable;
 
+            // The throw being caught may have replaced a return completion that a return() resumption started -
+            // an iterator's return() failing as the loop or pattern it belongs to was closed
+            // (https://tc39.es/ecma262/#sec-iteratorclose). No return is requested any more, so the catch block and
+            // what follows it run to their end, as they would after any other throw.
+            if (suspendable is not null)
+            {
+                JintStatementList.ClearReturnRequest(engine);
+            }
+
             DeclarativeEnvironment catchEnv;
             var pooled = _canPoolCatchEnv && suspendable is null;
             if (pooled)

@@ -135,31 +135,53 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
             // Reuse the saved iterator
             iterator = suspendData.Iterator;
 
-            // If resuming with Return completion, close the iterator immediately
-            // This handles the case where generator.return() was called while
-            // suspended inside this destructuring pattern
+            // generator.return() was called while a yield inside this pattern was suspended. The replay has
+            // not reached that yield and must not, since getting there would step the iterator again, so the
+            // return completion the yield would have evaluated to is taken here: the resumption is consumed the
+            // way the yield consumes it, the iterator is closed with that completion (an ArrayAssignmentPattern's
+            // DestructuringAssignmentEvaluation: "If iteratorRecord.[[Done]] is false, return
+            // ? IteratorClose(iteratorRecord, result)", https://tc39.es/ecma262/#sec-iteratorclose), and the completion
+            // leaves the expression the way every return() resumption does, before anything around the pattern
+            // can run (sebastienros/jint#4304). A return() that throws replaces it, with no return left requested.
             var isReturn = generator?._resumeCompletionType == CompletionType.Return
                            || asyncGenerator?._resumeCompletionType == CompletionType.Return;
             if (isReturn)
             {
+                JsValue returnValue;
+                if (generator is not null)
+                {
+                    returnValue = generator._nextValue ?? JsValue.Undefined;
+                    generator._isResuming = false;
+                    generator._lastYieldNode = null;
+                    generator._resumeCompletionType = CompletionType.Normal;
+                }
+                else
+                {
+                    returnValue = asyncGenerator!._nextValue ?? JsValue.Undefined;
+                    asyncGenerator._isResuming = false;
+                    asyncGenerator._lastYieldNode = null;
+                    asyncGenerator._resumeCompletionType = CompletionType.Normal;
+                }
+
+                suspendable!.Data.Clear(pattern);
                 if (!suspendData.Done)
                 {
                     suspendData.Done = true;
                     iterator?.Close(CompletionType.Return);
                 }
-                suspendable!.Data.Clear(pattern);
+
                 if (generator is not null)
                 {
                     generator._returnRequested = true;
-                    generator._suspendedValue = generator._nextValue ?? JsValue.Undefined;
+                    generator._suspendedValue = returnValue;
                 }
-                else if (asyncGenerator is not null)
+                else
                 {
-                    asyncGenerator._resumeCompletionType = CompletionType.Normal;
-                    asyncGenerator._returnRequested = true;
-                    asyncGenerator._suspendedValue = asyncGenerator._nextValue ?? JsValue.Undefined;
+                    asyncGenerator!._returnRequested = true;
+                    asyncGenerator._suspendedValue = returnValue;
                 }
-                return JsValue.Undefined;
+
+                GeneratorReturnException.Raise(returnValue);
             }
         }
         else
