@@ -5088,7 +5088,7 @@ public sealed partial class Engine : IDisposable
         {
             // Sloppy direct eval hoists vars/functions into the CALLER's pre-existing variable
             // environment — the one mutation that invalidates pinned nested-global chain memos.
-            _envBindingInjectionEpoch++;
+            DeclarativeEnvironment.NoteInjectedBinding(this, varEnvRec);
         }
 
         if (!strict && hoistingScope._variablesDeclarations != null)
