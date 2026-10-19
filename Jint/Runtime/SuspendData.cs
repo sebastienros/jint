@@ -112,9 +112,9 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// — leaves the chain no longer terminating in the global environment.
     /// </para>
     /// <para>
-    /// Resuming into the <em>init</em> it is the abandoned first-attempt loop environment, whose
-    /// header bindings never got past TDZ (the init suspended part-way through initializing them).
-    /// Restoring that leaves a dead environment current after the loop, so reading an outer binding
+    /// Resuming into the <em>init</em> it is the first-attempt loop environment, which the resume
+    /// goes on using (see <see cref="IterationEnv"/>) but whose suspended header binding is still in
+    /// TDZ. Restoring that leaves a loop environment current after the loop, so reading an outer binding
     /// the header shadows throws ReferenceError — including through <c>typeof</c>, which must never
     /// throw for an out-of-scope name. It is also self-compounding: the value restored on exit is
     /// the same one written back here, so each further suspension chains another dead loop
@@ -156,6 +156,11 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// </para>
     /// <para>
     /// <see cref="ForOfSuspendData.IterationEnv"/> is the direct precedent.
+    /// </para>
+    /// <para>
+    /// A resume into the <em>init</em> reuses it too, for a different reason: the declaration
+    /// resumes at the declarator that suspended (<see cref="VariableDeclarationSuspendData"/>), so the
+    /// declarators before it, already initialized in this environment, are not run again.
     /// </para>
     /// </summary>
     public DeclarativeEnvironment? IterationEnv { get; set; }
@@ -535,6 +540,18 @@ internal sealed class SequenceSuspendData : SuspendData
     /// The index of the sub-expression that was being evaluated when the generator suspended.
     /// </summary>
     public int ExpressionIndex { get; set; }
+}
+
+/// <summary>
+/// Stores where a declaration list (<c>let a = …, b = …</c>) was when its frame suspended, so the resume
+/// continues at that declarator instead of re-running the ones before it.
+/// </summary>
+internal sealed class VariableDeclarationSuspendData : SuspendData
+{
+    /// <summary>
+    /// The index of the declarator whose initializer was being evaluated when the frame suspended.
+    /// </summary>
+    public int DeclarationIndex { get; set; }
 }
 
 internal sealed class SuspendDataDictionary
