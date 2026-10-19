@@ -6503,6 +6503,23 @@ is now refused with `-32602 Pattern "…" failed to parse as a URLPattern.`, Chr
 stays as it was. A client that sent a glob there must move it to `urls` or rewrite it in URLPattern syntax; the
 protocol's own example is `*://*:*/*.css`.
 
+### 4.167 DevTools matches `Fetch.enable`'s `urlPattern` as Chrome does: `?`, backslash escapes, and no fragment ([#4311](https://github.com/sebastienros/jint/issues/4311))
+
+Earlier previews read `RequestPattern.urlPattern` as a glob in which only `*` was special, anchored at both ends.
+A `?` and a backslash were literal characters, the URL was matched with its fragment, and an empty `urlPattern`
+paused every request.
+
+Now it is matched as Chromium matches it, with `base::MatchPattern`. `*` is any run of characters, and `?` is **at
+most one** character, either one or none. That is what Chrome does, although the protocol's description says
+"exactly one". A backslash makes the next character literal, so `\*`, `\?` and `\\` match a star, a question mark
+and a backslash. The pattern still covers the whole URL and still compares case-sensitively, but it no longer
+sees the fragment. Each piece between wildcards is taken at the first place it fits, as Chrome takes it. **An
+empty `urlPattern` now matches no request**; omit the member to get `*`.
+
+So `*.js?v=*`, which paused only `app.js?v=3`, now also pauses `app.jsXv=3` and `app.jsv=3`; write `*.js\?v=*` to
+match only a literal `?`. A pattern that relied on a literal backslash must double it. A pattern written for a path now also
+pauses that path with a `#fragment`, and a pattern that names a fragment matches nothing. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

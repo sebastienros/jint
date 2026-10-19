@@ -229,9 +229,10 @@ a second truth about the same request.
   `emulateNetworkConditionsByRule` and `setBlockedURLs` compile each `urlPattern` through
   `UrlPatternMatcher.TryCompile` — the engine's own parser, then a .NET `Regex` or an ordinal comparison
   generated from the part list, nothing of the engine kept — and refuse a regexp group with `-32602`, as
-  Chromium does. A listener throw lets the request through, so a matcher must not throw either. Two `*` globs
-  remain and are not interchangeable: `setBlockedURLs`' deprecated `urls` are Chromium's unanchored
-  glob (`BlockedUrlGlob`), `Fetch.enable`'s are anchored (`UrlPattern`), and neither is URLPattern syntax.
+  Chromium does. A listener throw lets the request through, so a matcher must not throw either. Two globs
+  remain and are not interchangeable: `setBlockedURLs`' deprecated `urls` are Chromium's unanchored `*`
+  glob (`BlockedUrlGlob`), `Fetch.enable`'s are `base::MatchPattern` (`FetchUrlGlob`) — anchored, `?` for at
+  most one character, backslash escapes, the fragment removed — and neither is URLPattern syntax.
 - **A navigation's request is addressed by its `loaderId`**, passed into `DocumentFetch.LoadAsync` rather
   than read from the page: the field still holds the document that is showing while the fetch is in flight,
   and a client tells the navigation apart from every other request by exactly that string.
