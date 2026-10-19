@@ -283,64 +283,186 @@ internal static class BlockedUrlGlob
 }
 
 /// <summary>
-/// <c>Fetch.enable</c>'s URL pattern: literal text with <c>*</c> standing for any run of characters.
+/// <c>Fetch.enable</c>'s <c>urlPattern</c>, read as Chromium reads it: <c>*</c> for any run of characters,
+/// <c>?</c> for at most one, a backslash making the next character literal, and the whole URL covered except its
+/// fragment — https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#type-RequestPattern.
 /// </summary>
 /// <remarks>
-/// <b>Not a regular expression, and anchored at both ends.</b> <c>*</c> crosses <c>/</c>, <c>?</c> is a
-/// literal question mark, and a pattern with no <c>*</c> must equal the URL. Matching is ordinal and
-/// case-sensitive; a host that wants more writes a <c>UrlFilter</c>. <c>Network.setBlockedURLs</c> reads
-/// neither this nor anything anchored: its <c>urlPatterns</c> are URLPattern syntax, and its deprecated
-/// <c>urls</c> a <see cref="BlockedUrlGlob"/>.
+/// <para>
+/// <b>Chromium is the reference, step for step.</b> <c>FetchHandler</c>'s <c>ToInterceptionPatterns</c>
+/// (<c>content/browser/devtools/protocol/fetch_handler.cc</c>) puts <c>*</c> in place of an <i>omitted</i>
+/// <c>urlPattern</c> only, which is the domain's to do; an empty one stays a pattern, and it matches no URL.
+/// <c>DevToolsURLLoaderInterceptor::GetInterceptionStages</c>
+/// (<c>content/browser/devtools/devtools_url_loader_interceptor.cc</c>) takes the fragment off with
+/// <c>NetworkHandler::ExtractFragment</c> and hands the rest to <c>Pattern::Matches</c>, which is
+/// <c>base::MatchPattern</c> (<c>base/strings/pattern.cc</c>). That function is what is ported below, one
+/// method for each of its own.
+/// </para>
+/// <para>
+/// <b>Where the protocol's description and the browser part, this follows the browser.</b> The description says
+/// <c>?</c> is "exactly one" character, and <c>base::MatchPattern</c> takes it as zero or one. And each piece
+/// between wildcards is taken at the first place the wildcards before it can reach, never to be reconsidered,
+/// so <c>/?a?b</c> does not match <c>/aaab</c> though a backtracking matcher would say it does. A client written
+/// against Chrome expects the requests Chrome pauses, no more and no fewer.
+/// </para>
+/// <para>
+/// Matching is ordinal and case-sensitive, a wildcard counts code points rather than UTF-16 units, and the search
+/// is a loop with no recursion, so no pattern costs more than the URL's length times its own. It runs on a
+/// transport thread once per hop and holds nothing. <c>Network.setBlockedURLs</c> reads neither this nor anything
+/// anchored: its <c>urlPatterns</c> are URLPattern syntax, and its deprecated <c>urls</c> a
+/// <see cref="BlockedUrlGlob"/>.
+/// </para>
 /// </remarks>
-internal static class UrlPattern
+internal static class FetchUrlGlob
 {
-    /// <summary>Whether <paramref name="url"/> matches <paramref name="pattern"/>.</summary>
+    /// <summary>What <c>CBU_SENTINEL</c> stands for: a unit that decodes to no code point, and so equals nothing.</summary>
+    private const int Sentinel = -1;
+
+    /// <summary>Whether a request for <paramref name="url"/> matches <paramref name="pattern"/>.</summary>
     internal static bool Matches(string pattern, string url)
     {
-        if (pattern.Length == 0 || string.Equals(pattern, "*", StringComparison.Ordinal))
-        {
-            return true;
-        }
+        // An absolute URL's serialization has no '#' but the one that starts its fragment.
+        var hash = url.IndexOf('#');
+        var text = hash < 0 ? url.AsSpan() : url.AsSpan(0, hash);
 
-        return Matches(pattern.AsSpan(), url.AsSpan());
+        return MatchPattern(text, pattern.AsSpan());
     }
 
-    private static bool Matches(ReadOnlySpan<char> pattern, ReadOnlySpan<char> text)
+    /// <summary><c>MatchPatternT</c>: each run of wildcards, then the piece after it, until the pattern ends.</summary>
+    private static bool MatchPattern(ReadOnlySpan<char> text, ReadOnlySpan<char> pattern)
     {
-        while (true)
-        {
-            var star = pattern.IndexOf('*');
-            if (star < 0)
-            {
-                return pattern.SequenceEqual(text);
-            }
+        var p = 0;
+        var t = 0;
 
-            var prefix = pattern[..star];
-            if (!text.StartsWith(prefix, StringComparison.Ordinal))
+        do
+        {
+            var reach = EatWildcards(pattern, ref p);
+            if (!SearchForChars(pattern, ref p, text, ref t, reach))
             {
                 return false;
             }
+        }
+        while (p < pattern.Length);
 
-            pattern = pattern[(star + 1)..];
-            text = text[prefix.Length..];
+        return true;
+    }
 
-            if (pattern.IsEmpty)
+    /// <summary>
+    /// <c>EatWildcards</c>: consumes a run of <c>?</c> and <c>*</c>, and answers how many code points the piece after
+    /// it may start from here — one per <c>?</c>, or <c>-1</c>, unbounded, once the run holds a <c>*</c>.
+    /// </summary>
+    private static int EatWildcards(ReadOnlySpan<char> pattern, ref int p)
+    {
+        var questionMarks = 0;
+        var asterisk = false;
+
+        for (; p < pattern.Length; p++)
+        {
+            if (pattern[p] == '?')
             {
-                return true;
+                questionMarks++;
             }
-
-            // The rest of the pattern has to match somewhere further along; try every position, shortest
-            // first. Patterns here are a handful of segments, so the quadratic worst case is not one.
-            for (var i = 0; i <= text.Length; i++)
+            else if (pattern[p] == '*')
             {
-                if (Matches(pattern, text[i..]))
+                asterisk = true;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return asterisk ? -1 : questionMarks;
+    }
+
+    /// <summary>
+    /// <c>SearchForChars</c>: finds the piece at <paramref name="p"/> — up to the next unescaped wildcard, or the end
+    /// of the pattern, which must then meet the end of the URL — starting at most <paramref name="reach"/> code
+    /// points past <paramref name="t"/>, and leaves both positions after it.
+    /// </summary>
+    /// <remarks>
+    /// The leftmost start that fits wins, and the caller never comes back to try another; that is Chromium's
+    /// search, and what makes one pass enough.
+    /// </remarks>
+    private static bool SearchForChars(ReadOnlySpan<char> pattern, ref int p, ReadOnlySpan<char> text, ref int t, int reach)
+    {
+        var pieceStart = p;
+        var searchStart = t;
+
+        // Outside the loop, where Chromium declares it: a retry keeps it, which only a piece ending in a lone
+        // backslash can ever notice.
+        var escape = false;
+
+        while (true)
+        {
+            if (p == pattern.Length)
+            {
+                if (t == text.Length)
                 {
                     return true;
                 }
             }
+            else
+            {
+                if (!escape && pattern[p] is '*' or '?')
+                {
+                    return true;
+                }
 
-            return false;
+                if (!escape && pattern[p] == '\\')
+                {
+                    escape = true;
+                    p++;
+                    continue;
+                }
+
+                escape = false;
+
+                if (t == text.Length)
+                {
+                    return false;
+                }
+
+                var expected = Next(pattern, p, out var patternLength);
+                if (expected != Sentinel && expected == Next(text, t, out var textLength))
+                {
+                    p += patternLength;
+                    t += textLength;
+                    continue;
+                }
+            }
+
+            // A mismatch: start the piece again one code point further along, if the wildcards reach that far.
+            if (reach == 0)
+            {
+                return false;
+            }
+
+            if (reach > 0)
+            {
+                reach--;
+            }
+
+            p = pieceStart;
+            Next(text, searchStart, out var step);
+            searchStart += step;
+            t = searchStart;
         }
+    }
+
+    /// <summary>The code point at <paramref name="at"/>, or <see cref="Sentinel"/> for a lone surrogate.</summary>
+    private static int Next(ReadOnlySpan<char> text, int at, out int length)
+    {
+        var c = text[at];
+        if (!char.IsSurrogate(c))
+        {
+            length = 1;
+            return c;
+        }
+
+        return System.Text.Rune.DecodeFromUtf16(text[at..], out var rune, out length) == System.Buffers.OperationStatus.Done
+            ? rune.Value
+            : Sentinel;
     }
 }
 

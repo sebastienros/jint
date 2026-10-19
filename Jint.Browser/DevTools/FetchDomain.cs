@@ -686,7 +686,8 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     /// <summary>Whether one pattern asks about one request.</summary>
     /// <remarks>
     /// A pattern is asked about one stage at a time; a pattern with no
-    /// <c>urlPattern</c> means every URL, which is the protocol's default.
+    /// <c>urlPattern</c> means every URL, which is the protocol's default, while an empty one is a
+    /// <see cref="FetchUrlGlob"/> that matches none — Chrome draws the same line.
     /// </remarks>
     private static bool Matches(RequestPattern pattern, PageNetworkRequest request, string stage = RequestStageValues.Request)
     {
@@ -702,7 +703,7 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
             return false;
         }
 
-        return pattern.UrlPattern is not { } url || UrlPattern.Matches(url, request.Url);
+        return pattern.UrlPattern is not { } url || FetchUrlGlob.Matches(url, request.Url);
     }
 
     /// <summary>One hop, as the protocol describes a request.</summary>

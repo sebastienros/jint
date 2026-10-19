@@ -161,6 +161,132 @@ public class FetchDomainTests
             "the document did not match the pattern and must not have been paused");
     }
 
+    /// <summary>
+    /// A <c>?</c> in a <c>urlPattern</c> pauses what Chrome pauses — a URL with one character there, or none —
+    /// and lets a URL with two go straight to the network.
+    /// </summary>
+    /// <remarks>
+    /// The three requests are in flight together. A paused one cannot complete, so once all three have settled,
+    /// every pause there was going to be has been shown; the count is a statement about the third request rather
+    /// than about how long the test waited.
+    /// </remarks>
+    [Test]
+    public async Task AQuestionMarkInAPatternPausesAtMostOneCharacterThere()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/v.js", _ => LoopbackResponse.Script("0"));
+        server.Map("/v1.js", _ => LoopbackResponse.Script("1"));
+        server.Map("/v12.js", _ => LoopbackResponse.Script("12"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/v?.js"}]}""");
+
+        await fixture.Page.EvaluateAsync("""
+            window.__answer = null;
+            Promise.all(['/v.js', '/v1.js', '/v12.js'].map(u => fetch(u).then(r => r.text())))
+                .then(t => { window.__answer = t.join(','); }, e => { window.__answer = 'rejected:' + e; });
+            true
+            """);
+
+        var first = await fixture.PausedAsync(0);
+        var second = await fixture.PausedAsync(1);
+        await fixture.ContinueAsync(first);
+        await fixture.ContinueAsync(second);
+
+        (await fixture.AnswerAsync()).Should().Be("0,1,12");
+
+        fixture.Session.EventsOf("Fetch.requestPaused", fixture.Attachment)
+            .Select(paused => paused.GetProperty("params").GetProperty("request").GetProperty("url").GetString())
+            .Should().BeEquivalentTo([server.Url("/v.js"), server.Url("/v1.js")],
+                "'?' covers one character or none, and '12' is two");
+        server.Received.Select(request => request.Path).Should().Contain("/v12.js",
+            "the request the pattern did not match went out without a pause");
+    }
+
+    /// <summary>
+    /// A backslash makes the <c>?</c> after it literal, so the pattern pauses the URL with a real <c>?</c> there
+    /// and nothing that only a wildcard would have matched.
+    /// </summary>
+    [Test]
+    public async Task AnEscapedQuestionMarkInAPatternIsALiteralOne()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("query"));
+        server.Map("/dataXv", _ => LoopbackResponse.Text("letter"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data\\?v"}]}""");
+
+        await fixture.Page.EvaluateAsync("""
+            window.__answer = null;
+            Promise.all(['/data?v', '/dataXv'].map(u => fetch(u).then(r => r.text())))
+                .then(t => { window.__answer = t.join(','); }, e => { window.__answer = 'rejected:' + e; });
+            true
+            """);
+
+        var paused = await fixture.PausedAsync();
+        await fixture.ContinueAsync(paused);
+
+        (await fixture.AnswerAsync()).Should().Be("query,letter");
+
+        fixture.Session.EventsOf("Fetch.requestPaused", fixture.Attachment)
+            .Select(pause => pause.GetProperty("params").GetProperty("request").GetProperty("url").GetString())
+            .Should().Equal([server.Url("/data?v")], "an escaped '?' is the character itself and not a wildcard");
+    }
+
+    /// <summary>
+    /// An empty <c>urlPattern</c> pauses nothing, which is what Chrome makes of it; an omitted one is the
+    /// protocol's <c>*</c> and pauses everything the rest of the pattern allows.
+    /// </summary>
+    [Test]
+    public async Task AnEmptyUrlPatternPausesNothingAndAnOmittedOnePausesEverything()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("payload"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":""}]}""");
+        await fixture.FetchOnThePageAsync("/data");
+        (await fixture.AnswerAsync()).Should().Be("payload", "an empty pattern matches no URL, so nothing waits for a client");
+        fixture.Session.EventsOf("Fetch.requestPaused", fixture.Attachment).Should().BeEmpty();
+
+        await fixture.EnableAsync("""{"patterns":[{"resourceType":"Fetch"}]}""");
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+        paused.GetProperty("request").GetProperty("url").GetString().Should().Be(server.Url("/data"));
+        await fixture.ContinueAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be("payload");
+    }
+
+    /// <summary>
+    /// A pattern is matched against the URL without its fragment, as Chrome matches it, so a pattern written for
+    /// a path still pauses a request whose URL carries a <c>#</c>.
+    /// </summary>
+    [Test]
+    public async Task APatternIsMatchedWithoutTheFragment()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("payload"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data"}]}""");
+
+        await fixture.FetchOnThePageAsync("/data#section");
+        var paused = await fixture.PausedAsync();
+        await fixture.ContinueAsync(paused);
+
+        (await fixture.AnswerAsync()).Should().Be("payload");
+    }
+
     [Test]
     public async Task ThePageGoesOnRunningWhileARequestIsPaused()
     {
