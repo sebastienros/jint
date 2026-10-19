@@ -6484,6 +6484,25 @@ URLPattern.`, as Chrome refuses it, and the conditions in force stay as they wer
 that wants a page's own requests left alone leaves `BlockList` and `Allowlist` unset, which also drops the
 client's own navigation check.
 
+### 4.165 DevTools reads `Network.setBlockedURLs` as Chrome reads it: URLPattern entries first, then unanchored globs ([#4307](https://github.com/sebastienros/jint/issues/4307))
+
+Earlier previews read both members of `Network.setBlockedURLs` as one `*` glob anchored at both ends, and dropped
+every `urlPatterns` entry whose `block` was `false`. So `https://example.com/:path` blocked nothing, an allowance
+was ignored, and a deprecated `urls` entry with no `*` had to equal the whole URL.
+
+Now each `urlPatterns` entry is URLPattern constructor-string syntax, as the protocol says. It must be absolute,
+and it is compared case-sensitively against every redirect hop, as for `emulateNetworkConditionsByRule` (§4.164).
+**The first entry that matches decides**: `block: true` refuses the request, and `block: false` lets it through,
+even when a later entry or a glob would refuse it. A request no entry matches is then checked against `urls`,
+read as Chromium's own glob: `*` is any run of characters, and **the glob is unanchored at both ends**. So
+`tracker.js` now blocks every URL that contains it, and any URL an old anchored glob blocked is still blocked. A
+blocked request still fails with `net::ERR_BLOCKED_BY_CLIENT` and `blockedReason: "inspector"`.
+
+A command whose `urlPatterns` holds an entry that does not parse, is relative, is empty or contains a regexp group
+is now refused with `-32602 Pattern "…" failed to parse as a URLPattern.`, Chrome's answer, and the block in force
+stays as it was. A client that sent a glob there must move it to `urls` or rewrite it in URLPattern syntax; the
+protocol's own example is `*://*:*/*.css`.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

@@ -37,14 +37,14 @@ namespace Jint.Browser.DevTools;
 /// whole list and each replaces what the other set, so the last one sent decides. What <c>navigator.onLine</c>
 /// answers is the page's <c>EmulationState.Offline</c> instead.
 /// </param>
-/// <param name="BlockedUrls">The patterns <c>Network.setBlockedURLs</c> refuses.</param>
+/// <param name="Blocked">What <c>Network.setBlockedURLs</c> refuses; <see cref="Blocks"/> reads it.</param>
 internal sealed record PageNetworkPolicy(
     IReadOnlyList<PageHeader> ExtraHeaders,
     IReadOnlyList<PageNetworkCondition> Conditions,
-    IReadOnlyList<string> BlockedUrls)
+    PageBlockedUrls Blocked)
 {
     /// <summary>A page nobody has configured: every request goes as the page composed it.</summary>
-    internal static PageNetworkPolicy None { get; } = new([], [], []);
+    internal static PageNetworkPolicy None { get; } = new([], [], PageBlockedUrls.None);
 
     /// <summary>Whether the network conditions in force take <paramref name="url"/> offline.</summary>
     /// <remarks>
@@ -89,18 +89,7 @@ internal sealed record PageNetworkPolicy(
     }
 
     /// <summary>Whether <paramref name="url"/> is one <c>setBlockedURLs</c> refuses.</summary>
-    internal bool Blocks(string url)
-    {
-        foreach (var pattern in BlockedUrls)
-        {
-            if (UrlPattern.Matches(pattern, url))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    internal bool Blocks(string url) => Blocked.Blocks(url);
 
     /// <summary>
     /// The header list one hop should carry, or <see langword="null"/> when the hop's own is already right.
@@ -190,13 +179,118 @@ internal sealed record PageNetworkCondition(UrlPatternMatcher? Pattern, bool Off
 }
 
 /// <summary>
-/// The protocol's own URL pattern: literal text with <c>*</c> standing for any run of characters.
+/// What <c>Network.setBlockedURLs</c> asked to refuse: URLPattern entries, read first, and the deprecated globs
+/// beside them — https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-setBlockedURLs.
 /// </summary>
 /// <remarks>
-/// <b>Not a regular expression and not a glob.</b> Chrome's <c>Network.setBlockedURLs</c> and
-/// <c>Fetch.enable</c> both take this shape and nothing else — <c>*</c> crosses <c>/</c>, <c>?</c> is a
+/// <para>
+/// <b>Chromium's renderer is the reference</b>, <c>InspectorNetworkAgent::ShouldBlockRequest</c> in
+/// <c>third_party/blink/renderer/core/inspector/inspector_network_agent.cc</c>. The first pattern that matches
+/// decides, and a <c>block: false</c> one lets the request through whatever comes after it, globs included; only
+/// a URL no pattern matches is searched for a glob, and any glob that matches blocks it.
+/// </para>
+/// <para>
+/// <b>Read on a transport thread, once per redirect hop</b>, which is why it holds nothing of an engine: each
+/// pattern is a <see cref="UrlPatternMatcher"/> compiled on the page loop, each glob a string, and the URL is
+/// parsed at most once, and only when there is a pattern to read it.
+/// </para>
+/// </remarks>
+/// <param name="Patterns">The <c>urlPatterns</c> entries, in the order a client listed them.</param>
+/// <param name="Urls">The deprecated <c>urls</c>, each one read as a <see cref="BlockedUrlGlob"/>.</param>
+internal sealed record PageBlockedUrls(IReadOnlyList<PageBlockPattern> Patterns, IReadOnlyList<string> Urls)
+{
+    /// <summary>Nothing blocked, which is also what a command naming neither member sets.</summary>
+    internal static PageBlockedUrls None { get; } = new([], []);
+
+    /// <summary>Whether a request for <paramref name="url"/> is refused.</summary>
+    internal bool Blocks(string url)
+    {
+        // A URL that does not parse matches no pattern, and is left to the globs.
+        if (Patterns.Count > 0 && UrlParser.Parse(url) is { } parsed)
+        {
+            foreach (var pattern in Patterns)
+            {
+                if (pattern.Pattern.Matches(parsed))
+                {
+                    return pattern.Block;
+                }
+            }
+        }
+
+        foreach (var glob in Urls)
+        {
+            if (BlockedUrlGlob.Matches(glob, url))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+/// <summary>One <c>Network.BlockPattern</c>: the requests it matches, and whether it blocks or allows them.</summary>
+/// <param name="Pattern">The entry's <c>urlPattern</c>, compiled on the page loop and matched on a transport thread.</param>
+/// <param name="Block">
+/// Whether a request this entry decides is refused; <see langword="false"/> lets it through even when a later entry
+/// or a glob would have refused it.
+/// </param>
+internal sealed record PageBlockPattern(UrlPatternMatcher Pattern, bool Block);
+
+/// <summary>
+/// The glob <c>Network.setBlockedURLs</c>' deprecated <c>urls</c> member is read with: literal text, <c>*</c> for
+/// any run of characters, and an implicit <c>*</c> at either end.
+/// </summary>
+/// <remarks>
+/// Chromium's own <c>Matches</c> in <c>inspector_network_agent.cc</c>, step for step: the pieces between the stars
+/// are found in the URL in order, each after the end of the last, and nothing anchors the first or the last — so
+/// <c>tracker.js</c> blocks every URL containing it, and an empty glob or a lone <c>*</c> blocks everything. The
+/// search is ordinal and case-sensitive over the URL's serialization. Taking the leftmost occurrence of each piece
+/// is what makes one pass enough: it leaves the most of the URL for the pieces after it.
+/// </remarks>
+internal static class BlockedUrlGlob
+{
+    /// <summary>Whether <paramref name="url"/> matches <paramref name="glob"/>.</summary>
+    internal static bool Matches(string glob, string url)
+    {
+        var pieces = glob.AsSpan();
+        var rest = url.AsSpan();
+
+        while (true)
+        {
+            var star = pieces.IndexOf('*');
+            var piece = star < 0 ? pieces : pieces[..star];
+
+            if (!piece.IsEmpty)
+            {
+                var at = rest.IndexOf(piece);
+                if (at < 0)
+                {
+                    return false;
+                }
+
+                rest = rest[(at + piece.Length)..];
+            }
+
+            if (star < 0)
+            {
+                return true;
+            }
+
+            pieces = pieces[(star + 1)..];
+        }
+    }
+}
+
+/// <summary>
+/// <c>Fetch.enable</c>'s URL pattern: literal text with <c>*</c> standing for any run of characters.
+/// </summary>
+/// <remarks>
+/// <b>Not a regular expression, and anchored at both ends.</b> <c>*</c> crosses <c>/</c>, <c>?</c> is a
 /// literal question mark, and a pattern with no <c>*</c> must equal the URL. Matching is ordinal and
-/// case-sensitive, which is what Chrome does; a host that wants more writes a <c>UrlFilter</c>.
+/// case-sensitive; a host that wants more writes a <c>UrlFilter</c>. <c>Network.setBlockedURLs</c> reads
+/// neither this nor anything anchored: its <c>urlPatterns</c> are URLPattern syntax, and its deprecated
+/// <c>urls</c> a <see cref="BlockedUrlGlob"/>.
 /// </remarks>
 internal static class UrlPattern
 {

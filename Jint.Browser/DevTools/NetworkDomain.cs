@@ -301,34 +301,48 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
         }
     }
 
-    /// <summary>Refuses every request whose URL matches one of the patterns.</summary>
+    /// <summary>Refuses the requests the patterns block, and lets through the ones they allow.</summary>
     /// <remarks>
-    /// The protocol's own pattern shape — literal text with <c>*</c> for any run of characters — and a match
-    /// is <c>net::ERR_BLOCKED_BY_CLIENT</c> with <c>blockedReason: "inspector"</c>, which is what Chrome
-    /// sends. An empty list clears the block. <c>urlPatterns</c>, the newer parameter, is read as the
-    /// patterns it names.
+    /// <para>
+    /// <b>Chromium's renderer is the reference</b>: <c>InspectorNetworkAgent::setBlockedURLs</c> and
+    /// <c>ShouldBlockRequest</c>, in <c>third_party/blink/renderer/core/inspector/inspector_network_agent.cc</c>.
+    /// Each <c>urlPatterns</c> entry is a URLPattern constructor string, which must be absolute —
+    /// <c>*://*.example.com/*</c> — matched case-sensitively against each redirect hop's URL, and the first entry
+    /// that matches decides: <c>block: true</c> refuses the request, <c>block: false</c> lets it through whatever
+    /// follows. Only a URL no entry matches is read against the deprecated <c>urls</c>, which keep Chrome's own glob
+    /// (<see cref="BlockedUrlGlob"/>): literal text, <c>*</c> for any run, and unanchored at both ends. A refused
+    /// request fails with <c>net::ERR_BLOCKED_BY_CLIENT</c> and <c>blockedReason: "inspector"</c> before any
+    /// connection is opened.
+    /// </para>
+    /// <para>
+    /// <b>A pattern is compiled here, on the page loop, and matched on a transport thread</b>, as
+    /// <see cref="EmulateNetworkConditionsByRuleAsync"/> does it: <see cref="UrlPatternMatcher.TryCompile"/> keeps
+    /// nothing of the engine. A string that is not an absolute pattern, an empty one included, and a pattern with a
+    /// regexp group are refused with Chrome's <c>-32602</c>, the reason in <c>data</c>, and a refused command
+    /// changes nothing: Chrome compiles every entry before it clears anything. Each command replaces both members,
+    /// so one naming neither clears the block.
+    /// </para>
     /// </remarks>
     protected override ValueTask<EmptyResult> SetBlockedURLsAsync(SetBlockedURLsRequest parameters, CommandContext context)
     {
-        var patterns = new List<string>();
+        var entries = parameters.UrlPatterns ?? [];
+        var patterns = new PageBlockPattern[entries.Length];
 
-        if (parameters.Urls is { } urls)
+        for (var i = 0; i < entries.Length; i++)
         {
-            patterns.AddRange(urls);
-        }
-
-        if (parameters.UrlPatterns is { } declared)
-        {
-            foreach (var pattern in declared)
+            var entry = entries[i];
+            if (!UrlPatternMatcher.TryCompile(_target.Runtime.Engine, entry.UrlPattern, out var pattern, out var reason))
             {
-                if (pattern.Block)
-                {
-                    patterns.Add(pattern.UrlPattern);
-                }
+                return Throw.InvalidParams<ValueTask<EmptyResult>>(
+                    $"Pattern \"{entry.UrlPattern}\" failed to parse as a URLPattern.",
+                    reason);
             }
+
+            patterns[i] = new PageBlockPattern(pattern, entry.Block);
         }
 
-        _target.UpdateNetworkPolicy(policy => policy with { BlockedUrls = patterns });
+        var blocked = new PageBlockedUrls(patterns, parameters.Urls is { } urls ? [.. urls] : []);
+        _target.UpdateNetworkPolicy(policy => policy with { Blocked = blocked });
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
