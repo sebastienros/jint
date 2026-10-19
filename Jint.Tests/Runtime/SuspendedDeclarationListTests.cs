@@ -24,7 +24,9 @@ namespace Jint.Tests.Runtime;
 /// <see cref="SuspendedDestructuringAssignmentTests"/> does for the placeholder consumers. The value
 /// tests pin the shape that made this a real failure: an earlier declarator minted a token, the resume
 /// minted another, and the thing stamped with the first was handed to a caller holding the second. The
-/// tests named <c>…Control</c> pass on the unfixed tree and bound the claim.
+/// tests named <c>…Control</c> pass on the unfixed tree and bound the claim. The handler reserves the
+/// bookkeeping at build time for lists that can suspend part-way through, and a default inside a binding
+/// pattern suspends as much as an initializer does, which the pattern-default tests pin.
 /// </para>
 /// </summary>
 public class SuspendedDeclarationListTests
@@ -198,6 +200,30 @@ public class SuspendedDeclarationListTests
     }
 
     /// <summary>
+    /// The <c>await</c> is in a default inside the binding pattern, not in the initializer: the handler
+    /// has to look at the whole declarator to know the list can suspend part-way through.
+    /// </summary>
+    [Test]
+    public void ADeclaratorBeforeAnAwaitInABindingPatternsDefaultRunsOnce()
+    {
+        AsyncProbe("let s = side(0), { x = await f() } = {};", "runs + '/' + x")
+            .Should().Be("1/1|pre,post");
+    }
+
+    /// <summary>
+    /// A list that can suspend does not have to: the parked index is read by the resume it was parked
+    /// for, and an iteration that never suspended leaves nothing behind for the next one.
+    /// </summary>
+    [Test]
+    public void ADeclaratorBeforeAConditionallyAwaitedDeclaratorRunsOncePerIteration()
+    {
+        AsyncProbe(
+            "var seen = []; for (let i = 0; i < 3; i++) { let s = side(i), a = i % 2 ? await f() : 2; seen.push(a); }",
+            "runs + '/' + seen.join(',')")
+            .Should().Be("3/2,1,2|pre,post");
+    }
+
+    /// <summary>
     /// Inside a loop it is once per iteration: 4 on the unfixed tree.
     /// </summary>
     [Test]
@@ -291,6 +317,13 @@ public class SuspendedDeclarationListTests
     {
         GeneratorProbe("var s = side(0), a = yield 1, b = yield 2;", "runs")
             .Should().Be("1|pre,post");
+    }
+
+    [Test]
+    public void ADeclaratorBeforeAYieldInABindingPatternsDefaultRunsOnceInAGenerator()
+    {
+        GeneratorProbe("let s = side(0), [x = yield 1] = [];", "runs + '/' + x")
+            .Should().Be("1/1|pre,post");
     }
 
     [Test]

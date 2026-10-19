@@ -546,6 +546,11 @@ internal sealed class SequenceSuspendData : SuspendData
 /// Stores where a declaration list (<c>let a = …, b = …</c>) was when its frame suspended, so the resume
 /// continues at that declarator instead of re-running the ones before it.
 /// </summary>
+/// <remarks>
+/// Only a list with more than one declarator, one of which can suspend the enclosing frame, ever parks
+/// one; the handler decides that at build time, so the ordinary declaration statement never touches the
+/// dictionary.
+/// </remarks>
 internal sealed class VariableDeclarationSuspendData : SuspendData
 {
     /// <summary>

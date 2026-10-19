@@ -9,6 +9,15 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
 {
     private readonly ResolvedDeclaration[] _declarations;
 
+    /// <summary>
+    /// Whether a suspension can leave the list part-way through: more than one declarator, and one of
+    /// them contains an <c>await</c> or a <c>yield</c> of the enclosing frame, in its initializer or in
+    /// a default inside its binding pattern. Only such a list parks the declarator it suspended at. Every
+    /// other list runs the walk with no resume bookkeeping at all; a single declarator that suspends
+    /// restarts at index 0, which is the declarator it suspended in.
+    /// </summary>
+    private readonly bool _tracksDeclaratorIndex;
+
     private sealed class ResolvedDeclaration
     {
         internal JintExpression? Left;
@@ -85,6 +94,18 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                 CanUseSlotLane = canUseSlotLane,
             };
         }
+
+        if (_declarations.Length > 1)
+        {
+            foreach (var declaration in statement.Declarations)
+            {
+                if (MaySuspendVisitor.MaySuspend(declaration))
+                {
+                    _tracksDeclaratorIndex = true;
+                    break;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -113,23 +134,31 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
     /// declarators that do not await — their side effects, and a let/const initialized again with the second
     /// value. The index the walk suspended at is parked on the suspendable, keyed by this handler
     /// (handler trees are shared, so it cannot be a field here), read back only while resuming, and cleared
-    /// when the walk completes; <see cref="Expressions.JintSequenceExpression"/> keeps its operand index the
-    /// same way.
+    /// when a resumed walk completes; <see cref="Expressions.JintSequenceExpression"/> keeps its operand
+    /// index the same way. Only a list that can suspend part-way through pays for any of it
+    /// (<see cref="_tracksDeclaratorIndex"/>): this handler runs for every declaration statement, so the
+    /// others walk with a null suspendable and no bookkeeping.
     /// </remarks>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         var engine = context.Engine;
         var declarations = _declarations;
 
-        var suspendable = engine.ExecutionContext.Suspendable;
+        ISuspendable? suspendable = null;
+        var resumed = false;
         var i = 0;
-        if (suspendable is { IsResuming: true }
-            && suspendable.Data.TryGet(this, out VariableDeclarationSuspendData? resumeData))
+        if (_tracksDeclaratorIndex)
         {
-            i = resumeData!.DeclarationIndex;
+            suspendable = engine.ExecutionContext.Suspendable;
+            if (suspendable is { IsResuming: true }
+                && suspendable.Data.TryGet(this, out VariableDeclarationSuspendData? resumeData))
+            {
+                i = resumeData!.DeclarationIndex;
+                resumed = true;
+            }
         }
 
-        for (; i < declarations.Length; i++)
+        for (; (uint) i < (uint) declarations.Length; i++)
         {
             var declaration = declarations[i];
             if (_statement.Kind != VariableDeclarationKind.Var && declaration.Left != null)
@@ -220,10 +249,11 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                             declaration.EvalOrArguments);
                         if (assigned is not null)
                         {
-                            // The helper hands the suspension placeholder back without assigning it; the
-                            // walk stops here too, or the declarators after this one run while the frame
-                            // is already suspended.
-                            if (context.IsSuspended())
+                            // The helper hands the suspension placeholder back without assigning it. A
+                            // list that can suspend part-way through stops here too, or the declarators
+                            // after this one run while the frame is already suspended; any other list
+                            // has nothing after this declarator that it could run too early.
+                            if (suspendable is not null && context.IsSuspended())
                             {
                                 return Suspended(suspendable, i, (JsValue) assigned);
                             }
@@ -264,12 +294,17 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
             }
         }
 
-        suspendable?.Data.Clear(this);
+        if (resumed)
+        {
+            suspendable!.Data.Clear(this);
+        }
+
         return Completion.Empty();
     }
 
     /// <summary>
-    /// Parks the declarator the walk suspended at and completes with the suspension placeholder.
+    /// Parks the declarator the walk suspended at, for a tracked list, and completes with the suspension
+    /// placeholder.
     /// </summary>
     private Completion Suspended(ISuspendable? suspendable, int index, JsValue value)
     {
