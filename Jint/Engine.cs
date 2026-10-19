@@ -5412,18 +5412,19 @@ public sealed partial class Engine : IDisposable
     /// <seealso cref="Invoke(JsValue, object, object[])"/>
     public JsValue Call(JsValue callable, JsValue thisObject, JsCallArguments arguments)
     {
-        JsValue Callback()
+        return ExecuteWithConstraints(Options.Strict, default, new CallState(this, callable, thisObject, arguments), static (_, state) =>
         {
-            if (!callable.HasCall)
+            if (!state.Callable.HasCall)
             {
-                Throw.ArgumentException($"{callable.Type} is not callable");
+                Throw.ArgumentException($"{state.Callable.Type} is not callable");
             }
 
-            return Call((ICallable) callable, thisObject, arguments, null);
-        }
-
-        return ExecuteWithConstraints(Options.Strict, Callback);
+            return state.Engine.Call((ICallable) state.Callable, state.ThisObject, state.Arguments, null);
+        });
     }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private readonly record struct CallState(Engine Engine, JsValue Callable, JsValue ThisObject, JsCallArguments Arguments);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal JsValue Call(ICallable callable, JsValue thisObject, JsCallArguments arguments, JintExpression? expression)
