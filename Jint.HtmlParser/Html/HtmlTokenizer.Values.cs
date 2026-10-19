@@ -14,12 +14,14 @@ internal sealed partial class HtmlTokenizer
 
     // Bounded, parse-local names: look up before allocating, without retaining
     // arbitrary input or interning attacker-controlled names process-wide.
-    private string MaterializeName(CharBuffer buffer)
+    private string MaterializeName(CharBuffer buffer) =>
+        buffer.Length > MaxCachedNameLength ? Materialize(buffer) : MaterializeName(buffer.Span);
+
+    // At most MaxCachedNameLength units.
+    private string MaterializeName(ReadOnlySpan<char> name)
     {
         const int Slots = 128;
-        if (buffer.Length > MaxCachedNameLength) return Materialize(buffer);
         Poll();
-        var name = buffer.Span;
         ChargeCopy(name.Length);
         if (HtmlKnownNames.Match(name) is { } knownName) return knownName;
         var slot = (int) (XxHash3.HashToUInt64(MemoryMarshal.AsBytes(name)) & (Slots - 1));
@@ -37,7 +39,10 @@ internal sealed partial class HtmlTokenizer
             }
             if (probe < 3) slot = (slot + 1) & (Slots - 1);
         }
-        return _names[slot] = Materialize(buffer);
+        var result = name.ToString();
+        ChargeCopy(name.Length);
+        Poll();
+        return _names[slot] = result;
     }
 
     private StringSlice TakeValue(CharBuffer buffer)

@@ -163,7 +163,7 @@ public partial class HtmlTreeConstructionTests
         var builder = BuilderOf(session);
         var popTarget = typeof(HtmlTreeBuilder).GetField("_pendingPopTarget",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        var open = (System.Collections.ICollection) typeof(HtmlTreeBuilder).GetField("_open",
+        var open = (System.Collections.Generic.IReadOnlyCollection<Element>) typeof(HtmlTreeBuilder).GetField("_open",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(builder)!;
         for (var turn = 0; turn < 100_000; turn++)
         {

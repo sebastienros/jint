@@ -157,7 +157,7 @@ public partial class HtmlTreeConstructionTests
             var push = typeof(HtmlTreeBuilder).GetMethod("Push", flags)!;
             for (var i = 0; i < 8; i++)
                 push.Invoke(builder, [parsed.Document.CreateElementNS(namespaces[random.Next(namespaces.Length)], names[random.Next(names.Length)])]);
-            var stack = (List<Element>) typeof(HtmlTreeBuilder).GetField("_open", flags)!.GetValue(builder)!;
+            var stack = ((IReadOnlyList<Element>) typeof(HtmlTreeBuilder).GetField("_open", flags)!.GetValue(builder)!).ToList();
             foreach (var target in names)
             {
                 var expectedLast = stack.FindLastIndex(e => e.NamespaceUri == Namespaces.Html && e.LocalName == target);

@@ -6342,6 +6342,47 @@ What does bound it is `MaxResponseBytes`, on the decoded body: over the limit, t
 the limit from the network does. A redirect to a `data:` or `blob:` URL is always a network error, whatever
 `AllowedSchemes` holds. There is no switch to refuse `data:` again; a host that must, wraps `fetch` in script.
 
+### 4.157 A string stays the string it was when script appends to where it came from ([#4259](https://github.com/sebastienros/jint/issues/4259))
+
+`s += t` appended into the string `s` held, which was correct only while nothing else held that string. Copying it
+at a declaration, an identifier assignment, an argument or a `return` kept that true there, but not for a member
+assignment, a built-in that copies values (`slice`, `concat`, spread, `Array.from`, `Object.assign`,
+`Object.values`, `filter`, …), or any value handed to the host. Each of those saw its text change when script
+appended to the original:
+
+```js
+var s = 'a'; s += 'b';
+var o = {}; o.p = s;            // or a.slice(), [...a], Object.assign({}, x), …
+s += 'c';
+o.p;                            // 4.16.x / earlier 5.0: "abc"    5.x: "ab"
+```
+
+```csharp
+var result = engine.Evaluate("var s = 'a'; s += 'b'; s += 'c'; s");
+engine.Execute("s += 'd'");
+result.AsString();              // 4.16.x / earlier 5.0: "abcd"   5.x: "abc"
+```
+
+The same held for `Engine.GetValue`, a property or array element read through `Get`, a descriptor's `Value`, an
+argument a built-in passes to a host delegate (`a.forEach(hostDelegate)`), a `JsValue` host property, a module
+export, and a string passed to a second engine. Now a string never changes once anything can hold it: a `+=` on a
+function or block variable still extends the string in place while that variable is the only place holding it, and
+every other `+=` produces a new string sharing its characters with the one it extended. A host may read a string on
+any thread, even while its engine keeps running (see [Thread safety](thread-safety.md#values-and-construction)).
+
+**What could break:**
+
+- **A host that expected a held string to follow later appends** was relying on the bug; read the binding again.
+- **`LimitMemory` charges more for some `+=` loops.** An append to a property or array element (`o.p += x`), to a
+  script's or a module's top-level variable, inside a generator or an async function, or to a variable read since
+  its last append (`while (s.length < n) s += x`) allocates a 48-byte value (on 64-bit) where it used to append into
+  a builder. `LimitMemory` counts the bytes an operation allocates, so 300,000 such appends in one operation are
+  charged about 14 MB more than before, most of `ForUntrustedCode`'s 16 MB budget. An append to a function or block
+  variable, including one a direct `eval` declared inside a function, costs what it did.
+- **Copying a string no longer copies its text.** `var t = s`, passing `s` to a function or returning it used to
+  copy the whole text of a `+=` result; it now costs nothing, and so does `s += x; t = s` in a loop, which was
+  quadratic.
+
 ### 4.158 `EventSource` answers a `data:` URL ([#4283](https://github.com/sebastienros/jint/issues/4283))
 
 Earlier previews failed `new EventSource('data:…')` with an `error` event and `CLOSED`, unless the host added
@@ -6461,6 +6502,81 @@ engine never minted — another engine's or a worker's — fails it at once, as 
 `AllowedSchemes`, `UrlFilter`, `MaxConcurrentRequests` and a `FetchObserver` never see a `blob:` event stream,
 so **a host that set a `UrlFilter` now lets one through**. `MaxResponseBytes` bounds the blob's bytes whole, which
 `fetch` does not do for a blob URL: over it, the connection fails and is not retried.
+
+### 4.163 A compound assignment to a variable keeps the value it read when its right-hand side suspends ([#4268](https://github.com/sebastienros/jint/issues/4268))
+
+A compound assignment reads its left-hand side before it evaluates the right-hand side. When the left-hand side
+was a variable and the right-hand side suspended on a `yield` or an `await`, Jint read the variable a second time
+on resume, so a write made while the function was suspended leaked into the result:
+
+```js
+function* g() {
+    var n = 1;
+    const inc = () => { n += 10; };
+    n += (yield inc);
+    return n;
+}
+var it = g();
+it.next().value();   // n becomes 11 while g is suspended
+it.next(5).value;    // 4.16.x / earlier 5.0: 16    5.x: 6
+```
+
+Every compound operator did it (`-=`, `*=`, `**=`, `<<=`, `&=`, …), in generators, async functions, async
+generators and a module's top-level `await`, for a local, captured, global or `with`-scope variable. The logical
+forms re-tested the new value, so `n ??= await x` returned and kept a value written while it was suspended instead
+of assigning `x`. A property target (`o.n += yield inc`) and the spelled-out form (`n = n + (yield inc)`) were
+already right. A script that relied on the second read must now read the variable after the assignment.
+
+### 4.164 DevTools honours URL-scoped network conditions, so PuppeteerSharp's `BlockList` and `Allowlist` reach a page's own requests ([#4297](https://github.com/sebastienros/jint/issues/4297))
+
+Earlier previews refused every `Network.emulateNetworkConditionsByRule` entry with a non-empty `urlPattern`
+(`-32000`). PuppeteerSharp's `BlockList` and `Allowlist` send only such entries and log the refusal rather than
+throw, so the client refused a blocked `GoToAsync` itself while the page's own `fetch`, `XMLHttpRequest` and
+subresource requests to a blocked URL still went out.
+
+Now each `urlPattern` is matched as Chrome matches it: URLPattern constructor-string syntax, absolute, compared
+case-sensitively against every redirect hop, and the first entry that matches decides. A matched request that is
+offline fails with `net::ERR_INTERNET_DISCONNECTED` before any connection is opened. A pattern that does not
+parse, is relative or contains a regexp group is refused with `-32602 Pattern "…" failed to parse as a
+URLPattern.`, as Chrome refuses it, and the conditions in force stay as they were. There is no switch back: a host
+that wants a page's own requests left alone leaves `BlockList` and `Allowlist` unset, which also drops the
+client's own navigation check.
+
+### 4.165 DevTools reads `Network.setBlockedURLs` as Chrome reads it: URLPattern entries first, then unanchored globs ([#4307](https://github.com/sebastienros/jint/issues/4307))
+
+Earlier previews read both members of `Network.setBlockedURLs` as one `*` glob anchored at both ends, and dropped
+every `urlPatterns` entry whose `block` was `false`. So `https://example.com/:path` blocked nothing, an allowance
+was ignored, and a deprecated `urls` entry with no `*` had to equal the whole URL.
+
+Now each `urlPatterns` entry is URLPattern constructor-string syntax, as the protocol says. It must be absolute,
+and it is compared case-sensitively against every redirect hop, as for `emulateNetworkConditionsByRule` (§4.164).
+**The first entry that matches decides**: `block: true` refuses the request, and `block: false` lets it through,
+even when a later entry or a glob would refuse it. A request no entry matches is then checked against `urls`,
+read as Chromium's own glob: `*` is any run of characters, and **the glob is unanchored at both ends**. So
+`tracker.js` now blocks every URL that contains it, and any URL an old anchored glob blocked is still blocked. A
+blocked request still fails with `net::ERR_BLOCKED_BY_CLIENT` and `blockedReason: "inspector"`.
+
+A command whose `urlPatterns` holds an entry that does not parse, is relative, is empty or contains a regexp group
+is now refused with `-32602 Pattern "…" failed to parse as a URLPattern.`, Chrome's answer, and the block in force
+stays as it was. A client that sent a glob there must move it to `urls` or rewrite it in URLPattern syntax; the
+protocol's own example is `*://*:*/*.css`.
+
+### 4.167 DevTools matches `Fetch.enable`'s `urlPattern` as Chrome does: `?`, backslash escapes, and no fragment ([#4311](https://github.com/sebastienros/jint/issues/4311))
+
+Earlier previews read `RequestPattern.urlPattern` as a glob in which only `*` was special, anchored at both ends.
+A `?` and a backslash were literal characters, the URL was matched with its fragment, and an empty `urlPattern`
+paused every request.
+
+Now it is matched as Chromium matches it, with `base::MatchPattern`. `*` is any run of characters, and `?` is **at
+most one** character, either one or none. That is what Chrome does, although the protocol's description says
+"exactly one". A backslash makes the next character literal, so `\*`, `\?` and `\\` match a star, a question mark
+and a backslash. The pattern still covers the whole URL and still compares case-sensitively, but it no longer
+sees the fragment. Each piece between wildcards is taken at the first place it fits, as Chrome takes it. **An
+empty `urlPattern` now matches no request**; omit the member to get `*`.
+
+So `*.js?v=*`, which paused only `app.js?v=3`, now also pauses `app.jsXv=3` and `app.jsv=3`; write `*.js\?v=*` to
+match only a literal `?`. A pattern that relied on a literal backslash must double it. A pattern written for a path now also
+pauses that path with a `#fragment`, and a pattern that names a fragment matches nothing. There is no switch back.
 
 ## 5. New in v5
 

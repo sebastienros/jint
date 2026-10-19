@@ -451,6 +451,21 @@ internal static class GCPolyfills
             return getter();
         }
 #endif
+
+#if !NET5_0_OR_GREATER
+        // GC.AllocateUninitializedArray arrived in .NET 5 and is in no netstandard. Skipping the zeroing is an
+        // optimization the caller cannot observe, so downlevel allocates an ordinary array; pinning is not an
+        // optimization, and an array allocated here cannot be pinned, so that request is refused.
+        public static T[] AllocateUninitializedArray<T>(int length, bool pinned = false)
+        {
+            if (pinned)
+            {
+                Jint.Runtime.Throw.PlatformNotSupportedException("Allocating a pinned array requires .NET 5 or later.");
+            }
+
+            return new T[length];
+        }
+#endif
     }
 
     /// <summary>

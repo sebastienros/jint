@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.AggregateError;
 using Jint.Native.Array;
@@ -279,8 +280,13 @@ public sealed partial class Intrinsics
     internal AsyncFromSyncIteratorPrototype AsyncFromSyncIteratorPrototype =>
         _asyncFromSyncIteratorPrototype ??= new AsyncFromSyncIteratorPrototype(_engine, _realm, AsyncIteratorPrototype);
 
-    internal StringConstructor String =>
-        _string ??= new StringConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+    // Read on every method call on a string receiver (JintMemberExpression.GetCalleeForCall), so the constructor call is
+    // kept out of line: with it inlined the getter was sometimes too large to inline back into that caller.
+    internal StringConstructor String => _string ?? CreateString();
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private StringConstructor CreateString() =>
+        _string = new StringConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     internal StringIteratorPrototype StringIteratorPrototype =>
         _stringIteratorPrototype ??= new StringIteratorPrototype(_engine, _realm, IteratorPrototype);

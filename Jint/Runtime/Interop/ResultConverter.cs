@@ -313,12 +313,12 @@ internal static class ResultConverter
         /// string that materializes more than it declared cannot slip characters past the total.
         /// </para>
         /// <para>
-        /// The same length is checked against what is left of the memory limit before a slice view or a deferred
-        /// concatenation is copied, because those are the values that share characters: many of them cost the
-        /// script little and cost this conversion their whole length each, while <see cref="CheckConstraints"/>
-        /// sees the total only once every <see cref="Engine.ConstraintCheckInterval"/> values
-        /// (sebastienros/jint#4175). Flat text is handed back without a copy, so it is never weighed, and a
-        /// host's <see cref="LazyJsString"/> is the host's own allocation to account for.
+        /// The same length is checked against what is left of the memory limit before a slice view, a deferred
+        /// concatenation or a <c>+=</c> result is copied, because those are the values that share characters: many
+        /// of them cost the script little and cost this conversion their whole length each, while
+        /// <see cref="CheckConstraints"/> sees the total only once every <see cref="Engine.ConstraintCheckInterval"/>
+        /// values (sebastienros/jint#4175, sebastienros/jint#4259). Flat text is handed back without a copy, so it
+        /// is never weighed, and a host's <see cref="LazyJsString"/> is the host's own allocation to account for.
         /// </para>
         /// </remarks>
         private string ConvertString(JsString value)
@@ -328,7 +328,7 @@ internal static class ResultConverter
             CheckOutputCharacters(length);
 
             if (value._value is null
-                && value is JsString.SlicedString or JsString.RopeString
+                && value is JsString.SlicedString or JsString.RopeString or JsString.ConcatenatedString
                 && _engine._memoryLimitConstraint is { } memoryLimit)
             {
                 memoryLimit.CheckBeforeCopying(length);

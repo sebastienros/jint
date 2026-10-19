@@ -49,6 +49,14 @@ public sealed class Element : Node
 
     internal bool WasInserted { get; set; }
 
+    // The token of the HTML tree builder whose stack of open elements holds this element, else
+    // zero. It occupies existing field padding, so an element is no larger.
+    internal int OpenElementsMark;
+
+    // What the HTML tree builder's stack bookkeeping asks of this element's namespace and name,
+    // computed on first use and never changing; zero until then. It also fits existing padding.
+    internal byte StackFlags;
+
     internal HtmlElementState? GetHtmlState()
         => NamespaceUri == Namespaces.Html ? ElementRare.HtmlState ??= new HtmlElementState(this) : null;
     internal HtmlOptionCore GetOptionCore(CancellationToken token = default)

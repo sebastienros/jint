@@ -29,7 +29,9 @@ internal sealed partial class HtmlTreeBuilder
         _ => false
     };
 
-    private bool ShouldUseForeignRules(HtmlToken token)
+    // The token is the builder's own slot, read in place: it is a reference-bearing struct whose
+    // copy is a bulk write.
+    private bool ShouldUseForeignRules(in HtmlToken token)
     {
         if (_open.Count == 0 || token.Kind == HtmlTokenKind.EndOfFile) return false;
         var node = AdjustedCurrent;
@@ -51,6 +53,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private bool InForeign()
     {
+        _rareTokenState = true;
         if (_foreignBreakout)
         {
             if (Current.NamespaceUri != Namespaces.Html && !IsMathTextIntegrationPoint(Current) && !IsHtmlIntegrationPoint(Current))
@@ -151,6 +154,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private bool TryInsertForeignTokenElement(string namespaceUri)
     {
+        _rareTokenState = true;
         CheckDepth();
         var name = namespaceUri == Namespaces.Svg ? AdjustSvgTagName(_token.Name!) : _token.Name!;
         var attributes = PreparedAttributes;

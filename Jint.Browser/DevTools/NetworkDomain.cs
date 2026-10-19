@@ -5,6 +5,7 @@ using Jint.DevTools.Domains;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Protocol.Network;
 using Jint.DevTools.Session;
+using Jint.WebApi.Url.Pattern;
 
 namespace Jint.Browser.DevTools;
 
@@ -175,7 +176,8 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
     /// </remarks>
     protected override ValueTask<EmptyResult> EmulateNetworkConditionsAsync(EmulateNetworkConditionsRequest parameters, CommandContext context)
     {
-        _target.UpdateNetworkPolicy(policy => policy with { Offline = parameters.Offline });
+        PageNetworkCondition[] conditions = parameters.Offline ? [PageNetworkCondition.GlobalOffline] : [];
+        _target.UpdateNetworkPolicy(policy => policy with { Conditions = conditions });
         OverrideNavigatorState(parameters.Offline);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
@@ -190,21 +192,29 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
     /// 25.14 sends the two together.
     /// </para>
     /// <para>
-    /// <b>Only a global entry, one with an empty <c>urlPattern</c>, is accepted.</b> It matches every request
-    /// and the first entry that matches wins, so whether the page is offline is the first entry's
-    /// <c>offline</c> — or the deprecated top-level <c>offline</c>, which Chrome lets override every entry's
-    /// own and which, with no entries, has nothing to apply to. An entry scoped to a URL is refused with
-    /// <c>-32000</c> rather than applied to every request or to none: a request is decided on a transport
-    /// thread, and the engine's <c>URLPattern</c> matches with the engine's own regular expressions, which
-    /// only the page loop may run. PuppeteerSharp's <c>BlockList</c> and <c>Allowlist</c> connect options are
-    /// what send such entries, and it logs the refusal and carries on, as it did with the <c>-32601</c> before
-    /// this command was answered. Throttling is accepted and not honoured, for the reason
-    /// <see cref="EmulateNetworkConditionsAsync"/> gives, and <c>emulateOfflineServiceWorker</c> has no service
-    /// worker to apply to.
+    /// <b>The first entry that matches a request decides it</b>, and a request no entry matches is online. An
+    /// entry with an empty <c>urlPattern</c> is global and matches every request; any other is a URLPattern
+    /// constructor string, which must be absolute — <c>*://*.example.com/*</c> — and is matched against each
+    /// redirect hop's URL. Whether a matched request goes offline is the entry's own <c>offline</c>, or the
+    /// deprecated top-level <c>offline</c>, which Chrome lets override every entry's and which, with no
+    /// entries, has nothing to apply to. That is the whole of PuppeteerSharp's <c>BlockList</c> (one offline
+    /// entry per pattern, sent with the top-level <c>offline</c>) and <c>Allowlist</c> (one online entry per
+    /// pattern, then a global offline one), so a page's own <c>fetch</c>, <c>XMLHttpRequest</c> and
+    /// subresources are refused as Chrome refuses them, not only the navigations the client checks itself.
     /// </para>
     /// <para>
-    /// One identifier is minted per entry, as Chrome mints one. Chrome also names the rule on each request it
-    /// affected, in <c>requestWillBeSentExtraInfo</c>; that field is not sent here.
+    /// <b>A pattern is compiled here, on the page loop, and matched on a transport thread.</b>
+    /// <see cref="UrlPatternMatcher.TryCompile"/> parses it with the engine's own <c>URLPattern</c> parser and
+    /// keeps nothing of the engine, so the transport never touches it. Two refusals follow, both Chrome's and
+    /// both answered <c>-32602</c> in Chrome's wording, with the reason in <c>data</c>: a string that is not an
+    /// absolute pattern, and a pattern with a regexp group, whose body is JavaScript regular-expression source
+    /// that only the engine can read. A refused command changes nothing, whichever entry was refused.
+    /// </para>
+    /// <para>
+    /// Throttling is accepted and not honoured, for the reason <see cref="EmulateNetworkConditionsAsync"/> gives,
+    /// and <c>emulateOfflineServiceWorker</c> has no service worker to apply to. One identifier is minted per
+    /// entry, as Chrome mints one. Chrome also names the rule on each request it affected, in
+    /// <c>requestWillBeSentExtraInfo</c>; that field is not sent here.
     /// </para>
     /// <para>
     /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-emulateNetworkConditionsByRule"/>.
@@ -215,25 +225,29 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
         CommandContext context)
     {
         var entries = parameters.MatchedNetworkConditions;
-
-        foreach (var entry in entries)
-        {
-            if (entry.UrlPattern is { Length: > 0 })
-            {
-                return Throw.ServerError<ValueTask<EmulateNetworkConditionsByRuleResponse>>(
-                    "Network conditions scoped to a urlPattern are not supported",
-                    "this browser applies network conditions to every request or to none; leave urlPattern empty for an entry that applies to every request");
-            }
-        }
-
-        var offline = entries.Length > 0 && (parameters.Offline ?? entries[0].Offline ?? false);
-        _target.UpdateNetworkPolicy(policy => policy with { Offline = offline });
-
+        var conditions = new PageNetworkCondition[entries.Length];
         var ruleIds = new string[entries.Length];
-        for (var i = 0; i < ruleIds.Length; i++)
+
+        for (var i = 0; i < entries.Length; i++)
         {
+            var entry = entries[i];
+            UrlPatternMatcher? pattern = null;
+
+            if (entry.UrlPattern is { Length: > 0 } constructorString
+                && !UrlPatternMatcher.TryCompile(_target.Runtime.Engine, constructorString, out pattern, out var reason))
+            {
+                // Chrome's own answer, content/browser/devtools/protocol/network_handler.cc, and before anything is
+                // applied: a refused command leaves the conditions in force as they were.
+                return Throw.InvalidParams<ValueTask<EmulateNetworkConditionsByRuleResponse>>(
+                    $"Pattern \"{constructorString}\" failed to parse as a URLPattern.",
+                    reason);
+            }
+
+            conditions[i] = new PageNetworkCondition(pattern, parameters.Offline ?? entry.Offline ?? false);
             ruleIds[i] = Guid.NewGuid().ToString("N").ToUpperInvariant();
         }
+
+        _target.UpdateNetworkPolicy(policy => policy with { Conditions = conditions });
 
         return new ValueTask<EmulateNetworkConditionsByRuleResponse>(new EmulateNetworkConditionsByRuleResponse { RuleIds = ruleIds });
     }
@@ -287,34 +301,48 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
         }
     }
 
-    /// <summary>Refuses every request whose URL matches one of the patterns.</summary>
+    /// <summary>Refuses the requests the patterns block, and lets through the ones they allow.</summary>
     /// <remarks>
-    /// The protocol's own pattern shape — literal text with <c>*</c> for any run of characters — and a match
-    /// is <c>net::ERR_BLOCKED_BY_CLIENT</c> with <c>blockedReason: "inspector"</c>, which is what Chrome
-    /// sends. An empty list clears the block. <c>urlPatterns</c>, the newer parameter, is read as the
-    /// patterns it names.
+    /// <para>
+    /// <b>Chromium's renderer is the reference</b>: <c>InspectorNetworkAgent::setBlockedURLs</c> and
+    /// <c>ShouldBlockRequest</c>, in <c>third_party/blink/renderer/core/inspector/inspector_network_agent.cc</c>.
+    /// Each <c>urlPatterns</c> entry is a URLPattern constructor string, which must be absolute —
+    /// <c>*://*.example.com/*</c> — matched case-sensitively against each redirect hop's URL, and the first entry
+    /// that matches decides: <c>block: true</c> refuses the request, <c>block: false</c> lets it through whatever
+    /// follows. Only a URL no entry matches is read against the deprecated <c>urls</c>, which keep Chrome's own glob
+    /// (<see cref="BlockedUrlGlob"/>): literal text, <c>*</c> for any run, and unanchored at both ends. A refused
+    /// request fails with <c>net::ERR_BLOCKED_BY_CLIENT</c> and <c>blockedReason: "inspector"</c> before any
+    /// connection is opened.
+    /// </para>
+    /// <para>
+    /// <b>A pattern is compiled here, on the page loop, and matched on a transport thread</b>, as
+    /// <see cref="EmulateNetworkConditionsByRuleAsync"/> does it: <see cref="UrlPatternMatcher.TryCompile"/> keeps
+    /// nothing of the engine. A string that is not an absolute pattern, an empty one included, and a pattern with a
+    /// regexp group are refused with Chrome's <c>-32602</c>, the reason in <c>data</c>, and a refused command
+    /// changes nothing: Chrome compiles every entry before it clears anything. Each command replaces both members,
+    /// so one naming neither clears the block.
+    /// </para>
     /// </remarks>
     protected override ValueTask<EmptyResult> SetBlockedURLsAsync(SetBlockedURLsRequest parameters, CommandContext context)
     {
-        var patterns = new List<string>();
+        var entries = parameters.UrlPatterns ?? [];
+        var patterns = new PageBlockPattern[entries.Length];
 
-        if (parameters.Urls is { } urls)
+        for (var i = 0; i < entries.Length; i++)
         {
-            patterns.AddRange(urls);
-        }
-
-        if (parameters.UrlPatterns is { } declared)
-        {
-            foreach (var pattern in declared)
+            var entry = entries[i];
+            if (!UrlPatternMatcher.TryCompile(_target.Runtime.Engine, entry.UrlPattern, out var pattern, out var reason))
             {
-                if (pattern.Block)
-                {
-                    patterns.Add(pattern.UrlPattern);
-                }
+                return Throw.InvalidParams<ValueTask<EmptyResult>>(
+                    $"Pattern \"{entry.UrlPattern}\" failed to parse as a URLPattern.",
+                    reason);
             }
+
+            patterns[i] = new PageBlockPattern(pattern, entry.Block);
         }
 
-        _target.UpdateNetworkPolicy(policy => policy with { BlockedUrls = patterns });
+        var blocked = new PageBlockedUrls(patterns, parameters.Urls is { } urls ? [.. urls] : []);
+        _target.UpdateNetworkPolicy(policy => policy with { Blocked = blocked });
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 

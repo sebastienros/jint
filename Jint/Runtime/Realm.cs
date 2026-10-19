@@ -50,6 +50,13 @@ public sealed class Realm
     /// </summary>
     internal Native.Function.DynamicFunctionCacheKey _dynamicFunctionProbationKey;
 
+    /// <summary>
+    /// Identifies this realm's appends to the characters <see cref="JsString.ConcatenatedString"/> values share:
+    /// only the realm that started a chunk writes into it, so two engines handed one string never write the same
+    /// characters. A token rather than the realm itself, so a string a host keeps does not keep its engine alive.
+    /// </summary>
+    internal readonly object _concatenationOwner = new();
+
 
     // helps when debugging which nested realm we are in...
 #if DEBUG

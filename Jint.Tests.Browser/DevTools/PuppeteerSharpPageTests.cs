@@ -33,10 +33,37 @@ public class PuppeteerSharpPageTests
 {
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(120);
 
+    /// <summary>What every context of this test's browser sends through, and what <see cref="NothingLeftTheMachine"/> reads.</summary>
+    private readonly LoopbackOnlyTransport _network = new();
+
+    /// <summary>
+    /// Fails a test whose browser was not built through <see cref="NewBrowser"/>, or whose page reached for a
+    /// host that is not loopback.
+    /// </summary>
+    [TearDown]
+    public void NothingLeftTheMachine()
+    {
+        try
+        {
+            _network.AssertNothingEscaped();
+        }
+        finally
+        {
+            _network.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// A browser every context of which loads only what <paramref name="filter"/> admits, through
+    /// <see cref="_network"/> — the default context included, which is where <c>browser.NewPageAsync()</c> opens
+    /// a page.
+    /// </summary>
+    private global::Jint.Browser.Browser NewBrowser(Func<Uri, bool> filter) => new(_network.Install(new BrowserOptions(), filter));
+
     [Test]
     public async Task PuppeteerBrowserSessionCoexistsWithPageAutomation()
     {
-        await using var pages = new global::Jint.Browser.Browser();
+        await using var pages = NewBrowser(static uri => uri.IsLoopback);
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
         await server.StartAsync();
@@ -63,8 +90,7 @@ public class PuppeteerSharpPageTests
         origin.MapHtml("/one", "<html><head><title>First</title></head><body><p id='greeting'>hello</p></body></html>");
         origin.MapHtml("/two", "<html><head><title>Second</title></head><body><p id='greeting'>again</p></body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -77,8 +103,11 @@ public class PuppeteerSharpPageTests
 
         browser.IsConnected.Should().BeTrue();
 
-        // The client's own newPage, which is Target.createBrowserContext + createTarget through the host.
+        // The client's own newPage, which is Target.createTarget with no browserContextId, so the page opens in
+        // the browser's default context, as it would in Chrome. That is why NewBrowser bounds every context
+        // rather than one created beside the default.
         var page = await browser.NewPageAsync().WaitAsync(Bound);
+        pages.DefaultContext.Pages.Should().ContainSingle("a createTarget that names no context opens its page in the default one");
 
         // The navigation runs and the client gets a response object back, which it builds out of the
         // Network.responseReceived for the document request -- the one whose requestId is the loaderId.
@@ -112,8 +141,6 @@ public class PuppeteerSharpPageTests
 
         browser.Disconnect();
         browser.IsConnected.Should().BeFalse();
-
-        await context.CloseAsync();
     }
 
     /// <summary>
@@ -156,8 +183,7 @@ public class PuppeteerSharpPageTests
 
         origin.MapHtml("/next", "<html><head><title>Next</title></head><body><p>arrived</p></body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -218,7 +244,6 @@ public class PuppeteerSharpPageTests
         refusal.Message.Should().Contain("Jint.getMarkdown");
 
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     /// <summary>
@@ -256,8 +281,7 @@ public class PuppeteerSharpPageTests
 
         origin.MapHtml("/done", "<html><head><title>Done</title></head><body><p>submitted</p></body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -316,7 +340,6 @@ public class PuppeteerSharpPageTests
         page.Url.Should().Contain("name=hel");
 
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     /// <summary>
@@ -346,8 +369,7 @@ public class PuppeteerSharpPageTests
             </body></html>
             """);
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -388,7 +410,6 @@ public class PuppeteerSharpPageTests
         (await page.EvaluateExpressionAsync<string>("document.title").WaitAsync(Bound)).Should().Be("Emulation");
 
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     /// <summary>
@@ -409,8 +430,7 @@ public class PuppeteerSharpPageTests
             </body></html>
             """);
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -437,7 +457,6 @@ public class PuppeteerSharpPageTests
         flattened.Should().Contain(node => node.Role == "heading" && node.Name == "Report");
 
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     private static IEnumerable<SerializedAXNode> Flatten(SerializedAXNode node)
@@ -460,8 +479,7 @@ public class PuppeteerSharpPageTests
         origin.Map("/rows.json", _ => LoopbackResponse.Json("""{"rows":[1,2,3]}"""));
         origin.MapHtml("/one", "<html><head><title>Requests</title></head><body>one</body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -489,7 +507,6 @@ public class PuppeteerSharpPageTests
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     [Test]
@@ -499,8 +516,7 @@ public class PuppeteerSharpPageTests
         origin.MapHtml("/one", "<html><head><title>Origin</title></head><body>from the server</body></html>");
         origin.Map("/blocked.js", _ => LoopbackResponse.Script("globalThis.__blocked = true;"));
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -551,7 +567,6 @@ public class PuppeteerSharpPageTests
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     [Test]
@@ -560,8 +575,7 @@ public class PuppeteerSharpPageTests
         using var origin = new LoopbackServer();
         origin.MapHtml("/one", "<html><head><title>Headers</title></head><body>one</body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -600,36 +614,37 @@ public class PuppeteerSharpPageTests
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     /// <summary>
-    /// <c>ConnectOptions.BlockList</c> is the one PuppeteerSharp path that sends URL-scoped rules, and this
-    /// server's refusal of them reaches the client's log rather than any call the client made.
+    /// <c>ConnectOptions.BlockList</c> refuses a page's <b>own</b> requests to a blocked URL, as Chrome does, and
+    /// not only the navigations PuppeteerSharp checks itself.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// PuppeteerSharp sends the list as <c>Network.emulateNetworkConditionsByRule</c>, one offline entry per
-    /// pattern, from <c>ChromeTargetManager.MaybeSetupNetworkBlockListAsync</c> on every target it attaches to.
-    /// That method catches every exception and logs <c>Failed to setup network block list</c>, so the
-    /// <c>-32000</c> never reaches <c>ConnectAsync</c>, <c>NewPageAsync</c> or <c>GoToAsync</c>. Before the
-    /// command was implemented it answered <c>-32601</c>, which took the same catch.
+    /// PuppeteerSharp sends the list as <c>Network.emulateNetworkConditionsByRule</c> — one offline entry per
+    /// pattern, beside the deprecated top-level <c>offline</c> — from
+    /// <c>ChromeTargetManager.MaybeSetupNetworkBlockListAsync</c> on every target it attaches to, and checks a
+    /// <c>GoToAsync</c> against the list itself. A <c>fetch</c> the page makes reaches no client-side check: it is
+    /// refused here, by the page's network conditions, with Chrome's <c>net::ERR_INTERNET_DISCONNECTED</c>.
     /// </para>
     /// <para>
-    /// The top-level navigation to a blocked URL is still refused, by PuppeteerSharp's own check before the
-    /// command is sent. What this server does not do is refuse a page's own requests to a blocked URL, because
-    /// it does not match URL patterns.
+    /// The patterns are the URLPattern syntax the protocol names. The browser admits every host, so that what
+    /// refuses a blocked URL is the client's list and not a filter of ours, and the transport answers every
+    /// host that is not loopback in process (<see cref="LoopbackOnlyTransport.AnswerOtherHostsInProcess"/>): a
+    /// blocked request that slipped through would be answered there rather than reach the network, which is
+    /// also what the test reads to prove that none did.
     /// </para>
     /// </remarks>
     [Test]
-    public async Task PuppeteerConnectsWithABlockListAndHearsTheUrlScopedRulesRefused()
+    public async Task PuppeteerBlockListFailsThePagesOwnRequestsToABlockedUrl()
     {
         using var origin = new LoopbackServer();
         origin.MapHtml("/one", "<html><head><title>Allowed</title></head><body>one</body></html>");
-        origin.MapHtml("/blocked", "<html><body>blocked</body></html>");
+        origin.Map("/data", _ => LoopbackResponse.Text("went"));
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        _network.AnswerOtherHostsInProcess = true;
+        await using var pages = NewBrowser(static _ => true);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -640,29 +655,42 @@ public class PuppeteerSharpPageTests
             new ConnectOptions
             {
                 BrowserWSEndpoint = server.BrowserWebSocketUrl,
-                BlockList = [origin.Url("/blocked")],
+                BlockList = ["*://example.com/*", "*://*.evil.com/*"],
             },
             log).WaitAsync(Bound);
 
         var page = await browser.NewPageAsync().WaitAsync(Bound);
+        var failures = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.RequestFailed += (_, e) => failures.Enqueue(e.Request.Url + " " + e.Request.FailureText);
 
         var allowed = await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound);
         allowed.Should().NotBeNull();
         allowed!.Ok.Should().BeTrue();
 
-        var blocked = async () => await page.GoToAsync(origin.Url("/blocked")).WaitAsync(Bound);
-        await blocked.Should().ThrowAsync<NavigationException>("PuppeteerSharp checks a navigation against its own list first");
+        (await FetchAsync(page, "http://example.com/data")).Should().Be("refused");
+        (await FetchAsync(page, "https://cdn.evil.com/tracker.js")).Should().Be("refused");
 
-        // The page's attachment refuses the rules with the reason. PuppeteerSharp sends the list to the tab's
-        // attachment too, which has no Network domain and answers -32601; that is logged the same way.
-        await WaitUntilAsync(() => log.Errors.Any(entry =>
-            entry.Message == "Failed to setup network block list"
-            && entry.Exception?.Message.Contains("scoped to a urlPattern", StringComparison.Ordinal) == true));
+        (await FetchAsync(page, "/data")).Should().Be("went", "the origin is on neither pattern");
+        (await FetchAsync(page, "http://evil.com/data")).Should().Be("went", "*.evil.com names a subdomain, and URLPattern reads it so");
+
+        await WaitUntilAsync(() => failures.Count >= 2);
+        failures.Should().BeEquivalentTo(
+            "http://example.com/data net::ERR_INTERNET_DISCONNECTED",
+            "https://cdn.evil.com/tracker.js net::ERR_INTERNET_DISCONNECTED");
+        _network.Answered.Should().Equal(["http://evil.com/data"], "a blocked request opens no connection, so only the allowed one was answered");
+
+        // PuppeteerSharp logs and swallows a refused list, so the log is where a refusal would show. The page's
+        // attachment accepted it; the tab's has no Network domain and answers -32601.
+        log.Errors.Where(entry => entry.Message == "Failed to setup network block list").Should().OnlyContain(
+            entry => entry.Exception != null && entry.Exception.Message.Contains("wasn't found", StringComparison.Ordinal));
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
-        await context.CloseAsync();
     }
+
+    /// <summary>Fetches <paramref name="url"/> from the page, answering its body or <c>refused</c>.</summary>
+    private static Task<string> FetchAsync(IPage page, string url)
+        => page.EvaluateFunctionAsync<string>("url => fetch(url, {cache: 'no-store'}).then(r => r.text(), () => 'refused')", url).WaitAsync(Bound);
 
     /// <summary>An <see cref="Microsoft.Extensions.Logging.ILoggerFactory"/> that keeps every error a client logged.</summary>
     private sealed class RecordingLoggerFactory : Microsoft.Extensions.Logging.ILoggerFactory
@@ -728,7 +756,7 @@ public class PuppeteerSharpPageTests
         using var origin = new LoopbackServer();
         origin.MapHtml("/one", "<html><head><title>Existing</title></head><body>one</body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
+        await using var pages = NewBrowser(origin.Owns);
         var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
         var hosted = await context.NewPageAsync();
         await hosted.NavigateAsync(origin.Url("/one"));
@@ -777,8 +805,7 @@ public class PuppeteerSharpPageTests
             <body><p id="box" class="used">text</p></body></html>
             """);
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -807,7 +834,6 @@ public class PuppeteerSharpPageTests
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     /// <summary>Runs <paramref name="work"/> and answers what it threw, or <see langword="null"/>.</summary>

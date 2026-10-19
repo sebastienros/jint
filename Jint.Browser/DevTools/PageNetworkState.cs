@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Net;
 using Jint.Browser.Runtime;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.Url.Parsing;
+using Jint.WebApi.Url.Pattern;
 using ProtocolNetwork = Jint.DevTools.Protocol.Network;
 
 namespace Jint.Browser.DevTools;
@@ -29,33 +31,65 @@ namespace Jint.Browser.DevTools;
 /// <see cref="Apply"/> is handed that state rather than keeping a copy of it.
 /// </para>
 /// <param name="ExtraHeaders">What <c>Network.setExtraHTTPHeaders</c> asked to add to every request.</param>
-/// <param name="Offline">
-/// Whether the network conditions in force pulled the plug. <c>Network.emulateNetworkConditions</c> and
-/// <c>Network.emulateNetworkConditionsByRule</c> both write it and each replaces what the other set, so the last
-/// one sent decides. What <c>navigator.onLine</c> answers is the page's <c>EmulationState.Offline</c> instead.
+/// <param name="Conditions">
+/// The network conditions in force, in the order a client listed them; <see cref="IsOffline"/> reads them.
+/// <c>Network.emulateNetworkConditions</c> and <c>Network.emulateNetworkConditionsByRule</c> both write the
+/// whole list and each replaces what the other set, so the last one sent decides. What <c>navigator.onLine</c>
+/// answers is the page's <c>EmulationState.Offline</c> instead.
 /// </param>
-/// <param name="BlockedUrls">The patterns <c>Network.setBlockedURLs</c> refuses.</param>
+/// <param name="Blocked">What <c>Network.setBlockedURLs</c> refuses; <see cref="Blocks"/> reads it.</param>
 internal sealed record PageNetworkPolicy(
     IReadOnlyList<PageHeader> ExtraHeaders,
-    bool Offline,
-    IReadOnlyList<string> BlockedUrls)
+    IReadOnlyList<PageNetworkCondition> Conditions,
+    PageBlockedUrls Blocked)
 {
     /// <summary>A page nobody has configured: every request goes as the page composed it.</summary>
-    internal static PageNetworkPolicy None { get; } = new([], false, []);
+    internal static PageNetworkPolicy None { get; } = new([], [], PageBlockedUrls.None);
 
-    /// <summary>Whether <paramref name="url"/> is one <c>setBlockedURLs</c> refuses.</summary>
-    internal bool Blocks(string url)
+    /// <summary>Whether the network conditions in force take <paramref name="url"/> offline.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first entry that matches decides</b>, offline or not, and a URL no entry matches is online. That
+    /// is the protocol's rule, and Chromium's network service keeps it exactly: it mints a distinct rule
+    /// identifier per entry, so two entries with the same conditions are never merged and their order is never
+    /// lost. A global entry matches every URL, so nothing after one is ever read.
+    /// </para>
+    /// <para>
+    /// <b>Called on a transport thread, once per redirect hop</b>, so a redirect into a pattern is refused at the
+    /// hop that enters it. Nothing here reaches an engine: a pattern is a <see cref="UrlPatternMatcher"/>, and the
+    /// URL is parsed at most once, and only when a pattern has to read it.
+    /// </para>
+    /// </remarks>
+    internal bool IsOffline(string url)
     {
-        foreach (var pattern in BlockedUrls)
+        UrlRecord? parsed = null;
+        var unparsed = true;
+
+        foreach (var condition in Conditions)
         {
-            if (UrlPattern.Matches(pattern, url))
+            if (condition.Pattern is not { } pattern)
             {
-                return true;
+                return condition.Offline;
+            }
+
+            if (unparsed)
+            {
+                parsed = UrlParser.Parse(url);
+                unparsed = false;
+            }
+
+            // A URL that does not parse matches no pattern; only a global entry can reach it.
+            if (parsed is not null && pattern.Matches(parsed))
+            {
+                return condition.Offline;
             }
         }
 
         return false;
     }
+
+    /// <summary>Whether <paramref name="url"/> is one <c>setBlockedURLs</c> refuses.</summary>
+    internal bool Blocks(string url) => Blocked.Blocks(url);
 
     /// <summary>
     /// The header list one hop should carry, or <see langword="null"/> when the hop's own is already right.
@@ -126,64 +160,309 @@ internal sealed record PageNetworkPolicy(
     }
 }
 
+/// <summary>One entry of the network conditions in force: the requests it applies to, and whether it takes them offline.</summary>
+/// <remarks>
+/// Latency, throughput and the WebRTC packet settings are not kept, because nothing honours them — see
+/// <c>NetworkDomain.EmulateNetworkConditionsAsync</c>. An entry that only throttles is still kept, as one
+/// whose <see cref="Offline"/> is <see langword="false"/>: being the first to match is what lets it keep a
+/// request online that a later entry would have taken offline.
+/// </remarks>
+/// <param name="Pattern">
+/// The requests the entry applies to, compiled on the page loop from the entry's <c>urlPattern</c> and matched on a
+/// transport thread; <see langword="null"/> for a global entry, which applies to every request.
+/// </param>
+/// <param name="Offline">Whether a request this entry decides fails with <c>net::ERR_INTERNET_DISCONNECTED</c>.</param>
+internal sealed record PageNetworkCondition(UrlPatternMatcher? Pattern, bool Offline)
+{
+    /// <summary>The single global entry the deprecated <c>Network.emulateNetworkConditions</c> amounts to when offline.</summary>
+    internal static PageNetworkCondition GlobalOffline { get; } = new(null, true);
+}
+
 /// <summary>
-/// The protocol's own URL pattern: literal text with <c>*</c> standing for any run of characters.
+/// What <c>Network.setBlockedURLs</c> asked to refuse: URLPattern entries, read first, and the deprecated globs
+/// beside them — https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-setBlockedURLs.
 /// </summary>
 /// <remarks>
-/// <b>Not a regular expression and not a glob.</b> Chrome's <c>Network.setBlockedURLs</c> and
-/// <c>Fetch.enable</c> both take this shape and nothing else — <c>*</c> crosses <c>/</c>, <c>?</c> is a
-/// literal question mark, and a pattern with no <c>*</c> must equal the URL. Matching is ordinal and
-/// case-sensitive, which is what Chrome does; a host that wants more writes a <c>UrlFilter</c>.
+/// <para>
+/// <b>Chromium's renderer is the reference</b>, <c>InspectorNetworkAgent::ShouldBlockRequest</c> in
+/// <c>third_party/blink/renderer/core/inspector/inspector_network_agent.cc</c>. The first pattern that matches
+/// decides, and a <c>block: false</c> one lets the request through whatever comes after it, globs included; only
+/// a URL no pattern matches is searched for a glob, and any glob that matches blocks it.
+/// </para>
+/// <para>
+/// <b>Read on a transport thread, once per redirect hop</b>, which is why it holds nothing of an engine: each
+/// pattern is a <see cref="UrlPatternMatcher"/> compiled on the page loop, each glob a string, and the URL is
+/// parsed at most once, and only when there is a pattern to read it.
+/// </para>
 /// </remarks>
-internal static class UrlPattern
+/// <param name="Patterns">The <c>urlPatterns</c> entries, in the order a client listed them.</param>
+/// <param name="Urls">The deprecated <c>urls</c>, each one read as a <see cref="BlockedUrlGlob"/>.</param>
+internal sealed record PageBlockedUrls(IReadOnlyList<PageBlockPattern> Patterns, IReadOnlyList<string> Urls)
 {
-    /// <summary>Whether <paramref name="url"/> matches <paramref name="pattern"/>.</summary>
-    internal static bool Matches(string pattern, string url)
+    /// <summary>Nothing blocked, which is also what a command naming neither member sets.</summary>
+    internal static PageBlockedUrls None { get; } = new([], []);
+
+    /// <summary>Whether a request for <paramref name="url"/> is refused.</summary>
+    internal bool Blocks(string url)
     {
-        if (pattern.Length == 0 || string.Equals(pattern, "*", StringComparison.Ordinal))
+        // A URL that does not parse matches no pattern, and is left to the globs.
+        if (Patterns.Count > 0 && UrlParser.Parse(url) is { } parsed)
         {
-            return true;
+            foreach (var pattern in Patterns)
+            {
+                if (pattern.Pattern.Matches(parsed))
+                {
+                    return pattern.Block;
+                }
+            }
         }
 
-        return Matches(pattern.AsSpan(), url.AsSpan());
-    }
+        foreach (var glob in Urls)
+        {
+            if (BlockedUrlGlob.Matches(glob, url))
+            {
+                return true;
+            }
+        }
 
-    private static bool Matches(ReadOnlySpan<char> pattern, ReadOnlySpan<char> text)
+        return false;
+    }
+}
+
+/// <summary>One <c>Network.BlockPattern</c>: the requests it matches, and whether it blocks or allows them.</summary>
+/// <param name="Pattern">The entry's <c>urlPattern</c>, compiled on the page loop and matched on a transport thread.</param>
+/// <param name="Block">
+/// Whether a request this entry decides is refused; <see langword="false"/> lets it through even when a later entry
+/// or a glob would have refused it.
+/// </param>
+internal sealed record PageBlockPattern(UrlPatternMatcher Pattern, bool Block);
+
+/// <summary>
+/// The glob <c>Network.setBlockedURLs</c>' deprecated <c>urls</c> member is read with: literal text, <c>*</c> for
+/// any run of characters, and an implicit <c>*</c> at either end.
+/// </summary>
+/// <remarks>
+/// Chromium's own <c>Matches</c> in <c>inspector_network_agent.cc</c>, step for step: the pieces between the stars
+/// are found in the URL in order, each after the end of the last, and nothing anchors the first or the last — so
+/// <c>tracker.js</c> blocks every URL containing it, and an empty glob or a lone <c>*</c> blocks everything. The
+/// search is ordinal and case-sensitive over the URL's serialization. Taking the leftmost occurrence of each piece
+/// is what makes one pass enough: it leaves the most of the URL for the pieces after it.
+/// </remarks>
+internal static class BlockedUrlGlob
+{
+    /// <summary>Whether <paramref name="url"/> matches <paramref name="glob"/>.</summary>
+    internal static bool Matches(string glob, string url)
     {
+        var pieces = glob.AsSpan();
+        var rest = url.AsSpan();
+
         while (true)
         {
-            var star = pattern.IndexOf('*');
+            var star = pieces.IndexOf('*');
+            var piece = star < 0 ? pieces : pieces[..star];
+
+            if (!piece.IsEmpty)
+            {
+                var at = rest.IndexOf(piece);
+                if (at < 0)
+                {
+                    return false;
+                }
+
+                rest = rest[(at + piece.Length)..];
+            }
+
             if (star < 0)
-            {
-                return pattern.SequenceEqual(text);
-            }
-
-            var prefix = pattern[..star];
-            if (!text.StartsWith(prefix, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            pattern = pattern[(star + 1)..];
-            text = text[prefix.Length..];
-
-            if (pattern.IsEmpty)
             {
                 return true;
             }
 
-            // The rest of the pattern has to match somewhere further along; try every position, shortest
-            // first. Patterns here are a handful of segments, so the quadratic worst case is not one.
-            for (var i = 0; i <= text.Length; i++)
+            pieces = pieces[(star + 1)..];
+        }
+    }
+}
+
+/// <summary>
+/// <c>Fetch.enable</c>'s <c>urlPattern</c>, read as Chromium reads it: <c>*</c> for any run of characters,
+/// <c>?</c> for at most one, a backslash making the next character literal, and the whole URL covered except its
+/// fragment — https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#type-RequestPattern.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Chromium is the reference, step for step.</b> <c>FetchHandler</c>'s <c>ToInterceptionPatterns</c>
+/// (<c>content/browser/devtools/protocol/fetch_handler.cc</c>) puts <c>*</c> in place of an <i>omitted</i>
+/// <c>urlPattern</c> only, which is the domain's to do; an empty one stays a pattern, and it matches no URL.
+/// <c>DevToolsURLLoaderInterceptor::GetInterceptionStages</c>
+/// (<c>content/browser/devtools/devtools_url_loader_interceptor.cc</c>) takes the fragment off with
+/// <c>NetworkHandler::ExtractFragment</c> and hands the rest to <c>Pattern::Matches</c>, which is
+/// <c>base::MatchPattern</c> (<c>base/strings/pattern.cc</c>). That function is what is ported below, one
+/// method for each of its own.
+/// </para>
+/// <para>
+/// <b>Where the protocol's description and the browser part, this follows the browser.</b> The description says
+/// <c>?</c> is "exactly one" character, and <c>base::MatchPattern</c> takes it as zero or one. And each piece
+/// between wildcards is taken at the first place the wildcards before it can reach, never to be reconsidered,
+/// so <c>/?a?b</c> does not match <c>/aaab</c> though a backtracking matcher would say it does. A client written
+/// against Chrome expects the requests Chrome pauses, no more and no fewer.
+/// </para>
+/// <para>
+/// Matching is ordinal and case-sensitive, a wildcard counts code points rather than UTF-16 units, and the search
+/// is a loop with no recursion, so no pattern costs more than the URL's length times its own. It runs on a
+/// transport thread once per hop and holds nothing. <c>Network.setBlockedURLs</c> reads neither this nor anything
+/// anchored: its <c>urlPatterns</c> are URLPattern syntax, and its deprecated <c>urls</c> a
+/// <see cref="BlockedUrlGlob"/>.
+/// </para>
+/// </remarks>
+internal static class FetchUrlGlob
+{
+    /// <summary>What <c>CBU_SENTINEL</c> stands for: a unit that decodes to no code point, and so equals nothing.</summary>
+    private const int Sentinel = -1;
+
+    /// <summary>Whether a request for <paramref name="url"/> matches <paramref name="pattern"/>.</summary>
+    internal static bool Matches(string pattern, string url)
+    {
+        // An absolute URL's serialization has no '#' but the one that starts its fragment.
+        var hash = url.IndexOf('#');
+        var text = hash < 0 ? url.AsSpan() : url.AsSpan(0, hash);
+
+        return MatchPattern(text, pattern.AsSpan());
+    }
+
+    /// <summary><c>MatchPatternT</c>: each run of wildcards, then the piece after it, until the pattern ends.</summary>
+    private static bool MatchPattern(ReadOnlySpan<char> text, ReadOnlySpan<char> pattern)
+    {
+        var p = 0;
+        var t = 0;
+
+        do
+        {
+            var reach = EatWildcards(pattern, ref p);
+            if (!SearchForChars(pattern, ref p, text, ref t, reach))
             {
-                if (Matches(pattern, text[i..]))
+                return false;
+            }
+        }
+        while (p < pattern.Length);
+
+        return true;
+    }
+
+    /// <summary>
+    /// <c>EatWildcards</c>: consumes a run of <c>?</c> and <c>*</c>, and answers how many code points the piece after
+    /// it may start from here — one per <c>?</c>, or <c>-1</c>, unbounded, once the run holds a <c>*</c>.
+    /// </summary>
+    private static int EatWildcards(ReadOnlySpan<char> pattern, ref int p)
+    {
+        var questionMarks = 0;
+        var asterisk = false;
+
+        for (; p < pattern.Length; p++)
+        {
+            if (pattern[p] == '?')
+            {
+                questionMarks++;
+            }
+            else if (pattern[p] == '*')
+            {
+                asterisk = true;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return asterisk ? -1 : questionMarks;
+    }
+
+    /// <summary>
+    /// <c>SearchForChars</c>: finds the piece at <paramref name="p"/> — up to the next unescaped wildcard, or the end
+    /// of the pattern, which must then meet the end of the URL — starting at most <paramref name="reach"/> code
+    /// points past <paramref name="t"/>, and leaves both positions after it.
+    /// </summary>
+    /// <remarks>
+    /// The leftmost start that fits wins, and the caller never comes back to try another; that is Chromium's
+    /// search, and what makes one pass enough.
+    /// </remarks>
+    private static bool SearchForChars(ReadOnlySpan<char> pattern, ref int p, ReadOnlySpan<char> text, ref int t, int reach)
+    {
+        var pieceStart = p;
+        var searchStart = t;
+
+        // Outside the loop, where Chromium declares it: a retry keeps it, which only a piece ending in a lone
+        // backslash can ever notice.
+        var escape = false;
+
+        while (true)
+        {
+            if (p == pattern.Length)
+            {
+                if (t == text.Length)
                 {
                     return true;
                 }
             }
+            else
+            {
+                if (!escape && pattern[p] is '*' or '?')
+                {
+                    return true;
+                }
 
-            return false;
+                if (!escape && pattern[p] == '\\')
+                {
+                    escape = true;
+                    p++;
+                    continue;
+                }
+
+                escape = false;
+
+                if (t == text.Length)
+                {
+                    return false;
+                }
+
+                var expected = Next(pattern, p, out var patternLength);
+                if (expected != Sentinel && expected == Next(text, t, out var textLength))
+                {
+                    p += patternLength;
+                    t += textLength;
+                    continue;
+                }
+            }
+
+            // A mismatch: start the piece again one code point further along, if the wildcards reach that far.
+            if (reach == 0)
+            {
+                return false;
+            }
+
+            if (reach > 0)
+            {
+                reach--;
+            }
+
+            p = pieceStart;
+            Next(text, searchStart, out var step);
+            searchStart += step;
+            t = searchStart;
         }
+    }
+
+    /// <summary>The code point at <paramref name="at"/>, or <see cref="Sentinel"/> for a lone surrogate.</summary>
+    private static int Next(ReadOnlySpan<char> text, int at, out int length)
+    {
+        var c = text[at];
+        if (!char.IsSurrogate(c))
+        {
+            length = 1;
+            return c;
+        }
+
+        return System.Text.Rune.DecodeFromUtf16(text[at..], out var rune, out length) == System.Buffers.OperationStatus.Done
+            ? rune.Value
+            : Sentinel;
     }
 }
 

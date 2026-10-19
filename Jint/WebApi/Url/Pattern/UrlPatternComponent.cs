@@ -33,12 +33,20 @@ internal sealed class UrlPatternComponent
     /// <summary>https://url.spec.whatwg.org/#special-scheme</summary>
     private static readonly string[] _specialSchemes = ["ftp", "file", "http", "https", "ws", "wss"];
 
-    private UrlPatternComponent(string patternString, JsRegExp regularExpression, string[] groupNameList, bool hasRegexpGroups)
+    private UrlPatternComponent(
+        string patternString,
+        JsRegExp regularExpression,
+        string[] groupNameList,
+        bool hasRegexpGroups,
+        UrlPatternPart[] partList,
+        UrlPatternCompileOptions options)
     {
         PatternString = patternString;
         RegularExpression = regularExpression;
         GroupNameList = groupNameList;
         HasRegexpGroups = hasRegexpGroups;
+        PartList = partList;
+        Options = options;
     }
 
     /// <summary>https://urlpattern.spec.whatwg.org/#component-pattern-string</summary>
@@ -52,6 +60,15 @@ internal sealed class UrlPatternComponent
 
     /// <summary>https://urlpattern.spec.whatwg.org/#component-has-regexp-groups</summary>
     internal bool HasRegexpGroups { get; }
+
+    /// <summary>
+    /// The part list <see cref="RegularExpression"/> was generated from — strings and enums, nothing of the
+    /// engine — kept so that <see cref="UrlPatternMatcher"/> can generate a matcher of its own from it.
+    /// </summary>
+    internal UrlPatternPart[] PartList { get; }
+
+    /// <summary>The options the part list was parsed and generated with.</summary>
+    internal UrlPatternCompileOptions Options { get; }
 
     /// <summary>
     /// https://urlpattern.spec.whatwg.org/#compile-a-component
@@ -93,7 +110,9 @@ internal sealed class UrlPatternComponent
             UrlPatternGenerator.GeneratePatternString(partList, options),
             regularExpression,
             nameList,
-            hasRegexpGroups);
+            hasRegexpGroups,
+            [.. partList],
+            options);
     }
 
     /// <summary>

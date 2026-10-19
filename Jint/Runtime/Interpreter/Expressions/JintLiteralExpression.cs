@@ -34,7 +34,7 @@ internal sealed class JintLiteralExpression : JintExpression
                 return JsValue.Null;
             case TokenKind.NumericLiteral:
                 {
-                    var numericValue = ((NumericLiteral) literal).NearestDouble();
+                    var numericValue = ((NumericLiteral) literal).Value;
                     var intValue = (int) numericValue;
                     return numericValue == intValue
                            && (intValue != 0 || BitConverter.DoubleToInt64Bits(numericValue) != JsNumber.NegativeZeroBits)

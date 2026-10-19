@@ -4,6 +4,12 @@ namespace Jint.HtmlParser.Html;
 
 internal sealed partial class HtmlTokenizer
 {
+    private static readonly int s_ampState = HtmlEntities.Lookup.StateOf("amp;");
+    private static readonly int s_nbspState = HtmlEntities.Lookup.StateOf("nbsp;");
+    private static readonly int s_quotState = HtmlEntities.Lookup.StateOf("quot;");
+    private static readonly int s_ltState = HtmlEntities.Lookup.StateOf("lt;");
+    private static readonly int s_gtState = HtmlEntities.Lookup.StateOf("gt;");
+
     private bool StepReference(char c)
     {
         switch (_state)
@@ -139,6 +145,55 @@ internal sealed partial class HtmlTokenizer
         Poll();
         // The unit that stopped the walk is already in view: finish without another scanner turn.
         if (length < limit) FinishNamedReference(source[length]);
+        return true;
+    }
+
+    // HTML Standard §13.2.5.72–73: a named reference whose name ends in ';' and is a complete
+    // entity takes the error-free path through the named character reference state, whatever
+    // follows it. The scan reads from the '&' at amp; length counts the units after it, ';'
+    // included, and state is the trie state the ';' reaches.
+    private static bool TryScanTerminatedReference(ReadOnlySpan<char> source, int amp, out int length, out int state)
+    {
+        var rest = source[(amp + 1)..];
+        // The references nearly every document is made of, matched before the trie walk; each state
+        // is the one the walk reaches.
+        if (rest.StartsWith("amp;")) { length = 4; state = s_ampState; return true; }
+        if (rest.StartsWith("nbsp;")) { length = 5; state = s_nbspState; return true; }
+        if (rest.StartsWith("quot;")) { length = 5; state = s_quotState; return true; }
+        if (rest.StartsWith("lt;")) { length = 3; state = s_ltState; return true; }
+        if (rest.StartsWith("gt;")) { length = 3; state = s_gtState; return true; }
+        state = 0;
+        length = 0;
+        var lookup = HtmlEntities.Lookup;
+        for (var i = amp + 1; i < source.Length; i++)
+        {
+            var c = source[i];
+            if (c == ';')
+            {
+                if (i == amp + 1 || !lookup.TryAdvance(state, ';', out state, out var value) || value is null) return false;
+                length = i - amp;
+                return true;
+            }
+            if (!AsciiAlpha(c) && !AsciiDigit(c)) return false;
+            if (!lookup.TryAdvance(state, c, out state, out _)) return false;
+        }
+        return false;
+    }
+
+    // The Data or RCDATA state's '&' step and the named character reference state's run, in one
+    // scanner iteration: one unit for the '&' (already charged by ReadCore) plus one per unit of
+    // the name, the same text append, and the same offsets. The scalar states charge exactly that
+    // when the run that walks the name also sees the unit after it, so the reference ends inside
+    // the current slice and inside the quota; otherwise they are left to it.
+    private bool TryConsumeTextReference()
+    {
+        var source = _input.CurrentSpan;
+        if (!TryScanTerminatedReference(source, 0, out var length, out var state)) return false;
+        if (length + 1 >= source.Length || length >= _remainingWork) return false;
+        if (_maxToken > 0 && length + 1 > _maxToken) return false;
+        Text(HtmlEntities.Lookup.ValueAt(state)!, _input.Offset);
+        _input.ConsumeOrdinaryRun(length + 1);
+        ChargeCopy(length);
         return true;
     }
 

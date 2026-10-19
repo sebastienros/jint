@@ -9,11 +9,14 @@ namespace Jint.HtmlParser;
 // before it happens; Clear keeps the capacity for the next token.
 internal sealed class CharBuffer
 {
-    private const int DefaultCapacity = 16;
+    internal const int DefaultCapacity = 16;
 
+    // A default buffer allocates its storage on first use, so a scanner that owns several buffers
+    // for rare token kinds pays only for the ones a document reaches; the first allocation is the
+    // default capacity, so growth from there charges as it always has.
     private char[] _chars;
 
-    internal CharBuffer(int capacity = DefaultCapacity) => _chars = new char[capacity];
+    internal CharBuffer(int capacity = DefaultCapacity) => _chars = capacity == DefaultCapacity ? [] : new char[capacity];
 
     internal int Length { get; private set; }
 
@@ -34,7 +37,7 @@ internal sealed class CharBuffer
 
     internal void EnsureCapacity(int capacity)
     {
-        if (capacity > _chars.Length) Array.Resize(ref _chars, capacity);
+        if (capacity > _chars.Length) Array.Resize(ref _chars, Math.Max(capacity, DefaultCapacity));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

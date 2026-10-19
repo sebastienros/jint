@@ -19,7 +19,7 @@ internal sealed class JintReturnStatement : JintStatement<ReturnStatement>
 
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        var value = _argument is not null ? _argument.GetValue(context).Clone() : JsValue.Undefined;
+        var value = _argument is not null ? _argument.GetValue(context) : JsValue.Undefined;
         return new Completion(CompletionType.Return, value, _statement);
     }
 }
