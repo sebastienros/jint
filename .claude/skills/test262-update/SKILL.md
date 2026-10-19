@@ -33,9 +33,9 @@ The runner does **not** read `../test262`. `State.Test262StreamLoader` downloads
 `SuiteGitSha`, so the local checkout exists only so you can read the range. Fetch it anyway — you cannot
 triage without it.
 
-The `GenerateTestSuite` MSBuild target hashes the settings file into `Generated/.settings.hash`. Change any
-byte of the settings and the next build wipes `Generated/` and regenerates. So: never pass `--no-build`, and
-if you suspect a stale generation, check the hash file rather than guessing.
+The `GenerateTestSuite` MSBuild target hashes the settings file and the tool manifest into
+`Generated/.settings.hash`. Change any byte of either and the next build wipes `Generated/` and regenerates.
+So: never pass `--no-build`, and if you suspect a stale generation, check the hash file rather than guessing.
 
 ## 1. Establish the range
 

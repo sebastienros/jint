@@ -33,7 +33,6 @@ updates:
           - "Test262Harness"
           - "MongoDB.Bson.signed"
           - "Flurl.Http.Signed"
-          - "SharpZipLib"
       # Benchmarking tooling.
       benchmark:
         patterns:
