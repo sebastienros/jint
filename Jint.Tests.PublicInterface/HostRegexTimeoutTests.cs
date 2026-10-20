@@ -30,15 +30,18 @@ namespace Jint.Tests.PublicInterface;
 public class HostRegexTimeoutTests
 {
     /// <summary>
-    /// A pattern that .NET's <see cref="Regex"/> backtracks catastrophically on, and that stays on the
-    /// .NET lane rather than being handed to Jint's custom engine — which matters because only the .NET
-    /// lane carries the timeout inside the compiled <see cref="Regex"/>, i.e. only there is the value the
-    /// adaptation was given the value that is actually enforced.
+    /// A pattern Jint's ECMAScript matcher backtracks exponentially on: each <c>a</c> can be taken by either
+    /// alternative, and the run is followed by a <c>!</c> rather than the <c>b</c> the pattern demands, so
+    /// every partition is tried. The nested-quantifier classic, <c>^(a+)+$</c>, is not hostile to that
+    /// matcher, which fails it at once.
     /// </summary>
-    private const string Catastrophic = "^(a+)+$";
+    private const string Catastrophic = "^(?:a|a)*b";
 
-    /// <summary>A subject the pattern cannot match, so every partition of it is tried.</summary>
-    private const string Subject = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!";
+    /// <summary>
+    /// A subject the pattern cannot match, so every partition of it is tried; the trailing <c>b</c> keeps a
+    /// required-literal prefilter from rejecting it before matching starts.
+    /// </summary>
+    private const string Subject = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!b";
 
     /// <summary>
     /// The host's budget. Deliberately unlike any default in the stack — Jint's own 10 s

@@ -19,7 +19,7 @@ public sealed record class ScriptPreparationOptions : IPreparationOptions<Script
 {
     private static readonly ParserOptions _defaultParserOptions = ScriptParsingOptions.Default.GetParserOptions() with
     {
-        OnRegExp = Engine.DeferredCompiledRegExpHandler,
+        OnRegExp = Engine.DeferredRegExpHandler,
     };
 
     /// <summary>
@@ -40,7 +40,7 @@ public sealed record class ScriptPreparationOptions : IPreparationOptions<Script
     private static readonly ConditionalWeakTable<ScriptParsingOptions, ParserOptions> _parserOptionsCache = new();
 
     private static readonly ConditionalWeakTable<ScriptParsingOptions, ParserOptions>.CreateValueCallback _createParserOptions =
-        static parsingOptions => parsingOptions.ApplyTo(_defaultParserOptions, RegexCompilation.Compiled, fallbackRegexTimeout: null);
+        static parsingOptions => parsingOptions.ApplyTo(_defaultParserOptions, fallbackRegexTimeout: null);
 
     public static readonly ScriptPreparationOptions Default = new();
 
@@ -110,7 +110,7 @@ public sealed record class ModulePreparationOptions : IPreparationOptions<Module
 {
     private static readonly ParserOptions _defaultParserOptions = ModuleParsingOptions.Default.GetParserOptions() with
     {
-        OnRegExp = Engine.DeferredCompiledRegExpHandler,
+        OnRegExp = Engine.DeferredRegExpHandler,
     };
 
     /// <summary>
@@ -120,7 +120,7 @@ public sealed record class ModulePreparationOptions : IPreparationOptions<Module
     private static readonly ConditionalWeakTable<ModuleParsingOptions, ParserOptions> _parserOptionsCache = new();
 
     private static readonly ConditionalWeakTable<ModuleParsingOptions, ParserOptions>.CreateValueCallback _createParserOptions =
-        static parsingOptions => parsingOptions.ApplyTo(_defaultParserOptions, RegexCompilation.Compiled, fallbackRegexTimeout: null);
+        static parsingOptions => parsingOptions.ApplyTo(_defaultParserOptions, fallbackRegexTimeout: null);
 
     public static readonly ModulePreparationOptions Default = new();
 

@@ -75,6 +75,9 @@ This table is filled by the pull request that removes the member. A member that 
 | `JsonSerializer.Serialize(JsValue, JsValue, JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space, writer)` — see [2.6](#2-6-a-json-serializer-s-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
 | `ObjectInstance.GetOwnProperties()` → **no longer `virtual`** | nothing to call instead — the method is still there, and still public. What is gone is the ability to *override* it: it is derived from `GetOwnPropertyKeys` + `GetOwnProperty` now. A host that overrode it declares the same properties by overriding `GetOwnPropertyKeys` (and `ProbeOwnProperty` beside it), which is what every script-visible enumeration already read — see [2.6](#2-7-getownproperties-is-derived-not-overridden-3461) | [#3461](https://github.com/sebastienros/jint/pull/3461) |
 | `ICldrProvider.GetSupportedCalendars` (and `DefaultCldrProvider`'s override) | `ICalendarProvider.GetSupportedCalendars`. ECMA-402 has one list of calendars, not two, and defines it as the calendars the implementation can format — which in Jint means the ones it can *convert*, because that is what formatting a non-ISO calendar goes through. A calendar with conversions and no names still formats numerically; one with names and no conversions cannot be formatted at all. Adding a calendar was already three overrides on `ICalendarProvider`, and it now reaches `Intl` as well as `Temporal` | [#3404](https://github.com/sebastienros/jint/issues/3404) |
+| `JsRegExp.Value` (the `System.Text.RegularExpressions.Regex` behind a `RegExp`) | nothing for a pattern written in script: it runs on Jint's own ECMAScript engine, and .NET `Regex` is not one, so there is no equivalent to hand out. A `Regex` the host supplied still round-trips — `ToObject()` on it returns that `Regex` — and a script `RegExp` now converts to the `JsRegExp` itself. See [4.161](#4-161-every-regular-expression-runs-on-one-ecmascript-engine) | [#4300](https://github.com/sebastienros/jint/pull/4300) |
+| `JsRegExp.ParseResult` (Acornima's `RegExpParseResult`) | `JsRegExp.Source` and `JsRegExp.Flags`. The parse result was where the .NET adaptation lived; with the adaptation gone it carried nothing a host could use | [#4300](https://github.com/sebastienros/jint/pull/4300) |
+| `IParsingOptions.CompileRegex`, `ScriptParsingOptions.CompileRegex`, `ModuleParsingOptions.CompileRegex` | nothing. They chose between interpreted and `RegexOptions.Compiled` .NET regexes, and no pattern written in script is a .NET regex any more; compiled patterns are cached process-wide whatever the options say | [#4300](https://github.com/sebastienros/jint/pull/4300) |
 
 ### 2.1 Sealed types
 
@@ -6428,6 +6431,63 @@ Three changes, each what the [XMLHttpRequest Standard](https://xhr.spec.whatwg.o
   `null` where it used to be whatever the delegate built, and any other media type answers `null` without a
   call. A host that read HTML through `responseXML` sets `responseType = "document"` first.
 
+### 4.161 Every regular expression runs on one ECMAScript engine
+
+Jint used to run a regular expression on one of two engines. Most patterns were translated to a .NET `Regex` by
+Acornima and matched by .NET. Patterns .NET could not match faithfully (`u`/`v`, forward references, some
+case-insensitive and quantified-group shapes) went to a port of QuickJS's libregexp. Both are gone. Every pattern
+written in script now runs on Jint's copy of the [GregsEx](https://github.com/sebastienros/gregsex) ECMAScript
+engine, and the same pattern answers the same way whatever its shape. test262 is unchanged at 0 failures; the
+record of the migration, including what it found in both engines, is
+[`docs/design/regexp-gregsex-migration.md`](../design/regexp-gregsex-migration.md).
+
+**What could break:**
+
+- **A `RegExp` written in script reaches the host as the `JsRegExp`, not as a `Regex`.** `ToObject()` (and every
+  conversion built on it) used to hand back the adapted .NET `Regex`, which for a `u`/`v` pattern was a placeholder
+  matching nothing. Read `JsRegExp.Source` and `JsRegExp.Flags` instead. A `Regex` the host supplied still
+  round-trips as itself. Three consequences follow:
+  - **A script `RegExp` no longer binds to a `Regex`-typed parameter, property or delegate.** `host.Use(/a/)` against
+    `string Use(Regex r)` stops resolving. Take a `JsRegExp` (or the pattern as a `string`) instead.
+  - **`ToObject()` of a graph puts the `JsRegExp` itself where a `Regex` used to be**, so `{ re: /x/ }` becomes an
+    `ExpandoObject` or dictionary holding an object bound to the engine that created it. Do not hand it to another
+    engine, and note that a serializer walking public properties reaches its `Engine`. Convert the pattern to its
+    `Source` and `Flags` before the value leaves the engine.
+  - **To match from C#, call the script method**, which keeps ECMAScript semantics:
+    `regExp.Get("exec").Call(regExp, new JsValue[] { "input" })`. `new Regex(regExp.Source)` also works for many
+    patterns, but .NET reads `\d`, `\w`, `\b`, `$` and `.` differently and has no `u`/`v` modes. `new JsRegExp(engine)`
+    is the empty pattern `/(?:)/`; build any other with `engine.Intrinsics.RegExp.Construct(new JsValue[] { pattern,
+    flags })`.
+- **A host `Regex` still matches with .NET semantics by default**, exactly as before. To have it read as an
+  ECMAScript pattern instead, set `options.Interop.RegexConversion = RegexConversionMode.EcmaScript`
+  ([5.42](#5-42-a-host-regex-can-be-read-as-ecmascript)).
+- **A pattern that backtracked catastrophically on .NET may not on this engine**, and the reverse. A test that
+  relied on `^(a+)+$` to provoke a `RegexMatchTimeoutException` now finishes at once. `^(?:a|a)*b` against a long run
+  of `a` followed by `!b` is exponential for any backtracking matcher. The timeout still applies to every match,
+  through the same `Constraints.RegexTimeout` and parsing-options `RegexTimeout`; a `split` on a pattern without
+  groups takes its matches 32 at a time, and each batch shares one deadline. Compiling a pattern runs under the same
+  budget (converted to compile work) and throws `RegexMatchTimeoutException` when it runs out.
+- **Exhausting the backtracking storage throws a `RangeError`, as V8 does.** A match whose backtracking needs more
+  than 64 MiB of storage stops with `RangeError: Maximum regular expression backtracking depth exceeded`, a
+  `JavaScriptException` for the host. The QuickJS port threw `RegexMatchTimeoutException` ("backtracking stack
+  overflow") at its own 64 MB stack. Most patterns never reach it: a repeat of a single character or class (`[ab]*`,
+  `.*`, `[^"]*`) is one counted choice, and a small pattern built from literals, classes, groups, alternations,
+  repeats, `^`, `$` and `\b` without the `u` or `v` flag — `/"(?:[^"\\]|\\.)*"/`, `/(a|b)*c/` — runs on a
+  position matcher that saves no choice where the next character decides, so a run of millions of characters
+  matches. Any other alternation inside a repeat — with a lookaround, a backreference or either flag — still
+  saves one or two frames per character: `/"(?:[^"\\]|\\.)*(?=")"/` throws on a string literal of 2,000,000
+  characters, where 4.16.x and V8 match it.
+- **A replacer function sees `undefined` for a group that did not participate**, where the generic path used to
+  pass `""` (`'x'.replace(/x(.)?/g, (m, g) => g)`); the specification requires `undefined`.
+
+```csharp
+var engine = new Engine();
+
+// 4.16.x: System.Text.RegularExpressions.Regex; 5.x: Jint.Native.JsRegExp
+var value = engine.Evaluate("/a(?<x>b)/gi").ToObject();
+var regExp = (JsRegExp) value;   // regExp.Source == "a(?<x>b)", regExp.Flags == "gi"
+```
+
 ### 4.162 `EventSource` answers a `blob:` URL ([#4299](https://github.com/sebastienros/jint/issues/4299))
 
 Earlier previews failed `new EventSource(URL.createObjectURL(blob))` with an `error` event and `CLOSED`, unless
@@ -7937,6 +7997,25 @@ credential partitioning, lifecycle and disk failure behavior.
 for `serve`, `fetch`, `eval` and `mcp`. `BrowserOptions.ConfigureContext` configures every context, including
 protocol-created contexts; callbacks run on the creating caller's thread after supplied options.
 `BrowserAgentOptions.HttpCache` configures the MCP session's context.
+
+### 5.42 A host `Regex` can be read as ECMAScript
+
+`Options.Interop.RegexConversion` says what a CLR `System.Text.RegularExpressions.Regex` becomes when it crosses
+into script. `RegexConversionMode.DotNet`, the default, keeps today's behaviour: the `RegExp` matches with the
+host's `Regex`, its .NET syntax and its own `MatchTimeout`, and its `source` reads `?[native regex]`.
+`RegexConversionMode.EcmaScript` compiles the regex's pattern text as an ECMAScript pattern instead, with
+`IgnoreCase`, `Multiline` and `Singleline` becoming `i`, `m` and `s` (`ECMAScript`, `Compiled` and `CultureInvariant`
+are accepted and translate to nothing), and the regex's own `MatchTimeout` still applying; from then on it is an
+ordinary `RegExp`. A pattern or option with no ECMAScript meaning (`(?i)…`, `ExplicitCapture`, `RightToLeft`, …) throws
+a `SyntaxError` at the crossing. A pattern valid in both syntaxes is not checked for meaning the same thing, and several
+do not: `\d`, `\w` and `\b` are ASCII-only in ECMAScript, `$` does not match before a final newline, and `.` does not
+match `\r`, U+2028 or U+2029.
+
+```csharp
+var engine = new Engine(options => options.Interop.RegexConversion = RegexConversionMode.EcmaScript);
+engine.SetValue("r", new Regex("^a.c$", RegexOptions.IgnoreCase | RegexOptions.Singleline));
+engine.Evaluate("r.flags");   // "is"
+```
 
 ## 6. AOT and trimming
 

@@ -422,15 +422,17 @@ public class UrlPatternTests
     [Test]
     public void AHostileRegExpGroupEndsInTheEnginesRegexTimeout()
     {
-        // The pattern below backtracks exponentially: the group has to partition a run of "a"s that can never be
-        // followed by the "!" the anchored expression demands. The assertion is that the attempt is bounded, not
-        // that it is fast — no machine finishes 2^40 backtracking steps, so nothing here can flake on timing.
+        // The pattern below backtracks exponentially: each "a" can be taken by either alternative, and the run
+        // is followed by a "!" rather than the "b" the group demands, so every one of the 2^40 partitions is tried (the
+        // trailing "b" keeps a required-literal prefilter from rejecting the subject before matching starts). The
+        // assertion is that the attempt is bounded, not that it is fast, so nothing here can flake on timing.
+        // (The nested-quantifier classic, (?:a+)+, is not hostile to the GregsEx executor, which fails it at once.)
         var engine = new Engine(options => options
             .UseWebApis(WebApiFeatures.Url)
             .Constraints.RegexTimeout = TimeSpan.FromMilliseconds(50));
 
-        engine.Execute("const p = new URLPattern({ pathname: '/:x((?:a+)+)' });");
-        engine.SetValue("hostileInput", "/" + new string('a', 40) + "!");
+        engine.Execute("const p = new URLPattern({ pathname: '/:x((?:a|a)*b)' });");
+        engine.SetValue("hostileInput", "/" + new string('a', 40) + "!b");
 
         var timeout = Assert.Throws<RegexMatchTimeoutException>(() => engine.Evaluate("p.test({ pathname: hostileInput })"))!;
 
