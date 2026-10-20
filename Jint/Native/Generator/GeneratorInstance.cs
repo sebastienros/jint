@@ -166,6 +166,11 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
 
         _nextValue = value;
 
+        // A next() is a normal completion. Every resumption states its own type: one left over from a return() or
+        // throw() that a yield* delegation or a destructuring pattern consumed without reaching a yield would
+        // otherwise make the next yield resumed this way take the value as a return or a throw.
+        _resumeCompletionType = CompletionType.Normal;
+
         // Track if we're resuming from a yield (vs first call from SuspendedStart)
         // When resuming from SuspendedYield, the first yield encountered should return _nextValue
         _isResuming = (state == GeneratorState.SuspendedYield);

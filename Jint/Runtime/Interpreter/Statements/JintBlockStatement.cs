@@ -37,6 +37,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
             // BuildBlockLevel: a Block's own StatementList is the position Annex B B.3.2 gives a
             // function declaration its var-scope alias in - see JintFunctionDeclarationStatement.
             _singleStatement = BuildBlockLevel(blockStatement.Body[0]);
+            (_singleStatement as JintExpressionStatement)?.MarkStatementPosition(YieldStatementPosition.SingleStatementBlock);
         }
         else
         {

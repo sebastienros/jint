@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1287
+anchors: 1290
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -423,6 +423,7 @@ ecma262 sec-json.parse
 ecma262 sec-json.stringify
 ecma262 sec-keyforsymbol
 ecma262 sec-lengthofarraylike
+ecma262 sec-let-and-const-declarations-runtime-semantics-evaluation
 ecma262 sec-line-terminators
 ecma262 sec-literals-numeric-literals
 ecma262 sec-localtime
@@ -645,6 +646,7 @@ ecma262 sec-resolve-private-identifier
 ecma262 sec-resolvebinding
 ecma262 sec-resolveexport
 ecma262 sec-resolvethisbinding
+ecma262 sec-return-statement-runtime-semantics-evaluation
 ecma262 sec-runtime-semantics-bindinginitialization
 ecma262 sec-runtime-semantics-canonicalize-ch
 ecma262 sec-runtime-semantics-catchclauseevaluation
@@ -802,6 +804,7 @@ ecma262 sec-updateempty
 ecma262 sec-validateandapplypropertydescriptor
 ecma262 sec-validateatomicaccess
 ecma262 sec-validateintegertypedarray
+ecma262 sec-variable-statement-runtime-semantics-evaluation
 ecma262 sec-waiterlist-records
 ecma262 sec-weak-ref-constructor
 ecma262 sec-weakmap-objects

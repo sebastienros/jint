@@ -5,6 +5,11 @@ dotnet tool restore
 dotnet test262 generate
 ```
 
+A build does this for you whenever `Test262Harness.settings.json` or `.config/dotnet-tools.json`
+changes. The generator pinned in `.config/dotnet-tools.json` and the `Test262Harness` library pinned
+in `Directory.Packages.props` come from one release and carry the same version; the build fails while
+they differ.
+
 The test run downloads the archive for the generated suite's exact `SuiteGitSha` into a unique
 staging directory, verifies the pinned corpus content digest, and atomically publishes it to the
 cache. Transient acquisition failures are retried up to three times. Set `JINT_TEST262_CACHE` to

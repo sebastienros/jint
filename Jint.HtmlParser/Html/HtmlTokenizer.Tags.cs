@@ -24,22 +24,27 @@ internal sealed partial class HtmlTokenizer
     // HTML Standard §13.2.5.6–13.2.5.40, tag open through self-closing start tag, with §13.2.5.72–73
     // for a terminated named character reference in an attribute value. A whole tag in the current
     // source slice whose every unit takes an error-free transition produces the token the scalar
-    // states would, in one scanner iteration, and charges exactly their work: one unit per state
-    // step, including the steps that reconsume, plus the same name, attribute, value and copy
-    // charges. Work therefore stays independent of the quota that decides whether this path runs.
+    // states would, in one scanner iteration, and charges their work: one unit per state step,
+    // including the steps that reconsume, plus the same name, attribute, value and copy charges.
+    // Only the steps are checked against the quota. A quota that covers them but not the copy
+    // charges as well takes the tag, or the prefix it resumes from, where the scalar states would
+    // have yielded inside it. That yield costs nothing in a tag without references; in a value
+    // holding one, it moves where they cut a reference's name or the literal after it, which can
+    // cost a scanner iteration for the name or a different buffer growth for the literal. Everywhere
+    // else the work is exactly theirs, so it does not depend on whether this path runs.
     //
     // A value holding only terminated named references is assembled with the appends the scalar
-    // states make, in their order, so the value buffer grows and charges as it would. Any other
-    // reference ends the scan at the first '&' of the tag: the prefix is committed as the exact
-    // state the scalar states reach before it, and they continue from it. Any other shape (a parse
-    // error, CR, NUL, a duplicate name, a name that would grow its buffer, a tag crossing a slice or
-    // marker, the work quota or the token limit) is left untouched for the scalar states.
+    // states make, in their order and in runs of at most MaxRunLength units, so the value buffer
+    // grows and charges as it would. Any other reference ends the scan at the first '&' of the tag:
+    // the prefix is committed as the exact state the scalar states reach before it, and they
+    // continue from it. Any other shape (a parse error, CR, NUL, a duplicate name, a name that
+    // would grow its buffer, a tag crossing a slice or marker, the work quota or the token limit) is
+    // left untouched for the scalar states.
     private WholeTagResult TryConsumeTag(out HtmlToken token)
     {
         token = default;
         var source = _input.CurrentSpan;
-        var limit = (int) Math.Min(_remainingWork + 1, source.Length);
-        if (_maxToken > 0) limit = Math.Min(limit, _maxToken);
+        var limit = (int) Math.Min(Math.Min(_remainingWork + 1, source.Length), _batchLimit);
         if (limit < 3) return WholeTagResult.None;
         source = source[..limit];
 
@@ -230,8 +235,21 @@ internal sealed partial class HtmlTokenizer
             for (var s = first; s < first + found[field + 6]; s++)
             {
                 var length = segments[s * 2 + 1];
-                if (length >= 0) AppendSource(_value, _input.GetCurrentSource(segments[s * 2], length));
-                else Append(_value, HtmlEntities.Lookup.ValueAt(~length)!);
+                if (length < 0)
+                {
+                    Append(_value, HtmlEntities.Lookup.ValueAt(~length)!);
+                    continue;
+                }
+                // A run stops after MaxRunLength units, and a literal after a reference grows the
+                // buffer once per run.
+                var start = segments[s * 2];
+                while (length > MaxRunLength)
+                {
+                    AppendSource(_value, _input.GetCurrentSource(start, MaxRunLength));
+                    start += MaxRunLength;
+                    length -= MaxRunLength;
+                }
+                AppendSource(_value, _input.GetCurrentSource(start, length));
             }
             AddAttribute(new HtmlAttribute(attributeName, TakeValue(_value)));
         }

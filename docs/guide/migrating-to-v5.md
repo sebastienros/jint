@@ -6561,6 +6561,40 @@ is now refused with `-32602 Pattern "…" failed to parse as a URLPattern.`, Chr
 stays as it was. A client that sent a glob there must move it to `urls` or rewrite it in URLPattern syntax; the
 protocol's own example is `*://*:*/*.css`.
 
+### 4.166 A generator's `return()` no longer finishes the expression its `yield` is in ([#4304](https://github.com/sebastienros/jint/issues/4304))
+
+`return(value)` on a generator suspended at a `yield` resumes it with a return completion, which leaves the
+enclosing expression at once: nothing after the `yield` runs, only the `finally` blocks around it. Jint handed
+`value` back from the `yield` as if `next(value)` had been called, let the expression finish with it, and ended the
+generator only at the end of the statement:
+
+```js
+var log = [];
+function* g() {
+    var n = 1;
+    try { n += yield 0; } finally { log.push("n=" + n); }
+}
+var it = g();
+it.next();
+it.return(3);   // 4.16.x / earlier 5.0: log is ["n=4"]    5.x: ["n=1"]
+```
+
+The same happened wherever a `yield` sits inside an expression or a statement's head: a compound or logical
+assignment to a variable or a property stored the combined value, a call ran its function, an operator, a template
+or a destructuring pattern converted `value` (running its `valueOf`, `toString` or iterator), `if`, `while`, `for`
+and `switch` tested `value` and took a branch, `yield (yield x)` yielded again so `return()` answered
+`done: false`, and `n += yield* inner()` stored after the delegate's `return()`. In an async generator a plain
+assignment and a `var` declaration stored `value` too. A `yield` that is the whole body of a brace-less `while` or
+`do`-`while` (`while (true) yield i++;`) ignored `return()` altogether and yielded again, so a `for`-`of` leaving
+early, or `const [a, b] = gen()`, never closed the generator or ran its `finally`.
+
+Two neighbours changed with it. An async generator whose `return(value)` arrived at a `yield` that was the only
+statement of a `try` block with a `finally` resolved `{ value: undefined, done: true }`; it now resolves
+`{ value, done: true }`. And once a `yield*` or an iterator destructuring pattern had taken a `return()` or a
+`throw()`, the next `next(v)` resumed the next `yield` (one in a `finally`, say) as that `return()` or `throw()`
+again; it now hands it `v`. `throw(value)` was already raised at the `yield` and is unchanged. A script that read,
+in a `finally`, a value the interrupted expression used to write must now write it before the `yield`.
+
 ### 4.167 DevTools matches `Fetch.enable`'s `urlPattern` as Chrome does: `?`, backslash escapes, and no fragment ([#4311](https://github.com/sebastienros/jint/issues/4311))
 
 Earlier previews read `RequestPattern.urlPattern` as a glob in which only `*` was special, anchored at both ends.
@@ -6577,6 +6611,52 @@ empty `urlPattern` now matches no request**; omit the member to get `*`.
 So `*.js?v=*`, which paused only `app.js?v=3`, now also pauses `app.jsXv=3` and `app.jsv=3`; write `*.js\?v=*` to
 match only a literal `?`. A pattern that relied on a literal backslash must double it. A pattern written for a path now also
 pauses that path with a `#fragment`, and a pattern that names a fragment matches nothing. There is no switch back.
+
+### 4.168 A declaration list resumes at the declarator that suspended, so the ones before it run once ([#4324](https://github.com/sebastienros/jint/issues/4324))
+
+In 4.16 a `let`, `const` or `var` statement with several declarators — `let a = await f(), s = side(), b = await g();`
+— re-ran its earlier declarators every time an `await` (or a `yield`) in a later declarator of the same list
+resumed: the engine resumes a suspended body by replaying the statement it suspended in, and the declaration
+statement replayed from its first declarator. The awaits that had already completed came back from a memo, so
+the answer looked right; what ran again was every declarator that did *not* await — its side effects, and a
+`let`/`const` initialized again with whatever it produced the second time. `let t = mint(), a = await f();`
+left `t` holding the second token minted. In an async generator the same list never finished: the replayed
+`await` suspended again and the replayed `yield` yielded again, so every `next()` answered the same value.
+Bundlers produce this shape routinely, since minifiers merge consecutive declarations into one list.
+
+Now each declarator runs once, as in every other engine: the resume continues at the declarator that
+suspended. A script that split such lists into one statement per declarator to work around this can stop.
+There is no switch back.
+
+### 4.171 An async generator's `return(value)` awaits `value` at the `yield`, before the `finally` blocks run ([#4315](https://github.com/sebastienros/jint/issues/4315))
+
+`return(value)` on an async generator suspended at a `yield` resumes it at that `yield`, and the first thing the
+`yield` does is await `value`. In 4.16 the body resumed inside the `return()` call itself and `value` was awaited only
+once the body had finished, so the `finally` blocks ran before the caller's next statement, and a rejected `value`
+skipped every `catch` and rejected the request:
+
+```js
+var log = [];
+var g = (async function* () {
+    try { yield 0; } catch (e) { log.push("caught " + e); } finally { log.push("fin"); }
+})();
+await g.next();
+await g.return(Promise.reject("X")).then(r => log.push(JSON.stringify(r)), e => log.push("rejected " + e));
+// 4.16.x / earlier 5.0: ["fin", "rejected X"]    5.x: ["caught X", "fin", "{\"done\":true}"]
+```
+
+Now the body resumes a microtask after the `return()` call (one more for a thenable), the `finally` blocks run with
+the awaited value, and a rejection is thrown at the `yield`, where a `catch` around it handles it like any other
+throw: the generator carries on, and may yield again. Inside a `yield*` the delegate's `return()` is called with the
+awaited value, and a rejection is handed to the delegate's `throw()`.
+
+Three neighbours changed with it, all in when an async generator's return settles. `return(promise)` on a generator
+that has not started or has finished, and a `return promise;` statement in the body, settled two microtasks later than
+they should. A `return promise;` after a `yield*` had finished answered `{ value: promise, done: true }` without
+awaiting the promise. And a `next()` sent to a `yield*` whose delegate had answered a `throw()` or a `return()` with a
+value was forwarded to the delegate as that `throw()` or `return()` again; it is now a `next()`. A script that relied
+on the `finally` blocks having run by the time `return()` returned must await the request instead. There is no switch
+back.
 
 ## 5. New in v5
 
