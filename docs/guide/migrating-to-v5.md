@@ -6570,6 +6570,33 @@ Now each declarator runs once, as in every other engine: the resume continues at
 suspended. A script that split such lists into one statement per declarator to work around this can stop.
 There is no switch back.
 
+### 4.170 A call whose argument suspends resumes with the function it resolved, so its callee runs once ([#4314](https://github.com/sebastienros/jint/issues/4314))
+
+A call works out its function and its `this` value before it evaluates its arguments. In 4.16, when an argument
+suspended on an `await` or a `yield`, the resume evaluated the callee again. The arguments that had already run
+were kept, but everything in the callee ran once more for every suspension: the inner call of a chain, a getter
+on the method, and a computed key.
+
+```js
+var log = [];
+var o = { m(x) { log.push("m(" + x + ")"); return o; } };
+var it = (function* () { o.m(1).m(yield 0).m(3); })();
+it.next();
+it.next(2);   // 4.16.x / earlier 5.0: log is m(1),m(1),m(2),m(3)    5.x: m(1),m(2),m(3)
+```
+
+So `t.m((t = other, await x))` called `other.m` with `this` set to `other`, where every other engine calls the
+original method on the original `t`. `new (factory().C)(await x)` ran `factory()` twice. The same happened with
+an optional call (`o?.m(1).m(await x)`) and with spread arguments. In an async generator a chain that awaits in
+one call and yields in a later one (`o.m(await a).m(yield b)`) never finished, because each replay of the callee
+awaited again. A direct `eval` whose argument suspended ran its code once at the suspension and once more on the
+resume. A `super(…)` call in an async arrow function inside a constructor built the parent at the suspension,
+with the suspended argument missing, and the resume then threw `ReferenceError`.
+
+Now each call resolves its callee once and resumes in its arguments. A `throw()` or `return()` resumption, or a
+rejected `await`, leaves the call without running the callee again. A script that read the callee a second time
+to see a change made while it was suspended must now read it itself after the call. There is no switch back.
+
 ### 4.171 An async generator's `return(value)` awaits `value` at the `yield`, before the `finally` blocks run ([#4315](https://github.com/sebastienros/jint/issues/4315))
 
 `return(value)` on an async generator suspended at a `yield` resumes it at that `yield`, and the first thing the
