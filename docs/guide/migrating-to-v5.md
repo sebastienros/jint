@@ -6570,6 +6570,31 @@ Now each declarator runs once, as in every other engine: the resume continues at
 suspended. A script that split such lists into one statement per declarator to work around this can stop.
 There is no switch back.
 
+### 4.169 A destructuring pattern resumes at the element that suspended, so its iterator steps once ([#4313](https://github.com/sebastienros/jint/issues/4313))
+
+In 4.16 a destructuring pattern whose default, computed key, member target or nested pattern held an `await` or a
+`yield` replayed from its first element every time that suspension resumed. An array pattern over an iterator was
+stepped again for every element before the suspended one, so the elements after it were bound to the wrong values;
+an object pattern read every property before the suspended one a second time, getters and all; and the assignment,
+declaration or `catch` clause around the pattern evaluated its right-hand side again:
+
+```js
+var a, b;
+var it = (function* () { [a = yield 0, b] = iterable(); })();   // iterable() steps undefined, 2
+it.next();
+it.next(5);   // 4.16.x / earlier 5.0: a = 2, b = undefined and a third step    5.x: a = 5, b = 2
+```
+
+A `throw()` at such a `yield` could be lost outright, because the re-stepped value no longer needed the default
+that held it, and a `return()` there closed only the outer of two nested iterators. The same pattern in a
+`for`-`of` head stepped the loop's own iterator again on the first iteration, and a `catch` parameter whose default
+suspended ran the `catch` block before the binding had finished, which failed with a `ReferenceError`.
+
+Now each element steps the iterator once and each property is read once, as in every other engine: the resume
+continues at the element or property that suspended, with whatever it had already read, and the right-hand side
+is not evaluated again. Patterns with no `await` or `yield` in them take the same path as before. There is no
+switch back.
+
 ### 4.171 An async generator's `return(value)` awaits `value` at the `yield`, before the `finally` blocks run ([#4315](https://github.com/sebastienros/jint/issues/4315))
 
 `return(value)` on an async generator suspended at a `yield` resumes it at that `yield`, and the first thing the
