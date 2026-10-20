@@ -27,6 +27,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     private readonly ProbablyBlockStatement _body;
     private readonly JintExpression? _expr;
     private readonly DestructuringPattern? _assignmentPattern;
+
+    // Whether the head's pattern contains an await or a yield of the enclosing frame, so that it takes the
+    // destructuring's resumable lane and a suspension inside it parks the iteration it belongs to.
+    private readonly bool _patternMaySuspend;
     private readonly JintExpression _right;
     private readonly List<Key>? _tdzNames;
     private readonly bool _destructuring;
@@ -63,6 +67,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _forBody = statement.Body;
         _iterationKind = IterationKind.Enumerate;
         InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
+        _patternMaySuspend = _assignmentPattern is not null && MaySuspendVisitor.MaySuspend(_assignmentPattern);
         _body = new ProbablyBlockStatement(_forBody);
         _right = JintExpression.Build(_rightExpression);
 
@@ -84,6 +89,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _forBody = statement.Body;
         _iterationKind = statement.Await ? IterationKind.AsyncIterate : IterationKind.Iterate;
         InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
+        _patternMaySuspend = _assignmentPattern is not null && MaySuspendVisitor.MaySuspend(_assignmentPattern);
         _body = new ProbablyBlockStatement(_forBody);
         _right = JintExpression.Build(_rightExpression);
 
@@ -685,7 +691,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         iterationEnv = reusableEnv;
                         engine.UpdateLexicalEnvironment(iterationEnv);
                     }
-                    else
+                    else if (iterationEnv is null)
                     {
                         iterationEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
                         if (_tdzNames != null)
@@ -701,6 +707,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             lhsRef = engine.ResolveBinding(lhsName);
                         }
                     }
+
+                    // Otherwise this is a resume inside the head's pattern, and the environment its first attempt
+                    // was initializing is current again (restored above). The pattern resumes at the element that
+                    // suspended and does not run the ones before it again, so their bindings have to be the ones
+                    // already initialized there; a fresh environment would leave them in their temporal dead zone.
 
                     if (context.DebugMode)
                     {
@@ -740,24 +751,51 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     }
                     else
                     {
-                        nextValue = DestructuringPatternAssignmentExpression.ProcessPatterns(
-                            context,
-                            _assignmentPattern!,
-                            valueForResume,
-                            iterationEnv,
-                            checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
+                        nextValue = _patternMaySuspend
+                            ? DestructuringPatternAssignmentExpression.ProcessResumablePattern(
+                                context,
+                                _assignmentPattern!,
+                                valueForResume,
+                                iterationEnv,
+                                checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding)
+                            : DestructuringPatternAssignmentExpression.ProcessPatterns(
+                                context,
+                                _assignmentPattern!,
+                                valueForResume,
+                                iterationEnv,
+                                checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
 
                         // Check for suspension after destructuring (yield inside pattern)
                         if (context.IsSuspended())
                         {
                             close = false; // Don't close iterator, we'll resume later
-                            // Save the ORIGINAL iterator value for replay when resuming
+
+                            // Park the iteration the pattern suspended in: the value this step produced and the
+                            // environment the pattern was initializing. The resume re-enters this iteration with
+                            // them rather than stepping the iterator again, and the pattern resumes at the element
+                            // that suspended (sebastienros/jint#4313). Every field is written, since an entry left
+                            // by an earlier iteration's body still holds that iteration's environment.
                             if (_iterationKind == IterationKind.AsyncIterate && suspendable is not null)
                             {
                                 var asyncSD = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this);
+                                asyncSD.Iterator = iteratorRecord;
                                 asyncSD.CurrentValue = valueForResume;
                                 asyncSD.AccumulatedValue = v;
+                                asyncSD.IterationEnv = iterationEnv;
+                                asyncSD.OuterEnv = oldEnv;
+                                asyncSD.LhsBindingComplete = false;
                             }
+                            else if (suspendable is not null)
+                            {
+                                var syncSD = suspendable.Data.GetOrCreate<ForOfSuspendData>(this, iteratorRecord);
+                                syncSD.Iterator = iteratorRecord;
+                                syncSD.CurrentValue = valueForResume;
+                                syncSD.AccumulatedValue = v;
+                                syncSD.IterationEnv = iterationEnv;
+                                syncSD.OuterEnv = oldEnv;
+                                syncSD.LhsBindingComplete = false;
+                            }
+
                             completionType = CompletionType.Return;
                             return new Completion(CompletionType.Return, suspendable?.SuspendedValue ?? nextValue, _statement!);
                         }
