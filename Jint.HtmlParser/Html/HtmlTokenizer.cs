@@ -19,6 +19,9 @@ internal sealed partial class HtmlTokenizer
     private bool _markupOpenerAfterText;
     private readonly long _maxInput;
     private readonly int _maxToken;
+    // The longest markup the whole-tag and text-reference paths may take in one step: the token
+    // limit, or no bound. Zero leaves every tag and reference to the scalar states.
+    private int _batchLimit;
     private readonly CharBuffer _text = new();
     private readonly CharBuffer _tagName = new();
     private readonly CharBuffer _name = new();
@@ -79,6 +82,7 @@ internal sealed partial class HtmlTokenizer
         var limits = context.Limits ?? ParseLimits.Unbounded;
         _maxInput = limits.MaxInputCharacters;
         _maxToken = limits.MaxTokenCharacters;
+        _batchLimit = _maxToken > 0 ? _maxToken : int.MaxValue;
         _diagnostics = context.Diagnostics;
         _diagnostics?.Clear();
         _allowCData = context.AllowCData;
@@ -87,6 +91,11 @@ internal sealed partial class HtmlTokenizer
     internal long ConsumedInput => _input.Offset;
     internal long WorkCount => _work;
     internal long SourceChanges => _input.SourceChanges;
+
+    // The oracle the whole-tag and text-reference paths are tested against: they claim to charge
+    // exactly the work of the scalar states they stand in for, so a tokenizer without them is what
+    // their tokens, offsets and work are compared with. Runs stay batched, as they always were.
+    internal void UseScalarTagsAndReferences() => _batchLimit = 0;
 
     internal void AppendInput(string chunk, bool isFinal = false)
     {

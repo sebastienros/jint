@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -89,11 +90,29 @@ internal sealed partial class HtmlTreeBuilder
     private readonly Dictionary<(FormattingMarker? Marker, ulong Key), FormattingKeyChain> _formattingByKey = [];
     // Membership in the stack of open elements is a mark on the element instead of an identity
     // set: the runtime identity hash is a header write on each new element's first use. Only the
-    // builder that creates an element pushes it. Tokens repeat only after 2^31 builders, so a host
-    // query would also need a foreign element left marked by a builder that never popped it.
+    // builder that creates an element pushes it. Tokens are every non-zero 32-bit value in turn, so
+    // they repeat only after 2^32 - 1 builders, and a host query would also need a foreign element
+    // left marked by a builder that never popped it.
     private static int s_lastOpenToken;
-    private readonly int _openToken = Interlocked.Increment(ref s_lastOpenToken) | int.MinValue;
-    private void MarkOpen(Element element) => element.OpenElementsMark = _openToken;
+    private readonly int _openToken = NextOpenToken();
+
+    // Zero is an element no stack holds. Increment wraps from int.MaxValue to int.MinValue.
+    private static int NextOpenToken()
+    {
+        int token;
+        do token = Interlocked.Increment(ref s_lastOpenToken);
+        while (token == 0);
+        return token;
+    }
+
+    private void MarkOpen(Element element)
+    {
+        // The identity set this mark replaced let no builder take over an element another
+        // builder's stack held.
+        Debug.Assert(element.OpenElementsMark is 0 || element.OpenElementsMark == _openToken,
+            "The element is open in another tree builder's stack.");
+        element.OpenElementsMark = _openToken;
+    }
     private bool IsOpen(Element element) => element.OpenElementsMark == _openToken;
     private void ClearOpen(Element element)
     {
