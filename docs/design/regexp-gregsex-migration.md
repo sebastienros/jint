@@ -191,24 +191,30 @@ three-round bar.
 
 ### 5.1 After gregsex#5
 
-The tables above predate the third pass (G18–G22). That pass was measured on Windows x64 (`measure-paired.ps1`,
-3 rounds, against `main` at `c553a7870`) with G18–G21 only: `unpack` −11.1%, `tagcloud` +3.6% and `validate-input`
-+4.0% with CIs that include zero, Dromaeo `ObjectRegExp` +1 … +6%. The first cut of G22 regressed `greedy-dotstar`
-by two orders of magnitude on that machine; the version vendored here counts greedy runs and was measured on the
-Apple M4 Pro only (in-process, 4 alternating rounds, median), against `main` at `c553a7870`:
+The tables above predate the third pass (G18–G22). The gate that prompted it ran on Windows x64; so does the
+re-measure: `measure-paired.ps1`, 3 rounds in alternating order, `main` at `c553a7870` against this branch at
+`d949514fa` (GregsEx `f0e49f63`, identical to its squash-merge `651dc2b2`), on an AMD EPYC 7763 (devbox1). The 47
+rows are the gate's. `control-indexOf` never reaches regex code and read +42.6% here, against +43.5% and −0.1% in
+the two earlier runs on this machine: a bimodal floor, so a row inside about ±40% that only that run moved is not
+believed.
 
-| Row | Δ against `main` |
-| --- | ---: |
-| SunSpider `regexp-dna` | −78% |
-| SunSpider `unpack-code` | −13.3% |
-| SunSpider `tagcloud` | −4.2% |
-| SunSpider `validate-input` | +2.2% |
-| `greedy-dotstar-test` / `-exec` | −39% |
-| `grouped-alternation-repeat` | −93% |
-| Dromaeo `ObjectRegExp` / `-modern` | −3.5% / −4.5% |
-| Cold compile: `literal`, `email`, `email-i`, alternation, tokenizer | +17%, +19%, +30%, +33%, +21% |
+| Row | The gate | G18–G21 only | Now | 95% CI |
+| --- | ---: | ---: | ---: | --- |
+| SunSpider `string-unpack-code` | +14% | −11.1% | −9.4% | [−13.3, −7.4] |
+| SunSpider `string-tagcloud` | +23% | +3.6% | +0.8% | [−0.5, +2.2], no change |
+| SunSpider `string-validate-input` | +7% | +4.0% | −1.5% | [−5.8, −1.1] |
+| SunSpider `regexp-dna` | | | −55.4% | [−56.6, −55.4] |
+| Dromaeo `ObjectRegExp` (four rows) | | +1 … +6% | −1.0 … +1.6% | each includes zero |
+| `grouped-alternation-repeat` | | | −93.5% | [−93.5, −93.3] |
+| `greedy-dotstar-test` | | +74.2% | +7.9% | [+6.8, +10.5] |
+| `char-split` | | +18.3% | +4.5% | [+3.3, +8.0] |
+| `literal-test` / `literal-replace-g` | | | +16.5% / +14.0% | both exclude zero |
+| Cold compile `classes-i` | | | −25.1% | [−26.3, −23.4] |
+| Cold compile `literal`, `email`, `email-i`, `uprop-u`, `alternation`, `tokenizer` | | | +15 … +39% | each excludes zero |
 
-**Windows x64 has not been re-measured with G22's final form.**
+The other rows are faster or unchanged: `SplitUnicode` −93%, `FreshEngineSource` −57%, `CaseInsensitiveScan` −39%,
+`MatchGlobal` −32%, `construct-100` −30%, `Split` −22%, `ExecWhileLoop` −14%. On the Apple M4 Pro (in process,
+4 alternating rounds) the same build read `greedy-dotstar` −39% and `tagcloud` −4.2%.
 
 ## 6. Follow-ups
 
@@ -224,9 +230,10 @@ Apple M4 Pro only (in-process, 4 alternating rounds, median), against `main` at 
   code units, and caches the cased-character set and resolved property intervals. Against `main`, 50 unique patterns
   per operation (`RegExpColdCompileBenchmark`'s shapes, alternating runs on a loaded machine) now read: `literal` −26%,
   `\p{L}` under `u` +1% (it was +1,596%), `email` +57%, an alternation +59%, an `i` class +101% (was +461%), the email
-  pattern under `i` +131% (was +1,225%). gregsex#5 (G21) brought them to +17 … +33% (§5.1), still allocating 2 to
+  pattern under `i` +131% (was +1,225%). gregsex#5 (G21) brought them to +15 … +39% on Windows x64 and `classes-i` to −25% (§5.1), still allocating 2 to
   2.5 times `main`; what is left is per-pattern setup in the compiler and accelerator.
-- **Re-measure Windows x64** with G22's final form (§5.1).
+- **`greedy-dotstar-test` and `char-split`** stay +8% and +4.5% on Windows x64 (§5.1), where the Apple M4 Pro reads
+  both faster than `main`.
 - **The literal scan** (+16…+18%, §5): anchor characters chosen by frequency, as .NET Regex does, and the fixed
   cost of a call that does almost no work (`AnchoredLiteral`, 13 ns → 19 ns). Re-measure `icase-literal-test` at six
   rounds.
