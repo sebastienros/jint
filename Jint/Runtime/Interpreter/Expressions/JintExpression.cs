@@ -213,7 +213,7 @@ internal abstract class JintExpression
                 _ => null
             },
             NodeType.MemberExpression => new JintMemberExpression((MemberExpression) expression),
-            NodeType.NewExpression => new JintNewExpression((NewExpression) expression),
+            NodeType.NewExpression => JintNewExpression.Build((NewExpression) expression),
             NodeType.ObjectExpression => JintObjectExpression.Build((ObjectExpression) expression),
             NodeType.SequenceExpression => new JintSequenceExpression((SequenceExpression) expression),
             NodeType.ThisExpression => new JintThisExpression((ThisExpression) expression),
