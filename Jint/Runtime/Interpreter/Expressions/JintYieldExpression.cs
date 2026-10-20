@@ -68,7 +68,7 @@ internal sealed class JintYieldExpression : JintExpression
             return value;
         }
 
-        GeneratorReturnException.Raise(value);
+        GeneratorReturnException.Raise(value, _expression);
         return value;
     }
 
@@ -195,17 +195,13 @@ internal sealed class JintYieldExpression : JintExpression
                     Throw.JavaScriptException(context.Engine, returnValue, in AstExtensions.DefaultLocation);
                 }
 
-                // If we're resuming with a Return completion, signal return request.
-                // Per spec AsyncGeneratorYield step 8.b: Await(resumptionValue.[[Value]]).
-                // Call PromiseResolve here so that errors (e.g., broken constructor) are
-                // thrown within the body's execution context (catchable by try-catch).
-                // Cache the resulting promise to avoid double PromiseResolve in AsyncGeneratorAwaitReturn.
+                // A return() resumption. AsyncGeneratorInstance has already awaited its value, as
+                // https://tc39.es/ecma262/#sec-asyncgeneratorunwrapyieldresumption does at the yield before anything
+                // else, and a rejected await came back as the throw above; so the yield evaluates to a return
+                // completion of the awaited value, and nothing awaits it again once the body completes.
                 if (asyncGenerator._resumeCompletionType == CompletionType.Return)
                 {
                     asyncGenerator._resumeCompletionType = CompletionType.Normal;
-                    var promise = (JsPromise) context.Engine.Intrinsics.Promise.PromiseResolve(returnValue);
-                    asyncGenerator._yieldReturnPromise = promise;
-                    asyncGenerator._yieldReturnValue = returnValue;
                     asyncGenerator._returnRequested = true;
                     asyncGenerator._suspendedValue = returnValue;
                     return DeliverReturn(returnValue, syncGenerator: false);
@@ -338,11 +334,10 @@ internal sealed class JintYieldExpression : JintExpression
     {
         var iterator = asyncGenerator._delegatingIterator!;
 
-        // If the user called .throw() or .return() while we were in delegation,
-        // use their completion type instead of the delegation's last resume type
-        var resumeType = asyncGenerator._resumeCompletionType != CompletionType.Normal
-            ? asyncGenerator._resumeCompletionType
-            : asyncGenerator._delegationResumeType;
+        // What the delegation receives is the consumer's resumption, whatever the delegate was last sent: a next()
+        // after a throw() or a return() the delegate answered with a value is a next() again. The return() value
+        // is the awaited one (AsyncGeneratorInstance.UnwrapReturnResumption), and a rejected await is a throw.
+        var resumeType = asyncGenerator._resumeCompletionType;
         asyncGenerator._resumeCompletionType = CompletionType.Normal; // reset
 
         var resumeValue = asyncGenerator._nextValue ?? JsValue.Undefined;
@@ -631,10 +626,7 @@ internal sealed class JintYieldExpression : JintExpression
             }
             else // Return
             {
-                // Per spec AsyncGeneratorUnwrapYieldResumption step 2:
-                // Await(resumptionValue.[[Value]]) BEFORE continuing yield* delegation.
-                // This makes "then" getter access observable before "return" getter lookup.
-                return AwaitResumptionThenDelegateReturn(context, asyncGenerator, iterator, receivedValue);
+                return DelegateReturn(context, asyncGenerator, iterator, receivedValue);
             }
         }
     }
@@ -761,11 +753,15 @@ internal sealed class JintYieldExpression : JintExpression
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-asyncgeneratorunwrapyieldresumption, then the return branch of
-    /// https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation: awaits
-    /// the value the consumer's <c>return</c> carried, then closes the delegate through its own.
+    /// The return branch of https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation
+    /// (step 7.c) in an async generator: closes the delegate through its own <c>return</c>, with the value the
+    /// consumer's <c>return()</c> carried. That value is the awaited one: what the delegation receives comes out of
+    /// https://tc39.es/ecma262/#sec-asyncgeneratoryield, whose
+    /// https://tc39.es/ecma262/#sec-asyncgeneratorunwrapyieldresumption <c>AsyncGeneratorInstance</c> ran before the
+    /// body resumed, and a rejected await arrives as a throw instead. Every step here is <c>?</c>, and the body is
+    /// running, so a failure is thrown at the yield*, where a try/catch around it sees it.
     /// </summary>
-    private static JsValue AwaitResumptionThenDelegateReturn(
+    private static JsValue DelegateReturn(
         EvaluationContext context,
         AsyncGeneratorInstance asyncGenerator,
         IteratorInstance iterator,
@@ -773,91 +769,67 @@ internal sealed class JintYieldExpression : JintExpression
     {
         var engine = context.Engine;
 
-        // Phase A: Await the resumption value
-        var awaitPromise = EnsurePromise(engine, receivedValue);
+        JsValue innerReturnResult;
+        try
+        {
+            var returnMethod = iterator.Instance.GetMethod(CommonProperties.Return);
+            if (returnMethod is null)
+            {
+                return AwaitDelegationReturnValue(engine, asyncGenerator, receivedValue);
+            }
 
-        asyncGenerator._delegatingIterator = iterator;
-        asyncGenerator._asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
+            innerReturnResult = returnMethod.Call(iterator.Instance, new[] { receivedValue });
+        }
+        catch (JavaScriptException)
+        {
+            // The throw ends the delegation here and now, so nothing may resume into it later.
+            asyncGenerator.ClearDelegationIterator();
+            asyncGenerator._delegatingYieldNode = null;
+            throw;
+        }
 
+        // Await and step through the delegate's answer exactly as a next() result is, with Return as the
+        // completion a done result resumes the body with.
+        asyncGenerator._delegationResumeType = CompletionType.Return;
+        return AwaitAndYieldDelegation(context, asyncGenerator, iterator, EnsurePromise(engine, innerReturnResult));
+    }
+
+    /// <summary>
+    /// The delegate has no <c>return</c> method: per step 7.c.iii the yield* awaits the received value, a second
+    /// await after the one https://tc39.es/ecma262/#sec-asyncgeneratorunwrapyieldresumption did, and then evaluates
+    /// to a return completion of it.
+    /// </summary>
+    private static JsValue AwaitDelegationReturnValue(
+        Engine engine,
+        AsyncGeneratorInstance asyncGenerator,
+        JsValue receivedValue)
+    {
+        // Clear the iterator but keep _delegatingYieldNode, so the resume re-enters at the yield* and finds the
+        // delegation over.
+        asyncGenerator.ClearDelegationIterator();
+
+        var promise = EnsurePromise(engine, receivedValue);
         var promiseCapability = asyncGenerator._currentPromiseCapability;
+        asyncGenerator._asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
 
         var onFulfilled = new ClrFunction(engine, "", (_, args) =>
         {
-            var awaitedValue = args.At(0);
-
-            // Phase B: the return branch proper. Every step of it is `?` in the spec, so from here on an
-            // abrupt completion is the yield*'s own and goes into the body, where a try/catch sees it.
-            ICallable? returnMethod;
-            try
+            asyncGenerator._resumeCompletionType = CompletionType.Return;
+            if (promiseCapability is not null)
             {
-                returnMethod = iterator.Instance.GetMethod(CommonProperties.Return);
-            }
-            catch (JavaScriptException e)
-            {
-                asyncGenerator.ThrowAfterDelegation(e.Error, promiseCapability);
-                return JsValue.Undefined;
+                asyncGenerator.ResumeAfterDelegation(args.At(0), promiseCapability);
             }
 
-            if (returnMethod is null)
-            {
-                // No return method: the delegation ends with a Return completion of the awaited value,
-                // after a SECOND Await of it (separate from the one AsyncGeneratorUnwrapYieldResumption did).
-                // Clear the iterator but keep _delegatingYieldNode so ResumeAfterDelegation re-enters correctly.
-                asyncGenerator.ClearDelegationIterator();
-
-                var awaitPromise2 = EnsurePromise(engine, awaitedValue);
-                asyncGenerator._asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
-
-                var returnOnFulfilled = new ClrFunction(engine, "", (_, returnArgs) =>
-                {
-                    var finalValue = returnArgs.At(0);
-                    // Set up state so yield* detects delegation-complete with Return
-                    asyncGenerator._nextValue = finalValue;
-                    asyncGenerator._resumeCompletionType = CompletionType.Return;
-                    if (promiseCapability is not null)
-                    {
-                        asyncGenerator.ResumeAfterDelegation(finalValue, promiseCapability);
-                    }
-                    return JsValue.Undefined;
-                }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
-
-                var returnOnRejected = new ClrFunction(engine, "", (_, returnArgs) =>
-                {
-                    asyncGenerator.ThrowAfterDelegation(returnArgs.At(0), promiseCapability);
-                    return JsValue.Undefined;
-                }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
-
-                PromiseOperations.PerformPromiseThen(engine, awaitPromise2, returnOnFulfilled, returnOnRejected, null!);
-                return JsValue.Undefined;
-            }
-
-            // Return method exists: call it with the awaited value, then await and step through its result
-            // exactly as a next() result is, with Return as the completion a done result resumes with.
-            JsValue innerReturnResult;
-            try
-            {
-                innerReturnResult = returnMethod.Call(iterator.Instance, new[] { awaitedValue });
-            }
-            catch (JavaScriptException e)
-            {
-                asyncGenerator.ThrowAfterDelegation(e.Error, promiseCapability);
-                return JsValue.Undefined;
-            }
-
-            asyncGenerator._delegationResumeType = CompletionType.Return;
-            return AwaitAndYieldDelegation(context, asyncGenerator, iterator, EnsurePromise(engine, innerReturnResult));
+            return JsValue.Undefined;
         }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
 
         var onRejected = new ClrFunction(engine, "", (_, args) =>
         {
-            // AsyncGeneratorUnwrapYieldResumption: the awaited return value rejected, so what the delegation
-            // RECEIVES is a throw completion, and the loop forwards it to the delegate's throw method.
-            asyncGenerator.ThrowIntoDelegation(args.At(0), promiseCapability);
+            asyncGenerator.ThrowAfterDelegation(args.At(0), promiseCapability);
             return JsValue.Undefined;
         }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
 
-        PromiseOperations.PerformPromiseThen(engine, awaitPromise, onFulfilled, onRejected, null!);
-
+        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
         return JsValue.Undefined;
     }
 

@@ -317,10 +317,11 @@ internal sealed class JintStatementList
     {
         // A return() resumption that a yield inside this statement received: the statement ends with that return
         // completion, exactly as it would had the yield been the whole statement (the ReturnRequested test in
-        // Execute). It is not an exception as far as the script or the debugger is concerned.
+        // Execute). It is not an exception as far as the script or the debugger is concerned. The completion is the
+        // yield's, so it says so: see GeneratorReturnException.CompletionSource.
         if (exception is GeneratorReturnException generatorReturn)
         {
-            return new Completion(CompletionType.Return, generatorReturn.Value, s!._statement);
+            return new Completion(CompletionType.Return, generatorReturn.Value, generatorReturn.CompletionSource);
         }
 
         var completion = exception switch

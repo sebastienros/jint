@@ -29,17 +29,26 @@ namespace Jint.Runtime.Interpreter;
 /// </remarks>
 internal sealed class GeneratorReturnException : JintException
 {
-    private GeneratorReturnException(JsValue value) : base("Generator return completion")
+    private GeneratorReturnException(JsValue value, Node source) : base("Generator return completion")
     {
         Value = value;
+        CompletionSource = source;
     }
 
     /// <summary>
-    /// The value of the return completion: the argument <c>return()</c> was called with, or what <c>yield*</c>
-    /// received from the inner iterator's <c>return()</c>.
+    /// The value of the return completion: the argument <c>return()</c> was called with (in an async generator, its
+    /// awaited value), or what <c>yield*</c> received from the inner iterator's <c>return()</c>.
     /// </summary>
     public JsValue Value { get; }
 
+    /// <summary>
+    /// The node that produced the completion: the <c>yield</c>, or the destructuring pattern that took the resumption
+    /// in its place. The Return completion carries it rather than the statement around it, so that an async
+    /// generator does not take <c>return yield x;</c> for a <c>return</c> statement whose operand it still has to
+    /// await (<c>AsyncGeneratorInstance.SettleResumeCompletion</c>).
+    /// </summary>
+    public Node CompletionSource { get; }
+
     [DoesNotReturn]
-    internal static void Raise(JsValue value) => throw new GeneratorReturnException(value);
+    internal static void Raise(JsValue value, Node source) => throw new GeneratorReturnException(value, source);
 }
