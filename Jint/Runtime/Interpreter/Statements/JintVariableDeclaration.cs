@@ -9,6 +9,15 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
 {
     private readonly ResolvedDeclaration[] _declarations;
 
+    /// <summary>
+    /// Whether a suspension can leave the list part-way through: more than one declarator, and one of
+    /// them contains an <c>await</c> or a <c>yield</c> of the enclosing frame, in its initializer or in
+    /// a default inside its binding pattern. Only such a list parks the declarator it suspended at. Every
+    /// other list runs the walk with no resume bookkeeping at all; a single declarator that suspends
+    /// restarts at index 0, which is the declarator it suspended in.
+    /// </summary>
+    private readonly bool _tracksDeclaratorIndex;
+
     private sealed class ResolvedDeclaration
     {
         internal JintExpression? Left;
@@ -85,6 +94,18 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                 CanUseSlotLane = canUseSlotLane,
             };
         }
+
+        if (_declarations.Length > 1)
+        {
+            foreach (var declaration in statement.Declarations)
+            {
+                if (MaySuspendVisitor.MaySuspend(declaration))
+                {
+                    _tracksDeclaratorIndex = true;
+                    break;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -101,11 +122,45 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
         ExecuteInternal(context);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-let-and-const-declarations-runtime-semantics-evaluation and
+    /// https://tc39.es/ecma262/#sec-variable-statement-runtime-semantics-evaluation: each declarator of the
+    /// list is evaluated once, left to right.
+    /// </summary>
+    /// <remarks>
+    /// A suspension inside a declarator's initializer makes the statement list replay this statement on
+    /// resume, and a replay that restarted at the first declarator re-ran every declarator before the
+    /// suspended one: the completed-await memo hands back the awaits, so what repeated was exactly the
+    /// declarators that do not await — their side effects, and a let/const initialized again with the second
+    /// value. The index the walk suspended at is parked on the suspendable, keyed by this handler
+    /// (handler trees are shared, so it cannot be a field here), read back only while resuming, and cleared
+    /// when a resumed walk completes; <see cref="Expressions.JintSequenceExpression"/> keeps its operand
+    /// index the same way. Only a list that can suspend part-way through pays for any of it
+    /// (<see cref="_tracksDeclaratorIndex"/>): this handler runs for every declaration statement, so the
+    /// others walk with a null suspendable and no bookkeeping.
+    /// </remarks>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         var engine = context.Engine;
-        foreach (var declaration in _declarations)
+        var declarations = _declarations;
+
+        ISuspendable? suspendable = null;
+        var resumed = false;
+        var i = 0;
+        if (_tracksDeclaratorIndex)
         {
+            suspendable = engine.ExecutionContext.Suspendable;
+            if (suspendable is { IsResuming: true }
+                && suspendable.Data.TryGet(this, out VariableDeclarationSuspendData? resumeData))
+            {
+                i = resumeData!.DeclarationIndex;
+                resumed = true;
+            }
+        }
+
+        for (; (uint) i < (uint) declarations.Length; i++)
+        {
+            var declaration = declarations[i];
             if (_statement.Kind != VariableDeclarationKind.Var && declaration.Left != null)
             {
                 // Slot lane: the declaration's own binding lives in the current environment by
@@ -138,7 +193,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                             // Check for generator suspension after evaluating initializer
                             if (context.IsSuspended())
                             {
-                                return new Completion(CompletionType.Normal, laneValue, _statement);
+                                return Suspended(suspendable, i, laneValue);
                             }
                         }
 
@@ -148,10 +203,10 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                 }
 
                 // Slow arm kept out-of-line so this method stays compact for the var path.
-                var completion = InitializeLexicalBindingSlow(context, engine, declaration);
-                if (completion is not null)
+                var suspendedValue = InitializeLexicalBindingSlow(context, engine, declaration);
+                if (suspendedValue is not null)
                 {
-                    return completion.Value;
+                    return Suspended(suspendable, i, suspendedValue);
                 }
             }
             else if (declaration.Init != null)
@@ -167,7 +222,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     // Check for generator suspension after evaluating initializer
                     if (context.IsSuspended())
                     {
-                        return new Completion(CompletionType.Normal, value, _statement);
+                        return Suspended(suspendable, i, value);
                     }
 
                     DestructuringPatternAssignmentExpression.ProcessPatterns(
@@ -180,16 +235,33 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     // Check for async/generator suspension after processing patterns
                     if (context.IsSuspended())
                     {
-                        return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
+                        return Suspended(suspendable, i, JsValue.Undefined);
                     }
                 }
-                else if (declaration.LeftIdentifierExpression == null
-                         || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
-                             context,
-                             declaration.LeftIdentifierExpression,
-                             declaration.Init,
-                             declaration.EvalOrArguments) is null)
+                else
                 {
+                    if (declaration.LeftIdentifierExpression is not null)
+                    {
+                        var assigned = JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
+                            context,
+                            declaration.LeftIdentifierExpression,
+                            declaration.Init,
+                            declaration.EvalOrArguments);
+                        if (assigned is not null)
+                        {
+                            // The helper hands the suspension placeholder back without assigning it. A
+                            // list that can suspend part-way through stops here too, or the declarators
+                            // after this one run while the frame is already suspended; any other list
+                            // has nothing after this declarator that it could run too early.
+                            if (suspendable is not null && context.IsSuspended())
+                            {
+                                return Suspended(suspendable, i, (JsValue) assigned);
+                            }
+
+                            continue;
+                        }
+                    }
+
                     // slow path
                     var lhs = (Reference) declaration.Left!.Evaluate(context);
                     lhs.AssertValid(engine.Realm);
@@ -208,7 +280,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     if (context.IsSuspended())
                     {
                         engine._referencePool.Return(lhs);
-                        return new Completion(CompletionType.Normal, value, _statement);
+                        return Suspended(suspendable, i, value);
                     }
 
                     if (declaration.Init._expression.IsFunctionDefinition() && declaration.Init is not JintClassExpression)
@@ -222,16 +294,35 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
             }
         }
 
+        if (resumed)
+        {
+            suspendable!.Data.Clear(this);
+        }
+
         return Completion.Empty();
     }
 
     /// <summary>
+    /// Parks the declarator the walk suspended at, for a tracked list, and completes with the suspension
+    /// placeholder.
+    /// </summary>
+    private Completion Suspended(ISuspendable? suspendable, int index, JsValue value)
+    {
+        if (suspendable is not null)
+        {
+            suspendable.Data.GetOrCreate<VariableDeclarationSuspendData>(this).DeclarationIndex = index;
+        }
+
+        return new Completion(CompletionType.Normal, value, _statement);
+    }
+
+    /// <summary>
     /// Initializes a lexical (let/const/using) identifier binding through the Reference-based
-    /// path (targets the slot lane can't serve). Returns a completion only when the initializer
+    /// path (targets the slot lane can't serve). Returns the placeholder only when the initializer
     /// suspended (generator/async); null means the binding was initialized and the caller
     /// continues with the next declarator.
     /// </summary>
-    private Completion? InitializeLexicalBindingSlow(EvaluationContext context, Engine engine, ResolvedDeclaration declaration)
+    private JsValue? InitializeLexicalBindingSlow(EvaluationContext context, Engine engine, ResolvedDeclaration declaration)
     {
         var lhs = (Reference) declaration.Left!.Evaluate(context);
         var value = JsValue.Undefined;
@@ -250,7 +341,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
             if (context.IsSuspended())
             {
                 engine._referencePool.Return(lhs);
-                return new Completion(CompletionType.Normal, value, _statement);
+                return value;
             }
 
             if (declaration.Init._expression.IsFunctionDefinition() && declaration.Init is not JintClassExpression)
