@@ -559,6 +559,43 @@ internal sealed class VariableDeclarationSuspendData : SuspendData
     public int DeclarationIndex { get; set; }
 }
 
+/// <summary>
+/// Stores what a call (<c>f(…)</c>, <c>o.m(…)</c>, <c>super(…)</c>) or a <c>new</c> had resolved when its
+/// argument list suspended, so the resume goes back into the arguments instead of evaluating the callee, and
+/// every call and member read inside it, a second time.
+/// </summary>
+/// <remarks>
+/// The handler parks it keyed by itself and the resume that re-enters the handler takes it back, reading it and
+/// removing it, so an entry lives only from a suspension in the arguments to the next resume through them. A
+/// throw that leaves through the arguments finds nothing left to go stale. Only a handler whose arguments may
+/// suspend, which is decided at build time, ever parks one.
+/// </remarks>
+internal sealed class CallSuspendData : SuspendData
+{
+    /// <summary>
+    /// The function the call invokes; for <c>new</c> and <c>super(…)</c>, the constructor.
+    /// </summary>
+    public JsValue Function { get; set; } = JsValue.Undefined;
+
+    /// <summary>
+    /// The this value the call passes. Unused by <c>new</c> and <c>super(…)</c>.
+    /// </summary>
+    public JsValue ThisValue { get; set; } = JsValue.Undefined;
+
+    /// <summary>
+    /// What the callee evaluated to, for the not-a-function message and a reference resolver's
+    /// <c>TryGetCallable</c>: the value itself, or a <see cref="Reference"/> that stays rented while it is
+    /// parked and goes back to the pool only when the call completes.
+    /// </summary>
+    public object? Callee { get; set; }
+
+    /// <summary>
+    /// Whether the callee is <c>%eval%</c> named by an identifier <c>eval</c>, which makes the call a direct
+    /// eval.
+    /// </summary>
+    public bool DirectEval { get; set; }
+}
+
 internal sealed class SuspendDataDictionary
 {
     /// <summary>

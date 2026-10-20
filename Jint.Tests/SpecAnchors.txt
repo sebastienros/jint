@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1288
+anchors: 1291
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -273,6 +273,7 @@ ecma262 sec-error.prototype.tostring
 ecma262 sec-escape-string
 ecma262 sec-evaldeclarationinstantiation
 ecma262 sec-evaluatecall
+ecma262 sec-evaluatenew
 ecma262 sec-example-cyclic-module-record-graphs
 ecma262 sec-execute-async-module
 ecma262 sec-expanded-years
@@ -288,6 +289,7 @@ ecma262 sec-forbodyevaluation
 ecma262 sec-frompropertydescriptor
 ecma262 sec-fulfillpromise
 ecma262 sec-function-calls
+ecma262 sec-function-calls-runtime-semantics-evaluation
 ecma262 sec-function-constructor
 ecma262 sec-function-environment-records
 ecma262 sec-function.prototype-@@hasinstance
@@ -645,6 +647,7 @@ ecma262 sec-resolvebinding
 ecma262 sec-resolveexport
 ecma262 sec-resolvethisbinding
 ecma262 sec-return-statement-runtime-semantics-evaluation
+ecma262 sec-runtime-semantics-argumentlistevaluation
 ecma262 sec-runtime-semantics-bindinginitialization
 ecma262 sec-runtime-semantics-canonicalize-ch
 ecma262 sec-runtime-semantics-catchclauseevaluation
