@@ -6570,6 +6570,36 @@ Now each declarator runs once, as in every other engine: the resume continues at
 suspended. A script that split such lists into one statement per declarator to work around this can stop.
 There is no switch back.
 
+### 4.171 An async generator's `return(value)` awaits `value` at the `yield`, before the `finally` blocks run ([#4315](https://github.com/sebastienros/jint/issues/4315))
+
+`return(value)` on an async generator suspended at a `yield` resumes it at that `yield`, and the first thing the
+`yield` does is await `value`. In 4.16 the body resumed inside the `return()` call itself and `value` was awaited only
+once the body had finished, so the `finally` blocks ran before the caller's next statement, and a rejected `value`
+skipped every `catch` and rejected the request:
+
+```js
+var log = [];
+var g = (async function* () {
+    try { yield 0; } catch (e) { log.push("caught " + e); } finally { log.push("fin"); }
+})();
+await g.next();
+await g.return(Promise.reject("X")).then(r => log.push(JSON.stringify(r)), e => log.push("rejected " + e));
+// 4.16.x / earlier 5.0: ["fin", "rejected X"]    5.x: ["caught X", "fin", "{\"done\":true}"]
+```
+
+Now the body resumes a microtask after the `return()` call (one more for a thenable), the `finally` blocks run with
+the awaited value, and a rejection is thrown at the `yield`, where a `catch` around it handles it like any other
+throw: the generator carries on, and may yield again. Inside a `yield*` the delegate's `return()` is called with the
+awaited value, and a rejection is handed to the delegate's `throw()`.
+
+Three neighbours changed with it, all in when an async generator's return settles. `return(promise)` on a generator
+that has not started or has finished, and a `return promise;` statement in the body, settled two microtasks later than
+they should. A `return promise;` after a `yield*` had finished answered `{ value: promise, done: true }` without
+awaiting the promise. And a `next()` sent to a `yield*` whose delegate had answered a `throw()` or a `return()` with a
+value was forwarded to the delegate as that `throw()` or `return()` again; it is now a `next()`. A script that relied
+on the `finally` blocks having run by the time `return()` returned must await the request instead. There is no switch
+back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

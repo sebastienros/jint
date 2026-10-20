@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1287
+anchors: 1288
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -644,6 +644,7 @@ ecma262 sec-resolve-private-identifier
 ecma262 sec-resolvebinding
 ecma262 sec-resolveexport
 ecma262 sec-resolvethisbinding
+ecma262 sec-return-statement-runtime-semantics-evaluation
 ecma262 sec-runtime-semantics-bindinginitialization
 ecma262 sec-runtime-semantics-canonicalize-ch
 ecma262 sec-runtime-semantics-catchclauseevaluation
