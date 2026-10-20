@@ -22,6 +22,13 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
     {
         internal JintExpression? Left;
         internal DestructuringPattern? LeftPattern;
+
+        /// <summary>
+        /// Whether <see cref="LeftPattern"/> contains an <c>await</c> or a <c>yield</c> of the enclosing frame, so
+        /// that it takes the destructuring's resumable lane.
+        /// </summary>
+        internal bool PatternMaySuspend;
+
         internal JintExpression? Init;
         internal JintIdentifierExpression? LeftIdentifierExpression;
         internal bool EvalOrArguments;
@@ -88,6 +95,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
             {
                 Left = left,
                 LeftPattern = pattern,
+                PatternMaySuspend = pattern is not null && MaySuspendVisitor.MaySuspend(pattern),
                 LeftIdentifierExpression = leftIdentifier,
                 EvalOrArguments = leftIdentifier?.HasEvalOrArguments == true,
                 Init = init,
@@ -217,20 +225,43 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                         ? engine.ExecutionContext.LexicalEnvironment
                         : null;
 
-                    var value = declaration.Init.GetValue(context);
-
-                    // Check for generator suspension after evaluating initializer
-                    if (context.IsSuspended())
+                    if (declaration.PatternMaySuspend)
                     {
-                        return Suspended(suspendable, i, value);
-                    }
+                        // A resume inside the pattern finds the initializer's value parked with it; evaluating the
+                        // initializer again would repeat its side effects (sebastienros/jint#4313).
+                        if (!DestructuringPatternAssignmentExpression.TryGetResumedArgument(context, declaration.LeftPattern, out var resumedValue))
+                        {
+                            resumedValue = declaration.Init.GetValue(context);
+                            if (context.IsSuspended())
+                            {
+                                return Suspended(suspendable, i, resumedValue);
+                            }
+                        }
 
-                    DestructuringPatternAssignmentExpression.ProcessPatterns(
-                        context,
-                        declaration.LeftPattern,
-                        value,
-                        environment,
-                        checkPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
+                        DestructuringPatternAssignmentExpression.ProcessResumablePattern(
+                            context,
+                            declaration.LeftPattern,
+                            resumedValue,
+                            environment,
+                            checkPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
+                    }
+                    else
+                    {
+                        var value = declaration.Init.GetValue(context);
+
+                        // Check for generator suspension after evaluating initializer
+                        if (context.IsSuspended())
+                        {
+                            return Suspended(suspendable, i, value);
+                        }
+
+                        DestructuringPatternAssignmentExpression.ProcessPatterns(
+                            context,
+                            declaration.LeftPattern,
+                            value,
+                            environment,
+                            checkPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
+                    }
 
                     // Check for async/generator suspension after processing patterns
                     if (context.IsSuspended())
