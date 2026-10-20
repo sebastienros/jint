@@ -206,38 +206,6 @@ internal sealed class JintObjectExpression : JintExpression
         }
     }
 
-    /// <summary>
-    /// Detects whether evaluating a node could suspend the current generator/async frame: any
-    /// yield or await reachable without crossing into a nested function (whose suspensions belong
-    /// to its own frame). Class nodes are descended conservatively — their computed member keys
-    /// evaluate in the enclosing frame.
-    /// </summary>
-    private static class MaySuspendVisitor
-    {
-        public static bool MaySuspend(Node node)
-        {
-            if (node.Type is NodeType.YieldExpression or NodeType.AwaitExpression)
-            {
-                return true;
-            }
-
-            if (node.Type is NodeType.FunctionDeclaration or NodeType.FunctionExpression or NodeType.ArrowFunctionExpression)
-            {
-                return false;
-            }
-
-            foreach (var childNode in node.ChildNodes)
-            {
-                if (MaySuspend(childNode))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-    }
-
     // O(n^2) but runs once at construction; n is the literal's static property count.
     private static bool AreKeysDistinct(Key[] keys)
     {

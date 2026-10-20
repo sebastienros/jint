@@ -6554,6 +6554,22 @@ So `*.js?v=*`, which paused only `app.js?v=3`, now also pauses `app.jsXv=3` and 
 match only a literal `?`. A pattern that relied on a literal backslash must double it. A pattern written for a path now also
 pauses that path with a `#fragment`, and a pattern that names a fragment matches nothing. There is no switch back.
 
+### 4.168 A declaration list resumes at the declarator that suspended, so the ones before it run once ([#4324](https://github.com/sebastienros/jint/issues/4324))
+
+In 4.16 a `let`, `const` or `var` statement with several declarators — `let a = await f(), s = side(), b = await g();`
+— re-ran its earlier declarators every time an `await` (or a `yield`) in a later declarator of the same list
+resumed: the engine resumes a suspended body by replaying the statement it suspended in, and the declaration
+statement replayed from its first declarator. The awaits that had already completed came back from a memo, so
+the answer looked right; what ran again was every declarator that did *not* await — its side effects, and a
+`let`/`const` initialized again with whatever it produced the second time. `let t = mint(), a = await f();`
+left `t` holding the second token minted. In an async generator the same list never finished: the replayed
+`await` suspended again and the replayed `yield` yielded again, so every `next()` answered the same value.
+Bundlers produce this shape routinely, since minifiers merge consecutive declarations into one list.
+
+Now each declarator runs once, as in every other engine: the resume continues at the declarator that
+suspended. A script that split such lists into one statement per declarator to work around this can stop.
+There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
