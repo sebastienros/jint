@@ -21,6 +21,9 @@ internal sealed class JintCallExpression : JintExpression
     // `_calleeMember` doubles as the already-narrowed receiver for the fast member-call lane.
     private readonly bool _calleeIsSuper;
     private readonly JintMemberExpression? _calleeMember;
+
+    // A bare-name callee other than `eval` (whose direct form needs the reference) and `arguments`.
+    private readonly JintIdentifierExpression? _calleeIdentifier;
     private readonly bool _isTailPosition;
 
     // Monomorphic fast-call cache: the callee seen by the last evaluation plus its verdict for this
@@ -93,6 +96,13 @@ internal sealed class JintCallExpression : JintExpression
         _calleeExpression = Build(expression.Callee);
         _calleeIsSuper = _calleeExpression._expression.Type == NodeType.Super;
         _calleeMember = _calleeExpression as JintMemberExpression;
+        // An optional call (`f?.()`) stays on the Reference path, which owns the short circuit.
+        if (_calleeExpression is JintIdentifierExpression { HasEvalOrArguments: false } identifier
+            && !expression.IsOptional())
+        {
+            identifier.MarkAsCallee();
+            _calleeIdentifier = identifier;
+        }
         _isTailPosition = ReferenceEquals(expression.UserData, TailCallMarker.Instance);
 
         // A ChainExpression callee is a chain of its own whose value has already been taken
@@ -178,6 +188,32 @@ internal sealed class JintCallExpression : JintExpression
             thisObject = fastThis;
             referenceRecord = null;
             reference = fastFunc;
+        }
+        else if (_calleeIdentifier is { } identifier
+                 && !engine._hasWithEnvironment
+                 && !engine._resolverWatchesUnresolvable
+                 && !engine._resolverWatchesCallee)
+        {
+            // Identifier lane. EvaluateCall (https://tc39.es/ecma262/#sec-evaluatecall) takes the callee's
+            // value from its Reference and the this value from the base environment's WithBaseObject,
+            // which is undefined for every environment but a with-object's. With no with
+            // statement ever run there is none on any chain, so the value can come from the identifier's own
+            // read path — its slot, global and environment caches — and no Reference is built for a call by
+            // name. The read happens exactly once either way: an unresolvable name throws the same
+            // ReferenceError from it, and a value that is not callable gets the reference the error
+            // messages below are built from, by name only, rather than being read a second time.
+            func = identifier.GetValue(context);
+            thisObject = JsValue.Undefined;
+            if (IsCallableFlagged(func))
+            {
+                referenceRecord = null;
+                reference = func;
+            }
+            else
+            {
+                referenceRecord = engine._referencePool.Rent(JsValue.Undefined, identifier.Identifier.Value, engine.ExecutionContext.Strict, thisValue: null);
+                reference = referenceRecord;
+            }
         }
         else
         {

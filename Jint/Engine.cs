@@ -2202,6 +2202,15 @@ public sealed partial class Engine : IDisposable
 
     internal Node? _lastSyntaxElement;
 
+    /// <summary>
+    /// Set, and never cleared, the first time a <c>with</c> statement puts an object environment on a scope
+    /// chain. Until then every binding an identifier can resolve to lives in a declarative or the global
+    /// environment, whose <c>WithBaseObject</c> is <c>undefined</c>, so a call through a bare identifier can
+    /// take its callee from the identifier's read caches without building a <see cref="Reference"/>
+    /// (<c>JintCallExpression</c>'s identifier lane).
+    /// </summary>
+    internal bool _hasWithEnvironment;
+
     // Bumped when a binding is injected into a PRE-EXISTING environment mid-execution (sloppy
     // direct eval var/function hoisting, AnnexB block-function var-scope copies). Nested-scope
     // global-read memos pin environment chains by identity and re-validate against this — chain
