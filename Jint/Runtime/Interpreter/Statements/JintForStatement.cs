@@ -281,10 +281,10 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             // the await, not the loop's outer environment, so it cannot be read from the execution
             // context on any resume into this loop. Resuming into the *body* it is the body block's
             // environment whenever the body declares let/const; resuming into the *init* it is the
-            // abandoned first-attempt loop environment, whose header bindings are still in TDZ —
-            // reinstating that on exit makes a later read of a same-named outer binding throw
-            // ReferenceError (and `typeof` on an out-of-scope name must never throw). Restore the
-            // real one from suspend data, exactly as JintForInForOfStatement.BodyEvaluation does.
+            // first-attempt loop environment itself (reused below), whose suspended header binding
+            // is still in TDZ — reinstating that on exit makes a later read of a same-named outer
+            // binding throw ReferenceError (and `typeof` on an out-of-scope name must never throw).
+            // Restore the real one from suspend data, exactly as JintForInForOfStatement.BodyEvaluation does.
             //
             // The init case has to be repaired here, at the read, and not merely tolerated: `oldEnv`
             // is what the finally below writes back into the suspend data, so leaving it poisoned
@@ -301,8 +301,11 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 oldEnv = suspendData.OuterEnv;
             }
 
-            var resumedIterationEnv = resumingInLoop ? suspendData?.IterationEnv : null;
-            restoredIterationEnv = resumedIterationEnv is not null;
+            var resumedIterationEnv = (resumingInLoop || resumingInInit) ? suspendData?.IterationEnv : null;
+
+            // An init resume is not an iteration in progress: the fork before the first test still
+            // has to happen (ForBodyEvaluation), so only a resume into the loop proper sets the flag.
+            restoredIterationEnv = resumingInLoop && resumedIterationEnv is not null;
             if (resumedIterationEnv is not null)
             {
                 // Reuse the very environment the suspension left behind rather than building a
@@ -311,10 +314,13 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 // after the await would land in the new environment while the closure kept reading
                 // the old one. ForOfSuspendData.IterationEnv exists for the same reason.
                 //
-                // Deliberately not extended to an init resume, which re-runs the init: its bindings
-                // must start uninitialized so the declaration can initialize them, and a declarator
-                // that already ran before the await would hit an initialized binding in a reused
-                // environment. Only the outer link above is shared with that case.
+                // An init resume reuses it as well. The declaration resumes at the declarator that
+                // suspended (VariableDeclarationSuspendData) and does not run the ones before it
+                // again, so their bindings have to still be there, initialized — which only the
+                // environment they were initialized in can provide. A fresh environment left them
+                // in their temporal dead zone, and the loop's test threw ReferenceError on the first
+                // header name. The declarator that suspended is still uninitialized here, as the
+                // declaration expects.
                 loopEnv = resumedIterationEnv;
                 engine.UpdateLexicalEnvironment(loopEnv);
             }
