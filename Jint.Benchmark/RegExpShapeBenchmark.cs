@@ -44,6 +44,9 @@ public class RegExpShapeBenchmark
         ["template-replace-g"] = "str.replace(/(a)(b)?/g, '$2$1').length",
         ["exec-loop"] = "var re = /(b)(c)/g, n = 0, m; while ((m = re.exec(str)) !== null) n++; n",
         ["uprop-match-g"] = "str.match(/\\p{L}+/gu).length",
+        // Groups inside an alternation inside a repeat: the backtracking frames trail registers here, which GregsEx #4
+        // made variable-length (and measured 7-12% slower on this shape).
+        ["grouped-alternation-repeat"] = "str.replace(/((a)|b)+c/g, '$1').length",
         ["construct-100"] = "for (var i = 0; i < 100; i++) new RegExp('x' + (i % 10) + 'y').test('ax3y'); 1",
     };
 

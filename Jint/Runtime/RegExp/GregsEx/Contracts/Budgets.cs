@@ -140,7 +140,7 @@ internal struct RunBudget
     // Deadline overshoot is therefore bounded by ClockStride units of work, and cancellation and the
     // work limit are still checked on every charge. When the deadline is within ShortDeadlineSeconds the
     // clock is read on every charge, so tiny timeouts fire as promptly as before amortization.
-    internal const long ClockStride = 256;
+    internal const long ClockStride = 16384;
     private const double ShortDeadlineSeconds = 0.001;
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]

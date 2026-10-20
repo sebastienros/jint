@@ -63,6 +63,8 @@ jobs:
       id: sync
       env:
         REVISION: ${{ inputs.revision || 'main' }}
+        # Read-only here; it only lifts the anonymous API rate limit.
+        GITHUB_TOKEN: ${{ github.token }}
       run: |
         out=$(python3 tools/sync_gregsex.py --revision "$REVISION")
         echo "$out"

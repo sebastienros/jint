@@ -144,12 +144,12 @@ index 59b1330c2..09120e696 100644
      // otherwise per-unit charges reproduce the exact failing offset and consumed work.
      [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 diff --git a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
-index 86d76aca6..dcf3f1a99 100644
+index ad67df6f9..fec3098e3 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
 +++ b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
-@@ -562,7 +562,12 @@ internal sealed class EcmaAccelerator
-     private readonly int _literalRareOffset;
-     private readonly CaptureSlice[] _literalCaptures = [];
+@@ -742,7 +742,12 @@ internal sealed class EcmaAccelerator
+     private readonly bool _literalLeadBoundary;
+     private readonly bool _literalTrailBoundary;
      private readonly string[] _altBranches = [];
 +#if NET9_0_OR_GREATER
      private readonly SearchValues<string>? _altSearchValues;
@@ -160,10 +160,10 @@ index 86d76aca6..dcf3f1a99 100644
      private readonly SearchValues<char>? _altFirstCharValues;
      private readonly EcmaFastSet? _repeatSet;
      private readonly int _repeatMin;
-@@ -587,12 +592,14 @@ internal sealed class EcmaAccelerator
-     // nullable atoms, which neither PrefixLiteral nor FirstSet covers: without it /ZZQ/i over 64 KiB started the VM
-     // at every position.
+@@ -777,12 +782,14 @@ internal sealed class EcmaAccelerator
      internal readonly SearchValues<char>? FirstChars;
+     // FirstChars leaves out what a non-multiline ^ branch could start with, so the input's start is always a candidate.
+     internal bool FirstCharsTryStart { get; private set; }
 +#if NET9_0_OR_GREATER
      private SearchValues<string>? _literalSearchValues;
  
@@ -175,7 +175,7 @@ index 86d76aca6..dcf3f1a99 100644
  
      // An i-flag literal that no other character canonicalizes with (`@`, `-`, digits) matches exactly what the
      // case-sensitive literal matches, so the planners see it without the flag: they refuse i-flag literals, and an i
-@@ -749,7 +756,9 @@ internal sealed class EcmaAccelerator
+@@ -985,7 +992,9 @@ internal sealed class EcmaAccelerator
  
          if (!StartAnchoredNonMultiline && PrefixLiteral is null && FirstSet is null)
          {
@@ -185,7 +185,7 @@ index 86d76aca6..dcf3f1a99 100644
              FirstChars = TryBuildFirstChars(nodes, root, caseTables);
          }
  
-@@ -1056,7 +1065,11 @@ internal sealed class EcmaAccelerator
+@@ -1354,7 +1363,11 @@ internal sealed class EcmaAccelerator
      private bool TryBuildLiteralAlternationPlan(
          ReadOnlySpan<EcmaNode> nodes,
          out string[] branches,
@@ -197,7 +197,7 @@ index 86d76aca6..dcf3f1a99 100644
          out SearchValues<char>? firstCharValues)
      {
          branches = [];
-@@ -1119,7 +1132,11 @@ internal sealed class EcmaAccelerator
+@@ -1417,7 +1430,11 @@ internal sealed class EcmaAccelerator
              }
          }
          branches = list.ToArray();
@@ -209,7 +209,7 @@ index 86d76aca6..dcf3f1a99 100644
          if (allRareFirst && distinctCount is >= 1 and <= 5)
          {
              firstCharValues = SearchValues.Create(distinctFirst.Slice(0, distinctCount));
-@@ -1128,6 +1145,24 @@ internal sealed class EcmaAccelerator
+@@ -1426,6 +1443,24 @@ internal sealed class EcmaAccelerator
          return true;
      }
  
@@ -234,7 +234,7 @@ index 86d76aca6..dcf3f1a99 100644
      private static bool CollectAltBranches(ReadOnlySpan<EcmaNode> nodes, int id, List<string> branches)
      {
          var n = nodes[id];
-@@ -1856,6 +1891,7 @@ internal sealed class EcmaAccelerator
+@@ -2194,6 +2229,7 @@ internal sealed class EcmaAccelerator
          return false;
      }
  
@@ -242,7 +242,7 @@ index 86d76aca6..dcf3f1a99 100644
      private const int MaxStringsPerBranch = 64;
      private const int MaxFirstStrings = 256;
  
-@@ -1988,6 +2024,7 @@ internal sealed class EcmaAccelerator
+@@ -2326,6 +2362,7 @@ internal sealed class EcmaAccelerator
          return true;
      }
  
@@ -250,7 +250,7 @@ index 86d76aca6..dcf3f1a99 100644
      private const int MaxFirstChars = 2048;
      // Per case-table instance, because the tables are per Unicode version: one slot per mode used to let a Unicode 16
      // program's inverse folds answer for a Unicode 17 program, which lost the 17.0 case pairs from its prefilter.
-@@ -2435,8 +2472,12 @@ internal sealed class EcmaAccelerator
+@@ -2821,8 +2858,12 @@ internal sealed class EcmaAccelerator
          {
              // A single-string SearchValues picks rarer anchor characters than IndexOf(string)'s first/last pair, which
              // is what .NET Regex searches with; IndexOf(string) took twice as long over common-letter text.
@@ -263,7 +263,20 @@ index 86d76aca6..dcf3f1a99 100644
              if (rel < 0)
              {
                  if (!TryChargeFast(ref state, startAt, input.Length, Math.Max(1, input.Length - startAt)))
-@@ -2563,7 +2604,11 @@ internal sealed class EcmaAccelerator
+@@ -2885,8 +2926,12 @@ internal sealed class EcmaAccelerator
+         var searchPos = startAt;
+         while (searchPos + litLen <= input.Length)
+         {
++#if NET9_0_OR_GREATER
+             var rel = litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0])
+                 : input.Slice(searchPos).IndexOfAny(_literalSearchValues ??= SearchValues.Create([_literal], StringComparison.Ordinal));
++#else
++            var rel = litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0]) : input.Slice(searchPos).IndexOf(lit);
++#endif
+             if (rel < 0)
+             {
+                 break;
+@@ -3019,7 +3064,11 @@ internal sealed class EcmaAccelerator
              }
          }
  
@@ -276,25 +289,31 @@ index 86d76aca6..dcf3f1a99 100644
          {
              if (!TryChargeFast(ref state, startAt, input.Length, Math.Max(1, input.Length - startAt)))
 diff --git a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
-index 3633bebe3..f33f1633a 100644
+index a1686e307..74a54b0d9 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
 +++ b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
-@@ -233,6 +233,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
-                         candidate += rel;
-                     }
-                 }
+@@ -1,5 +1,4 @@
+ #nullable enable
+-using System.Threading;
+ using Jint.Runtime.RegExp.GregsEx.Contracts;
+ using Jint.Runtime.RegExp.GregsEx.Contracts.EcmaScript;
+ 
+@@ -411,6 +410,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
+                 candidate += rel;
+             }
+         }
 +#if NET9_0_OR_GREATER
-                 else if (_accelerator.FirstStrings is { } firstStrings)
-                 {
-                     // See EcmaAccelerator.FirstStrings.
-@@ -256,6 +257,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
-                         candidate += rel;
-                     }
-                 }
+         else if (_accelerator.FirstStrings is { } firstStrings)
+         {
+             // See EcmaAccelerator.FirstStrings.
+@@ -434,6 +434,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
+                 candidate += rel;
+             }
+         }
 +#endif
-                 else if (_accelerator.FirstChars is { } firstChars)
-                 {
-                     // See EcmaAccelerator.FirstChars. A hit on the trail half of a surrogate pair is not a
+         else if (_accelerator.FirstChars is { } firstChars && (candidate > 0 || !_accelerator.FirstCharsTryStart))
+         {
+             // See EcmaAccelerator.FirstChars. A hit on the trail half of a surrogate pair is not a
 diff --git a/Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs b/Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs
 index e91b95c6e..b110ca830 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs

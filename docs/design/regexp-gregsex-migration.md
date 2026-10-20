@@ -99,6 +99,18 @@ upstream as [sebastienros/gregsex#3](https://github.com/sebastienros/gregsex/pul
 | G16 | A `.` run searched its four line terminators with a four-value `IndexOfAny`. | Twice .NET's `IndexOf('\n')` over 64 KiB. | One `IndexOfAnyExceptInRange('\u000E', '\u2027')`, verified, with an exact fallback after 8 false hits. |
 | G17 | The inverse-fold cache behind the FIRST prefilters was per mode, not per Unicode version (introduced with G6). | After a Unicode 16 program built it, a Unicode 17 program missed the 17.0 case pairs: wrong `NoMatch`. Not reachable from Jint, which has the 17.0 tables only. | Keyed by its case-table instance. |
 
+A third pass answered the win-x64 gate on #4300 (SunSpider `tagcloud`, `unpack`, `validate-input`, Dromaeo
+`ObjectRegExp` and cold compiles) and went upstream as
+[sebastienros/gregsex#5](https://github.com/sebastienros/gregsex/pull/5):
+
+| # | Defect | Effect | Fix |
+| --- | --- | --- | --- |
+| G18 | The FIRST-character prefilter gave up on a pattern starting with a non-multiline `^`. | Every candidate position ran the VM, although only position 0 can match. | Try the start only, and only when its character is in the FIRST set. |
+| G19 | An alternation tried each alternative at every position. | `tagcloud`/`unpack`-style alternations saved a choice per alternative that cannot start there. | Per-alternative ASCII start masks dispatch to the alternatives the current character can start. |
+| G20 | `\b` around a literal, and `\b\w+\b`, ran the VM. | Word-boundary scans were several times .NET's. | A bounded-literal plan, and boundary checks folded into the single-set repeat plan. |
+| G21 | Every compile built its own ASCII-only fast sets, parser buffers and case-fold bitmaps. | Cold compiles allocated several times `main`. | Shared ASCII sets (a 4096-entry cache), pooled parser buffers, shared bitmaps and fold table. |
+| G22 | Patterns whose next unit decides every choice still ran the general VM. | One VM dispatch and one saved choice per unit. | A Glushkov position matcher: one-pass where the moves are disjoint, backtracking over the automaton where they overlap, with greedy single-unit runs measured once and given back per retry as in G4. Opt-in through the host-sized search (`hostSized: true`), so GregsEx's own frame-capacity contract is unchanged. |
+
 ### 4.2 In Jint
 
 | # | Defect | Effect | Fix |
@@ -177,18 +189,44 @@ of `IndexOf(string)`, `IndexOf(string, Ordinal)` and `SearchValues<string>` meas
 `AnchoredLiteral` is the fixed cost of one call that does almost no work. `icase-literal-test` is below the
 three-round bar.
 
+### 5.1 After gregsex#5
+
+The tables above predate the third pass (G18–G22). That pass was measured on Windows x64 (`measure-paired.ps1`,
+3 rounds, against `main` at `c553a7870`) with G18–G21 only: `unpack` −11.1%, `tagcloud` +3.6% and `validate-input`
++4.0% with CIs that include zero, Dromaeo `ObjectRegExp` +1 … +6%. The first cut of G22 regressed `greedy-dotstar`
+by two orders of magnitude on that machine; the version vendored here counts greedy runs and was measured on the
+Apple M4 Pro only (in-process, 4 alternating rounds, median), against `main` at `c553a7870`:
+
+| Row | Δ against `main` |
+| --- | ---: |
+| SunSpider `regexp-dna` | −78% |
+| SunSpider `unpack-code` | −13.3% |
+| SunSpider `tagcloud` | −4.2% |
+| SunSpider `validate-input` | +2.2% |
+| `greedy-dotstar-test` / `-exec` | −39% |
+| `grouped-alternation-repeat` | −93% |
+| Dromaeo `ObjectRegExp` / `-modern` | −3.5% / −4.5% |
+| Cold compile: `literal`, `email`, `email-i`, alternation, tokenizer | +17%, +19%, +30%, +33%, +21% |
+
+**Windows x64 has not been re-measured with G22's final form.**
+
 ## 6. Follow-ups
 
 - **The backtracking ceiling (J5).** [sebastienros/gregsex#4](https://github.com/sebastienros/gregsex/pull/4) made
   frames variable-length: a choice now saves a fixed-width frame and trails only the task and register slots it
   changes, where it used to copy the whole task stack and the registers. The longest run the 64 MiB ceiling admits went
   from about 82,000 to about 466,000 characters for `/"(?:[^"\\]|\\.)*"/`, from 121,573 to 372,823 for `/(a|b)*c/`
-  and from 143,393 to 621,375 for `/(?:a|b)*c/`. QuickJS and V8 still match longer runs.
+  and from 143,393 to 621,375 for `/(?:a|b)*c/`. Skipping an alternative that cannot start at the current character
+  (no choice saved for it) then took them to 932,061, 559,237 and 932,063. Since gregsex#5 (G22) all three run on the
+  position matcher and need no frames; the ceiling remains for the patterns it declines (lookarounds,
+  backreferences, `u`/`v`, more than 256 positions), where QuickJS and V8 still match longer runs.
 - **Cold compile** (review of #4300, item 5). gregsex#4 also shares fast sets, walks bitmap words instead of all 65,536
   code units, and caches the cased-character set and resolved property intervals. Against `main`, 50 unique patterns
   per operation (`RegExpColdCompileBenchmark`'s shapes, alternating runs on a loaded machine) now read: `literal` −26%,
   `\p{L}` under `u` +1% (it was +1,596%), `email` +57%, an alternation +59%, an `i` class +101% (was +461%), the email
-  pattern under `i` +131% (was +1,225%). What is left is per-pattern setup in the compiler and accelerator.
+  pattern under `i` +131% (was +1,225%). gregsex#5 (G21) brought them to +17 … +33% (§5.1), still allocating 2 to
+  2.5 times `main`; what is left is per-pattern setup in the compiler and accelerator.
+- **Re-measure Windows x64** with G22's final form (§5.1).
 - **The literal scan** (+16…+18%, §5): anchor characters chosen by frequency, as .NET Regex does, and the fixed
   cost of a call that does almost no work (`AnchoredLiteral`, 13 ns → 19 ns). Re-measure `icase-literal-test` at six
   rounds.

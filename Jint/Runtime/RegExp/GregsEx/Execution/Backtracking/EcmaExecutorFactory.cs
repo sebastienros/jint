@@ -53,7 +53,7 @@ internal sealed class EcmaExecutorFactory : IEcmaExecutorFactory
                 return false;
             }
             // Binding tables occurs only here. No Unicode provider calls in search loops.
-            executor = new EcmaExecutor(program, unicode.CaseTables, program.Nodes.ToArray(),
+            executor = new EcmaExecutor(program, unicode.CaseTables, program.NodeArray,
                 checked(2 * depths[program.Root] + 4));
             return true;
         }

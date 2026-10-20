@@ -12,6 +12,7 @@ the patch instead (Jint/Runtime/RegExp/GregsEx/README.md says how).
 import argparse
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -34,6 +35,7 @@ FILES = [
     "Execution/Backtracking/EcmaAccelerator.cs",
     "Execution/Backtracking/EcmaExecutor.cs",
     "Execution/Backtracking/EcmaExecutorFactory.cs",
+    "Execution/Backtracking/EcmaPositionMatcher.cs",
     "Flavors/EcmaScript/Parsing/EcmaCompiler.cs",
     "Flavors/EcmaScript/Parsing/EscapesAndClasses.cs",
     "Flavors/EcmaScript/Parsing/ParserStorage.cs",
@@ -74,16 +76,26 @@ def transform(path, text):
     return text
 
 
+def headers(extra=None):
+    # Anonymous API calls share a 60-an-hour limit per address; a token (GITHUB_TOKEN in CI, GH_TOKEN from `gh auth
+    # token` locally) lifts it. The token goes to github.com only.
+    result = dict(extra or {})
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        result["Authorization"] = f"Bearer {token}"
+    return result
+
+
 def resolve(revision):
     url = f"https://api.github.com/repos/{REPOSITORY}/commits/{revision}"
-    request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+    request = urllib.request.Request(url, headers=headers({"Accept": "application/vnd.github+json"}))
     with urllib.request.urlopen(request, timeout=60) as response:
         return json.load(response)["sha"]
 
 
 def download(sha):
     url = f"https://codeload.github.com/{REPOSITORY}/tar.gz/{sha}"
-    with urllib.request.urlopen(url, timeout=120) as response:
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers()), timeout=120) as response:
         archive = response.read(200_000_001)
     if len(archive) > 200_000_000:
         raise ValueError("Upstream archive exceeds 200 MB ceiling")

@@ -104,7 +104,10 @@ Probe("regular expressions (GregsEx ECMAScript engine)", static () =>
     Expect("a,b,c,d,e", engine.Evaluate("'a , b,c ,d, e'.split(/\\s*,\\s*/).join()"));
     Expect("XbXc", engine.Evaluate("'abac'.replace(/a/g, function (m) { return m.toUpperCase() === 'A' ? 'X' : m; })"));
     Expect(true, engine.Evaluate("var re = /b/y; re.lastIndex = 1; re.test('abc')"));
-    Expect("RangeError", engine.Evaluate("try { /\"(?:[^\"\\\\]|\\\\.)*\"/.exec('\"' + 'a\\\\\"b'.repeat(250000) + '\"'); 'no error' } catch (e) { e.name }"));
+    // The lookahead keeps this one on the VM, whose backtracking storage runs out; without it the position matcher takes
+    // the pattern and needs none.
+    Expect("RangeError", engine.Evaluate("try { /\"(?:[^\"\\\\]|\\\\.)*(?=\")\"/.exec('\"' + 'a'.repeat(2000000) + '\"'); 'no error' } catch (e) { e.name }"));
+    Expect(2000002, engine.Evaluate("/\"(?:[^\"\\\\]|\\\\.)*\"/.exec('\"' + 'a'.repeat(2000000) + '\"')[0].length"));
 });
 
 // Binds to SetValue<T>(string, T[]), which infers T = int rather than T = int[]. That is what keeps

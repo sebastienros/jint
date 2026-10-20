@@ -65,6 +65,48 @@ internal sealed class EcmaFastSet
         AsciiLow = low;
         AsciiHigh = high;
 
+        if (hasBmp && IsAsciiOnly(intervals))
+        {
+            // Every member is ASCII (legacy folding never maps a non-ASCII unit to an ASCII one, so i adds none): the
+            // bitmap is two words, and identical classes share one bitmap and one SearchValues instead of allocating
+            // 8 KiB and a SearchValues per Set node on every compile.
+            for (var c = 0; c < 128; c++)
+            {
+                if (ContainsInterval(intervals, ignoreCase ? Fold(c, unicodeAware, ignoreCase, caseTables) : c))
+                {
+                    if (c < 64)
+                    {
+                        low |= 1UL << c;
+                    }
+                    else
+                    {
+                        high |= 1UL << (c - 64);
+                    }
+                }
+            }
+
+            var shared = SharedAsciiSet(low, high);
+            BmpBits = shared.Bits;
+            AsciiLow = low;
+            AsciiHigh = high;
+            BmpBitsIsExact = true;
+            SearchValues = shared.Values;
+            return;
+        }
+
+        if (hasBmp && SharedBmpSets.TryGetValue(new(_intervals, unicodeAware, foldedBmp ? caseTables : null), out var sharedBmp))
+        {
+            BmpBits = sharedBmp.Bits;
+            AsciiLow = sharedBmp.Bits[0];
+            AsciiHigh = sharedBmp.Bits[1];
+            BmpBitsIsExact = sharedBmp.Exact;
+            SearchValues = sharedBmp.Values;
+            IsNegatedSearchValues = sharedBmp.Negated;
+            UnicodeRunStops = sharedBmp.RunStops;
+            StopsAtLineTerminatorsOnly = sharedBmp.StopsAtLineTerminatorsOnly;
+            return;
+        }
+
         if (hasBmp)
         {
             var bmp = new ulong[1024];
@@ -235,7 +277,98 @@ internal sealed class EcmaFastSet
                     IsNegatedSearchValues = true;
                 }
             }
+
+            if (SharedBmpSets.Count < MaxSharedBmpSets)
+            {
+                SharedBmpSets.TryAdd(new(_intervals, unicodeAware, foldedBmp ? caseTables : null),
+                    new(bmp, BmpBitsIsExact, SearchValues, IsNegatedSearchValues, UnicodeRunStops, StopsAtLineTerminatorsOnly));
+            }
         }
+    }
+
+    // Classes with non-ASCII members ([^"\\], ., \s) recur across patterns, and each built an 8 KiB bitmap and often a
+    // SearchValues per compile. Keyed by the exact intervals, the Unicode mode (which clears the surrogates) and, for a
+    // class folded under legacy i, the case tables it was folded with; bounded like SharedAsciiSets, and never written
+    // after construction.
+    private const int MaxSharedBmpSets = 1024;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<IntervalsKey, BmpSet> SharedBmpSets = new();
+
+    private sealed record BmpSet(ulong[] Bits, bool Exact, SearchValues<char>? Values, bool Negated,
+        SearchValues<char>? RunStops, bool StopsAtLineTerminatorsOnly);
+
+    private readonly struct IntervalsKey(EcmaInterval[] intervals, bool unicodeAware, EcmaCaseTables? foldedWith) : IEquatable<IntervalsKey>
+    {
+        private readonly EcmaInterval[] _intervals = intervals;
+        private readonly bool _unicodeAware = unicodeAware;
+        private readonly EcmaCaseTables? _foldedWith = foldedWith;
+
+        public bool Equals(IntervalsKey other)
+            => _unicodeAware == other._unicodeAware && ReferenceEquals(_foldedWith, other._foldedWith) &&
+                _intervals.AsSpan().SequenceEqual(other._intervals);
+
+        public override bool Equals(object? obj) => obj is IntervalsKey other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            var hash = _unicodeAware ? 1 : 0;
+            foreach (var iv in _intervals)
+            {
+                hash = unchecked(hash * 31 + iv.First) * 31 + iv.Last;
+            }
+
+            return hash;
+        }
+    }
+
+    private static bool IsAsciiOnly(ReadOnlySpan<EcmaInterval> intervals)
+    {
+        foreach (var iv in intervals)
+        {
+            if (iv.Last >= 128)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private sealed record AsciiSet(ulong[] Bits, SearchValues<char>? Values);
+
+    // Bounded, so a script compiling ever-new ASCII classes cannot grow it without limit; a class past the bound gets
+    // its own instance. Shared instances are never written after construction.
+    private const int MaxSharedAsciiSets = 4096;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(ulong, ulong), AsciiSet> SharedAsciiSets = new();
+
+    private static AsciiSet SharedAsciiSet(ulong low, ulong high)
+    {
+        if (SharedAsciiSets.TryGetValue((low, high), out var shared))
+        {
+            return shared;
+        }
+
+        var bits = new ulong[1024];
+        bits[0] = low;
+        bits[1] = high;
+        var count = BitOperations.PopCount(low) + BitOperations.PopCount(high);
+        SearchValues<char>? values = null;
+        if (count > 0)
+        {
+            var chars = new char[count];
+            var idx = 0;
+            for (var w = 0; w < 2; w++)
+            {
+                for (var word = w == 0 ? low : high; word != 0; word &= word - 1)
+                {
+                    chars[idx++] = (char) ((w << 6) + BitOperations.TrailingZeroCount(word));
+                }
+            }
+
+            values = System.Buffers.SearchValues.Create(chars);
+        }
+
+        shared = new AsciiSet(bits, values);
+        return SharedAsciiSets.Count < MaxSharedAsciiSets ? SharedAsciiSets.GetOrAdd((low, high), shared) : shared;
     }
 
     private static bool AreLineTerminators(ReadOnlySpan<char> chars)
@@ -606,6 +739,8 @@ internal sealed class EcmaAccelerator
     private readonly char _literalRareChar;
     private readonly int _literalRareOffset;
     private readonly CaptureSlice[] _literalCaptures = [];
+    private readonly bool _literalLeadBoundary;
+    private readonly bool _literalTrailBoundary;
     private readonly string[] _altBranches = [];
 #if NET9_0_OR_GREATER
     private readonly SearchValues<string>? _altSearchValues;
@@ -618,12 +753,20 @@ internal sealed class EcmaAccelerator
     private readonly int _repeatMin;
     private readonly int _repeatMax;
     private readonly int _repeatCaptureGroup;
+    private readonly bool _repeatLeadBoundary;
     private readonly AtomicStep[] _atomicSteps = [];
     private readonly int _atomicAnchorStepIndex = -1;
     private readonly int _atomicFixedAnchorOffset = -1;
     private readonly int _atomicMinBeforeAnchor;
     private readonly int _atomicMinAfterAnchor;
     private readonly int _atomicMinTotalLength;
+
+    // The position matcher replacing the VM for a pattern no plan takes (see EcmaPositionMatcher). Built on the first search
+    // rather than here: a pattern compiled and never searched, or refused after the build, costs its compile nothing.
+    private readonly EcmaCaseTables _caseTables;
+    private readonly bool _positionEligible;
+    private EcmaPositionMatcher? _position;
+    private int _positionState;
 
     // General VM prefilters
     internal readonly bool HasEndTerminalChar;
@@ -637,6 +780,8 @@ internal sealed class EcmaAccelerator
     // nullable atoms, which neither PrefixLiteral nor FirstSet covers: without it /ZZQ/i over 64 KiB started the VM
     // at every position.
     internal readonly SearchValues<char>? FirstChars;
+    // FirstChars leaves out what a non-multiline ^ branch could start with, so the input's start is always a candidate.
+    internal bool FirstCharsTryStart { get; private set; }
 #if NET9_0_OR_GREATER
     private SearchValues<string>? _literalSearchValues;
 
@@ -729,6 +874,7 @@ internal sealed class EcmaAccelerator
     internal EcmaAccelerator(EcmaProgram program, EcmaCaseTables caseTables)
     {
         _program = program;
+        _caseTables = caseTables;
         var nodes = WithoutCaselessIgnoreCase(program.Nodes, program.Profile.IsUnicodeAware, caseTables);
         FastSets = new EcmaFastSet?[nodes.Length];
         NonNullable = new bool[nodes.Length];
@@ -792,7 +938,8 @@ internal sealed class EcmaAccelerator
 
         // Try building direct whole-pattern plans
         if (TryBuildLiteralPlan(nodes, out _hasStartAnchor, out _startMultiline, out _hasEndAnchor, out _endMultiline,
-            out _literal, out _hasRareLiteralChar, out _literalRareChar, out _literalRareOffset, out _literalCaptures))
+            out _literal, out _hasRareLiteralChar, out _literalRareChar, out _literalRareOffset, out _literalCaptures,
+            out _literalLeadBoundary, out _literalTrailBoundary))
         {
             _planKind = PlanKind.Literal;
             return;
@@ -804,7 +951,7 @@ internal sealed class EcmaAccelerator
             return;
         }
 
-        if (TryBuildSingleSetRepeatPlan(nodes, out _hasStartAnchor, out _startMultiline, out _hasEndAnchor, out _endMultiline, out _repeatSet, out _repeatMin, out _repeatMax, out _repeatCaptureGroup))
+        if (TryBuildSingleSetRepeatPlan(nodes, out _hasStartAnchor, out _startMultiline, out _hasEndAnchor, out _endMultiline, out _repeatSet, out _repeatMin, out _repeatMax, out _repeatCaptureGroup, out _repeatLeadBoundary))
         {
             _planKind = PlanKind.SingleSetRepeat;
             return;
@@ -856,6 +1003,33 @@ internal sealed class EcmaAccelerator
             RequiredLiteral = reqLit;
             RequiredLiteralMinOffset = reqMinOffset;
         }
+
+        _positionEligible = EcmaPositionMatcher.MayApply(program, nodes);
+    }
+
+    internal EcmaPositionMatcher? PositionMatcher
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get
+        {
+            if (!_positionEligible)
+            {
+                return null;
+            }
+
+            var built = Volatile.Read(ref _positionState);
+            return built != 0 ? _position : BuildPositionMatcher();
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private EcmaPositionMatcher? BuildPositionMatcher()
+    {
+        // Deterministic, so threads racing here build equal matchers and either may win.
+        var nodes = WithoutCaselessIgnoreCase(_program.Nodes, _program.Profile.IsUnicodeAware, _caseTables);
+        _position = EcmaPositionMatcher.TryCreate(_program, nodes, FastSets, _caseTables);
+        Volatile.Write(ref _positionState, 1);
+        return _position;
     }
 
     private static int MinSetLength(EcmaProgram program, EcmaSetSlice slice)
@@ -1024,8 +1198,11 @@ internal sealed class EcmaAccelerator
         out bool hasEnd, out bool endMl,
         out string literal,
         out bool hasRareChar, out char rareChar, out int rareOffset,
-        out CaptureSlice[] captures)
+        out CaptureSlice[] captures,
+        out bool leadBoundary, out bool trailBoundary)
     {
+        leadBoundary = false;
+        trailBoundary = false;
         hasStart = false;
         startMl = false;
         hasEnd = false;
@@ -1042,7 +1219,33 @@ internal sealed class EcmaAccelerator
         var seenChar = false;
         try
         {
-            if (!WalkLiteralNode(nodes, _program.Root, ref sb, caps, ref hasStart, ref startMl, ref hasEnd, ref endMl, ref seenChar))
+            // \b on either side of the literal (/\bkeyword\b/, the packer's replace) is checked at each hit instead of
+            // starting the VM there. Outside u+i a word character is [A-Za-z0-9_], which the check reads directly.
+            var items = new List<int>();
+            FlattenSequence(nodes, _program.Root, items);
+            var first = 0;
+            var last = items.Count - 1;
+            if (items.Count > 1 && IsPlainWordBoundary(nodes[items[0]]))
+            {
+                leadBoundary = true;
+                first++;
+            }
+
+            if (last > first && IsPlainWordBoundary(nodes[items[last]]))
+            {
+                trailBoundary = true;
+                last--;
+            }
+
+            for (var i = first; i <= last; i++)
+            {
+                if (!WalkLiteralNode(nodes, items[i], ref sb, caps, ref hasStart, ref startMl, ref hasEnd, ref endMl, ref seenChar))
+                {
+                    return false;
+                }
+            }
+
+            if ((leadBoundary || trailBoundary) && (hasStart || hasEnd || sb.Length == 0))
             {
                 return false;
             }
@@ -1084,6 +1287,12 @@ internal sealed class EcmaAccelerator
         }
         return true;
     }
+
+    private bool IsPlainWordBoundary(EcmaNode n)
+        => n.Kind == EcmaNodeKind.WordBoundary &&
+           !(_program.Profile.IsUnicodeAware && (n.EffectiveFlags & EcmaScriptFlags.IgnoreCase) != 0);
+
+    private static bool IsAsciiWordChar(char c) => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '_';
 
     private static bool WalkLiteralNode(
         ReadOnlySpan<EcmaNode> nodes, int id,
@@ -1301,7 +1510,7 @@ internal sealed class EcmaAccelerator
         ReadOnlySpan<EcmaNode> nodes,
         out bool hasStart, out bool startMl,
         out bool hasEnd, out bool endMl,
-        out EcmaFastSet? fastSet, out int min, out int max, out int capGroup)
+        out EcmaFastSet? fastSet, out int min, out int max, out int capGroup, out bool leadBoundary)
     {
         hasStart = false;
         startMl = false;
@@ -1311,9 +1520,24 @@ internal sealed class EcmaAccelerator
         min = 0;
         max = 0;
         capGroup = 0;
+        leadBoundary = false;
 
         var items = new List<int>();
         FlattenSequence(nodes, _program.Root, items);
+        // \b\w+\b (the packer's word replace): an unbounded run of exactly the word class ends at a boundary by
+        // itself, and starts at one unless the search starts inside a run, which the leading \b alone has to skip.
+        var trailBoundary = items.Count > 1 && IsPlainWordBoundary(nodes[items[^1]]);
+        if (trailBoundary)
+        {
+            items.RemoveAt(items.Count - 1);
+        }
+
+        if (items.Count > 1 && IsPlainWordBoundary(nodes[items[0]]))
+        {
+            leadBoundary = true;
+            items.RemoveAt(0);
+        }
+
         var idx = 0;
         if (idx < items.Count && nodes[items[idx]].Kind == EcmaNodeKind.Start)
         {
@@ -1379,9 +1603,34 @@ internal sealed class EcmaAccelerator
             return false;
         }
 
+        if ((leadBoundary || trailBoundary) && (hasStart || rep.Max != -1 || !IsExactlyAsciiWordClass(fs)))
+        {
+            return false;
+        }
+
         fastSet = fs;
         min = rep.Min;
         max = rep.Max;
+        return true;
+    }
+
+    private static bool IsExactlyAsciiWordClass(EcmaFastSet fs)
+    {
+        const ulong WordLow = 0x03FF000000000000UL;      // 0-9
+        const ulong WordHigh = 0x07FFFFFE87FFFFFEUL;     // A-Z, _, a-z
+        if (!fs.BmpBitsIsExact || fs.BmpBits is not { } bmp || fs.AsciiLow != WordLow || fs.AsciiHigh != WordHigh)
+        {
+            return false;
+        }
+
+        for (var i = 2; i < bmp.Length; i++)
+        {
+            if (bmp[i] != 0)
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -2235,56 +2484,81 @@ internal sealed class EcmaAccelerator
 
         // The characters an item can start with, through groups, alternations and inner sequences: /(?:abc|def)+/ had
         // no FIRST set and ran the VM at every position. A backreference can start with anything, so it has none.
-        bool AddFirst(int id, ReadOnlySpan<EcmaNode> nodes)
+        // `empty` says whether the item can match the empty string at a position after the input's start. A
+        // non-multiline ^ cannot match there at all, so it contributes nothing and does not let the walk continue past
+        // it; position 0, where it can, is always tried (FirstCharsTryStart). /(?:^|:|,)(?:\s*\[)+/ otherwise took
+        // every space as a candidate, since the ^ branch let \s* lead.
+        var startOnly = false;
+        bool AddFirst(int id, ReadOnlySpan<EcmaNode> nodes, out bool empty)
         {
             var n = nodes[id];
             switch (n.Kind)
             {
                 case EcmaNodeKind.Literal:
                 case EcmaNodeKind.Set:
+                    empty = false;
                     return AddAtom(n);
                 case EcmaNodeKind.Capture:
-                    return AddFirst(n.X, nodes);
+                    return AddFirst(n.X, nodes, out empty);
                 case EcmaNodeKind.Repeat:
-                    return n.Max == 0 || AddFirst(n.X, nodes);
+                    if (n.Max == 0)
+                    {
+                        empty = true;
+                        return true;
+                    }
+
+                    var repeated = AddFirst(n.X, nodes, out var bodyEmpty);
+                    empty = bodyEmpty || n.Min == 0;
+                    return repeated;
                 case EcmaNodeKind.Alternative:
-                    return AddFirst(n.X, nodes) && AddFirst(n.Y, nodes);
+                {
+                    var ok = AddFirst(n.X, nodes, out var leftEmpty) & AddFirst(n.Y, nodes, out var rightEmpty);
+                    empty = leftEmpty || rightEmpty;
+                    return ok;
+                }
                 case EcmaNodeKind.Sequence:
-                    return AddFirst(n.X, nodes) && (NonNullable[n.X] || AddFirst(n.Y, nodes));
+                {
+                    if (!AddFirst(n.X, nodes, out var headEmpty))
+                    {
+                        empty = false;
+                        return false;
+                    }
+
+                    if (!headEmpty)
+                    {
+                        empty = false;
+                        return true;
+                    }
+
+                    return AddFirst(n.Y, nodes, out empty);
+                }
+                case EcmaNodeKind.Start when (n.EffectiveFlags & EcmaScriptFlags.Multiline) == 0:
+                    startOnly = true;
+                    empty = false;
+                    return true;
                 case EcmaNodeKind.Empty or EcmaNodeKind.Start or EcmaNodeKind.End or EcmaNodeKind.WordBoundary or
                     EcmaNodeKind.NotWordBoundary or EcmaNodeKind.Lookahead or EcmaNodeKind.NegativeLookahead or
                     EcmaNodeKind.Lookbehind or EcmaNodeKind.NegativeLookbehind:
+                    empty = true;
                     return true;
                 default:
+                    empty = false;
                     return false;
             }
         }
 
-        // FIRST set of the sequence: the leading atoms' characters, through every item that can match empty, up to
+        // FIRST set of the sequence: the leading items' characters, through every item that can match empty, up to
         // and including the first that cannot. Zero-width assertions only restrict where a match starts, so they add
         // nothing to a superset and are stepped over. A pattern that can match empty has no FIRST set.
         var mandatory = false;
         foreach (var item in items)
         {
-            var id = item;
-            while (nodes[id].Kind == EcmaNodeKind.Capture)
-            {
-                id = nodes[id].X;
-            }
-
-            var node = nodes[id];
-            if (node.Kind is EcmaNodeKind.Start or EcmaNodeKind.WordBoundary or EcmaNodeKind.NotWordBoundary or
-                EcmaNodeKind.Lookahead or EcmaNodeKind.NegativeLookahead or EcmaNodeKind.Lookbehind or EcmaNodeKind.NegativeLookbehind)
-            {
-                continue;
-            }
-
-            if (!AddFirst(id, nodes))
+            if (!AddFirst(item, nodes, out var itemEmpty))
             {
                 return null;
             }
 
-            if (NonNullable[item])
+            if (!itemEmpty)
             {
                 mandatory = true;
                 break;
@@ -2317,6 +2591,7 @@ internal sealed class EcmaAccelerator
 
         var array = new char[chars.Count];
         chars.CopyTo(array);
+        FirstCharsTryStart = startOnly;
         return System.Buffers.SearchValues.Create(array);
     }
 
@@ -2447,6 +2722,11 @@ internal sealed class EcmaAccelerator
         Span<RegexCapture> groups, out RegexMatchRange match)
     {
         match = default;
+        if (_literalLeadBoundary || _literalTrailBoundary)
+        {
+            return ExecuteBoundedLiteral(input, startAt, sticky, operation, ref state, groups, out match);
+        }
+
         var lit = _literal.AsSpan();
         var litLen = lit.Length;
 
@@ -2615,6 +2895,80 @@ internal sealed class EcmaAccelerator
         }
 
         return FinishNoMatch(operation, groups);
+    }
+
+    // The literal plan with \b on one or both sides (no anchors): each hit of the literal is a match when the boundary
+    // holds there, so no hit starts the VM.
+    private RegexSearchStatus ExecuteBoundedLiteral(
+        ReadOnlySpan<char> input, int startAt, bool sticky,
+        SearchOperation operation, ref ExecutionState state,
+        Span<RegexCapture> groups, out RegexMatchRange match)
+    {
+        match = default;
+        var lit = _literal.AsSpan();
+        var litLen = lit.Length;
+        if (sticky)
+        {
+            if (!TryChargeFast(ref state, startAt, input.Length, Math.Max(1, litLen)))
+            {
+                return FinishFailure(state, operation, groups);
+            }
+
+            if (startAt + litLen <= input.Length && input.Slice(startAt, litLen).SequenceEqual(lit) &&
+                BoundariesHold(input, startAt, startAt + litLen))
+            {
+                return CompleteLiteralMatch(startAt, startAt + litLen, operation, groups, out match);
+            }
+
+            return FinishNoMatch(operation, groups);
+        }
+
+        var searchPos = startAt;
+        while (searchPos + litLen <= input.Length)
+        {
+#if NET9_0_OR_GREATER
+            var rel = litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0])
+                : input.Slice(searchPos).IndexOfAny(_literalSearchValues ??= SearchValues.Create([_literal], StringComparison.Ordinal));
+#else
+            var rel = litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0]) : input.Slice(searchPos).IndexOf(lit);
+#endif
+            if (rel < 0)
+            {
+                break;
+            }
+
+            var pos = searchPos + rel;
+            var end = pos + litLen;
+            if (BoundariesHold(input, pos, end))
+            {
+                if (!TryChargeFast(ref state, startAt, input.Length, Math.Max(1, end - startAt)))
+                {
+                    return FinishFailure(state, operation, groups);
+                }
+
+                return CompleteLiteralMatch(pos, end, operation, groups, out match);
+            }
+
+            searchPos = pos + 1;
+        }
+
+        if (!TryChargeFast(ref state, startAt, input.Length, Math.Max(1, input.Length - startAt)))
+        {
+            return FinishFailure(state, operation, groups);
+        }
+
+        return FinishNoMatch(operation, groups);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool BoundariesHold(ReadOnlySpan<char> input, int start, int end)
+    {
+        if (_literalLeadBoundary && (start > 0 && IsAsciiWordChar(input[start - 1])) == IsAsciiWordChar(input[start]))
+        {
+            return false;
+        }
+
+        return !_literalTrailBoundary || IsAsciiWordChar(input[end - 1]) != (end < input.Length && IsAsciiWordChar(input[end]));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2793,7 +3147,7 @@ internal sealed class EcmaAccelerator
                 return FinishFailure(state, operation, groups);
             }
 
-            if (count < min)
+            if (count < min || (_repeatLeadBoundary && startAt > 0 && fs.MatchesSingleChar(input[startAt - 1])))
             {
                 return FinishNoMatch(operation, groups);
             }
@@ -2822,6 +3176,13 @@ internal sealed class EcmaAccelerator
             }
 
             var count = fs.CountRun(input.Slice(pos), max, _program, out var unitLen);
+            if (_repeatLeadBoundary && pos > 0 && fs.MatchesSingleChar(input[pos - 1]))
+            {
+                // A search that starts inside a run: the leading \b holds only where the next run starts.
+                pos += Math.Max(1, unitLen);
+                continue;
+            }
+
             if (count >= min)
             {
                 var end = pos + unitLen;

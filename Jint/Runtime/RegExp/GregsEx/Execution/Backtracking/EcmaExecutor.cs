@@ -34,6 +34,28 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     private const int MaxTrailedRegistersPerFrame = 4;
     public EcmaProgram Program { get; }
 
+    // Whether a host-sized search (SearchPrevalidated with hostSized) runs the position matcher for this pattern.
+    internal bool UsesPositionMatcher => _accelerator.PositionMatcher is not null;
+
+    // Per node, the ASCII characters it can start with in the forward direction, and whether it may start with a
+    // non-ASCII unit or match empty; a node it says nothing about may start anywhere. An alternative skips a branch
+    // whose start excludes the current character instead of saving a choice for it, which is most of what a
+    // first-character-dispatched alternation (/"[^"]*"|true|false|null|-?\d+/) costs.
+    private readonly StartBits[] _startBits;
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private readonly record struct StartBits(ulong Low, ulong High, bool NonAscii, bool Empty)
+    {
+        public static readonly StartBits Any = new(ulong.MaxValue, ulong.MaxValue, true, true);
+        public static readonly StartBits EmptyOnly = new(0, 0, false, true);
+
+        public StartBits Union(StartBits other) => new(Low | other.Low, High | other.High, NonAscii || other.NonAscii, Empty || other.Empty);
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool CanStartWith(char c)
+            => Empty || (c < 128 ? ((c < 64 ? Low : High) & (1UL << (c & 63))) != 0 : NonAscii);
+    }
+
     internal EcmaExecutor(EcmaProgram program, EcmaCaseTables tables, EcmaNode[] instructions, int taskCapacity)
     {
         Program = program;
@@ -45,12 +67,9 @@ internal sealed class EcmaExecutor : IEcmaExecutor
         // Group 0 is never written by the VM, so a pattern without other groups never trails a register.
         _registerTrailPerFrame = Program.GroupCount > 1 ? RegisterEntryWidth * Math.Min(_registerSlots, MaxTrailedRegistersPerFrame) : 0;
         _accelerator = new EcmaAccelerator(program, _caseTables);
-        _asciiCanonical = new char[128];
-        for (var c = 0; c < _asciiCanonical.Length; c++)
-        {
-            _asciiCanonical[c] = (char) EcmaFastSet.Fold(c, program.Profile.IsUnicodeAware, ignoreCase: true, tables);
-        }
+        _asciiCanonical = AsciiCanonical(tables, program.Profile.IsUnicodeAware);
 
+        _startBits = BuildStartBits(instructions, program.Profile.IsUnicodeAware, tables);
         _greedyRun = new bool[instructions.Length];
         for (var i = 0; i < instructions.Length; i++)
         {
@@ -62,6 +81,82 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                     (atom.Kind == EcmaNodeKind.Set && _accelerator.FastSets[node.X] is { } fastSet && fastSet.Slice.StringCount == 0);
             }
         }
+    }
+
+    // Per case-table instance and Unicode mode, like the accelerator's case caches: it was 128 folds per compile.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<EcmaCaseTables, char[]?[]> AsciiCanonicals = new();
+
+    private static char[] AsciiCanonical(EcmaCaseTables tables, bool unicodeAware)
+    {
+        var slots = AsciiCanonicals.GetValue(tables, static _ => new char[]?[2]);
+        var slot = unicodeAware ? 1 : 0;
+        if (System.Threading.Volatile.Read(ref slots[slot]) is { } cached)
+        {
+            return cached;
+        }
+
+        var canonical = new char[128];
+        for (var c = 0; c < canonical.Length; c++)
+        {
+            canonical[c] = (char) EcmaFastSet.Fold(c, unicodeAware, ignoreCase: true, tables);
+        }
+
+        System.Threading.Interlocked.CompareExchange(ref slots[slot], canonical, null);
+        return slots[slot]!;
+    }
+
+    private StartBits[] BuildStartBits(EcmaNode[] instructions, bool unicodeAware, EcmaCaseTables tables)
+    {
+        // Children have lower ids than their parent, so one pass in id order sees every child first.
+        var bits = new StartBits[instructions.Length];
+        for (var i = 0; i < instructions.Length; i++)
+        {
+            var n = instructions[i];
+            bits[i] = n.Kind switch
+            {
+                EcmaNodeKind.Literal => LiteralStart(n),
+                EcmaNodeKind.Set => _accelerator.FastSets[i] is { Slice.StringCount: 0 } fastSet
+                    ? new StartBits(fastSet.AsciiLow, fastSet.AsciiHigh, true, false)
+                    : StartBits.Any,
+                EcmaNodeKind.Capture => bits[n.X],
+                EcmaNodeKind.Repeat => n.Max == 0 ? StartBits.EmptyOnly
+                    : n.Min == 0 ? bits[n.X].Union(StartBits.EmptyOnly) : bits[n.X],
+                EcmaNodeKind.Alternative => bits[n.X].Union(bits[n.Y]),
+                EcmaNodeKind.Sequence => bits[n.X].Empty
+                    ? new StartBits(bits[n.X].Low | bits[n.Y].Low, bits[n.X].High | bits[n.Y].High,
+                        bits[n.X].NonAscii || bits[n.Y].NonAscii, bits[n.Y].Empty)
+                    : bits[n.X],
+                EcmaNodeKind.Empty or EcmaNodeKind.Start or EcmaNodeKind.End or EcmaNodeKind.WordBoundary or
+                    EcmaNodeKind.NotWordBoundary or EcmaNodeKind.Lookahead or EcmaNodeKind.NegativeLookahead or
+                    EcmaNodeKind.Lookbehind or EcmaNodeKind.NegativeLookbehind => StartBits.EmptyOnly,
+                _ => StartBits.Any,
+            };
+        }
+
+        return bits;
+
+        StartBits LiteralStart(EcmaNode n)
+        {
+            if ((n.EffectiveFlags & EcmaScriptFlags.IgnoreCase) == 0)
+            {
+                return n.Value < 128 ? Bit(n.Value) : new StartBits(0, 0, true, false);
+            }
+
+            // Every ASCII unit whose canonical form is the literal's; anything non-ASCII may fold to it too.
+            var canonical = EcmaFastSet.Fold(n.Value, unicodeAware, ignoreCase: true, tables);
+            var result = new StartBits(0, 0, true, false);
+            for (var c = 0; c < 128; c++)
+            {
+                if (_asciiCanonical[c] == canonical)
+                {
+                    result = result.Union(Bit(c));
+                }
+            }
+
+            return result;
+        }
+
+        static StartBits Bit(int c) => c < 64 ? new StartBits(1UL << c, 0, false, false) : new StartBits(0, 1UL << (c - 64), false, false);
     }
 
     public RegexWorkspaceCapacity GetRequiredCapacity(SearchOperation operation, int frameCapacity)
@@ -125,20 +220,25 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             state.Failure = new(RegexExecutionFailureCode.WorkspaceCapacityExceeded, startAt, state.Budget.WorkConsumed);
             return Finish(RegexSearchStatus.LimitExceeded, operation, groups);
         }
-        return SearchCore(input, startAt, sticky, startPolicy, operation, frames, ref state, groups, out match);
+        return SearchCore(input, startAt, sticky, startPolicy, operation, frames, hostSized: false, ref state, groups, out match);
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    // hostSized: true only for a caller that sizes the workspace itself and grows it on WorkspaceCapacityExceeded (Jint),
+    // which lets the position matcher run (see SearchCore).
     internal RegexSearchStatus SearchPrevalidated(ReadOnlySpan<char> input, int startAt, bool sticky,
         SearchOperation operation, int frames, ref RunState state,
-        Span<RegexCapture> groups, out RegexMatchRange match)
+        Span<RegexCapture> groups, out RegexMatchRange match, bool hostSized = false)
     {
         match = default;
-        return SearchCore(input, startAt, sticky, EcmaStartPolicy.BuiltinLastIndex, operation, frames, ref state, groups, out match);
+        return SearchCore(input, startAt, sticky, EcmaStartPolicy.BuiltinLastIndex, operation, frames, hostSized, ref state, groups, out match);
     }
 
+    // hostSized: the caller sizes the workspace and grows it on WorkspaceCapacityExceeded. Only then
+    // does the position matcher run: it keeps its choices outside the caller's partitions and needs no VM frames, so under
+    // a fixed reservation it would succeed where the VM reports the reservation exhausted, which Search must not do.
     private RegexSearchStatus SearchCore(ReadOnlySpan<char> input, int startAt, bool sticky,
-        EcmaStartPolicy startPolicy, SearchOperation operation, int frames, ref RunState state,
+        EcmaStartPolicy startPolicy, SearchOperation operation, int frames, bool hostSized, ref RunState state,
         Span<RegexCapture> groups, out RegexMatchRange match)
     {
         match = default;
@@ -210,6 +310,11 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             }
         }
 
+        if (hostSized && _accelerator.PositionMatcher is { } positions)
+        {
+            return SearchPositions(positions, input, startAt, sticky, operation, frames, ref state, groups, out match);
+        }
+
         return SearchMachine(input, startAt, sticky, operation, frames, ref state, groups, out match);
     }
 
@@ -229,105 +334,10 @@ internal sealed class EcmaExecutor : IEcmaExecutor
         {
             if (!sticky && candidate < input.Length)
             {
-                if (_accelerator.PrefixLiteral is { } pfx)
+                candidate = Advance(input, candidate, ref state);
+                if (candidate < 0)
                 {
-                    var rel = input.Slice(candidate).IndexOf(pfx.AsSpan());
-                    if (rel < 0)
-                    {
-                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
-                        {
-                            return Finish(FailureStatus(state), operation, groups);
-                        }
-
-                        return Finish(RegexSearchStatus.NoMatch, operation, groups);
-                    }
-                    if (rel > 0)
-                    {
-                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
-                        {
-                            return Finish(FailureStatus(state), operation, groups);
-                        }
-
-                        candidate += rel;
-                    }
-                }
-#if NET9_0_OR_GREATER
-                else if (_accelerator.FirstStrings is { } firstStrings)
-                {
-                    // See EcmaAccelerator.FirstStrings.
-                    var rel = input.Slice(candidate).IndexOfAny(firstStrings);
-                    if (rel < 0)
-                    {
-                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
-                        {
-                            return Finish(FailureStatus(state), operation, groups);
-                        }
-
-                        return Finish(RegexSearchStatus.NoMatch, operation, groups);
-                    }
-                    if (rel > 0)
-                    {
-                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
-                        {
-                            return Finish(FailureStatus(state), operation, groups);
-                        }
-
-                        candidate += rel;
-                    }
-                }
-#endif
-                else if (_accelerator.FirstChars is { } firstChars)
-                {
-                    // See EcmaAccelerator.FirstChars. A hit on the trail half of a surrogate pair is not a
-                    // candidate under u/v, where the pair is one code point and matching never starts inside it.
-                    var rel = input.Slice(candidate).IndexOfAny(firstChars);
-                    while (rel > 0 && Program.Profile.IsUnicodeAware && char.IsLowSurrogate(input[candidate + rel]) &&
-                        char.IsHighSurrogate(input[candidate + rel - 1]))
-                    {
-                        var further = input.Slice(candidate + rel + 1).IndexOfAny(firstChars);
-                        rel = further < 0 ? -1 : rel + 1 + further;
-                    }
-
-                    if (rel < 0)
-                    {
-                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
-                        {
-                            return Finish(FailureStatus(state), operation, groups);
-                        }
-
-                        return Finish(RegexSearchStatus.NoMatch, operation, groups);
-                    }
-                    if (rel > 0)
-                    {
-                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
-                        {
-                            return Finish(FailureStatus(state), operation, groups);
-                        }
-
-                        candidate += rel;
-                    }
-                }
-                else if (_accelerator.FirstSet is { } fset)
-                {
-                    var rel = fset.FindFirst(input.Slice(candidate), Program);
-                    if (rel < 0)
-                    {
-                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
-                        {
-                            return Finish(FailureStatus(state), operation, groups);
-                        }
-
-                        return Finish(RegexSearchStatus.NoMatch, operation, groups);
-                    }
-                    if (rel > 0)
-                    {
-                        if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
-                        {
-                            return Finish(FailureStatus(state), operation, groups);
-                        }
-
-                        candidate += rel;
-                    }
+                    return Finish(candidate == NoCandidate ? RegexSearchStatus.NoMatch : FailureStatus(state), operation, groups);
                 }
             }
 
@@ -368,6 +378,180 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             }
 
             candidate = next;
+        }
+    }
+
+    private const int NoCandidate = -1;
+    private const int CandidateFailure = -2;
+
+    // The first position from candidate the prefilters admit; NoCandidate when none is left, CandidateFailure when the
+    // budget ran out.
+    private int Advance(ReadOnlySpan<char> input, int candidate, ref RunState state)
+    {
+        if (_accelerator.PrefixLiteral is { } pfx)
+        {
+            var rel = input.Slice(candidate).IndexOf(pfx.AsSpan());
+            if (rel < 0)
+            {
+                if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
+                {
+                    return CandidateFailure;
+                }
+
+                return NoCandidate;
+            }
+            if (rel > 0)
+            {
+                if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
+                {
+                    return CandidateFailure;
+                }
+
+                candidate += rel;
+            }
+        }
+#if NET9_0_OR_GREATER
+        else if (_accelerator.FirstStrings is { } firstStrings)
+        {
+            // See EcmaAccelerator.FirstStrings.
+            var rel = input.Slice(candidate).IndexOfAny(firstStrings);
+            if (rel < 0)
+            {
+                if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
+                {
+                    return CandidateFailure;
+                }
+
+                return NoCandidate;
+            }
+            if (rel > 0)
+            {
+                if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
+                {
+                    return CandidateFailure;
+                }
+
+                candidate += rel;
+            }
+        }
+#endif
+        else if (_accelerator.FirstChars is { } firstChars && (candidate > 0 || !_accelerator.FirstCharsTryStart))
+        {
+            // See EcmaAccelerator.FirstChars. A hit on the trail half of a surrogate pair is not a
+            // candidate under u/v, where the pair is one code point and matching never starts inside it.
+            var rel = input.Slice(candidate).IndexOfAny(firstChars);
+            while (rel > 0 && Program.Profile.IsUnicodeAware && char.IsLowSurrogate(input[candidate + rel]) &&
+                char.IsHighSurrogate(input[candidate + rel - 1]))
+            {
+                var further = input.Slice(candidate + rel + 1).IndexOfAny(firstChars);
+                rel = further < 0 ? -1 : rel + 1 + further;
+            }
+
+            if (rel < 0)
+            {
+                if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
+                {
+                    return CandidateFailure;
+                }
+
+                return NoCandidate;
+            }
+            if (rel > 0)
+            {
+                if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
+                {
+                    return CandidateFailure;
+                }
+
+                candidate += rel;
+            }
+        }
+        else if (_accelerator.FirstSet is { } fset)
+        {
+            var rel = fset.FindFirst(input.Slice(candidate), Program);
+            if (rel < 0)
+            {
+                if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
+                {
+                    return CandidateFailure;
+                }
+
+                return NoCandidate;
+            }
+            if (rel > 0)
+            {
+                if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
+                {
+                    return CandidateFailure;
+                }
+
+                candidate += rel;
+            }
+        }
+
+        return candidate;
+    }
+
+    // SearchMachine's candidate loop around the position matcher (see EcmaPositionMatcher), which needs no Machine.
+    private RegexSearchStatus SearchPositions(EcmaPositionMatcher matcher, ReadOnlySpan<char> input, int startAt, bool sticky,
+        SearchOperation operation, int frames, ref RunState state, Span<RegexCapture> groups, out RegexMatchRange match)
+    {
+        match = default;
+        var captures = operation == SearchOperation.Captures && matcher.GroupCount > 1;
+        Span<int> registers = captures ? stackalloc int[EcmaPositionMatcher.RegisterLength(matcher.GroupCount)] : default;
+        var candidate = startAt;
+        while (true)
+        {
+            if (!sticky && candidate < input.Length)
+            {
+                candidate = Advance(input, candidate, ref state);
+                if (candidate < 0)
+                {
+                    return Finish(candidate == NoCandidate ? RegexSearchStatus.NoMatch : FailureStatus(state), operation, groups);
+                }
+            }
+
+            if (captures)
+            {
+                registers.Slice(0, 2 * matcher.GroupCount).Fill(-1);
+            }
+
+            var end = matcher.MatchAt(input, candidate, registers, ref state, out var steps);
+            if (end == EcmaPositionMatcher.BudgetFailure || !state.TryCharge(TaskWidth + steps, candidate))
+            {
+                return Finish(FailureStatus(state), operation, groups);
+            }
+
+            if (end >= 0)
+            {
+                match = new(candidate, end - candidate);
+                if (operation == SearchOperation.Captures)
+                {
+                    if (captures)
+                    {
+                        matcher.Fill(groups, registers, candidate, end);
+                    }
+                    else
+                    {
+                        groups[0] = new(true, candidate, end - candidate);
+                    }
+                }
+
+                return RegexSearchStatus.Match;
+            }
+
+            if (end == EcmaPositionMatcher.GiveUp)
+            {
+                // The VM searches on from this candidate, which is where this search stands.
+                return SearchMachine(input, candidate, sticky, operation, frames, ref state, groups, out match);
+            }
+
+            if (sticky || candidate == input.Length || _accelerator.StartAnchoredNonMultiline)
+            {
+                return Finish(RegexSearchStatus.NoMatch, operation, groups);
+            }
+
+            candidate++;
         }
     }
 
@@ -560,6 +744,28 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                                 evalNode = evalDir > 0 ? node.X : node.Y;
                                 goto EvaluateNode;
                             case EcmaNodeKind.Alternative:
+                                if (evalDir > 0)
+                                {
+                                    // A branch that cannot start here fails without being tried: skip it, and save no
+                                    // choice for a second branch that would fail the same way (see _startBits).
+                                    var startBits = _owner._startBits;
+                                    var atEnd = Position >= _input.Length;
+                                    var current = atEnd ? '\0' : _input[Position];
+                                    var left = startBits[node.X];
+                                    if (atEnd ? !left.Empty : !left.CanStartWith(current))
+                                    {
+                                        evalNode = node.Y;
+                                        goto EvaluateNode;
+                                    }
+
+                                    var right = startBits[node.Y];
+                                    if (atEnd ? !right.Empty : !right.CanStartWith(current))
+                                    {
+                                        evalNode = node.X;
+                                        goto EvaluateNode;
+                                    }
+                                }
+
                                 if (!Save(ChoiceKind.Branch, new(TaskKind.Evaluate, node.Y, 0, 0, evalDir), ref state))
                                 {
                                     return -1;

@@ -210,7 +210,7 @@ internal sealed class JintRegExpEngine
         var position = startIndex;
         while (count < matches.Length && position <= span.Length)
         {
-            var status = _executor.SearchPrevalidated(span, position, sticky: false, SearchOperation.Range, plan.Frames, ref state, [], out var match);
+            var status = _executor.SearchPrevalidated(span, position, sticky: false, SearchOperation.Range, plan.Frames, ref state, [], out var match, hostSized: true);
             if (status == RegexSearchStatus.Match)
             {
                 matches[count++] = match;
@@ -309,7 +309,7 @@ internal sealed class JintRegExpEngine
         // CaptureCount groups: what Search would validate is already known, and the prevalidated entry reads the
         // partitions only up to the planned frame count, so they may be longer than planned.
         var state = new RunState(Rent(plan), long.MaxValue, deadline);
-        var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match);
+        var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match, hostSized: true);
         if (status == RegexSearchStatus.Match)
         {
             ForgetTimestampAfterLongSearch(state.Budget.WorkConsumed);
@@ -390,7 +390,7 @@ internal sealed class JintRegExpEngine
             }
 
             var state = new RunState(Rent(plan), long.MaxValue, deadline);
-            status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match);
+            status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match, hostSized: true);
             if (status == RegexSearchStatus.Match)
             {
                 return true;

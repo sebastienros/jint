@@ -19,6 +19,8 @@ internal sealed class EcmaProgram
     internal int PatternLength { get; }
     internal long RetainedBytes { get; }
     internal ReadOnlySpan<EcmaNode> Nodes => _nodes;
+    // The program's own array, for an executor that only reads it: a copy per compile cost as much as the nodes.
+    internal EcmaNode[] NodeArray => _nodes;
     internal ReadOnlySpan<EcmaSetSlice> Sets => _sets;
     internal ReadOnlySpan<EcmaInterval> Intervals => _intervals;
     internal ReadOnlySpan<EcmaStringSlice> Strings => _strings;

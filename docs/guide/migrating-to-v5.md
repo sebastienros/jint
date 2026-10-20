@@ -6470,11 +6470,13 @@ record of the migration, including what it found in both engines, is
 - **Exhausting the backtracking storage throws a `RangeError`, as V8 does.** A match whose backtracking needs more
   than 64 MiB of storage stops with `RangeError: Maximum regular expression backtracking depth exceeded`, a
   `JavaScriptException` for the host. The QuickJS port threw `RegexMatchTimeoutException` ("backtracking stack
-  overflow") at its own 64 MB stack. An alternation inside a repeat saves one or two frames per character, so the
-  ceiling bounds how long such a run can be: `/"(?:[^"\\]|\\.)*"/` throws on a string literal longer than about
-  466,000 characters, `/(a|b)*c/` past about 370,000 and `/(?:a|b)*c/` past about 620,000. 4.16.x and V8 match longer
-  ones. A repeat of a single character or class (`[ab]*`, `.*`, `[^"]*`) is one counted choice and has no such limit,
-  so rewriting the alternation as a class where it is one (`(?:a|b)*` as `[ab]*`) avoids it.
+  overflow") at its own 64 MB stack. Most patterns never reach it: a repeat of a single character or class (`[ab]*`,
+  `.*`, `[^"]*`) is one counted choice, and a small pattern built from literals, classes, groups, alternations,
+  repeats, `^`, `$` and `\b` without the `u` or `v` flag — `/"(?:[^"\\]|\\.)*"/`, `/(a|b)*c/` — runs on a
+  position matcher that saves no choice where the next character decides, so a run of millions of characters
+  matches. Any other alternation inside a repeat — with a lookaround, a backreference or either flag — still
+  saves one or two frames per character: `/"(?:[^"\\]|\\.)*(?=")"/` throws on a string literal of 2,000,000
+  characters, where 4.16.x and V8 match it.
 - **A replacer function sees `undefined` for a group that did not participate**, where the generic path used to
   pass `""` (`'x'.replace(/x(.)?/g, (m, g) => g)`); the specification requires `undefined`.
 

@@ -209,19 +209,20 @@ public class RegExpEngineRegressionTests
 
     // Review of #4300: one large input used to grow the shared matcher's frame plan for every later search, on every
     // thread and engine, and keep the storage for the thread's life; exhausting it threw an internal exception type.
+    // The lookahead keeps the pattern on the VM: without it the position matcher takes it and needs no frames.
     [Test]
     public void ExhaustingBacktrackingStorageThrowsARangeErrorAndDoesNotGrowTheSharedMatcher()
     {
         var engine = new Engine();
         var error = engine.Evaluate("""
-            try { /"(?:[^"\\]|\\.)*"/.exec('"' + 'a\\"b'.repeat(250000) + '"'); 'no error' }
+            try { /"(?:[^"\\]|\\.)*(?=")"/.exec('"' + 'a'.repeat(2000000) + '"'); 'no error' }
             catch (e) { e.name + ': ' + e.message }
             """).AsString();
         error.Should().Be("RangeError: Maximum regular expression backtracking depth exceeded");
 
         // The next search of the same pattern runs from the small, shared plan.
-        engine.Evaluate("""/"(?:[^"\\]|\\.)*"/.exec('x"ab"y')[0]""").AsString().Should().Be("\"ab\"");
-        var matcher = Jint.Runtime.RegExp.JintRegExpEngine.Compile("\"(?:[^\"\\\\]|\\\\.)*\"", Jint.Runtime.RegExp.RegExpFlags.None);
+        engine.Evaluate("""/"(?:[^"\\]|\\.)*(?=")"/.exec('x"ab"y')[0]""").AsString().Should().Be("\"ab\"");
+        var matcher = Jint.Runtime.RegExp.JintRegExpEngine.Compile("\"(?:[^\"\\\\]|\\\\.)*(?=\")\"", Jint.Runtime.RegExp.RegExpFlags.None);
         var groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[matcher.CaptureCount];
         var big = "\"" + string.Concat(Enumerable.Repeat("a\\\"b", 20_000)) + "\"";
         matcher.TryMatch(big, 0, Jint.Runtime.RegExp.JintRegExpEngine.NoDeadline, groups).Should().BeTrue();
@@ -235,10 +236,20 @@ public class RegExpEngineRegressionTests
         Evaluate("""
             var n = 0;
             for (var i = 0; i < 3; i++) {
-                try { /"(?:[^"\\]|\\.)*"/.test('"' + 'ab'.repeat(600000) + '"'); } catch (e) { if (e instanceof RangeError) n++; }
+                try { /"(?:[^"\\]|\\.)*(?=")"/.test('"' + 'ab'.repeat(1000000) + '"'); } catch (e) { if (e instanceof RangeError) n++; }
             }
             n
             """).AsNumber().Should().Be(3);
+    }
+
+    // The position matcher keeps no choice for a deterministic pattern, so a long run needs no backtracking storage:
+    // main's .NET engine matched these, where the VM threw a RangeError.
+    [TestCase("""/"(?:[^"\\]|\\.)*"/.exec('"' + 'a'.repeat(2000000) + '"')[0].length""", 2000002)]
+    [TestCase("""/(a|b)*x/.exec('ab'.repeat(300000) + 'x')[0].length""", 600001)]
+    [TestCase("""/(?:a|a)*b/.exec('a'.repeat(600000) + 'b')[0].length""", 600001)]
+    public void ThePositionMatcherNeedsNoFramesForALongRun(string script, int expected)
+    {
+        Evaluate(script).AsNumber().Should().Be(expected);
     }
 
     // Review of #4300: RegExp.prototype[@@search] goes through RegExpBuiltinExec, which updates the legacy statics.
@@ -285,5 +296,39 @@ public class RegExpEngineRegressionTests
         groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[huge.CaptureCount];
         huge.TryMatch(new string('a', 140_000), 0, Jint.Runtime.RegExp.JintRegExpEngine.NoDeadline, groups).Should().BeTrue();
         groups[140_000].Index.Should().Be(139_999);
+    }
+
+    // The x64 gate on #4300 (string-tagcloud, string-unpack-code). A non-multiline ^ inside an alternation no longer
+    // widens the FIRST set; position 0 is still tried.
+    [TestCase("' [x'.match(/(?:^|:|,)(?:\\s*\\[)+/)[0] === ' ['", true)]
+    [TestCase("'a:  [x'.match(/(?:^|:|,)(?:\\s*\\[)+/).index === 1", true)]
+    [TestCase("'a  [x'.match(/(?:^|:|,)(?:\\s*\\[)+/) === null", true)]
+    [TestCase("'a\\n[x'.match(/(?:^|:)\\[/m)[0] === '['", true)]
+    [TestCase("'a\\n[x'.match(/(?:^|:)\\[/) === null", true)]
+    [TestCase("'aba'.replace(/(?:^|b)a/g, 'X') === 'XX'", true)]
+    [TestCase("(function () { var re = /(?:^|:)x/g; re.lastIndex = 1; return re.exec('x:x').index; })() === 1", true)]
+    [TestCase("/(?:^)?x/.exec('ax').index === 1", true)]
+    // An alternative skips a branch whose start excludes the current character.
+    [TestCase("JSON.stringify('[\"ab\", true, -1.5e3, null, \"x\\\\\"y\"]'.match(/\"[^\"\\\\\\n\\r]*\"|true|false|null|-?\\d+(?:\\.\\d*)?(:?[eE][+\\-]?\\d+)?/g)) === JSON.stringify(['\"ab\"', 'true', '-1.5e3', 'null', '\"y\"'])", true)]
+    [TestCase("/(?:a|(b))+c/.exec('abac')[1] === undefined", true)]
+    [TestCase("/(?:x|\\b)y/.exec('a y').index === 2", true)]
+    [TestCase("/(?:k|z)/i.exec('\\u212A') === null && /(?:k|z)/iu.exec('\\u212A') !== null", true)]
+    [TestCase("/(?:a|$)/.exec('b').index === 1", true)]
+    // \b around a literal, and \b\w+\b, run on their plans.
+    [TestCase("'ab abc cab ab_ ab'.replace(/\\bab\\b/g, 'X') === 'X abc cab ab_ X'", true)]
+    [TestCase("'a2v b 2v,2vx x2v 2v'.replace(/\\b2v\\b/g, '#') === 'a2v b #,2vx x2v #'", true)]
+    [TestCase("/\\b-/.exec(' -a-').index === 3", true)]
+    [TestCase("/\\bk\\b/iu.exec('\\u212Ak k').index === 3", true)] // both K and k are word characters under iu
+    [TestCase("(function () { var y = /\\bab\\b/y; y.lastIndex = 2; return y.exec('xx ab'); })() === null", true)]
+    [TestCase("JSON.stringify('ab cd_e f-9'.match(/\\b\\w+\\b/g)) === '[\"ab\",\"cd_e\",\"f\",\"9\"]'", true)]
+    [TestCase("(function () { var g = /\\b\\w+\\b/g; g.lastIndex = 1; return g.exec('abc de').index; })() === 4", true)]
+    [TestCase("(function () { var y = /\\b\\w+\\b/y; y.lastIndex = 1; return y.exec('abc de'); })() === null", true)]
+    [TestCase("JSON.stringify('a\\u017Fb'.match(/\\b\\w+\\b/giu)) === '[\"a\\u017Fb\"]'", true)]
+    [TestCase("'abcd'.match(/\\b\\w{1,2}\\b/) === null", true)]
+    // ASCII-only classes share their bitmap across compiles.
+    [TestCase("/[A-Z]+/i.exec('1 aBc').index === 2 && /[a-z]+/.exec('ABC def').index === 4", true)]
+    public void GatedScriptShapesMatchAsBefore(string script, bool expected)
+    {
+        Evaluate(script).AsBoolean().Should().Be(expected);
     }
 }
