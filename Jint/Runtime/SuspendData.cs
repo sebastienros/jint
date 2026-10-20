@@ -669,6 +669,13 @@ internal sealed class SuspendDataDictionary
     /// <summary>
     /// Gets or creates suspend data of the specified type (for constructs without iterators).
     /// </summary>
+    /// <remarks>
+    /// One key holds one entry, so creating a second type under a key silently evicts the first. A handler
+    /// that parks state of its own must therefore keep it off a key a helper already uses:
+    /// <c>ExpressionCache</c> parks its argument buffer under the key it is handed, which is the handler itself on
+    /// the hot lanes, and that is why <c>JintCallExpression.EvaluateSuspendable</c> hands it the argument list
+    /// and keeps the handler's own key for <see cref="CallSuspendData"/> (sebastienros/jint#4314).
+    /// </remarks>
     public T GetOrCreate<T>(object key, IteratorInstance? iteratorInstance = null) where T : SuspendData, new()
     {
         _suspendData ??= [];
