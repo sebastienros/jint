@@ -989,7 +989,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 }
             }
         }
-        catch when (LeavingOnException(suspendable, out completionType))
+        catch (Exception exception) when (LeavingOnException(suspendable, exception, out completionType))
         {
             // Unreachable: the filter always declines. Kept as a rethrow so that a filter which one day
             // sometimes accepts still leaves this site behaving exactly as it did before it had one.
@@ -1080,12 +1080,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// <see cref="CompletionType.Throw"/> written here, so IteratorClose is still performed with a throw
     /// completion — which is what makes a failing <c>return()</c> swallowed rather than allowed to replace
     /// the exception in flight, per step 5 of
-    /// <see href="https://tc39.es/ecma262/#sec-iteratorclose">IteratorClose</see>.
+    /// <see href="https://tc39.es/ecma262/#sec-iteratorclose">IteratorClose</see>. The one exception that is not a
+    /// throw is a <see cref="GeneratorReturnException"/>: the return completion a <c>yield</c> in the loop's binding
+    /// pattern or brace-less body was resumed with. It closes the iterator with <see cref="CompletionType.Return"/>,
+    /// so a failing <c>return()</c> does replace it, as it replaces a <c>return</c> statement's.
     /// </para>
     /// </remarks>
-    private bool LeavingOnException(ISuspendable? suspendable, out CompletionType completionType)
+    private bool LeavingOnException(ISuspendable? suspendable, Exception exception, out CompletionType completionType)
     {
-        completionType = CompletionType.Throw;
+        completionType = exception is GeneratorReturnException ? CompletionType.Return : CompletionType.Throw;
         suspendable?.Data.Clear(this);
         return false;
     }

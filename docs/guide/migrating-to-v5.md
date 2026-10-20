@@ -6503,6 +6503,40 @@ is now refused with `-32602 Pattern "…" failed to parse as a URLPattern.`, Chr
 stays as it was. A client that sent a glob there must move it to `urls` or rewrite it in URLPattern syntax; the
 protocol's own example is `*://*:*/*.css`.
 
+### 4.166 A generator's `return()` no longer finishes the expression its `yield` is in ([#4304](https://github.com/sebastienros/jint/issues/4304))
+
+`return(value)` on a generator suspended at a `yield` resumes it with a return completion, which leaves the
+enclosing expression at once: nothing after the `yield` runs, only the `finally` blocks around it. Jint handed
+`value` back from the `yield` as if `next(value)` had been called, let the expression finish with it, and ended the
+generator only at the end of the statement:
+
+```js
+var log = [];
+function* g() {
+    var n = 1;
+    try { n += yield 0; } finally { log.push("n=" + n); }
+}
+var it = g();
+it.next();
+it.return(3);   // 4.16.x / earlier 5.0: log is ["n=4"]    5.x: ["n=1"]
+```
+
+The same happened wherever a `yield` sits inside an expression or a statement's head: a compound or logical
+assignment to a variable or a property stored the combined value, a call ran its function, an operator, a template
+or a destructuring pattern converted `value` (running its `valueOf`, `toString` or iterator), `if`, `while`, `for`
+and `switch` tested `value` and took a branch, `yield (yield x)` yielded again so `return()` answered
+`done: false`, and `n += yield* inner()` stored after the delegate's `return()`. In an async generator a plain
+assignment and a `var` declaration stored `value` too. A `yield` that is the whole body of a brace-less `while` or
+`do`-`while` (`while (true) yield i++;`) ignored `return()` altogether and yielded again, so a `for`-`of` leaving
+early, or `const [a, b] = gen()`, never closed the generator or ran its `finally`.
+
+Two neighbours changed with it. An async generator whose `return(value)` arrived at a `yield` that was the only
+statement of a `try` block with a `finally` resolved `{ value: undefined, done: true }`; it now resolves
+`{ value, done: true }`. And once a `yield*` or an iterator destructuring pattern had taken a `return()` or a
+`throw()`, the next `next(v)` resumed the next `yield` (one in a `finally`, say) as that `return()` or `throw()`
+again; it now hands it `v`. `throw(value)` was already raised at the `yield` and is unchanged. A script that read,
+in a `finally`, a value the interrupted expression used to write must now write it before the `yield`.
+
 ### 4.167 DevTools matches `Fetch.enable`'s `urlPattern` as Chrome does: `?`, backslash escapes, and no fragment ([#4311](https://github.com/sebastienros/jint/issues/4311))
 
 Earlier previews read `RequestPattern.urlPattern` as a glob in which only `*` was special, anchored at both ends.

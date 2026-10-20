@@ -8,13 +8,68 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
+/// <summary>
+/// Where a <c>yield</c> stands when it is not nested in another expression, which decides whether a return() resumption
+/// may come back from it as a value (<see cref="JintYieldExpression"/>'s <c>DeliverReturn</c>).
+/// </summary>
+internal enum YieldStatementPosition : byte
+{
+    /// <summary>Inside a larger expression, or a statement nothing tests a requested return after: it unwinds.</summary>
+    Nested,
+
+    /// <summary>
+    /// The whole of an expression statement in a <see cref="JintStatementList"/>, which tests
+    /// <see cref="ISuspendable.ReturnRequested"/> after every statement, for either kind of generator.
+    /// </summary>
+    StatementList,
+
+    /// <summary>
+    /// The whole of the only statement of a block, which <see cref="Statements.JintBlockStatement"/> runs itself and
+    /// follows with a test of a synchronous generator's request only; an async generator's unwinds.
+    /// </summary>
+    SingleStatementBlock,
+}
+
 internal sealed class JintYieldExpression : JintExpression
 {
     private readonly JintExpression? _argument;
 
+    // Who reads a return() resumption this yield receives; see DeliverReturn.
+    private YieldStatementPosition _statementPosition;
+
     public JintYieldExpression(YieldExpression expression) : base(expression)
     {
         _argument = expression.Argument is not null ? Build(expression.Argument) : null;
+    }
+
+    /// <summary>
+    /// Records that this yield is the whole expression of a statement that <paramref name="position"/> runs, so that a
+    /// return() resumption may be handed back to it as a value. Called once, while the handler tree is being built.
+    /// </summary>
+    internal void MarkStatementPosition(YieldStatementPosition position) => _statementPosition = position;
+
+    /// <summary>
+    /// The value of a <c>yield</c> resumed with a return completion. The return completion has to reach the statement
+    /// without anything between the <c>yield</c> and the statement running: per
+    /// https://tc39.es/ecma262/#sec-generatorresumeabrupt and https://tc39.es/ecma262/#sec-yield the yield evaluates to
+    /// that abrupt completion, and each enclosing <c>?</c> propagates it, so there is no PutValue, call, operator or
+    /// branch after it (sebastienros/jint#4304). An expression handler sees an abrupt completion only as an exception,
+    /// so that is what this raises (<see cref="GeneratorReturnException"/>), and the nearest statement list converts it
+    /// back. The one position where the value is safe to return is a statement whose runner tests
+    /// <see cref="ISuspendable.ReturnRequested"/>, which the caller has already set, before it does anything else:
+    /// that keeps a <c>for</c>-<c>of</c> leaving early through a generator parked at <c>yield x;</c> free of an
+    /// exception.
+    /// </summary>
+    private JsValue DeliverReturn(JsValue value, bool syncGenerator)
+    {
+        if (_statementPosition == YieldStatementPosition.StatementList
+            || (_statementPosition == YieldStatementPosition.SingleStatementBlock && syncGenerator))
+        {
+            return value;
+        }
+
+        GeneratorReturnException.Raise(value);
+        return value;
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
@@ -60,7 +115,7 @@ internal sealed class JintYieldExpression : JintExpression
                     generator._resumeCompletionType = CompletionType.Normal; // Reset for future
                     generator._returnRequested = true;
                     generator._suspendedValue = returnValue;
-                    return returnValue; // Callers check _returnRequested flag
+                    return DeliverReturn(returnValue, syncGenerator: true);
                 }
 
                 // Store this value for future iterations (e.g., same yield in a loop)
@@ -113,6 +168,7 @@ internal sealed class JintYieldExpression : JintExpression
                     asyncGenerator._resumeCompletionType = CompletionType.Normal;
                     asyncGenerator._returnRequested = true;
                     asyncGenerator._suspendedValue = returnValue;
+                    return DeliverReturn(returnValue, syncGenerator: false);
                 }
 
                 return returnValue;
@@ -152,7 +208,7 @@ internal sealed class JintYieldExpression : JintExpression
                     asyncGenerator._yieldReturnValue = returnValue;
                     asyncGenerator._returnRequested = true;
                     asyncGenerator._suspendedValue = returnValue;
-                    return returnValue;
+                    return DeliverReturn(returnValue, syncGenerator: false);
                 }
 
                 // Store this value for future iterations
@@ -263,7 +319,7 @@ internal sealed class JintYieldExpression : JintExpression
     /// <summary>
     /// Continues the yield* delegation loop after resuming from a suspension.
     /// </summary>
-    private static JsValue ContinueYieldDelegate(EvaluationContext context, GeneratorInstance generator)
+    private JsValue ContinueYieldDelegate(EvaluationContext context, GeneratorInstance generator)
     {
         var iterator = generator._delegatingIterator!;
         var resumeType = generator._delegationResumeType;
@@ -300,7 +356,7 @@ internal sealed class JintYieldExpression : JintExpression
     /// <summary>
     /// Runs the yield* delegation loop. Called both for initial delegation and continuation.
     /// </summary>
-    private static JsValue RunYieldDelegateLoop(
+    private JsValue RunYieldDelegateLoop(
         EvaluationContext context,
         GeneratorInstance generator,
         IteratorInstance iterator,
@@ -445,9 +501,9 @@ internal sealed class JintYieldExpression : JintExpression
                     generator._returnRequested = true;
                     generator._suspendedValue = temp;
 
-                    // Return to let the normal execution flow handle the return,
-                    // which will trigger any finally blocks before completing
-                    return temp;
+                    // Hand the return completion on to the statement, which runs the finally blocks
+                    // before the generator completes; see DeliverReturn.
+                    return DeliverReturn(temp, syncGenerator: true);
                 }
 
                 var innerReturnResult = returnMethod.Call(iteratorInstance, new[] { receivedValue });
@@ -475,7 +531,7 @@ internal sealed class JintYieldExpression : JintExpression
                     // This will trigger finally blocks and then complete the generator
                     generator._returnRequested = true;
                     generator._suspendedValue = returnValue;
-                    return returnValue;
+                    return DeliverReturn(returnValue, syncGenerator: true);
                 }
 
                 if (generatorKind == GeneratorKind.Async)
