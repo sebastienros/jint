@@ -659,6 +659,7 @@ ecma262 sec-runtime-semantics-classdefinitionevaluation
 ecma262 sec-runtime-semantics-classfielddefinitionevaluation
 ecma262 sec-runtime-semantics-classstaticblockdefinitionevaluation
 ecma262 sec-runtime-semantics-definemethod
+ecma262 sec-runtime-semantics-destructuringassignmentevaluation
 ecma262 sec-runtime-semantics-evaluateasyncgeneratorbody
 ecma262 sec-runtime-semantics-evaluateconcisebody
 ecma262 sec-runtime-semantics-evaluatefunctionbody
@@ -681,6 +682,7 @@ ecma262 sec-runtime-semantics-instantiateordinaryfunctionobject
 ecma262 sec-runtime-semantics-iteratorbindinginitialization
 ecma262 sec-runtime-semantics-iteratordestructuringassignmentevaluation
 ecma262 sec-runtime-semantics-keyedbindinginitialization
+ecma262 sec-runtime-semantics-keyeddestructuringassignmentevaluation
 ecma262 sec-runtime-semantics-methoddefinitionevaluation
 ecma262 sec-runtime-semantics-propertydefinitionevaluation
 ecma262 sec-runtime-semantics-repeatmatcher-abstract-operation
