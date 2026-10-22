@@ -2804,17 +2804,32 @@ public sealed partial class Engine : IDisposable
         var parserOptions = preparedScript.ParserOptions;
         var parsingConstraints = _parsingConstraints.Combine(preparedScript.ParsingConstraints);
         var strict = _isStrict || script.Strict;
-        // The lambda captures the locals (script, parserOptions), never the `in` parameter.
-        return ExecuteWithConstraints(strict, () => ScriptEvaluation(
-            new ScriptRecord(
-                Realm,
-                script,
-                script.Location.SourceFile,
-                parsingConstraints,
-                parserOptions),
-            parserOptions,
-            in parsingConstraints));
+        // State travels in a struct to a static callback, so the entry allocates no closure.
+        return ExecuteWithConstraints(
+            strict,
+            default,
+            new ScriptEvaluationState(this, script, parserOptions, parsingConstraints),
+            static (_, state) =>
+            {
+                var constraints = state.ParsingConstraints;
+                return state.Engine.ScriptEvaluation(
+                    new ScriptRecord(
+                        state.Engine.Realm,
+                        state.Script,
+                        state.Script.Location.SourceFile,
+                        constraints,
+                        state.ParserOptions),
+                    state.ParserOptions,
+                    in constraints);
+            });
     }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private readonly record struct ScriptEvaluationState(
+        Engine Engine,
+        Script Script,
+        ParserOptions ParserOptions,
+        ParsingConstraints ParsingConstraints);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-scriptevaluation
@@ -2824,7 +2839,13 @@ public sealed partial class Engine : IDisposable
         ParserOptions parserOptions,
         in ParsingConstraints parsingConstraints)
     {
-        Debugger.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
+        // Reading Debugger creates the handler (and claims the engine) on first use. Only a host that already
+        // touched it can have subscribed to BeforeEvaluate; debug mode still creates it here, so its initial
+        // step depth is anchored at script entry.
+        if (_debugger is not null || _isDebugMode)
+        {
+            Debugger.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
+        }
 
         var globalEnv = Realm.GlobalEnv;
 
@@ -3361,6 +3382,13 @@ public sealed partial class Engine : IDisposable
 
     internal void RunAvailableContinuations(bool allowTaskDrain = false)
     {
+        // Skipped only when the drain would provably do nothing: the host-call claim taken below guards the
+        // drain's work, and there is none. The engine's own entry points already hold a claim of their own.
+        if (IsContinuationDrainNoOp())
+        {
+            return;
+        }
+
         using var ownership = EnterHostCall();
         _eventLoop.RunAvailableContinuations(this, allowTaskDrain: allowTaskDrain);
     }
@@ -4659,17 +4687,29 @@ public sealed partial class Engine : IDisposable
         var hoistingScope = script.GetHoistingScope();
         var functionDeclarations = hoistingScope._functionDeclarations;
 
-        var functionToInitialize = new List<JintFunctionDefinition>();
-        var declaredFunctionNames = new HashSet<Key>();
-        var declaredVarNames = new List<Key>();
-
-        var realm = Realm;
-
         // The definition / statement-list caches pay only when the same script runs on this engine
         // again (the cached-Prepared<Script> embedding pattern); a first evaluation - fresh-engine-
         // per-run hosts never see a second one - takes plain construction so one-shot scripts stay
         // byte-identical to the uncached path.
         var reEvaluation = MarkScriptEvaluated(script);
+
+        // A script that declares nothing (an expression, a call) has nothing to instantiate: skip the
+        // working collections below. Annex B block functions only bind in sloppy mode.
+        var varNames = script.GetVarNames(hoistingScope);
+        var lexNames = script.GetLexNames(hoistingScope);
+        if (functionDeclarations is null
+            && varNames.Count == 0
+            && lexNames.Count == 0
+            && (_isStrict || script.Strict || hoistingScope._annexBFunctionDeclarations is null))
+        {
+            return reEvaluation;
+        }
+
+        var functionToInitialize = new List<JintFunctionDefinition>();
+        var declaredFunctionNames = new HashSet<Key>();
+        var declaredVarNames = new List<Key>();
+
+        var realm = Realm;
 
         if (functionDeclarations != null)
         {
@@ -4691,7 +4731,6 @@ public sealed partial class Engine : IDisposable
             }
         }
 
-        var varNames = script.GetVarNames(hoistingScope);
         for (var j = 0; j < varNames.Count; j++)
         {
             var vn = varNames[j];
@@ -4713,7 +4752,6 @@ public sealed partial class Engine : IDisposable
         }
 
         PrivateEnvironment? privateEnv = null;
-        var lexNames = script.GetLexNames(hoistingScope);
         for (var i = 0; i < lexNames.Count; i++)
         {
             var declaration = lexNames[i];
