@@ -55,6 +55,17 @@ public class PromiseRejectionNotificationTests
     }
 
     [Test]
+    public void ARejectionFromAScriptThatQueuesNoJobIsReportedOnce()
+    {
+        var (engine, reports) = Tracked();
+
+        // The job queue stays empty, so the pending notification is the only work the drain has.
+        engine.Execute("Promise.reject(new Error('boom'))");
+
+        reports.Should().ContainSingle().Which.Operation.Should().Be(PromiseRejectionOperation.Reject);
+    }
+
+    [Test]
     public void AHandlerAttachedInALaterTaskIsReportedAsHandled()
     {
         var (engine, reports) = Tracked();

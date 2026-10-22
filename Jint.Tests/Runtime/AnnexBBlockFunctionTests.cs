@@ -192,6 +192,33 @@ public class AnnexBBlockFunctionTests
     }
 
     [Test]
+    public void AScriptWhoseOnlyDeclarationIsABlockFunctionStillGetsTheGlobalAlias()
+    {
+        var engine = new Engine();
+
+        // No top-level var, let or function: global declaration instantiation must still create the
+        // Annex B var binding, from a plain source and from a prepared script alike.
+        engine.Execute("{ function f(){} }");
+        engine.Evaluate("typeof f").AsString().Should().Be("function");
+
+        engine.Execute(Engine.PrepareScript("{ function g(){} }"));
+        engine.Evaluate("typeof g").AsString().Should().Be("function");
+    }
+
+    [Test]
+    public void AStrictScriptWhoseOnlyDeclarationIsABlockFunctionGetsNoGlobalAlias()
+    {
+        // Guards the strict half of the same early exit, through a directive and through Options.Strict.
+        var engine = new Engine();
+        engine.Execute("'use strict'; { function f(){} }");
+        engine.Evaluate("typeof f").AsString().Should().Be("undefined");
+
+        var strictEngine = new Engine(options => options.Strict = true);
+        strictEngine.Execute("{ function g(){} }");
+        strictEngine.Evaluate("typeof g").AsString().Should().Be("undefined");
+    }
+
+    [Test]
     public void AGeneratorOrAsyncBlockDeclarationGetsNoAlias()
     {
         var engine = new Engine();

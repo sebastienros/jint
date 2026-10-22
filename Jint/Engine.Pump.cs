@@ -279,6 +279,30 @@ public partial class Engine
     }
 
     /// <summary>
+    /// Whether <see cref="Runtime.EventLoop.RunAvailableContinuations"/> would provably do nothing right now: no
+    /// queued job and no separate task lane, no <c>Atomics.waitAsync</c> deadline to settle, no rejection to
+    /// report and — on net8.0 and later — no web-API state that could promote a timer or an idle callback.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="RunAvailableContinuations"/> skips its host-call claim on this answer, so it must cover every
+    /// piece of work the drain can do on an empty queue: a new self-scheduled work source added to this file
+    /// belongs here too.
+    /// </remarks>
+    internal bool IsContinuationDrainNoOp()
+    {
+        if (!_eventLoop.HasNothingToDrain || _atomicsWaiterDeadlines is not null || HasPendingRejectionNotifications)
+        {
+            return false;
+        }
+
+#if NET8_0_OR_GREATER
+        return _webApi is null;
+#else
+        return true;
+#endif
+    }
+
+    /// <summary>
     /// What one pass of the pump wait needs to know: whether there is work the calling thread could run right
     /// now, and otherwise how long the engine's own schedule allows it to idle before there will be.
     /// </summary>

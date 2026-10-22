@@ -3207,6 +3207,31 @@ x.test = {
     }
 
     [Test]
+    public void BeforeEvaluateFiresForAHandlerSubscribedAfterEarlierEvaluations()
+    {
+        var engine = new Engine();
+        engine.Evaluate("1 + 1");
+
+        var triggered = 0;
+        engine.Debugger.BeforeEvaluate += (_, _) => triggered++;
+        engine.Evaluate("2 + 2");
+
+        triggered.Should().Be(1);
+    }
+
+    [Test]
+    public void ADrainAfterAnIdleDrainStillRunsNewlyQueuedJobs()
+    {
+        var engine = new Engine();
+
+        // This script's drain finds nothing to run; the next one must still run what its script queued.
+        engine.Execute("var log = [];");
+        engine.Execute("Promise.resolve().then(() => log.push('then'))");
+
+        engine.Evaluate("log.join()").AsString().Should().Be("then");
+    }
+
+    [Test]
     public void ShouldHandleFixedSlotFunctionWithLetConst()
     {
         var engine = new Engine();
