@@ -72,7 +72,7 @@ Clear disposable feeds and caches, pack the actual packages, check framework ass
 licenses and exact Browser/parser version alignment, then verify restored package provenance.
 Run the no-friend parser probes and packaged Browser smoke probe. The shared
 `html-parser-package-consumer.yml` CI workflow covers preview and GA inputs, both shipped frameworks,
-and a parser-only Linux net10.0 Native AOT publish/run. A regular-runtime Browser probe does not claim
+and, in release builds only, a parser-only Linux net10.0 Native AOT publish/run. A regular-runtime Browser probe does not claim
 Browser AOT compatibility. Preserve `IsAotCompatible` only with warning-free trimming/AOT evidence.
 Private nuget.org trusted-publishing authorization remains an owner check before release.
 
