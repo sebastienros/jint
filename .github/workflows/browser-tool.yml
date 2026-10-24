@@ -1,7 +1,9 @@
 name: Browser tool distribution
 
+# Reused by release.yml only; dispatch it by hand for a native build of a branch.
 on:
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read

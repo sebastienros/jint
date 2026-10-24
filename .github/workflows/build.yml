@@ -20,12 +20,9 @@ jobs:
   parser-lookups:
     uses: ./.github/workflows/parser-lookups.yml
 
-  browser-tool:
-    uses: ./.github/workflows/browser-tool.yml
-
   build:
 
-    needs: [browser-tool, parser-lookups, html-parser-package-consumer]
+    needs: [parser-lookups, html-parser-package-consumer]
     runs-on: ubuntu-latest
     steps:
 
@@ -105,89 +102,19 @@ jobs:
     - name: Pack Jint.Browser.Mcp with dotnet
       run: dotnet pack Jint.Browser.Mcp/Jint.Browser.Mcp.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
+    # The preview tool is the managed, framework-dependent build (net8.0 and net10.0, run by `dotnet`), not the
+    # release's manifest over six Native AOT RID packages: building those on every push to main is the cost this
+    # workflow no longer pays. release.yml builds them; run browser-tool.yml by hand for a native build of a branch.
     - name: Pack Jint.Browser.Tool with dotnet
-      run: dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj --output artifacts --configuration Release -p:BrowserToolNative=true -p:VersionSuffix="preview-$GITHUB_RUN_NUMBER" -p:ContinuousIntegrationBuild=True
-
-    - name: Collect native tool packages
-      uses: actions/download-artifact@v8
-      with:
-        pattern: browser-tool-packages-*
-        path: artifacts
-        merge-multiple: true
+      run: dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
     - name: Push with dotnet
       env:
         FEEDZ_IO_API_KEY: ${{ secrets.FEEDZ_IO_API_KEY }}
       run: |
         for package in artifacts/*.nupkg; do
-          if [[ "$package" != artifacts/Jint.Browser.Tool.[0-9]* ]]; then
-            dotnet nuget push "$package" --api-key "$FEEDZ_IO_API_KEY" --skip-duplicate --source https://f.feedz.io/sebastienros/jint/nuget/index.json
-          fi
+          dotnet nuget push "$package" --api-key "$FEEDZ_IO_API_KEY" --skip-duplicate --source https://f.feedz.io/sebastienros/jint/nuget/index.json
         done
-        dotnet nuget push artifacts/Jint.Browser.Tool.[0-9]*.nupkg --api-key "$FEEDZ_IO_API_KEY" --skip-duplicate --source https://f.feedz.io/sebastienros/jint/nuget/index.json
-
-  # The mirror of the PR workflow's "linux - native aot" job, and there for the reason the Test step above is:
-  # a merge is not the commit CI ran on. Its own file documents what it verifies; the short version is that
-  # <IsAotCompatible> is a property, and the published binary is the only evidence.
-  aot:
-
-    runs-on: ubuntu-latest
-
-    steps:
-
-    - name: Setup NET
-      uses: actions/setup-dotnet@v6
-      with:
-        dotnet-version: 10.0
-
-    - name: Checkout source code
-      uses: actions/checkout@v7
-
-    - name: Ensure the Native AOT toolchain is present
-      run: |
-        if command -v clang > /dev/null && dpkg -s zlib1g-dev > /dev/null 2>&1; then
-          echo "already present: $(clang --version | head -1)"
-        else
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
-        fi
-
-    - name: Publish Jint.AotExample with Native AOT
-      run: |
-        set -o pipefail
-        dotnet publish Jint.AotExample/Jint.AotExample.csproj --configuration Release 2>&1 | tee aot-publish.log
-
-    - name: Run the native binary
-      run: |
-        set -o pipefail
-        ./artifacts/publish/Jint.AotExample/release/Jint.AotExample | tee aot-run.log
-        grep -q '^ALL PROBES PASSED' aot-run.log
-
-    # Jint.DevTools is referenced by the example and deliberately NOT rooted, so ILC re-derives its whole
-    # diagnostic set over the closed program here. Unlike Jint's own inventory - a tracked backlog the step
-    # below merely summarises - this one gates at zero: everything the protocol serializes goes through a
-    # source-generated System.Text.Json context, and the first reflective member would raise IL2026 or
-    # IL3050 in this log and nowhere else. No test can see it, and an embedder publishing Native AOT would.
-    - name: No trim or AOT diagnostic is attributed to Jint.DevTools
-      run: |
-        if grep -E 'IL[0-9]{4}' aot-publish.log | grep -E 'Jint\.DevTools'; then
-          echo '::error::a trim or AOT analysis diagnostic names Jint.DevTools; the lines above say which'
-          exit 1
-        fi
-        echo 'no IL2xxx/IL3xxx diagnostic names Jint.DevTools'
-
-    - name: Summarise the trim and AOT analysis warnings
-      if: always()
-      run: |
-        {
-          echo '### Native AOT analysis diagnostics'
-          echo
-          echo '| code | count |'
-          echo '| --- | --- |'
-          grep -hoE 'IL[0-9]{4}' aot-publish.log 2>/dev/null | sort | uniq -c | sort -rn | awk '{ print "| " $2 " | " $1 " |" }'
-          echo
-          echo "total: $(grep -hcE 'IL[0-9]{4}' aot-publish.log 2>/dev/null || echo 0)"
-        } >> "$GITHUB_STEP_SUMMARY"
 
   # The mirror of the PR workflow's "windows - packaged generator" job, and there for the same reason
   # the Test step above is: a merge is not the commit CI ran on. It packs its own copy rather than
