@@ -1,5 +1,5 @@
 // Jint.AotExample is Jint's Native AOT probe. It is published with PublishAot=true and *run* by CI
-// (the "aot" job in .github/workflows/pr.yml and build.yml), because that is the only place a Native
+// (.github/workflows/aot.yml, run by release.yml or by hand), because that is the only place a Native
 // AOT failure actually shows up: <IsAotCompatible> is a property, not evidence, and Jint's own csproj
 // still suppresses the eight IL warning codes that would substantiate it.
 //
