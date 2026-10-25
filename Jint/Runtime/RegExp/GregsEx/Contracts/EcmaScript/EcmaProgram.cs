@@ -69,7 +69,7 @@ internal sealed class EcmaProgram
             8L * strings.Length + 4L * points.Length + 32L * names.Length + 4L * aliases.Length;
         foreach (var name in names)
         {
-            if (!budget.TryCharge(1, source, out diagnostic))
+            if (!(budget.TryChargeFast(1) || budget.TryCharge(1, source, out diagnostic)))
             {
                 return false;
             }
@@ -90,7 +90,7 @@ internal sealed class EcmaProgram
 
         foreach (var point in points)
         {
-            if (!budget.TryCharge(1, source, out diagnostic))
+            if (!(budget.TryChargeFast(1) || budget.TryCharge(1, source, out diagnostic)))
             {
                 return false;
             }
@@ -102,7 +102,7 @@ internal sealed class EcmaProgram
         }
         foreach (var str in strings)
         {
-            if (!budget.TryCharge(1, source, out diagnostic))
+            if (!(budget.TryChargeFast(1) || budget.TryCharge(1, source, out diagnostic)))
             {
                 return false;
             }
@@ -114,7 +114,7 @@ internal sealed class EcmaProgram
         }
         foreach (var set in sets)
         {
-            if (!budget.TryCharge(1, source, out diagnostic))
+            if (!(budget.TryChargeFast(1) || budget.TryCharge(1, source, out diagnostic)))
             {
                 return false;
             }
@@ -129,7 +129,7 @@ internal sealed class EcmaProgram
             var previous = -1;
             foreach (var range in intervals.Slice(set.IntervalOffset, set.IntervalCount))
             {
-                if (!budget.TryCharge(1, source, out diagnostic))
+                if (!(budget.TryChargeFast(1) || budget.TryCharge(1, source, out diagnostic)))
                 {
                     return false;
                 }
@@ -146,7 +146,7 @@ internal sealed class EcmaProgram
             {
                 var a = strings[set.StringOffset + j - 1];
                 var b = strings[set.StringOffset + j];
-                if (!budget.TryCharge(1, source, out diagnostic))
+                if (!(budget.TryChargeFast(1) || budget.TryCharge(1, source, out diagnostic)))
                 {
                     return false;
                 }
@@ -164,7 +164,7 @@ internal sealed class EcmaProgram
                 var comparison = 0;
                 for (var k = 0; k < a.Length && comparison == 0; k++)
                 {
-                    if (!budget.TryCharge(1, source, out diagnostic))
+                    if (!(budget.TryChargeFast(1) || budget.TryCharge(1, source, out diagnostic)))
                     {
                         return false;
                     }
@@ -180,7 +180,7 @@ internal sealed class EcmaProgram
         for (var n = 0; n < names.Length; n++)
         {
             var name = names[n];
-            if (!budget.TryCharge(1, source, out diagnostic))
+            if (!(budget.TryChargeFast(1) || budget.TryCharge(1, source, out diagnostic)))
             {
                 return false;
             }
@@ -193,7 +193,7 @@ internal sealed class EcmaProgram
             var previous = 0;
             foreach (var id in aliases.Slice(name.Offset, name.Length))
             {
-                if (!budget.TryCharge(1, source, out diagnostic))
+                if (!(budget.TryChargeFast(1) || budget.TryCharge(1, source, out diagnostic)))
                 {
                     return false;
                 }
@@ -207,7 +207,7 @@ internal sealed class EcmaProgram
             }
             for (var p = 0; p < n; p++)
             {
-                if (!budget.TryCharge(1L + Math.Min(name.Name.Length, names[p].Name.Length), source, out diagnostic))
+                if (!(budget.TryChargeFast(1L + Math.Min(name.Name.Length, names[p].Name.Length)) || budget.TryCharge(1L + Math.Min(name.Name.Length, names[p].Name.Length), source, out diagnostic)))
                 {
                     return false;
                 }
@@ -232,7 +232,7 @@ internal sealed class EcmaProgram
             for (var i = 0; i < nodes.Length; i++)
             {
                 var node = nodes[i];
-                if (!budget.TryCharge(1, node.Source, out diagnostic))
+                if (!(budget.TryChargeFast(1) || budget.TryCharge(1, node.Source, out diagnostic)))
                 {
                     return false;
                 }
@@ -279,7 +279,7 @@ internal sealed class EcmaProgram
                     var found = false;
                     foreach (var id in aliases.Slice(name.Offset, name.Length))
                     {
-                        if (!budget.TryCharge(1, node.Source, out diagnostic))
+                        if (!(budget.TryChargeFast(1) || budget.TryCharge(1, node.Source, out diagnostic)))
                         {
                             return false;
                         }
@@ -306,7 +306,7 @@ internal sealed class EcmaProgram
                     var found = false;
                     foreach (var node in nodes)
                     {
-                        if (!budget.TryCharge(1, source, out diagnostic))
+                        if (!(budget.TryChargeFast(1) || budget.TryCharge(1, source, out diagnostic)))
                         {
                             return false;
                         }
@@ -357,10 +357,12 @@ internal sealed class EcmaProgram
         return true;
     }
 
-    private static bool ValidNode(EcmaNode n, int index, int patternLength, int groupCount,
+    private static bool ValidNode(in EcmaNode n, int index, int patternLength, int groupCount,
         int sets, int names, EcmaScriptProfile profile)
     {
-        if (!Enum.IsDefined(n.Kind) || n.Source.Unit != RegexOffsetUnit.Utf16CodeUnits ||
+        // A range check, not Enum.IsDefined: the kinds are contiguous, and the lookup per node was most of validating a
+        // program.
+        if ((uint)n.Kind > (uint)EcmaNodeKind.NegativeLookbehind || n.Source.Unit != RegexOffsetUnit.Utf16CodeUnits ||
             !SliceFits(n.Source.Offset, n.Source.Length, patternLength) ||
             (n.EffectiveFlags & ~(EcmaScriptFlags.IgnoreCase | EcmaScriptFlags.Multiline | EcmaScriptFlags.DotAll)) != 0 ||
             n.CaptureCount < 0 || n.FirstCapture < 0 || (long)n.FirstCapture + n.CaptureCount > groupCount ||

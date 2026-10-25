@@ -87,7 +87,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                 if (_greedyRun[i])
                 {
                     parents ??= EcmaUnitFilters.Parents(instructions);
-                    if (EcmaUnitFilters.BuildFollow(program, instructions, parents, i, tables, out var except) is { } follow)
+                    if (EcmaUnitFilters.BuildFollow(program, instructions, parents, i, tables, _accelerator.FastSets, out var except) is { } follow)
                     {
                         _giveBack ??= new System.Buffers.SearchValues<char>?[instructions.Length];
                         _giveBackExcept ??= new bool[instructions.Length];

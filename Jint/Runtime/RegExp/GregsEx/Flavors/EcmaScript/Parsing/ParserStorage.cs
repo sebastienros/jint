@@ -15,7 +15,17 @@ internal sealed class ParserStorage
     internal string Feature = "ES-002";
     private long _live;
     internal ParserStorage(CompileBudget budget) { Budget = budget; }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Work(long units = 1)
+    {
+        if (!Budget.TryChargeFast(units))
+        {
+            WorkSlow(units);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void WorkSlow(long units)
     {
         if (!Budget.TryCharge(units, Source, out var diagnostic))
         {
@@ -142,12 +152,19 @@ internal sealed class Buffer<T>(ParserStorage storage) : IPooledBuffer
         Count = 0;
     }
 
+#if NETCOREAPP
+    private static readonly bool ClearOnReturn = RuntimeHelpers.IsReferenceOrContainsReferences<T>();
+#else
+    private static readonly bool ClearOnReturn = true;
+#endif
+
     private static void Return(T[] items)
     {
         if (items.Length != 0)
         {
-            // Cleared, as some element types hold strings or arrays; the arrays are small.
-            ArrayPool<T>.Shared.Return(items, clearArray: true);
+            // Cleared only when the element type holds strings or arrays; the node, interval and index buffers hold
+            // neither, and every compile cleared them for nothing.
+            ArrayPool<T>.Shared.Return(items, clearArray: ClearOnReturn);
         }
     }
 }

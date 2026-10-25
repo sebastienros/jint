@@ -9,6 +9,7 @@ internal enum EcmaNodeKind
     Empty, Literal, Set, Sequence, Alternative, Repeat, Capture, Backreference,
     Start, End, WordBoundary, NotWordBoundary, Lookahead, NegativeLookahead,
     Lookbehind, NegativeLookbehind
+    // EcmaProgram.ValidNode range-checks the kinds: NegativeLookbehind stays the last.
 }
 
 // X/Y are bottom-up child IDs, -1 if unused. Effective flags contain only i/m/s.

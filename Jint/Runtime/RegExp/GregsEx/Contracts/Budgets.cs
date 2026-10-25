@@ -21,6 +21,21 @@ internal struct CompileBudget
         PeakBytes = 0;
     }
 
+    // A charge that fits, without the diagnostic: the parser charges several units per pattern character, and building
+    // the failure's diagnostic on every one of them was a measurable share of compiling a short pattern. False means
+    // TryCharge decides (a negative charge fails here too, and throws there).
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal bool TryChargeFast(long units)
+    {
+        if ((ulong)units <= (ulong)(Limits.MaxCompileWork - WorkConsumed))
+        {
+            WorkConsumed += units;
+            return true;
+        }
+
+        return false;
+    }
+
     internal bool TryCharge(long units, SourceRange source, out RegexDiagnostic diagnostic)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(units);
