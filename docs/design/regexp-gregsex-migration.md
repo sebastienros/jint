@@ -216,6 +216,31 @@ The other rows are faster or unchanged: `SplitUnicode` −93%, `FreshEngineSourc
 `MatchGlobal` −32%, `construct-100` −30%, `Split` −22%, `ExecWhileLoop` −14%. On the Apple M4 Pro (in process,
 4 alternating rounds) the same build read `greedy-dotstar` −39% and `tagcloud` −4.2%.
 
+### 5.2 After gregsex#19
+
+[sebastienros/gregsex#19](https://github.com/sebastienros/gregsex/pull/19) (a required-unit bound on the last
+candidate start, an ASCII first-unit filter, a follow-filtered greedy give-back) is vendored at GregsEx `4b665a46`.
+Measured on the Apple M4 Pro only (`measure-paired.ps1`, 3 alternating rounds, `main` at `59cea2de4` against
+`65c742a36`, 68 rows: every SunSpider script plus the rows above). `control-indexOf` read −0.2% [−0.2, +0.5].
+
+| Row | Median Δ | 95% CI | Absolute (round 1) |
+| --- | ---: | --- | --- |
+| SunSpider `regexp-dna` | −76.7% | [−76.7, −76.3] | |
+| SunSpider `string-unpack-code` | −8.6% | [−9.5, −6.6] | |
+| SunSpider `string-tagcloud` | −3.0% | [−3.9, −2.9] | |
+| SunSpider `string-validate-input` | +1.3% | [+0.0, +1.8] | |
+| SunSpider, the other 22 scripts | −3.1 … +0.7% | three above zero by under 1% | |
+| Dromaeo `ObjectRegExp` (four rows) | −2.9 … −3.9% | each excludes zero | |
+| `greedy-dotstar-test` | −41.1% | [−41.2, −41.1] | |
+| `char-split` | −26.0% | [−27.0, −25.0] | |
+| `literal-test` / `literal-replace-g` | +16.3% / +13.8% | both exclude zero | |
+| `AnchoredLiteral` | +64.3% | [+64.1, +65.0] | 12.3 ns → 20.2 ns |
+| Cold compile `classes-i` / `uprop-u` | −39.3% / −36.0% | both exclude zero | 6.1 MB → 0.7 MB / 2.2 MB → 1.0 MB allocated |
+| Cold compile `literal`, `email`, `alternation`, `tokenizer`, `email-i` | +20 … +64% | each excludes zero | `email-i` 496 µs → 804 µs, 299 KB → 691 KB |
+
+`email-i` (+64%) and `tokenizer` (+41%) read about twice what the in-process Mac harness measured before gregsex#19
+(+30%, +21%); whether #19's compile-time filters are the cause has not been measured separately.
+
 ## 6. Follow-ups
 
 - **The backtracking ceiling (J5).** [sebastienros/gregsex#4](https://github.com/sebastienros/gregsex/pull/4) made
