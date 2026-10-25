@@ -128,7 +128,34 @@ public class HostRegexTimeoutTests
         first.MatchTimeout.Should().Be(tighter);
         second.MatchTimeout.Should().Be(
             looser,
-            "the process-wide adaptation cache is keyed on the timeout, so the first engine to construct a pattern cannot decide the budget of the next one");
+            "the process-wide matcher cache shares one compiled matcher between the two engines, so the budget has to be read from the engine at match time rather than from whichever engine compiled first");
+    }
+
+    /// <summary>
+    /// The regex timeout bounds the work a compile may do, not which matchers an engine may be handed: a
+    /// compile that outran one engine's budget is not cached and leaves nothing for a roomier engine to
+    /// trip over, and once a roomier engine has compiled (and, on its second compile, cached) the pattern,
+    /// the tight engine is served the shared matcher at no compile cost. Its matches still run under its own
+    /// budget, which the two tests above pin.
+    /// </summary>
+    [Test]
+    public void ACompileRefusedUnderATightBudgetIsNeitherCachedNorRefusedOnceAnotherEngineHasCompiledIt()
+    {
+        // Enough i-flag class-set-operation classes to charge more compile work than a 1 ms timeout allows, with a
+        // unique tail so no other test can have compiled this pattern before.
+        var heavy = $"'[\\\\p{{L}}--\\\\p{{Lu}}]'.repeat(1500) + '{Guid.NewGuid():N}'";
+        var construct = $"new RegExp({heavy}, 'iv').source.length";
+        var tight = new Engine(o => o.Constraints.RegexTimeout = TimeSpan.FromMilliseconds(1));
+
+        Invoking(() => tight.Evaluate(construct)).Should().ThrowExactly<RegexMatchTimeoutException>();
+
+        var roomy = new Engine();
+        var length = roomy.Evaluate(construct).AsNumber();
+        roomy.Evaluate(construct).AsNumber().Should().Be(length);
+
+        tight.Evaluate(construct).AsNumber().Should().Be(
+            length,
+            "a matcher another engine already paid to compile costs this engine no compile work, so its compile budget has nothing to refuse");
     }
 
     /// <summary>

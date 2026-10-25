@@ -22,8 +22,11 @@ RegularCore path, which the ECMAScript executor never touches, so they were drop
 ## 2. What changed in Jint
 
 - `JintRegExpEngine` wraps the GregsEx executor. A matcher's compiled program is immutable and shared:
-  `RegExpParseCache` holds matchers process-wide (keyed by pattern and flags), and literals memoize theirs on the AST
-  node. Its one mutable field is a frame-count hint, published without ordering because a stale read costs only a
+  `RegExpParseCache` holds matchers process-wide (keyed by pattern and flags, never by timeout: a compile's budget
+  bounds the work an engine does, not which matchers it may be handed), and literals memoize theirs on the AST node.
+  The cache admits a pattern on its second compile and retires full generations instead of clearing, so a script
+  compiling patterns from data never fills it with matchers nothing asks for again - that filling was most of what a
+  cold compile cost (a miss through the first cache took 8.5 µs against 1.4 µs for the bare compile). Its one mutable field is a frame-count hint, published without ordering because a stale read costs only a
   growth retry. A search's backtracking storage starts at 64 frames and grows ×4 per retry, bounded by size rather
   than by frame count, since a frame's size depends on the pattern:
   - up to 1 MiB, a thread keeps the storage between searches, and growth is published as the matcher's hint;
