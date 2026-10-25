@@ -1,5 +1,5 @@
 diff --git a/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs b/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs
-index 59b1330c2..09120e696 100644
+index 057eaa9f2..09120e696 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs
 +++ b/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs
 @@ -1,124 +1,22 @@
@@ -83,17 +83,17 @@ index 59b1330c2..09120e696 100644
 -        out SemanticProgram? program, out RegexDiagnostic diagnostic);
 -}
 -
--#if !NETSTANDARD2_0
+-#if !GREGSEX_GENERATOR
 -// Reader specialization is static; no per-character virtual interface dispatch is required.
 -internal interface ITextReader<TUnit> where TUnit : unmanaged
 -{
 -    // Full-subject validity precedes a search. Charge each inspected input unit in state.Budget.
 -    // Validate start boundary only after full encoding validation succeeds.
--    static abstract RegexSearchStatus Validate(ReadOnlySpan<TUnit> input, int startAt,
+-    RegexSearchStatus Validate(ReadOnlySpan<TUnit> input, int startAt,
 -        ProfileDescriptor profile, ref RunState state);
 -    // On already validated input, decode exactly one element. End returns false, width=0.
 -    // The executor charges one read unit; the reader never retains the span.
--    static abstract bool TryRead(ReadOnlySpan<TUnit> input, int offset, ProfileDescriptor profile,
+-    bool TryRead(ReadOnlySpan<TUnit> input, int offset, ProfileDescriptor profile,
 -        out int value, out int width);
 -}
 -
@@ -144,152 +144,22 @@ index 59b1330c2..09120e696 100644
      // otherwise per-unit charges reproduce the exact failing offset and consumed work.
      [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 diff --git a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
-index ad67df6f9..fec3098e3 100644
+index 75c3e9d22..0d48c89b3 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
 +++ b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
-@@ -742,7 +742,12 @@ internal sealed class EcmaAccelerator
-     private readonly bool _literalLeadBoundary;
-     private readonly bool _literalTrailBoundary;
-     private readonly string[] _altBranches = [];
+@@ -1,4 +1,10 @@
+ #nullable enable
++// Jint: the StringSearchValues alias is file-local here (see Polyfills/StringSearchValues.cs).
 +#if NET9_0_OR_GREATER
-     private readonly SearchValues<string>? _altSearchValues;
++using StringSearchValues = System.Buffers.SearchValues<string>;
 +#else
-+    // Jint: SearchValues<string> is .NET 9+; downlevel the plan keeps its branch strings and scans them.
-+    private readonly string[]? _altSearchValues;
++using StringSearchValues = Jint.Runtime.RegExp.GregsEx.StringSearchValuesFallback;
 +#endif
-     private readonly SearchValues<char>? _altFirstCharValues;
-     private readonly EcmaFastSet? _repeatSet;
-     private readonly int _repeatMin;
-@@ -777,12 +782,14 @@ internal sealed class EcmaAccelerator
-     internal readonly SearchValues<char>? FirstChars;
-     // FirstChars leaves out what a non-multiline ^ branch could start with, so the input's start is always a candidate.
-     internal bool FirstCharsTryStart { get; private set; }
-+#if NET9_0_OR_GREATER
-     private SearchValues<string>? _literalSearchValues;
- 
-     // The leading fixed strings of every branch (literals and small classes expanded), a superset prefilter for
-     // an alternation or a case-insensitive literal run, which FirstChars leaves at nearly every position over a small
-     // alphabet: /agggtaaa|tttaccct/i over DNA, /aaaaaaaaaa/i over text.
-     internal readonly SearchValues<string>? FirstStrings;
-+#endif
- 
-     // An i-flag literal that no other character canonicalizes with (`@`, `-`, digits) matches exactly what the
-     // case-sensitive literal matches, so the planners see it without the flag: they refuse i-flag literals, and an i
-@@ -985,7 +992,9 @@ internal sealed class EcmaAccelerator
- 
-         if (!StartAnchoredNonMultiline && PrefixLiteral is null && FirstSet is null)
-         {
-+#if NET9_0_OR_GREATER
-             FirstStrings = TryBuildFirstStrings(nodes, root);
-+#endif
-             FirstChars = TryBuildFirstChars(nodes, root, caseTables);
-         }
- 
-@@ -1354,7 +1363,11 @@ internal sealed class EcmaAccelerator
-     private bool TryBuildLiteralAlternationPlan(
-         ReadOnlySpan<EcmaNode> nodes,
-         out string[] branches,
-+#if NET9_0_OR_GREATER
-         out SearchValues<string>? searchValues,
-+#else
-+        out string[]? searchValues,
-+#endif
-         out SearchValues<char>? firstCharValues)
-     {
-         branches = [];
-@@ -1417,7 +1430,11 @@ internal sealed class EcmaAccelerator
-             }
-         }
-         branches = list.ToArray();
-+#if NET9_0_OR_GREATER
-         searchValues = SearchValues.Create(branches, StringComparison.Ordinal);
-+#else
-+        searchValues = branches;
-+#endif
-         if (allRareFirst && distinctCount is >= 1 and <= 5)
-         {
-             firstCharValues = SearchValues.Create(distinctFirst.Slice(0, distinctCount));
-@@ -1426,6 +1443,24 @@ internal sealed class EcmaAccelerator
-         return true;
-     }
- 
-+#if !NET9_0_OR_GREATER
-+    private static int IndexOfAnyBranch(ReadOnlySpan<char> span, string[] branches)
-+    {
-+        var best = -1;
-+        foreach (var branch in branches)
-+        {
-+            var limit = best < 0 ? span : span.Slice(0, Math.Min(span.Length, best + branch.Length));
-+            var index = limit.IndexOf(branch.AsSpan(), StringComparison.Ordinal);
-+            if (index >= 0 && (best < 0 || index < best))
-+            {
-+                best = index;
-+            }
-+        }
-+
-+        return best;
-+    }
-+
-+#endif
-     private static bool CollectAltBranches(ReadOnlySpan<EcmaNode> nodes, int id, List<string> branches)
-     {
-         var n = nodes[id];
-@@ -2194,6 +2229,7 @@ internal sealed class EcmaAccelerator
-         return false;
-     }
- 
-+#if NET9_0_OR_GREATER
-     private const int MaxStringsPerBranch = 64;
-     private const int MaxFirstStrings = 256;
- 
-@@ -2326,6 +2362,7 @@ internal sealed class EcmaAccelerator
-         return true;
-     }
- 
-+#endif
-     private const int MaxFirstChars = 2048;
-     // Per case-table instance, because the tables are per Unicode version: one slot per mode used to let a Unicode 16
-     // program's inverse folds answer for a Unicode 17 program, which lost the 17.0 case pairs from its prefilter.
-@@ -2821,8 +2858,12 @@ internal sealed class EcmaAccelerator
-         {
-             // A single-string SearchValues picks rarer anchor characters than IndexOf(string)'s first/last pair, which
-             // is what .NET Regex searches with; IndexOf(string) took twice as long over common-letter text.
-+#if NET9_0_OR_GREATER
-             var rel = litLen == 0 ? 0 : litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0])
-                 : input.Slice(searchPos).IndexOfAny(_literalSearchValues ??= SearchValues.Create([_literal], StringComparison.Ordinal));
-+#else
-+            var rel = litLen == 0 ? 0 : litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0]) : input.Slice(searchPos).IndexOf(lit);
-+#endif
-             if (rel < 0)
-             {
-                 if (!TryChargeFast(ref state, startAt, input.Length, Math.Max(1, input.Length - startAt)))
-@@ -2885,8 +2926,12 @@ internal sealed class EcmaAccelerator
-         var searchPos = startAt;
-         while (searchPos + litLen <= input.Length)
-         {
-+#if NET9_0_OR_GREATER
-             var rel = litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0])
-                 : input.Slice(searchPos).IndexOfAny(_literalSearchValues ??= SearchValues.Create([_literal], StringComparison.Ordinal));
-+#else
-+            var rel = litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0]) : input.Slice(searchPos).IndexOf(lit);
-+#endif
-             if (rel < 0)
-             {
-                 break;
-@@ -3019,7 +3064,11 @@ internal sealed class EcmaAccelerator
-             }
-         }
- 
-+#if NET9_0_OR_GREATER
-         var rel = input.Slice(searchPos).IndexOfAny(_altSearchValues!);
-+#else
-+        var rel = IndexOfAnyBranch(input.Slice(searchPos), _altSearchValues!);
-+#endif
-         if (rel < 0)
-         {
-             if (!TryChargeFast(ref state, startAt, input.Length, Math.Max(1, input.Length - startAt)))
+ using System.Threading;
+ using System.Buffers;
+ using System.Numerics;
 diff --git a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
-index a1686e307..74a54b0d9 100644
+index 01ef35981..468e562e8 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
 +++ b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
 @@ -1,5 +1,4 @@
@@ -298,22 +168,6 @@ index a1686e307..74a54b0d9 100644
  using Jint.Runtime.RegExp.GregsEx.Contracts;
  using Jint.Runtime.RegExp.GregsEx.Contracts.EcmaScript;
  
-@@ -411,6 +410,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
-                 candidate += rel;
-             }
-         }
-+#if NET9_0_OR_GREATER
-         else if (_accelerator.FirstStrings is { } firstStrings)
-         {
-             // See EcmaAccelerator.FirstStrings.
-@@ -434,6 +434,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
-                 candidate += rel;
-             }
-         }
-+#endif
-         else if (_accelerator.FirstChars is { } firstChars && (candidate > 0 || !_accelerator.FirstCharsTryStart))
-         {
-             // See EcmaAccelerator.FirstChars. A hit on the trail half of a surrogate pair is not a
 diff --git a/Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs b/Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs
 index e91b95c6e..b110ca830 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs
@@ -408,6 +262,24 @@ index e91b95c6e..b110ca830 100644
  
      public bool IsIdentifierStart(int codePoint) => codePoint is '$' or '_' ||
          Contains(GetIntervals(new(EcmaPropertyKind.Binary, "ID_Start")), codePoint);
+diff --git a/Jint/Runtime/RegExp/GregsEx/Polyfills/StringSearchValues.cs b/Jint/Runtime/RegExp/GregsEx/Polyfills/StringSearchValues.cs
+index 760a53297..6fe4ace17 100644
+--- a/Jint/Runtime/RegExp/GregsEx/Polyfills/StringSearchValues.cs
++++ b/Jint/Runtime/RegExp/GregsEx/Polyfills/StringSearchValues.cs
+@@ -2,10 +2,11 @@
+ // Multi-string search sets. SearchValues<string> is .NET 9+: net10.0 binds it directly; net8.0 and netstandard2.0 (whose
+ // Meziantou.Polyfill copy stalls on long inputs) get the prefiltered StringSearchValuesFallback below. Only Create and
+ // IndexOfAny are used.
++// Jint: file-local, not global; a global alias would shadow Jint's own StringSearchValues (Jint/Native/Intl).
+ #if NET9_0_OR_GREATER
+-global using StringSearchValues = System.Buffers.SearchValues<string>;
++using StringSearchValues = System.Buffers.SearchValues<string>;
+ #else
+-global using StringSearchValues = Jint.Runtime.RegExp.GregsEx.StringSearchValuesFallback;
++using StringSearchValues = Jint.Runtime.RegExp.GregsEx.StringSearchValuesFallback;
+ #endif
+ 
+ using System.Buffers;
 diff --git a/Jint/Runtime/RegExp/GregsEx/Public/EcmaScript/EcmaScriptProfile.cs b/Jint/Runtime/RegExp/GregsEx/Public/EcmaScript/EcmaScriptProfile.cs
 index f1c666413..8e93c5697 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Public/EcmaScript/EcmaScriptProfile.cs
@@ -436,7 +308,7 @@ index f1c666413..8e93c5697 100644
      /// <summary>Validates flags for the selected Unicode dataset; undefined versions are argument errors.</summary>
      public static bool TryParseFlags(ReadOnlySpan<char> flags, out EcmaScriptProfile? profile,
 diff --git a/Jint/Runtime/RegExp/GregsEx/Text/ValueStringBuilder.cs b/Jint/Runtime/RegExp/GregsEx/Text/ValueStringBuilder.cs
-index 735608773..78ef2bffe 100644
+index 121b2c804..f53bb5870 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Text/ValueStringBuilder.cs
 +++ b/Jint/Runtime/RegExp/GregsEx/Text/ValueStringBuilder.cs
 @@ -202,7 +202,7 @@ internal struct ValueStringBuilder : IBufferWriter<char>, IDisposable

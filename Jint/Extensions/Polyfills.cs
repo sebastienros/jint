@@ -673,5 +673,32 @@ internal static class SpanPolyfills
 
         return -1;
     }
+
+    // The LastIndexOfAny pair over SearchValues<char> arrived with it too.
+    internal static int LastIndexOfAny(this ReadOnlySpan<char> span, SearchValues<char> values)
+    {
+        for (var i = span.Length - 1; i >= 0; i--)
+        {
+            if (values.Contains(span[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    internal static int LastIndexOfAnyExcept(this ReadOnlySpan<char> span, SearchValues<char> values)
+    {
+        for (var i = span.Length - 1; i >= 0; i--)
+        {
+            if (!values.Contains(span[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
 #endif
 }

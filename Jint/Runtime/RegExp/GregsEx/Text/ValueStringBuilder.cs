@@ -210,7 +210,7 @@ internal struct ValueStringBuilder : IBufferWriter<char>, IDisposable
         var pos = _pos;
         var chars = _arrayFromPool;
         // Single-character strings (common in tokenizers and entity tables) bypass span copy overhead.
-        if (s.Length == 1 && (uint)pos < (uint)chars.Length)
+        if (s!.Length == 1 && (uint)pos < (uint)chars.Length)
         {
             chars[pos] = s[0];
             _pos = pos + 1;

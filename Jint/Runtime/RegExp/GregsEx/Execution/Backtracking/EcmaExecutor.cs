@@ -17,6 +17,10 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     private readonly EcmaAccelerator _accelerator;
     // Per node, whether it is a greedy repeat of a single-character atom (see Machine.GreedyRun).
     private readonly bool[] _greedyRun;
+    // Per greedy run, the units its continuation can start with (see EcmaUnitFilters.BuildFollow), and whether they
+    // are the ASCII units it cannot start with instead.
+    private readonly System.Buffers.SearchValues<char>?[]? _giveBack;
+    private readonly bool[]? _giveBackExcept;
     // Canonicalize for ASCII, from the same case tables Machine.Canonical searches: an i-flag literal compare used to
     // binary-search the whole table twice per character.
     private readonly char[] _asciiCanonical;
@@ -71,6 +75,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
 
         _startBits = BuildStartBits(instructions, program.Profile.IsUnicodeAware, tables);
         _greedyRun = new bool[instructions.Length];
+        int[]? parents = null;
         for (var i = 0; i < instructions.Length; i++)
         {
             var node = instructions[i];
@@ -79,6 +84,17 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                 var atom = instructions[node.X];
                 _greedyRun[i] = atom.Kind == EcmaNodeKind.Literal ||
                     (atom.Kind == EcmaNodeKind.Set && _accelerator.FastSets[node.X] is { } fastSet && fastSet.Slice.StringCount == 0);
+                if (_greedyRun[i])
+                {
+                    parents ??= EcmaUnitFilters.Parents(instructions);
+                    if (EcmaUnitFilters.BuildFollow(program, instructions, parents, i, tables, out var except) is { } follow)
+                    {
+                        _giveBack ??= new System.Buffers.SearchValues<char>?[instructions.Length];
+                        _giveBackExcept ??= new bool[instructions.Length];
+                        _giveBack[i] = follow;
+                        _giveBackExcept[i] = except;
+                    }
+                }
             }
         }
     }
@@ -310,19 +326,38 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             }
         }
 
-        if (hostSized && _accelerator.PositionMatcher is { } positions)
+        // Every match contains one of the required units at or after its start (see EcmaUnitFilters.BuildRequired),
+        // so none starts after the last: /\.?\w*(?=\[)/ otherwise ran the VM from each position of a line without [.
+        var lastStart = input.Length;
+        if (_accelerator.RequiredUnits is { } requiredUnits)
         {
-            return SearchPositions(positions, input, startAt, sticky, operation, frames, ref state, groups, out match);
+            var at = input.Slice(startAt).LastIndexOfAny(requiredUnits);
+            if (!EcmaAccelerator.TryChargeFast(ref state, startAt, input.Length, Math.Max(1, at < 0 ? input.Length - startAt : input.Length - startAt - at)))
+            {
+                return Finish(FailureStatus(state), operation, groups);
+            }
+
+            if (at < 0)
+            {
+                return Finish(RegexSearchStatus.NoMatch, operation, groups);
+            }
+
+            lastStart = startAt + at;
         }
 
-        return SearchMachine(input, startAt, sticky, operation, frames, ref state, groups, out match);
+        if (hostSized && _accelerator.PositionMatcher is { } positions)
+        {
+            return SearchPositions(positions, input, startAt, lastStart, sticky, operation, frames, ref state, groups, out match);
+        }
+
+        return SearchMachine(input, startAt, lastStart, sticky, operation, frames, ref state, groups, out match);
     }
 
     // Kept out of SearchCore: the Machine is a large ref struct, and a method holding one zeroes its whole frame on
     // entry. Inline in SearchCore, every search paid that even when an accelerated plan answered first - 12 ns of a
     // 25 ns split(/a/) step.
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    private RegexSearchStatus SearchMachine(ReadOnlySpan<char> input, int startAt, bool sticky,
+    private RegexSearchStatus SearchMachine(ReadOnlySpan<char> input, int startAt, int lastStart, bool sticky,
         SearchOperation operation, int frames, ref RunState state,
         Span<RegexCapture> groups, out RegexMatchRange match)
     {
@@ -339,6 +374,11 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                 {
                     return Finish(candidate == NoCandidate ? RegexSearchStatus.NoMatch : FailureStatus(state), operation, groups);
                 }
+            }
+
+            if (candidate > lastStart)
+            {
+                return Finish(RegexSearchStatus.NoMatch, operation, groups);
             }
 
             var result = machine.Run(candidate, ref state);
@@ -410,7 +450,6 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                 candidate += rel;
             }
         }
-#if NET9_0_OR_GREATER
         else if (_accelerator.FirstStrings is { } firstStrings)
         {
             // See EcmaAccelerator.FirstStrings.
@@ -434,7 +473,6 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                 candidate += rel;
             }
         }
-#endif
         else if (_accelerator.FirstChars is { } firstChars && (candidate > 0 || !_accelerator.FirstCharsTryStart))
         {
             // See EcmaAccelerator.FirstChars. A hit on the trail half of a surrogate pair is not a
@@ -447,6 +485,31 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                 rel = further < 0 ? -1 : rel + 1 + further;
             }
 
+            if (rel < 0)
+            {
+                if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
+                {
+                    return CandidateFailure;
+                }
+
+                return NoCandidate;
+            }
+            if (rel > 0)
+            {
+                if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, rel))
+                {
+                    return CandidateFailure;
+                }
+
+                candidate += rel;
+            }
+        }
+        else if (_accelerator.FirstUnits is { } units && (candidate > 0 || !_accelerator.FirstUnitsTryStart))
+        {
+            // See EcmaAccelerator.FirstUnits. Non-ASCII units are candidates under FirstUnitsExcept, so a hit is a
+            // whole character's start whenever the search stood on one.
+            var rest = input.Slice(candidate);
+            var rel = _accelerator.FirstUnitsExcept ? rest.IndexOfAnyExcept(units) : rest.IndexOfAny(units);
             if (rel < 0)
             {
                 if (!EcmaAccelerator.TryChargeFast(ref state, candidate, input.Length, Math.Max(1, input.Length - candidate)))
@@ -493,7 +556,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     }
 
     // SearchMachine's candidate loop around the position matcher (see EcmaPositionMatcher), which needs no Machine.
-    private RegexSearchStatus SearchPositions(EcmaPositionMatcher matcher, ReadOnlySpan<char> input, int startAt, bool sticky,
+    private RegexSearchStatus SearchPositions(EcmaPositionMatcher matcher, ReadOnlySpan<char> input, int startAt, int lastStart, bool sticky,
         SearchOperation operation, int frames, ref RunState state, Span<RegexCapture> groups, out RegexMatchRange match)
     {
         match = default;
@@ -509,6 +572,11 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                 {
                     return Finish(candidate == NoCandidate ? RegexSearchStatus.NoMatch : FailureStatus(state), operation, groups);
                 }
+            }
+
+            if (candidate > lastStart)
+            {
+                return Finish(RegexSearchStatus.NoMatch, operation, groups);
             }
 
             if (captures)
@@ -543,7 +611,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             if (end == EcmaPositionMatcher.GiveUp)
             {
                 // The VM searches on from this candidate, which is where this search stands.
-                return SearchMachine(input, candidate, sticky, operation, frames, ref state, groups, out match);
+                return SearchMachine(input, candidate, lastStart, sticky, operation, frames, ref state, groups, out match);
             }
 
             if (sticky || candidate == input.Length || _accelerator.StartAnchoredNonMultiline)
@@ -569,6 +637,9 @@ internal sealed class EcmaExecutor : IEcmaExecutor
     // Set on a frame's kind when its task to resume with waits at the start of its task trail segment.
     private const int AppendFlag = 1 << 8;
     private const int ChoiceKindMask = AppendFlag - 1;
+    // A greedy run's choice keeps its repeat node above the flags, for its give-back filter (EcmaExecutor._giveBack).
+    private const int ChoiceNodeShift = 9;
+    private const int MaxChoiceNode = (1 << (31 - ChoiceNodeShift)) - 1;
     // A/B/C interpretation is specific to Kind. Direction is always explicit, including
     // tasks saved before entering a nested assertion with a different direction.
     private readonly record struct Task(TaskKind Kind, int Node, int A, int B, int Direction, int C = 0);
@@ -672,7 +743,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                         }
                         else if (_owner._greedyRun[task.Node] && task.Direction > 0)
                         {
-                            if (!GreedyRun(node, task.A, ref state))
+                            if (!GreedyRun(node, task.Node, task.A, ref state))
                             {
                                 return -1;
                             }
@@ -901,6 +972,20 @@ internal sealed class EcmaExecutor : IEcmaExecutor
                         var run = _choices.Slice(index * ChoiceWidth, ChoiceWidth);
                         var low = run[3];
                         var position = Position - 1;
+                        if ((run[0] >> ChoiceNodeShift) is var runNode and > 0 && _owner._giveBack![runNode] is { } follow && position > low)
+                        {
+                            // Straight to the last position the continuation can start at; the lower bound is always
+                            // tried, as it ends the run.
+                            var window = _input.Slice(low + 1, position - low);
+                            var hit = _owner._giveBackExcept![runNode] ? window.LastIndexOfAnyExcept(follow) : window.LastIndexOfAny(follow);
+                            if (!state.TryCharge(Math.Max(1, window.Length - hit - 1), Position))
+                            {
+                                return -1;
+                            }
+
+                            position = hit < 0 ? low : low + 1 + hit;
+                        }
+
                         if (_owner.Program.Profile.IsUnicodeAware && position > low &&
                             char.IsLowSurrogate(_input[position]) && char.IsHighSurrogate(_input[position - 1]))
                         {
@@ -931,7 +1016,7 @@ internal sealed class EcmaExecutor : IEcmaExecutor
         // generic path saved a choice per character. Equivalent, because every one of those choices restored the same
         // task stack and the same registers: the atom captures nothing, and each was taken after the Repeat task had
         // been popped.
-        private bool GreedyRun(EcmaNode node, int iterations, ref RunState state)
+        private bool GreedyRun(EcmaNode node, int nodeId, int iterations, ref RunState state)
         {
             var start = Position;
             var limit = node.Max == -1 ? int.MaxValue : node.Max - iterations;
@@ -993,6 +1078,10 @@ internal sealed class EcmaExecutor : IEcmaExecutor
             }
 
             _choices[(_choiceCount - 1) * ChoiceWidth + 3] = start;
+            if (_owner._giveBack is not null && nodeId <= MaxChoiceNode)
+            {
+                _choices[(_choiceCount - 1) * ChoiceWidth] |= nodeId << ChoiceNodeShift;
+            }
             return true;
         }
 

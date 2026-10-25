@@ -36,6 +36,7 @@ FILES = [
     "Execution/Backtracking/EcmaExecutor.cs",
     "Execution/Backtracking/EcmaExecutorFactory.cs",
     "Execution/Backtracking/EcmaPositionMatcher.cs",
+    "Execution/Backtracking/EcmaUnitFilters.cs",
     "Flavors/EcmaScript/Parsing/EcmaCompiler.cs",
     "Flavors/EcmaScript/Parsing/EscapesAndClasses.cs",
     "Flavors/EcmaScript/Parsing/ParserStorage.cs",
@@ -43,6 +44,7 @@ FILES = [
     "Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs",
     "Flavors/EcmaScript/Unicode/GeneratedUnicode17Tables.cs",
     "Flavors/EcmaScript/Unicode/Unicode-LICENSE.txt",
+    "Polyfills/StringSearchValues.cs",
     "Public/EcmaScript/EcmaScriptProfile.cs",
     "Public/EcmaScript/EcmaScriptTypes.cs",
     "Public/RegexOptions.cs",
@@ -66,7 +68,7 @@ def transform(path, text):
         return text
     text = re.sub(r"^namespace GregsEx\b", "namespace Jint.Runtime.RegExp.GregsEx", text, flags=re.M)
     text = re.sub(r"^using (static )?GregsEx\b", r"using \1Jint.Runtime.RegExp.GregsEx", text, flags=re.M)
-    text = re.sub(r"^(using \w+ = )GregsEx\.", r"\1Jint.Runtime.RegExp.GregsEx.", text, flags=re.M)
+    text = re.sub(r"^((?:global )?using \w+ = )GregsEx\.", r"\1Jint.Runtime.RegExp.GregsEx.", text, flags=re.M)
     # Top-level declarations only: nested members of an internal type may stay public.
     text = re.sub(r"^public ", "internal ", text, flags=re.M)
     if not text.startswith("#nullable"):

@@ -58,11 +58,10 @@ are upstream since [sebastienros/gregsex#2](https://github.com/sebastienros/greg
   PCRE2 pair buffer are gone, which is what lets it compile for `netstandard2.0` and `net472`.
 - `Flavors/EcmaScript/Unicode` carries only the Unicode 17.0 tables (the version the pinned test262 asserts);
   `EcmaUnicodeData` refuses any other version and `EcmaScriptProfile` defaults to 17.0.
-- `EcmaAccelerator` and `EcmaExecutor` keep their `SearchValues<string>` lanes (the literal plan, literal
-  alternations and the `FirstStrings` prefilter) under `#if NET9_0_OR_GREATER`; downlevel, the literal plans scan
-  with `IndexOf` and the `FirstStrings` prefilter is not built.
+- `Polyfills/StringSearchValues.cs` declares its `StringSearchValues` alias per file rather than `global`, and
+  `EcmaAccelerator` repeats it: a global alias would shadow Jint's own `StringSearchValues` (`Jint/Native/Intl`).
 - `ValueStringBuilder` guards the APIs `net472` lacks.
 
 Jint-owned files the tool never touches: `.editorconfig`, this `README.md` and `IR/SourceRange.cs` (the one type of upstream's `IR/SemanticProgram.cs` the flavor needs). Other downlevel gaps
 (`ThrowIfNull`, `ThrowIfNegative[OrZero]`, generic `Enum.IsDefined`, `span.Contains(char)`,
-`IndexOfAny(SearchValues<char>)`) are polyfilled in `Jint/Extensions/Polyfills.cs`, not here.
+`IndexOfAny(SearchValues<char>)`, `LastIndexOfAny[Except](SearchValues<char>)`) are polyfilled in `Jint/Extensions/Polyfills.cs`, not here.

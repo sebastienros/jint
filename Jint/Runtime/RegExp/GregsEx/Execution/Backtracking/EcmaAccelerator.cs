@@ -1,4 +1,10 @@
 #nullable enable
+// Jint: the StringSearchValues alias is file-local here (see Polyfills/StringSearchValues.cs).
+#if NET9_0_OR_GREATER
+using StringSearchValues = System.Buffers.SearchValues<string>;
+#else
+using StringSearchValues = Jint.Runtime.RegExp.GregsEx.StringSearchValuesFallback;
+#endif
 using System.Threading;
 using System.Buffers;
 using System.Numerics;
@@ -742,12 +748,7 @@ internal sealed class EcmaAccelerator
     private readonly bool _literalLeadBoundary;
     private readonly bool _literalTrailBoundary;
     private readonly string[] _altBranches = [];
-#if NET9_0_OR_GREATER
-    private readonly SearchValues<string>? _altSearchValues;
-#else
-    // Jint: SearchValues<string> is .NET 9+; downlevel the plan keeps its branch strings and scans them.
-    private readonly string[]? _altSearchValues;
-#endif
+    private readonly StringSearchValues? _altSearchValues;
     private readonly SearchValues<char>? _altFirstCharValues;
     private readonly EcmaFastSet? _repeatSet;
     private readonly int _repeatMin;
@@ -782,14 +783,19 @@ internal sealed class EcmaAccelerator
     internal readonly SearchValues<char>? FirstChars;
     // FirstChars leaves out what a non-multiline ^ branch could start with, so the input's start is always a candidate.
     internal bool FirstCharsTryStart { get; private set; }
-#if NET9_0_OR_GREATER
-    private SearchValues<string>? _literalSearchValues;
+    // See EcmaUnitFilters.BuildFirst: for a search none of the filters above covers, the ASCII units that can start a
+    // match (FirstUnitsExcept: those that cannot, any non-ASCII unit being able to).
+    internal readonly SearchValues<char>? FirstUnits;
+    internal readonly bool FirstUnitsExcept;
+    internal readonly bool FirstUnitsTryStart;
+    // See EcmaUnitFilters.BuildRequired: no match starts after the last of these units.
+    internal readonly SearchValues<char>? RequiredUnits;
+    private StringSearchValues? _literalSearchValues;
 
     // The leading fixed strings of every branch (literals and small classes expanded), a superset prefilter for
     // an alternation or a case-insensitive literal run, which FirstChars leaves at nearly every position over a small
     // alphabet: /agggtaaa|tttaccct/i over DNA, /aaaaaaaaaa/i over text.
-    internal readonly SearchValues<string>? FirstStrings;
-#endif
+    internal readonly StringSearchValues? FirstStrings;
 
     // An i-flag literal that no other character canonicalizes with (`@`, `-`, digits) matches exactly what the
     // case-sensitive literal matches, so the planners see it without the flag: they refuse i-flag literals, and an i
@@ -992,16 +998,22 @@ internal sealed class EcmaAccelerator
 
         if (!StartAnchoredNonMultiline && PrefixLiteral is null && FirstSet is null)
         {
-#if NET9_0_OR_GREATER
             FirstStrings = TryBuildFirstStrings(nodes, root);
-#endif
             FirstChars = TryBuildFirstChars(nodes, root, caseTables);
+            if (FirstStrings is null && FirstChars is null)
+            {
+                FirstUnits = EcmaUnitFilters.BuildFirst(program, nodes, root, caseTables, out FirstUnitsExcept, out FirstUnitsTryStart);
+            }
         }
 
         if (TryExtractRequiredLiteral(nodes, root, minLengths, hasAmbiguousRepeat, out var reqLit, out var reqMinOffset))
         {
             RequiredLiteral = reqLit;
             RequiredLiteralMinOffset = reqMinOffset;
+        }
+        else if (!StartAnchoredNonMultiline)
+        {
+            RequiredUnits = EcmaUnitFilters.BuildRequired(program, nodes, root, caseTables);
         }
 
         _positionEligible = EcmaPositionMatcher.MayApply(program, nodes);
@@ -1363,11 +1375,7 @@ internal sealed class EcmaAccelerator
     private bool TryBuildLiteralAlternationPlan(
         ReadOnlySpan<EcmaNode> nodes,
         out string[] branches,
-#if NET9_0_OR_GREATER
-        out SearchValues<string>? searchValues,
-#else
-        out string[]? searchValues,
-#endif
+        out StringSearchValues? searchValues,
         out SearchValues<char>? firstCharValues)
     {
         branches = [];
@@ -1430,11 +1438,7 @@ internal sealed class EcmaAccelerator
             }
         }
         branches = list.ToArray();
-#if NET9_0_OR_GREATER
-        searchValues = SearchValues.Create(branches, StringComparison.Ordinal);
-#else
-        searchValues = branches;
-#endif
+        searchValues = StringSearch.Create(branches);
         if (allRareFirst && distinctCount is >= 1 and <= 5)
         {
             firstCharValues = SearchValues.Create(distinctFirst.Slice(0, distinctCount));
@@ -1443,24 +1447,6 @@ internal sealed class EcmaAccelerator
         return true;
     }
 
-#if !NET9_0_OR_GREATER
-    private static int IndexOfAnyBranch(ReadOnlySpan<char> span, string[] branches)
-    {
-        var best = -1;
-        foreach (var branch in branches)
-        {
-            var limit = best < 0 ? span : span.Slice(0, Math.Min(span.Length, best + branch.Length));
-            var index = limit.IndexOf(branch.AsSpan(), StringComparison.Ordinal);
-            if (index >= 0 && (best < 0 || index < best))
-            {
-                best = index;
-            }
-        }
-
-        return best;
-    }
-
-#endif
     private static bool CollectAltBranches(ReadOnlySpan<EcmaNode> nodes, int id, List<string> branches)
     {
         var n = nodes[id];
@@ -2229,11 +2215,10 @@ internal sealed class EcmaAccelerator
         return false;
     }
 
-#if NET9_0_OR_GREATER
     private const int MaxStringsPerBranch = 64;
     private const int MaxFirstStrings = 256;
 
-    private SearchValues<string>? TryBuildFirstStrings(ReadOnlySpan<EcmaNode> nodes, int root)
+    private StringSearchValues? TryBuildFirstStrings(ReadOnlySpan<EcmaNode> nodes, int root)
     {
         var unicodeAware = _program.Profile.IsUnicodeAware;
         var branches = new List<int>();
@@ -2318,7 +2303,7 @@ internal sealed class EcmaAccelerator
         var distinct = new HashSet<string>(all, StringComparer.Ordinal);
         var strings = new string[distinct.Count];
         distinct.CopyTo(strings);
-        return SearchValues.Create(strings,
+        return StringSearch.Create(strings,
             ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     }
 
@@ -2362,7 +2347,6 @@ internal sealed class EcmaAccelerator
         return true;
     }
 
-#endif
     private const int MaxFirstChars = 2048;
     // Per case-table instance, because the tables are per Unicode version: one slot per mode used to let a Unicode 16
     // program's inverse folds answer for a Unicode 17 program, which lost the 17.0 case pairs from its prefilter.
@@ -2858,12 +2842,8 @@ internal sealed class EcmaAccelerator
         {
             // A single-string SearchValues picks rarer anchor characters than IndexOf(string)'s first/last pair, which
             // is what .NET Regex searches with; IndexOf(string) took twice as long over common-letter text.
-#if NET9_0_OR_GREATER
             var rel = litLen == 0 ? 0 : litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0])
-                : input.Slice(searchPos).IndexOfAny(_literalSearchValues ??= SearchValues.Create([_literal], StringComparison.Ordinal));
-#else
-            var rel = litLen == 0 ? 0 : litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0]) : input.Slice(searchPos).IndexOf(lit);
-#endif
+                : input.Slice(searchPos).IndexOfAny(_literalSearchValues ??= StringSearch.Create([_literal]));
             if (rel < 0)
             {
                 if (!TryChargeFast(ref state, startAt, input.Length, Math.Max(1, input.Length - startAt)))
@@ -2926,12 +2906,8 @@ internal sealed class EcmaAccelerator
         var searchPos = startAt;
         while (searchPos + litLen <= input.Length)
         {
-#if NET9_0_OR_GREATER
             var rel = litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0])
-                : input.Slice(searchPos).IndexOfAny(_literalSearchValues ??= SearchValues.Create([_literal], StringComparison.Ordinal));
-#else
-            var rel = litLen == 1 ? input.Slice(searchPos).IndexOf(lit[0]) : input.Slice(searchPos).IndexOf(lit);
-#endif
+                : input.Slice(searchPos).IndexOfAny(_literalSearchValues ??= StringSearch.Create([_literal]));
             if (rel < 0)
             {
                 break;
@@ -3064,11 +3040,7 @@ internal sealed class EcmaAccelerator
             }
         }
 
-#if NET9_0_OR_GREATER
         var rel = input.Slice(searchPos).IndexOfAny(_altSearchValues!);
-#else
-        var rel = IndexOfAnyBranch(input.Slice(searchPos), _altSearchValues!);
-#endif
         if (rel < 0)
         {
             if (!TryChargeFast(ref state, startAt, input.Length, Math.Max(1, input.Length - startAt)))
