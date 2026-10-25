@@ -242,7 +242,34 @@ Measured on the Apple M4 Pro only (`measure-paired.ps1`, 3 alternating rounds, `
 | Cold compile `literal`, `email`, `alternation`, `tokenizer`, `email-i` | +20 … +64% | each excludes zero | `email-i` 496 µs → 804 µs, 299 KB → 691 KB |
 
 `email-i` (+64%) and `tokenizer` (+41%) read about twice what the in-process Mac harness measured before gregsex#19
-(+30%, +21%); whether #19's compile-time filters are the cause has not been measured separately.
+(+30%, +21%). They were #19's compile-time filters: see §5.3.
+
+### 5.3 After gregsex#22–#24 and the cache rework
+
+[sebastienros/gregsex#22](https://github.com/sebastienros/gregsex/pull/22) keeps the unanchored literal scan out of
+`ExecuteLiteral`'s frame. [#23](https://github.com/sebastienros/gregsex/pull/23) builds #19's unit filters from the fast
+sets' ASCII words and shares their `SearchValues`. [#24](https://github.com/sebastienros/gregsex/pull/24) charges the
+compile budget inline and range-checks node kinds. `RegExpParseCache` (§2) caches a pattern only on its second compile,
+and retires generations instead of clearing: it had cost about 7 µs per new pattern, five times compiling a short one.
+
+Measured with `measure-paired.ps1`, 3 alternating rounds on the Apple M4 Pro, 68 rows: `main` at `59cea2de4` against
+`7bc4c7929`, with GregsEx `63f41069` vendored (identical to `main` `e5ea55b3`). One `new RegExp` of a pattern never seen
+before, cache included, is the cold-compile row minus `control-concat`, over 50:
+
+| Pattern | `main` | this branch | Δ (median of rounds) | Allocated |
+| --- | ---: | ---: | ---: | ---: |
+| `needle` + n | 7.21 µs | 1.43 µs | −80.1% | 1.8 KB → 5.0 KB |
+| email | 8.26 µs | 2.66 µs | −67.8% | 3.2 KB → 8.4 KB |
+| email, `i` | 9.57 µs | 4.99 µs | −48.0% | 5.8 KB → 10.3 KB |
+| eight-word alternation | 9.22 µs | 4.14 µs | −55.4% | 5.2 KB → 13.0 KB |
+| tokenizer, `g` | 11.28 µs | 6.26 µs | −44.5% | 7.6 KB → 18.0 KB |
+| `classes-i` | 35.22 µs | 10.14 µs | −71.3% | 121 KB → 11.7 KB |
+| `uprop-u` | 32.86 µs | 10.58 µs | −67.6% | 44 KB → 19 KB |
+
+The same run: `AnchoredLiteral` −2.9%, `literal-test` / `literal-replace-g` +15.3% / +14.1%, `DigitScan` +3.1%,
+`regexp-dna` −75.6%, `string-unpack-code` −6.8%, `string-tagcloud` −2.1%, `string-validate-input` +3.0% (no change),
+Dromaeo `ObjectRegExp` −2.8 … −5.5%, `construct-100` (cache hits) −24.2%. The 22 SunSpider scripts without regexes read
++0.4 … +5.9% with wide CIs from one slow round; only `math-cordic` (+5.9%, which no change here reaches) excludes zero.
 
 ## 6. Follow-ups
 
@@ -259,12 +286,14 @@ Measured on the Apple M4 Pro only (`measure-paired.ps1`, 3 alternating rounds, `
   per operation (`RegExpColdCompileBenchmark`'s shapes, alternating runs on a loaded machine) now read: `literal` −26%,
   `\p{L}` under `u` +1% (it was +1,596%), `email` +57%, an alternation +59%, an `i` class +101% (was +461%), the email
   pattern under `i` +131% (was +1,225%). gregsex#5 (G21) brought them to +15 … +39% on Windows x64 and `classes-i` to −25% (§5.1), still allocating 2 to
-  2.5 times `main`; what is left is per-pattern setup in the compiler and accelerator.
+  2.5 times `main`; what is left is per-pattern setup in the compiler and accelerator. After gregsex#22–#24 and the
+  cache rework a one-shot pattern costs 44–80% less than on `main` (§5.3), but still allocates more than `main`'s
+  .NET `Regex` adaptation (5.0 KB against 1.8 KB for a short literal): a smaller program and accelerator layout.
 - **`greedy-dotstar-test` and `char-split`** stay +8% and +4.5% on Windows x64 (§5.1), where the Apple M4 Pro reads
   both faster than `main`.
-- **The literal scan** (+16…+18%, §5): anchor characters chosen by frequency, as .NET Regex does, and the fixed
-  cost of a call that does almost no work (`AnchoredLiteral`, 13 ns → 19 ns). Re-measure `icase-literal-test` at six
-  rounds.
+- **The literal scan** (+14…+15%, §5.3): 3.26 µs over 64 KiB against 2.76 µs for .NET's compiled `Regex`, which
+  `main` upgrades a reused literal to; a bare `SearchValues<string>` is 3.14 µs, and a rare-character search and a
+  two-character `Vector128` search both measured slower. `AnchoredLiteral` is fixed (gregsex#22).
 - **Batches beyond split**: global `match` and plain-string replace still search once per match; the same
   `FindRanges` batch would serve them.
 - **Acornima still validates every regex literal at parse time** (an early error is a parse-time error), so a
