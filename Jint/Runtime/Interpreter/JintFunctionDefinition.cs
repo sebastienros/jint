@@ -9,6 +9,7 @@ using Jint.Native.Generator;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
+using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter;
 
@@ -997,6 +998,13 @@ internal sealed class JintFunctionDefinition
         if (name is not null && !state.EnvironmentMayEscape)
         {
             state.IsDirectRecursive = SelfCallAstVisitor.ContainsCallTo(function.Body, name);
+        }
+
+        // An async generator's `return Expression;` awaits its value, so its own return statements are built as the
+        // handler that does; marked here, before any engine builds the body.
+        if (function.Async && function.Generator)
+        {
+            JintAsyncGeneratorReturnStatement.MarkReturnStatements(function.Body);
         }
 
         state.SourceText = new SourceText(fullSourceText);

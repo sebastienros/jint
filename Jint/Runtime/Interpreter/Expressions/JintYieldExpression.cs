@@ -68,7 +68,7 @@ internal sealed class JintYieldExpression : JintExpression
             return value;
         }
 
-        GeneratorReturnException.Raise(value, _expression);
+        GeneratorReturnException.Raise(value);
         return value;
     }
 

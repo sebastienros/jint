@@ -6616,6 +6616,33 @@ a request with no fragment has no `urlFragment` member. `Network.requestWillBeSe
 shape, and follows the same rule. A client that read the fragment out of `request.url` must read `request.urlFragment`
 instead, or concatenate the two. There is no switch back.
 
+### 4.173 An async generator's `return expr;` awaits `expr` in the statement, before the `finally` blocks run ([#4332](https://github.com/sebastienros/jint/issues/4332))
+
+In an async generator, `return expr;` awaits `expr` before the return leaves the statement. Jint awaited it only once
+the body had finished, so the `finally` blocks around the `return` ran inside the `next()` call that reached it, and a
+rejected `expr` skipped every `catch` and rejected the request:
+
+```js
+var log = [];
+async function* g() {
+    try { return Promise.reject("X"); } catch (e) { log.push("caught " + e); } finally { log.push("fin"); }
+}
+var p = g().next().then(r => log.push(JSON.stringify(r)), e => log.push("rejected " + e));
+log.push("called");
+await p;
+// earlier 5.0: ["fin", "called", "rejected X"]    5.x: ["called", "caught X", "fin", "{\"done\":true}"]
+```
+
+Now the statement suspends the generator on the await, as an `await` expression does: the `finally` blocks, the
+iterator close of a `for`-`of` the `return` leaves, the disposal of its `using` declarations and the generator's own
+completion all come a microtask later (one more for a thenable), and a rejection is thrown at the `return`, where a
+`catch` around it handles it like any other throw. A literal operand is awaited as well, so
+`try { return 1; } finally { … }` runs its `finally` a microtask later, and a promise whose `constructor` getter throws
+is thrown at the `return`. Where nothing runs between the `return` and the end of the generator, the request settles
+when it did before. `return;`, which has no operand, and the `return` of a function nested inside an async generator
+are not affected. A script that relied on the `finally` blocks having run by the time `next()` returned must await the
+request instead. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
