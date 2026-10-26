@@ -1580,7 +1580,7 @@ internal abstract class JintBinaryExpression : JintExpression
                     nested = new PlusBinaryExpression(addition);
                 }
 
-                return JintStackProbeExpression.AtProbeDepth(nested);
+                return JintStackProbeExpression.AtProbeDepth(addition, nested);
             }
 
             return JintStackProbeExpression.BuildOperand(left);

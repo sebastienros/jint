@@ -1,3 +1,5 @@
+using Jint.Runtime.Interpreter.Expressions;
+
 namespace Jint.Runtime.Interpreter.Statements;
 
 /// <summary>
@@ -7,10 +9,11 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The statement counterpart of <see cref="Expressions.JintStackProbeExpression"/>, for the other shape a proxy
-/// auto-config file is made of: running an <c>else if</c> chain recurses once per arm, and a function built at the
-/// top of the stack can run from the bottom of a deep recursion, where the stack its call probed for is less than
-/// a long chain needs.
+/// The statement counterpart of <see cref="JintStackProbeExpression"/>, for the other shape a proxy auto-config file
+/// is made of. Running an <c>else if</c> chain recurses once per arm, and the hoisting walk does not count those arms
+/// against its fixed limit, so the chain has to bound itself. It probes the way a call expression does: with
+/// <c>MaxExecutionStackCount</c> set, a low stack moves the statement to a fresh one; otherwise the backstop throws
+/// a catchable <c>RangeError</c>.
 /// </para>
 /// <para>
 /// It is transparent. <see cref="JintStatement.Execute"/> runs the per-statement checks once, for the node both
@@ -28,13 +31,28 @@ internal sealed class JintStackProbeStatement : JintStatement
 
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        context.Engine._stackGuard.EnsureNativeStackHeadroom();
+        if (JintStackProbeExpression.MustMoveToFreshStack(context))
+        {
+            return context.Engine._stackGuard.RunOnEmptyStack(_wrapped.ExecuteWithoutStatementChecks, context);
+        }
+
         return _wrapped.ExecuteWithoutStatementChecks(context);
     }
 
     internal override void ExecuteDiscarded(EvaluationContext context)
     {
-        context.Engine._stackGuard.EnsureNativeStackHeadroom();
+        if (JintStackProbeExpression.MustMoveToFreshStack(context))
+        {
+            context.Engine._stackGuard.RunOnEmptyStack(ExecuteDiscardedOnFreshStack, context);
+            return;
+        }
+
         _wrapped.ExecuteDiscarded(context);
+    }
+
+    private bool ExecuteDiscardedOnFreshStack(EvaluationContext context)
+    {
+        _wrapped.ExecuteDiscarded(context);
+        return true;
     }
 }

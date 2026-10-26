@@ -973,32 +973,32 @@ myarr[0](0);
     }
 
     [Test]
-    public void ShouldRunANestingThatOnceExceededAFixedDepth()
+    public void ShouldThrowScriptPreparationExceptionForDeeplyNestedScript()
     {
-        // 150 nested if-blocks are about 300 levels of syntax tree, which a fixed limit of 256 levels used to
-        // reject (sebastienros/jint#2340). Ordinary code nests this deep, and the stack it needs is small, so
-        // it runs, as it does in every browser (sebastienros/jint#4356).
+        // Generate a script with more than MaxDepth (256) levels of AST nesting.
+        // Each if-block pair adds 2 depth levels: IfStatement + BlockStatement.
+        // 150 pairs → depth up to ~302, well above the 256 limit, and safe for the
+        // Acornima parser on all platforms (Windows 1MB stack, macOS, Linux).
         const int nestingDepth = 150;
         var sb = new System.Text.StringBuilder();
         for (int i = 0; i < nestingDepth; i++) sb.Append("if(true){");
         sb.Append("1");
         for (int i = 0; i < nestingDepth; i++) sb.Append("}");
 
-        new Engine().Evaluate(sb.ToString()).AsNumber().Should().Be(1);
+        Invoking(() => new Engine().Execute(sb.ToString())).Should().ThrowExactly<ScriptPreparationException>();
     }
 
     [Test]
-    public void ShouldThrowScriptPreparationExceptionForDeeplyNestedScript()
+    public void ShouldThrowScriptPreparationExceptionForAChainTooDeepForTheStack()
     {
-        // What sebastienros/jint#2340 protects against: a syntax tree too deep for the stack has to fail with
-        // a catchable exception rather than a native stack overflow, which ends the process before any of the
-        // engine's constraints can act. The parser builds a chain like this in a loop, so it hands over a tree
-        // of a hundred thousand levels; what refuses it is the stack probe of the walk that builds it.
+        // The other half of what sebastienros/jint#2340 protects against. An operator chain is exempt from the
+        // 256-level limit (sebastienros/jint#4356), and the parser builds one in a loop, so it hands over a tree
+        // of a hundred thousand levels; what refuses it is the stack probe of the build, on any stack this size.
         var script = "var r = 1" + string.Concat(Enumerable.Repeat(" - 1", 100_000)) + ";";
 
         DedicatedThread.Run(
             () => Invoking(() => new Engine().Execute(script)).Should().ThrowExactly<ScriptPreparationException>(),
-            maxStackSize: DedicatedThread.DefaultStackSize);
+            maxStackSize: 1024 * 1024);
     }
 
     // https://github.com/sebastienros/jint/discussions/2707

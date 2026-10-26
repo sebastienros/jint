@@ -6677,7 +6677,7 @@ disposed a microtask after `b` rather than together with it, in async functions 
 A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
 There is no switch back.
 
-### 4.175 Script nesting is bounded by the stack, not by 256 levels ([#4356](https://github.com/sebastienros/jint/issues/4356))
+### 4.175 Operator chains and `else if` chains no longer count against the 256-level nesting limit ([#4356](https://github.com/sebastienros/jint/issues/4356))
 
 A script or function whose syntax tree was more than 256 levels deep failed with a `ScriptPreparationException`,
 "Script nesting exceeds maximum depth of 256 levels". The count included every operand of an operator chain and
@@ -6692,18 +6692,23 @@ function FindProxyForURL(url, host) {
 // earlier 5.0: ScriptPreparationException    5.x: runs
 ```
 
-There is no level count now. Each walk over the tree and the build of the interpreter's nodes probe the thread's stack
-as they go. A tree too deep for the stack still fails with a `ScriptPreparationException`, now with the message
-"Script nesting is too deep: preparing it would exhaust the stack". A tree that deep in the parser's own recursion
-still fails with the parser's `InsufficientExecutionStackException`, as before. How deep a tree may be depends on the
-thread: on a 1 MB stack, a `||` chain of about 1,800 operands runs, and so does an `else if` chain of about 1,400 arms.
+Those two shapes no longer count. A chain of binary or logical operators (`||`, `??`, `+`, `<`, …) and an `else if`
+chain are bounded by the thread's stack instead, and probe it every 64 levels as they run. Every other kind of
+nesting keeps the limit, with the same message. That covers blocks, member and call chains, unary operators, nested
+literals and arguments, because nothing probes the stack while they are evaluated.
 
-A deep chain of binary or logical operators (`||`, `??`, `+`, `<`, …), or a long `else if` chain, run near the
-bottom of the stack from a deep recursion now throws the catchable `RangeError: Maximum call stack size exceeded`.
-Before, an operator chain of 200 operands could overflow the native stack there and end the process.
+How long a chain may be depends on the thread. On a 1 MB stack, an `||` chain of about 2,800 operands runs, and so
+does an `else if` chain of about 770 arms. On a 16 MB stack the figures are about 51,000 and 14,000.
 
-There is no switch back. A host that relied on the old limit to bound untrusted input should bound its size instead,
-with `MaxSourceLength` and `MaxNodeCount` on the parsing options.
+A chain too long for the stack fails with a `ScriptPreparationException`, "Script nesting is too deep: preparing it
+would exhaust the stack". That happens when it is prepared, or when it is first built by a host call. When it is
+first built while script runs, for example in a function the script calls, the failure is a `RangeError: Maximum call
+stack size exceeded` instead, which the script can catch. A chain run near the bottom of the stack, from a deep
+recursion, throws that `RangeError` too. With `MaxExecutionStackCount` set, it moves to a fresh stack, as a call does.
+Before, a chain of 200 operands could overflow the native stack there and end the process.
+
+There is no switch back. A host that relied on the limit to bound untrusted input still has it for every other kind
+of nesting; to bound a chain, use `MaxSourceLength` and `MaxNodeCount` on the parsing options.
 
 ### 4.176 A `for (using …; …; …)` loop disposes its header's resources once it ends, and throws what the dispose throws ([#4359](https://github.com/sebastienros/jint/issues/4359))
 

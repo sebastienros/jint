@@ -309,6 +309,8 @@ internal sealed class JintStatementList
     {
         // Keep in lock-step with HandleException's switch below.
         JavaScriptException or TypeErrorException or RangeErrorException or SyntaxErrorException or GeneratorReturnException => true,
+        // A syntax tree too deep for the stack, built while script runs: see SyntaxNesting.
+        ScriptPreparationException { InnerException: RangeErrorException } => true,
         JintException => false,
         _ => !ExceptionDataHelper.HasJavaScriptLocation(exception),
     };
@@ -329,6 +331,7 @@ internal sealed class JintStatementList
             TypeErrorException typeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, typeErrorException.Node ?? s!._statement),
             RangeErrorException rangeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!._statement),
             SyntaxErrorException syntaxErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.SyntaxError, syntaxErrorException, s!._statement),
+            ScriptPreparationException { InnerException: RangeErrorException tooDeep } => CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, tooDeep, s!._statement),
             // Unreachable through the callers, whose filters decline anything this switch cannot map;
             // kept so the switch stays total and so a future caller without a filter still behaves.
             _ => throw exception

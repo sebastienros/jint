@@ -9,11 +9,12 @@ namespace Jint.Tests.Runtime;
 /// <summary>
 /// How deep a script's syntax tree may nest (sebastienros/jint#4356). Generated code is deep without being
 /// malformed: a proxy auto-config file is one long <c>||</c> chain or one long <c>else if</c> chain, and the
-/// parser builds a left-associative chain in a loop, one level of tree per operand. The bound is the stack —
-/// probed where the tree is walked and built, and inside a deep operator or <c>else if</c> chain where it runs —
-/// not a level count. A tree too deep for the stack fails with a <see cref="ScriptPreparationException"/> (or the
-/// parser's own <see cref="InsufficientExecutionStackException"/>), never with a native stack overflow, which
-/// ends the process and which no <c>catch</c> survives: a regression here is a dead test host, not a red test.
+/// parser builds a left-associative chain in a loop, one level of tree per operand. Those two chains are bounded by
+/// the stack — probed where the tree is walked and built, and every 64 levels where it runs — and no longer count
+/// against the 256-level limit, which still bounds every other kind of nesting. A tree too deep for the stack
+/// fails with a <see cref="ScriptPreparationException"/>, a <c>RangeError</c> or the parser's own
+/// <see cref="InsufficientExecutionStackException"/>, never with a native stack overflow, which ends the process
+/// and which no <c>catch</c> survives: a regression here is a dead test host, not a red test.
 /// </summary>
 public class ScriptNestingTests
 {
@@ -23,9 +24,13 @@ public class ScriptNestingTests
     private static readonly string[] Positions = ["script", "function", "eval"];
     private static readonly string[] Entries = ["Evaluate", "Execute", "PrepareScript"];
 
-    // Stated rather than the platform default, which is 512 KB for a secondary thread on macOS: room to build a
-    // thousand levels, and few enough frames that recursing to the bottom of it stays quick.
+    // Stated rather than the platform default, which is 512 KB for a secondary thread on macOS and 8 MB on Linux:
+    // room to build a thousand levels, and few enough frames that recursing to the bottom of it stays quick.
     private const int DeepCallStackSize = 2 * 1024 * 1024;
+
+    // A stack no hundred-thousand-level tree fits on, whatever the platform's frame sizes: stated for the same
+    // reason, so that a test meant to fail cleanly fails on every operating system and runtime.
+    private const int SmallStackSize = 1024 * 1024;
 
     public static TestCases<string, string, string> EveryOperatorPositionAndEntry
     {
@@ -88,17 +93,24 @@ public class ScriptNestingTests
         var engine = new Engine();
         var exception = Caught.Exception(() => RunThrough(engine, entry, ChainScript(op, 100_000, position)));
 
-        // Building the chain probes the stack. The one exception is a direct eval, whose source an Acornima
-        // visitor walks first; that visitor probes too, with the runtime's own exception type.
-        if (position == "eval")
+        // Which clean failure it is depends on where the chain is first walked, never on the platform. A build or
+        // an analysis outside running script — the script's own statements, or a function analysed at
+        // preparation — throws ScriptPreparationException. The same failure inside running script, a function
+        // analysed when it is first called, is a RangeError the host sees as a JavaScriptException. A direct
+        // eval's source is first walked by an Acornima visitor, which probes with the runtime's exception type.
+        var expected = position switch
         {
-            exception.Should().Match<Exception>(e => e is ScriptPreparationException || e is InsufficientExecutionStackException);
-        }
-        else
+            "eval" => typeof(InsufficientExecutionStackException),
+            "function" when entry != "PrepareScript" => typeof(JavaScriptException),
+            _ => typeof(ScriptPreparationException),
+        };
+
+        exception.Should().BeOfType(expected);
+        if (exception is JavaScriptException javaScriptException)
         {
-            exception.Should().BeOfType<ScriptPreparationException>();
+            javaScriptException.Error.AsObject().Get("name").ToString().Should().Be("RangeError");
         }
-    }, maxStackSize: DedicatedThread.DefaultStackSize);
+    }, maxStackSize: SmallStackSize);
 
     // The interpreter builds a function's nodes once, where the function first runs: at the top of the stack
     // here. It then runs again from the bottom of a recursion that spent the stack down to the guard's
@@ -308,7 +320,7 @@ public class ScriptNestingTests
         // process on this before anything else could look at it.
         var exception = Caught.Exception(() => engine.Modules.Import("deep"));
         exception.Should().BeOfType<ScriptPreparationException>();
-    }, maxStackSize: DedicatedThread.DefaultStackSize);
+    }, maxStackSize: SmallStackSize);
 
     [Test]
     public void TheHoistingWalkFailsCleanlyOnAStatementNestingDeeperThanItsStack()
@@ -328,16 +340,150 @@ public class ScriptNestingTests
     }
 
     [Test]
-    public void TheFuzzedUnaryChainOfIssue2339FailsCleanly() => DedicatedThread.Run(() =>
+    public void TheFuzzedUnaryChainOfIssue2339IsRefusedByTheParserOnASmallStack() => DedicatedThread.Run(() =>
     {
         // crash_003.js from sebastienros/jint#2339, which ended the process in the hoisting walk: a for loop
         // around 24 600 nested `~`. The parser recurses on a unary operator, so on a small stack it is the
         // parser that refuses, with the runtime's exception type.
-        var script = "for(var i=6;i^10;i++){ii=10||1111E11111111-1;i^7011/1&&11101111?.Xar.t220n=== " + new string('~', 24_600) + "10;;}";
+        var exception = Caught.Exception(() => new Engine().Execute(FuzzedUnaryChain));
+        exception.Should().BeOfType<InsufficientExecutionStackException>();
+    }, maxStackSize: SmallStackSize);
 
-        var exception = Caught.Exception(() => new Engine().Execute(script));
-        exception.Should().Match<Exception>(e => e is ScriptPreparationException || e is InsufficientExecutionStackException);
-    }, maxStackSize: DedicatedThread.DefaultStackSize);
+    [Test]
+    public void TheFuzzedUnaryChainOfIssue2339IsRefusedByTheNestingLimitOnALargeStack() => DedicatedThread.Run(() =>
+    {
+        // Where the parser has the stack for it, the walk refuses it: a unary chain carries no evaluation probe,
+        // so it counts against the fixed limit, as it always did.
+        var exception = Caught.Exception(() => new Engine().Execute(FuzzedUnaryChain));
+        exception.Should().BeOfType<ScriptPreparationException>().Which.Message.Should().Contain("maximum depth of 256 levels");
+    });
+
+    // Nesting with no evaluation probe — member, call, optional and tagged-template chains, unary operators,
+    // literals, call arguments, nested blocks — evaluates by a recursion nothing probes, so it keeps the limit of
+    // sebastienros/jint#2340 exactly as it was: what ran before runs, and what was refused is refused, never left
+    // to overflow the native stack from the bottom of a deep recursion.
+    // An object literal and an if-block each nest two tree levels at a time.
+    [TestCase("o.b", 200, 300)]
+    [TestCase("c()", 200, 300)]
+    [TestCase("o?.b", 200, 300)]
+    [TestCase("t``", 200, 300)]
+    [TestCase("~", 200, 300)]
+    [TestCase("[", 200, 300)]
+    [TestCase("g(", 200, 300)]
+    [TestCase("{a:", 100, 150)]
+    [TestCase("if(true){", 100, 150)]
+    public void NestingWithoutAProbeKeepsTheFixedLimit(string level, int runs, int refused) => DedicatedThread.Run(() =>
+    {
+        new Engine().Evaluate(UnprobedNesting(level, runs));
+
+        var exception = Caught.Exception(() => new Engine().Evaluate(UnprobedNesting(level, refused)));
+        exception.Should().BeOfType<ScriptPreparationException>().Which.Message.Should().Contain("maximum depth of 256 levels");
+    });
+
+    // With MaxExecutionStackCount set, a call that finds the stack low continues on a fresh stack rather than
+    // throwing, and a deep chain's probe has to defer to that lane the same way. The chain is within the old
+    // limit, so this ran before the probes existed; a probe that threw instead would meet a low stack on most of
+    // the calls between two hops, since it sits three intervals below the function's entry.
+    [Test]
+    public void TheStackHoppingLaneCarriesARecursionThroughADeepChain() => DedicatedThread.Run(() =>
+    {
+        var engine = new Engine(options => options.Constraints.MaxExecutionStackCount = 100_000);
+        var chain = ChainWithOperandNear("||", 240, "(r(n - 1) + 1)", atOperand: 0);
+        engine.Execute($"function r(n) {{ if (n === 0) return 0; return {chain}; }}");
+
+        engine.Evaluate("r(300)").AsNumber().Should().Be(300);
+    }, maxStackSize: SmallStackSize);
+
+    // An object literal's values are built when it is first evaluated, which here is in a catch block at the
+    // bottom of a recursion that spent the stack down to the guard's reserve. A build of fifty levels has always
+    // run inside that reserve, and must go on running.
+    [Test]
+    public void ABuildThatFitsTheReserveRunsAtTheBottomOfTheStack() => DedicatedThread.Run(() =>
+    {
+        var engine = new Engine();
+        engine.Execute($$"""
+            function dive(d) {
+                try { return dive(d + 1); }
+                catch (e) { return { v: ({{Chain("||", 50)}}) }.v; }
+            }
+            var r = dive(0);
+            """);
+
+        engine.GetValue("r").AsNumber().Should().Be(1);
+    }, maxStackSize: DeepCallStackSize);
+
+    // A build too deep for the stack that runs while script runs fails with a RangeError the script can catch, as
+    // V8's lazy compilation does: a statement list turns the build's ScriptPreparationException into one. Here it
+    // is the walks over a function's body when the script first calls it.
+    [Test]
+    public void ABuildTooDeepForTheStackThrowsARangeErrorTheScriptCanCatch() => DedicatedThread.Run(() =>
+    {
+        var engine = new Engine();
+        engine.Execute($"function f() {{ return ({Chain("||", 100_000)}); }} var caught; try {{ f(); }} catch (e) {{ caught = e instanceof RangeError; }}");
+
+        engine.GetValue("caught").AsBoolean().Should().BeTrue();
+    }, maxStackSize: SmallStackSize);
+
+    private const string FuzzedUnaryChainPrefix = "for(var i=6;i^10;i++){ii=10||1111E11111111-1;i^7011/1&&11101111?.Xar.t220n=== ";
+
+    private static readonly string FuzzedUnaryChain = FuzzedUnaryChainPrefix + new string('~', 24_600) + "10;;}";
+
+    /// <summary>
+    /// <paramref name="levels"/> levels of one kind of nesting no evaluation probe covers, around a value.
+    /// </summary>
+    private static string UnprobedNesting(string level, int levels)
+    {
+        var prelude = "var o = {}; o.b = o; function c() { return c; } function t() { return t; } function g(x) { return x; }\n";
+        var builder = new StringBuilder(prelude);
+        switch (level)
+        {
+            case "o.b" or "c()" or "o?.b" or "t``":
+                var root = level.Substring(0, 1);
+                builder.Append(root);
+                for (var i = 0; i < levels; i++)
+                {
+                    builder.Append(level, 1, level.Length - 1);
+                }
+
+                builder.Append(';');
+                break;
+            case "~":
+                builder.Append('~', levels).Append("1;");
+                break;
+            case "[":
+                builder.Append('[', levels).Append(']', levels).Append(';');
+                break;
+            case "{a:":
+                builder.Append('(');
+                for (var i = 0; i < levels; i++)
+                {
+                    builder.Append("{a:");
+                }
+
+                builder.Append('1').Append('}', levels).Append(");");
+                break;
+            case "g(":
+                for (var i = 0; i < levels; i++)
+                {
+                    builder.Append("g(");
+                }
+
+                builder.Append('1').Append(')', levels).Append(';');
+                break;
+            case "if(true){":
+                for (var i = 0; i < levels; i++)
+                {
+                    builder.Append("if(true){");
+                }
+
+                builder.Append('1').Append('}', levels);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(level), level, null);
+        }
+
+        return builder.ToString();
+    }
 
     private static void RunThrough(Engine engine, string entry, string script)
     {
