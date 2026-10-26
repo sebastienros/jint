@@ -83,10 +83,15 @@ internal static class LayoutMembers
                 return JsBoolean.False;
             }
 
-            checkOpacity = TypeConverter.ToBoolean(dictionary.Get("checkOpacity")) || TypeConverter.ToBoolean(dictionary.Get("opacityProperty"));
-            checkVisibility = TypeConverter.ToBoolean(dictionary.Get("checkVisibilityCSS")) || TypeConverter.ToBoolean(dictionary.Get("visibilityProperty"));
+            // WebIDL dictionary conversion reads every member, in lexicographic order, each an observable [[Get]].
+            var legacyOpacity = TypeConverter.ToBoolean(dictionary.Get("checkOpacity"));
+            var legacyVisibility = TypeConverter.ToBoolean(dictionary.Get("checkVisibilityCSS"));
             // contentVisibilityAuto: content-visibility is not computed, so there is no skipped subtree.
-            _ = dictionary.Get("contentVisibilityAuto");
+            _ = TypeConverter.ToBoolean(dictionary.Get("contentVisibilityAuto"));
+            var opacity = TypeConverter.ToBoolean(dictionary.Get("opacityProperty"));
+            var visibility = TypeConverter.ToBoolean(dictionary.Get("visibilityProperty"));
+            checkOpacity = legacyOpacity || opacity;
+            checkVisibility = legacyVisibility || visibility;
         }
 
         return IsCheckVisible(realm, element, checkOpacity, checkVisibility) ? JsBoolean.True : JsBoolean.False;

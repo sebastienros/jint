@@ -135,4 +135,21 @@ public class CheckVisibilityTests
             """)).Should().Be("function,0,true,true,true,checkVisibility");
         page.Errors.Should().BeEmpty();
     }
+
+    [Test]
+    public async Task EveryDictionaryMemberIsReadInLexicographicOrder()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await PageAsync(browser);
+
+        (await page.EvaluateAsync<string>("""
+            const log = [];
+            const options = {};
+            for (const k of ['visibilityProperty', 'opacityProperty', 'contentVisibilityAuto', 'checkVisibilityCSS', 'checkOpacity'])
+              Object.defineProperty(options, k, { get() { log.push(k); return true; } });
+            document.getElementById('plain').checkVisibility(options);
+            log.join()
+            """)).Should().Be("checkOpacity,checkVisibilityCSS,contentVisibilityAuto,opacityProperty,visibilityProperty");
+        page.Errors.Should().BeEmpty();
+    }
 }
