@@ -3232,6 +3232,59 @@ x.test = {
     }
 
     [Test]
+    public void APreparedExpressionScriptSeesCurrentStateOnEveryRun()
+    {
+        var engine = new Engine();
+        engine.Execute("var a = 2, b = 3;");
+        var prepared = Engine.PrepareScript("a + b");
+
+        // The first run builds the statement, the second caches it and the third reuses it.
+        engine.Evaluate(prepared).AsNumber().Should().Be(5);
+        engine.Execute("a = 10;");
+        engine.Evaluate(prepared).AsNumber().Should().Be(13);
+        engine.Evaluate(prepared).AsNumber().Should().Be(13);
+    }
+
+    [Test]
+    public void AnExpressionScriptReturnsTheExpressionValue()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("x = 5").AsNumber().Should().Be(5);
+        engine.Evaluate("'use strict'").AsString().Should().Be("use strict");
+        engine.Evaluate("(function () { var q = 7; return q; })()").AsNumber().Should().Be(7);
+        engine.Evaluate("void 0").IsUndefined().Should().BeTrue();
+    }
+
+    [Test]
+    public void APreparedExpressionScriptThrowsTheSameErrorOnEveryRun()
+    {
+        var engine = new Engine();
+        engine.Execute("var o = null;");
+        var prepared = Engine.PrepareScript("1 + o.x", "rule.js");
+
+        // The first run builds the statement, the second caches it and the third reuses it; all report the same error.
+        var first = Invoking(() => engine.Evaluate(prepared)).Should().ThrowExactly<JavaScriptException>().Which;
+        first.Error.AsObject().Get("name").AsString().Should().Be("TypeError");
+        first.Location.SourceFile.Should().Be("rule.js");
+        for (var run = 0; run < 2; run++)
+        {
+            var ex = Invoking(() => engine.Evaluate(prepared)).Should().ThrowExactly<JavaScriptException>().Which;
+            ex.Message.Should().Be(first.Message);
+            ex.Location.Should().Be(first.Location);
+        }
+
+        var undeclared = Engine.PrepareScript("missing + 1");
+        for (var run = 0; run < 2; run++)
+        {
+            var ex = Invoking(() => engine.Evaluate(undeclared)).Should().ThrowExactly<JavaScriptException>().Which;
+            ex.Error.AsObject().Get("name").AsString().Should().Be("ReferenceError");
+        }
+
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    [Test]
     public void ShouldHandleFixedSlotFunctionWithLetConst()
     {
         var engine = new Engine();

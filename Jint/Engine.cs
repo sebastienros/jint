@@ -23,6 +23,7 @@ using Jint.Runtime.Interop;
 using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
+using Jint.Runtime.Interpreter.Statements;
 using Environment = Jint.Runtime.Environments.Environment;
 using ExecutionContext = Jint.Runtime.Environments.ExecutionContext;
 
@@ -1409,6 +1410,37 @@ public sealed partial class Engine : IDisposable
         }
 
         return list;
+    }
+
+    /// <summary>
+    /// Runs a script's only statement the way its top-level statement list would: with completion values
+    /// observable, and with an exception the statement raised turned into a throw completion at it.
+    /// </summary>
+    private Completion ExecuteScriptExpressionStatement(JintStatement statement)
+    {
+        var context = _evaluationContext;
+        var oldCompletionValuesObservable = context.CompletionValuesObservable;
+        context.CompletionValuesObservable = true;
+        try
+        {
+            return statement.Execute(context);
+        }
+        // Keep in step with the catch in JintStatementList.Execute.
+        catch (Exception ex) when (JintStatementList.ShouldCatch(ex))
+        {
+            if (ex is JintException)
+            {
+                return JintStatementList.HandleException(context, ex, statement);
+            }
+
+            var locationNode = _lastSyntaxElement ?? statement._statement;
+            ExceptionDataHelper.TryAttachJavaScriptLocation(ex, this, locationNode.Location);
+            throw;
+        }
+        finally
+        {
+            context.CompletionValuesObservable = oldCompletionValuesObservable;
+        }
     }
 
     // Per-engine cache of the interpreter handler built for a property key expression that has to be
@@ -2869,7 +2901,13 @@ public sealed partial class Engine : IDisposable
         try
         {
             var script = scriptRecord.EcmaScriptCode;
-            var reEvaluation = GlobalDeclarationInstantiation(script, globalEnv);
+
+            // A script that is one expression (`a + b`, `isValid(x)`) declares nothing, so global declaration
+            // instantiation has nothing to do, and its completion value is the expression's.
+            var singleExpression = script.Body.Count == 1 && script.Body[0] is ExpressionStatement;
+            var reEvaluation = singleExpression
+                ? MarkScriptEvaluated(script)
+                : GlobalDeclarationInstantiation(script, globalEnv);
 
             // On re-evaluation reuse this engine's cached top-level handler tree (and its warm
             // per-node inline caches) instead of rebuilding it; a first evaluation - the fresh-
@@ -2881,7 +2919,10 @@ public sealed partial class Engine : IDisposable
             Completion result;
             try
             {
-                result = list.Execute(_evaluationContext);
+                // The single expression runs its statement directly rather than through the list's loop.
+                result = singleExpression
+                    ? ExecuteScriptExpressionStatement(list.GetStatement(0))
+                    : list.Execute(_evaluationContext);
             }
             catch
             {
