@@ -314,7 +314,9 @@ public sealed partial class Page
     /// one per character <see cref="TypeAsync(string, string)"/> fires, and is what a client library's
     /// <c>fill</c> does. Use it when the value is what matters; use <see cref="TypeAsync(string, string)"/>
     /// when the page is listening for the
-    /// keys.
+    /// keys. Date, month, week, time and local date-time controls instead commit a sanitized whole value
+    /// and fire <c>input</c> then <c>change</c>; invalid values throw <see cref="ArgumentException"/>.
+    /// Disabled, readonly and unsupported controls answer <see langword="false"/>.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<bool> FillAsync(string target, string text) => FillAsync(target, 0, text);
@@ -337,6 +339,26 @@ public sealed partial class Page
             {
                 return false;
             }
+
+            using var mutation = runtime.Dom.MutateLayout();
+            if (element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
+                && element.GetHtmlState()!.GetInputValueState(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken) is { } state
+                && state.Type is HtmlInputType.Date or HtmlInputType.Month or HtmlInputType.Week or HtmlInputType.Time or HtmlInputType.DateTimeLocal)
+            {
+                FocusController.Focus(runtime.Dom, element);
+                var previous = state.GetValue(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
+                if (!state.ApplyPickerUserValue(text, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken))
+                    return false;
+                if (!string.Equals(previous, state.GetValue(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken), StringComparison.Ordinal))
+                {
+                    ActivationBehaviors.Fire(runtime.Dom.WrapNode(element), "input", bubbles: true, composed: true);
+                    ActivationBehaviors.Fire(runtime.Dom.WrapNode(element), "change", bubbles: true, composed: false);
+                }
+                return true;
+            }
+
+            if (!TextEditing.IsEditable(runtime.Dom, element) && ContentEditing.HostOf(element) is null)
+                return false;
 
             FocusController.Focus(runtime.Dom, element);
 
@@ -409,10 +431,27 @@ public sealed partial class Page
     /// sequential focus order, the editing keys edit, and everything else fires its events and does nothing.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public async Task<bool> PressAsync(string key, NavigationOptions? options = null)
+    public Task<bool> PressAsync(string key, NavigationOptions? options = null)
+        => PressAsync(key, KeyModifiers.None, options);
+
+    /// <summary>Presses a key with modifier keys held at whatever the page has focused.</summary>
+    /// <param name="key">A <c>KeyboardEvent.key</c> value.</param>
+    /// <param name="modifiers">Modifiers carried by both the keydown and keyup events.</param>
+    /// <param name="options">How far to wait for a navigation the key causes.</param>
+    /// <returns><see langword="true"/> when the key was dispatched.</returns>
+    public async Task<bool> PressAsync(string key, KeyModifiers modifiers, NavigationOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(key);
+        if ((modifiers & ~(KeyModifiers.Alt | KeyModifiers.Control | KeyModifiers.Meta | KeyModifiers.Shift)) != 0)
+            throw new ArgumentOutOfRangeException(nameof(modifiers));
         ObjectDisposedException.ThrowIf(_closed, this);
+        var input = KeyOptions.For(key) with
+        {
+            Modifiers = ((modifiers & KeyModifiers.Alt) != 0 ? EventModifiers.Alt : EventModifiers.None)
+                | ((modifiers & KeyModifiers.Control) != 0 ? EventModifiers.Control : EventModifiers.None)
+                | ((modifiers & KeyModifiers.Meta) != 0 ? EventModifiers.Meta : EventModifiers.None)
+                | ((modifiers & KeyModifiers.Shift) != 0 ? EventModifiers.Shift : EventModifiers.None),
+        };
 
         var captured = await _loop.PostAsync(NavigationRequest? (engine) =>
         {
@@ -426,8 +465,8 @@ public sealed partial class Page
 
             try
             {
-                InputDispatcher.DispatchKey(runtime, KeyOptions.For(key), KeyInputKind.KeyDown);
-                InputDispatcher.DispatchKey(runtime, KeyOptions.For(key), KeyInputKind.KeyUp);
+                InputDispatcher.DispatchKey(runtime, input, KeyInputKind.KeyDown);
+                InputDispatcher.DispatchKey(runtime, input, KeyInputKind.KeyUp);
                 return _capturedNavigation;
             }
             finally

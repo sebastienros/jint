@@ -5,6 +5,48 @@ namespace Jint.Tests.Browser.Parsing;
 
 public class FrameScriptTests
 {
+    [Test]
+    public async Task TheLastChildLocationRequestInATurnWins()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", "<!doctype html><iframe id=f src=/child></iframe>")
+            .MapHtml("/child", "<!doctype html><title>Child</title>")
+            .MapHtml("/next", "<!doctype html><title>Next</title>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        await loopback.Page.EvaluateAsync("""
+            f.contentWindow.location.assign('/never-load');
+            f.contentWindow.location.replace('/next');
+            """);
+
+        (await loopback.Page.WaitForAsync("f.contentWindow.location.pathname === '/next'", TimeSpan.FromSeconds(30))).Should().BeTrue();
+        loopback.Page.Requests.Should().NotContain(request => request.Url.EndsWith("/never-load", StringComparison.Ordinal));
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("replace")]
+    [TestCase("assign")]
+    [TestCase("href")]
+    public async Task ChildLocationNavigationLoadsOnlyTheChildWithoutChangingItsSourceAttribute(string operation)
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", "<!doctype html><title>Parent</title><iframe id=f src=/child></iframe>")
+            .MapHtml("/child", "<!doctype html><title>Child</title>")
+            .MapHtml("/next", "<!doctype html><title>Next</title><script>parent.childArrived = location.pathname;</script>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        await loopback.Page.EvaluateAsync(operation == "href"
+            ? "f.contentWindow.location.href = '/next'"
+            : $"f.contentWindow.location.{operation}('/next')");
+
+        (await loopback.Page.WaitForAsync("window.childArrived === '/next'", TimeSpan.FromSeconds(30))).Should().BeTrue();
+        loopback.Page.Url.Should().Be(loopback.Url("/"));
+        (await loopback.Page.TitleAsync()).Should().Be("Parent");
+        (await loopback.Page.EvaluateAsync<string>("f.getAttribute('src')")).Should().Be("/child");
+        (await loopback.Page.EvaluateAsync<string>("f.contentWindow.location.pathname")).Should().Be("/next");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
     [TestCase("/side.html")]
     [TestCase("http://[bad")]
     public async Task AnUnresolvableSourceKeepsARealInitialBlankNavigable(string source)

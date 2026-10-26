@@ -11,6 +11,8 @@ internal sealed partial class HtmlInputValueState
     private Attr? _valueAttribute;
     private bool _multiple;
     private bool _readOnly;
+    private bool _colorAlpha;
+    private string? _colorSpace;
     private bool _typeTransition;
     private string? _preparedDefaultValue;
     private HtmlTextSelection _selection;
@@ -45,7 +47,7 @@ internal sealed partial class HtmlInputValueState
         or HtmlInputType.Tel or HtmlInputType.Url or HtmlInputType.Email or HtmlInputType.Password;
     internal static bool IsSupportedType(HtmlInputType type) => IsTextType(type) || IsNumericType(type) || type is
         HtmlInputType.Hidden or HtmlInputType.Submit or HtmlInputType.Image or HtmlInputType.Reset or
-        HtmlInputType.Button or HtmlInputType.Checkbox or HtmlInputType.Radio;
+        HtmlInputType.Button or HtmlInputType.Checkbox or HtmlInputType.Radio or HtmlInputType.Color;
 
     internal void InitializeMetadata(CancellationToken cancellationToken)
         => InitializeMetadata(null, null, cancellationToken);
@@ -61,6 +63,8 @@ internal sealed partial class HtmlInputValueState
         Attr? step = null;
         var multiple = false;
         var readOnly = false;
+        var colorAlpha = false;
+        string? colorSpace = null;
         var count = initialAttributes?.Count ?? Element.AttributeCount;
         for (var i = 0; i < count; i++)
         {
@@ -76,19 +80,23 @@ internal sealed partial class HtmlInputValueState
                 case "min": minimum = attribute; break;
                 case "max": maximum = attribute; break;
                 case "step": step = attribute; break;
+                case "alpha": colorAlpha = true; break;
+                case "colorspace": colorSpace = attribute.Value; break;
             }
         }
         var parsed = HtmlInputTypes.Parse(type);
         var supported = IsSupportedType(parsed);
         var initial = supported && HtmlInputTypes.Info(parsed).ValueMode == HtmlInputValueMode.Value
             ? SanitizeFamily(parsed, valueAttribute?.Value ?? string.Empty, multiple,
-                minimum?.Value, maximum?.Value, step?.Value, valueAttribute?.Value, ref work)
+                minimum?.Value, maximum?.Value, step?.Value, valueAttribute?.Value, ref work, colorAlpha, colorSpace)
             : null;
         work.Finish();
         Type = parsed;
         _valueAttribute = valueAttribute;
         _multiple = multiple;
         _readOnly = readOnly;
+        _colorAlpha = colorAlpha;
+        _colorSpace = colorSpace;
         _minimumAttribute = minimum;
         _maximumAttribute = maximum;
         _stepAttribute = step;
@@ -105,6 +113,8 @@ internal sealed partial class HtmlInputValueState
         _valueAttribute = prepared._valueAttribute;
         _multiple = prepared._multiple;
         _readOnly = prepared._readOnly;
+        _colorAlpha = prepared._colorAlpha;
+        _colorSpace = prepared._colorSpace;
         _minimumAttribute = prepared._minimumAttribute;
         _maximumAttribute = prepared._maximumAttribute;
         _stepAttribute = prepared._stepAttribute;
@@ -192,7 +202,7 @@ internal sealed partial class HtmlInputValueState
         work.Check(); work.Step();
         var prepared = IsAvailable && ValueMode == HtmlInputValueMode.Value && !DirtyValue
             ? SanitizeFamily(Type, value, _multiple, _minimumAttribute?.Value, _maximumAttribute?.Value,
-                _stepAttribute?.Value, value, ref work) : null;
+                _stepAttribute?.Value, value, ref work, _colorAlpha, _colorSpace) : null;
         if (prepared is not null && work.StringEquals(_value!, prepared)) prepared = _value;
         work.Finish();
         _preparedDefaultValue = prepared;
@@ -249,6 +259,13 @@ internal sealed partial class HtmlInputValueState
                     CommitAutomaticValue(HtmlTextSanitizer.SanitizeInput(Type, _value!, _multiple, default));
                 break;
             case "readonly": _readOnly = newValue is not null; break;
+            case "alpha":
+            case "colorspace":
+                if (localName == "alpha") _colorAlpha = newValue is not null;
+                else _colorSpace = newValue;
+                if (Type == HtmlInputType.Color && IsAvailable)
+                    CommitAutomaticValue(Sanitize(DirtyValue ? _value! : GetDefaultValue(default), default));
+                break;
             case "min":
             case "max":
             case "step":
@@ -277,7 +294,8 @@ internal sealed partial class HtmlInputValueState
             ? oldMode == HtmlInputValueMode.Value ? _value! : GetDefaultValue(default) : null;
         // Prepare the sanitizer before semantic mutation, publish it at its specified step.
         var prepared = candidate is not null ? SanitizeFamily(nextType, candidate, _multiple,
-            _minimumAttribute?.Value, _maximumAttribute?.Value, _stepAttribute?.Value, _valueAttribute?.Value, null, default) : null;
+            _minimumAttribute?.Value, _maximumAttribute?.Value, _stepAttribute?.Value, _valueAttribute?.Value,
+            null, default, _colorAlpha, _colorSpace) : null;
         _typeTransition = true;
         try
         {
@@ -325,7 +343,7 @@ internal sealed partial class HtmlInputValueState
     private string Sanitize(string value, ref HtmlInputValueWork work)
         => Type == HtmlInputType.Range ? HtmlInputRangeValue.Sanitize(value, GetNumericConstraints(ref work), ref work)
             : SanitizeFamily(Type, value, _multiple, _minimumAttribute?.Value, _maximumAttribute?.Value,
-                _stepAttribute?.Value, _valueAttribute?.Value, ref work);
+                _stepAttribute?.Value, _valueAttribute?.Value, ref work, _colorAlpha, _colorSpace);
     internal HtmlTextSelection? GetSelection(CancellationToken cancellationToken)
         => HtmlInputTextOperations.GetSelection(this, cancellationToken);
     internal void SetSelectionStart(uint? value, CancellationToken cancellationToken)
@@ -406,7 +424,11 @@ internal sealed partial class HtmlInputValueState
     internal void ClampSelection(uint length)
         => SetSelection(HtmlInputTextOperations.Normalize(_selection.Start, _selection.End,
             HtmlInputTextOperations.DirectionString(_selection.Direction), length));
-    internal void RequireAvailable() { if (!IsAvailable) throw Unavailable(); }
+    internal void RequireAvailable()
+    {
+        if (!IsAvailable) throw Unavailable();
+        if (Type == HtmlInputType.Color) HtmlInputColorValue.RequireConfiguration(_colorAlpha, _colorSpace);
+    }
     private void MakeAvailable()
     {
         if (!IsAvailable) MarkChanged();

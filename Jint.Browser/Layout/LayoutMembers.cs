@@ -206,6 +206,21 @@ internal static class LayoutMembers
     /// <summary>The other half of <see cref="ScrollLeft"/>, which changes nothing.</summary>
     internal static JsValue SetScrollLeft(DomRealm realm, Element element, JsValue[] arguments) => JsValue.Undefined;
 
+    /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-scroll — only the viewport has a scroll range.</summary>
+    internal static JsValue Scroll(DomRealm realm, Element element, JsValue[] arguments, bool relative)
+    {
+        var fallback = relative ? 0 : TypeConverter.ToNumber(ScrollTop(realm, element));
+        var first = arguments.At(0);
+        var top = first is ObjectInstance options ? options.Get("top") : arguments.At(1);
+        var y = top.IsUndefined() ? fallback : TypeConverter.ToNumber(top);
+        if (IsScrollingElement(element) && PageOf(realm, element) is { } page)
+        {
+            if (relative) page.Layout.ScrollBy(y);
+            else page.Layout.ScrollTo(y);
+        }
+        return JsValue.Undefined;
+    }
+
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-element-clienttop and <c>clientLeft</c>, both always zero.
     /// </summary>
