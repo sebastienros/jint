@@ -155,26 +155,23 @@ internal sealed class FlatLayout
     /// </remarks>
     internal static bool IsRendered(Element element, ElementVisibility visibility, CssCascade.Traversal? cascade = null)
     {
-        if (element is { NamespaceUri: Namespaces.Html, LocalName: "head" })
+        if (IsMetadata(element))
         {
             return false;
         }
 
-        switch (element.LocalName)
+        return visibility.RenderingReasonFor(element, cascade) == AxIgnoredReason.None;
+    }
+
+    /// <summary>Whether <paramref name="element"/> is metadata content that a rendering never draws.</summary>
+    internal static bool IsMetadata(Element element)
+    {
+        if (element is { NamespaceUri: Namespaces.Html, LocalName: "head" })
         {
-            case "script":
-            case "style":
-            case "template":
-            case "noscript":
-            case "title":
-            case "meta":
-            case "link":
-                return false;
-            default:
-                break;
+            return true;
         }
 
-        return visibility.RenderingReasonFor(element, cascade) == AxIgnoredReason.None;
+        return element.LocalName is "script" or "style" or "template" or "noscript" or "title" or "meta" or "link";
     }
 
     /// <summary>The ordinal of <paramref name="element"/>, or <c>-1</c> when it is not rendered.</summary>

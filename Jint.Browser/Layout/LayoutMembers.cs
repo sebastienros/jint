@@ -1,5 +1,6 @@
 using Jint.HtmlParser;
 using Jint.Browser.Dom;
+using Jint.Browser.Dom.Views;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
@@ -47,6 +48,110 @@ internal static class LayoutMembers
         return PageOf(realm, element)?.Layout.ClientBoxOf(element) is { } box
             ? DomRects.List(realm, DomRects.Of(realm, box))
             : DomRects.List(realm);
+    }
+
+    /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-checkvisibility.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Having a box is decided from <c>display</c> alone.</b> <see cref="FlatLayout"/> leaves
+    /// <c>visibility: hidden|collapse</c> elements without a row, because its rows nest and a visible descendant
+    /// of a hidden parent has nowhere to go. CSSOM View step 1 asks whether the element generates a box, and
+    /// <c>visibility: hidden</c> does generate one, so this walks the element and its ancestors for the things
+    /// that really remove one (metadata elements, the <c>hidden</c> attribute, <c>display: none</c>, and
+    /// <c>display: contents</c> on the element itself) instead of asking <c>ClientBoxOf</c>. A detached
+    /// element, or one in a document the page does not display, has no box.
+    /// </para>
+    /// <para>
+    /// Modelled: the box test, <c>opacityProperty</c>/<c>checkOpacity</c> (computed opacity 0 on the element or
+    /// any ancestor), and <c>visibilityProperty</c>/<c>checkVisibilityCSS</c> (computed <c>visibility</c> other
+    /// than <c>visible</c>). Not modelled: <c>content-visibility</c>, which the CSS engine does not compute, so
+    /// step 2 never fires and <c>contentVisibilityAuto</c> is accepted and ignored. The flat tree is
+    /// approximated by the DOM tree plus shadow hosts; slot assignment is not followed. Opacity and
+    /// visibility need the CSS cascade; when it is unavailable those options are ignored.
+    /// </para>
+    /// </remarks>
+    internal static JsValue CheckVisibility(DomRealm realm, Element element, JsValue[] arguments)
+    {
+        var options = arguments.At(0);
+        var checkOpacity = false;
+        var checkVisibility = false;
+        if (!options.IsNullOrUndefined())
+        {
+            if (options is not ObjectInstance dictionary)
+            {
+                Throw.TypeError(realm.OwningRealm, "Failed to execute 'checkVisibility' on 'Element': parameter 1 is not a dictionary.");
+                return JsBoolean.False;
+            }
+
+            checkOpacity = TypeConverter.ToBoolean(dictionary.Get("checkOpacity")) || TypeConverter.ToBoolean(dictionary.Get("opacityProperty"));
+            checkVisibility = TypeConverter.ToBoolean(dictionary.Get("checkVisibilityCSS")) || TypeConverter.ToBoolean(dictionary.Get("visibilityProperty"));
+            // contentVisibilityAuto: content-visibility is not computed, so there is no skipped subtree.
+            _ = dictionary.Get("contentVisibilityAuto");
+        }
+
+        return IsCheckVisible(realm, element, checkOpacity, checkVisibility) ? JsBoolean.True : JsBoolean.False;
+    }
+
+    private static bool IsCheckVisible(DomRealm realm, Element element, bool checkOpacity, bool checkVisibility)
+    {
+        if (PageOf(realm, element) is not { } page || element.OwnerDocument is not { } document)
+        {
+            return false;
+        }
+
+        var visibility = page.Layout.Visibility;
+        var traversal = visibility.CascadeAvailable ? CssCascade.Traversal.Current(document) : null;
+        var connected = false;
+        var first = true;
+        for (Node? node = element; node is not null; node = node is ShadowRoot root ? root.Host : node.ParentNode)
+        {
+            if (node is Document)
+            {
+                connected = ReferenceEquals(node, document);
+                break;
+            }
+
+            if (node is not Element current)
+            {
+                continue;
+            }
+
+            realm.CancellationToken.ThrowIfCancellationRequested();
+            if (FlatLayout.IsMetadata(current))
+            {
+                return false;
+            }
+
+            if (current.GetAttribute("hidden") is not null)
+            {
+                return false;
+            }
+
+            var (display, computedVisibility) = visibility.Style(current, traversal);
+            if (string.Equals(display, "none", StringComparison.OrdinalIgnoreCase)
+                || (first && string.Equals(display, "contents", StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            if (first && checkVisibility && computedVisibility is { } v
+                && !string.Equals(v, "visible", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (checkOpacity && traversal is not null
+                && CssCascade.ValueOf(traversal.Of(current), "opacity") is { } opacity
+                && double.TryParse(opacity, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var alpha)
+                && alpha == 0)
+            {
+                return false;
+            }
+
+            first = false;
+        }
+
+        return connected;
     }
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-clientwidth.</summary>
