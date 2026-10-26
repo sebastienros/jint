@@ -6643,6 +6643,40 @@ when it did before. `return;`, which has no operand, and the `return` of a funct
 are not affected. A script that relied on the `finally` blocks having run by the time `next()` returned must await the
 request instead. There is no switch back.
 
+### 4.174 A block's `await using` in an async generator suspends the generator while it disposes ([#4355](https://github.com/sebastienros/jint/issues/4355))
+
+When a block ends, it disposes its `await using` resources and awaits each result. In an async function that await
+suspended the function, but in an async generator Jint waited for the result on the spot. It ran the host's job queue
+inside the `next()` call, so the rest of the body ran before the caller's next statement, and jobs the caller had
+queued earlier ran in the middle of the request:
+
+```js
+var log = [];
+async function* g() {
+    { await using r = { [Symbol.asyncDispose]() { log.push("dispose"); } }; }
+    log.push("after");
+}
+var p = g().next();
+log.push("called");
+await p;
+// earlier 5.0: ["dispose", "after", "called"]    5.x: ["dispose", "called", "after"]
+```
+
+Now each of those awaits suspends the generator the way an `await` expression does. This holds for a block in a loop
+body, a `catch` or a `finally`, and for a block that a `return()` or a `throw()` resumption leaves. The request
+settles a microtask later for each await, and a request made meanwhile queues behind it. A dispose that throws or
+rejects is thrown from the block, or wrapped in a `SuppressedError` over the block's own throw, as before.
+
+Two neighbours changed with it. A `return()` request whose block then has a dispose throw no longer completes the
+generator with the return value. The throw replaces the return, and a `catch` around the block now sees it, in a
+generator of either kind. And a `using` resource disposed after a `null` or `undefined` `await using` waits a
+microtask first, as the specification's DisposeResources step 4.d says, every time that happens, where Jint waited
+only the first time. In `{ using a = …; await using x = null; using b = …; await using y = null; }`, `a` is now
+disposed a microtask after `b` rather than together with it, in async functions too.
+
+A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
+There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
