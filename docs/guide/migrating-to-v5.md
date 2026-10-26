@@ -6600,6 +6600,22 @@ value was forwarded to the delegate as that `throw()` or `return()` again; it is
 on the `finally` blocks having run by the time `return()` returned must await the request instead. There is no switch
 back.
 
+### 4.172 DevTools `Fetch.enable` with `patterns: []` intercepts nothing, and a request's URL is reported without its fragment ([#4319](https://github.com/sebastienros/jint/issues/4319))
+
+Two more places where the DevTools `Fetch` domain differed from Chromium.
+
+`Fetch.enable` treated an explicit empty `patterns: []` like an omitted `patterns`, so it paused every request. Now, as in
+Chromium, an omitted `patterns` still means "intercept everything" (it is the protocol's `*`), while **`patterns: []`
+intercepts nothing**, and a client that sends it no longer sees any `Fetch.requestPaused`. `patterns: []` together with
+`handleAuthRequests: true` is refused with `-32602` ("Can't specify empty patterns with handleAuth set"), since no
+challenge could be matched to a pattern.
+
+`Fetch.requestPaused` reported `request.url` with its `#fragment` and no `urlFragment`. Now `request.url` is the URL
+**without** its fragment and the fragment is sent separately as `request.urlFragment`, including the leading `#`;
+a request with no fragment has no `urlFragment` member. `Network.requestWillBeSent` shares the same `Network.Request`
+shape, and follows the same rule. A client that read the fragment out of `request.url` must read `request.urlFragment`
+instead, or concatenate the two. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
