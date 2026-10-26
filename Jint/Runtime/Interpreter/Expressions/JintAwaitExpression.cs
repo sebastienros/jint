@@ -106,7 +106,9 @@ internal sealed class JintAwaitExpression : JintExpression
         // === Async generator: suspend for await ===
         if (asyncGenerator is not null)
         {
-            return SuspendForAwaitInAsyncGenerator(context, asyncGenerator, promise, value);
+            // The suspension point is this handler, the same convention as AsyncFunctionInstance._lastAwaitNode;
+            // a yield stores its AST YieldExpression node in _lastYieldNode, so the two never collide.
+            return SuspendAsyncGenerator(engine, asyncGenerator, this, promise, value);
         }
 
         // === Async function: suspend for await ===
@@ -128,22 +130,24 @@ internal sealed class JintAwaitExpression : JintExpression
     }
 
     /// <summary>
-    /// Suspends the async generator at an await expression, wiring an engine-internal
-    /// continuation that resumes execution when the awaited promise settles.
-    /// Follows the same pattern as SuspendForAsyncIteration in JintForInForOfStatement.
+    /// Suspends the async generator at an await, wiring an engine-internal continuation that resumes execution when
+    /// the awaited promise settles. Follows the same pattern as SuspendForAsyncIteration in JintForInForOfStatement.
+    /// <para>
+    /// The suspension point is the handler that awaits: an await expression, or the <c>return expr;</c> of an async
+    /// generator (<see cref="Statements.JintAsyncGeneratorReturnStatement"/>). It is what the replayed body finds in
+    /// <c>_lastYieldNode</c>, and what the statements around it read through
+    /// <see cref="Statements.JintStatement.GetSuspensionNode"/>. The promise is <see langword="null"/> for a
+    /// primitive value, which can never be a thenable.
+    /// </para>
     /// </summary>
-    private JsValue SuspendForAwaitInAsyncGenerator(
-        EvaluationContext context,
+    internal static JsValue SuspendAsyncGenerator(
+        Engine engine,
         AsyncGeneratorInstance asyncGenerator,
+        object suspensionPoint,
         JsPromise? promise,
         JsValue value)
     {
-        var engine = context.Engine;
-
-        // Mark suspension point - store 'this' (JintAwaitExpression instance) as the node identity,
-        // same convention as AsyncFunctionInstance._lastAwaitNode.
-        // _lastYieldNode is object? and yield stores AST YieldExpression nodes, so no collision.
-        asyncGenerator._lastYieldNode = this;
+        asyncGenerator._lastYieldNode = suspensionPoint;
         asyncGenerator._awaitSuspended = true;
 
         // Capture the current promise capability. The request was already dequeued by

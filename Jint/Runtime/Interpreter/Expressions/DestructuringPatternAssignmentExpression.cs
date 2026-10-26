@@ -181,7 +181,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     asyncGenerator._suspendedValue = returnValue;
                 }
 
-                GeneratorReturnException.Raise(returnValue, pattern);
+                GeneratorReturnException.Raise(returnValue);
             }
         }
         else

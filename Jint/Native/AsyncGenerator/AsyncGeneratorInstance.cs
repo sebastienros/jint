@@ -423,25 +423,15 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         }
         else if (final.Type == CompletionType.Return)
         {
-            // https://tc39.es/ecma262/#sec-asyncgeneratorstart reports the body's return completion as it is. The one
-            // await owed on the way is a `return expr;` statement's own Await(exprValue)
-            // (https://tc39.es/ecma262/#sec-return-statement-runtime-semantics-evaluation), which the statement does
-            // not perform itself, so it is performed here. No other return completion has anything left to await:
-            // `return;` has no operand, a return() resumption was awaited before the body resumed
-            // (UnwrapReturnResumption), and yield* either awaited its own return value already or owes it no await.
-            // Those carry the yield or the pattern that produced them (GeneratorReturnException.CompletionSource),
-            // or the statement that ran the yield, and never a return statement - not even for `return yield x;`.
-            if (final._source is ReturnStatement { Argument: not null })
-            {
-                _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
-                AsyncGeneratorAwaitReturn(final.Value, promiseCapability);
-            }
-            else
-            {
-                _asyncGeneratorState = AsyncGeneratorState.Completed;
-                _completedAwaits = null;
-                AsyncGeneratorResolve(final.Value, true, promiseCapability);
-            }
+            // https://tc39.es/ecma262/#sec-asyncgeneratorstart reports the body's return completion as it is: nothing
+            // is left to await. A `return expr;` statement awaited its operand before it completed
+            // (https://tc39.es/ecma262/#sec-return-statement-runtime-semantics-evaluation,
+            // JintAsyncGeneratorReturnStatement), `return;` has no operand, a return() resumption was awaited before
+            // the body resumed (UnwrapReturnResumption), and yield* either awaited its own return value already or
+            // owes it no await.
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
+            AsyncGeneratorResolve(final.Value, true, promiseCapability);
         }
         else if (final.Type == CompletionType.Normal)
         {
@@ -475,8 +465,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asyncgeneratorawaitreturn
     /// Awaits the return value before completing the generator: a return() request to a generator that has not
-    /// started or has completed, and (see <see cref="SettleResumeCompletion"/>) a <c>return expr;</c> statement's
-    /// operand.
+    /// started or has completed.
     /// </summary>
     private void AsyncGeneratorAwaitReturn(JsValue value, PromiseCapability promiseCapability)
     {
