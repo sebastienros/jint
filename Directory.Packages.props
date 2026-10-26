@@ -43,7 +43,7 @@
          brings ModelContextProtocol.Core plus the dependency-injection and hosting glue; the third package,
          ModelContextProtocol.AspNetCore, is deliberately NOT referenced anywhere — it carries a framework
          reference to Microsoft.AspNetCore.App, which a dotnet tool must not require to start. -->
-    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.3.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="NiL.JS" Version="2.6.1722" />
