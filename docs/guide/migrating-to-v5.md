@@ -6677,6 +6677,34 @@ disposed a microtask after `b` rather than together with it, in async functions 
 A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
 There is no switch back.
 
+### 4.175 Script nesting is bounded by the stack, not by 256 levels ([#4356](https://github.com/sebastienros/jint/issues/4356))
+
+A script or function whose syntax tree was more than 256 levels deep failed with a `ScriptPreparationException`,
+"Script nesting exceeds maximum depth of 256 levels". The count included every operand of an operator chain and
+every arm of an `else if` chain, so ordinary generated code reached it. A proxy auto-config file is the usual case:
+
+```js
+function FindProxyForURL(url, host) {
+    if (shExpMatch(host, "*.a.example") || shExpMatch(host, "*.b.example") || /* … 300 terms … */)
+        return "PROXY proxy.example:8080";
+    return "DIRECT";
+}
+// earlier 5.0: ScriptPreparationException    5.x: runs
+```
+
+There is no level count now. Each walk over the tree and the build of the interpreter's nodes probe the thread's stack
+as they go. A tree too deep for the stack still fails with a `ScriptPreparationException`, now with the message
+"Script nesting is too deep: preparing it would exhaust the stack". A tree that deep in the parser's own recursion
+still fails with the parser's `InsufficientExecutionStackException`, as before. How deep a tree may be depends on the
+thread: on a 1 MB stack, a `||` chain of about 1,800 operands runs, and so does an `else if` chain of about 1,400 arms.
+
+A deep chain of binary or logical operators (`||`, `??`, `+`, `<`, …), or a long `else if` chain, run near the
+bottom of the stack from a deep recursion now throws the catchable `RangeError: Maximum call stack size exceeded`.
+Before, an operator chain of 200 operands could overflow the native stack there and end the process.
+
+There is no switch back. A host that relied on the old limit to bound untrusted input should bound its size instead,
+with `MaxSourceLength` and `MaxNodeCount` on the parsing options.
+
 ### 4.176 A `for (using …; …; …)` loop disposes its header's resources once it ends, and throws what the dispose throws ([#4359](https://github.com/sebastienros/jint/issues/4359))
 
 A `for` loop whose header declares `using` or `await using` disposed those resources whenever the statement was left,

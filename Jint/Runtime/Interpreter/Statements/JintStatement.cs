@@ -40,6 +40,12 @@ internal abstract class JintStatement
     protected abstract Completion ExecuteInternal(EvaluationContext context);
 
     /// <summary>
+    /// Runs the statement without <see cref="Execute"/>'s per-statement checks, for a handler that stands in
+    /// for this one and has already run them for the same node.
+    /// </summary>
+    internal Completion ExecuteWithoutStatementChecks(EvaluationContext context) => ExecuteInternal(context);
+
+    /// <summary>
     /// Tight-loop entry: executes the statement for side effects only, skipping the per-statement
     /// ceremony (PrepareFor, constraint checks, Completion materialization) where an override can
     /// prove it dead. Callers guarantee a non-suspendable frame, no exact constraint/debug checks
@@ -90,6 +96,10 @@ internal abstract class JintStatement
             return preparedStatement;
         }
 
+        // An `if` builds its branches as it is built, so a long `else if` chain is built one level deeper per
+        // arm. Once per handler built, never per execution.
+        using var nesting = SyntaxNesting.Enter();
+
         JintStatement? result = statement.Type switch
         {
             NodeType.BlockStatement => new JintBlockStatement((NestedBlockStatement) statement),
@@ -126,6 +136,12 @@ internal abstract class JintStatement
         if (result is null)
         {
             Throw.ArgumentOutOfRangeException(nameof(statement.Type), $"unsupported statement type '{statement.Type}'");
+        }
+
+        // Running an `else if` chain recurses once per arm, as building it does; see JintStackProbeStatement.
+        if (result is JintIfStatement && SyntaxNesting.IsEvaluationProbeDepth)
+        {
+            return new JintStackProbeStatement(result);
         }
 
         return result;

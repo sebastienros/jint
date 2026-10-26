@@ -29,6 +29,8 @@ internal static class MaySuspendVisitor
             return false;
         }
 
+        using var nesting = SyntaxNesting.Enter();
+
         foreach (var childNode in node.ChildNodes)
         {
             if (MaySuspend(childNode))

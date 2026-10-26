@@ -123,6 +123,8 @@ internal sealed class ReferencedGlobalsCollector
 
     private void Walk(Node node)
     {
+        using var nesting = SyntaxNesting.Enter();
+
         if (node.Type == NodeType.SwitchStatement)
         {
             // The parser attaches the switch body's scope to the SwitchStatement node, but the discriminant is not

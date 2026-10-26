@@ -495,6 +495,8 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                 return IsUndeclaredSlotName(((Identifier) node).Name, slotNames, declaredMask);
             }
 
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var child in node.ChildNodes)
             {
                 if (ReferencesUndeclaredSlot(child, slotNames, declaredMask))
