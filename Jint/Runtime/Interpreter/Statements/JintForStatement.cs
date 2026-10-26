@@ -363,11 +363,13 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 loopEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
                 var loopEnvRec = loopEnv;
                 var kind = _initStatement!._statement.Kind;
+
+                // A using or await using header never comes here (ExecuteDisposingHeader).
+                System.Diagnostics.Debug.Assert(kind is VariableDeclarationKind.Let or VariableDeclarationKind.Const);
                 for (var i = 0; i < _boundNames.Count; i++)
                 {
                     var name = _boundNames[i];
-                    // const, using, and await using all create immutable bindings
-                    if (kind is VariableDeclarationKind.Const or VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing)
+                    if (kind is VariableDeclarationKind.Const)
                     {
                         loopEnvRec.CreateImmutableBinding(name);
                     }
@@ -569,7 +571,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     }
 
     /// <summary>
-    /// Steps 13 and 14, or 8.a and 8.c: runs DisposeResources over the loop environment, suspending the frame on each
+    /// Steps 13 and 15, or 8.a and 8.c: runs DisposeResources over the loop environment, suspending the frame on each
     /// await it owes, and then leaves the loop environment with what it produced.
     /// </summary>
     private Completion DisposeHeader(EvaluationContext context, ISuspendable? suspendable, DeclarativeEnvironment loopEnv, Environment oldEnv, DisposeStepResult step)

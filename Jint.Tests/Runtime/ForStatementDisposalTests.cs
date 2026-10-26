@@ -197,6 +197,20 @@ public class ForStatementDisposalTests
             "test 0, dispose x0, called, t1, test 1, dispose x1, t2, test 2, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
         },
         {
+            // The outer loop is parked while the inner loop's dispose suspends, and its own dispose comes once it ends.
+            "NestedLoops",
+            "let i = 0; for (await using a = ar(log, 'a'); i < 2; i++) { for (await using b = later(log, 'b' + i); ; ) { log.push('inner ' + i); break; } log.push('between ' + i); } log.push('after');",
+            "inner 0, dispose b0, called, t1, disposed b0, t2, between 0, inner 1, dispose b1, t3, disposed b1, t4, between 1, dispose a, t5, after, t6, resolved undefined, t7, t8, t9",
+            "inner 0, dispose b0, called, t1, disposed b0, t2, between 0, inner 1, dispose b1, t3, disposed b1, t4, between 1, dispose a, t5, after, t6, resolved {undefined,true}, t7, t8, t9"
+        },
+        {
+            // The inner loop's rejection is the throw the outer loop disposes with.
+            "NestedLoopsWhoseDisposesBothReject",
+            "try { for (await using a = rejecting(log, 'a', 'A'); ; ) { for (await using b = rejecting(log, 'b', 'B'); ; ) { break; } } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "dispose b, called, t1, dispose a, t2, caught SuppressedError(A over B), after, t3, resolved undefined, t4, t5, t6, t7, t8, t9",
+            "dispose b, called, t1, dispose a, t2, caught SuppressedError(A over B), after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
             // The specification's answer: Node 24 crashes. A closure made before an await reads the binding the loop
             // goes on with.
             "AClosureSeesTheSameBindingAcrossAnAwait",
@@ -256,6 +270,51 @@ public class ForStatementDisposalTests
             "let n = 0; for (await using x = ar(log, 'x'); (yield n) < 2; n++) { log.push('body ' + n); } log.push('UNREACHED');",
             "it.return(5)",
             "called, t1, dispose x, t2, t3, resolved {5,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtAYieldInTheUpdate",
+            "let n = 0; for (await using x = ar(log, 'x'); n < 2; n = yield n) { log.push('body ' + n); } log.push('UNREACHED');",
+            "it.return(5)",
+            "body 0, called, t1, dispose x, t2, t3, resolved {5,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // A yield that is the whole update.
+            "ReturnAtABareYieldInTheUpdate",
+            "let n = 0; for (await using x = ar(log, 'x'); n < 2; yield n++) { log.push('body ' + n); } log.push('UNREACHED');",
+            "it.return(5)",
+            "body 0, called, t1, dispose x, t2, t3, resolved {5,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // Step 8 with a return completion: what the declarators before the yield registered is disposed.
+            "ReturnAtAYieldInALaterDeclarator",
+            "for (await using a = ar(log, 'a'), b = (yield 1, ar(log, 'b')); ; ) { log.push('UNREACHED'); }",
+            "it.return(5)",
+            "called, t1, dispose a, t2, t3, resolved {5,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtAYieldInALaterDeclaratorWhenTheDisposeRejectsCaught",
+            "try { for (await using a = rejecting(log, 'a', 'D'), b = (yield 1, ar(log, 'b')); ; ) { log.push('UNREACHED'); } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.return(5)",
+            "called, t1, dispose a, t2, caught D, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ThrowAtAYieldInALaterDeclarator",
+            "for (await using a = ar(log, 'a'), b = (yield 1, ar(log, 'b')); ; ) { log.push('UNREACHED'); }",
+            "it.throw('E')",
+            "dispose a, called, t1, t2, rejected E, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "NextAtAYieldInANestedLoop",
+            "let i = 0; for (await using a = ar(log, 'a'); i < 2; i++) { for (await using b = ar(log, 'b' + i); ; ) { yield i; log.push('inner ' + i); break; } log.push('between ' + i); } log.push('after');",
+            "it.next()",
+            "inner 0, dispose b0, called, t1, between 0, t2, t3, resolved {1,false}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // The return completion leaves both loops, the inner one disposing first.
+            "ReturnAtAYieldInANestedLoop",
+            "for (await using a = ar(log, 'a'); ; ) { for (await using b = later(log, 'b'); ; ) { yield 1; } }",
+            "it.return(5)",
+            "called, t1, dispose b, t2, disposed b, t3, dispose a, t4, t5, resolved {5,true}, t6, t7, t8, t9"
         },
         {
             // A dispose that rejects replaces the return completion, and a catch around the loop sees it.
@@ -407,6 +466,38 @@ public class ForStatementDisposalTests
             "step, dispose x, {5,true}"
         },
         {
+            "ReturnAtAYieldInTheUpdate",
+            "let n = 0; for (using x = sr(log, 'x'); n < 2; n = yield n) { log.push('body ' + n); } log.push('UNREACHED');",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "body 0, step, dispose x, {5,true}"
+        },
+        {
+            // A yield that is the whole update.
+            "ReturnAtABareYieldInTheUpdate",
+            "let n = 0; for (using x = sr(log, 'x'); n < 2; yield n++) { log.push('body ' + n); } log.push('UNREACHED');",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "body 0, step, dispose x, {5,true}"
+        },
+        {
+            // Step 8 with a return completion: what the declarators before the yield registered is disposed.
+            "ReturnAtAYieldInALaterDeclarator",
+            "for (using a = sr(log, 'a'), b = (yield 1, sr(log, 'b')); ; ) { log.push('UNREACHED'); }",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "step, dispose a, {5,true}"
+        },
+        {
+            "ReturnAtAYieldInALaterDeclaratorAndTheDisposeThrows",
+            "try { for (using a = syncThrowing(log, 'a', 'D'), b = (yield 1, sr(log, 'b')); ; ) { log.push('UNREACHED'); } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "step, dispose a, caught D, after, {undefined,true}"
+        },
+        {
+            "ThrowAtAYieldInALaterDeclarator",
+            "for (using a = sr(log, 'a'), b = (yield 1, sr(log, 'b')); ; ) { log.push('UNREACHED'); }",
+            "it.next(); log.push('step'); try { it.throw('E'); } catch (e) { log.push('threw ' + show(e)); }",
+            "step, dispose a, threw E"
+        },
+        {
             // The dispose's throw replaces the return completion, so the catch around the loop sees it.
             "ReturnAtAYieldAndTheDisposeThrows",
             "try { for (using x = syncThrowing(log, 'x', 'D'); ; ) { yield 1; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
@@ -534,14 +625,24 @@ public class ForStatementDisposalTests
     }
 
     /// <inheritdoc cref="AHostExceptionLeavesTheResourcesUndisposed"/>
-    [TestCase("for (using x = { [Symbol.dispose]() { disposed.push('x'); } }; ; ) { STOP; }")]
-    [TestCase("{ using x = { [Symbol.dispose]() { disposed.push('x'); } }; for (;;) { STOP; } }")]
+    /// <remarks>
+    /// The dispose method is a host delegate, so the statement limit cannot stop a call to it the way it stops a script
+    /// method at its first statement: the count is of calls made, not of statements run.
+    /// </remarks>
+    [TestCase("for (using x = { [Symbol.dispose]: dispose }; ; ) { n++; }")]
+    [TestCase("{ using x = { [Symbol.dispose]: dispose }; for (;;) { n++; } }")]
     public void AConstraintLeavesTheResourcesUndisposed(string script)
     {
-        var engine = new Engine(options => options.LimitStatements(1000));
-        engine.Execute("var n = 0; var disposed = [];");
-        Caught.Exception(() => engine.Execute(script.Replace("STOP", "n++"))).Should().BeOfType<StatementsCountOverflowException>();
-        engine.Evaluate("disposed.length").AsNumber().Should().Be(0);
+        var disposeCalls = 0;
+
+        // The statement limit is what ends `for (;;)`. The execution-time limit is a wedge ceiling for a regression that
+        // lets the loop run on, never an assertion.
+        var engine = new Engine(options => options.LimitStatements(1000).LimitExecutionTime(TestBudgets.WedgeCeiling));
+        engine.SetValue("dispose", new Action(() => disposeCalls++));
+        engine.Execute("var n = 0;");
+
+        Caught.Exception(() => engine.Execute(script)).Should().BeOfType<StatementsCountOverflowException>();
+        disposeCalls.Should().Be(0);
     }
 
     private static string RunAsync(string script)
