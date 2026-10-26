@@ -38,7 +38,7 @@
       carries its own driver, node runtime included, so ConnectOverCDPAsync needs no `playwright install` and
       downloads no browser.
     -->
-    <PackageVersion Include="Microsoft.Playwright" Version="1.63.0" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.64.1" />
     <!-- The official Model Context Protocol C# SDK, which Jint.Browser.Mcp is a server on. The metapackage
          brings ModelContextProtocol.Core plus the dependency-injection and hosting glue; the third package,
          ModelContextProtocol.AspNetCore, is deliberately NOT referenced anywhere — it carries a framework
