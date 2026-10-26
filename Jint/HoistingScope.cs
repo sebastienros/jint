@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.Runtime.Modules;
 
 namespace Jint;
@@ -201,8 +202,13 @@ internal sealed class HoistingScope
         /// </summary>
         internal List<FunctionDeclaration>? _annexBFunctions;
 
+        /// <summary>
+        /// How many <see cref="Visit"/> frames are live. Nothing reads it but the stack probe's gate, so it is
+        /// not restored when a walk throws: the walker is abandoned with the exception. A field of the walker
+        /// rather than <see cref="SyntaxNesting"/>'s thread-static count, because the walker is an instance that
+        /// lives exactly as long as one walk.
+        /// </summary>
         private int _depth;
-        private const int MaxDepth = 256;
 
         public ScriptWalker(bool collectVarNames, bool collectLexicalNames, bool module)
         {
@@ -219,19 +225,17 @@ internal sealed class HoistingScope
         // scoped to that Block).
         public void Visit(Node node, Node? parent, HashSet<string>? enclosingLexicalNames = null, Node? labelHost = null, Node? labelHostParent = null)
         {
-            if (++_depth > MaxDepth)
+            // The walk is as deep as the statement nesting, and that is the stack it can run out of: a probe of
+            // the real stack rather than a count, because a count either rejects ordinary generated code (an
+            // `else if` chain is one level per arm) or admits a tree deep enough to overflow a small thread.
+            // Most walks stay inside the unchecked depth and never probe at all.
+            if (++_depth > SyntaxNesting.UncheckedDepth && !RuntimeHelpers.TryEnsureSufficientExecutionStack())
             {
-                _depth--;
-                throw new ScriptPreparationException($"Script nesting exceeds maximum depth of {MaxDepth} levels.", null);
+                SyntaxNesting.ThrowTooDeep();
             }
-            try
-            {
-                VisitCore(node, parent, enclosingLexicalNames, labelHost, labelHostParent);
-            }
-            finally
-            {
-                _depth--;
-            }
+
+            VisitCore(node, parent, enclosingLexicalNames, labelHost, labelHostParent);
+            _depth--;
         }
 
         private void VisitCore(Node node, Node? parent, HashSet<string>? enclosingLexicalNames, Node? labelHost = null, Node? labelHostParent = null)
@@ -396,11 +400,16 @@ internal sealed class HoistingScope
                     }
                 }
 
-                // A class static block is its own var scope — ClassStaticBlockDefinitionEvaluation hoists it as a
-                // function body of its own — so its `var` and `function` declarations must not reach this one.
-                if (childType != NodeType.FunctionDeclaration
-                    && childType != NodeType.ArrowFunctionExpression
-                    && childType != NodeType.FunctionExpression
+                // Only statements declare anything this walk collects: an expression contributes nothing to
+                // https://tc39.es/ecma262/#sec-static-semantics-varscopeddeclarations or to the lexically
+                // scoped ones, and the function, arrow, class method or static block inside one is a var scope
+                // of its own, walked when that function's definition is built. Not descending into expressions
+                // is also what keeps a long `a || b || …` or `x + y + …` chain - one level per operand - out of
+                // this recursion. A class static block is its own var scope too
+                // (ClassStaticBlockDefinitionEvaluation hoists it as a function body), so its `var` and
+                // `function` declarations must not reach this one.
+                if (childNode is not Expression
+                    && childType != NodeType.FunctionDeclaration
                     && childType != NodeType.StaticBlock
                     && !childNode.ChildNodes.IsEmpty())
                 {
@@ -451,9 +460,13 @@ internal sealed class HoistingScope
         internal List<ExportEntry>? _exportEntries;
         internal HashSet<ModuleRequest>? _requestedModules;
 
-        internal void Visit(Node node)
+        internal void Visit(Module module)
         {
-            foreach (var childNode in node.ChildNodes)
+            // An import or export declaration is a ModuleItem, so it is only ever a direct child of the module
+            // (https://tc39.es/ecma262/#prod-ModuleItem): there is nothing to find below the top level, and
+            // descending into every statement and expression only made this the one walk over a module that
+            // a deep `a || b || …` chain could overflow.
+            foreach (var childNode in module.ChildNodes)
             {
                 if (childNode.Type == NodeType.ImportDeclaration)
                 {
@@ -468,11 +481,6 @@ internal sealed class HoistingScope
                     _requestedModules ??= [];
                     var export = (ExportDeclaration) childNode;
                     export.GetExportEntries(_exportEntries, _requestedModules);
-                }
-
-                if (!childNode.ChildNodes.IsEmpty())
-                {
-                    Visit(childNode);
                 }
             }
         }
@@ -504,6 +512,9 @@ internal sealed class HoistingScope
             {
                 return;
             }
+
+            // An await can sit anywhere in an expression, so this walk has to descend into them all.
+            using var nesting = SyntaxNesting.Enter();
 
             // Found a top-level await expression
             if (node.Type == NodeType.AwaitExpression)

@@ -1061,10 +1061,14 @@ internal sealed class JintFunctionDefinition
 
         private static void MarkReturns(Node node, bool blockedByCleanup)
         {
-            if (node is IFunction)
+            // A return is a statement, and no expression holds one of this function's: the functions and
+            // arrows inside an expression return for themselves.
+            if (node is IFunction or Expression)
             {
                 return;
             }
+
+            using var nesting = SyntaxNesting.Enter();
 
             if (node is ReturnStatement returnStatement)
             {
@@ -1117,6 +1121,8 @@ internal sealed class JintFunctionDefinition
 
         private static void MarkTailExpression(Expression expression)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             switch (expression)
             {
                 case CallExpression call:
@@ -1209,6 +1215,8 @@ internal sealed class JintFunctionDefinition
     /// </summary>
     private static bool IsShapeEligibleCtorStatement(Statement statement)
     {
+        using var nesting = SyntaxNesting.Enter();
+
         switch (statement.Type)
         {
             case NodeType.EmptyStatement:
@@ -1272,6 +1280,8 @@ internal sealed class JintFunctionDefinition
     /// </summary>
     private static bool ContainsThisEscapingCall(Node node)
     {
+        using var nesting = SyntaxNesting.Enter();
+
         var type = node.Type;
         if (type is NodeType.CallExpression or NodeType.NewExpression or NodeType.TaggedTemplateExpression)
         {
@@ -1298,6 +1308,8 @@ internal sealed class JintFunctionDefinition
 
     private static bool ContainsThis(Node node)
     {
+        using var nesting = SyntaxNesting.Enter();
+
         foreach (var childNode in node.ChildNodes)
         {
             if (childNode.Type == NodeType.ThisExpression
@@ -1456,6 +1468,8 @@ Start:
 
         private static bool HasArgumentsReference(Node node)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 var childType = childNode.Type;
@@ -1496,6 +1510,8 @@ Start:
 
         private static bool HasReference(Node node)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 var childType = childNode.Type;
@@ -1579,6 +1595,8 @@ Start:
 
         private static void Scan(Node node, bool sharesArguments, ref Usage usage)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 if (usage == Usage.Both)
@@ -1623,6 +1641,8 @@ Start:
     {
         internal static bool HasExpression(ChildNodes nodes)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in nodes)
             {
                 switch (childNode.Type)
@@ -1663,6 +1683,8 @@ Start:
     {
         internal static bool ContainsCallTo(Node node, string name)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 if (childNode.Type == NodeType.CallExpression
@@ -1760,6 +1782,8 @@ Start:
 
         internal static bool MayEscape(Node node)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 // Captures the environment — function/class/eval/with create closures over bindings
@@ -1786,6 +1810,8 @@ Start:
         /// </summary>
         private static bool ScanForCapturingReferences(Node node, Key[] slotNames)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 // eval() and with statement always capture — can't analyze dynamic references
@@ -1832,6 +1858,8 @@ Start:
         /// </summary>
         private static bool ClosureReferencesAny(Node closureNode, Key[] slotNames)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in closureNode.ChildNodes)
             {
                 if (childNode.Type == NodeType.Identifier)

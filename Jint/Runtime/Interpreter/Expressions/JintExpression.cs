@@ -193,6 +193,11 @@ internal abstract class JintExpression
             return preparedExpression;
         }
 
+        // A node's constructor builds its operands through here, so building is as deep as the expression,
+        // and the parser hands over a left-deep `a || b || …` chain however many operands it has. Once per
+        // node built, never per evaluation.
+        using var nesting = SyntaxNesting.Enter();
+
         var result = expression.Type switch
         {
             NodeType.AssignmentExpression => JintAssignmentExpression.Build((AssignmentExpression) expression),
