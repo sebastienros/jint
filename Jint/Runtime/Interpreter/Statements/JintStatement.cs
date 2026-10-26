@@ -138,8 +138,9 @@ internal abstract class JintStatement
             Throw.ArgumentOutOfRangeException(nameof(statement.Type), $"unsupported statement type '{statement.Type}'");
         }
 
-        // Running an `else if` chain recurses once per arm, as building it does; see JintStackProbeStatement.
-        if (result is JintIfStatement && SyntaxNesting.IsEvaluationProbeDepth)
+        // Running an `else if` chain recurses once per arm, as building it does; see JintStackProbeStatement. Only an
+        // `if` the chain continues below gets one, so a lone `if` that happens to sit at this depth runs as before.
+        if (statement is IfStatement { Alternate: IfStatement } && SyntaxNesting.IsEvaluationProbeDepth)
         {
             return new JintStackProbeStatement(result);
         }
