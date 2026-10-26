@@ -18,6 +18,198 @@ public sealed class PageInputTests
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
     [Test]
+    public async Task ElementScrollMethodsUseTheExistingVirtualScrollRange()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<!doctype html><div id='other'></div>" + string.Concat(Enumerable.Repeat("<p>row</p>", 200)));
+
+        await page.EvaluateAsync("document.scrollingElement.scrollTo({top: 100, behavior: 'smooth'})");
+        (await page.EvaluateAsync<double>("scrollY")).Should().Be(100);
+        await page.EvaluateAsync("document.scrollingElement.scrollBy(0, 20)");
+        (await page.EvaluateAsync<double>("scrollY")).Should().Be(120);
+        await page.EvaluateAsync("document.scrollingElement.scroll({top: 40})");
+        (await page.EvaluateAsync<double>("scrollY")).Should().Be(40);
+        await page.EvaluateAsync("document.querySelector('#other').scrollTo({top: 100})");
+        (await page.EvaluateAsync<double>("document.querySelector('#other').scrollTop")).Should().Be(0);
+        (await page.EvaluateAsync<double>("scrollY")).Should().Be(40);
+    }
+
+    [TestCase("javascript:;")]
+    [TestCase("javascript:void(0)")]
+    [TestCase("javascript:window.activated = true; void(0)")]
+    public async Task JavaScriptLinksExecuteWithoutNavigatingForNonStringResults(string href)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<!doctype html><a id='go'>go</a><script>window.marker = 42;</script>");
+        await page.EvaluateAsync("document.querySelector('#go').href = " + System.Text.Json.JsonSerializer.Serialize(href));
+        var url = page.Url;
+
+        (await page.ClickAsync("#go")).Should().BeTrue();
+
+        page.Url.Should().Be(url);
+        (await page.EvaluateAsync<double>("window.marker")).Should().Be(42);
+        if (href.Contains("activated", StringComparison.Ordinal))
+            (await page.EvaluateAsync<bool>("window.activated")).Should().BeTrue();
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task CancelingAJavaScriptLinkPreventsExecution()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><a id="go" href="javascript:window.activated=true">go</a>
+            <script>document.querySelector('#go').onclick = () => false;</script>
+            """);
+
+        await page.ClickAsync("#go");
+
+        (await page.EvaluateAsync<bool>("window.activated === undefined")).Should().BeTrue();
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task JavaScriptUrlExceptionsAreReportedWithoutReplacingTheDocument()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><title>Original</title>
+            <a id="go" href="javascript:throw new Error('URL script failed')">go</a>
+            """);
+
+        (await page.ClickAsync("#go")).Should().BeTrue();
+
+        (await page.TitleAsync()).Should().Be("Original");
+        page.Errors.Should().Contain(error => error.Kind == PageErrorKind.ScriptError && error.Message.Contains("URL script failed"));
+    }
+
+    [Test]
+    public async Task AJavaScriptStringResultReplacesTheDocumentWithoutFetchingOrChangingItsUrl()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """<!doctype html><a id="go" href="javascript:'%3Ctitle%3EReplaced%3C/title%3E'">go</a>"""));
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        var requests = fixture.Page.Requests.Count;
+        var historyLength = await fixture.Page.EvaluateAsync<double>("history.length");
+
+        await fixture.Page.ClickAsync("#go");
+
+        fixture.Page.Url.Should().Be(fixture.Url("/"));
+        (await fixture.Page.TitleAsync()).Should().Be("Replaced");
+        fixture.Page.Requests.Count.Should().Be(requests);
+        (await fixture.Page.EvaluateAsync<double>("history.length")).Should().Be(historyLength);
+    }
+
+    [TestCase("date", "2026-10-26")]
+    [TestCase("month", "2026-10")]
+    [TestCase("week", "2026-W44")]
+    [TestCase("time", "12:34")]
+    [TestCase("datetime-local", "2026-10-26T12:34")]
+    public async Task FillCommitsPickerControlValuesAndTrustedEvents(string type, string value)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"""
+            <!doctype html><form><input id="field" name="value" type="{type}"></form>
+            <script>
+              window.events = [];
+              for (const type of ['input', 'change'])
+                document.querySelector('#field').addEventListener(type, e => events.push(e.type + ':' + e.isTrusted));
+            </script>
+            """);
+
+        (await page.FillAsync("#field", value)).Should().BeTrue();
+
+        (await page.EvaluateAsync<string>("document.querySelector('#field').value")).Should().Be(value);
+        (await page.EvaluateAsync<string>("new FormData(document.querySelector('form')).get('value')")).Should().Be(value);
+        (await page.EvaluateAsync<string>("events.join(',')")).Should().Be("input:true,change:true");
+    }
+
+    [Test]
+    public async Task InvalidPickerValuesAreRejectedWithoutChangingTheControl()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<!doctype html><input id='field' type='date' value='2026-10-26'>");
+
+        var fill = async () => await page.FillAsync("#field", "not-a-date");
+        await fill.Should().ThrowAsync<ArgumentException>();
+
+        (await page.EvaluateAsync<string>("document.querySelector('#field').value")).Should().Be("2026-10-26");
+    }
+
+    [TestCase("date", "disabled")]
+    [TestCase("date", "readonly")]
+    [TestCase("text", "readonly")]
+    [TestCase("checkbox", "")]
+    public async Task FillDoesNotClaimSuccessForControlsItCannotEdit(string type, string attribute)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<!doctype html><input id='field' type='{type}' {attribute}>");
+
+        (await page.FillAsync("#field", "2026-10-26")).Should().BeFalse();
+    }
+
+    [TestCase(KeyModifiers.Control, "true:false")]
+    [TestCase(KeyModifiers.Meta, "false:true")]
+    public async Task PressCarriesModifiersWithoutInsertingShortcutText(KeyModifiers modifiers, string flags)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><input id="field">
+            <script>
+              window.keys = [];
+              for (const type of ['keydown', 'keyup'])
+                document.addEventListener(type, e => keys.push(e.type + ':' + e.ctrlKey + ':' + e.metaKey));
+            </script>
+            """);
+        await page.FillAsync("#field", "");
+        await page.EvaluateAsync("keys.length = 0");
+
+        await page.PressAsync("k", modifiers);
+
+        (await page.EvaluateAsync<string>("keys.join(',')")).Should().Be("keydown:" + flags + ",keyup:" + flags);
+        (await page.EvaluateAsync<string>("document.querySelector('#field').value")).Should().BeEmpty();
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EnterUsesTheFirstSubmitInputEvenWhenItHasNoVisibleBox(bool clickFromCanceledKeydown)
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """
+                <!doctype html><form action="/results">
+                  <input type="search" id="search-box" name="Options.Search">
+                  <input type="submit" name="submit.Filter" id="submitFilter" value="Filter" style="display:none">
+                  <input type="submit" name="submit.BulkAction" value="Apply">
+                </form>
+                """)
+            .MapHtml("/results", "<!doctype html><title>Results</title>"));
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        if (clickFromCanceledKeydown)
+            await fixture.Page.EvaluateAsync("""
+                document.querySelector('#search-box').addEventListener('keydown', event => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        document.querySelector('#submitFilter').click();
+                    }
+                });
+                """);
+        await fixture.Page.FillAsync("#search-box", "Alpha");
+
+        await fixture.Page.PressAsync("Enter");
+
+        fixture.Page.Url.Should().Contain("Options.Search=Alpha").And.Contain("submit.Filter=Filter")
+            .And.NotContain("submit.BulkAction");
+    }
+
+    [Test]
     public async Task AClickRunsTheActivationBehaviour()
     {
         await using var browser = new Browser();

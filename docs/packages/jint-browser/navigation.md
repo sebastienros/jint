@@ -32,6 +32,16 @@ await navigated;
 
 `ClickAsync`, `PressAsync`, and `SubmitFormAsync` capture and await navigation they directly cause.
 
+JavaScript URLs run their percent-decoded source in the active document. Canceling a link's click prevents
+that execution. A non-string result leaves the document and URL unchanged; a string result replaces the
+document as HTML at the existing URL, without fetching or adding a history entry. Scripting policy and
+cross-page origin checks still apply.
+
+Same-origin child windows support `location.assign()`, `location.replace()`, `location.reload()` and
+`location.href` assignment through the existing frame loader. The iframe's `src` attribute and the parent
+document are unchanged. Child session history and stable WindowProxy identity across navigation remain
+unsupported; retain the iframe element and read its current `contentWindow` after loading.
+
 ## History
 
 ```csharp

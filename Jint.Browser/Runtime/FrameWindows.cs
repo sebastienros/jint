@@ -15,7 +15,7 @@ namespace Jint.Browser.Runtime;
 /// <remarks>
 /// https://html.spec.whatwg.org/multipage/webappapis.html#realms-settings-objects-global-objects —
 /// each document has independent intrinsics and global bindings in the page's engine. WindowProxy
-/// navigation and cross-origin access remain unsupported; every exposed child window is gated by
+/// identity across navigation and cross-origin access remain unsupported; every exposed child window is gated by
 /// its actual frozen origin rather than by its URL.
 /// </remarks>
 internal static class FrameWindows
@@ -149,7 +149,7 @@ internal static class FrameWindows
         Accessor("length", () => JsNumber.Create(Count(document)));
         Accessor("name", () => JsString.Create(ElementOf(document)?.GetAttribute("name") ?? ""));
         Own(window, "origin", JsString.Create(DomDocumentMetadata.Origin(document)));
-        var location = Location(runtime.Engine, realm, document);
+        var location = Location(runtime, realm, document);
         window.DefineOwnPropertyUnchecked("location", new GetSetPropertyDescriptor(
             new ClrFunction(runtime.Engine, realm, "get location", (_, _) => location, 0),
             new ClrFunction(runtime.Engine, realm, "set location", (_, args) =>
@@ -203,18 +203,19 @@ internal static class FrameWindows
         => window.DefineOwnPropertyUnchecked(name, new PropertyDescriptor(value, PropertyFlag.OnlyEnumerable));
 
     /// <summary>
-    /// A frame's <c>location</c>: the components of its document's URL, and nothing that navigates.
+    /// A frame's <c>location</c>, backed by its document and the existing frame loader.
     /// </summary>
-    /// <remarks>Setters refuse until frame navigation and WindowProxy replacement are implemented.</remarks>
-    private static JsObject Location(Engine engine, Realm realm, Document document)
+    /// <remarks>Child session history and stable WindowProxy identity remain unsupported.</remarks>
+    private static JsObject Location(PageRuntime runtime, Realm realm, Document document)
     {
+        var engine = runtime.Engine;
         var location = new JsObject(engine);
         var href = DomDocumentState.Of(document).Url ?? "";
 
         // `href` is the URL as the document carries it, never re-serialized: a document's URL is what it was
         // opened with, and a round trip through the parser would answer a normalized string for a frame that
         // was never navigated anywhere.
-        Component(engine, realm, location, "href", href, null);
+        Component(engine, realm, location, "href", href, null, Navigate);
 
         Component(engine, realm, location, "protocol", href, static url => url.SerializeProtocol());
         Component(engine, realm, location, "host", href, static url => url.SerializeHostAndPort());
@@ -225,6 +226,22 @@ internal static class FrameWindows
         Component(engine, realm, location, "hash", href, static url => url.SerializeHash());
         Component(engine, realm, location, "origin", href, static url => url.SerializeOrigin());
 
+        foreach (var name in new[] { "assign", "replace" })
+        {
+            location.DefineOwnPropertyUnchecked(name, new PropertyDescriptor(
+                new ClrFunction(engine, realm, name, (_, args) =>
+                {
+                    Navigate(TypeConverter.ToString(args.At(0)));
+                    return JsValue.Undefined;
+                }, 1), PropertyFlag.OnlyEnumerable));
+        }
+        location.DefineOwnPropertyUnchecked("reload", new PropertyDescriptor(
+            new ClrFunction(engine, realm, "reload", (_, _) =>
+            {
+                Navigate(href);
+                return JsValue.Undefined;
+            }, 0), PropertyFlag.OnlyEnumerable));
+
         location.DefineOwnPropertyUnchecked(
             "toString",
             new PropertyDescriptor(
@@ -232,13 +249,23 @@ internal static class FrameWindows
                 PropertyFlag.OnlyEnumerable));
 
         return location;
+
+        void Navigate(string value)
+        {
+            var url = PageUrl.Resolve(value, DomDocumentState.BaseUri(document, engine.Constraints.Check,
+                runtime.Dom.CancellationToken));
+            if (url is null)
+                Throw.SyntaxError(realm, "The child frame's navigation URL cannot be parsed.");
+            runtime.Parser!.NavigateFrame(document, url!);
+        }
     }
 
     /// <summary>
-    /// One component, read once at construction: a frame's document URL cannot move, because nothing here
-    /// navigates a frame.
+    /// One component of this document's Location. A cross-document navigation creates a new global;
+    /// a retained old Location still describes its original document.
     /// </summary>
-    private static void Component(Engine engine, Realm realm, ObjectInstance location, string name, string href, Func<UrlRecord, string>? read)
+    private static void Component(Engine engine, Realm realm, ObjectInstance location, string name, string href,
+        Func<UrlRecord, string>? read, Action<string>? write = null)
     {
         // `href` is the URL as the document carries it, never re-serialized: a document's URL is what it was
         // opened with, and a round trip through the parser would answer a normalized string for a frame that
@@ -253,14 +280,19 @@ internal static class FrameWindows
             name,
             new GetSetPropertyDescriptor(
                 new ClrFunction(engine, realm, "get " + name, (_, _) => component, 0),
-                new ClrFunction(engine, realm, "set " + name, (_, _) =>
+                new ClrFunction(engine, realm, "set " + name, (_, args) =>
                 {
+                    if (write is not null)
+                    {
+                        write(TypeConverter.ToString(args.At(0)));
+                        return JsValue.Undefined;
+                    }
                     // Loud, for the reason the class remarks give: a silent no-op turns a document that
                     // navigates a frame into a document that hangs.
                     Throw.TypeError(
                         realm,
                         "Failed to set the '" + name + "' property on 'Location': a child frame's location "
-                        + "cannot be navigated in this version.");
+                        + "component setters are not supported; assign href instead.");
                     return JsValue.Undefined;
                 }, 1),
                 PropertyFlag.Configurable | PropertyFlag.Enumerable));

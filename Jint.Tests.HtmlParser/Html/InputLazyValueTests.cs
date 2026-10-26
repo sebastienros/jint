@@ -44,6 +44,7 @@ public class InputLazyValueTests
     [TestCase("email", "ab")]
     [TestCase("number", "")]
     [TestCase("date", "")]
+    [TestCase("color", "#000000")]
     public void FirstSemanticReadInitializesOnceWithoutAdvancingStamp(string type, string? expected)
     {
         var input = Input(type, " a\r\nb ");
@@ -92,11 +93,11 @@ public class InputLazyValueTests
         email.RemoveAttribute("multiple");
         email.GetHtmlState()!.InputValue!.GetValue(default).Should().Be("a,b");
         email.GetAttribute("value").Should().Be(" a , b ");
-        var unavailable = Input("color", "42");
-        unavailable.SetAttribute("type", "text");
-        unavailable.GetHtmlState()!.InputValue!.IsAvailable.Should().BeFalse();
-        unavailable.GetHtmlState()!.InputValue!.ResetValue(default);
-        unavailable.GetHtmlState()!.InputValue!.GetValue(default).Should().Be("42");
+        var color = Input("color", "42");
+        color.SetAttribute("type", "text");
+        color.GetHtmlState()!.InputValue!.GetValue(default).Should().Be("#000000");
+        color.GetHtmlState()!.InputValue!.ResetValue(default);
+        color.GetHtmlState()!.InputValue!.GetValue(default).Should().Be("42");
     }
 
     [TestCase("hidden")]
@@ -114,13 +115,14 @@ public class InputLazyValueTests
 
     [TestCase("hidden")]
     [TestCase("radio")]
-    public void UnknownValueToDefaultRemainsUnavailableUntilExplicitRecovery(string destination)
+    public void ColorToDefaultCopiesTheSanitizedCurrentValue(string destination)
     {
         var input = Input("color", "42");
         input.SetAttribute("type", destination);
         var state = input.GetHtmlState()!.InputValue!;
-        state.IsAvailable.Should().BeFalse();
-        state.GetDefaultValue(default).Should().Be("42");
+        state.IsAvailable.Should().BeTrue();
+        state.GetDefaultValue(default).Should().Be("#000000");
+        state.GetValue(default).Should().Be("#000000");
         state.SetValue("known", default);
         state.GetValue(default).Should().Be("known");
     }

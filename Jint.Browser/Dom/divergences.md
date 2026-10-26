@@ -12,6 +12,16 @@ a reproducible case and a verified implementation boundary.
 
 ### Current boundaries
 
+JavaScript URLs follow [HTML's special navigation case](https://html.spec.whatwg.org/multipage/browsing-the-web.html#the-javascript:-url-special-case):
+click cancellation prevents execution, non-string completion preserves the document, and string completion
+replaces it as HTML at the existing URL. `Events/PageInputTests` covers execution, cancellation and replacement.
+Picker filling uses native temporal-value sanitization and user provenance without inventing a text selection;
+`Events/PageInputTests` and native `InputValueComponentTests` cover form values, trusted events and refusal.
+Child Location navigation uses the existing bounded frame loader, with `Parsing/FrameScriptTests` covering
+parent/source-attribute preservation and supersession. Child history, component setters and stable WindowProxy
+identity remain unsupported. `Element.scroll`, `scrollTo` and `scrollBy` use the existing virtual viewport
+range; non-scrolling elements still have no overflow range, and smooth scrolling is immediate.
+
 SVG 2's [element hierarchy](https://svgwg.org/svg2-draft/types.html#DOMInterfacesForSVGElements)
 is recorded in the generated contract; `SVGAElement` retains its manual shape and now inherits
 `SVGGraphicsElement`. Value interfaces use hand-written shared shapes, with live-reflection state
