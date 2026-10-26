@@ -95,6 +95,39 @@ public class NetworkDomainTests
         server.Received.Count(r => r.Path == "/body").Should().Be(3);
     }
 
+    /// <summary>
+    /// <c>request.url</c> carries no fragment and <c>request.urlFragment</c> carries it with its <c>#</c>, as in
+    /// Chromium's <c>NetworkHandler::ExtractFragment</c>; a URL with none has no <c>urlFragment</c> key.
+    /// </summary>
+    [Test]
+    public async Task ARequestReportsItsFragmentSeparately()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("payload"));
+        server.Map("/plain", _ => LoopbackResponse.Text("payload"));
+        server.MapHtml("/page", """
+            <html><body><script>
+              fetch('/data?q=1#frag');
+              fetch('/plain');
+            </script></body></html>
+            """);
+
+        await using var fixture = await NetworkFixture.OpenAsync(server);
+        await fixture.NavigateAsync("/page");
+        await fixture.Page.WaitForIdleAsync(TimeSpan.FromSeconds(10));
+
+        var sent = await fixture.WaitForCountAsync("Network.requestWillBeSent", 3);
+        var byPath = sent.ToDictionary(
+            entry => new Uri(entry.GetProperty("request").GetProperty("url").GetString()!).AbsolutePath,
+            entry => entry.GetProperty("request"),
+            StringComparer.Ordinal);
+
+        byPath["/data"].GetProperty("url").GetString().Should().Be(server.Url("/data?q=1"));
+        byPath["/data"].GetProperty("urlFragment").GetString().Should().Be("#frag");
+        byPath["/plain"].TryGetProperty("urlFragment", out _).Should().BeFalse();
+        byPath["/page"].TryGetProperty("urlFragment", out _).Should().BeFalse();
+    }
+
     [Test]
     public async Task EveryKindOfRequestIsReportedWithChromesOwnResourceType()
     {
