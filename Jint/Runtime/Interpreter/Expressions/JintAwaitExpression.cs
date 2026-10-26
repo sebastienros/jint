@@ -133,8 +133,9 @@ internal sealed class JintAwaitExpression : JintExpression
     /// Suspends the async generator at an await, wiring an engine-internal continuation that resumes execution when
     /// the awaited promise settles. Follows the same pattern as SuspendForAsyncIteration in JintForInForOfStatement.
     /// <para>
-    /// The suspension point is the handler that awaits: an await expression, or the <c>return expr;</c> of an async
-    /// generator (<see cref="Statements.JintAsyncGeneratorReturnStatement"/>). It is what the replayed body finds in
+    /// The suspension point is the handler that awaits: an await expression, the <c>return expr;</c> of an async
+    /// generator (<see cref="Statements.JintAsyncGeneratorReturnStatement"/>), or a block awaiting the disposal of its
+    /// <c>await using</c> resources (<see cref="Statements.JintBlockStatement"/>). It is what the replayed body finds in
     /// <c>_lastYieldNode</c>, and what the statements around it read through
     /// <see cref="Statements.JintStatement.GetSuspensionNode"/>. The promise is <see langword="null"/> for a
     /// primitive value, which can never be a thenable.
