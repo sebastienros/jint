@@ -8363,3 +8363,15 @@ with no conflict at all, which is exactly the case nothing draws attention to. S
 rebase, not only after one that conflicted, move the section block to the end of its chapter and run
 `dotnet test --project Jint.Tests -c Release --filter "FullyQualifiedName~MigrationGuideTests"`; that is what
 `SectionNumbersAscendInDocumentOrder` is there to catch.
+
+
+### Reflection-free managed trimming
+
+The process-wide runtime configuration option `Jint.Runtime.Interop.ReflectionEnabled`
+defaults to true. A trimmed application can set it to false with `Trim="true"` to
+remove reflection-based CLR projection. Native JavaScript, explicit `JsValue`
+callbacks and custom converters remain available; broad CLR interop, reflected
+extension methods and CLR operators are rejected. See
+[Jint.TrimmedExample](../../Jint.TrimmedExample/README.md) for the strict, unrooted
+managed publication and its supported conversion boundary. This does not qualify
+NativeAOT or arbitrary CLR wrappers.

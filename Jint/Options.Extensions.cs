@@ -200,7 +200,7 @@ public static class OptionsExtensions
         UntrustedCodeLimits limits)
     {
         ApplyUntrustedCodeOptions(options, limits);
-        engine.TypeConverter = new DefaultTypeConverter(engine);
+        engine.TypeConverter = HostInterop.Instance.CreateTypeConverter(engine);
         engine.Modules = new Engine.ModuleOperations(engine, FailFastModuleLoader.Instance);
     }
 
