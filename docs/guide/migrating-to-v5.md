@@ -6702,6 +6702,22 @@ with the return value.
 A host exception or a constraint (`LimitStatements`, a timeout, cancellation) that ends the script inside such a loop no
 longer runs its dispose methods on the way out, which a block never did. There is no switch back.
 
+### 4.178 An arrow whose whole body is a direct `eval` keeps its parameters for what the eval creates ([#4366](https://github.com/sebastienros/jint/issues/4366))
+
+In 4.16, when an arrow's concise body was itself a direct `eval` call, the engine did not see the `eval`. It emptied
+the arrow's environment on return, to reuse it for the next call, so a function created by that `eval` lost the
+arrow's parameters. Reading one threw a `ReferenceError`; in sloppy code, assigning one created a global of that name.
+A block body, a function expression, an `eval` anywhere below the body's root, an async arrow and an arrow with a
+destructuring, rest or default parameter were not affected:
+
+```js
+const f = (log => eval('(function () { return log; })'))(42);
+f(); // 4.16: ReferenceError: log is not defined    5.x: 42
+```
+
+Now such an arrow gets a new environment on every call, as its block-bodied form `log => { return eval(...); }`
+does, and the function the `eval` returns reads the parameter as in other engines. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
