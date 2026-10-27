@@ -87,7 +87,8 @@ downstream and silently. That is why `ObjectWrapper.ClrType` has no annotation a
 An engine with `AllowClr()` reading properties, fields, indexers and methods off a host object works
 natively, as do `T[]`, `List<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, `Dictionary<,>`, a CLR array as a
 live view under `ArrayConversionMode.LiveView` (its element writes and its resize refusals included),
-delegates in both directions, extension methods, `TypeReference` construction, JSON, promises, and an
+delegates in both directions, extension methods, `TypeReference` construction, JSON, promises, regular
+expressions on the vendored GregsEx engine (its plans, its VM and its `RangeError` ceiling), and an
 `Interop.Enabled = false` engine. What it proves does *not* work is one shape — **a generic
 instantiation over a value type built at run time**. Reference-type arguments share canonical code and
 are fine; `int`, `double` and friends need a specific instantiation ILC never saw.

@@ -1,160 +1,112 @@
 using System.Collections.Concurrent;
 using System.Threading;
+using Jint.Runtime;
+using Jint.Runtime.RegExp;
 
 namespace Jint.Native.RegExp;
 
 /// <summary>
-/// How the .NET <see cref="System.Text.RegularExpressions.Regex"/> instances produced for JavaScript
-/// patterns are code-generated. The trade-off (measured on .NET 10): a compiled regex matches
-/// scan-heavy inputs roughly 2-16x faster than the built-in regex interpreter, but costs ~1.4 ms to
-/// construct and JIT versus ~3 us interpreted, so compilation only pays off for reused patterns.
-/// Under Native AOT the runtime silently ignores <see cref="System.Text.RegularExpressions.RegexOptions.Compiled"/>,
-/// making all three modes equivalent to <see cref="Interpreted"/> there.
-/// </summary>
-internal enum RegexCompilation : byte
-{
-    /// <summary>Always use the .NET regex interpreter (explicit <c>CompileRegex = false</c>).</summary>
-    Interpreted,
-
-    /// <summary>
-    /// Construct with <see cref="System.Text.RegularExpressions.RegexOptions.Compiled"/> eagerly
-    /// (explicit <c>CompileRegex = true</c> and the prepared script/module default, where reuse is declared).
-    /// </summary>
-    Compiled,
-
-    /// <summary>
-    /// Interpret a pattern on its first constructions and upgrade to
-    /// <see cref="System.Text.RegularExpressions.RegexOptions.Compiled"/> when the same pattern keeps
-    /// being constructed — at that point <see cref="RegExpParseCache"/> has proven reuse, so the one-time
-    /// compilation cost is amortized. One-shot patterns (cold-start scripts, data-driven
-    /// <c>new RegExp(...)</c> floods) never pay it.
-    /// </summary>
-    Adaptive,
-}
-
-/// <summary>
-/// Process-wide bounded cache of .NET <see cref="System.Text.RegularExpressions.Regex"/> adaptations
-/// (wrapped in Acornima's <c>RegExpParseResult</c>), keyed by the inputs that fully determine the result:
-/// pattern, flags, the compiled-codegen flag and the match timeout.
+/// Process-wide bounded cache of compiled <see cref="JintRegExpEngine"/> matchers, keyed by pattern and flags.
 /// <para>
-/// Regex literals already cache their adaptation on the AST node, but that cache only helps a reused
-/// <c>Prepared&lt;Script&gt;</c>; running a script from source (fresh parse, fresh Engine) re-adapts the same
-/// literal every time, and dynamic <c>new RegExp(...)</c> has no per-node cache at all. A shared cache closes
-/// that gap because a successful adaptation is a pure function of the key and the produced Regex is immutable
-/// and thread-safe (match state lives on the JS RegExp instance / returned Match, not on the Regex).
+/// Regex literals already memoize their matcher on the AST node, but that only helps a reused
+/// <c>Prepared&lt;Script&gt;</c>; running a script from source (fresh parse, fresh Engine) recompiles the same
+/// literal every time, and dynamic <c>new RegExp(...)</c> has no per-node memo at all. A shared cache closes
+/// that gap because a compilation is a pure function of the key and the matcher is immutable and thread-safe:
+/// match state lives on the JS RegExp instance and in per-thread scratch, never on the matcher, and the match
+/// timeout is read from the engine at match time rather than baked in. The regex timeout only bounds the work
+/// a compile may do (see <see cref="JintRegExpEngine.Compile"/>), so it is not part of the key: a matcher
+/// another engine already paid to compile costs this one nothing, whatever its budget, and a compile that
+/// outran its budget is not cached, so it cannot poison a later engine with a larger one.
 /// </para>
 /// <para>
-/// The cache also drives <see cref="RegexCompilation.Adaptive"/> tiering: the first construction of a
-/// pattern populates the interpreted lane, and once enough further constructions of the same pattern
-/// prove reuse it is upgraded to a compiled regex (dropping the interpreted entry).
+/// A pattern is cached the second time it is compiled, not the first. Typical scripts use a small, stable set
+/// of patterns, which then costs one extra compile per pattern per process; a script building patterns from
+/// data compiles each once and never fills the cache with matchers nothing will ask for again, which is what
+/// made every such compile pay for the cache (the locks behind <c>ConcurrentDictionary.Count</c>, a clear and
+/// regrow every few hundred patterns, and a cache full of dead matchers kept alive into the older generations).
 /// </para>
 /// <para>
-/// The cache is bounded: once it reaches <see cref="Capacity"/> distinct entries it is cleared and rebuilt,
-/// so a workload generating unboundedly many distinct patterns can never grow it without limit. Typical
-/// scripts use a small, stable set of patterns and fill it once. A clear also resets adaptive reuse
-/// tracking, which keeps distinct-pattern floods on the cheap interpreted path.
+/// The cache is bounded by generations: once the current one holds <see cref="Capacity"/> entries it becomes
+/// the previous one, which is still consulted and whose hits are re-admitted, so a working set that outgrows
+/// one generation is not recompiled wholesale; a workload generating unboundedly many distinct patterns can
+/// never hold more than two generations' worth.
 /// </para>
 /// </summary>
 internal static class RegExpParseCache
 {
-    // Bounded to cap retained compiled automata. Cleared (not LRU-evicted) on overflow: cheap, thread-safe,
-    // and self-healing when the working set shifts. Real scripts rarely approach this many distinct regexes.
-    private const int Capacity = 256;
+    internal const int Capacity = 256;
 
-    // Number of adaptive re-constructions (hits on an interpreted entry) required before upgrading to a
-    // compiled regex, i.e. the upgrade happens on the (AdaptiveUpgradeThreshold + 1)th construction.
-    // Deliberately above the two sightings produced by running the same one-shot script twice (e.g.
-    // Test262's strict + sloppy dual runs of tests that eval tens of thousands of distinct literals,
-    // which would otherwise mass-upgrade under parallel lockstep); genuinely hot patterns sail past it.
-    private const int AdaptiveUpgradeThreshold = 2;
+    // Every pattern's hash goes into a slot of this table on its first compile; finding its own hash already
+    // there is what admits it. Collisions in either direction are benign: a false admit caches one pattern that
+    // was seen once, a false evict costs one more compile before the pattern is cached.
+    private const int SeenSlots = 4096;
+    private static readonly int[] _seen = new int[SeenSlots];
 
-    private static readonly ConcurrentDictionary<Key, Entry> _cache = new();
+    private static readonly int _concurrencyLevel = System.Math.Max(2, Environment.ProcessorCount);
 
-    private readonly record struct Key(string Pattern, string Flags, bool Compiled, long TimeoutTicks);
+    private static ConcurrentDictionary<Key, JintRegExpEngine> _current = NewGeneration();
+    private static ConcurrentDictionary<Key, JintRegExpEngine>? _previous;
+    private static int _count;
 
-    private sealed class Entry
-    {
-        public Entry(in RegExpParseResult result)
-        {
-            Result = result;
-        }
-
-        public readonly RegExpParseResult Result;
-
-        /// <summary>Number of adaptive re-constructions observed since the entry was created.</summary>
-        public int AdaptiveHits;
-    }
+    private readonly record struct Key(string Pattern, string Flags);
 
     /// <summary>
-    /// Returns a cached adaptation for the given regex inputs, adapting (and caching on success) on a miss.
-    /// Only successful adaptations are cached; a failure means the pattern needs the custom engine, which the
-    /// caller resolves per-realm. Callers must already have excluded custom-engine patterns
-    /// (<see cref="RegExpConstructor.NeedCustomEngine"/>) before calling this.
+    /// Returns the cached matcher for <paramref name="pattern"/> and <paramref name="flags"/>, compiling it on a
+    /// miss and caching it once the pattern has been seen twice. An invalid pattern or flags string throws the
+    /// <c>SyntaxError</c> and is not cached, nor is a compile that outran <paramref name="timeout"/> (see
+    /// <see cref="JintRegExpEngine.Compile"/>).
     /// </summary>
-    public static RegExpParseResult GetOrAdapt(string pattern, string flags, RegexCompilation compilation, TimeSpan timeout)
+    public static JintRegExpEngine GetOrCompile(Realm realm, string pattern, string flags, TimeSpan timeout)
     {
-        var compiledKey = new Key(pattern, flags, Compiled: true, timeout.Ticks);
-
-        if (compilation == RegexCompilation.Compiled)
+        var key = new Key(pattern, flags);
+        var current = _current;
+        if (current.TryGetValue(key, out var cached))
         {
-            return _cache.TryGetValue(compiledKey, out var cached) ? cached.Result : Adapt(in compiledKey);
+            return cached;
         }
 
-        var interpretedKey = compiledKey with { Compiled = false };
-
-        if (compilation == RegexCompilation.Interpreted)
+        var previous = _previous;
+        if (previous is not null && previous.TryGetValue(key, out cached))
         {
-            return _cache.TryGetValue(interpretedKey, out var cached) ? cached.Result : Adapt(in interpretedKey);
+            // Still in use across a generation boundary: carry it forward, so the working set survives the swap.
+            Admit(current, key, cached);
+            return cached;
         }
 
-        // RegexCompilation.Adaptive
-        if (_cache.TryGetValue(compiledKey, out var compiled))
+        var compiled = RegExpConstructor.Compile(realm, pattern, flags, timeout);
+
+        var hash = key.GetHashCode();
+        ref var slot = ref _seen[hash & (SeenSlots - 1)];
+        if (slot != hash)
         {
-            return compiled.Result;
+            // First sighting: remember it, hand the matcher out uncached so a one-shot pattern dies young.
+            slot = hash;
+            return compiled;
         }
 
-        if (_cache.TryGetValue(interpretedKey, out var interpreted))
-        {
-            if (Interlocked.Increment(ref interpreted.AdaptiveHits) < AdaptiveUpgradeThreshold)
-            {
-                return interpreted.Result;
-            }
-
-            // Repeated construction of the same pattern: reuse is proven, so the one-time compilation cost
-            // is amortized from here on. Upgrade and drop the now-redundant interpreted entry.
-            var result = Adapt(in compiledKey);
-            if (!result.Success)
-            {
-                // Shouldn't happen (the same pattern already adapted successfully), but never trade a
-                // working .NET adaptation for a custom-engine fallback.
-                return interpreted.Result;
-            }
-
-            _cache.TryRemove(interpretedKey, out _);
-            return result;
-        }
-
-        return Adapt(in interpretedKey);
+        Admit(current, key, compiled);
+        return compiled;
     }
 
-    private static RegExpParseResult Adapt(in Key key)
+    private static void Admit(ConcurrentDictionary<Key, JintRegExpEngine> generation, Key key, JintRegExpEngine matcher)
     {
-#pragma warning disable CS0618 // Tokenizer.AdaptRegExp is obsolete but is the supported adaptation entry point.
-        var result = Tokenizer.AdaptRegExp(
-            key.Pattern, key.Flags, key.Compiled, TimeSpan.FromTicks(key.TimeoutTicks), throwIfNotAdaptable: false,
-            Engine.BaseParserOptions.EcmaVersion, Engine.BaseParserOptions.ExperimentalESFeatures);
-#pragma warning restore CS0618
-
-        if (result.Success)
+        if (!generation.TryAdd(key, matcher))
         {
-            if (_cache.Count >= Capacity)
-            {
-                _cache.Clear();
-            }
-
-            _cache.TryAdd(key, new Entry(in result));
+            return;
         }
 
-        return result;
+        // The count is approximate under contention (a few adders may race past the capacity into the generation
+        // being retired, or into the new one before the count resets), which bounds the cache at Capacity plus a
+        // handful of entries per generation rather than exactly Capacity; exactness would cost the lock the count
+        // replaces. Exactly one adder observes the crossing and retires whatever generation is current, which is
+        // the right one even when that adder's own entry went into an already retired generation.
+        if (Interlocked.Increment(ref _count) == Capacity)
+        {
+            _previous = _current;
+            _current = NewGeneration();
+            Volatile.Write(ref _count, 0);
+        }
     }
+
+    private static ConcurrentDictionary<Key, JintRegExpEngine> NewGeneration() => new(_concurrencyLevel, Capacity);
 }

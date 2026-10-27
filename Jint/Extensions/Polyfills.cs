@@ -580,3 +580,125 @@ internal static class TimeZoneInfoPolyfills
 #endif
     }
 }
+
+internal static class ArgumentNullExceptionPolyfills
+{
+#if !NET6_0_OR_GREATER
+    // ArgumentNullException.ThrowIfNull arrived in .NET 6.
+    extension(ArgumentNullException)
+    {
+        public static void ThrowIfNull([System.Diagnostics.CodeAnalysis.NotNull] object? argument, [CallerArgumentExpression(nameof(argument))] string? paramName = null)
+        {
+            if (argument is null)
+            {
+                throw new ArgumentNullException(paramName);
+            }
+        }
+    }
+#endif
+}
+
+internal static class ArgumentOutOfRangeExceptionPolyfills
+{
+#if !NET8_0_OR_GREATER
+    // The ArgumentOutOfRangeException.ThrowIf* guards arrived in .NET 8, generic over INumberBase<T>;
+    // downlevel only the two integer widths the call sites use are needed.
+    extension(ArgumentOutOfRangeException)
+    {
+        public static void ThrowIfNegative(int value, [CallerArgumentExpression(nameof(value))] string? paramName = null)
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(paramName, value, null);
+            }
+        }
+
+        public static void ThrowIfNegative(long value, [CallerArgumentExpression(nameof(value))] string? paramName = null)
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(paramName, value, null);
+            }
+        }
+
+        public static void ThrowIfNegativeOrZero(int value, [CallerArgumentExpression(nameof(value))] string? paramName = null)
+        {
+            if (value <= 0)
+            {
+                throw new ArgumentOutOfRangeException(paramName, value, null);
+            }
+        }
+
+        public static void ThrowIfNegativeOrZero(long value, [CallerArgumentExpression(nameof(value))] string? paramName = null)
+        {
+            if (value <= 0)
+            {
+                throw new ArgumentOutOfRangeException(paramName, value, null);
+            }
+        }
+    }
+#endif
+}
+
+internal static class EnumPolyfills
+{
+#if !NET5_0_OR_GREATER
+    // The generic Enum.IsDefined<TEnum> arrived in .NET 5.
+    extension(Enum)
+    {
+        public static bool IsDefined<TEnum>(TEnum value) where TEnum : struct, Enum => Enum.IsDefined(typeof(TEnum), value);
+    }
+#endif
+}
+
+internal static class SpanPolyfills
+{
+#if !NET5_0_OR_GREATER
+    // MemoryExtensions.Contains(ReadOnlySpan<T>, T) arrived in .NET 5; netstandard2.1 does not carry it.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool Contains(this ReadOnlySpan<char> span, char value) => span.IndexOf(value) >= 0;
+#endif
+
+#if !NET8_0_OR_GREATER
+    // MemoryExtensions.IndexOfAny(ReadOnlySpan<char>, SearchValues<char>) arrived with SearchValues in .NET 8.
+    internal static int IndexOfAny(this ReadOnlySpan<char> span, SearchValues<char> values)
+    {
+        for (var i = 0; i < span.Length; i++)
+        {
+            if (values.Contains(span[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    // The LastIndexOfAny pair over SearchValues<char> arrived with it too.
+    internal static int LastIndexOfAny(this ReadOnlySpan<char> span, SearchValues<char> values)
+    {
+        for (var i = span.Length - 1; i >= 0; i--)
+        {
+            if (values.Contains(span[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    internal static int LastIndexOfAnyExcept(this ReadOnlySpan<char> span, SearchValues<char> values)
+    {
+        for (var i = span.Length - 1; i >= 0; i--)
+        {
+            if (!values.Contains(span[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+#endif
+}

@@ -250,11 +250,11 @@ internal sealed class StructuredSerializer
             case JsRegExp regExp:
                 record = new SerializedRegExp
                 {
-                    Matcher = regExp.Value,
+                    Matcher = regExp.Matcher,
+                    HostRegex = regExp.HostRegex,
+                    ConversionOptions = regExp.ConversionOptions,
                     Source = regExp.Source,
                     Flags = regExp.Flags,
-                    ParseResult = regExp.ParseResult,
-                    IsHostRegex = regExp.IsHostRegex,
                 };
                 break;
 
