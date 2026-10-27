@@ -1348,8 +1348,9 @@ public sealed partial class Engine : IDisposable
     // long-lived engine does, and the reset is what bounds what that engine retains.
     internal const int HandlerTreeCacheCeiling = 2048;
 
-    // Scripts this engine has run global declaration instantiation for, so the definition cache
-    // above only engages on RE-evaluation (see GlobalDeclarationInstantiation).
+    // Scripts this engine has evaluated, so the definition cache above only engages on RE-evaluation
+    // (see GlobalDeclarationInstantiation). A script is added only after its hoisting walk succeeded,
+    // which is what lets the single-expression path in ScriptEvaluation skip the walk for a member.
     //
     // Bounded like the caches it gates. A membership marker looks free, but a HashSet holds its keys
     // strongly, so every distinct script an engine had ever run stayed reachable through this set -
@@ -2804,17 +2805,32 @@ public sealed partial class Engine : IDisposable
         var parserOptions = preparedScript.ParserOptions;
         var parsingConstraints = _parsingConstraints.Combine(preparedScript.ParsingConstraints);
         var strict = _isStrict || script.Strict;
-        // The lambda captures the locals (script, parserOptions), never the `in` parameter.
-        return ExecuteWithConstraints(strict, () => ScriptEvaluation(
-            new ScriptRecord(
-                Realm,
-                script,
-                script.Location.SourceFile,
-                parsingConstraints,
-                parserOptions),
-            parserOptions,
-            in parsingConstraints));
+        // State travels in a struct to a static callback, so the entry allocates no closure.
+        return ExecuteWithConstraints(
+            strict,
+            default,
+            new ScriptEvaluationState(this, script, parserOptions, parsingConstraints),
+            static (_, state) =>
+            {
+                var constraints = state.ParsingConstraints;
+                return state.Engine.ScriptEvaluation(
+                    new ScriptRecord(
+                        state.Engine.Realm,
+                        state.Script,
+                        state.Script.Location.SourceFile,
+                        constraints,
+                        state.ParserOptions),
+                    state.ParserOptions,
+                    in constraints);
+            });
     }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private readonly record struct ScriptEvaluationState(
+        Engine Engine,
+        Script Script,
+        ParserOptions ParserOptions,
+        ParsingConstraints ParsingConstraints);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-scriptevaluation
@@ -2824,7 +2840,13 @@ public sealed partial class Engine : IDisposable
         ParserOptions parserOptions,
         in ParsingConstraints parsingConstraints)
     {
-        Debugger.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
+        // Reading Debugger creates the handler (and claims the engine) on first use. Only a host that already
+        // touched it can have subscribed to BeforeEvaluate; debug mode still creates it here, so its initial
+        // step depth is anchored at script entry.
+        if (_debugger is not null || _isDebugMode)
+        {
+            Debugger.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
+        }
 
         var globalEnv = Realm.GlobalEnv;
 
@@ -2848,7 +2870,26 @@ public sealed partial class Engine : IDisposable
         try
         {
             var script = scriptRecord.EcmaScriptCode;
-            var reEvaluation = GlobalDeclarationInstantiation(script, globalEnv);
+
+            // A script that is one expression (`a + b`, `isValid(x)`) declares nothing, so global declaration
+            // instantiation has nothing to do, and its completion value is the expression's.
+            var singleExpression = script.Body.Count == 1 && script.Body[0] is ExpressionStatement;
+            bool reEvaluation;
+            if (singleExpression)
+            {
+                // The hoisting walk is what bounds the nesting depth of a script that was not analysed when
+                // prepared, so it still runs on the first evaluation; an analysed script already had it.
+                if (script.UserData is not CachedHoistingScope && !_evaluatedScripts.Contains(script))
+                {
+                    _ = script.GetHoistingScope();
+                }
+
+                reEvaluation = MarkScriptEvaluated(script);
+            }
+            else
+            {
+                reEvaluation = GlobalDeclarationInstantiation(script, globalEnv);
+            }
 
             // On re-evaluation reuse this engine's cached top-level handler tree (and its warm
             // per-node inline caches) instead of rebuilding it; a first evaluation - the fresh-
@@ -2860,7 +2901,10 @@ public sealed partial class Engine : IDisposable
             Completion result;
             try
             {
-                result = list.Execute(_evaluationContext);
+                // The single expression runs its statement directly rather than through the list's loop.
+                result = singleExpression
+                    ? list.ExecuteOnlyStatement(_evaluationContext)
+                    : list.Execute(_evaluationContext);
             }
             catch
             {
@@ -3361,6 +3405,13 @@ public sealed partial class Engine : IDisposable
 
     internal void RunAvailableContinuations(bool allowTaskDrain = false)
     {
+        // Skipped only when the drain would provably do nothing: the host-call claim taken below guards the
+        // drain's work, and there is none. The engine's own entry points already hold a claim of their own.
+        if (IsContinuationDrainNoOp())
+        {
+            return;
+        }
+
         using var ownership = EnterHostCall();
         _eventLoop.RunAvailableContinuations(this, allowTaskDrain: allowTaskDrain);
     }
@@ -4659,17 +4710,29 @@ public sealed partial class Engine : IDisposable
         var hoistingScope = script.GetHoistingScope();
         var functionDeclarations = hoistingScope._functionDeclarations;
 
-        var functionToInitialize = new List<JintFunctionDefinition>();
-        var declaredFunctionNames = new HashSet<Key>();
-        var declaredVarNames = new List<Key>();
-
-        var realm = Realm;
-
         // The definition / statement-list caches pay only when the same script runs on this engine
         // again (the cached-Prepared<Script> embedding pattern); a first evaluation - fresh-engine-
         // per-run hosts never see a second one - takes plain construction so one-shot scripts stay
         // byte-identical to the uncached path.
         var reEvaluation = MarkScriptEvaluated(script);
+
+        // A script that declares nothing (an expression, a call) has nothing to instantiate: skip the
+        // working collections below. Annex B block functions only bind in sloppy mode.
+        var varNames = script.GetVarNames(hoistingScope);
+        var lexNames = script.GetLexNames(hoistingScope);
+        if (functionDeclarations is null
+            && varNames.Count == 0
+            && lexNames.Count == 0
+            && (_isStrict || script.Strict || hoistingScope._annexBFunctionDeclarations is null))
+        {
+            return reEvaluation;
+        }
+
+        var functionToInitialize = new List<JintFunctionDefinition>();
+        var declaredFunctionNames = new HashSet<Key>();
+        var declaredVarNames = new List<Key>();
+
+        var realm = Realm;
 
         if (functionDeclarations != null)
         {
@@ -4691,7 +4754,6 @@ public sealed partial class Engine : IDisposable
             }
         }
 
-        var varNames = script.GetVarNames(hoistingScope);
         for (var j = 0; j < varNames.Count; j++)
         {
             var vn = varNames[j];
@@ -4713,7 +4775,6 @@ public sealed partial class Engine : IDisposable
         }
 
         PrivateEnvironment? privateEnv = null;
-        var lexNames = script.GetLexNames(hoistingScope);
         for (var i = 0; i < lexNames.Count; i++)
         {
             var declaration = lexNames[i];

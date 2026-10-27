@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
@@ -251,6 +252,42 @@ internal sealed class JintStatementList
             result = result.UpdateEmpty(JsValue.Undefined);
         }
         return result;
+    }
+
+    /// <summary>
+    /// Runs a script's top-level list whose only statement is an expression statement, without the loop of
+    /// <see cref="Execute"/>: completion values observable, and an exception the statement raised handled
+    /// as the catch in <see cref="Execute"/> handles it. The statement always yields a value, so no empty
+    /// completion is left to update.
+    /// </summary>
+    internal Completion ExecuteOnlyStatement(EvaluationContext context)
+    {
+        Debug.Assert(_statement is null && _jintStatements!.Length == 1 && _jintStatements[0].Statement is JintExpressionStatement);
+
+        var statement = _jintStatements![0].Statement;
+        var oldCompletionValuesObservable = context.CompletionValuesObservable;
+        context.CompletionValuesObservable = true;
+        try
+        {
+            return statement.Execute(context);
+        }
+        // Keep in step with the catch in Execute above. A script's top level has no suspendable, so the
+        // filter is ShouldCatch alone: LeavingOnException would have no resume position to clear.
+        catch (Exception ex) when (ShouldCatch(ex))
+        {
+            if (ex is JintException)
+            {
+                return HandleException(context, ex, statement);
+            }
+
+            var locationNode = (Node?) context.Engine._lastSyntaxElement ?? statement._statement;
+            ExceptionDataHelper.TryAttachJavaScriptLocation(ex, context.Engine, locationNode.Location);
+            throw;
+        }
+        finally
+        {
+            context.CompletionValuesObservable = oldCompletionValuesObservable;
+        }
     }
 
     /// <summary>
