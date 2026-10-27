@@ -60,6 +60,7 @@ namespace Jint.Browser
     {
         public BrowserOptions() { }
         public bool BlockPrivateNetwork { get; set; }
+        public System.Func<Jint.WebApi.ConsoleSink, Jint.WebApi.ConsoleSink>? ConsoleSinkDecorator { get; set; }
         public System.TimeSpan FetchTimeout { get; set; }
         public bool HasTouch { get; set; }
         public int MaxActiveTimers { get; set; }

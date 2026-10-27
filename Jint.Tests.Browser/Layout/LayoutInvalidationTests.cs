@@ -2,6 +2,7 @@ using Jint.Browser;
 using Jint.Browser.Dom;
 using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
+using Jint.WebApi;
 
 namespace Jint.Tests.Browser.Layout;
 
@@ -17,6 +18,61 @@ public sealed class LayoutInvalidationTests
         <input id="flag" type="checkbox"><button id="target" class="target">Save</button>
         <div id="hiddenParent" hidden></div>
         """;
+
+    [Test]
+    public async Task ConsoleDecorationPreservesLoggingAndLayoutReuseAcrossNavigation()
+    {
+        var options = new BrowserOptions { ConsoleSinkDecorator = sink => new PrefixConsoleSink(sink) };
+        await using var browser = new global::Jint.Browser.Browser(options);
+        var page = await browser.NewPageAsync();
+        for (var navigation = 0; navigation < 2; navigation++)
+        {
+            await page.SetContentAsync(Markup);
+            await InstallDiagnostics(page);
+            (await page.EvaluateAsync<string>("""
+                (() => {
+                    const before = queryStamp();
+                    const layout = layoutStamp();
+                    console.error('failure');
+                    const unchanged = before === queryStamp() && layout === layoutStamp();
+                    document.getElementById('target').hidden = true;
+                    return [
+                        unchanged,
+                        before !== queryStamp(),
+                        layout !== layoutStamp(),
+                        document.getElementById('target').getBoundingClientRect().height === 0
+                    ].join(',');
+                })()
+                """)).Should().Be("true,true,true,true");
+        }
+        page.ConsoleMessages.Should().Equal("error: failure", "error: failure");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ConsoleDecorationCannotReturnANullSink()
+    {
+        await using var browser = new global::Jint.Browser.Browser(new BrowserOptions
+        {
+            ConsoleSinkDecorator = _ => null!,
+        });
+        Func<Task> open = async () => await browser.NewPageAsync();
+        await open.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("The console sink decorator must return a non-null sink.");
+    }
+
+    private sealed class PrefixConsoleSink : ConsoleSink
+    {
+        private readonly ConsoleSink _inner;
+
+        public PrefixConsoleSink(ConsoleSink inner)
+        {
+            _inner = inner;
+        }
+
+        public override void Write(ConsoleLogLevel level, string message)
+            => _inner.Write(level, $"{level.ToString().ToLowerInvariant()}: {message}");
+    }
 
     [Test]
     public async Task UnchangedReadsShareMeasurementsAndCompleteLayouts()
