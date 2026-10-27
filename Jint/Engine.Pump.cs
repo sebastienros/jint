@@ -288,7 +288,7 @@ public partial class Engine
     /// piece of work the drain can do on an empty queue: a new self-scheduled work source added to this file
     /// belongs here too.
     /// </remarks>
-    internal bool IsContinuationDrainNoOp()
+    private bool IsContinuationDrainNoOp()
     {
         if (!_eventLoop.HasNothingToDrain || _atomicsWaiterDeadlines is not null || HasPendingRejectionNotifications)
         {
