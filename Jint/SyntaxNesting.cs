@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Runtime;
@@ -33,12 +34,13 @@ namespace Jint;
 /// <see cref="UncheckedDepth"/> levels; the interpreter without these probes took any number.
 /// </para>
 /// <para>
-/// A walk that runs out fails with a <see cref="ScriptPreparationException"/> marked by a
-/// <see cref="NestingTooDeepException"/>. A statement list turns the mark into a <c>RangeError</c> the script can
+/// A walk that runs out fails with a <see cref="ScriptPreparationException"/> carrying a mark in its
+/// <see cref="Exception.Data"/>. A statement list turns the marked exception into a <c>RangeError</c> the script can
 /// catch, so a tree built while script runs fails the way V8's lazy compilation does, and building a function when it
-/// is called does the same (rejecting an async function's promise). The engine's entry point removes the mark on the
-/// way out, so the host, and a script whose host callback ran another script, see a
-/// <see cref="ScriptPreparationException"/>.
+/// is called or its <c>length</c> read does the same (rejecting an async function's promise). The engine's entry
+/// point and <c>Engine.PrepareScript</c>/<c>PrepareModule</c> remove the mark on the way out, so the host, and a
+/// script whose host callback ran another script, see the <see cref="ScriptPreparationException"/> main threw for a
+/// tree too deep to walk: no inner exception, and the stack trace of the walk that ran out.
 /// </para>
 /// <para>
 /// Only cold paths enter it: once per interpreter node built or per node an analysis visits, never per evaluation.
@@ -81,6 +83,19 @@ internal static class SyntaxNesting
     [ThreadStatic]
     private static StackBudget _budget;
 
+    // What a build that stands in for part of a deeper tree adds to _depth where probes are placed; see BuildAsIfAt.
+    [ThreadStatic]
+    private static int _probeDepthOffset;
+
+    // The key of the mark ThrowTooDeep puts in the exception's Data: a string and a bool, which .NET Framework's
+    // Data, serializable entries only, accepts.
+    private const string TooDeepKey = "Jint.SyntaxNesting.TooDeep";
+
+    /// <summary>
+    /// The depth probes are placed by: the node being built's depth, as the tree it belongs to counts it.
+    /// </summary>
+    internal static int ProbeDepth => _depth + _probeDepthOffset;
+
     /// <summary>
     /// Whether the node being built sits at a depth <see cref="EvaluationProbeInterval"/> divides, which is
     /// where a chain gets an evaluation probe.
@@ -89,7 +104,7 @@ internal static class SyntaxNesting
     {
         get
         {
-            var depth = _depth;
+            var depth = ProbeDepth;
             return depth > 0 && depth % EvaluationProbeInterval == 0;
         }
     }
@@ -101,7 +116,7 @@ internal static class SyntaxNesting
     /// </summary>
     internal static bool SpansEvaluationProbeDepth(int levels)
     {
-        var depth = _depth;
+        var depth = ProbeDepth;
         var offset = depth % EvaluationProbeInterval;
         return (depth > 0 && offset == 0) || offset + levels >= EvaluationProbeInterval;
     }
@@ -127,26 +142,73 @@ internal static class SyntaxNesting
     }
 
     /// <summary>
-    /// Whether <paramref name="exception"/> is a walk that ran out of stack, as <see cref="ThrowTooDeep"/> raises it.
+    /// Builds what comes next as though it were <paramref name="depth"/> deep where probes are placed, until the
+    /// result is disposed. For a build that stands in for part of a deeper tree, so that it carries its probes where
+    /// that tree did and the hoisting walk counted them: the operands a flattened <c>+</c> chain builds lazily, which
+    /// would otherwise start again from the top.
+    /// </summary>
+    internal static ProbeDepthScope BuildAsIfAt(int depth)
+    {
+        var previous = _probeDepthOffset;
+        _probeDepthOffset = depth - 1 - _depth;
+        return new ProbeDepthScope(previous);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="exception"/> is a walk that ran out of stack, as <see cref="ThrowTooDeep"/> raises it
+    /// and nothing has unmarked it since.
     /// </summary>
     internal static bool IsTooDeep(Exception exception)
-        => exception is ScriptPreparationException { InnerException: NestingTooDeepException };
+    {
+        if (exception is not ScriptPreparationException)
+        {
+            return false;
+        }
+
+        try
+        {
+            return exception.Data is { } data && data.Contains(TooDeepKey);
+        }
+        catch
+        {
+            // Read from exception filters, which must not throw.
+            return false;
+        }
+    }
 
     [DoesNotReturn]
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void ThrowTooDeep()
     {
-        throw new ScriptPreparationException(
-            "Script nesting is too deep: preparing it would exhaust the stack.",
-            new NestingTooDeepException());
+        var exception = new ScriptPreparationException("Script nesting is too deep: preparing it would exhaust the stack.", null);
+        exception.Data[TooDeepKey] = true;
+        throw exception;
     }
 
     /// <summary>
-    /// The exception a host sees for a walk that ran out of stack: the same, without the mark that lets a statement
-    /// list catch it.
+    /// Removes the mark, if it has one, from an exception that is leaving the engine, so that nothing outside it, and
+    /// no statement list of a script that called the host, treats it as its own.
     /// </summary>
-    internal static ScriptPreparationException ForHost(ScriptPreparationException exception)
-        => new(exception.Message, innerException: null);
+    internal static TException Unmark<TException>(TException exception) where TException : Exception
+    {
+        if (IsTooDeep(exception))
+        {
+            exception.Data.Remove(TooDeepKey);
+        }
+
+        return exception;
+    }
+
+    /// <summary>
+    /// Throws a walk's exception on to the host: the same exception, unmarked, with the stack trace of the walk that
+    /// ran out. Typed to be thrown, so that the compiler sees the call site does not return.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static Exception RethrowForHost(ScriptPreparationException exception)
+    {
+        ExceptionDispatchInfo.Capture(Unmark(exception)).Throw();
+        return exception;
+    }
 
     /// <summary>
     /// The <c>RangeError</c> a script sees for a walk that ran out of stack.
@@ -181,6 +243,18 @@ internal static class SyntaxNesting
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose() => _depth--;
 #pragma warning restore CA1822
+    }
+
+    /// <summary>
+    /// Restores the probe depth <see cref="BuildAsIfAt"/> changed.
+    /// </summary>
+    internal readonly ref struct ProbeDepthScope
+    {
+        private readonly int _previous;
+
+        internal ProbeDepthScope(int previous) => _previous = previous;
+
+        public void Dispose() => _probeDepthOffset = _previous;
     }
 
     /// <summary>
@@ -224,7 +298,8 @@ internal static class SyntaxNesting
     /// chain's last level. So the first interval of a run, its last level included, counts as unprobed on top of
     /// whatever lies above the run, and any level after it as at most one interval and one level past a probe. A
     /// flattened <c>+</c> chain has no levels below its first node, so the walk counts levels it does not have; it
-    /// carries a probe of its own wherever its nested form would have carried one, so the count still holds.
+    /// carries a probe of its own wherever its nested form would have carried one, and builds each operand as though
+    /// at that operand's depth in the nested form, so the count still holds for the operands' own chains.
     /// </remarks>
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct Unprobed(int Depth, int RunEntry, int RunDepth)
@@ -248,12 +323,3 @@ internal static class SyntaxNesting
     }
 }
 
-/// <summary>
-/// Marks the <see cref="ScriptPreparationException"/> of a walk over the syntax tree that ran out of stack.
-/// </summary>
-internal sealed class NestingTooDeepException : JintException
-{
-    public NestingTooDeepException() : base(SyntaxNesting.RangeErrorMessage)
-    {
-    }
-}

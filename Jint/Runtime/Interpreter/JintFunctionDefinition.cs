@@ -91,10 +91,11 @@ internal sealed class JintFunctionDefinition
     /// The source text matched by the production this function was defined by, or <see langword="null"/>
     /// when the parse did not retain it. https://tc39.es/ecma262/#sec-function.prototype.tostring
     /// </summary>
-    internal string? GetSourceText()
+    internal string? GetSourceText(Realm realm)
     {
         var sourceTextNode = (Node) SourceTextNode;
-        return Initialize().SourceText.GetValue(sourceTextNode) ?? _ownSourceText.GetValue(sourceTextNode);
+        var state = BuiltState ?? InitializeOrThrowRangeError(realm);
+        return state.SourceText.GetValue(sourceTextNode) ?? _ownSourceText.GetValue(sourceTextNode);
     }
 
     public bool Strict => Function.IsStrict();
@@ -526,6 +527,28 @@ internal sealed class JintFunctionDefinition
     /// The State, when <see cref="Initialize"/> has built it.
     /// </summary>
     internal State? BuiltState => ((Node) Function).UserData as State;
+
+    /// <summary>
+    /// <see cref="Initialize"/> for a function being called, constructed, or having its <c>length</c> or source text
+    /// read: a body too deep for the stack to analyse fails as the <c>RangeError</c> a call throws, whoever asked,
+    /// script or host. See <see cref="SyntaxNesting"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal State InitializeOrThrowRangeError(Realm realm)
+    {
+        try
+        {
+            return Initialize();
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // Nothing runs in here: a catch block runs on top of the frames of the walk that threw, and only
+            // leaving it gives their stack back.
+        }
+
+        Throw.RangeError(realm, SyntaxNesting.RangeErrorMessage);
+        return null!;
+    }
 
     internal State Initialize()
     {

@@ -6702,12 +6702,15 @@ does an `else if` chain of about 1,500 arms. On a 16 MB stack the figures are ab
 `else if` figure the parser runs out of stack first, and fails as it did before.
 
 A chain too long to prepare fails with a `ScriptPreparationException`, "Script nesting is too deep: preparing it
-would exhaust the stack". That happens when it is prepared, or when it is first built by a host call. When it is
-first built while script runs, for example in a function the script calls, the failure is a `RangeError: Maximum call
-stack size exceeded` instead, which the script can catch. An async function returns a promise rejected with that
-`RangeError`, and a promise executor rejects its promise, as they do when the script throws one. A chain that is
-prepared but too long to run throws the same `RangeError` as it runs, and so does a chain run near the bottom of the
-stack, from a deep recursion. With `MaxExecutionStackCount` set, it moves to a fresh stack, as a call does. Before, a
+would exhaust the stack", when the script or module holding it is prepared or started. `Engine.PrepareScript` and
+`Engine.PrepareModule` analyse every function up front, so there a function too deep fails the same way, wrapped as
+before. Otherwise a function's body is analysed and built when the function is first called, or its `length` first
+read, and a chain too long for that fails with a `RangeError: Maximum call stack size exceeded` instead, whoever
+calls it: the script can catch it, and a host calling through `Invoke` or `Call` receives it as a
+`JavaScriptException`. Anything else first built while script runs, such as a block in a `catch`, fails the same way.
+An async function returns a promise rejected with that `RangeError`, and a promise executor rejects its promise, as
+they do when the script throws one. A chain that is prepared but too long to run throws the same `RangeError` as it
+runs, and so does a chain run near the bottom of the stack, from a deep recursion. With `MaxExecutionStackCount` set, it moves to a fresh stack, as a call does. Before, a
 chain of 200 operands could overflow the native stack there and end the process.
 
 A script that a host callback runs with `Execute` or `Evaluate` is an entry of its own. If it is too deep, the

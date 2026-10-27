@@ -4381,7 +4381,7 @@ public sealed partial class Engine : IDisposable
             }
         }
 
-        throw SyntaxNesting.ForHost(tooDeep);
+        throw SyntaxNesting.RethrowForHost(tooDeep);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -4462,7 +4462,7 @@ public sealed partial class Engine : IDisposable
             }
         }
 
-        throw SyntaxNesting.ForHost(tooDeep);
+        throw SyntaxNesting.RethrowForHost(tooDeep);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

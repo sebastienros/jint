@@ -480,6 +480,68 @@ public class ScriptNestingTests
         engine.GetValue("caught").AsBoolean().Should().BeFalse();
     }, maxStackSize: SmallStackSize);
 
+    // A function's body is analysed and built when the function is first called, whoever calls it: a host calling it
+    // through Invoke or Call gets the RangeError a script would, as a JavaScriptException, each time it tries.
+    [Test]
+    public void AFunctionTooDeepToBuildThrowsARangeErrorWhenTheHostCallsIt() => DedicatedThread.Run(() =>
+    {
+        var engine = new Engine();
+        engine.Execute($"function f() {{ return ({Chain("||", 100_000)}); }}");
+
+        var invoked = Caught.Exception(() => engine.Invoke("f"));
+        var called = Caught.Exception(() => engine.GetValue("f").Call());
+
+        invoked.Should().BeOfType<JavaScriptException>().Which.Message.Should().Be("Maximum call stack size exceeded");
+        called.Should().BeOfType<JavaScriptException>().Which.Message.Should().Be("Maximum call stack size exceeded");
+    }, maxStackSize: SmallStackSize);
+
+    // Reading a function's length analyses its body as a call does, and fails the same way, read by script or host.
+    [Test]
+    public void ReadingTheLengthOfAFunctionTooDeepToAnalyseThrowsARangeError() => DedicatedThread.Run(() =>
+    {
+        var engine = new Engine();
+        engine.Execute($"function f(a, b) {{ return ({Chain("||", 100_000)}); }} function g(a) {{ return 1; }}");
+
+        var exception = Caught.Exception(() => engine.GetValue("f").AsObject().Get("length"));
+
+        exception.Should().BeOfType<JavaScriptException>().Which.Message.Should().Be("Maximum call stack size exceeded");
+        engine.Evaluate("var caught; try { f.length; } catch (e) { caught = e instanceof RangeError; } caught").AsBoolean().Should().BeTrue();
+        engine.Evaluate("g.length").AsNumber().Should().Be(1);
+    }, maxStackSize: SmallStackSize);
+
+    // A tree too deep for the stack reaches the host as the exception main threw for one too deep to walk: a
+    // ScriptPreparationException with no inner exception, carrying the stack trace of the walk that ran out.
+    [Test]
+    public void AScriptTooDeepToPrepareFailsToTheHostWithTheStackTraceOfTheWalk() => DedicatedThread.Run(() =>
+    {
+        var exception = Caught.Exception(() => new Engine().Execute($"var r = ({Chain("-", 100_000)});"));
+
+        var preparation = exception.Should().BeOfType<ScriptPreparationException>().Which;
+        preparation.InnerException.Should().BeNull();
+        SyntaxNesting.IsTooDeep(preparation).Should().BeFalse();
+        preparation.StackTrace.Should().Contain(nameof(SyntaxNesting.ThrowTooDeep));
+    }, maxStackSize: SmallStackSize);
+
+    // Engine.PrepareScript and PrepareModule analyse every function up front, and wrap what fails there: the inner
+    // exception is the walk's, unmarked, as main's was.
+    [Test]
+    public void PreparingAScriptWithAFunctionTooDeepToAnalyseFailsAsItAlwaysDid() => DedicatedThread.Run(() =>
+    {
+        var function = $"function f() {{ return ({Chain("||", 100_000)}); }}";
+
+        AssertPreparationFailure(Caught.Exception(() => Engine.PrepareScript(function)));
+        AssertPreparationFailure(Caught.Exception(() => Engine.PrepareModule("export " + function)));
+
+        static void AssertPreparationFailure(Exception? exception)
+        {
+            var preparation = exception.Should().BeOfType<ScriptPreparationException>().Which;
+            preparation.Message.Should().StartWith("Could not prepare script: Script nesting is too deep");
+            var walk = preparation.InnerException.Should().BeOfType<ScriptPreparationException>().Which;
+            walk.InnerException.Should().BeNull();
+            SyntaxNesting.IsTooDeep(walk).Should().BeFalse();
+        }
+    }, maxStackSize: SmallStackSize);
+
     // The probe that ends a chain's first interval is not placed when that level is the chain's last, so the walk
     // counts all of the first interval as unprobed. Here the chain's last level is exactly the 64th, under and over
     // 150 levels of member reads, at every alignment the build depth can give it: what main refused is refused.
@@ -537,10 +599,32 @@ public class ScriptNestingTests
         }
     }, maxStackSize: DeepCallStackSize);
 
+    // A flattened chain whose first operand is itself an operator chain, a thirty-level `||`: the walk counts that
+    // chain as more levels of the `+` chain it ends, so its probes have to sit where the nested tree put them. The
+    // flattened lane builds its own copy of every operand when it first runs, from the top of a fresh build, so that
+    // copy is built as though at the depth of the nested tree's copy. Every alignment of the interval is tried; built
+    // from the top instead, the copy carried no probe at about a third of them, and some 360 nodes ran unprobed.
+    [Test]
+    public void AFlattenedConcatenationWhoseFirstOperandIsAnOperatorChainKeepsEveryRunOfUnprobedNodesWithinTheLimit() => DedicatedThread.Run(() =>
+    {
+        var operatorChain = "(o" + string.Concat(Enumerable.Repeat(".b", 185)) + ".s" + string.Concat(Enumerable.Repeat(" || 0", 30)) + ")";
+        var concat = operatorChain + string.Concat(Enumerable.Repeat(" + s", 39));
+        for (var conditionals = 120; conditionals < 120 + SyntaxNestingProbeInterval; conditionals++)
+        {
+            var nested = string.Concat(Enumerable.Repeat("0 ? 0 : ", conditionals)) + "(" + concat + ")";
+
+            var (result, longestUnprobedRun) = RunAndMeasureTheDeepOperand(nested);
+
+            result.Length.Should().Be(40);
+            longestUnprobedRun.Should().BeLessThanOrEqualTo(SyntaxNesting.MaxUnprobedDepth, $"{conditionals} conditionals");
+        }
+    }, maxStackSize: DeepCallStackSize);
+
     /// <summary>
-    /// Runs <c>f</c>, returning <paramref name="expression"/>, once, so that its tree is built; then measures the path
-    /// through that tree down to the one read of <c>o</c>: the most interpreter nodes in a row on it with no stack probe
-    /// among them, which is how far evaluating it recurses between two probes.
+    /// Runs <c>f</c>, returning <paramref name="expression"/>, once, so that its tree is built; then measures every
+    /// path through that tree down to a read of <c>o</c>, of which a flattened chain holds two, one per lane: the most
+    /// interpreter nodes in a row on any of them with no stack probe among them, which is how far evaluating it
+    /// recurses between two probes.
     /// </summary>
     private static (string Result, int LongestUnprobedRun) RunAndMeasureTheDeepOperand(string expression)
     {
@@ -552,17 +636,24 @@ public class ScriptNestingTests
             """);
 
         var definition = ((Jint.Native.Function.ScriptFunction) engine.GetValue("f"))._functionDefinition!;
-        var visited = new HashSet<object>(new ReferenceIdentity());
-        var longest = LongestUnprobedRun(definition, unprobed: 0, longestSoFar: 0, visited)
-                      ?? throw new InvalidOperationException("The read of o was not found in f's tree.");
+        var onPath = new HashSet<object>(new ReferenceIdentity());
+        var withoutRead = new HashSet<object>(new ReferenceIdentity());
+        var longest = LongestUnprobedRun(definition, unprobed: 0, longestSoFar: 0, onPath, withoutRead);
+        if (longest < 0)
+        {
+            throw new InvalidOperationException("No read of o was found in f's tree.");
+        }
+
         return (engine.GetValue("r").AsString(), longest);
     }
 
-    private static int? LongestUnprobedRun(object node, int unprobed, int longestSoFar, HashSet<object> visited)
+    // The longest unprobed run on any path from node to a read of o, or -1 when there is none below it. Every path is
+    // taken, not the first one the fields happen to lead to; a subtree with no read in it is remembered and skipped.
+    private static int LongestUnprobedRun(object node, int unprobed, int longestSoFar, HashSet<object> onPath, HashSet<object> withoutRead)
     {
-        if (!visited.Add(node))
+        if (withoutRead.Contains(node) || !onPath.Add(node))
         {
-            return null;
+            return -1;
         }
 
         if (node is Jint.Runtime.Interpreter.Expressions.JintStackProbeExpression or Jint.Runtime.Interpreter.Statements.JintStackProbeStatement)
@@ -575,22 +666,22 @@ public class ScriptNestingTests
         }
 
         longestSoFar = Math.Max(longestSoFar, unprobed);
-        if (node is Jint.Runtime.Interpreter.Expressions.JintExpression { _expression: Identifier { Name: "o" } })
-        {
-            return longestSoFar;
-        }
+        var longest = node is Jint.Runtime.Interpreter.Expressions.JintExpression { _expression: Identifier { Name: "o" } } ? longestSoFar : -1;
 
         var children = new List<object>();
         CollectInterpreterNodes(node, children, structDepth: 0);
         foreach (var child in children)
         {
-            if (LongestUnprobedRun(child, unprobed, longestSoFar, visited) is { } found)
-            {
-                return found;
-            }
+            longest = Math.Max(longest, LongestUnprobedRun(child, unprobed, longestSoFar, onPath, withoutRead));
         }
 
-        return null;
+        onPath.Remove(node);
+        if (longest < 0)
+        {
+            withoutRead.Add(node);
+        }
+
+        return longest;
     }
 
     // The interpreter's objects a node holds: its operands, statements and wrappers, whether in a field, an array or a

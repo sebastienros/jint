@@ -1756,6 +1756,10 @@ internal abstract class JintBinaryExpression : JintExpression
         private readonly Expression[] _operandExpressions;
         private JintExpression[]? _operands;
 
+        // The depth, as probes are placed, this node was built at: its operands are built lazily, from the top of a
+        // fresh build, and are placed as the nested tree's copies of them were (see EnsureInitialized).
+        private readonly int _probeDepth;
+
         /// <summary>
         /// What the opening pair of this chain produced last time it ran. A performance hint, but
         /// only where nothing can suspend: it selects between two lanes whose suspend/resume
@@ -1774,6 +1778,7 @@ internal abstract class JintBinaryExpression : JintExpression
             : base(expression)
         {
             _operandExpressions = operandExpressions;
+            _probeDepth = SyntaxNesting.ProbeDepth;
         }
 
         private void EnsureInitialized()
@@ -1783,13 +1788,29 @@ internal abstract class JintBinaryExpression : JintExpression
                 return;
             }
 
-            var operands = new JintExpression[_operandExpressions.Length];
-            for (var i = 0; i < _operandExpressions.Length; i++)
+            _operands = BuildOperands();
+        }
+
+        /// <summary>
+        /// Builds the flattened lane's own copy of every operand, each as though at the depth the nested tree built
+        /// its copy: the last operand one level below this node, the first two one level below the deepest
+        /// <c>+</c>. The hoisting walk counted an operand that is itself an operator chain as more levels of the
+        /// chain it ends, and an operand built from the top of a fresh build would carry its probes elsewhere.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private JintExpression[] BuildOperands()
+        {
+            var count = _operandExpressions.Length;
+            var operands = new JintExpression[count];
+            for (var i = 0; i < count; i++)
             {
-                operands[i] = Build(_operandExpressions[i]);
+                using (SyntaxNesting.BuildAsIfAt(_probeDepth + count - Math.Max(i, 1)))
+                {
+                    operands[i] = Build(_operandExpressions[i]);
+                }
             }
 
-            _operands = operands;
+            return operands;
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
