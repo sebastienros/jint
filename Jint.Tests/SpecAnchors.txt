@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1291
+anchors: 1293
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -654,6 +654,7 @@ ecma262 sec-runtime-semantics-classdefinitionevaluation
 ecma262 sec-runtime-semantics-classfielddefinitionevaluation
 ecma262 sec-runtime-semantics-classstaticblockdefinitionevaluation
 ecma262 sec-runtime-semantics-definemethod
+ecma262 sec-runtime-semantics-destructuringassignmentevaluation
 ecma262 sec-runtime-semantics-evaluateasyncgeneratorbody
 ecma262 sec-runtime-semantics-evaluateconcisebody
 ecma262 sec-runtime-semantics-evaluatefunctionbody
@@ -676,6 +677,7 @@ ecma262 sec-runtime-semantics-instantiateordinaryfunctionobject
 ecma262 sec-runtime-semantics-iteratorbindinginitialization
 ecma262 sec-runtime-semantics-iteratordestructuringassignmentevaluation
 ecma262 sec-runtime-semantics-keyedbindinginitialization
+ecma262 sec-runtime-semantics-keyeddestructuringassignmentevaluation
 ecma262 sec-runtime-semantics-methoddefinitionevaluation
 ecma262 sec-runtime-semantics-propertydefinitionevaluation
 ecma262 sec-runtime-semantics-repeatmatcher-abstract-operation
