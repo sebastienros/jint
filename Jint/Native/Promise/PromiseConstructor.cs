@@ -164,21 +164,20 @@ internal sealed partial class PromiseConstructor : Constructor
     /// A promise is answered as it is only when its <c>constructor</c> is <c>%Promise%</c>: one whose
     /// <c>constructor</c> is anything else, a subclass's or another realm's, is wrapped in a new <c>%Promise%</c>, and a
     /// <c>constructor</c> getter that throws throws here, which is the await's throw completion before anything has
-    /// suspended. An untouched promise skips the read (<see cref="IsUntouchedPromise"/>), so the await of one costs a
-    /// few field reads more than it did before the read was made; a primitive costs what it did, and reads no realm.
+    /// suspended. An untouched promise skips the read (<see cref="IsUntouchedPromise"/>). Only the two type tests are
+    /// inlined into the caller, so a primitive costs what it did and reads no realm; an object costs one call.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static JsPromise? ResolveForAwait(Engine engine, JsValue value)
     {
         if (value is JsPromise promise)
         {
-            var intrinsic = engine.Realm.Intrinsics.Promise;
-            return intrinsic.IsUntouchedPromise(promise) ? promise : intrinsic.ResolvePromiseForAwait(promise);
+            return ResolvePromiseInRunningRealm(engine, promise);
         }
 
         if (value is ObjectInstance)
         {
-            return engine.Realm.Intrinsics.Promise.ResolveObjectForAwait(value);
+            return ResolveObjectInRunningRealm(engine, value);
         }
 
         return null;
@@ -186,40 +185,50 @@ internal sealed partial class PromiseConstructor : Constructor
 
     /// <summary>
     /// <see cref="ResolveForAwait"/> for an await site that needs a promise for a primitive too, which PromiseResolve
-    /// resolves into a new <c>%Promise%</c> as it does any other value that is not a promise.
+    /// resolves into a new <c>%Promise%</c> as it does any other value that is not a promise. Never inlined: every
+    /// caller is about to suspend, and several are large handlers whose inlining budget is spoken for.
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal static JsPromise ResolveForAwaitToPromise(Engine engine, JsValue value)
+        => engine.Realm.Intrinsics.Promise.ResolveForAwaitToPromise(value);
+
+    /// <summary>
+    /// <see cref="ResolveForAwaitToPromise(Engine, JsValue)"/> against this <c>%Promise%</c> rather than the running
+    /// realm's, for an await whose realm is not the one running when it is performed: the later steps of a disposal
+    /// run in a reaction job, after the function or module they belong to has left the execution context stack.
+    /// </summary>
+    internal JsPromise ResolveForAwaitToPromise(JsValue value)
+        => value is JsPromise promise ? ResolvePromiseForAwait(promise) : (JsPromise) PromiseResolve(this, value);
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsPromise ResolvePromiseInRunningRealm(Engine engine, JsPromise promise)
+        => engine.Realm.Intrinsics.Promise.ResolvePromiseForAwait(promise);
+
+    /// <summary>
+    /// An object that is not a promise: IsPromise is false, so nothing is read before a new <c>%Promise%</c> is
+    /// resolved with it, which is the capability <see cref="NewPromiseCapability"/> would make for this constructor.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsPromise ResolveObjectInRunningRealm(Engine engine, JsValue value)
     {
         var intrinsic = engine.Realm.Intrinsics.Promise;
-        if (value is JsPromise promise)
+        var promise = new JsPromise(engine, intrinsic._realm)
         {
-            return intrinsic.IsUntouchedPromise(promise) ? promise : intrinsic.ResolvePromiseForAwait(promise);
-        }
-
-        return (JsPromise) intrinsic.PromiseResolve(intrinsic, value);
+            _prototype = intrinsic.PrototypeObject
+        };
+        promise.Resolve(value);
+        return promise;
     }
+
+    private JsPromise ResolvePromiseForAwait(JsPromise promise)
+        => IsUntouchedPromise(promise) ? promise : ResolveReadingConstructor(promise);
 
     /// <summary>
     /// A promise whose <c>constructor</c> has to be read: one with own properties, another prototype, or a
     /// <c>Promise.prototype</c> whose <c>constructor</c> was changed.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private JsPromise ResolvePromiseForAwait(JsPromise promise) => (JsPromise) PromiseResolve(this, promise);
-
-    /// <summary>
-    /// An object that is not a promise: IsPromise is false, so nothing is read before a new <c>%Promise%</c> is
-    /// resolved with it, which is the capability <see cref="NewPromiseCapability"/> would make for this constructor.
-    /// </summary>
-    private JsPromise ResolveObjectForAwait(JsValue value)
-    {
-        var promise = new JsPromise(_engine, _realm)
-        {
-            _prototype = PrototypeObject
-        };
-        promise.Resolve(value);
-        return promise;
-    }
+    private JsPromise ResolveReadingConstructor(JsPromise promise) => (JsPromise) PromiseResolve(this, promise);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-promise.reject

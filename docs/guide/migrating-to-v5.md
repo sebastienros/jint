@@ -6681,8 +6681,8 @@ There is no switch back.
 
 `await p` starts by resolving `p` against `%Promise%`, which reads `p.constructor`. A promise whose `constructor` is
 `Promise` is awaited as it is. Any other promise is wrapped in a new `Promise`, and the wrapper reaches it through its
-`then`. Jint skipped that read whenever `p` was a promise. So a `constructor` getter never ran, and a promise subclass
-was awaited as if it were a plain `Promise`:
+`then`. Several places that await skipped that read whenever `p` was a promise. So a `constructor` getter never ran,
+and a promise subclass was awaited as if it were a plain `Promise`:
 
 ```js
 var log = [];
@@ -6693,13 +6693,15 @@ log.push("called");
 // earlier 5.0: ["called"]    5.x: ["get", "caught C", "called"]
 ```
 
-Now every `await` makes the read. That covers an `await` expression, including at the top level of a module, and an
-async generator's `yield`, `yield*`, `return` and `return()`. It also covers `for await`'s close, and the disposal of
-`await using` resources in a block, a loop, a function body or a module. A getter that throws makes the `await` throw on
-the spot, where a `catch` around it sees it; at a `yield` that used to leave the request pending for good. A subclass
-instance, or a promise from another realm, settles the `await` two microtasks later than it did. Its `then` is now
-called, as it is in other engines. An untouched promise is awaited exactly as before, and the read is skipped for it, so
-nothing about it is observable. There is no switch back.
+The places that skipped it now make the read: an `await` expression, including one at the top level of a module, an
+async generator's `yield*`, `for await`'s close, and the disposal of `await using` resources in a block, a loop, a
+function body or a module. A getter that throws makes the `await` throw on the spot, where a `catch` around it sees it.
+A subclass instance, or a promise from another realm, settles the `await` two microtasks later than it did, and its
+`then` is now called, as it is in other engines. An untouched promise is awaited exactly as before, and the read is
+skipped for it, so nothing about it is observable.
+
+An async generator's `yield`, `return` statement and `return()` already made the read. At a `yield`, though, a getter
+that throws left the request pending for good; it is now thrown at the `yield`. There is no switch back.
 
 ## 5. New in v5
 

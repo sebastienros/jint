@@ -105,10 +105,11 @@ internal sealed class JintAwaitExpression : JintExpression
             return SuspendForAwait(context, asyncInstance, promise, value);
         }
 
-        // Fallback for non-async contexts - use blocking behavior
+        // Fallback for non-async contexts - use blocking behavior, on the promise PromiseResolve answered: the value
+        // itself, or the %Promise% that wraps a thenable or a promise whose constructor is not %Promise%.
         try
         {
-            return value.UnwrapIfPromise(engine.Options.Constraints.PromiseTimeout);
+            return (promise ?? value).UnwrapIfPromise(engine.Options.Constraints.PromiseTimeout);
         }
         catch (PromiseRejectedException e)
         {
@@ -267,6 +268,7 @@ internal sealed class JintAwaitExpression : JintExpression
             }
             DisposeResourcesHelper.DisposeAndThen(
                 engine,
+                asyncInstance._savedContext.Realm,
                 env,
                 new Completion(CompletionType.Throw, e.Error, null!),
                 final => SettleAsyncResumeCompletion(engine, asyncInstance, final));
@@ -297,7 +299,7 @@ internal sealed class JintAwaitExpression : JintExpression
             SettleAsyncResumeCompletion(engine, asyncInstance, result);
             return;
         }
-        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result,
+        DisposeResourcesHelper.DisposeAndThen(engine, asyncInstance._savedContext.Realm, lexEnv, result,
             final => SettleAsyncResumeCompletion(engine, asyncInstance, final));
     }
 

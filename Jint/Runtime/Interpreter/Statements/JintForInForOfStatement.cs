@@ -580,41 +580,20 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             // Per spec 13.7.5.13 step 5.b.c: Await(nextResult)
                             // Await step 2: PromiseResolve(%Promise%, nextResult)
                             // This makes constructor lookups observable per spec.
-                            JsValue promiseResolved = PromiseConstructor.ResolveForAwaitToPromise(engine, nextPromise);
+                            var promise = PromiseConstructor.ResolveForAwaitToPromise(engine, nextPromise);
 
-                            // If result is a Promise, we need to await it
-                            if (promiseResolved is JsPromise promise)
+                            // Save current state for resume (including iterator)
+                            if (asyncSuspendData is not null)
                             {
-                                // Save current state for resume (including iterator)
-                                if (asyncSuspendData is not null)
-                                {
-                                    asyncSuspendData.AccumulatedValue = v;
-                                    asyncSuspendData.Iterator = iteratorRecord;
-                                }
-
-                                // Don't close the iterator when suspending - we'll resume later
-                                close = false;
-
-                                // Suspend and await the promise
-                                return SuspendForAsyncIteration(context, promise, asyncInstance, asyncGenerator, iteratorRecord, v);
+                                asyncSuspendData.AccumulatedValue = v;
+                                asyncSuspendData.Iterator = iteratorRecord;
                             }
 
-                            // Not a promise - treat as sync iterator result
-                            nextResult = (nextPromise as ObjectInstance)!;
-                            if (nextResult is null)
-                            {
-                                Throw.TypeError(engine.Realm, "Iterator result is not an object");
-                                return default;
-                            }
+                            // Don't close the iterator when suspending - we'll resume later
+                            close = false;
 
-                            // Check if iterator is done
-                            var doneVal = nextResult.Get(CommonProperties.Done);
-                            if (!doneVal.IsUndefined() && TypeConverter.ToBoolean(doneVal))
-                            {
-                                // step 8.e: "If done is true, return iterationResult" — no close
-                                suspendable?.Data.Clear(this);
-                                return new Completion(CompletionType.Normal, v, _statement!);
-                            }
+                            // Suspend and await the promise; the resume finds the settled result above
+                            return SuspendForAsyncIteration(context, promise, asyncInstance, asyncGenerator, iteratorRecord, v);
                         }
                     }
 

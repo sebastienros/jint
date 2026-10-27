@@ -12,29 +12,38 @@ namespace Jint.Native.Disposable;
 /// suspend the function itself, only defer settlement of its return promise. Each
 /// state-machine Suspend is chained via <c>Promise.then</c>, and the caller-provided
 /// <c>continueWith</c> callback fires when the full dispose chain has completed.
+/// <para>
+/// The <c>realm</c> a caller passes is that of the function, generator, module or stack whose resources are disposed:
+/// each Await resolves against its <c>%Promise%</c>. Only the first step can run inside that body's execution
+/// context; every later one runs in the reaction job of the await before it, where the running realm is whatever
+/// that job found.
+/// </para>
 /// </summary>
 internal static class DisposeResourcesHelper
 {
     public static void DisposeAndThen(
         Engine engine,
+        Realm realm,
         Environment env,
         Completion initial,
         Action<Completion> continueWith)
     {
-        Drive(engine, env.BeginDisposeResources(initial), continueWith, env.ContinueDisposeResources);
+        Drive(engine, realm.Intrinsics.Promise, env.BeginDisposeResources(initial), continueWith, env.ContinueDisposeResources);
     }
 
     public static void DisposeAndThen(
         Engine engine,
+        Realm realm,
         DisposeCapability capability,
         Completion initial,
         Action<Completion> continueWith)
     {
-        Drive(engine, capability.BeginDispose(initial), continueWith, capability.ContinueDispose);
+        Drive(engine, realm.Intrinsics.Promise, capability.BeginDispose(initial), continueWith, capability.ContinueDispose);
     }
 
     private static void Drive(
         Engine engine,
+        PromiseConstructor promiseConstructor,
         DisposeStepResult step,
         Action<Completion> continueWith,
         Func<JsValue, bool, DisposeStepResult> continueDispose)
@@ -46,7 +55,7 @@ internal static class DisposeResourcesHelper
             JsPromise promise;
             try
             {
-                promise = PromiseConstructor.ResolveForAwaitToPromise(engine, step.PendingPromise!);
+                promise = promiseConstructor.ResolveForAwaitToPromise(step.PendingPromise!);
             }
             catch (JavaScriptException e)
             {
@@ -57,14 +66,14 @@ internal static class DisposeResourcesHelper
             var onFulfilled = new ClrFunction(engine, "", (_, args) =>
             {
                 var next = continueDispose(args.At(0), false);
-                Drive(engine, next, continueWith, continueDispose);
+                Drive(engine, promiseConstructor, next, continueWith, continueDispose);
                 return JsValue.Undefined;
             }, 1, PropertyFlag.Configurable);
 
             var onRejected = new ClrFunction(engine, "", (_, args) =>
             {
                 var next = continueDispose(args.At(0), true);
-                Drive(engine, next, continueWith, continueDispose);
+                Drive(engine, promiseConstructor, next, continueWith, continueDispose);
                 return JsValue.Undefined;
             }, 1, PropertyFlag.Configurable);
 

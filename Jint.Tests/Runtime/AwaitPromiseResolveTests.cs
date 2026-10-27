@@ -99,7 +99,7 @@ public class AwaitPromiseResolveTests
         ["AForOfAwaitUsing"] =
             "try { for (await using r of [{ [Symbol.asyncDispose]() { log.push('dispose'); return MAKE(log, 1); } }]) { log.push('body'); } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
         // An iterator with no return(), so that the close the throw completion takes owes no await of its own: Jint
-        // closes an async iterator on a throw without awaiting what return() answers.
+        // closes an async iterator on a throw without awaiting what return() answers (sebastienros/jint#4354).
         ["AForAwaitOfAwaitUsing"] =
             "const src = { [Symbol.asyncIterator]() { let i = 0; return { next() { return { value: { [Symbol.asyncDispose]() { log.push('dispose'); return MAKE(log, 1); } }, done: i++ > 0 }; } }; } }; try { for await (await using r of src) { log.push('body'); } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
     };
@@ -375,6 +375,48 @@ public class AwaitPromiseResolveTests
               return log[0] === 'awaited' ? 'same' : 'other';
             })();
             """).UnwrapIfPromise().AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A disposal that has to await more than once resolves every await against the <c>%Promise%</c> of the realm whose
+    /// resources it disposes, not the running one. Its first await runs in the body's own execution context, but each
+    /// later one runs in the reaction job of the await before it, and here that job is started from the principal
+    /// realm: <c>b</c>'s result is a promise only released from there. Resolving <c>a</c>'s result against the
+    /// principal realm would take that realm's own native promise for a foreign one and wrap it, two microtasks later.
+    /// Every expected log is Node 24's, with a <c>vm</c> context as the other realm.
+    /// </summary>
+    [TestCase("(async function () { USING log.push('body'); })().then(() => log.push('settled'));")]
+    [TestCase("(async function* () { USING log.push('body'); })().next().then(() => log.push('settled'));")]
+    [TestCase("var s = new AsyncDisposableStack(); s.use(a()); s.use(b()); log.push('body'); s.disposeAsync().then(() => log.push('settled'));")]
+    [CancelAfter(10000)]
+    public void ADisposalAwaitsInTheRealmItBelongsTo(string body)
+    {
+        var host = new RealmHost();
+        var engine = new Engine(options =>
+        {
+            options.UseHostFactory(_ => host);
+            options.ObserveCancellation(TestContext.CurrentContext.CancellationToken);
+        });
+        var other = host.CreateAdditionalRealm();
+        engine.Advanced.WithRealm(other, scoped => scoped.Execute("""
+            var log = [];
+            var release;
+            var gate = new Promise(r => release = r);
+            function a() { return { [Symbol.asyncDispose]() { log.push('dispose a'); return Promise.resolve(); } }; }
+            function b() { return { [Symbol.asyncDispose]() { log.push('dispose b'); return gate; } }; }
+            """ + body.Replace("USING", "await using x = a(); await using y = b();")));
+        engine.SetValue("otherGlobal", other.GlobalObject);
+
+        engine.Evaluate(Prelude + """
+            (async () => {
+              const log = otherGlobal.log;
+              log.push('release');
+              otherGlobal.release();
+              await ladder(log, 6);
+              return log.join(', ');
+            })();
+            """).UnwrapIfPromise().AsString()
+            .Should().Be("body, dispose b, release, dispose a, t1, t2, settled, t3, t4, t5, t6");
     }
 
     private sealed class RealmHost : Host

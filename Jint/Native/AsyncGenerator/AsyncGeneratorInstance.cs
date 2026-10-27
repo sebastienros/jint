@@ -351,6 +351,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             }
             DisposeResourcesHelper.DisposeAndThen(
                 _engine,
+                _asyncGeneratorContext.Realm,
                 env,
                 new Completion(CompletionType.Throw, ex.Error, null!),
                 final => SettleResumeRejection(final.Value, promiseCapability));
@@ -396,7 +397,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             SettleResumeCompletion(result, promiseCapability);
             return;
         }
-        DisposeResourcesHelper.DisposeAndThen(_engine, lexEnv, result,
+        DisposeResourcesHelper.DisposeAndThen(_engine, _asyncGeneratorContext.Realm, lexEnv, result,
             final => SettleResumeCompletion(final, promiseCapability));
     }
 
