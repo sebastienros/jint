@@ -1138,6 +1138,17 @@ internal abstract class JintBinaryExpression : JintExpression
         }
 
         result = new AdditionChainExpression(expression, operands.ToArray());
+
+        // The flattened lane evaluates every operand from this node, past where the nested tree would have carried
+        // probes on its spine, and the hoisting walk counts an operand below such a place as just past one, even in
+        // a short chain that ends a longer one (`a + b + … || x || …`). So a chain whose nested form would have
+        // carried one carries a probe of its own, ahead of all its operands: one level per nested addition, and one
+        // for the deepest operand. Every chain over the interval does; a short one only at a depth near a multiple.
+        if (SyntaxNesting.SpansEvaluationProbeDepth(operands.Count - 1))
+        {
+            result = JintStackProbeExpression.Around(result);
+        }
+
         return true;
     }
 

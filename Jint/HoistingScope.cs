@@ -202,12 +202,12 @@ internal sealed class HoistingScope
         internal List<FunctionDeclaration>? _annexBFunctions;
 
         /// <summary>
-        /// How many walk frames are live, and where the walk's stack began: the stack probe's gate. Not restored
-        /// when a walk throws, since the walker is abandoned with the exception. Fields of the walker rather than
-        /// <see cref="SyntaxNesting"/>'s thread-static state, because the walker lives exactly as long as one walk.
+        /// How many walk frames are live, and the stack the walk may still spend: the stack probe's gate. Not
+        /// restored when a walk throws, since the walker is abandoned with the exception. Fields of the walker rather
+        /// than <see cref="SyntaxNesting"/>'s thread-static state, because the walker lives exactly as long as one walk.
         /// </summary>
         private int _depth;
-        private nuint _walkBase;
+        private SyntaxNesting.StackBudget _budget;
 
         public ScriptWalker(bool collectVarNames, bool collectLexicalNames, bool module)
         {
@@ -222,7 +222,7 @@ internal sealed class HoistingScope
         /// </summary>
         public void Walk(Node root)
         {
-            _walkBase = SyntaxNesting.StackPosition();
+            _budget.Start();
             if (root is Expression expression)
             {
                 VisitExpression(expression, SyntaxNesting.Unprobed.Root);
@@ -242,7 +242,22 @@ internal sealed class HoistingScope
         private void Visit(Node node, Node? parent, SyntaxNesting.Unprobed nesting, HashSet<string>? enclosingLexicalNames = null, Node? labelHost = null, Node? labelHostParent = null)
         {
             EnterLevel(nesting);
-            VisitCore(node, parent, nesting, enclosingLexicalNames, labelHost, labelHostParent);
+
+            // An `else if` is the `else`'s tail position, so a chain of them is walked in this loop rather than one
+            // frame deeper per arm. Its arms share the scope the chain sits in: an `if` declares nothing of its own.
+            while (VisitCore(node, parent, nesting, enclosingLexicalNames, labelHost, labelHostParent) is { } elseIf)
+            {
+                parent = node;
+                node = elseIf;
+                nesting = nesting.ContinueChain();
+                labelHost = null;
+                labelHostParent = null;
+                if (nesting.Depth > SyntaxNesting.MaxUnprobedDepth)
+                {
+                    SyntaxNesting.ThrowExceedsMaximumDepth();
+                }
+            }
+
             _depth--;
         }
 
@@ -257,7 +272,7 @@ internal sealed class HoistingScope
                 SyntaxNesting.ThrowExceedsMaximumDepth();
             }
 
-            if (++_depth > SyntaxNesting.UncheckedDepth && !SyntaxNesting.HasHeadroom(_walkBase))
+            if (++_depth > SyntaxNesting.UncheckedDepth && !_budget.HasHeadroom())
             {
                 SyntaxNesting.ThrowTooDeep();
             }
@@ -308,8 +323,10 @@ internal sealed class HoistingScope
             _depth--;
         }
 
-        private void VisitCore(Node node, Node? parent, SyntaxNesting.Unprobed nesting, HashSet<string>? enclosingLexicalNames, Node? labelHost = null, Node? labelHostParent = null)
+        /// <returns>The <c>else if</c> of an <c>if</c>, which the caller walks next in place of a recursion.</returns>
+        private Node? VisitCore(Node node, Node? parent, SyntaxNesting.Unprobed nesting, HashSet<string>? enclosingLexicalNames, Node? labelHost = null, Node? labelHostParent = null)
         {
+            Node? elseIf = null;
             // Collect lexical names from this scope level for AnnexB conflict checking.
             // These are let/const/class declarations in non-root scopes (blocks, for headers, etc.)
             // that would prevent a var hoisting from the function declaration's position.
@@ -488,10 +505,15 @@ internal sealed class HoistingScope
                     continue;
                 }
 
-                // An `else if` continues a chain that carries evaluation probes (JintStackProbeStatement).
-                var childNesting = childType == NodeType.IfStatement && node is IfStatement ifStatement && ReferenceEquals(ifStatement.Alternate, childNode)
-                    ? nesting.ContinueChain()
-                    : nesting.Enter();
+                // An `else if` continues a chain that carries evaluation probes (JintStackProbeStatement), and is the
+                // last child: the caller walks it next.
+                if (childType == NodeType.IfStatement && node is IfStatement ifStatement && ReferenceEquals(ifStatement.Alternate, childNode))
+                {
+                    elseIf = childNode;
+                    continue;
+                }
+
+                var childNesting = nesting.Enter();
 
                 // Carry this statement list's container into a label chain so the classification
                 // above can see through it (labels nest, so an already-set host wins).
@@ -504,6 +526,8 @@ internal sealed class HoistingScope
                     Visit(childNode, node, childNesting, effectiveLexicalNames);
                 }
             }
+
+            return elseIf;
         }
 
         private static void EnsureSet(ref HashSet<string>? set, HashSet<string>? source)

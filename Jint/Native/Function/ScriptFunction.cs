@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
@@ -188,9 +189,90 @@ public sealed class ScriptFunction : Function, IConstructor
         return result is TailCallRequest ? ContinueTailCalls(result, ownsFrame: true) : result;
     }
 
+    /// <summary>
+    /// Builds the function's State on its first call. Analysing the body is part of the call, so a body too deep for
+    /// the stack fails as a <c>RangeError</c> the caller can catch, and an async function rejects its promise with it,
+    /// as it does with any throw from its body: <paramref name="asyncRejection"/> is that promise, and the State
+    /// <see langword="null"/>. See <see cref="SyntaxNesting"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JintFunctionDefinition.State? InitializeDefinition(out JsValue? asyncRejection)
+    {
+        asyncRejection = null;
+        try
+        {
+            return _functionDefinition!.Initialize();
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // Nothing runs in here: a catch block runs on top of the frames of the walk that threw, and only
+            // leaving it gives their stack back.
+        }
+
+        if (_functionDefinition!.Function is not { Async: true, Generator: false })
+        {
+            Throw.RangeError(_realm, SyntaxNesting.RangeErrorMessage);
+        }
+
+        var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
+        promiseCapability.Reject(SyntaxNesting.CreateRangeError(_realm));
+        asyncRejection = promiseCapability.PromiseInstance;
+        return null;
+    }
+
+    /// <summary>
+    /// <see cref="InitializeDefinition(out JsValue?)"/> for a function that is not async.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JintFunctionDefinition.State InitializeDefinition()
+    {
+        try
+        {
+            return _functionDefinition!.Initialize();
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // See the overload above: the throw waits until the walk's frames are gone.
+        }
+
+        Throw.RangeError(_realm, SyntaxNesting.RangeErrorMessage);
+        return null!;
+    }
+
+    /// <summary>
+    /// The State, built if need be, for a call site that only wants it to choose a faster lane; <see langword="null"/>
+    /// when the body is too deep for the stack to analyse, which the call itself then reports.
+    /// </summary>
+    internal JintFunctionDefinition.State? TryInitializeDefinition()
+    {
+        var state = _functionDefinition!.BuiltState;
+        if (state is not null)
+        {
+            return state;
+        }
+
+        try
+        {
+            return _functionDefinition.Initialize();
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            return null;
+        }
+    }
+
     private JsValue CallOnce(JsValue thisObject, JsCallArguments arguments)
     {
-        var state = _functionDefinition!.Initialize();
+        var state = _functionDefinition!.BuiltState;
+        if (state is null)
+        {
+            state = InitializeDefinition(out var asyncRejection);
+            if (state is null)
+            {
+                return asyncRejection!;
+            }
+        }
+
         var strict = _strict;
         _functionDefinition.EnsureTailCallMarkers(state, strict);
 
@@ -683,7 +765,7 @@ public sealed class ScriptFunction : Function, IConstructor
         // CallExpression, so [[Construct]] carries the probe as [[Call]] does.
         _engine._stackGuard.EnsureStackHeadroom();
 
-        var state = _functionDefinition!.Initialize();
+        var state = _functionDefinition!.BuiltState ?? InitializeDefinition();
         _functionDefinition.EnsureTailCallMarkers(state, _strict);
         var callerContext = _engine.ExecutionContext;
         var kind = _constructorKind;

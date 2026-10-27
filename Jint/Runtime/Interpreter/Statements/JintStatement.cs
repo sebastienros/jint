@@ -96,8 +96,7 @@ internal abstract class JintStatement
             return preparedStatement;
         }
 
-        // An `if` builds its branches as it is built, so a long `else if` chain is built one level deeper per
-        // arm. Once per handler built, never per execution.
+        // A handler builds the statements nested in it as it is built. Once per handler built, never per execution.
         using var nesting = SyntaxNesting.Enter();
 
         JintStatement? result = statement.Type switch
@@ -116,7 +115,7 @@ internal abstract class JintStatement
             NodeType.ForStatement => new JintForStatement((ForStatement) statement),
             NodeType.ForInStatement => new JintForInForOfStatement((ForInStatement) statement),
             NodeType.ForOfStatement => new JintForInForOfStatement((ForOfStatement) statement),
-            NodeType.IfStatement => new JintIfStatement((IfStatement) statement),
+            NodeType.IfStatement => BuildIf((IfStatement) statement),
             NodeType.LabeledStatement => new JintLabeledStatement((LabeledStatement) statement),
             NodeType.SwitchStatement => new JintSwitchStatement((SwitchStatement) statement),
             NodeType.FunctionDeclaration => new JintFunctionDeclarationStatement((FunctionDeclaration) statement),
@@ -138,14 +137,39 @@ internal abstract class JintStatement
             Throw.ArgumentOutOfRangeException(nameof(statement.Type), $"unsupported statement type '{statement.Type}'");
         }
 
-        // Running an `else if` chain recurses once per arm, as building it does; see JintStackProbeStatement. Only an
-        // `if` the chain continues below gets one, so a lone `if` that happens to sit at this depth runs as before.
-        if (statement is IfStatement { Alternate: IfStatement } && SyntaxNesting.IsEvaluationProbeDepth)
+        return result;
+    }
+
+    /// <summary>
+    /// Builds an <c>if</c> and the <c>else if</c> chain it heads. The <c>else</c> is a tail position, so the chain is
+    /// built from its last arm up in a loop rather than one frame deeper per arm. Running it still recurses once per
+    /// arm, so every <see cref="SyntaxNesting.EvaluationProbeInterval"/>th arm that the chain continues below is
+    /// behind a <see cref="JintStackProbeStatement"/>; a chain shorter than that runs exactly as before.
+    /// </summary>
+    private static JintStatement BuildIf(IfStatement statement)
+    {
+        if (statement.Alternate is not IfStatement)
         {
-            return new JintStackProbeStatement(result);
+            return new JintIfStatement(statement);
         }
 
-        return result;
+        var arms = new List<IfStatement> { statement };
+        while (arms[arms.Count - 1].Alternate is IfStatement next && next.UserData is not JintStatement)
+        {
+            arms.Add(next);
+        }
+
+        JintStatement built = new JintIfStatement(arms[arms.Count - 1]);
+        for (var i = arms.Count - 2; i >= 0; i--)
+        {
+            var position = i + 1;
+            var alternate = position % SyntaxNesting.EvaluationProbeInterval == 0 && position < arms.Count - 1
+                ? new JintStackProbeStatement(built)
+                : built;
+            built = new JintIfStatement(arms[i], alternate);
+        }
+
+        return built;
     }
 
     internal static JsValue? FastResolve(StatementOrExpression statement)
