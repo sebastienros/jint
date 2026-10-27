@@ -32,6 +32,9 @@ public class ScriptNestingTests
     // reason, so that a test meant to fail cleanly fails on every operating system and runtime.
     private const int SmallStackSize = 1024 * 1024;
 
+    // SyntaxNesting.EvaluationProbeInterval, which the tests below align on.
+    private const int SyntaxNestingProbeInterval = 64;
+
     public static TestCases<string, string, string> EveryOperatorPositionAndEntry
     {
         get
@@ -323,10 +326,29 @@ public class ScriptNestingTests
     }, maxStackSize: SmallStackSize);
 
     [Test]
-    public void TheHoistingWalkFailsCleanlyOnAStatementNestingDeeperThanItsStack()
+    public void TheHoistingWalkFailsCleanlyOnAChainDeeperThanItsStack()
     {
         // Parsed on a stack large enough for the parser, and analysed nowhere: with StaticAnalysis off the
-        // hoisting walk runs when the script is evaluated, on a stack far too small for this nesting.
+        // hoisting walk runs when the script is evaluated, on a stack far too small for this chain. A chain
+        // nested to the right is the parser's own recursion, so the walk recurses on it too.
+        var chain = string.Concat(Enumerable.Repeat("0 || (", 30_000)) + "1" + new string(')', 30_000);
+        Prepared<Script> prepared = default;
+        DedicatedThread.Run(
+            () => prepared = Engine.PrepareScript("var r = " + chain + ";", options: new ScriptPreparationOptions { StaticAnalysis = false }),
+            maxStackSize: 256 * 1024 * 1024);
+
+        DedicatedThread.Run(() =>
+        {
+            var exception = Caught.Exception(() => new Engine().Execute(prepared));
+            exception.Should().BeOfType<ScriptPreparationException>().Which.Message.Should().Contain("too deep");
+        }, maxStackSize: SmallStackSize);
+    }
+
+    [Test]
+    public void AnElseIfChainLongerThanTheStackFailsCleanlyWhenItRuns()
+    {
+        // The walk and the build follow an `else if` in a loop, so a chain the parser accepts is built, and it is
+        // running it, one frame per arm, that the stack bounds: the chain's own probes end it with a RangeError.
         Prepared<Script> prepared = default;
         DedicatedThread.Run(
             () => prepared = Engine.PrepareScript(ElseIfChainScript(50_000), options: new ScriptPreparationOptions { StaticAnalysis = false }),
@@ -335,8 +357,8 @@ public class ScriptNestingTests
         DedicatedThread.Run(() =>
         {
             var exception = Caught.Exception(() => new Engine().Execute(prepared));
-            exception.Should().BeOfType<ScriptPreparationException>();
-        }, maxStackSize: 4 * 1024 * 1024);
+            exception.Should().BeOfType<JavaScriptException>().Which.Message.Should().Be("Maximum call stack size exceeded");
+        }, maxStackSize: SmallStackSize);
     }
 
     [Test]
@@ -391,7 +413,7 @@ public class ScriptNestingTests
         var chain = ChainWithOperandNear("||", 240, "(r(n - 1) + 1)", atOperand: 0);
         engine.Execute($"function r(n) {{ if (n === 0) return 0; return {chain}; }}");
 
-        engine.Evaluate("r(300)").AsNumber().Should().Be(300);
+        engine.Evaluate("r(60)").AsNumber().Should().Be(60);
     }, maxStackSize: SmallStackSize);
 
     // An object literal's values are built when it is first evaluated, which here is in a catch block at the
@@ -413,8 +435,7 @@ public class ScriptNestingTests
     }, maxStackSize: DeepCallStackSize);
 
     // A build too deep for the stack that runs while script runs fails with a RangeError the script can catch, as
-    // V8's lazy compilation does: a statement list turns the build's ScriptPreparationException into one. Here it
-    // is the walks over a function's body when the script first calls it.
+    // V8's lazy compilation does. Here it is the walks over a function's body when the script first calls it.
     [Test]
     public void ABuildTooDeepForTheStackThrowsARangeErrorTheScriptCanCatch() => DedicatedThread.Run(() =>
     {
@@ -423,6 +444,211 @@ public class ScriptNestingTests
 
         engine.GetValue("caught").AsBoolean().Should().BeTrue();
     }, maxStackSize: SmallStackSize);
+
+    // Where a throw from a function becomes a rejection, so does a function too deep to build: native code that runs
+    // script catches a JavaScript exception, never the ScriptPreparationException underneath it.
+    [Test]
+    public void APromiseExecutorTooDeepToBuildRejectsThePromise() => DedicatedThread.Run(() =>
+    {
+        var engine = new Engine();
+        engine.Execute($"var caught; new Promise(function (resolve) {{ resolve({Chain("||", 100_000)}); }}).catch(function (e) {{ caught = e instanceof RangeError; }});");
+
+        engine.GetValue("caught").AsBoolean().Should().BeTrue();
+    }, maxStackSize: SmallStackSize);
+
+    [Test]
+    public void AnAsyncFunctionTooDeepToBuildRejectsItsPromise() => DedicatedThread.Run(() =>
+    {
+        var engine = new Engine();
+        engine.Execute($"async function f() {{ return ({Chain("||", 100_000)}); }} var caught; f().catch(function (e) {{ caught = e instanceof RangeError; }});");
+
+        engine.GetValue("caught").AsBoolean().Should().BeTrue();
+    }, maxStackSize: SmallStackSize);
+
+    // A host callback that runs another script is a separate entry into the engine: what that script's preparation
+    // throws is the host's exception, and passes through the calling script uncaught, as it always did.
+    [Test]
+    public void AScriptTooDeepToPrepareRunByAHostCallbackFailsToTheHost() => DedicatedThread.Run(() =>
+    {
+        var engine = new Engine();
+        var deep = $"var r = ({Chain("-", 100_000)});";
+        engine.SetValue("runDeep", new Action(() => engine.Execute(deep)));
+
+        var exception = Caught.Exception(() => engine.Execute("var caught = false; try { runDeep(); } catch (e) { caught = true; }"));
+
+        exception.Should().BeOfType<ScriptPreparationException>();
+        engine.GetValue("caught").AsBoolean().Should().BeFalse();
+    }, maxStackSize: SmallStackSize);
+
+    // The probe that ends a chain's first interval is not placed when that level is the chain's last, so the walk
+    // counts all of the first interval as unprobed. Here the chain's last level is exactly the 64th, under and over
+    // 150 levels of member reads, at every alignment the build depth can give it: what main refused is refused.
+    [Test]
+    public void AChainEndingOnItsFirstProbePositionCountsItsWholeFirstInterval() => DedicatedThread.Run(() =>
+    {
+        var below = "o" + string.Concat(Enumerable.Repeat(".b", 150));
+        for (var above = 150; above < 150 + SyntaxNestingProbeInterval; above++)
+        {
+            var chain = below + string.Concat(Enumerable.Repeat(" || 0", SyntaxNestingProbeInterval + 1));
+            var script = "var o = {}; o.b = o; var r = (" + chain + ")" + string.Concat(Enumerable.Repeat(".b", above)) + ";";
+
+            var exception = Caught.Exception(() => new Engine().Execute(script));
+            exception.Should().BeOfType<ScriptPreparationException>().Which.Message.Should().Contain("maximum depth of 256 levels");
+        }
+    });
+
+    // A flattened `+` chain evaluates every operand from its first node, past where its nested form would carry
+    // probes, so a chain that long carries a probe of its own. Here a deep operand sits near the start of a
+    // hundred-operand chain under 180 levels of other nesting, which the walk allows. Without that probe the path down
+    // to it runs about 370 nodes with no probe among them, against the 256 the walk counts on, and from the bottom of
+    // a recursion that ends the process. The tree is read rather than run from the bottom of the stack, so the test
+    // does not depend on the size of the frames it would recurse through.
+    [Test]
+    public void ALongFlattenedConcatenationKeepsEveryRunOfUnprobedNodesWithinTheLimit() => DedicatedThread.Run(() =>
+    {
+        var deepOperand = "o" + string.Concat(Enumerable.Repeat(".b", 185)) + ".s";
+        var concat = ChainWithOperandNear("+", 100, deepOperand, atOperand: 5).Replace("1 + ", "s + ").Replace(" + 1", " + s");
+        var nested = string.Concat(Enumerable.Repeat("0 ? 0 : ", 180)) + "(" + concat + ")";
+
+        var (result, longestUnprobedRun) = RunAndMeasureTheDeepOperand(nested);
+
+        result.Length.Should().Be(100);
+        longestUnprobedRun.Should().BeLessThanOrEqualTo(SyntaxNesting.MaxUnprobedDepth);
+    }, maxStackSize: DeepCallStackSize);
+
+    // The same lane in a short chain: forty operands ending a thirty-level `||` run. The walk counts the
+    // concatenation's nested additions as more levels of that run, past where the run would carry its next probe, but
+    // the flattened lane has none of those levels, so the chain needs a probe of its own whenever its nested form
+    // would have carried one. Where that falls depends on the depth the run starts at, so every alignment of the
+    // interval is tried; without the probe, about half of them run some 340 nodes unprobed.
+    [Test]
+    public void AShortFlattenedConcatenationEndingALongerChainKeepsEveryRunOfUnprobedNodesWithinTheLimit() => DedicatedThread.Run(() =>
+    {
+        var deepOperand = "o" + string.Concat(Enumerable.Repeat(".b", 185)) + ".s";
+        var run = deepOperand + string.Concat(Enumerable.Repeat(" + s", 39)) + string.Concat(Enumerable.Repeat(" || 0", 30));
+        for (var conditionals = 120; conditionals < 120 + SyntaxNestingProbeInterval; conditionals++)
+        {
+            var nested = string.Concat(Enumerable.Repeat("0 ? 0 : ", conditionals)) + "(" + run + ")";
+
+            var (result, longestUnprobedRun) = RunAndMeasureTheDeepOperand(nested);
+
+            result.Length.Should().Be(40);
+            longestUnprobedRun.Should().BeLessThanOrEqualTo(SyntaxNesting.MaxUnprobedDepth, $"{conditionals} conditionals");
+        }
+    }, maxStackSize: DeepCallStackSize);
+
+    /// <summary>
+    /// Runs <c>f</c>, returning <paramref name="expression"/>, once, so that its tree is built; then measures the path
+    /// through that tree down to the one read of <c>o</c>: the most interpreter nodes in a row on it with no stack probe
+    /// among them, which is how far evaluating it recurses between two probes.
+    /// </summary>
+    private static (string Result, int LongestUnprobedRun) RunAndMeasureTheDeepOperand(string expression)
+    {
+        var engine = new Engine();
+        engine.Execute($$"""
+            var s = "x"; var o = { s: "y" }; o.b = o;
+            function f() { return {{expression}}; }
+            var r = f();
+            """);
+
+        var definition = ((Jint.Native.Function.ScriptFunction) engine.GetValue("f"))._functionDefinition!;
+        var visited = new HashSet<object>(new ReferenceIdentity());
+        var longest = LongestUnprobedRun(definition, unprobed: 0, longestSoFar: 0, visited)
+                      ?? throw new InvalidOperationException("The read of o was not found in f's tree.");
+        return (engine.GetValue("r").AsString(), longest);
+    }
+
+    private static int? LongestUnprobedRun(object node, int unprobed, int longestSoFar, HashSet<object> visited)
+    {
+        if (!visited.Add(node))
+        {
+            return null;
+        }
+
+        if (node is Jint.Runtime.Interpreter.Expressions.JintStackProbeExpression or Jint.Runtime.Interpreter.Statements.JintStackProbeStatement)
+        {
+            unprobed = 0;
+        }
+        else if (node is Jint.Runtime.Interpreter.Expressions.JintExpression or Jint.Runtime.Interpreter.Statements.JintStatement)
+        {
+            unprobed++;
+        }
+
+        longestSoFar = Math.Max(longestSoFar, unprobed);
+        if (node is Jint.Runtime.Interpreter.Expressions.JintExpression { _expression: Identifier { Name: "o" } })
+        {
+            return longestSoFar;
+        }
+
+        var children = new List<object>();
+        CollectInterpreterNodes(node, children, structDepth: 0);
+        foreach (var child in children)
+        {
+            if (LongestUnprobedRun(child, unprobed, longestSoFar, visited) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    // The interpreter's objects a node holds: its operands, statements and wrappers, whether in a field, an array or a
+    // struct, and nothing of the runtime's.
+    private static void CollectInterpreterNodes(object holder, List<object> found, int structDepth)
+    {
+        for (var type = holder.GetType(); type is not null && type != typeof(object) && type != typeof(ValueType); type = type.BaseType)
+        {
+            foreach (var field in type.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+            {
+                if (!field.FieldType.IsPrimitive && !field.FieldType.IsPointer && !field.FieldType.IsEnum)
+                {
+                    CollectInterpreterNode(field.GetValue(holder), found, structDepth);
+                }
+            }
+        }
+    }
+
+    private static void CollectInterpreterNode(object? value, List<object> found, int structDepth)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        if (value is Array array)
+        {
+            foreach (var element in array)
+            {
+                CollectInterpreterNode(element, found, structDepth);
+            }
+
+            return;
+        }
+
+        var type = value.GetType();
+        if (type.IsValueType)
+        {
+            if (!type.IsPrimitive && !type.IsEnum && structDepth < 4)
+            {
+                CollectInterpreterNodes(value, found, structDepth + 1);
+            }
+
+            return;
+        }
+
+        if (type.Namespace?.StartsWith("Jint.Runtime.Interpreter", StringComparison.Ordinal) == true)
+        {
+            found.Add(value);
+        }
+    }
+
+    private sealed class ReferenceIdentity : IEqualityComparer<object>
+    {
+        public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(object obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+    }
 
     private const string FuzzedUnaryChainPrefix = "for(var i=6;i^10;i++){ii=10||1111E11111111-1;i^7011/1&&11101111?.Xar.t220n=== ";
 

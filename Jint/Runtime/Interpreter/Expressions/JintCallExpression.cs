@@ -469,8 +469,8 @@ internal sealed class JintCallExpression : JintExpression
         // Initialize() is what the callee's own [[Call]] would do first anyway, and the State it
         // returns is stored on the (immutable) AST node, so the reference stays valid for as long as
         // this callee does.
-        var state = scriptFunction._functionDefinition!.Initialize();
-        if (!state.SupportsRegisterCall)
+        var state = scriptFunction.TryInitializeDefinition();
+        if (state is null || !state.SupportsRegisterCall)
         {
             return;
         }

@@ -4330,11 +4330,18 @@ public sealed partial class Engine : IDisposable
         var previousTryCatchDepth = _tryCatchDepth;
         _tryCatchDepth = 0;
         var completed = false;
+        ScriptPreparationException? tooDeep;
         try
         {
             var result = callback(source, state);
             completed = true;
             return result;
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // Leaving the entry, a tree too deep for the stack is the host's failure, not a RangeError for a script
+            // that called the host: see SyntaxNesting. Thrown below, once this block has given the stack back.
+            tooDeep = exception;
         }
         finally
         {
@@ -4373,6 +4380,8 @@ public sealed partial class Engine : IDisposable
                 }
             }
         }
+
+        throw SyntaxNesting.ForHost(tooDeep);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -4399,6 +4408,7 @@ public sealed partial class Engine : IDisposable
         var previousTryCatchDepth = _tryCatchDepth;
         _tryCatchDepth = 0;
         var completed = false;
+        ScriptPreparationException? tooDeep;
         try
         {
             memoryLimit.Check();
@@ -4406,6 +4416,12 @@ public sealed partial class Engine : IDisposable
             memoryLimit.Check();
             completed = true;
             return result;
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // The same boundary as the constraint-only path above.
+            memoryLimit.Check();
+            tooDeep = exception;
         }
         catch (Exception exception) when (!ConstraintFailure.MustPropagate(exception))
         {
@@ -4445,6 +4461,8 @@ public sealed partial class Engine : IDisposable
                 }
             }
         }
+
+        throw SyntaxNesting.ForHost(tooDeep);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

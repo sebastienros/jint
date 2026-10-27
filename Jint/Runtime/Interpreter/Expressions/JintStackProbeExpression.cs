@@ -27,6 +27,11 @@ namespace Jint.Runtime.Interpreter.Expressions;
 /// the comparison lanes) still match. <c>SumOfProductsLane</c> follows a sum's left operands and declines a sum
 /// with a probe in it, which takes a sum nested exactly at a multiple of the interval, and costs only that lane.
 /// </para>
+/// <para>
+/// A <c>+</c> chain that <c>JintBinaryExpression</c> flattens into one node evaluates its operands in a loop, not
+/// one level each, but the walk still charged them a level each; so a flattened chain whose nested form would have
+/// carried a probe is wrapped whole (<see cref="Around"/>), and probes once before its loop.
+/// </para>
 /// </remarks>
 internal sealed class JintStackProbeExpression : JintExpression
 {
@@ -36,6 +41,11 @@ internal sealed class JintStackProbeExpression : JintExpression
     {
         _operator = wrapped;
     }
+
+    /// <summary>
+    /// <paramref name="wrapped"/>, behind a probe.
+    /// </summary>
+    internal static JintExpression Around(JintExpression wrapped) => new JintStackProbeExpression(wrapped);
 
     /// <summary>
     /// Builds <paramref name="operand"/> of an operator, behind a probe where <see cref="AtProbeDepth"/> puts one.
