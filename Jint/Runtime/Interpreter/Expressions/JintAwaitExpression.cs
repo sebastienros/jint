@@ -2,7 +2,6 @@ using Jint.Native;
 using Jint.Native.AsyncFunction;
 using Jint.Native.AsyncGenerator;
 using Jint.Native.Disposable;
-using Jint.Native.Object;
 using Jint.Native.Promise;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -85,23 +84,12 @@ internal sealed class JintAwaitExpression : JintExpression
             return value;
         }
 
-        // Wrap in a promise if not already a promise. Primitives can never be thenables, so
-        // their wrapper — which would fulfill immediately and only ever feed the single
-        // reaction job — is skipped entirely; Suspend* enqueues that job directly (promise
-        // stays null). The spec's microtask count is preserved: exactly one tick either way.
-        JsPromise? promise = null;
-        if (value is JsPromise p)
-        {
-            promise = p;
-        }
-        else if (value is ObjectInstance)
-        {
-            promise = new JsPromise(engine, engine.Realm)
-            {
-                _prototype = engine.Realm.Intrinsics.Promise.PrototypeObject
-            };
-            promise.Resolve(value);
-        }
+        // Await, step 2: ? PromiseResolve(%Promise%, value). It reads a promise's constructor, which may throw: that is
+        // this expression's throw, before anything suspends. Primitives can never be thenables, so their wrapper,
+        // which would fulfill immediately and only ever feed the single reaction job, is skipped entirely;
+        // Suspend* enqueues that job directly (promise stays null). The spec's microtask count is preserved:
+        // exactly one tick either way.
+        var promise = PromiseConstructor.ResolveForAwait(engine, value);
 
         // === Async generator: suspend for await ===
         if (asyncGenerator is not null)

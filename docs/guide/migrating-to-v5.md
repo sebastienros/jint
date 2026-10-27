@@ -6677,6 +6677,30 @@ disposed a microtask after `b` rather than together with it, in async functions 
 A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
 There is no switch back.
 
+### 4.177 `await` reads a promise's `constructor`, so a subclass's promise settles two microtasks later ([#4361](https://github.com/sebastienros/jint/issues/4361))
+
+`await p` starts by resolving `p` against `%Promise%`, which reads `p.constructor`. A promise whose `constructor` is
+`Promise` is awaited as it is. Any other promise is wrapped in a new `Promise`, and the wrapper reaches it through its
+`then`. Jint skipped that read whenever `p` was a promise. So a `constructor` getter never ran, and a promise subclass
+was awaited as if it were a plain `Promise`:
+
+```js
+var log = [];
+var p = Promise.resolve(1);
+Object.defineProperty(p, "constructor", { get() { log.push("get"); throw "C"; } });
+(async () => { try { await p; } catch (e) { log.push("caught " + e); } })();
+log.push("called");
+// earlier 5.0: ["called"]    5.x: ["get", "caught C", "called"]
+```
+
+Now every `await` makes the read. That covers an `await` expression, including at the top level of a module, and an
+async generator's `yield`, `yield*`, `return` and `return()`. It also covers `for await`'s close, and the disposal of
+`await using` resources in a block, a loop, a function body or a module. A getter that throws makes the `await` throw on
+the spot, where a `catch` around it sees it; at a `yield` that used to leave the request pending for good. A subclass
+instance, or a promise from another realm, settles the `await` two microtasks later than it did. Its `then` is now
+called, as it is in other engines. An untouched promise is awaited exactly as before, and the read is skipped for it, so
+nothing about it is observable. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

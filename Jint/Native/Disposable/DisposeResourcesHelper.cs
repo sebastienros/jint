@@ -41,9 +41,18 @@ internal static class DisposeResourcesHelper
     {
         while (!step.IsDone)
         {
-            var pending = step.PendingPromise!;
-            var promise = pending as JsPromise
-                ?? (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(pending);
+            // Await, step 2: PromiseResolve(%Promise%, value) reads a promise's constructor, which may throw. That is an
+            // abrupt await, whose throw completion is the dispose result's (DisposeResources, step 4.e.iii).
+            JsPromise promise;
+            try
+            {
+                promise = PromiseConstructor.ResolveForAwaitToPromise(engine, step.PendingPromise!);
+            }
+            catch (JavaScriptException e)
+            {
+                step = continueDispose(e.Error, true);
+                continue;
+            }
 
             var onFulfilled = new ClrFunction(engine, "", (_, args) =>
             {
