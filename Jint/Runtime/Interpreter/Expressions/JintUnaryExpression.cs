@@ -364,14 +364,11 @@ internal sealed class JintUnaryExpression : JintExpression
         return JsBigInt.Create(BigInteger.Negate(bigInt));
     }
 
-    internal static bool TryOperatorOverloading(EvaluationContext context, JsValue value, string clrName, [NotNullWhen(true)] out JsValue? result)
-    {
-        if (!ReflectionInterop.Enabled)
-        {
-            result = null;
-            return false;
-        }
+    internal static bool TryOperatorOverloading(EvaluationContext context, JsValue value, string clrName, [NotNullWhen(true)] out JsValue? result) =>
+        HostInterop.Instance.TryUnaryOperator(context, value, clrName, out result);
 
+    internal static bool TryOperatorOverloadingWithReflection(EvaluationContext context, JsValue value, string clrName, [NotNullWhen(true)] out JsValue? result)
+    {
         var operand = value.ToObject();
 
         if (operand != null)

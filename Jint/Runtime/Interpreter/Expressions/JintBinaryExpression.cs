@@ -806,14 +806,16 @@ internal abstract class JintBinaryExpression : JintExpression
         JsValue leftValue,
         JsValue rightValue,
         string? clrName,
+        [NotNullWhen(true)] out object? result) =>
+        HostInterop.Instance.TryBinaryOperator(context, leftValue, rightValue, clrName, out result);
+
+    internal static bool TryOperatorOverloadingWithReflection(
+        EvaluationContext context,
+        JsValue leftValue,
+        JsValue rightValue,
+        string? clrName,
         [NotNullWhen(true)] out object? result)
     {
-        if (!ReflectionInterop.Enabled)
-        {
-            result = null;
-            return false;
-        }
-
         var left = leftValue.ToObject();
         var right = rightValue.ToObject();
 

@@ -1792,9 +1792,7 @@ public sealed partial class Engine : IDisposable
     {
         var filter = TypeConverterTargetFilter.Create(converter, declaredTargetTypes);
         _typeConverterTargetFilter = filter;
-        _typeConverter = ReflectionInterop.Enabled && HostContractVerification.Enabled && filter is { IsRestricted: true }
-            ? new VerifyingClrTypeConverter(converter, filter, new DefaultTypeConverter(this))
-            : converter;
+        _typeConverter = HostInterop.Instance.WrapTypeConverter(this, converter, filter);
     }
 
     // cache of types used when resolving CLR type names
@@ -1901,7 +1899,7 @@ public sealed partial class Engine : IDisposable
     private Engine(Options? options, Action<Engine, Options>? configure)
     {
         Constraints = new ConstraintOperations(this);
-        TypeConverter = ReflectionInterop.Enabled ? new DefaultTypeConverter(this) : new ReflectionFreeTypeConverter();
+        TypeConverter = HostInterop.Instance.CreateTypeConverter(this);
 
         _executionContexts = new ExecutionContextStack(2);
 

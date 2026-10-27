@@ -157,14 +157,11 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// to expose rather than a promise that its members survive.
     /// </remarks>
     [RequiresUnreferencedCode("Members are resolved from target's runtime type by reflection and cannot be preserved by the trimmer from this signature; a removed one reads as undefined rather than as an error. Root the type, or project it through Engine.SetValue<T> / TypeReference.CreateTypeReference<T>, which annotate what they reflect over.")]
-    public static ObjectInstance Create(Engine engine, object target, Type? type = null)
-    {
-        if (!ReflectionInterop.Enabled)
-        {
-            // ILLink needs a terminal instruction here to remove the reflection body.
-            throw new NotSupportedException("Reflection-based CLR wrappers are disabled; use a native JsValue adapter.");
-        }
+    public static ObjectInstance Create(Engine engine, object target, Type? type = null) =>
+        HostInterop.Instance.CreateObjectWrapper(engine, target, type);
 
+    internal static ObjectInstance CreateWithReflection(Engine engine, object target, Type? type)
+    {
         if (target == null)
         {
             Throw.ArgumentNullException(nameof(target));
