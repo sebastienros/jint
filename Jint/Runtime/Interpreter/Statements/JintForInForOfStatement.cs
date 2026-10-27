@@ -578,43 +578,22 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             var nextPromise = nextMethod.Call(iteratorRecord.Instance, Arguments.Empty);
 
                             // Per spec 13.7.5.13 step 5.b.c: Await(nextResult)
-                            // Await step 1: PromiseResolve(%Promise%, nextResult)
+                            // Await step 2: PromiseResolve(%Promise%, nextResult)
                             // This makes constructor lookups observable per spec.
-                            var promiseResolved = engine.Realm.Intrinsics.Promise.PromiseResolve(nextPromise);
+                            var promise = PromiseConstructor.ResolveForAwaitToPromise(engine, nextPromise);
 
-                            // If result is a Promise, we need to await it
-                            if (promiseResolved is JsPromise promise)
+                            // Save current state for resume (including iterator)
+                            if (asyncSuspendData is not null)
                             {
-                                // Save current state for resume (including iterator)
-                                if (asyncSuspendData is not null)
-                                {
-                                    asyncSuspendData.AccumulatedValue = v;
-                                    asyncSuspendData.Iterator = iteratorRecord;
-                                }
-
-                                // Don't close the iterator when suspending - we'll resume later
-                                close = false;
-
-                                // Suspend and await the promise
-                                return SuspendForAsyncIteration(context, promise, asyncInstance, asyncGenerator, iteratorRecord, v);
+                                asyncSuspendData.AccumulatedValue = v;
+                                asyncSuspendData.Iterator = iteratorRecord;
                             }
 
-                            // Not a promise - treat as sync iterator result
-                            nextResult = (nextPromise as ObjectInstance)!;
-                            if (nextResult is null)
-                            {
-                                Throw.TypeError(engine.Realm, "Iterator result is not an object");
-                                return default;
-                            }
+                            // Don't close the iterator when suspending - we'll resume later
+                            close = false;
 
-                            // Check if iterator is done
-                            var doneVal = nextResult.Get(CommonProperties.Done);
-                            if (!doneVal.IsUndefined() && TypeConverter.ToBoolean(doneVal))
-                            {
-                                // step 8.e: "If done is true, return iterationResult" — no close
-                                suspendable?.Data.Clear(this);
-                                return new Completion(CompletionType.Normal, v, _statement!);
-                            }
+                            // Suspend and await the promise; the resume finds the settled result above
+                            return SuspendForAsyncIteration(context, promise, asyncInstance, asyncGenerator, iteratorRecord, v);
                         }
                     }
 
@@ -1364,7 +1343,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// <summary>
     /// Suspends the surrounding async function or async generator on AsyncIteratorClose's Await
     /// (step 4.d), parking the completion steps 5 and 8 still owe. Returns <see langword="null"/>
-    /// when there is no async context to suspend in.
+    /// when there is no async context to suspend in. An Await that is abrupt before it can suspend
+    /// finishes the close at once, with its throw completion as innerResult.
     /// </summary>
     private Completion? SuspendForAsyncClose(
         EvaluationContext context,
@@ -1382,9 +1362,17 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             return null;
         }
 
-        // Await step 1: PromiseResolve(%Promise%, value).
-        var promise = innerResult as JsPromise
-            ?? (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(innerResult);
+        // Await step 2: PromiseResolve(%Promise%, value), whose read of a promise's constructor may throw. Then the Await
+        // is abrupt before it suspends, and its throw completion is innerResult, which steps 5-8 take as it is.
+        JsPromise promise;
+        try
+        {
+            promise = PromiseConstructor.ResolveForAwaitToPromise(engine, innerResult);
+        }
+        catch (JavaScriptException e)
+        {
+            return FinishAsyncIteratorClose(context, completion, e.Error, rejected: true);
+        }
 
         var data = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this, iteratorRecord);
         data.Iterator = iteratorRecord;
@@ -1568,17 +1556,22 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         out Completion finalCompletion)
     {
         var engine = context.Engine;
-        if (step.IsDone)
+        while (!step.IsDone)
         {
-            finalCompletion = step.CompletedResult;
-            return null;
+            if (SetupDisposeSuspension(engine, asyncFn, step.PendingPromise!, out var awaitError))
+            {
+                SaveDisposeSuspendState(suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind);
+                engine.UpdateLexicalEnvironment(oldEnv);
+                finalCompletion = default;
+                return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
+            }
+
+            // The await was abrupt before it could suspend: that throw completion is the dispose result's.
+            step = iterationEnv.ContinueDisposeResources(awaitError, awaitThrew: true);
         }
 
-        SetupDisposeSuspension(engine, asyncFn, step.PendingPromise!);
-        SaveDisposeSuspendState(suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind);
-        engine.UpdateLexicalEnvironment(oldEnv);
-        finalCompletion = default;
-        return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
+        finalCompletion = step.CompletedResult;
+        return null;
     }
 
     /// <summary>
@@ -1643,7 +1636,13 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             if (asyncFn is not null)
             {
-                SetupDisposeSuspension(engine, asyncFn, step.PendingPromise!);
+                if (!SetupDisposeSuspension(engine, asyncFn, step.PendingPromise!, out var awaitError))
+                {
+                    // The await was abrupt before it could suspend: that throw completion is the dispose result's.
+                    step = iterationEnv.ContinueDisposeResources(awaitError, awaitThrew: true);
+                    continue;
+                }
+
                 SaveDisposeSuspendState(suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind);
                 engine.UpdateLexicalEnvironment(oldEnv);
                 return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
@@ -1730,10 +1729,27 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// path: suspends the async function on the pending dispose promise so the
     /// next event-loop tick resumes us via <see cref="ResumeFromDispose"/>.
     /// </summary>
-    private void SetupDisposeSuspension(Engine engine, AsyncFunctionInstance asyncFn, JsValue pendingPromise)
+    /// <returns>
+    /// <see langword="false"/> when the await is abrupt before it suspends: Await's PromiseResolve(%Promise%, value)
+    /// reads a promise's <c>constructor</c>, which may throw, and <paramref name="error"/> is that throw
+    /// (sebastienros/jint#4361).
+    /// </returns>
+    private bool SetupDisposeSuspension(
+        Engine engine,
+        AsyncFunctionInstance asyncFn,
+        JsValue pendingPromise,
+        [NotNullWhen(false)] out JsValue? error)
     {
-        var promise = pendingPromise as JsPromise
-            ?? (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(pendingPromise);
+        JsPromise promise;
+        try
+        {
+            promise = PromiseConstructor.ResolveForAwaitToPromise(engine, pendingPromise);
+        }
+        catch (JavaScriptException e)
+        {
+            error = e.Error;
+            return false;
+        }
 
         asyncFn._lastAwaitNode = this;
         asyncFn._state = AsyncFunctionState.SuspendedAwait;
@@ -1741,6 +1757,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
         // The async instance is its own await continuation (same as a plain await).
         PromiseOperations.PerformPromiseThen(engine, promise, asyncFn);
+        error = null;
+        return true;
     }
 
     private void SaveDisposeSuspendState(

@@ -93,7 +93,10 @@ internal abstract class JintStatement
         JintStatement? result = statement.Type switch
         {
             NodeType.BlockStatement => new JintBlockStatement((NestedBlockStatement) statement),
-            NodeType.ReturnStatement => new JintReturnStatement((ReturnStatement) statement),
+            // An async generator's own `return Expression;` awaits its value; the generator's State marked it.
+            NodeType.ReturnStatement => JintAsyncGeneratorReturnStatement.IsMarked((ReturnStatement) statement)
+                ? new JintAsyncGeneratorReturnStatement((ReturnStatement) statement)
+                : new JintReturnStatement((ReturnStatement) statement),
             NodeType.VariableDeclaration => new JintVariableDeclaration((VariableDeclaration) statement),
             NodeType.BreakStatement => new JintBreakStatement((BreakStatement) statement),
             NodeType.ContinueStatement => new JintContinueStatement((ContinueStatement) statement),
@@ -130,7 +133,8 @@ internal abstract class JintStatement
 
     internal static JsValue? FastResolve(StatementOrExpression statement)
     {
-        if (statement is ReturnStatement rs && rs.Argument is Literal l)
+        // Not an async generator's return statement, which awaits even a literal.
+        if (statement is ReturnStatement rs && rs.Argument is Literal l && !JintAsyncGeneratorReturnStatement.IsMarked(rs))
         {
             return JintLiteralExpression.ConvertToJsValue(l);
         }

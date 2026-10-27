@@ -123,6 +123,15 @@ namespace Jint.Browser
         public override Jint.WebApi.CacheStorageProvider? GetCacheStorage(string origin) { }
         public override Jint.WebApi.StorageProvider? GetLocalStorage(string origin) { }
     }
+    [System.Flags]
+    public enum KeyModifiers
+    {
+        None = 0,
+        Alt = 1,
+        Control = 2,
+        Meta = 4,
+        Shift = 8,
+    }
     public sealed class NavigationFailedException : System.Exception
     {
         public NavigationFailedException() { }
@@ -172,6 +181,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<string> MarkdownAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> NavigateAsync(string url, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> PressAsync(string key, Jint.Browser.NavigationOptions? options = null) { }
+        public System.Threading.Tasks.Task<bool> PressAsync(string key, Jint.Browser.KeyModifiers modifiers, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> ReloadAsync(Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task ScrollToAsync(double y) { }
         public System.Threading.Tasks.Task<bool> SelectAsync(string target, string value) { }

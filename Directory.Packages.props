@@ -9,7 +9,7 @@
     <!-- Comparison controls for Jint.HtmlParser only. Production, tests and binding generation use
          native models; historical binding provenance does not constrain these benchmark versions. -->
     <PackageVersion Include="AngleSharp" Version="1.8.5" />
-    <PackageVersion Include="AngleSharp.Css" Version="1.1.3" />
+    <PackageVersion Include="AngleSharp.Css" Version="1.2.1" />
     <PackageVersion Include="AngleSharp.Xml" Version="1.2.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.15.8" />
@@ -17,7 +17,7 @@
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
     <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.5" />
     <PackageVersion Include="ICU4N" Version="60.1.0-alpha.440" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.294" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.316" />
     <PackageVersion Include="Microsoft.ClearScript.V8" Version="7.5.1.1" />
     <PackageVersion Include="Microsoft.ClearScript.V8.Native.win-x64" Version="7.5.1.1" />
     <PackageVersion Include="Microsoft.ClearScript.V8.Native.linux-x64" Version="7.5.1.1" />
@@ -38,29 +38,29 @@
       carries its own driver, node runtime included, so ConnectOverCDPAsync needs no `playwright install` and
       downloads no browser.
     -->
-    <PackageVersion Include="Microsoft.Playwright" Version="1.63.0" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.64.1" />
     <!-- The official Model Context Protocol C# SDK, which Jint.Browser.Mcp is a server on. The metapackage
          brings ModelContextProtocol.Core plus the dependency-injection and hosting glue; the third package,
          ModelContextProtocol.AspNetCore, is deliberately NOT referenced anywhere — it carries a framework
          reference to Microsoft.AspNetCore.App, which a dotnet tool must not require to start. -->
-    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.3.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="NiL.JS" Version="2.6.1722" />
-    <PackageVersion Include="NodaTime" Version="3.3.5" />
+    <PackageVersion Include="NodaTime" Version="3.3.6" />
     <PackageVersion Include="NUnit" Version="5.0.0" />
     <PackageVersion Include="NUnit3TestAdapter" Version="6.3.1" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.1" />
     <PackageVersion Include="Okojo" Version="0.1.2-preview.1" />
     <PackageVersion Include="PublicApiGenerator" Version="11.5.4" />
-    <PackageVersion Include="PuppeteerSharp" Version="25.14.0" />
+    <PackageVersion Include="PuppeteerSharp" Version="25.15.0" />
     <PackageVersion Include="SourceMaps" Version="0.3.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
     <PackageVersion Include="System.IO.Hashing" Version="10.0.13" />
     <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="10.0.13" />
     <PackageVersion Include="System.Text.Json" Version="10.0.13" />
     <PackageVersion Include="Test262Harness" Version="1.4.0" />
-    <PackageVersion Include="YantraJS.Core" Version="1.2.476" />
+    <PackageVersion Include="YantraJS.Core" Version="1.2.507" />
     <PackageVersion Include="Zio" Version="0.24.0" />
   </ItemGroup>
   <ItemGroup>

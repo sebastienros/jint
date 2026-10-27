@@ -27,7 +27,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class AsyncGeneratorReturnResumptionTests
 {
-    private const string Prelude = """
+    internal const string Prelude = """
         function ladder(log, n) {
           let p = Promise.resolve();
           for (let i = 1; i <= n; i++) {
@@ -61,13 +61,13 @@ public class AsyncGeneratorReturnResumptionTests
 
         """;
 
-    private static string Run(string script)
+    internal static string Run(string script)
     {
         var engine = new Engine(options => options.ObserveCancellation(TestContext.CurrentContext.CancellationToken));
         return engine.Evaluate(Prelude + script).UnwrapIfPromise().AsString();
     }
 
-    private static string Probe(string generator, string resume, bool started)
+    internal static string Probe(string generator, string resume, bool started)
         => Run("probe(log => " + generator + ", (it, log) => " + resume + ", " + (started ? "true" : "false") + ");");
 
     public static TestCases<string, string, string, string> AtASuspendedYield => new()

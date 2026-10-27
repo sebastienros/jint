@@ -266,7 +266,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         _engine.EnterExecutionContext(in _asyncGeneratorContext);
         try
         {
-            promise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(value);
+            promise = PromiseConstructor.ResolveForAwaitToPromise(_engine, value);
         }
         catch (JavaScriptException e)
         {
@@ -351,6 +351,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             }
             DisposeResourcesHelper.DisposeAndThen(
                 _engine,
+                _asyncGeneratorContext.Realm,
                 env,
                 new Completion(CompletionType.Throw, ex.Error, null!),
                 final => SettleResumeRejection(final.Value, promiseCapability));
@@ -396,7 +397,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             SettleResumeCompletion(result, promiseCapability);
             return;
         }
-        DisposeResourcesHelper.DisposeAndThen(_engine, lexEnv, result,
+        DisposeResourcesHelper.DisposeAndThen(_engine, _asyncGeneratorContext.Realm, lexEnv, result,
             final => SettleResumeCompletion(final, promiseCapability));
     }
 
@@ -423,25 +424,15 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         }
         else if (final.Type == CompletionType.Return)
         {
-            // https://tc39.es/ecma262/#sec-asyncgeneratorstart reports the body's return completion as it is. The one
-            // await owed on the way is a `return expr;` statement's own Await(exprValue)
-            // (https://tc39.es/ecma262/#sec-return-statement-runtime-semantics-evaluation), which the statement does
-            // not perform itself, so it is performed here. No other return completion has anything left to await:
-            // `return;` has no operand, a return() resumption was awaited before the body resumed
-            // (UnwrapReturnResumption), and yield* either awaited its own return value already or owes it no await.
-            // Those carry the yield or the pattern that produced them (GeneratorReturnException.CompletionSource),
-            // or the statement that ran the yield, and never a return statement - not even for `return yield x;`.
-            if (final._source is ReturnStatement { Argument: not null })
-            {
-                _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
-                AsyncGeneratorAwaitReturn(final.Value, promiseCapability);
-            }
-            else
-            {
-                _asyncGeneratorState = AsyncGeneratorState.Completed;
-                _completedAwaits = null;
-                AsyncGeneratorResolve(final.Value, true, promiseCapability);
-            }
+            // https://tc39.es/ecma262/#sec-asyncgeneratorstart reports the body's return completion as it is: nothing
+            // is left to await. A `return expr;` statement awaited its operand before it completed
+            // (https://tc39.es/ecma262/#sec-return-statement-runtime-semantics-evaluation,
+            // JintAsyncGeneratorReturnStatement), `return;` has no operand, a return() resumption was awaited before
+            // the body resumed (UnwrapReturnResumption), and yield* either awaited its own return value already or
+            // owes it no await.
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
+            AsyncGeneratorResolve(final.Value, true, promiseCapability);
         }
         else if (final.Type == CompletionType.Normal)
         {
@@ -475,8 +466,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asyncgeneratorawaitreturn
     /// Awaits the return value before completing the generator: a return() request to a generator that has not
-    /// started or has completed, and (see <see cref="SettleResumeCompletion"/>) a <c>return expr;</c> statement's
-    /// operand.
+    /// started or has completed.
     /// </summary>
     private void AsyncGeneratorAwaitReturn(JsValue value, PromiseCapability promiseCapability)
     {
@@ -486,7 +476,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         JsPromise promise;
         try
         {
-            promise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(value);
+            promise = PromiseConstructor.ResolveForAwaitToPromise(_engine, value);
         }
         catch (JavaScriptException e)
         {
@@ -565,6 +555,14 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// Awaits the value, then resolves the current request's promise with the awaited value.
     /// </summary>
     internal JsValue AsyncGeneratorYield(JsValue value)
+        => AsyncGeneratorYield(value, PromiseConstructor.ResolveForAwaitToPromise(_engine, value));
+
+    /// <summary>
+    /// <see cref="AsyncGeneratorYield(JsValue)"/> once the Await of <paramref name="value"/> has performed its
+    /// PromiseResolve, which is <paramref name="promise"/>: that step may throw, and its throw is the yield's own, so it
+    /// is taken before the generator is marked suspended.
+    /// </summary>
+    internal JsValue AsyncGeneratorYield(JsValue value, JsPromise promise)
     {
         // Clear stale await cache - after yield, the next resume starts from this point,
         // so any previously cached await values are irrelevant
@@ -583,10 +581,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         _asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
         _suspendedValue = value;
 
-        // Per spec AsyncGeneratorYield step 4: Set value to ? Await(value).
-        // Await step 1: PromiseResolve(%Promise%, value) — returns the value as-is if it's
-        // already a %Promise% (avoids extra thenable job tick for Promise values).
-        var promise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(value);
+        // Per spec AsyncGeneratorYield step 4: Set value to ? Await(value). The caller has performed Await's
+        // PromiseResolve(%Promise%, value), which returns the value as-is if it's already a %Promise% (avoids extra
+        // thenable job tick for Promise values); what is left is to await it.
 
         // Create fulfillment handler
         var onFulfilled = new ClrFunction(_engine, "", (thisObj, args) =>

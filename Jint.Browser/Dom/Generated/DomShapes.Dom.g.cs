@@ -1716,6 +1716,13 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Layout.LayoutMembers.ClientRects(self.Realm, self.Target);
                 }),
                 length: 0)
+            .Method("checkVisibility",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.checkVisibility", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.checkVisibility");
+                    return global::Jint.Browser.Layout.LayoutMembers.CheckVisibility(self.Realm, self.Target, args);
+                }),
+                length: 0)
             .Method("getElementsByClassName",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.getElementsByClassName", static (thisObj, args) =>
                 {
@@ -1927,6 +1934,27 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.replaceWith");
                     self.Realm.Hooks.ReplaceWith(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
+                }),
+                length: 0)
+            .Method("scroll",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.scroll", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.scroll");
+                    return global::Jint.Browser.Layout.LayoutMembers.Scroll(self.Realm, self.Target, args, relative: false);
+                }),
+                length: 0)
+            .Method("scrollBy",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.scrollBy", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.scrollBy");
+                    return global::Jint.Browser.Layout.LayoutMembers.Scroll(self.Realm, self.Target, args, relative: true);
+                }),
+                length: 0)
+            .Method("scrollTo",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.scrollTo", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.scrollTo");
+                    return global::Jint.Browser.Layout.LayoutMembers.Scroll(self.Realm, self.Target, args, relative: false);
                 }),
                 length: 0)
             .Accessor("scrollHeight",

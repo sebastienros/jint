@@ -9,6 +9,7 @@ using Jint.Native.Generator;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
+using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter;
 
@@ -353,6 +354,7 @@ internal sealed class JintFunctionDefinition
             }
             DisposeResourcesHelper.DisposeAndThen(
                 engine,
+                engine.ExecutionContext.Realm,
                 env,
                 new Completion(CompletionType.Throw, e.Error, null!),
                 final =>
@@ -384,7 +386,7 @@ internal sealed class JintFunctionDefinition
             SettleAsyncFunctionCompletion(asyncInstance, result);
             return;
         }
-        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result, final => SettleAsyncFunctionCompletion(asyncInstance, final));
+        DisposeResourcesHelper.DisposeAndThen(engine, engine.ExecutionContext.Realm, lexEnv, result, final => SettleAsyncFunctionCompletion(asyncInstance, final));
     }
 
     private static void SettleAsyncFunctionCompletion(AsyncFunctionInstance asyncInstance, Completion final)
@@ -999,6 +1001,13 @@ internal sealed class JintFunctionDefinition
             state.IsDirectRecursive = SelfCallAstVisitor.ContainsCallTo(function.Body, name);
         }
 
+        // An async generator's `return Expression;` awaits its value, so its own return statements are built as the
+        // handler that does; marked here, before any engine builds the body.
+        if (function.Async && function.Generator)
+        {
+            JintAsyncGeneratorReturnStatement.MarkReturnStatements(function.Body);
+        }
+
         state.SourceText = new SourceText(fullSourceText);
 
         return state;
@@ -1556,7 +1565,15 @@ Start:
                 }
             }
 
-            Scan(function.Body, sharesArguments: true, ref usage);
+            // The walk looks at a node's children, and a concise body is an expression with no node above
+            // it: an arrow whose whole body is the eval call (`x => eval(src)`) is seen here or nowhere.
+            var body = function.Body;
+            if (body.Type == NodeType.CallExpression && ((CallExpression) body).Callee is Identifier { Name: "eval" })
+            {
+                return Usage.Both;
+            }
+
+            Scan(body, sharesArguments: true, ref usage);
             return usage;
         }
 
@@ -1702,6 +1719,13 @@ Start:
         internal static bool MayEscapeWithReferences(IFunction function, Key[] slotNames)
         {
             var body = function.Body;
+
+            // A concise body that is itself a direct eval (x => eval(src)) can reach every slot by name and
+            // leave a closure over them behind; ClosureReferencesAny below only looks at a node's children.
+            if (body.Type == NodeType.CallExpression && ((CallExpression) body).Callee is Identifier { Name: "eval" })
+            {
+                return true;
+            }
 
             // For concise arrows like x => y => x * y, the body itself is a closure
             if (IsCapturing(body))

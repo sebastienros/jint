@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1290
+anchors: 1293
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -178,6 +178,7 @@ ecma262 sec-bigint.asintn
 ecma262 sec-bigint.asuintn
 ecma262 sec-bigint.prototype.tostring
 ecma262 sec-bigint.prototype.valueof
+ecma262 sec-block-runtime-semantics-evaluation
 ecma262 sec-blockdeclarationinstantiation
 ecma262 sec-boolean-constructor-boolean-value
 ecma262 sec-bound-function-exotic-objects
@@ -257,6 +258,7 @@ ecma262 sec-definefield
 ecma262 sec-definemethodproperty
 ecma262 sec-deletepropertyorthrow
 ecma262 sec-detacharraybuffer
+ecma262 sec-disposeresources
 ecma262 sec-dowait
 ecma262 sec-ecmascript-function-objects-call-thisargument-argumentslist
 ecma262 sec-ecmascript-function-objects-construct-argumentslist-newtarget
@@ -661,6 +663,7 @@ ecma262 sec-runtime-semantics-evaluategeneratorbody
 ecma262 sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
 ecma262 sec-runtime-semantics-forin-div-ofheadevaluation-tdznames-expr-iterationkind
 ecma262 sec-runtime-semantics-forinofloopevaluation
+ecma262 sec-runtime-semantics-forloopevaluation
 ecma262 sec-runtime-semantics-instantiatearrowfunctionexpression
 ecma262 sec-runtime-semantics-instantiateasyncarrowfunctionexpression
 ecma262 sec-runtime-semantics-instantiateasyncfunctionexpression

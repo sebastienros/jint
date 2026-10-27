@@ -68,7 +68,7 @@ internal sealed class JintYieldExpression : JintExpression
             return value;
         }
 
-        GeneratorReturnException.Raise(value, _expression);
+        GeneratorReturnException.Raise(value);
         return value;
     }
 
@@ -266,7 +266,12 @@ internal sealed class JintYieldExpression : JintExpression
         }
         else if (asyncGenerator is not null)
         {
+            // https://tc39.es/ecma262/#sec-yield: AsyncGeneratorYield(? Await(value)). Await's PromiseResolve reads a
+            // promise's constructor, which may throw: that is this yield's throw, so it comes before anything marks the
+            // generator suspended here.
+            var promise = PromiseConstructor.ResolveForAwaitToPromise(context.Engine, value);
             asyncGenerator._lastYieldNode = _expression;
+            return asyncGenerator.AsyncGeneratorYield(value, promise);
         }
 
         return Yield(context, value);
@@ -600,7 +605,7 @@ internal sealed class JintYieldExpression : JintExpression
                 // Per spec step 7.a.vi: if generatorKind is async, set innerResult to Await(innerResult).
                 // Await wraps via PromiseResolve, which handles both Promises and thenables.
                 asyncGenerator._delegationResumeType = CompletionType.Normal;
-                var innerPromise = EnsurePromise(engine, innerResultValue);
+                var innerPromise = EnsurePromise(engine, asyncGenerator, innerResultValue);
                 return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
             }
             else if (receivedType == CompletionType.Throw)
@@ -613,7 +618,7 @@ internal sealed class JintYieldExpression : JintExpression
 
                     // Per spec: if generatorKind is async, set innerResult to Await(innerResult)
                     asyncGenerator._delegationResumeType = CompletionType.Throw;
-                    var innerPromise = EnsurePromise(engine, innerResult);
+                    var innerPromise = EnsurePromise(engine, asyncGenerator, innerResult);
                     return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
                 }
                 else
@@ -632,18 +637,23 @@ internal sealed class JintYieldExpression : JintExpression
     }
 
     /// <summary>
-    /// Wraps a value in a promise via PromiseResolve if it isn't already a JsPromise.
-    /// This implements the spec's Await semantics for async generator yield* delegation.
+    /// The PromiseResolve(%Promise%, value) step of the <c>? Await(innerResult)</c> async generator yield* delegation
+    /// performs on each answer of its delegate. It reads a promise's constructor, which may throw: that throw is the
+    /// yield*'s own and ends the delegation, without closing the delegate.
     /// </summary>
-    private static JsPromise EnsurePromise(Engine engine, JsValue value)
+    private static JsPromise EnsurePromise(Engine engine, AsyncGeneratorInstance asyncGenerator, JsValue value)
     {
-        if (value is JsPromise p)
+        try
         {
-            return p;
+            return PromiseConstructor.ResolveForAwaitToPromise(engine, value);
         }
-
-        // PromiseResolve(%Promise%, value) — handles thenables via NewPromiseResolveThenableJob
-        return (JsPromise) engine.Intrinsics.Promise.PromiseResolve(value);
+        catch (JavaScriptException)
+        {
+            // Nothing may resume into the delegation later, nor may a later evaluation of this yield* find it.
+            asyncGenerator.ClearDelegationIterator();
+            asyncGenerator._delegatingYieldNode = null;
+            throw;
+        }
     }
 
     /// <summary>
@@ -791,7 +801,7 @@ internal sealed class JintYieldExpression : JintExpression
         // Await and step through the delegate's answer exactly as a next() result is, with Return as the
         // completion a done result resumes the body with.
         asyncGenerator._delegationResumeType = CompletionType.Return;
-        return AwaitAndYieldDelegation(context, asyncGenerator, iterator, EnsurePromise(engine, innerReturnResult));
+        return AwaitAndYieldDelegation(context, asyncGenerator, iterator, EnsurePromise(engine, asyncGenerator, innerReturnResult));
     }
 
     /// <summary>
@@ -808,7 +818,7 @@ internal sealed class JintYieldExpression : JintExpression
         // delegation over.
         asyncGenerator.ClearDelegationIterator();
 
-        var promise = EnsurePromise(engine, receivedValue);
+        var promise = EnsurePromise(engine, asyncGenerator, receivedValue);
         var promiseCapability = asyncGenerator._currentPromiseCapability;
         asyncGenerator._asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
 

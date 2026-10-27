@@ -5607,6 +5607,14 @@
           "Origin": "overrides.json"
         },
         {
+          "DomName": "checkVisibility",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.checkVisibility\");\nreturn global::Jint.Browser.Layout.LayoutMembers.CheckVisibility(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "overrides.json"
+        },
+        {
           "DomName": "getElementsByClassName",
           "Kind": 0,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.getElementsByClassName\");\nreturn self.Realm.Hooks.GetElementsByClassName(self.Realm, self.Target, args);",
@@ -5837,6 +5845,30 @@
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
+        },
+        {
+          "DomName": "scroll",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.scroll\");\nreturn global::Jint.Browser.Layout.LayoutMembers.Scroll(self.Realm, self.Target, args, relative: false);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSSOM View"
+        },
+        {
+          "DomName": "scrollBy",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.scrollBy\");\nreturn global::Jint.Browser.Layout.LayoutMembers.Scroll(self.Realm, self.Target, args, relative: true);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSSOM View"
+        },
+        {
+          "DomName": "scrollTo",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.scrollTo\");\nreturn global::Jint.Browser.Layout.LayoutMembers.Scroll(self.Realm, self.Target, args, relative: false);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSSOM View"
         },
         {
           "DomName": "scrollHeight",

@@ -142,7 +142,8 @@ Performance is a first-class concern; every change must consider its impact. The
 [`AGENTS.md`](../AGENTS.md#performance-is-critical-and-the-conventions-live-beside-the-engine) states that
 much and points here for the checklist:
 
-- Use `[MethodImpl(MethodImplOptions.AggressiveInlining)]` on hot paths.
+- Use `[MethodImpl(MethodImplOptions.AggressiveInlining)]` on hot paths. Overuse backfires: it can exhaust the JIT's inline budget or raise the tracked-local count, so a caller's other inlinees fall out of line. Mark only small leaf helpers, and check with `DOTNET_JitDisasm` when a hot method grows ([#4317](https://github.com/sebastienros/jint/pull/4317): a typed `catch (Exception) when (...)` filter tipped `JintForInForOfStatement.BodyEvaluation` over the budget, pushed `Completion`'s constructor out of line and grew the frame by 64 B).
+- Copy a field into a local before a hot loop (`var items = _items;`): the JIT often cannot hoist a field read past calls or stores, and a local also enables bounds-check elimination.
 - Prefer `readonly struct` and `readonly record struct` with primary constructors for small data types.
 - Use `Span<T>`, `ReadOnlySpan<T>` and stack allocation wherever possible.
 - Leverage the pools in `Jint.Pooling` instead of allocating fresh instances.

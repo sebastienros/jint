@@ -36,6 +36,7 @@ internal sealed partial class ParserDriver
     private sealed class ResourceSource
     {
         internal PendingFrameDocument? PendingFrame;
+        internal object? LocationNavigation;
         internal string? Signature;
         internal object? StyleRequest;
         internal Document? StyleRequestDocument;
@@ -655,7 +656,24 @@ internal sealed partial class ParserDriver
         }
     }
 
-    private void LoadFrame(Element frame, PendingFrameDocument? pending = null)
+    // https://html.spec.whatwg.org/multipage/nav-history-apis.html#location-object-navigate
+    internal void NavigateFrame(Document current, string url)
+    {
+        if (FrameWindows.ElementOf(current) is not { } frame) return;
+        var source = _resourceSources.GetValue(frame, static _ => new ResourceSource());
+        var request = new object();
+        source.LocationNavigation = request;
+        _runtime.Engine.Tasks.Post(() =>
+        {
+            if (_disposed || !ReferenceEquals(source.LocationNavigation, request)
+                || !ReferenceEquals(DomBrowsingContext.OfFrame(frame)?.Active, current)) return;
+            source.LocationNavigation = null;
+            using var mutation = _runtime.Layout.BeginMutation();
+            LoadFrame(frame, navigationUrl: url);
+        });
+    }
+
+    private void LoadFrame(Element frame, PendingFrameDocument? pending = null, string? navigationUrl = null)
     {
         if (pending is not null && !CurrentFrameRequest(pending)) { CompleteFrameRequest(pending); return; }
         var owner = pending?.Document ?? frame.OwnerDocument!;
@@ -674,10 +692,10 @@ internal sealed partial class ParserDriver
         var sandboxedOrigin = DomDocumentState.Of(owner).HasSandboxedOrigin || HasSandboxedOrigin(frame);
         var scriptsBlockedBySandbox = DomDocumentState.Of(owner).ScriptsBlockedBySandbox
             || Attribute(frame, "sandbox") is not null;
-        var srcdoc = Attribute(frame, "srcdoc");
+        var srcdoc = navigationUrl is null ? Attribute(frame, "srcdoc") : null;
         var src = Attribute(frame, "src");
-        var url = srcdoc is not null ? "about:srcdoc"
-            : string.IsNullOrEmpty(src) ? "about:blank" : PageUrl.Resolve(src, creatorBaseUrl);
+        var url = navigationUrl ?? (srcdoc is not null ? "about:srcdoc"
+            : string.IsNullOrEmpty(src) ? "about:blank" : PageUrl.Resolve(src, creatorBaseUrl));
         var signature = srcdoc is not null ? "srcdoc:" + srcdoc : "src:" + (url ?? "invalid:" + src);
         var source = _resourceSources.GetValue(frame, static _ => new ResourceSource());
         _runtime.Dom.CancellationToken.ThrowIfCancellationRequested();
@@ -694,8 +712,11 @@ internal sealed partial class ParserDriver
         // No callback between consuming pending work and committing its navigation signature.
         // A later fetch or parser failure belongs to the started request and is never replayed.
         if (pending is not null) CompleteFrameRequest(pending);
-        if (source.Signature == signature) return;
-        source.Signature = signature;
+        if (navigationUrl is null)
+        {
+            if (source.Signature == signature) return;
+            source.Signature = signature;
+        }
         // HTML's iframe processing leaves the initial about:blank document active when parsing src
         // fails. Create its actual navigable, with the creator's origin and sandbox policy, below.
         // https://html.spec.whatwg.org/multipage/iframe-embed-object.html#process-the-iframe-attributes

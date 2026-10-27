@@ -489,6 +489,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
                 {
                     DisposeResourcesHelper.DisposeAndThen(
                         _engine,
+                        _realm,
                         env,
                         new Completion(CompletionType.Throw, e.Error, null!),
                         final => cap.Reject(final.Value));
@@ -528,7 +529,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
                 }
                 else
                 {
-                    DisposeResourcesHelper.DisposeAndThen(_engine, env, result,
+                    DisposeResourcesHelper.DisposeAndThen(_engine, _realm, env, result,
                         final => SettleTla(cap, final));
                 }
             }

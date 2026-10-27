@@ -1,10 +1,6 @@
 using Jint.Native;
-using Jint.Native.AsyncFunction;
 using Jint.Native.Disposable;
-using Jint.Native.Promise;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
-using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
 
@@ -197,16 +193,6 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         ISuspendable suspendable)
     {
         var engine = context.Engine;
-        // suspendable.IsResuming setter delegates to asyncFn._isResuming, so this
-        // single assignment clears both the interface flag and the underlying field.
-        suspendable.IsResuming = false;
-
-        var asyncFn = engine.ExecutionContext.AsyncFunction!;
-        var awaitResult = asyncFn._resumeValue ?? JsValue.Undefined;
-        var awaitThrew = asyncFn._resumeWithThrow;
-        asyncFn._resumeValue = null;
-        asyncFn._resumeWithThrow = false;
-        asyncFn._lastAwaitNode = null;
 
         // Use the env captured at suspend time, in case the env-setup branch above
         // didn't run on this re-entry (no declarations path).
@@ -219,14 +205,15 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
             blockEnv,
             oldEnv,
             suspendable,
-            blockEnv.ContinueDisposeResources(awaitResult, awaitThrew));
+            StatementDisposal.Resume(engine, suspendable, blockEnv));
     }
 
     /// <summary>
-    /// Drives the dispose state machine to completion. For each suspension, suspends
-    /// the surrounding async function (via the same machinery as <c>await</c>); when
-    /// the dispose promise settles, the function resumes and the block re-enters
-    /// <see cref="ExecuteBlock"/> with the dispose-in-progress flag set.
+    /// Drives the dispose state machine to completion
+    /// (https://tc39.es/ecma262/#sec-block-runtime-semantics-evaluation step 6,
+    /// https://tc39.es/ecma262/#sec-disposeresources). For each await it owes, suspends the surrounding async function
+    /// or async generator (via the same machinery as <c>await</c>); when the dispose promise settles, the body resumes
+    /// and the block re-enters <see cref="ExecuteBlock"/> with the dispose-in-progress flag set.
     /// </summary>
     private Completion CompleteDispose(
         EvaluationContext context,
@@ -237,32 +224,8 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     {
         var engine = context.Engine;
 
-        while (!step.IsDone)
+        if (StatementDisposal.Drive(engine, this, blockEnv, ref step))
         {
-            var pending = step.PendingPromise!;
-            var asyncFn = engine.ExecutionContext.AsyncFunction;
-
-            if (asyncFn is null)
-            {
-                // Non-async context fallback. `await using` is syntactically only valid
-                // in async, so this path is reached only by unusual hosts. Sync wait.
-                JsValue resolved;
-                bool threw = false;
-                try
-                {
-                    resolved = pending.UnwrapIfPromise(engine.Options.Constraints.PromiseTimeout);
-                }
-                catch (PromiseRejectedException e)
-                {
-                    resolved = e.RejectedValue;
-                    threw = true;
-                }
-                step = blockEnv.ContinueDisposeResources(resolved, threw);
-                continue;
-            }
-
-            SetupDisposeSuspension(engine, asyncFn, pending);
-
             var data = suspendable!.Data.GetOrCreate<BlockSuspendData>(this);
             data.BlockEnvironment = blockEnv;
             data.OuterEnvironment = oldEnv;
@@ -291,40 +254,17 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                 _cachedEnv = blockEnv;
             }
         }
-        return step.CompletedResult;
-    }
 
-    /// <summary>
-    /// Mirror of <see cref="JintAwaitExpression.SuspendForAwait"/> for the dispose path:
-    /// suspends the async function on the pending dispose promise, with handlers that
-    /// resume the function (which re-enters this block via <see cref="ResumeDispose"/>).
-    /// </summary>
-    private void SetupDisposeSuspension(Engine engine, AsyncFunctionInstance asyncFn, JsValue pendingPromise)
-    {
-        var promise = pendingPromise as JsPromise
-            ?? (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(pendingPromise);
-
-        asyncFn._lastAwaitNode = this;
-        asyncFn._state = AsyncFunctionState.SuspendedAwait;
-        asyncFn._savedContext = engine.ExecutionContext;
-
-        var onFulfilled = new ClrFunction(engine, "", (_, args) =>
+        var result = step.CompletedResult;
+        if (result.Type == CompletionType.Throw)
         {
-            asyncFn._resumeValue = args.At(0);
-            asyncFn._resumeWithThrow = false;
-            JintAwaitExpression.AsyncFunctionResume(engine, asyncFn);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
+            // A dispose that threw replaced the completion the block was leaving with (DisposeResources step 4.e.iii),
+            // so a generator's return() request that completion stood for is no longer in force; left set, the next
+            // test of it turned the throw back into the return, and no catch saw it.
+            JintStatementList.ClearReturnRequest(engine);
+        }
 
-        var onRejected = new ClrFunction(engine, "", (_, args) =>
-        {
-            asyncFn._resumeValue = args.At(0);
-            asyncFn._resumeWithThrow = true;
-            JintAwaitExpression.AsyncFunctionResume(engine, asyncFn);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
+        return result;
     }
 
     /// <summary>

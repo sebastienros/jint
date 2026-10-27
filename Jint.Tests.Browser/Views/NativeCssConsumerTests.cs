@@ -15,6 +15,17 @@ using Browser = global::Jint.Browser.Browser;
 public sealed class NativeCssConsumerTests
 {
     [Test]
+    public async Task BackgroundHexColorsResolveToTheRgbSerializationUsedByColorFields()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<!doctype html><span id='swatch' style='background-color:#336699'></span>");
+
+        (await page.EvaluateAsync<string>("getComputedStyle(document.querySelector('#swatch')).backgroundColor"))
+            .Should().Be("rgb(51, 102, 153)");
+    }
+
+    [Test]
     public async Task DeclaredColorsRetainTextAndComputedOnesSerializeAsSrgb()
     {
         await using var browser = new Browser();

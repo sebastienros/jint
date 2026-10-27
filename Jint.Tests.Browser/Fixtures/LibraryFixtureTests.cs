@@ -72,6 +72,43 @@ public class LibraryFixtureTests
     }
 
     [Test]
+    public async Task JQueryInitializesDynamicallyInsertedColorInputsFromAMutationObserver()
+    {
+        await using var course = await FixtureCourse.OpenAsync("jquery");
+        await course.Page.EvaluateAsync("""
+            window.colorValues = [];
+            var form = document.body.appendChild(document.createElement('form'));
+            var observer = new MutationObserver(records => {
+                for (const record of records) {
+                    for (const node of record.addedNodes) {
+                        $(node).find('input[type=color]').each(function () {
+                            colorValues.push($(this).val());
+                            $(this).val('#ABCDEF');
+                        });
+                    }
+                }
+            });
+            observer.observe(form, { childList: true });
+            $(form).append('<div><input name="color" type="color" value="#336699"></div>');
+            var container = document.createElement('div');
+            var input = container.appendChild(document.createElement('input'));
+            input.name = 'color';
+            input.value = '#ABC';
+            input.type = 'color';
+            form.appendChild(container);
+            """);
+
+        await course.UntilAsync("colorValues.join('|')", "#336699|#aabbcc");
+        (await course.Page.EvaluateAsync<string>("new FormData(form).getAll('color').join('|')"))
+            .Should().Be("#abcdef|#abcdef");
+        (await course.Page.EvaluateAsync<string>("form.firstChild.firstChild.defaultValue")).Should().Be("#336699");
+        await course.Page.EvaluateAsync("form.reset(); observer.disconnect()");
+        (await course.Page.EvaluateAsync<string>("new FormData(form).getAll('color').join('|')"))
+            .Should().Be("#336699|#000000");
+        course.ShouldHaveReportedNothing();
+    }
+
+    [Test]
     public async Task JQueryDelegatedClickSubmitsAHiddenForm()
     {
         string? method = null;

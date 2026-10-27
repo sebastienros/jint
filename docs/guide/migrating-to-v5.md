@@ -6660,6 +6660,150 @@ value was forwarded to the delegate as that `throw()` or `return()` again; it is
 on the `finally` blocks having run by the time `return()` returned must await the request instead. There is no switch
 back.
 
+### 4.172 DevTools `Fetch.enable` with `patterns: []` intercepts nothing, and a request's URL is reported without its fragment ([#4319](https://github.com/sebastienros/jint/issues/4319))
+
+Two more places where the DevTools `Fetch` domain differed from Chromium.
+
+`Fetch.enable` treated an explicit empty `patterns: []` like an omitted `patterns`, so it paused every request. Now, as in
+Chromium, an omitted `patterns` still means "intercept everything" (it is the protocol's `*`), while **`patterns: []`
+intercepts nothing**, and a client that sends it no longer sees any `Fetch.requestPaused`. `patterns: []` together with
+`handleAuthRequests: true` is refused with `-32602` ("Can't specify empty patterns with handleAuth set"), since no
+challenge could be matched to a pattern.
+
+`Fetch.requestPaused` reported `request.url` with its `#fragment` and no `urlFragment`. Now `request.url` is the URL
+**without** its fragment and the fragment is sent separately as `request.urlFragment`, including the leading `#`;
+a request with no fragment has no `urlFragment` member. `Network.requestWillBeSent` shares the same `Network.Request`
+shape, and follows the same rule. A client that read the fragment out of `request.url` must read `request.urlFragment`
+instead, or concatenate the two. There is no switch back.
+
+### 4.173 An async generator's `return expr;` awaits `expr` in the statement, before the `finally` blocks run ([#4332](https://github.com/sebastienros/jint/issues/4332))
+
+In an async generator, `return expr;` awaits `expr` before the return leaves the statement. Jint awaited it only once
+the body had finished, so the `finally` blocks around the `return` ran inside the `next()` call that reached it, and a
+rejected `expr` skipped every `catch` and rejected the request:
+
+```js
+var log = [];
+async function* g() {
+    try { return Promise.reject("X"); } catch (e) { log.push("caught " + e); } finally { log.push("fin"); }
+}
+var p = g().next().then(r => log.push(JSON.stringify(r)), e => log.push("rejected " + e));
+log.push("called");
+await p;
+// earlier 5.0: ["fin", "called", "rejected X"]    5.x: ["called", "caught X", "fin", "{\"done\":true}"]
+```
+
+Now the statement suspends the generator on the await, as an `await` expression does: the `finally` blocks, the
+iterator close of a `for`-`of` the `return` leaves, the disposal of its `using` declarations and the generator's own
+completion all come a microtask later (one more for a thenable), and a rejection is thrown at the `return`, where a
+`catch` around it handles it like any other throw. A literal operand is awaited as well, so
+`try { return 1; } finally { … }` runs its `finally` a microtask later, and a promise whose `constructor` getter throws
+is thrown at the `return`. Where nothing runs between the `return` and the end of the generator, the request settles
+when it did before. `return;`, which has no operand, and the `return` of a function nested inside an async generator
+are not affected. A script that relied on the `finally` blocks having run by the time `next()` returned must await the
+request instead. There is no switch back.
+
+### 4.174 A block's `await using` in an async generator suspends the generator while it disposes ([#4355](https://github.com/sebastienros/jint/issues/4355))
+
+When a block ends, it disposes its `await using` resources and awaits each result. In an async function that await
+suspended the function, but in an async generator Jint waited for the result on the spot. It ran the host's job queue
+inside the `next()` call, so the rest of the body ran before the caller's next statement, and jobs the caller had
+queued earlier ran in the middle of the request:
+
+```js
+var log = [];
+async function* g() {
+    { await using r = { [Symbol.asyncDispose]() { log.push("dispose"); } }; }
+    log.push("after");
+}
+var p = g().next();
+log.push("called");
+await p;
+// earlier 5.0: ["dispose", "after", "called"]    5.x: ["dispose", "called", "after"]
+```
+
+Now each of those awaits suspends the generator the way an `await` expression does. This holds for a block in a loop
+body, a `catch` or a `finally`, and for a block that a `return()` or a `throw()` resumption leaves. The request
+settles a microtask later for each await, and a request made meanwhile queues behind it. A dispose that throws or
+rejects is thrown from the block, or wrapped in a `SuppressedError` over the block's own throw, as before.
+
+Two neighbours changed with it. A `return()` request whose block then has a dispose throw no longer completes the
+generator with the return value. The throw replaces the return, and a `catch` around the block now sees it, in a
+generator of either kind. And a `using` resource disposed after a `null` or `undefined` `await using` waits a
+microtask first, as the specification's DisposeResources step 4.d says, every time that happens, where Jint waited
+only the first time. In `{ using a = …; await using x = null; using b = …; await using y = null; }`, `a` is now
+disposed a microtask after `b` rather than together with it, in async functions too.
+
+A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
+There is no switch back.
+
+### 4.176 A `for (using …; …; …)` loop disposes its header's resources once it ends, and throws what the dispose throws ([#4359](https://github.com/sebastienros/jint/issues/4359))
+
+A `for` loop whose header declares `using` or `await using` disposed those resources whenever the statement was left,
+including at every `await` or `yield` inside the loop, and threw away what the dispose produced. An `await using`
+header was never awaited, a `using` header was disposed at the first suspension while the loop went on using it, and a
+dispose that threw was swallowed:
+
+```js
+var log = [];
+try {
+    for (using x = { [Symbol.dispose]() { log.push("dispose"); throw "D"; } }; log.length < 1; ) { log.push("body"); }
+} catch (e) { log.push("caught " + e); }
+// earlier 5.0: ["body", "dispose"]    5.x: ["body", "dispose", "caught D"]
+```
+
+Now the resources are disposed once, when the loop ends or a declarator of the header throws, as the specification's
+ForLoopEvaluation says. Each `await using` result is awaited, which suspends the async function or async generator, so
+the statement after the loop runs a microtask later for each await. A dispose that throws or rejects is thrown from the
+loop, or wrapped in a `SuppressedError` over the loop's own throw, and so reaches `Execute` and `Evaluate` when nothing
+catches it. As with a block, a `return()` request whose loop then has a dispose throw no longer completes the generator
+with the return value.
+
+A host exception or a constraint (`LimitStatements`, a timeout, cancellation) that ends the script inside such a loop no
+longer runs its dispose methods on the way out, which a block never did. There is no switch back.
+
+### 4.177 `await` reads a promise's `constructor`, so a subclass's promise settles two microtasks later ([#4361](https://github.com/sebastienros/jint/issues/4361))
+
+`await p` starts by resolving `p` against `%Promise%`, which reads `p.constructor`. A promise whose `constructor` is
+`Promise` is awaited as it is. Any other promise is wrapped in a new `Promise`, and the wrapper reaches it through its
+`then`. Several places that await skipped that read whenever `p` was a promise. So a `constructor` getter never ran,
+and a promise subclass was awaited as if it were a plain `Promise`:
+
+```js
+var log = [];
+var p = Promise.resolve(1);
+Object.defineProperty(p, "constructor", { get() { log.push("get"); throw "C"; } });
+(async () => { try { await p; } catch (e) { log.push("caught " + e); } })();
+log.push("called");
+// earlier 5.0: ["called"]    5.x: ["get", "caught C", "called"]
+```
+
+The places that skipped it now make the read: an `await` expression, including one at the top level of a module, an
+async generator's `yield*`, `for await`'s close, and the disposal of `await using` resources in a block, a loop, a
+function body or a module. A getter that throws makes the `await` throw on the spot, where a `catch` around it sees it.
+A subclass instance, or a promise from another realm, settles the `await` two microtasks later than it did, and its
+`then` is now called, as it is in other engines. An untouched promise is awaited exactly as before, and the read is
+skipped for it, so nothing about it is observable.
+
+An async generator's `yield`, `return` statement and `return()` already made the read. At a `yield`, though, a getter
+that throws left the request pending for good; it is now thrown at the `yield`. There is no switch back.
+
+### 4.178 An arrow whose whole body is a direct `eval` keeps its parameters for what the eval creates ([#4366](https://github.com/sebastienros/jint/issues/4366))
+
+In 4.16, when an arrow's concise body was itself a direct `eval` call, the engine did not see the `eval`. It emptied
+the arrow's environment on return, to reuse it for the next call, so a function created by that `eval` lost the
+arrow's parameters. Reading one threw a `ReferenceError`; in sloppy code, assigning one created a global of that name.
+A block body, a function expression, an `eval` anywhere below the body's root, an async arrow and an arrow with a
+destructuring, rest or default parameter were not affected:
+
+```js
+const f = (log => eval('(function () { return log; })'))(42);
+f(); // 4.16: ReferenceError: log is not defined    5.x: 42
+```
+
+Now such an arrow gets a new environment on every call, as its block-bodied form `log => { return eval(...); }`
+does, and the function the `eval` returns reads the parameter as in other engines. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
