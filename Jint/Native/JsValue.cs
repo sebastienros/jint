@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
@@ -416,6 +416,28 @@ public abstract partial class JsValue : IEquatable<JsValue>
                     return result;
                 }
             }
+        }
+
+        if (!ReflectionInterop.Enabled)
+        {
+            return value switch
+            {
+                bool v => v ? JsBoolean.True : JsBoolean.False,
+                byte v => JsNumber.Create(v),
+                sbyte v => JsNumber.Create(v),
+                short v => JsNumber.Create(v),
+                ushort v => JsNumber.Create(v),
+                int v => JsNumber.Create(v),
+                uint v => JsNumber.Create(v),
+                long v => (JsValue) v,
+                ulong v => (JsValue) v,
+                float v => (JsValue) v,
+                double v => (JsValue) v,
+                decimal v => (JsValue) (double) v,
+                char v => JsString.Create(v),
+                string v => JsString.Create(v),
+                _ => ReflectionInterop.UnsupportedProjection()
+            };
         }
 
         if (DefaultObjectConverter.TryConvert(engine, value, type, out var defaultConversion))

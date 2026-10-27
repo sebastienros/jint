@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
 using System.Globalization;
 using System.Linq;
@@ -666,7 +666,12 @@ public sealed partial class Options
         }
 
         // add missing bits if needed
-        if (Interop.Enabled)
+        if ((Interop.Enabled || Interop.AllowOperatorOverloading) && !ReflectionInterop.Enabled)
+        {
+            Throw.NotSupportedException("Broad CLR interop is disabled in this publication.");
+        }
+
+        if (ReflectionInterop.Enabled && Interop.Enabled)
         {
             var typeResolutionPolicy = new ClrTypeResolutionPolicy(Interop);
 
@@ -763,6 +768,12 @@ public sealed partial class Options
 
     private static void AttachExtensionMethodsToPrototypes(Engine engine)
     {
+        if (!ReflectionInterop.Enabled)
+        {
+            Throw.NotSupportedException("Reflected CLR extension methods are disabled; use native JsValue functions.");
+            return;
+        }
+
         AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.Array.PrototypeObject, typeof(Array));
         AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.Boolean.PrototypeObject, typeof(bool));
         AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.Date.PrototypeObject, typeof(DateTime));

@@ -808,6 +808,12 @@ internal abstract class JintBinaryExpression : JintExpression
         string? clrName,
         [NotNullWhen(true)] out object? result)
     {
+        if (!ReflectionInterop.Enabled)
+        {
+            result = null;
+            return false;
+        }
+
         var left = leftValue.ToObject();
         var right = rightValue.ToObject();
 

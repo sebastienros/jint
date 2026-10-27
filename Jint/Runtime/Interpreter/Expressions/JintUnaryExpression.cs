@@ -366,6 +366,12 @@ internal sealed class JintUnaryExpression : JintExpression
 
     internal static bool TryOperatorOverloading(EvaluationContext context, JsValue value, string clrName, [NotNullWhen(true)] out JsValue? result)
     {
+        if (!ReflectionInterop.Enabled)
+        {
+            result = null;
+            return false;
+        }
+
         var operand = value.ToObject();
 
         if (operand != null)

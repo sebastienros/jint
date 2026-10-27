@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -1792,7 +1792,7 @@ public sealed partial class Engine : IDisposable
     {
         var filter = TypeConverterTargetFilter.Create(converter, declaredTargetTypes);
         _typeConverterTargetFilter = filter;
-        _typeConverter = HostContractVerification.Enabled && filter is { IsRestricted: true }
+        _typeConverter = ReflectionInterop.Enabled && HostContractVerification.Enabled && filter is { IsRestricted: true }
             ? new VerifyingClrTypeConverter(converter, filter, new DefaultTypeConverter(this))
             : converter;
     }
@@ -1901,7 +1901,7 @@ public sealed partial class Engine : IDisposable
     private Engine(Options? options, Action<Engine, Options>? configure)
     {
         Constraints = new ConstraintOperations(this);
-        TypeConverter = new DefaultTypeConverter(this);
+        TypeConverter = ReflectionInterop.Enabled ? new DefaultTypeConverter(this) : new ReflectionFreeTypeConverter();
 
         _executionContexts = new ExecutionContextStack(2);
 
