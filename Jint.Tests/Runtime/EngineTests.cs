@@ -3285,6 +3285,27 @@ x.test = {
     }
 
     [Test]
+    public void AnExpressionScriptKeepsTheNestingDepthLimit()
+    {
+        // 300 terms nest deeper than the hoisting walker allows (256), the same as the statement-list path.
+        var expression = string.Join("+", Enumerable.Repeat("1", 300));
+        var engine = new Engine();
+
+        Invoking(() => engine.Evaluate(expression + ";0")).Should().ThrowExactly<ScriptPreparationException>();
+        Invoking(() => engine.Evaluate(expression)).Should().ThrowExactly<ScriptPreparationException>();
+        Invoking(() => Engine.PrepareScript(expression)).Should().ThrowExactly<ScriptPreparationException>();
+
+        // Not analysed when prepared: every run, including the one after a run that threw, still walks it.
+        var unanalysed = Engine.PrepareScript(expression, options: new ScriptPreparationOptions { StaticAnalysis = false });
+        for (var run = 0; run < 2; run++)
+        {
+            Invoking(() => engine.Evaluate(unanalysed)).Should().ThrowExactly<ScriptPreparationException>();
+        }
+
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    [Test]
     public void ShouldHandleFixedSlotFunctionWithLetConst()
     {
         var engine = new Engine();
