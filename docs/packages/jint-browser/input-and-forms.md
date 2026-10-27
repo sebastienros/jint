@@ -29,7 +29,7 @@ await page.ClickAsync("ref=42");
 References belong to one document and stop resolving after navigation.
 
 - `FillAsync` focuses, selects all, and inserts one replacement in text controls. Date, month, week, time and local date-time inputs commit a native sanitized value and fire trusted `input` then `change` events when it changes. Invalid picker values throw `ArgumentException`; disabled, readonly and unsupported controls return `false`.
-- `TypeAsync` preserves the current value and dispatches keys one character at a time.
+- `TypeAsync` preserves the current value and dispatches keys one Unicode scalar at a time, including supplementary characters represented by UTF-16 surrogate pairs. Each scalar follows the trusted keyboard and cancelable input sequence for text controls and contenteditable hosts.
 - `PressAsync` targets the focused element, or the body when nothing is focused. Its modifier overload accepts the `KeyModifiers` flags `Alt`, `Control`, `Meta` and `Shift` on both keydown and keyup.
 - `ClickAsync` scrolls the target into view and runs link, button, checkbox, radio, label, summary, and option activation.
 - `SelectAsync` matches an option by value, then by visible text, and fires `input` followed by `change`.

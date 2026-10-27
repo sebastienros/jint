@@ -851,6 +851,9 @@ internal readonly record struct KeyOptions(
     /// <summary>One key with no modifiers, which is what a test and a plain <c>Input.dispatchKeyEvent</c> send.</summary>
     internal static KeyOptions For(string key) => new(key, "", "", 0, false, EventModifiers.None, null);
 
+    /// <summary>A printable key can occupy two UTF-16 code units for one supplementary scalar.</summary>
+    internal bool IsCharacter => Key.Length == 1 || (Key.Length == 2 && char.IsSurrogatePair(Key, 0));
+
     /// <summary>
     /// The text this key produces: what the client said, or the <c>key</c> itself when it is one character,
     /// which is how a key that produces a character is told from a named one.
@@ -870,7 +873,7 @@ internal readonly record struct KeyOptions(
             }
 
             var shortcut = (Modifiers & (EventModifiers.Control | EventModifiers.Meta)) != EventModifiers.None;
-            return Key.Length == 1 && !shortcut ? Key : "";
+            return IsCharacter && !shortcut ? Key : "";
         }
     }
 

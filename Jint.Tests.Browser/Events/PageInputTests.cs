@@ -17,6 +17,51 @@ public sealed class PageInputTests
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
+    [TestCase("textarea", "Orchard \U0001F34E")]
+    [TestCase("textarea", "\U0001F34E")]
+    [TestCase("input", "\U0001F34E")]
+    [TestCase("div contenteditable", "\U0001F34E")]
+    public async Task TypingSupplementaryCharactersPreservesTextAndTrustedInput(string tag, string text)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<" + tag + " id='text'></" + tag.Split(' ')[0] + ">");
+        await page.EvaluateAsync("""
+            window.events=[];
+            for(const type of ['keydown','keypress','beforeinput','input','keyup'])
+                document.getElementById('text').addEventListener(type,e=>
+                    events.push({type:e.type,key:e.key,data:e.data,trusted:e.isTrusted}));
+            """);
+
+        (await page.TypeAsync("#text", text)).Should().BeTrue();
+        (await page.EvaluateAsync<string>("text.value ?? text.textContent")).Should().Be(text);
+        (await page.EvaluateAsync<bool>("""
+            (() => {
+                const eventsForScalar=events.slice(-5);
+                return eventsForScalar.map(e=>e.type).join(',') === 'keydown,keypress,beforeinput,input,keyup' &&
+                    eventsForScalar.every(e=>e.trusted) &&
+                    eventsForScalar.filter(e=>e.key!==undefined).every(e=>e.key==='\uD83C\uDF4E') &&
+                    eventsForScalar.filter(e=>e.data!==undefined).every(e=>e.data==='\uD83C\uDF4E');
+            })()
+            """)).Should().BeTrue();
+        (await page.EvaluateAsync<int>("text.selectionStart ?? getSelection().focusOffset")).Should().Be(text.Length);
+    }
+
+    [TestCase("keydown")]
+    [TestCase("keypress")]
+    [TestCase("beforeinput")]
+    public async Task SupplementaryCharacterTypingRespectsCancellation(string canceledEvent)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<textarea id='text'></textarea>");
+        await page.EvaluateAsync("text.addEventListener('" + canceledEvent + "',e=>e.preventDefault());"
+            + "window.insertions=0;text.addEventListener('input',()=>insertions++);");
+        (await page.TypeAsync("#text", "\U0001F34E")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("text.value")).Should().BeEmpty();
+        (await page.EvaluateAsync<int>("insertions")).Should().Be(0);
+    }
+
     [Test]
     public async Task AClickCoveredByASiblingDoesNotDispatchOrReportSuccess()
     {
@@ -254,6 +299,33 @@ public sealed class PageInputTests
 
         fixture.Page.Url.Should().Contain("Options.Search=Alpha").And.Contain("submit.Filter=" + submittedValue)
             .And.NotContain("submit.BulkAction");
+    }
+
+    [Test]
+    public async Task WindowSubmitListenersSynchronizeHiddenEditorsBeforeThePostEntryList()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """
+                <!doctype html>
+                <form action="/results" method="post">
+                    <textarea hidden id="editor" name="Schema">old</textarea>
+                    <input type="hidden" name="Bubbled" id="bubbled" value="false">
+                    <button id="save">Save</button>
+                </form>
+                <script>
+                window.addEventListener('submit', event => {
+                    editor.value='updated \uD83C\uDF4E';
+                    bubbled.value=String(event.bubbles && event.target===document.forms[0] &&
+                        event.currentTarget===window && event.submitter===save);
+                });
+                </script>
+                """)
+            .MapHtml("/results", "<title>Results</title>"));
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        (await fixture.Page.ClickAsync("#save")).Should().BeTrue();
+        fixture.Server.Received.Should().Contain(request =>
+            request.Method == "POST" && request.Path == "/results"
+            && request.Body == "Schema=updated+%F0%9F%8D%8E&Bubbled=true");
     }
 
     [Test]

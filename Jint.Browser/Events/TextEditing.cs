@@ -177,8 +177,8 @@ internal static class TextEditing
                 return Insert(dom, control, "\n", "insertLineBreak");
         }
 
-        // A printable key is one whose `key` is the character it produced; anything longer is a named key.
-        if (allowInsertion && options.ProducedText is { Length: > 0 } text && options.Key.Length == 1)
+        // https://www.w3.org/TR/uievents-key/#key-string: a key string can represent a supplementary character.
+        if (allowInsertion && options.ProducedText is { Length: > 0 } text && options.IsCharacter)
         {
             return Insert(dom, control, text, "insertText");
         }
