@@ -266,7 +266,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         _engine.EnterExecutionContext(in _asyncGeneratorContext);
         try
         {
-            promise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(value);
+            promise = PromiseConstructor.ResolveForAwaitToPromise(_engine, value);
         }
         catch (JavaScriptException e)
         {
@@ -351,6 +351,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             }
             DisposeResourcesHelper.DisposeAndThen(
                 _engine,
+                _asyncGeneratorContext.Realm,
                 env,
                 new Completion(CompletionType.Throw, ex.Error, null!),
                 final => SettleResumeRejection(final.Value, promiseCapability));
@@ -396,7 +397,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             SettleResumeCompletion(result, promiseCapability);
             return;
         }
-        DisposeResourcesHelper.DisposeAndThen(_engine, lexEnv, result,
+        DisposeResourcesHelper.DisposeAndThen(_engine, _asyncGeneratorContext.Realm, lexEnv, result,
             final => SettleResumeCompletion(final, promiseCapability));
     }
 
@@ -475,7 +476,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         JsPromise promise;
         try
         {
-            promise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(value);
+            promise = PromiseConstructor.ResolveForAwaitToPromise(_engine, value);
         }
         catch (JavaScriptException e)
         {
@@ -554,6 +555,14 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// Awaits the value, then resolves the current request's promise with the awaited value.
     /// </summary>
     internal JsValue AsyncGeneratorYield(JsValue value)
+        => AsyncGeneratorYield(value, PromiseConstructor.ResolveForAwaitToPromise(_engine, value));
+
+    /// <summary>
+    /// <see cref="AsyncGeneratorYield(JsValue)"/> once the Await of <paramref name="value"/> has performed its
+    /// PromiseResolve, which is <paramref name="promise"/>: that step may throw, and its throw is the yield's own, so it
+    /// is taken before the generator is marked suspended.
+    /// </summary>
+    internal JsValue AsyncGeneratorYield(JsValue value, JsPromise promise)
     {
         // Clear stale await cache - after yield, the next resume starts from this point,
         // so any previously cached await values are irrelevant
@@ -572,10 +581,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         _asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
         _suspendedValue = value;
 
-        // Per spec AsyncGeneratorYield step 4: Set value to ? Await(value).
-        // Await step 1: PromiseResolve(%Promise%, value) — returns the value as-is if it's
-        // already a %Promise% (avoids extra thenable job tick for Promise values).
-        var promise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(value);
+        // Per spec AsyncGeneratorYield step 4: Set value to ? Await(value). The caller has performed Await's
+        // PromiseResolve(%Promise%, value), which returns the value as-is if it's already a %Promise% (avoids extra
+        // thenable job tick for Promise values); what is left is to await it.
 
         // Create fulfillment handler
         var onFulfilled = new ClrFunction(_engine, "", (thisObj, args) =>

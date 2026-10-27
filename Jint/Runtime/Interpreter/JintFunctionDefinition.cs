@@ -354,6 +354,7 @@ internal sealed class JintFunctionDefinition
             }
             DisposeResourcesHelper.DisposeAndThen(
                 engine,
+                engine.ExecutionContext.Realm,
                 env,
                 new Completion(CompletionType.Throw, e.Error, null!),
                 final =>
@@ -385,7 +386,7 @@ internal sealed class JintFunctionDefinition
             SettleAsyncFunctionCompletion(asyncInstance, result);
             return;
         }
-        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result, final => SettleAsyncFunctionCompletion(asyncInstance, final));
+        DisposeResourcesHelper.DisposeAndThen(engine, engine.ExecutionContext.Realm, lexEnv, result, final => SettleAsyncFunctionCompletion(asyncInstance, final));
     }
 
     private static void SettleAsyncFunctionCompletion(AsyncFunctionInstance asyncInstance, Completion final)

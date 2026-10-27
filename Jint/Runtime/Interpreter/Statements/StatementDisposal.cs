@@ -3,7 +3,6 @@ using Jint.Native;
 using Jint.Native.AsyncFunction;
 using Jint.Native.AsyncGenerator;
 using Jint.Native.Disposable;
-using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -36,8 +35,14 @@ internal static class StatementDisposal
 
             if (engine.ExecutionContext.AsyncFunction is { } asyncFn)
             {
-                SuspendAsyncFunction(engine, asyncFn, suspensionPoint, pending);
-                return true;
+                if (SuspendAsyncFunction(engine, asyncFn, suspensionPoint, pending, out var functionAwaitError))
+                {
+                    return true;
+                }
+
+                // The await was abrupt before it could suspend: that throw completion is the dispose result's.
+                step = env.ContinueDisposeResources(functionAwaitError, awaitThrew: true);
+                continue;
             }
 
             if (engine.ExecutionContext.AsyncGenerator is { } asyncGenerator)
@@ -111,10 +116,28 @@ internal static class StatementDisposal
     /// Mirror of <see cref="JintAwaitExpression.SuspendForAwait"/> for the dispose path: suspends the async function on
     /// the pending dispose promise, with handlers that resume the function.
     /// </summary>
-    private static void SuspendAsyncFunction(Engine engine, AsyncFunctionInstance asyncFn, JintStatement suspensionPoint, JsValue pendingPromise)
+    /// <returns>
+    /// <see langword="false"/> when the await is abrupt before it suspends: Await's PromiseResolve(%Promise%, value)
+    /// reads a promise's <c>constructor</c>, which may throw, and <paramref name="error"/> is that throw
+    /// (sebastienros/jint#4361).
+    /// </returns>
+    private static bool SuspendAsyncFunction(
+        Engine engine,
+        AsyncFunctionInstance asyncFn,
+        JintStatement suspensionPoint,
+        JsValue pendingPromise,
+        [NotNullWhen(false)] out JsValue? error)
     {
-        var promise = pendingPromise as JsPromise
-            ?? (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(pendingPromise);
+        JsPromise promise;
+        try
+        {
+            promise = PromiseConstructor.ResolveForAwaitToPromise(engine, pendingPromise);
+        }
+        catch (JavaScriptException e)
+        {
+            error = e.Error;
+            return false;
+        }
 
         asyncFn._lastAwaitNode = suspensionPoint;
         asyncFn._state = AsyncFunctionState.SuspendedAwait;
@@ -137,6 +160,8 @@ internal static class StatementDisposal
         }, 1, PropertyFlag.Configurable);
 
         PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
+        error = null;
+        return true;
     }
 
     /// <summary>
@@ -157,18 +182,15 @@ internal static class StatementDisposal
         [NotNullWhen(false)] out JsValue? error)
     {
         // A primitive, which can never be a thenable, is handed to the continuation directly.
-        JsPromise? promise = null;
-        if (pending is ObjectInstance)
+        JsPromise? promise;
+        try
         {
-            try
-            {
-                promise = (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(pending);
-            }
-            catch (JavaScriptException e)
-            {
-                error = e.Error;
-                return false;
-            }
+            promise = PromiseConstructor.ResolveForAwait(engine, pending);
+        }
+        catch (JavaScriptException e)
+        {
+            error = e.Error;
+            return false;
         }
 
         JintAwaitExpression.SuspendAsyncGenerator(engine, asyncGenerator, suspensionPoint, promise, pending);

@@ -6702,6 +6702,32 @@ with the return value.
 A host exception or a constraint (`LimitStatements`, a timeout, cancellation) that ends the script inside such a loop no
 longer runs its dispose methods on the way out, which a block never did. There is no switch back.
 
+### 4.177 `await` reads a promise's `constructor`, so a subclass's promise settles two microtasks later ([#4361](https://github.com/sebastienros/jint/issues/4361))
+
+`await p` starts by resolving `p` against `%Promise%`, which reads `p.constructor`. A promise whose `constructor` is
+`Promise` is awaited as it is. Any other promise is wrapped in a new `Promise`, and the wrapper reaches it through its
+`then`. Several places that await skipped that read whenever `p` was a promise. So a `constructor` getter never ran,
+and a promise subclass was awaited as if it were a plain `Promise`:
+
+```js
+var log = [];
+var p = Promise.resolve(1);
+Object.defineProperty(p, "constructor", { get() { log.push("get"); throw "C"; } });
+(async () => { try { await p; } catch (e) { log.push("caught " + e); } })();
+log.push("called");
+// earlier 5.0: ["called"]    5.x: ["get", "caught C", "called"]
+```
+
+The places that skipped it now make the read: an `await` expression, including one at the top level of a module, an
+async generator's `yield*`, `for await`'s close, and the disposal of `await using` resources in a block, a loop, a
+function body or a module. A getter that throws makes the `await` throw on the spot, where a `catch` around it sees it.
+A subclass instance, or a promise from another realm, settles the `await` two microtasks later than it did, and its
+`then` is now called, as it is in other engines. An untouched promise is awaited exactly as before, and the read is
+skipped for it, so nothing about it is observable.
+
+An async generator's `yield`, `return` statement and `return()` already made the read. At a `yield`, though, a getter
+that throws left the request pending for good; it is now thrown at the `yield`. There is no switch back.
+
 ### 4.178 An arrow whose whole body is a direct `eval` keeps its parameters for what the eval creates ([#4366](https://github.com/sebastienros/jint/issues/4366))
 
 In 4.16, when an arrow's concise body was itself a direct `eval` call, the engine did not see the `eval`. It emptied

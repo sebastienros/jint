@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -121,9 +120,7 @@ internal sealed class JintAsyncGeneratorReturnStatement : JintStatement<ReturnSt
 
         // Await, step 2: PromiseResolve(%Promise%, value), whose Get of a promise's constructor can throw, which is the
         // statement's throw. A primitive, which can never be a thenable, is handed to the continuation directly.
-        var promise = value is ObjectInstance
-            ? (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(value)
-            : null;
+        var promise = PromiseConstructor.ResolveForAwait(engine, value);
 
         JintAwaitExpression.SuspendAsyncGenerator(engine, generator, this, promise, value);
         return new Completion(CompletionType.Return, JsValue.Undefined, _statement);
