@@ -98,6 +98,9 @@ public class AwaitPromiseResolveTests
         // ... and as an iteration of a for-of or a for-await-of ends.
         ["AForOfAwaitUsing"] =
             "try { for (await using r of [{ [Symbol.asyncDispose]() { log.push('dispose'); return MAKE(log, 1); } }]) { log.push('body'); } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+        // ... and as a for loop with an `await using` header ends.
+        ["AForAwaitUsingHeader"] =
+            "try { for (await using r = { [Symbol.asyncDispose]() { log.push('dispose'); return MAKE(log, 1); } }; ;) { log.push('body'); break; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
         // An iterator with no return(), so that the close the throw completion takes owes no await of its own: Jint
         // closes an async iterator on a throw without awaiting what return() answers (sebastienros/jint#4354).
         ["AForAwaitOfAwaitUsing"] =
@@ -144,6 +147,9 @@ public class AwaitPromiseResolveTests
     /// </summary>
     public static TestCases<string, string, string> InBothKinds => new()
     {
+        // The specification's answer: Node 24 crashes on a for loop with an `await using` header. The loop disposes its
+        // header as a block disposes its declarations, so the log is ABlocksAwaitUsing/poisoned's, which is Node's.
+        { "AForAwaitUsingHeader/poisoned", "body, dispose, get constructor, caught C, after, called, t1, resolved undefined, t2, t3, t4, t5, t6, t7, t8, t9", "body, dispose, get constructor, caught C, after, called, t1, resolved {undefined,true}, t2, t3, t4, t5, t6, t7, t8, t9" },
         { "AnAwaitExpression/poisoned", "get constructor, caught C, after, called, t1, resolved undefined, t2, t3, t4, t5, t6, t7, t8, t9", "get constructor, caught C, after, called, t1, resolved {undefined,true}, t2, t3, t4, t5, t6, t7, t8, t9" },
         { "AnAwaitExpression/observed", "get constructor, called, t1, got 1, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9", "get constructor, called, t1, got 1, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9" },
         { "AnAwaitExpression/subclassed", "called, t1, then, t2, t3, got 1, after, t4, resolved undefined, t5, t6, t7, t8, t9", "called, t1, then, t2, t3, got 1, after, t4, resolved {undefined,true}, t5, t6, t7, t8, t9" },

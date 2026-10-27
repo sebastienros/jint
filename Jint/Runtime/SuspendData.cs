@@ -162,8 +162,18 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// resumes at the declarator that suspended (<see cref="VariableDeclarationSuspendData"/>), so the
     /// declarators before it, already initialized in this environment, are not run again.
     /// </para>
+    /// <para>
+    /// For a <c>using</c> or <c>await using</c> header it is also the environment holding the resources the
+    /// declarations registered, which the loop disposes only once it has ended.
+    /// </para>
     /// </summary>
     public DeclarativeEnvironment? IterationEnv { get; set; }
+
+    /// <summary>
+    /// True while a <c>using</c> or <c>await using</c> header's dispose is suspended on an await. On resume, the loop
+    /// does not run again: it advances the dispose with the settled value (<see cref="BlockSuspendData.DisposeInProgress"/>).
+    /// </summary>
+    public bool DisposeInProgress { get; set; }
 }
 
 internal sealed class SwitchBlockSuspendData : SuspendData

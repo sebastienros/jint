@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1290
+anchors: 1291
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -661,6 +661,7 @@ ecma262 sec-runtime-semantics-evaluategeneratorbody
 ecma262 sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
 ecma262 sec-runtime-semantics-forin-div-ofheadevaluation-tdznames-expr-iterationkind
 ecma262 sec-runtime-semantics-forinofloopevaluation
+ecma262 sec-runtime-semantics-forloopevaluation
 ecma262 sec-runtime-semantics-instantiatearrowfunctionexpression
 ecma262 sec-runtime-semantics-instantiateasyncarrowfunctionexpression
 ecma262 sec-runtime-semantics-instantiateasyncfunctionexpression
