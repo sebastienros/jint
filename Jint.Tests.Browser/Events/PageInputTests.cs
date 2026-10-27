@@ -92,6 +92,54 @@ public sealed class PageInputTests
         (await page.EvaluateAsync<int>("inputEvents.length")).Should().Be(0);
     }
 
+    [TestCase("mousedown")]
+    [TestCase("blur")]
+    public async Task AClickWhoseTargetMovesDuringPressReportsTheActualClick(string moveEvent)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html>
+            <input id="previous"><button id="target">Save</button>
+            <script>
+            window.pointerEvents=[];window.targetClicks=0;window.actualClicks=[];
+            for(const type of ['pointerdown','mousedown','pointerup','mouseup'])
+                document.addEventListener(type,e=>pointerEvents.push(type));
+            target.addEventListener('click',()=>targetClicks++);
+            document.addEventListener('click',e=>actualClicks.push({id:e.target.id,trusted:e.isTrusted}),true);
+            </script>
+            """);
+        await page.EvaluateAsync("""
+            previous.focus();
+            window.moveTarget=()=>{
+                const spacer=document.createElement('div');
+                spacer.innerHTML='<p>one</p><p>two</p><p>three</p>';
+                target.before(spacer);
+            };
+            """ + (moveEvent == "blur" ? "previous" : "target")
+            + ".addEventListener('" + moveEvent + "',moveTarget,{once:true});");
+
+        (await page.ClickAsync("#target")).Should().BeFalse();
+        (await page.EvaluateAsync<string>("pointerEvents.join(',')"))
+            .Should().Be("pointerdown,mousedown,pointerup,mouseup");
+        (await page.EvaluateAsync<bool>("actualClicks.length===1 && actualClicks[0].id!=='target' && actualClicks[0].trusted"))
+            .Should().BeTrue();
+        (await page.EvaluateAsync<int>("targetClicks")).Should().Be(0);
+    }
+
+    [Test]
+    public async Task AClickThatRemovesItsOwnTargetStillReportsTheDeliveredClick()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><button id="target"><span>Save</span></button>
+            <script>window.clicks=0;target.onclick=()=>{clicks++;target.remove();};</script>
+            """);
+        (await page.ClickAsync("#target")).Should().BeTrue();
+        (await page.EvaluateAsync<int>("clicks")).Should().Be(1);
+    }
+
     [Test]
     public async Task AClickCanHitADescendantOfTheRequestedElement()
     {

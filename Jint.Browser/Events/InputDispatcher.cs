@@ -76,6 +76,8 @@ internal static partial class InputDispatcher
     /// </summary>
     /// <param name="runtime">The page, which owns the document, the layout and the focus.</param>
     /// <param name="input">Where, which button, and how many clicks.</param>
+    /// <param name="expectedClickTarget">When supplied, restricts a successful result to clicks within this element.</param>
+    /// <returns>Whether a primary click was dispatched within the expected target, if supplied.</returns>
     /// <remarks>
     /// <para>
     /// <b>The four sequences.</b> A move is <c>pointermove</c> then <c>mousemove</c>. A press is
@@ -105,11 +107,11 @@ internal static partial class InputDispatcher
     /// on every move without the matching <c>mouseout</c> would be worse than firing neither.
     /// </para>
     /// </remarks>
-    internal static void DispatchMouse(PageRuntime runtime, in MouseInput input)
+    internal static bool DispatchMouse(PageRuntime runtime, in MouseInput input, Element? expectedClickTarget = null)
     {
         if (runtime.Document is not { } document)
         {
-            return;
+            return false;
         }
 
         var dom = runtime.Dom;
@@ -119,7 +121,7 @@ internal static partial class InputDispatcher
         var hit = layout.ElementFromPoint(input.X, input.Y) ?? document.DocumentElement;
         if (hit is null)
         {
-            return;
+            return false;
         }
 
         var target = dom.WrapNode(hit);
@@ -130,7 +132,7 @@ internal static partial class InputDispatcher
             case MouseInputKind.Moved:
                 Pointer(target, "pointermove", options, cancelable: true, layout);
                 Mouse(target, "mousemove", options, cancelable: true);
-                return;
+                return false;
 
             case MouseInputKind.Pressed:
                 Pointer(target, "pointerdown", options, cancelable: true, layout);
@@ -142,7 +144,7 @@ internal static partial class InputDispatcher
                 }
 
                 events.MousePressTarget = hit;
-                return;
+                return false;
 
             case MouseInputKind.Released:
                 // https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — an
@@ -154,14 +156,12 @@ internal static partial class InputDispatcher
 
                 try
                 {
-                    Release(dom, events, target, hit, options, input, layout);
+                    return Release(dom, events, target, hit, options, input, layout, expectedClickTarget);
                 }
                 finally
                 {
                     events.PendingImagePoint = null;
                 }
-
-                return;
 
             case MouseInputKind.Wheel:
                 if (Wheel(target, options, input.DeltaX, input.DeltaY, layout))
@@ -169,10 +169,10 @@ internal static partial class InputDispatcher
                     runtime.Layout.ScrollBy(input.DeltaY);
                 }
 
-                return;
+                return false;
 
             default:
-                return;
+                return false;
         }
     }
 
@@ -180,14 +180,15 @@ internal static partial class InputDispatcher
     /// The release half of <see cref="DispatchMouse"/>: <c>pointerup</c>, <c>mouseup</c>, and then either the
     /// context menu the secondary button opens or the click the press and the release share.
     /// </summary>
-    private static void Release(
+    private static bool Release(
         DomRealm dom,
         BrowserEventRealm events,
         DomNodeObject target,
         Element hit,
         in ClickOptions options,
         in MouseInput input,
-        FlatLayout layout)
+        FlatLayout layout,
+        Element? expectedClickTarget)
     {
         Pointer(target, "pointerup", options, cancelable: true, layout);
         Mouse(target, "mouseup", options, cancelable: true);
@@ -200,20 +201,32 @@ internal static partial class InputDispatcher
         if (input.Button == SecondaryButton)
         {
             Mouse(clicked, "contextmenu", options, cancelable: true);
-            return;
+            return false;
         }
 
         if (input.Button != PrimaryButton)
         {
-            return;
+            return false;
         }
 
+        var matches = expectedClickTarget is null || IsWithin(dom.Engine, clicked.Node, expectedClickTarget);
         DispatchClickEvent(clicked, options, trusted: true);
 
         if (input.ClickCount == 2)
         {
             Mouse(clicked, "dblclick", options, cancelable: true);
         }
+        return matches;
+    }
+
+    internal static bool IsWithin(Engine engine, Node? node, Element expected)
+    {
+        while (node is not null && !ReferenceEquals(node, expected))
+        {
+            engine.Constraints.Check();
+            node = node.ParentNode ?? (node is ShadowRoot shadow ? shadow.Host : null);
+        }
+        return node is not null;
     }
 
     /// <summary>

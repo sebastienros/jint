@@ -3,6 +3,9 @@
 `Page.ClickAsync` performs trusted, hit-tested input at the requested element's synthetic-box centre.
 It returns `false` without dispatching input if an unrelated element covers that point; descendants of
 the requested element remain valid hits. This does not add real rendering geometry or a logical-click fallback.
+If focus or pointer listeners move the element during input, the real pointer sequence still completes,
+but the result is `false` when the eventual click is outside the requested element. No second activation
+is synthesized. A matching click remains successful if its own handler subsequently removes the element.
 
 Host input uses the same trusted input dispatcher as the DevTools Protocol path:
 

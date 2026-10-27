@@ -56,7 +56,9 @@ public sealed partial class Page
     /// <para>
     /// An element with no box — <c>hidden</c>, <c>display: none</c>, <c>visibility: hidden</c> — is not
     /// clicked, and answers <see langword="false"/>. The same applies when the centre is hit by an
-    /// unrelated element: no input is dispatched to that other element.
+    /// unrelated element before input starts: no input is dispatched to that other element. If a
+    /// listener moves the target during input, the pointer sequence completes normally, but the result
+    /// is <see langword="false"/> when the actual click target is outside the requested element.
     /// </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
@@ -89,13 +91,8 @@ public sealed partial class Page
 
             var x = box.X + (box.Width / 2);
             var y = box.Y + (box.Height / 2);
-            Node? hit = runtime.Layout.Current().ElementFromPoint(x, y);
-            while (hit is not null && !ReferenceEquals(hit, element))
-            {
-                engine.Constraints.Check();
-                hit = hit.ParentNode ?? (hit is ShadowRoot shadow ? shadow.Host : null);
-            }
-            if (hit is null) return (false, null);
+            if (!InputDispatcher.IsWithin(engine, runtime.Layout.Current().ElementFromPoint(x, y), element))
+                return (false, null);
 
             // Captured rather than started, for the reason SubmitFormAsync captures: the navigation a click
             // causes is one this caller can be handed instead of one that runs off on its own.
@@ -106,8 +103,9 @@ public sealed partial class Page
             {
                 InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Moved, x, y, 0, 0, 0, EventModifiers.None, 0, 0));
                 InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Pressed, x, y, 0, 1, 1, EventModifiers.None, 0, 0));
-                InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Released, x, y, 0, 0, 1, EventModifiers.None, 0, 0));
-                return (true, _capturedNavigation);
+                var clicked = InputDispatcher.DispatchMouse(runtime,
+                    new MouseInput(MouseInputKind.Released, x, y, 0, 0, 1, EventModifiers.None, 0, 0), element);
+                return (clicked, _capturedNavigation);
             }
             finally
             {
