@@ -6677,6 +6677,31 @@ disposed a microtask after `b` rather than together with it, in async functions 
 A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
 There is no switch back.
 
+### 4.176 A `for (using …; …; …)` loop disposes its header's resources once it ends, and throws what the dispose throws ([#4359](https://github.com/sebastienros/jint/issues/4359))
+
+A `for` loop whose header declares `using` or `await using` disposed those resources whenever the statement was left,
+including at every `await` or `yield` inside the loop, and threw away what the dispose produced. An `await using`
+header was never awaited, a `using` header was disposed at the first suspension while the loop went on using it, and a
+dispose that threw was swallowed:
+
+```js
+var log = [];
+try {
+    for (using x = { [Symbol.dispose]() { log.push("dispose"); throw "D"; } }; log.length < 1; ) { log.push("body"); }
+} catch (e) { log.push("caught " + e); }
+// earlier 5.0: ["body", "dispose"]    5.x: ["body", "dispose", "caught D"]
+```
+
+Now the resources are disposed once, when the loop ends or a declarator of the header throws, as the specification's
+ForLoopEvaluation says. Each `await using` result is awaited, which suspends the async function or async generator, so
+the statement after the loop runs a microtask later for each await. A dispose that throws or rejects is thrown from the
+loop, or wrapped in a `SuppressedError` over the loop's own throw, and so reaches `Execute` and `Evaluate` when nothing
+catches it. As with a block, a `return()` request whose loop then has a dispose throw no longer completes the generator
+with the return value.
+
+A host exception or a constraint (`LimitStatements`, a timeout, cancellation) that ends the script inside such a loop no
+longer runs its dispose methods on the way out, which a block never did. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

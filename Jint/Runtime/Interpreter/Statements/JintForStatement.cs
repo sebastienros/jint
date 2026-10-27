@@ -1,5 +1,6 @@
 using System.Threading;
 using Jint.Native;
+using Jint.Native.Disposable;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -50,6 +51,11 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     private readonly bool _shouldCreatePerIterationEnvironment;
     private readonly bool _canReuseIterationEnvironment;
 
+    // A `using` or `await using` header registers its resources on the loop environment, which disposes them once the
+    // loop has ended (ExecuteDisposingHeader). Only such a header can register any, so every other loop keeps its own
+    // path untouched.
+    private readonly bool _disposesHeader;
+
     // When the loop env can be reused across iterations AND nothing captures it, it can also be pooled
     // across loop entries: a fixed-slot environment is reset and reused instead of allocated each entry.
     private readonly bool _canPoolLoopEnv;
@@ -73,6 +79,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
                 _initStatement = new JintVariableDeclaration(d);
                 _shouldCreatePerIterationEnvironment = d.Kind == VariableDeclarationKind.Let;
+                _disposesHeader = d.Kind is VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing;
 
                 // If no closures in the loop body/test/update capture the iteration environment,
                 // we can reuse the same environment each iteration instead of allocating a new one
@@ -245,6 +252,11 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
 
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
+        if (_disposesHeader)
+        {
+            return ExecuteDisposingHeader(context);
+        }
+
         Environment? oldEnv = null;
         DeclarativeEnvironment? loopEnv = null;
         var engine = context.Engine;
@@ -351,11 +363,13 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 loopEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
                 var loopEnvRec = loopEnv;
                 var kind = _initStatement!._statement.Kind;
+
+                // A using or await using header never comes here (ExecuteDisposingHeader).
+                System.Diagnostics.Debug.Assert(kind is VariableDeclarationKind.Let or VariableDeclarationKind.Const);
                 for (var i = 0; i < _boundNames.Count; i++)
                 {
                     var name = _boundNames[i];
-                    // const, using, and await using all create immutable bindings
-                    if (kind is VariableDeclarationKind.Const or VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing)
+                    if (kind is VariableDeclarationKind.Const)
                     {
                         loopEnvRec.CreateImmutableBinding(name);
                     }
@@ -368,8 +382,6 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 engine.UpdateLexicalEnvironment(loopEnv);
             }
         }
-
-        var completion = Completion.Empty();
 
         try
         {
@@ -400,8 +412,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
 
             // body flattening engages only when the pooled combined-slot environment is live
             var flattenActive = _bodyFlattened && loopEnv is not null && _canPoolLoopEnv && suspendable is null;
-            completion = ForBodyEvaluation(context, suspendData?.AccumulatedValue ?? JsValue.Undefined, skipTestOnce: resumingInBody, resumeUpdateOnce: resumingInUpdate, restoredIterationEnv, flattenActive);
-            return completion;
+            return ForBodyEvaluation(context, suspendData?.AccumulatedValue ?? JsValue.Undefined, skipTestOnce: resumingInBody, resumeUpdateOnce: resumingInUpdate, restoredIterationEnv, flattenActive);
         }
         finally
         {
@@ -438,11 +449,9 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                     suspendable?.Data.Clear(this);
                 }
 
-                loopEnv!.DisposeResources(completion);
-
                 // Cache the pooled environment for the next loop entry (only on clean, non-suspended
                 // completion; a suspended loop may still reference it).
-                if (_canPoolLoopEnv && !context.IsSuspended() && loopEnv._slots is not null)
+                if (_canPoolLoopEnv && !context.IsSuspended() && loopEnv!._slots is not null)
                 {
                     Interlocked.Exchange(ref _cachedLoopEnv, loopEnv);
                 }
@@ -450,6 +459,170 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 engine.UpdateLexicalEnvironment(oldEnv);
             }
         }
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-forloopevaluation for a <c>using</c> or <c>await using</c> header.
+    /// The header's resources live on the loop environment and are disposed once
+    /// (https://tc39.es/ecma262/#sec-disposeresources), with the completion the loop ends with (step 13) or the throw out
+    /// of its declarations (step 8). A suspension anywhere in the loop does not end it: the loop environment is parked
+    /// with the rest of the loop's state and resumed into, resources and all.
+    /// <para>
+    /// Such a header is never <c>let</c>, so the loop environment is the environment of every iteration: there is no
+    /// per-iteration copy, no pooled environment and no flattened body.
+    /// </para>
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private Completion ExecuteDisposingHeader(EvaluationContext context)
+    {
+        var engine = context.Engine;
+        var suspendable = engine.ExecutionContext.Suspendable;
+        var resumeNode = GetSuspensionNode(suspendable);
+
+        ForLoopSuspendData? suspendData = null;
+        if (resumeNode is not null)
+        {
+            suspendable!.Data.TryGet(this, out suspendData);
+
+            // The loop itself is the suspension point only while it awaits its own dispose.
+            if (ReferenceEquals(resumeNode, _statement) && suspendData is { DisposeInProgress: true })
+            {
+                return ResumeHeaderDispose(context, suspendable, suspendData);
+            }
+        }
+
+        var resumingInLoop = resumeNode is not null && IsNodeInsideForStatementExcludingInit(resumeNode);
+        if (!resumingInLoop && (resumeNode is null || !IsNodeInsideRange(resumeNode, _statement.Init!.Range)))
+        {
+            suspendData = null;
+        }
+
+        var resumingInBody = resumingInLoop && IsNodeInsideRange(resumeNode!, _statement.Body.Range);
+        var resumingInUpdate = resumingInLoop && _statement.Update is not null && IsNodeInsideRange(resumeNode!, _statement.Update.Range);
+
+        // ForLoopSuspendData.OuterEnv says why the environment to go back to is not the one current on a resume, and
+        // IterationEnv why the loop environment is resumed into rather than rebuilt; here it also holds the resources.
+        var oldEnv = suspendData?.OuterEnv ?? engine.ExecutionContext.LexicalEnvironment;
+        var resumedEnv = suspendData?.IterationEnv;
+        var loopEnv = resumedEnv;
+        if (loopEnv is null)
+        {
+            loopEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
+            foreach (var name in _boundNames!)
+            {
+                loopEnv.CreateImmutableBinding(name);
+            }
+        }
+
+        engine.UpdateLexicalEnvironment(loopEnv);
+
+        Completion completion;
+        var unwinding = true;
+        try
+        {
+            if (!resumingInLoop)
+            {
+                _initStatement!.Execute(context);
+            }
+
+            completion = context.IsSuspended()
+                ? new Completion(CompletionType.Return, JsValue.Undefined, _statement)
+                : ForBodyEvaluation(context, suspendData?.AccumulatedValue ?? JsValue.Undefined, skipTestOnce: resumingInBody, resumeUpdateOnce: resumingInUpdate, restoredIterationEnv: resumingInLoop && resumedEnv is not null);
+            unwinding = false;
+        }
+        catch (Exception ex) when (ex is JintException && JintStatementList.ShouldCatch(ex) && !context.IsSuspended())
+        {
+            // A throw out of the declarations (step 8), the test, the update or a body that is not a block (step 12) is the
+            // completion the resources are disposed with, as a throw out of a block's statements is the block's. So is a
+            // return() resumption at a yield there, which HandleException turns into its return completion.
+            completion = JintStatementList.HandleException(context, ex, this);
+            unwinding = false;
+        }
+        finally
+        {
+            if (unwinding)
+            {
+                // Anything else, a constraint or a host exception, leaves without disposing, as it leaves a block or a
+                // function body: the dispose methods are script, and that is not a completion script can observe.
+                LeaveHeaderLoop(context, suspendable, oldEnv, loopEnv);
+            }
+        }
+
+        if (context.IsSuspended())
+        {
+            LeaveHeaderLoop(context, suspendable, oldEnv, loopEnv);
+            return completion;
+        }
+
+        return DisposeHeader(context, suspendable, loopEnv, oldEnv, loopEnv.BeginDisposeResources(completion));
+    }
+
+    /// <summary>
+    /// Re-entered by the replayed body once an await <see cref="DisposeHeader"/> suspended on has settled.
+    /// </summary>
+    private Completion ResumeHeaderDispose(EvaluationContext context, ISuspendable suspendable, ForLoopSuspendData data)
+    {
+        var loopEnv = data.IterationEnv!;
+        var oldEnv = data.OuterEnv!;
+        data.DisposeInProgress = false;
+        context.Engine.UpdateLexicalEnvironment(loopEnv);
+
+        return DisposeHeader(context, suspendable, loopEnv, oldEnv, StatementDisposal.Resume(context.Engine, suspendable, loopEnv));
+    }
+
+    /// <summary>
+    /// Steps 13 and 15, or 8.a and 8.c: runs DisposeResources over the loop environment, suspending the frame on each
+    /// await it owes, and then leaves the loop environment with what it produced.
+    /// </summary>
+    private Completion DisposeHeader(EvaluationContext context, ISuspendable? suspendable, DeclarativeEnvironment loopEnv, Environment oldEnv, DisposeStepResult step)
+    {
+        var engine = context.Engine;
+        if (StatementDisposal.Drive(engine, this, loopEnv, ref step))
+        {
+            // Only an async function or an async generator suspends here, so there is a suspendable.
+            var data = suspendable!.Data.GetOrCreate<ForLoopSuspendData>(this);
+            data.OuterEnv = oldEnv;
+            data.IterationEnv = loopEnv;
+            data.DisposeInProgress = true;
+            engine.UpdateLexicalEnvironment(oldEnv);
+            return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
+        }
+
+        suspendable?.Data.Clear(this);
+        engine.UpdateLexicalEnvironment(oldEnv);
+
+        var result = step.CompletedResult;
+        if (result.Type == CompletionType.Throw)
+        {
+            // A dispose that threw replaced the loop's completion (DisposeResources step 4.e.iii), so a generator's
+            // return() request that completion stood for is no longer in force (JintBlockStatement.CompleteDispose).
+            JintStatementList.ClearReturnRequest(engine);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Leaves the loop environment without disposing it: parks the loop's state when the frame has suspended, and drops
+    /// it otherwise.
+    /// </summary>
+    private void LeaveHeaderLoop(EvaluationContext context, ISuspendable? suspendable, Environment oldEnv, DeclarativeEnvironment loopEnv)
+    {
+        if (suspendable is not null)
+        {
+            if (context.IsSuspended())
+            {
+                var data = suspendable.Data.GetOrCreate<ForLoopSuspendData>(this);
+                data.OuterEnv = oldEnv;
+                data.IterationEnv = loopEnv;
+            }
+            else
+            {
+                suspendable.Data.Clear(this);
+            }
+        }
+
+        context.Engine.UpdateLexicalEnvironment(oldEnv);
     }
 
     /// <summary>
