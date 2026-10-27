@@ -1,5 +1,9 @@
 # Input and forms
 
+`Page.ClickAsync` performs trusted, hit-tested input at the requested element's synthetic-box centre.
+It returns `false` without dispatching input if an unrelated element covers that point; descendants of
+the requested element remain valid hits. This does not add real rendering geometry or a logical-click fallback.
+
 Host input uses the same trusted input dispatcher as the DevTools Protocol path:
 
 ```csharp
@@ -49,5 +53,8 @@ validating the form. The optional submitter must be a submit button owned by tha
 `formdata` event lets listeners amend the entries; constructing another `FormData` for that same form
 inside the listener throws `InvalidStateError`. Standalone engines and workers keep the no-DOM
 `FormData()` constructor.
+
+An activated submit input with no `value` attribute submits the UA's default label, `Submit`.
+An explicitly empty `value=""` remains empty; the input's `.value` getter still reflects its attribute.
 
 Input uses a deterministic synthetic box model, not visual layout. See [Limitations](./limitations).

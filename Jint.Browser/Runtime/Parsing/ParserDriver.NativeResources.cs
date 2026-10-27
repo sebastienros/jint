@@ -874,15 +874,12 @@ internal sealed partial class ParserDriver
         if (!_runtime.ScriptingEnabled || IsFrameDocument(script.OwnerDocument!) && !CanRunFrame(script.OwnerDocument!)) return;
         if (type == NativeScriptType.ImportMap)
         {
-            if (!IsFrameDocument(script.OwnerDocument!)) ReadImportMapEarly(script.OwnerDocument!);
+            ReadImportMapEarly(script.OwnerDocument!);
             return;
         }
         if (type == NativeScriptType.Module)
         {
-            // The existing child-frame capability is classic scripting; the engine's module
-            // map is shared and cannot evaluate a child module in the principal realm.
-            if (IsFrameDocument(script.OwnerDocument!)) return;
-            if (_runtime.Modules is { } modules) RunModule(modules, script);
+            if (ModulesFor(script.OwnerDocument!) is { } modules) RunModule(modules, script);
             return;
         }
         if (Attribute(script, "nomodule") is not null) return;

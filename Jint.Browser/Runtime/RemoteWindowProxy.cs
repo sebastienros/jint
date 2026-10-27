@@ -43,30 +43,8 @@ internal sealed class RemoteWindowProxy : CrossPageObject
         var realm = engine._mainRealm;
         if (arguments.Length == 0) Throw.TypeError(realm, "postMessage requires a message.");
         if (target.Closed) return Undefined;
-        var second = arguments.At(1);
-        string targetOrigin;
-        List<JsValue>? transfers;
-        if (arguments.Length < 3 && (second is ObjectInstance || second.IsNullOrUndefined()))
-        {
-            var origin = second is ObjectInstance options ? options.Get("targetOrigin") : Undefined;
-            targetOrigin = origin.IsUndefined() ? "/" : TypeConverter.ToString(origin);
-            transfers = StructuredSerializeOptions.ReadTransferOption(realm, second, "postMessage");
-        }
-        else
-        {
-            targetOrigin = TypeConverter.ToString(second);
-            transfers = arguments.At(2).IsUndefined() ? null
-                : StructuredSerializeOptions.ReadTransferSequence(realm, arguments[2], "postMessage");
-        }
         var sourceOrigin = DomDocumentMetadata.CreatorOrigin(source.Dom);
-        DomDocumentOrigin? expectedOrigin = null;
-        if (targetOrigin == "/") expectedOrigin = sourceOrigin;
-        else if (targetOrigin != "*")
-        {
-            var parsed = PageUrl.Parse(targetOrigin, null);
-            if (parsed is null) WindowOpen.ThrowDom(source, DomExceptionNames.Syntax, "Invalid target origin '" + targetOrigin + "'.");
-            expectedOrigin = DomDocumentOrigin.FromUrl(parsed!.Serialize());
-        }
+        var (expectedOrigin, transfers) = WindowInstaller.ReadMessageOptions(source, realm, sourceOrigin, arguments);
         if (transfers is { Count: > 0 })
             WindowOpen.ThrowDom(source, DomExceptionNames.DataClone, "Cross-page postMessage does not support transfer list entries.");
 

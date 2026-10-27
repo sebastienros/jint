@@ -55,7 +55,8 @@ public sealed partial class Page
     /// </para>
     /// <para>
     /// An element with no box — <c>hidden</c>, <c>display: none</c>, <c>visibility: hidden</c> — is not
-    /// clicked, and answers <see langword="false"/>.
+    /// clicked, and answers <see langword="false"/>. The same applies when the centre is hit by an
+    /// unrelated element: no input is dispatched to that other element.
     /// </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
@@ -88,6 +89,13 @@ public sealed partial class Page
 
             var x = box.X + (box.Width / 2);
             var y = box.Y + (box.Height / 2);
+            Node? hit = runtime.Layout.Current().ElementFromPoint(x, y);
+            while (hit is not null && !ReferenceEquals(hit, element))
+            {
+                engine.Constraints.Check();
+                hit = hit.ParentNode ?? (hit is ShadowRoot shadow ? shadow.Host : null);
+            }
+            if (hit is null) return (false, null);
 
             // Captured rather than started, for the reason SubmitFormAsync captures: the navigation a click
             // causes is one this caller can be handed instead of one that runs off on its own.

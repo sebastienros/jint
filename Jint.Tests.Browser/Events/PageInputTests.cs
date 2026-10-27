@@ -18,6 +18,49 @@ public sealed class PageInputTests
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
     [Test]
+    public async Task AClickCoveredByASiblingDoesNotDispatchOrReportSuccess()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html>
+            <div style="display:flex;direction:rtl">
+                <div id=target style="flex:1"><span>A</span><span>B</span><span>C</span></div>
+                <div style="flex:0 0 64px;display:flex;direction:ltr"><button id=cover style="flex:0 0 1280px"><span>cover</span></button></div>
+            </div>
+            <script>
+            window.inputEvents=[];
+            for(const type of ['pointermove','mousemove','pointerdown','mousedown','mouseup','click'])
+                document.addEventListener(type, e=>inputEvents.push(e.target.id));
+            </script>
+            """);
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const box=target.getBoundingClientRect();
+                const hit=document.elementFromPoint(box.x+box.width/2,box.y+box.height/2);
+                return hit.closest('button')?.id ?? JSON.stringify({
+                    hit:hit.id,target:box,cover:cover.getBoundingClientRect()
+                });
+            })()
+            """)).Should().Be("cover");
+        (await page.ClickAsync("#target")).Should().BeFalse();
+        (await page.EvaluateAsync<int>("inputEvents.length")).Should().Be(0);
+    }
+
+    [Test]
+    public async Task AClickCanHitADescendantOfTheRequestedElement()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><button id=target><span id=child>child</span></button>
+            <script>window.clicked=null;target.onclick=e=>clicked={id:e.target.id,trusted:e.isTrusted};</script>
+            """);
+        (await page.ClickAsync("#target")).Should().BeTrue();
+        (await page.EvaluateAsync<bool>("clicked.id === 'child' && clicked.trusted")).Should().BeTrue();
+    }
+
+    [Test]
     public async Task ElementScrollMethodsUseTheExistingVirtualScrollRange()
     {
         await using var browser = new Browser();
@@ -178,15 +221,19 @@ public sealed class PageInputTests
         (await page.EvaluateAsync<string>("document.querySelector('#field').value")).Should().BeEmpty();
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task EnterUsesTheFirstSubmitInputEvenWhenItHasNoVisibleBox(bool clickFromCanceledKeydown)
+    [TestCase(false, "value=\"Filter\"", "Filter")]
+    [TestCase(true, "value=\"Filter\"", "Filter")]
+    [TestCase(false, "", "Submit")]
+    [TestCase(true, "", "Submit")]
+    [TestCase(true, "value=\"\"", "")]
+    public async Task EnterUsesTheFirstSubmitInputEvenWhenItHasNoVisibleBox(bool clickFromCanceledKeydown,
+        string valueAttribute, string submittedValue)
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server
-            .MapHtml("/", """
+            .MapHtml("/", $$"""
                 <!doctype html><form action="/results">
                   <input type="search" id="search-box" name="Options.Search">
-                  <input type="submit" name="submit.Filter" id="submitFilter" value="Filter" style="display:none">
+                  <input type="submit" name="submit.Filter" id="submitFilter" {{valueAttribute}} style="display:none">
                   <input type="submit" name="submit.BulkAction" value="Apply">
                 </form>
                 """)
@@ -205,8 +252,40 @@ public sealed class PageInputTests
 
         await fixture.Page.PressAsync("Enter");
 
-        fixture.Page.Url.Should().Contain("Options.Search=Alpha").And.Contain("submit.Filter=Filter")
+        fixture.Page.Url.Should().Contain("Options.Search=Alpha").And.Contain("submit.Filter=" + submittedValue)
             .And.NotContain("submit.BulkAction");
+    }
+
+    [Test]
+    public async Task SubmitInputsUseTheDefaultLabelOnlyForAnAbsentValueAttribute()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """
+                <form action="/results" method="post">
+                <input type="search" id="search-box" name="Options.Search">
+                <input type="submit" id="filter" name="submit.Filter" style="display:none">
+                <input type="submit" name="submit.BulkAction">
+                </form>
+                <script>
+                document.querySelector('#search-box').onkeydown=event=>{
+                    if(event.key==='Enter'){event.preventDefault();document.querySelector('#filter').click();}
+                };
+                </script>
+                """)
+            .MapHtml("/results", "<title>Results</title>"));
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        (await fixture.Page.EvaluateAsync<string>("new FormData(document.forms[0], document.querySelector('#filter')).get('submit.Filter')"))
+            .Should().Be("Submit");
+        (await fixture.Page.EvaluateAsync<string>("document.querySelector('#filter').value")).Should().BeEmpty();
+        await fixture.Page.EvaluateAsync("document.querySelector('#filter').value=''");
+        (await fixture.Page.EvaluateAsync<string>("new FormData(document.forms[0], document.querySelector('#filter')).get('submit.Filter')"))
+            .Should().BeEmpty();
+        await fixture.Page.EvaluateAsync("document.querySelector('#filter').removeAttribute('value')");
+        await fixture.Page.FillAsync("#search-box", "Alpha");
+        await fixture.Page.PressAsync("Enter");
+        fixture.Server.Received.Should().Contain(request =>
+            request.Method == "POST" && request.Path == "/results"
+            && request.Body == "Options.Search=Alpha&submit.Filter=Submit");
     }
 
     [Test]

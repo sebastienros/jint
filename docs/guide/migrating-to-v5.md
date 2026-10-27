@@ -6685,7 +6685,7 @@ none of it changes an engine that does not.
 | Area | Enable with | Reference |
 | --- | --- | --- |
 | WHATWG web APIs — `console`, timers, `URL`, encoding, streams, `fetch`, storage, `WebSocket`, `EventSource`, crypto | `options.UseWebApis(...)` | [Web APIs](web-apis.md) |
-| Web Workers, on a thread you supply | `options.UseWebApis().UseWorkers(provider)` | [Workers](web-apis/workers.md) |
+| Web Workers, on a thread you supply; `WorkerType.Classic = 1` additionally identifies classic scripts supported by Browser's provider (`Module = 0` is unchanged) | `options.UseWebApis().UseWorkers(provider)`; Browser's default provider accepts classic and module dedicated workers and snapshots the browser's navigator languages | [Workers](web-apis/workers.md) |
 | Node compatibility — the `process` shim, `node:` builtin modules | `options.UseNodeProcess()`, `options.UseNodeBuiltinModules()` | [Node compatibility](node-compatibility.md) |
 | Script profiling — a sampling profiler writing [Firefox Profiler](https://profiler.firefox.com) profiles with script / built-in / host-interop frame categories, and an evented one writing speedscope profiles | `options.Profiling.Enabled = true` | [Profiling](profiling.md) |
 | Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage](code-coverage.md) |
@@ -6705,7 +6705,7 @@ none of it changes an engine that does not.
 | Reading the body of the response an observer is answering, against a memory allowance you own, without the caller losing a byte | override `OnInterceptedResponseAsync` instead of `OnResponseAsync` | [§5.34](#5-34-a-fetch-observer-can-read-the-body-of-the-response-it-is-answering-3828) |
 | When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#5-29-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Jint.DevTools](../packages/jint-devtools/index.md) |
-| A headless browser — the native DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
+| A headless browser — the native DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line; same-origin frame modules now use document-local maps, and same-page messages identify their source window | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
 | A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Jint.Browser.Mcp](../packages/jint-browser-mcp/index.md) |
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#5-27-a-host-can-list-the-global-lexical-bindings-3610) |
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#5-28-a-function-value-names-the-program-it-was-parsed-in-3666) |
