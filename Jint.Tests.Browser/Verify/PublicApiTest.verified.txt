@@ -168,17 +168,24 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, int index, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task CloseAsync() { }
         public System.Threading.Tasks.Task<string> ContentAsync() { }
+        public System.Threading.Tasks.Task<int> CountAsync(string selector, bool visibleOnly = false) { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
         public System.Threading.Tasks.Task<object?> EvaluateAndAwaitAsync(string script, System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.Task<object?> EvaluateAndAwaitAsync(string function, object? argument, System.Threading.CancellationToken cancellationToken = default) { }
         public System.Threading.Tasks.Task<T?> EvaluateAndAwaitAsync<T>(string script, System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.Task<T?> EvaluateAndAwaitAsync<T>(string function, object? argument, System.Threading.CancellationToken cancellationToken = default) { }
         public System.Threading.Tasks.Task<object?> EvaluateAsync(string script) { }
+        public System.Threading.Tasks.Task<object?> EvaluateAsync(string function, object? argument) { }
         public System.Threading.Tasks.Task<T?> EvaluateAsync<T>(string script) { }
+        public System.Threading.Tasks.Task<T?> EvaluateAsync<T>(string function, object? argument) { }
         public System.Threading.Tasks.Task<bool> FillAsync(string target, string text) { }
         public System.Threading.Tasks.Task<bool> FillAsync(string target, int index, string text) { }
         public System.Threading.Tasks.Task<bool> GoBackAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> GoForwardAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> HoverAsync(string target) { }
         public System.Threading.Tasks.Task<bool> HoverAsync(string target, int index) { }
+        public System.Threading.Tasks.Task<string?> InnerTextAsync(string target, int index = 0) { }
+        public System.Threading.Tasks.Task<bool> IsVisibleAsync(string target, int index = 0) { }
         public System.Threading.Tasks.Task<string> MarkdownAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> NavigateAsync(string url, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> PressAsync(string key, Jint.Browser.NavigationOptions? options = null) { }
@@ -198,16 +205,21 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task TapAsync(double x, double y, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> TapAsync(string target, int index, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<string> TextAsync(bool mainContentOnly = false, int maxLength = 0) { }
+        public System.Threading.Tasks.Task<string[]> TextsAsync(string selector, bool visibleOnly = false) { }
         public System.Threading.Tasks.Task<string> TitleAsync() { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, string text) { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, int index, string text) { }
         public System.Threading.Tasks.Task<bool> WaitForAsync(string expression, System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForAsync(string predicate, object? argument, System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForCountAsync(string selector, int count, System.TimeSpan timeout, bool visibleOnly = false) { }
         public System.Threading.Tasks.Task<bool> WaitForIdleAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNavigationAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNetworkIdleAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForSelectorAsync(string selector, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForSelectorAsync(string selector, int index, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForTextAsync(string text, System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForTextAsync(string target, string text, System.TimeSpan timeout, int index = 0) { }
+        public System.Threading.Tasks.Task<bool> WaitForVisibleAsync(string target, System.TimeSpan timeout, bool visible = true, int index = 0) { }
     }
     public sealed class PageError
     {

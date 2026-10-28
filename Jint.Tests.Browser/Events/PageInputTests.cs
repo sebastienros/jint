@@ -376,6 +376,41 @@ public sealed class PageInputTests
             && request.Body == "Schema=updated+%F0%9F%8D%8E&Bubbled=true");
     }
 
+    [TestCase("button", "Enter")]
+    [TestCase("button", " ")]
+    [TestCase("input", "Enter")]
+    [TestCase("input", " ")]
+    public async Task KeyboardActivationPostsTheFocusedSubmitterAndSubmitListenerValues(string tag, string key)
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """
+                <!doctype html>
+                <form action="/results" method="post">
+                    <textarea hidden id="editor" name="Schema">old</textarea>
+                    <input type="hidden" name="Trusted" id="trusted" value="false">
+                """ + "<" + tag + " type=submit id=save name='submit.Save' value=Save>Save</" + tag + ">" + """
+                    <button name="other" value="unused">Other</button>
+                </form>
+                <script>
+                save.addEventListener('click',event=>trusted.value=String(event.isTrusted));
+                window.addEventListener('submit',event=>{
+                    editor.value=event.submitter===save ? 'updated' : 'wrong submitter';
+                });
+                </script>
+                """)
+            .MapHtml("/results", "<title>Results</title>"));
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        await fixture.Page.PressAsync("Tab");
+        (await fixture.Page.EvaluateAsync<bool>("document.activeElement===save")).Should().BeTrue();
+
+        await fixture.Page.PressAsync(key);
+
+        fixture.Server.Received.Should().Contain(request =>
+            request.Method == "POST" && request.Path == "/results"
+            && request.Body == "Schema=updated&Trusted=true&submit.Save=Save");
+        fixture.Page.Url.Should().Be(fixture.Url("/results"));
+    }
+
     [Test]
     public async Task SubmitInputsUseTheDefaultLabelOnlyForAnAbsentValueAttribute()
     {

@@ -295,7 +295,7 @@ public sealed partial class Page : IAsyncDisposable
     public Task<object?> EvaluateAndAwaitAsync(string script, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(script);
-        return EvaluateAndAwaitCoreAsync(script, static value => value.ToObject(), cancellationToken);
+        return EvaluateAndAwaitCoreAsync(engine => engine.Evaluate(script), static (_, value) => value.ToObject(), cancellationToken);
     }
 
     /// <summary>Evaluates <paramref name="script"/>, awaits a promise result, and converts it to <typeparamref name="T"/>.</summary>
@@ -307,12 +307,12 @@ public sealed partial class Page : IAsyncDisposable
     public Task<T?> EvaluateAndAwaitAsync<T>(string script, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(script);
-        return EvaluateAndAwaitCoreAsync(script, Convert<T>, cancellationToken);
+        return EvaluateAndAwaitCoreAsync(engine => engine.Evaluate(script), static (_, value) => Convert<T>(value), cancellationToken);
     }
 
     private async Task<T> EvaluateAndAwaitCoreAsync<T>(
-        string script,
-        Func<JsValue, T> convert,
+        Func<Engine, JsValue> evaluate,
+        Func<Engine, JsValue, T> convert,
         CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_closed, this);
@@ -325,10 +325,10 @@ public sealed partial class Page : IAsyncDisposable
         await _loop.PostAsync(engine =>
         {
             documentClosing = _loop.DocumentClosing;
-            var value = engine.Evaluate(script);
+            var value = evaluate(engine);
             if (value is not JsPromise promise)
             {
-                completion.TrySetResult(convert(value));
+                completion.TrySetResult(convert(engine, value));
                 return;
             }
 
@@ -336,7 +336,7 @@ public sealed partial class Page : IAsyncDisposable
             {
                 try
                 {
-                    completion.TrySetResult(convert(arguments[0]));
+                    completion.TrySetResult(convert(engine, arguments[0]));
                 }
                 catch (Exception exception)
                 {
@@ -563,7 +563,7 @@ public sealed partial class Page : IAsyncDisposable
     /// </remarks>
     internal Task<T> RunOnLoopAsync<T>(Func<Engine, T> work) => _loop.PostAsync(engine =>
     {
-        using var mutation = PageRuntime.Find(engine)?.Layout.BeginMutation() ?? default;
+        using var mutation = PageRuntime.Find(engine)?.Layout.BeginMutation(unknown: true) ?? default;
         return work(engine);
     });
 
@@ -773,9 +773,10 @@ public sealed partial class Page : IAsyncDisposable
     }
 
     private static T? Convert<T>(JsValue value)
-    {
-        var converted = value.ToObject();
+        => ConvertResult<T>(value.ToObject());
 
+    private static T? ConvertResult<T>(object? converted)
+    {
         if (converted is null)
         {
             return default;

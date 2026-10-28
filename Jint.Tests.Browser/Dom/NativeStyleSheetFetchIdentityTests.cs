@@ -9,6 +9,35 @@ namespace Jint.Tests.Browser.Dom;
 public sealed class NativeStyleSheetFetchIdentityTests
 {
     [Test]
+    public async Task ReusedSyntaxNeverReusesCssomOrResponsesAcrossNavigationsAndContexts()
+    {
+        var source = "button{display:block}";
+        var requests = 0;
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/sheet", _ =>
+            {
+                Interlocked.Increment(ref requests);
+                return LoopbackResponse.Css(Volatile.Read(ref source)).With("ETag", "\"sheet\"");
+            })
+            .MapHtml("/", "<link rel=stylesheet href=/sheet><button id=target>Save</button>"));
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(target).display")).Should().Be("block");
+        await fixture.Page.EvaluateAsync("document.styleSheets[0].cssRules[0].style.display='none'");
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(target).display")).Should().Be("block");
+        var isolated = await fixture.NewIsolatedPageAsync();
+        await isolated.NavigateAsync(fixture.Url("/"));
+        (await isolated.EvaluateAsync<string>("getComputedStyle(target).display")).Should().Be("block");
+        Volatile.Write(ref source, "button{display:none}");
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(target).display")).Should().Be("none");
+        (await isolated.EvaluateAsync<string>("getComputedStyle(target).display")).Should().Be("block");
+        requests.Should().Be(4, "syntax reuse must not bypass a stylesheet request, even at the same URL/ETag");
+        fixture.Page.Errors.Should().BeEmpty();
+        isolated.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ALinkChangedDuringItsFetchDiscardsTheOldSheetAndCanLoadAgain()
     {
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

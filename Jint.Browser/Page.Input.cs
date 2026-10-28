@@ -84,14 +84,14 @@ public sealed partial class Page
 
             runtime.Layout.ScrollIntoView(element, "nearest");
 
-            if (runtime.Layout.Current().ClientBoxOf(element) is not { } box)
+            if (runtime.Layout.ClientBoxOf(element) is not { } box)
             {
                 return (false, null);
             }
 
             var x = box.X + (box.Width / 2);
             var y = box.Y + (box.Height / 2);
-            if (!InputDispatcher.IsWithin(engine, runtime.Layout.Current().ElementFromPoint(x, y), element))
+            if (!InputDispatcher.IsWithin(engine, runtime.Layout.ReadPoint().ElementFromPoint(x, y), element))
                 return (false, null);
 
             // Captured rather than started, for the reason SubmitFormAsync captures: the navigation a click
@@ -767,33 +767,12 @@ public sealed partial class Page
     /// </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public async Task<bool> WaitForAsync(string expression, TimeSpan timeout)
+    public Task<bool> WaitForAsync(string expression, TimeSpan timeout)
     {
         ArgumentNullException.ThrowIfNull(expression);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        Exception? lastFailure = null;
-
-        var answered = await WaitForAsync(
-            engine =>
-            {
-                try
-                {
-                    var truthy = TypeConverter.ToBoolean(engine.Evaluate(expression));
-                    lastFailure = null;
-                    return truthy;
-                }
-                catch (JavaScriptException exception)
-                {
-                    // Not yet true: a condition written against an element a framework has not rendered
-                    // throws until it has. Kept so that a timeout can say why rather than only that.
-                    lastFailure = exception;
-                    return false;
-                }
-            },
-            timeout).ConfigureAwait(false);
-
-        return answered || lastFailure is null ? answered : throw lastFailure;
+        return WaitForScriptAsync(expression, argument: null, timeout);
     }
     /// <summary>Looks at the document until <paramref name="condition"/> holds, or until the time runs out.</summary>
     private async Task<bool> WaitForAsync(Func<Engine, bool> condition, TimeSpan timeout)
@@ -802,7 +781,20 @@ public sealed partial class Page
 
         while (true)
         {
-            if (await _loop.PostAsync(condition).ConfigureAwait(false))
+            bool satisfied;
+            try
+            {
+                satisfied = await _loop.PostAsync(condition).ConfigureAwait(false);
+            }
+            catch (ObjectDisposedException) when (_closed)
+            {
+                return false;
+            }
+            catch (ExecutionCanceledException) when (_closed)
+            {
+                return false;
+            }
+            if (satisfied)
             {
                 return true;
             }

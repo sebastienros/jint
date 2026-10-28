@@ -75,6 +75,83 @@ public sealed class LayoutInvalidationTests
     }
 
     [Test]
+    public async Task VisibilityAndScrollReadsDoNotDiscardUnchangedMeasurements()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(Markup);
+        await InstallDiagnostics(page);
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const target = document.getElementById('target');
+              const first = queryStamp(), layout = layoutStamp();
+              for (let i=0; i<10; i++) {
+                if (!target.checkVisibility({visibilityProperty:true})) throw Error('not visible');
+                target.scrollIntoView({block:'nearest'});
+                target.offsetTop; target.offsetLeft;
+              }
+              return [first === queryStamp(), layout === layoutStamp()].join(',');
+            })()
+            """)).Should().Be("true,true");
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task VisibilityAndScrollOptionGettersStillObserveReentrantMutations(bool customized)
+    {
+        var options = new BrowserOptions();
+        if (customized) options.ConfigureEngine(_ => { });
+        await using var browser = new global::Jint.Browser.Browser(options);
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(Markup);
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const target = document.getElementById('target'), out=[];
+              out.push(target.checkVisibility({visibilityProperty:true}));
+              out.push(target.checkVisibility({get visibilityProperty(){
+                target.style.visibility='hidden'; return true;
+              }}));
+              target.style.visibility='visible';
+              target.getBoundingClientRect();
+              target.scrollIntoView({get block(){
+                target.style.display='none'; return 'nearest';
+              }});
+              out.push(target.getBoundingClientRect().height);
+              target.style.display='block';
+              out.push(target.checkVisibility({visibilityProperty:true}));
+              return out.join(',');
+            })()
+            """)).Should().Be("true,false,0,true");
+    }
+
+    [Test]
+    public async Task TextAndAttributesCanChangeGeometryOutsideTheMutatedSubtree()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <style>
+            body:has(#editor:empty) #later, #editor[data-hide] ~ #later {display:none}
+            </style>
+            <div id="editor">text</div><button id="later">Save</button>
+            """);
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const later=document.getElementById('later'), editor=document.getElementById('editor');
+              const heights=[later.offsetHeight,document.body.offsetHeight];
+              editor.textContent='';
+              heights.push(later.offsetHeight,document.body.offsetHeight);
+              editor.textContent='text';
+              heights.push(later.offsetHeight,document.body.offsetHeight);
+              editor.setAttribute('data-hide','');
+              heights.push(later.offsetHeight,document.body.offsetHeight);
+              return heights.join(',');
+            })()
+            """)).Should().Be("16,48,0,32,16,48,0,32");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task UnchangedReadsShareMeasurementsAndCompleteLayouts()
     {
         await using var browser = new global::Jint.Browser.Browser();

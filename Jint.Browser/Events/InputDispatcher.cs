@@ -116,7 +116,7 @@ internal static partial class InputDispatcher
 
         var dom = runtime.Dom;
         var events = BrowserEventRealm.Of(dom.Engine);
-        var layout = runtime.Layout.Current();
+        var layout = runtime.Layout.ReadPoint();
 
         var hit = layout.ElementFromPoint(input.X, input.Y) ?? document.DocumentElement;
         if (hit is null)
@@ -152,7 +152,7 @@ internal static partial class InputDispatcher
                 // every listener, because the activation behaviour that reads it runs after all three of
                 // them and any one of them may move, adopt or detach the input first. Nothing is selected
                 // by measuring: the activation behaviour promotes it, or nothing does.
-                events.PendingImagePoint = ImagePointOf(hit, input.X, input.Y, layout);
+                events.PendingImagePoint = ImagePointOf(hit, input.X, input.Y, layout.ClientBoxOf);
 
                 try
                 {
@@ -187,7 +187,7 @@ internal static partial class InputDispatcher
         Element hit,
         in ClickOptions options,
         in MouseInput input,
-        FlatLayout layout,
+        FlatLayout.PointQuery layout,
         Element? expectedClickTarget)
     {
         Pointer(target, "pointerup", options, cancelable: true, layout);
@@ -248,7 +248,7 @@ internal static partial class InputDispatcher
     /// mouse events are dispatched at.
     /// </para>
     /// </remarks>
-    private static (Element Image, int X, int Y)? ImagePointOf(Element hit, double x, double y, FlatLayout layout)
+    private static (Element Image, int X, int Y)? ImagePointOf(Element hit, double x, double y, Func<Element, FlatBox?> clientBox)
     {
         for (var element = hit; element is not null; element = (element.ParentNode as Element))
         {
@@ -257,7 +257,7 @@ internal static partial class InputDispatcher
                 continue;
             }
 
-            if (layout.ClientBoxOf(image) is not { } box)
+            if (clientBox(image) is not { } box)
             {
                 return null;
             }
@@ -287,7 +287,7 @@ internal static partial class InputDispatcher
     }
 
     /// <summary>Dispatches one <c>PointerEvent</c>, answering whether nothing cancelled it.</summary>
-    private static bool Pointer(DomNodeObject target, string type, in ClickOptions options, bool cancelable, FlatLayout layout)
+    private static bool Pointer(DomNodeObject target, string type, in ClickOptions options, bool cancelable, FlatLayout.PointQuery layout)
     {
         var ev = PointerEvent(target, type, options, cancelable);
         PrepareOffsets(ev, target, layout);
@@ -314,7 +314,7 @@ internal static partial class InputDispatcher
     }
 
     /// <summary>Dispatches one <c>WheelEvent</c>, answering whether nothing cancelled it.</summary>
-    private static bool Wheel(DomNodeObject target, in ClickOptions options, double deltaX, double deltaY, FlatLayout layout)
+    private static bool Wheel(DomNodeObject target, in ClickOptions options, double deltaX, double deltaY, FlatLayout.PointQuery layout)
     {
         var realm = BrowserEventRealm.Of(target.DomRealm.Engine);
         var ev = new JsWheelEvent(
@@ -339,7 +339,7 @@ internal static partial class InputDispatcher
         return target.DispatchEvent(ev);
     }
 
-    private static void PrepareOffsets(JsMouseEvent ev, DomNodeObject target, FlatLayout layout)
+    private static void PrepareOffsets(JsMouseEvent ev, DomNodeObject target, FlatLayout.PointQuery layout)
     {
         // The hit-test query precedes every listener. Reuse it only for the first event: a pointer
         // listener can move the target before the following mouse/click event begins. Keeping just
@@ -521,12 +521,24 @@ internal static partial class InputDispatcher
 
         if (focused is null)
         {
+            realm.SpacePressTarget = null;
             return;
         }
 
         if (kind == KeyInputKind.KeyUp)
         {
-            dom.WrapNode(focused).DispatchEvent(KeyEvent(dom, realm, "keyup", options, cancelable: true));
+            var allowed = dom.WrapNode(focused).DispatchEvent(KeyEvent(dom, realm, "keyup", options, cancelable: true));
+            if (options.Key == " ")
+            {
+                var pressed = realm.SpacePressTarget;
+                realm.SpacePressTarget = null;
+                if (allowed && ReferenceEquals(pressed, focused) && IsKeyboardButton(dom, focused)
+                    && ReferenceEquals(FocusController.InteractionTarget(realm, document), focused))
+                {
+                    DispatchClickEvent(dom.WrapNode(focused),
+                        ClickOptions.Synthetic with { Detail = 0, Modifiers = options.Modifiers }, trusted: true);
+                }
+            }
             return;
         }
 
@@ -540,6 +552,8 @@ internal static partial class InputDispatcher
             return;
         }
 
+        if (options.Key == " ") realm.SpacePressTarget = null;
+
         if (!dom.WrapNode(focused).DispatchEvent(KeyEvent(dom, realm, "keydown", options, cancelable: true)))
         {
             return;
@@ -552,8 +566,26 @@ internal static partial class InputDispatcher
             return;
         }
 
+        // https://w3c.github.io/uievents/#event-type-keydown — keyboard activation uses the same click
+        // default action as a pointer, without hit testing. Enter activates on down; Space waits for up.
+        if (options.Key is "Enter" or " " && IsKeyboardButton(dom, focused)
+            && ReferenceEquals(FocusController.InteractionTarget(realm, document), focused))
+        {
+            if (options.Key == "Enter")
+                DispatchClickEvent(dom.WrapNode(focused),
+                    ClickOptions.Synthetic with { Detail = 0, Modifiers = options.Modifiers }, trusted: true);
+            else
+                realm.SpacePressTarget = focused;
+            return;
+        }
+
         RunDefaultAction(dom, document, focused, options, allowInsertion: kind == KeyInputKind.KeyDown);
     }
+
+    private static bool IsKeyboardButton(DomRealm dom, Element element)
+        => (EventDom.IsHtml(element, "button")
+            || EventDom.IsHtml(element, "input") && EventDom.InputType(element) is "button" or "submit" or "reset" or "image")
+            && !EventDom.Disabled(dom, element);
 
     /// <summary>Dispatches <c>keypress</c>, answering whether nothing cancelled it.</summary>
     private static bool Keypress(DomRealm dom, BrowserEventRealm realm, Element focused, in KeyOptions options)

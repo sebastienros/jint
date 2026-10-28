@@ -48,12 +48,27 @@ retained. This covers argument conversions, custom-element reactions, event call
 that change some state before throwing. Extra invalidation for no-ops is allowed. `Version` is an opaque,
 saturating page-local revision; reaching its limit disables reuse instead of wrapping.
 
+Retiring a query does not necessarily discard its native measurements. A demand-installed synchronous
+`Document.MutationSignal` supplies typed dirty targets, independently of mutation-observer delivery.
+At most 64 distinct changes are summarized before a budgeted read; unknown writes and overflow discard
+all data. Current rule-plan selector dependencies decide between subtree invalidation and global fallback.
+Subtrees follow old child snapshots as well as current links, and ancestor row totals are removed.
+When selectors prove a child-list edit local, unaffected siblings retain rendering and exact row
+measurements; membership and changed subtrees do not. Text-control state is explicit native evidence,
+not an attribute mutation, and semantic selector dependencies retain their global fallback.
+Only rendered flags, exact row counts and child snapshots are retained. Cascade/work/token ownership,
+widths, stretched heights, complete sizes and placement are always fresh after a write. See
+[`Layout/box-model.md`](../../Jint.Browser/Layout/box-model.md) for the dependency boundaries.
+
 The binding generator emits `DomFailures.GuardMutation` for every setter and for operations outside an
 explicit list of reads. Unknown/new operations default to invalidation. Both guard variants share the
 existing exception translation and preserve shaped prototypes. Hand-written reflected/ARIA setters,
 named-property writes/deletes, file-input synchronization, selection deletion, input editing, activation
 and its rollback, form reset and protocol DOM edits enter the same scope. A new native write must do so
 as well. Nested wrappers are covered by their own mutating members; DOM expandos are ordinary JS state.
+Native text editing scopes its atomic value/caret commit. Its `beforeinput` and post-commit `input`
+listeners are not unfinished native writes: their own mutations remain tracked, and they may reuse
+unaffected measurements without changing event ordering or cancellation.
 
 The page checks document identity, media environment, native document URL, focus and pointer-press
 state before reusing anything. Replacing the document releases retained work immediately. Sizes and
@@ -64,18 +79,13 @@ request to eagerly lay out unrelated descendants.
 The following paths deliberately keep the existing fresh-query behavior:
 
 - HTML construction, including parser callbacks and resumptions. The whole initial load is suspended;
-  generated markup setters and document rewrites enter mutation scopes too. There are no per-node parser
-  revision updates, and no revision is reset after construction.
+  generated markup setters and document rewrites enter mutation scopes too. No layout sink is installed
+  merely for parsing, and no revision is reset after construction.
 - Any `BrowserOptions.ConfigureEngine` registration. It can install native writers, converters or services
   that bypass Browser bindings. Even a customization that happens to be read-only takes this conservative
   fallback; no public host contract is restricted or replaced by an implicit invalidation obligation.
 - `Page.RunOnLoopAsync` callbacks. This internal escape hatch can run arbitrary native writes, so its whole
   callback is suspended. Public `Page.EvaluateAsync` goes through the tracked script bindings instead.
-- A document for which the driver starts loading an external stylesheet or frame. Native asynchronous
-  attachment is not fully intercepted, so reuse stays disabled for that document, including after load.
-- Stylesheets containing `@import`. Imports are detected once per invalidated revision by walking rule
-  lists; unchanged cacheable reads do not rescan rules or serialize the DOM. Adding an import invalidates
-  the previous eligibility decision. Completion of an imported sheet cannot make the fallback stale.
 - Active CSS rule-usage coverage for this document. Recomputing preserves coverage observations, including
   when tracking starts after geometry has already been warmed. Other documents' trackers do not disable it.
 
@@ -86,6 +96,10 @@ second DOM store are unnecessary.
 The original native-call audit remains relevant to a host that wants unrestricted native writes plus
 persistent caching. Such a host needs native dependency versions or a cooperative mutation boundary;
 that stronger contract is not silently assumed for the default Browser API.
+
+External sheets and imports use resource revisions and recursive CSSOM snapshots, rather than a permanent
+reuse ban. Their attachment, source, order, scope and media changes also replace the immutable rule plan,
+preventing retained native measurements from crossing a changed style environment.
 
 ## Validation and completion
 

@@ -29,6 +29,8 @@ internal sealed partial class NativeCssQuery
     private readonly NativeCssSheet[] _sheets;
     private readonly CssStyleSheetRevisionSnapshot _sheetRevisions;
     private readonly Dictionary<Element, (CssDeclarationBlock Block, CssMutationStamp Stamp)> _inline = new();
+    private long _inlineVerifiedEpoch = -1;
+    private int _inlineVerifiedCount = -1;
     private readonly Dictionary<Element, State> _states = new();
     private readonly CssMediaEnvironment _media;
     private readonly SelectorEnvironment _selectors;
@@ -232,22 +234,21 @@ internal sealed partial class NativeCssQuery
         if (_states.TryGetValue(element, out var cached)) return cached;
         matching.Observe(element);
         var state = new State(element, _work);
-        _rules ??= BuildRules();
+        PrepareRules();
         var depth = 0;
         for (var root = element.TreeShadowRoot; root is not null; root = root.Host.TreeShadowRoot)
         {
             _work.Charge(1);
             depth++;
         }
-        _index ??= new RuleIndex(_rules, _work);
         // Matching may re-enter this query for another element; that call then allocates its own buffer.
         var candidates = _candidateBuffer ?? [];
         _candidateBuffer = null;
-        _index.Collect(element, candidates, _work);
+        _index!.Collect(element, candidates, _seenCandidates!, ref _candidateGeneration, _work);
         foreach (var position in candidates)
         {
             _work.Charge(1);
-            var (rule, origin, order, namespaceUri, layer) = _rules[position];
+            var (rule, origin, order, namespaceUri, layer) = _rules![position];
             if (namespaceUri is not null && element.NamespaceUri != namespaceUri) continue;
             var scope = (rule.ParentStyleSheet?.Attachment.OwnerNode ??
                 rule.ParentStyleSheet?.EffectiveOwnerNode(_work))?.TreeShadowRoot;
@@ -274,7 +275,7 @@ internal sealed partial class NativeCssQuery
                 break;
             }
         if (_inline.TryGetValue(element, out var inline))
-            state.Sources.Add(new(null, inline.Block, NativeCssOrigin.Author, default, _rules.Count, true,
+            state.Sources.Add(new(null, inline.Block, NativeCssOrigin.Author, default, _rules!.Count, true,
                 EncapsulationDepth: depth));
         matching.VerifyRead();
         Verify();
@@ -360,6 +361,12 @@ internal sealed partial class NativeCssQuery
             _selectors.ControlFactsRevision == ulong.MaxValue ||
             factory.ReadRevision(_selectors.ControlFactsContext, _document) != _selectors.ControlFactsRevision))
             return false;
+        var epoch = CssMutationStamp.Epoch;
+        if (epoch != long.MaxValue && epoch == _inlineVerifiedEpoch && inlineCount == _inlineVerifiedCount)
+        {
+            _work.Token.ThrowIfCancellationRequested();
+            return true;
+        }
         var compared = 0;
         foreach (var inline in _inline.Values)
         {
@@ -367,6 +374,8 @@ internal sealed partial class NativeCssQuery
             if (!inline.Stamp.CanReuse || inline.Block.Stamp != inline.Stamp) return false;
         }
         _work.Token.ThrowIfCancellationRequested();
+        _inlineVerifiedEpoch = epoch;
+        _inlineVerifiedCount = inlineCount;
         return true;
     }
 

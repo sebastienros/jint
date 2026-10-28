@@ -198,7 +198,6 @@ internal static class TextEditing
     /// </remarks>
     internal static bool Insert(DomRealm dom, in TextControl control, string text, string inputType)
     {
-        using var mutation = dom.MutateLayout();
         var value = control.Value;
         var start = control.Start;
         var end = control.End;
@@ -247,7 +246,6 @@ internal static class TextEditing
 
     private static bool DeleteAround(DomRealm dom, in TextControl control, bool forward)
     {
-        using var mutation = dom.MutateLayout();
         if (!DeletionRange(control, forward, out _, out _, out _)) return true;
 
         var inputType = forward ? "deleteContentForward" : "deleteContentBackward";
@@ -491,6 +489,7 @@ internal static class TextEditing
         // HTML user edits commit value, dirty state, origin and caret together; script value setters are separate.
         internal bool ApplyUserValue(string value, int caret)
         {
+            using var mutation = _dom.MutateLayout();
             if (_input is not null && _input.GetEditingSelection(_dom.NativeReadCheckpoint, _dom.CancellationToken) is null)
             {
                 return false;
