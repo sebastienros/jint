@@ -74,6 +74,7 @@ internal sealed class WorkerLink
 
     private readonly string _specifier;
     private readonly string? _referencingLocation;
+    private readonly WorkerType _type;
 
     /// <summary>The job <c>close()</c> queues, built once so a script calling it in a loop allocates nothing.</summary>
     private readonly Action _closeJob;
@@ -89,6 +90,7 @@ internal sealed class WorkerLink
         string name,
         string specifier,
         string? referencingLocation,
+        WorkerType type,
         CancellationTokenSource termination)
     {
         _parent = parent;
@@ -97,6 +99,7 @@ internal sealed class WorkerLink
         _termination = termination;
         _specifier = specifier;
         _referencingLocation = referencingLocation;
+        _type = type;
         _workerGeneration = worker.EventLoopGeneration;
         _parentGeneration = parent.EventLoopGeneration;
         _closeJob = EndAsClosedByWorker;
@@ -127,6 +130,13 @@ internal sealed class WorkerLink
 
     /// <summary>The engine that runs the worker — what <c>close()</c> and the start job are queued on.</summary>
     internal Engine Worker => _worker;
+
+    internal JsValue ImportScripts(JsValue receiver, JsValue[] arguments)
+    {
+        if (_type != WorkerType.Classic)
+            Throw.TypeError(_worker.Realm, "Module scripts don't support importScripts().");
+        return ((IClassicWorkerProvider) _registry.Provider).ImportScripts(_worker, arguments);
+    }
 
     /// <summary>
     /// Step 7: the parent half is enabled now, so a message the worker posts during its own evaluation is
@@ -285,6 +295,12 @@ internal sealed class WorkerLink
             return;
         }
 
+        if (_type == WorkerType.Classic)
+        {
+            RunClassicScript();
+            return;
+        }
+
         ModuleImportOperation operation;
         try
         {
@@ -321,6 +337,30 @@ internal sealed class WorkerLink
         // Reactions rather than a poll — and this also marks the rejection handled, so a worker whose module
         // fails to load does not additionally read as an unhandled promise rejection.
         PromiseOperations.PerformPromiseThen(_worker, promise, onFulfilled, onRejected, resultCapability: null!);
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/workers.html#run-a-worker</summary>
+    private void RunClassicScript()
+    {
+        Prepared<Script> script;
+        try
+        {
+            script = ((IClassicWorkerProvider) _registry.Provider).LoadClassicScript(_worker);
+        }
+        catch (Exception exception) when (!Throw.MustPropagateHostException(exception))
+        {
+            FailStartup(exception);
+            return;
+        }
+        try
+        {
+            _worker.Execute(in script);
+        }
+        catch (JavaScriptException exception)
+        {
+            _worker._webApi!.FireGlobalErrorEvent(exception);
+        }
+        OnModuleEvaluated();
     }
 
     /// <summary>

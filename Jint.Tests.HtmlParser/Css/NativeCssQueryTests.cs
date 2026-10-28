@@ -13,6 +13,27 @@ namespace Jint.Tests.HtmlParser.Css;
 public sealed class NativeCssQueryTests
 {
     [Test]
+    public void WarmInlineEpochStillDetectsDetachedDeclarationWritesFromCheckpoints()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        document.AppendChild(target);
+        var block = CssDeclarationBlock.Parse("display:block");
+        var mutate = false;
+        var work = new CssValueWork(default, () =>
+        {
+            if (mutate) block.SetProperty("display", "none");
+        });
+        var query = new NativeCssQuery(document, [], [(target, block)], new(), new(document, null, null, null), work);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
+        mutate = true;
+        Assert.Throws<InvalidOperationException>(() => query.GetProperty(target, "display", ref matching))!
+            .Message.Should().Be(NativeCssQuery.Invalidated);
+    }
+
+    [Test]
     public void MatchedAndUnmatchedPendingDeclarationsCannotBlockAnUnrelatedDisplayRead()
     {
         var document = Document.CreateHtml();

@@ -55,7 +55,10 @@ public sealed partial class Page
     /// </para>
     /// <para>
     /// An element with no box — <c>hidden</c>, <c>display: none</c>, <c>visibility: hidden</c> — is not
-    /// clicked, and answers <see langword="false"/>.
+    /// clicked, and answers <see langword="false"/>. The same applies when the centre is hit by an
+    /// unrelated element before input starts: no input is dispatched to that other element. If a
+    /// listener moves the target during input, the pointer sequence completes normally, but the result
+    /// is <see langword="false"/> when the actual click target is outside the requested element.
     /// </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
@@ -81,13 +84,15 @@ public sealed partial class Page
 
             runtime.Layout.ScrollIntoView(element, "nearest");
 
-            if (runtime.Layout.Current().ClientBoxOf(element) is not { } box)
+            if (runtime.Layout.ClientBoxOf(element) is not { } box)
             {
                 return (false, null);
             }
 
             var x = box.X + (box.Width / 2);
             var y = box.Y + (box.Height / 2);
+            if (!InputDispatcher.IsWithin(engine, runtime.Layout.ReadPoint().ElementFromPoint(x, y), element))
+                return (false, null);
 
             // Captured rather than started, for the reason SubmitFormAsync captures: the navigation a click
             // causes is one this caller can be handed instead of one that runs off on its own.
@@ -98,8 +103,9 @@ public sealed partial class Page
             {
                 InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Moved, x, y, 0, 0, 0, EventModifiers.None, 0, 0));
                 InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Pressed, x, y, 0, 1, 1, EventModifiers.None, 0, 0));
-                InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Released, x, y, 0, 0, 1, EventModifiers.None, 0, 0));
-                return (true, _capturedNavigation);
+                var clicked = InputDispatcher.DispatchMouse(runtime,
+                    new MouseInput(MouseInputKind.Released, x, y, 0, 0, 1, EventModifiers.None, 0, 0), element);
+                return (clicked, _capturedNavigation);
             }
             finally
             {
@@ -761,33 +767,12 @@ public sealed partial class Page
     /// </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public async Task<bool> WaitForAsync(string expression, TimeSpan timeout)
+    public Task<bool> WaitForAsync(string expression, TimeSpan timeout)
     {
         ArgumentNullException.ThrowIfNull(expression);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        Exception? lastFailure = null;
-
-        var answered = await WaitForAsync(
-            engine =>
-            {
-                try
-                {
-                    var truthy = TypeConverter.ToBoolean(engine.Evaluate(expression));
-                    lastFailure = null;
-                    return truthy;
-                }
-                catch (JavaScriptException exception)
-                {
-                    // Not yet true: a condition written against an element a framework has not rendered
-                    // throws until it has. Kept so that a timeout can say why rather than only that.
-                    lastFailure = exception;
-                    return false;
-                }
-            },
-            timeout).ConfigureAwait(false);
-
-        return answered || lastFailure is null ? answered : throw lastFailure;
+        return WaitForScriptAsync(expression, argument: null, timeout);
     }
     /// <summary>Looks at the document until <paramref name="condition"/> holds, or until the time runs out.</summary>
     private async Task<bool> WaitForAsync(Func<Engine, bool> condition, TimeSpan timeout)
@@ -796,7 +781,20 @@ public sealed partial class Page
 
         while (true)
         {
-            if (await _loop.PostAsync(condition).ConfigureAwait(false))
+            bool satisfied;
+            try
+            {
+                satisfied = await _loop.PostAsync(condition).ConfigureAwait(false);
+            }
+            catch (ObjectDisposedException) when (_closed)
+            {
+                return false;
+            }
+            catch (ExecutionCanceledException) when (_closed)
+            {
+                return false;
+            }
+            if (satisfied)
             {
                 return true;
             }

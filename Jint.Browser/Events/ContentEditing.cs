@@ -106,7 +106,7 @@ internal static class ContentEditing
             return false;
         }
 
-        if (!shortcut && allowInsertion && options.ProducedText is { Length: > 0 } produced && options.Key.Length == 1)
+        if (!shortcut && allowInsertion && options.ProducedText is { Length: > 0 } produced && options.IsCharacter)
         {
             return Insert(dom, host, produced, "insertText");
         }
@@ -143,7 +143,7 @@ internal static class ContentEditing
                 return Move(dom, caret, caret.Text.Data.Length, extend);
         }
 
-        if (allowInsertion && options.ProducedText is { Length: > 0 } text && options.Key.Length == 1)
+        if (allowInsertion && options.ProducedText is { Length: > 0 } text && options.IsCharacter)
         {
             return Insert(dom, host, text, "insertText");
         }
@@ -168,7 +168,7 @@ internal static class ContentEditing
 
         return options.Key is "Backspace" or "Delete" or "ArrowLeft" or "ArrowRight"
                 or "Home" or "End" or "ArrowUp" or "ArrowDown"
-            || (allowInsertion && options.Key.Length == 1 && options.ProducedText.Length > 0);
+            || (allowInsertion && options.IsCharacter && options.ProducedText.Length > 0);
     }
 
     /// <summary>

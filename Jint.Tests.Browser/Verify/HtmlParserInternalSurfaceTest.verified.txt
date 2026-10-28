@@ -5,6 +5,7 @@ internal Jint.HtmlParser.Css.Conditions.CssSupports
     EvaluateCondition
     EvaluateDeclaration
 internal Jint.HtmlParser.Css.CssParsedRule
+    (constructor)
     get_Children
     get_Media
     get_Rule
@@ -15,13 +16,21 @@ internal Jint.HtmlParser.Css.CssParser
     ParseRule
     ParseRuleList
 internal Jint.HtmlParser.Css.CssRawRule
+    get_Body
+    get_IsClosed
     get_Kind
     get_Name
+    get_Text
 internal Jint.HtmlParser.Css.CssRuleBody
+    (constructor)
+internal Jint.HtmlParser.Css.CssRuleBodyKind
 internal Jint.HtmlParser.Css.CssSourceText
     From
+    get_Span
+    get_Text
 internal Jint.HtmlParser.Css.Media.CssMediaEnvironment
     (constructor)
+    op_Inequality
     set_AnyHover
     set_AnyPointer
     set_ColorScheme
@@ -116,6 +125,7 @@ internal Jint.HtmlParser.Css.Model.CssSerializationSnapshot
     get_Ranges
     get_Text
 internal Jint.HtmlParser.Css.Model.CssStyleRule
+    (constructor)
     SetSelectorText
     TryMatch
     get_Selector
@@ -157,12 +167,28 @@ internal Jint.HtmlParser.Css.Model.Syntax.CssMutationStamp
     (constructor)
     Advance
     get_CanReuse
+    get_Epoch
     get_Value
     op_Inequality
 internal Jint.HtmlParser.Css.SelectorParseContext
 internal Jint.HtmlParser.Css.SelectorSpecificity
     CompareTo
 internal Jint.HtmlParser.Css.Selectors.CompiledSelector
+    get_BranchArray
+    get_ContainsNesting
+internal Jint.HtmlParser.Css.Selectors.CompiledSelector.Combinator
+internal Jint.HtmlParser.Css.Selectors.CompiledSelector.Complex
+    get_CombinatorArray
+    get_CompoundArray
+    get_LeadingCombinator
+internal Jint.HtmlParser.Css.Selectors.CompiledSelector.Compound
+    get_PredicateArray
+internal Jint.HtmlParser.Css.Selectors.CompiledSelector.Predicate
+    get_Arguments
+    get_IsNestingReference
+    get_Kind
+    get_Name
+internal Jint.HtmlParser.Css.Selectors.CompiledSelector.PredicateKind
 internal Jint.HtmlParser.Css.Selectors.ISelectorControlFacts
 internal Jint.HtmlParser.Css.Selectors.ISelectorControlFactsFactory
     ReadRevision
@@ -478,6 +504,7 @@ internal Jint.HtmlParser.NativeCharacterData
     SubstringData
 internal Jint.HtmlParser.NativeIdIndex
     Find
+internal Jint.HtmlParser.NativeMutationKind
 internal Jint.HtmlParser.NativeXPathNavigator
     CheckRead
     PublishResult
@@ -614,9 +641,11 @@ public Jint.HtmlParser.Document
     get_ExistingTemplateContentsOwnerDocument
     get_MayHaveBaseElement
     get_Mode
+    get_MutationSignal
     get_MutationStamp
     get_PendingRangeChanges
     set_AdoptionObserver
+    set_MutationSignal
     set_PendingRangeChanges
     set_TreeMutationSignal
 public Jint.HtmlParser.DomException

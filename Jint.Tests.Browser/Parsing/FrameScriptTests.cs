@@ -109,23 +109,185 @@ public class FrameScriptTests
     }
 
     [Test]
-    public async Task ChildModuleScriptsDoNotExecuteInThePrincipalRealm()
+    public async Task ChildModuleScriptsExecuteOnlyInTheirDocumentRealm()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
-            .MapHtml("/child", "<script type=module>parent.childModuleRan = true;</script>")
+            .MapHtml("/child", "<script type=module>window.childModuleRan = document.defaultView === window;</script>")
             .MapHtml("/", "<iframe src=/child></iframe>"));
         await loopback.Page.NavigateAsync(loopback.Url("/"));
         await loopback.Page.EvaluateAsync("""
             var child = frames[0].document;
             var script = child.createElement('script');
             script.type = 'module';
-            script.textContent = 'parent.dynamicChildModuleRan = true';
+            script.textContent = 'window.dynamicChildModuleRan = document.defaultView === window';
             child.body.append(script);
             """);
         (await loopback.Page.WaitForIdleAsync(TestBudgets.WedgeCeiling)).Should().BeTrue();
         (await loopback.Page.EvaluateAsync<bool>(
-            "typeof childModuleRan === 'undefined' && typeof dynamicChildModuleRan === 'undefined'"))
+            """
+            frames[0].childModuleRan && frames[0].dynamicChildModuleRan &&
+            typeof childModuleRan === 'undefined' && typeof dynamicChildModuleRan === 'undefined'
+            """))
             .Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ChildLocationReplaceExecutesAnExternalModuleAndMessagesItsParent()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """
+                <!doctype html><script>
+                window.callback = null;
+                addEventListener('message', e => {
+                    callback = {data:e.data, source:e.source === f.contentWindow, origin:e.origin};
+                });
+                </script><iframe id=f src=/child></iframe>
+                """)
+            .MapHtml("/child", "<!doctype html><title>Before callback</title>")
+            .MapHtml("/tenant/openapi-oidc-silent.html", """
+                <!doctype html>
+                <script type="module" src="Scripts/auth/callback.js" data-silent></script>
+                """)
+            .Map("/tenant/Scripts/auth/callback.js", _ => LoopbackResponse.Script("""
+                import { label } from './dependency.js';
+                await Promise.resolve();
+                parent.postMessage({
+                    label, query:location.search, path:document.location.pathname,
+                    child:window === document.defaultView && window !== parent,
+                    module:document.currentScript === null,
+                    silent:document.querySelector('script[data-silent]') !== null
+                }, location.origin);
+                """))
+            .Map("/tenant/Scripts/auth/dependency.js", _ => LoopbackResponse.Script("export const label = 'signed-in';")),
+            configureBrowser: options => options.SubresourceTimeout = TimeSpan.FromSeconds(2));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("f.contentWindow.location.replace('/tenant/openapi-oidc-silent.html?code=test&state=state')");
+
+        (await loopback.Page.WaitForAsync("callback !== null", TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>("""
+            callback.source && callback.origin === location.origin && callback.data.child &&
+            callback.data.module && callback.data.silent && callback.data.label === 'signed-in' &&
+            callback.data.query === '?code=test&state=state' &&
+            callback.data.path === '/tenant/openapi-oidc-silent.html'
+            """)).Should().BeTrue();
+        loopback.Page.Url.Should().Be(loopback.Url("/"));
+        loopback.Page.Requests.Should().Contain(request => request.Url.EndsWith("/tenant/Scripts/auth/callback.js", StringComparison.Ordinal));
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ModuleMapsAndImportsAreIndependentAcrossDocuments()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/shared.js", _ => LoopbackResponse.Script("""
+                window.runs = (window.runs || 0) + 1;
+                export const name = document.title;
+                export const array = [];
+                """))
+            .Map("/child-dep.js", _ => LoopbackResponse.Script("export const value = 'child-dependency';"))
+            .Map("/parent-dep.js", _ => LoopbackResponse.Script("export const value = 'parent-dependency';"))
+            .MapHtml("/child", """
+                <title>child</title>
+                <script type=importmap>{"imports":{"dep":"/child-dep.js"}}</script>
+                <script type=module>
+                import { name, array } from '/shared.js'; import { value } from 'dep';
+                window.moduleName = name; window.moduleArray = array; window.dep = value;
+                window.importAgain = () => import('/shared.js');
+                </script>
+                """)
+            .MapHtml("/", """
+                <title>parent</title><iframe src=/child></iframe>
+                <script type=importmap>{"imports":{"dep":"/parent-dep.js"}}</script>
+                <script type=module>
+                import { name, array } from '/shared.js'; import { value } from 'dep';
+                window.moduleName = name; window.moduleArray = array; window.dep = value;
+                </script>
+                """));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("frames[0].importAgain().then(ns => window.again = ns.array === frames[0].moduleArray)");
+        (await loopback.Page.WaitForAsync("window.again === true", TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>("""
+            moduleName === 'parent' && frames[0].moduleName === 'child' &&
+            dep === 'parent-dependency' && frames[0].dep === 'child-dependency' &&
+            runs === 1 && frames[0].runs === 1 &&
+            frames[0].moduleArray instanceof frames[0].Array &&
+            !(frames[0].moduleArray instanceof Array) && moduleArray !== frames[0].moduleArray
+            """)).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task QueuedFrameNavigationWaitsForNestedModulesBeforeLoad()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", "<!doctype html><iframe id=f></iframe>")
+            .MapHtml("/outer", """
+                <script>
+                window.dcl = 0;
+                document.addEventListener('DOMContentLoaded', () => dcl++);
+                onload = () => {parent.loaded = frames[0].done && dcl === 1;};
+                </script><iframe src=/inner></iframe>
+                """)
+            .MapHtml("/inner", """
+                <script type=module>
+                await new Promise(resolve => setTimeout(resolve, 0));
+                window.done = true;
+                </script>
+                """));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("f.contentWindow.location.replace('/outer')");
+        (await loopback.Page.WaitForAsync("window.loaded === true", TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<string>("f.contentDocument.readyState")).Should().Be("complete");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task AQueuedFrameModuleTimeoutReportsTheFailureAndReleasesReadiness()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", "<!doctype html><iframe id=f></iframe>")
+            .MapHtml("/child", "<script type=module>await new Promise(() => {});</script>"),
+            configureBrowser: options => options.SubresourceTimeout = TimeSpan.FromMilliseconds(100));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("window.loads=0;f.onload=()=>loads++;f.contentWindow.location.replace('/child')");
+        (await loopback.Page.WaitForAsync("loads === 1", TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<string>("f.contentDocument.readyState")).Should().Be("complete");
+        loopback.Page.Errors.Should().ContainSingle(error => error.Kind == PageErrorKind.ScriptError
+            && error.Message.Contains("did not finish loading within", StringComparison.Ordinal));
+    }
+
+    [Test]
+    public async Task WindowMessagesReplyToTheSendingFrameAndEnforceTargetOrigins()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """
+                <script>
+                window.messages=[];
+                addEventListener('message', e => {
+                    messages.push(e.source === f.contentWindow);
+                    e.source.postMessage({reply:e.data.value}, {targetOrigin:location.origin});
+                });
+                </script><iframe id=f src=/child></iframe>
+                """)
+            .MapHtml("/child", """
+                <script>
+                addEventListener('message', e => {
+                    window.reply = e.data.reply;
+                    window.parentSource = e.source === parent;
+                    window.localArray = e.data instanceof Object;
+                });
+                parent.postMessage('discarded', 'https://example.test');
+                const payload={value:'before'};
+                parent.postMessage(payload, location.origin);
+                payload.value='after';
+                </script>
+                """));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.WaitForAsync("frames[0].reply === 'before'", TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>("messages.length === 1 && messages[0] && frames[0].parentSource && frames[0].localArray"))
+            .Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
     }
 
     [TestCase(false)]

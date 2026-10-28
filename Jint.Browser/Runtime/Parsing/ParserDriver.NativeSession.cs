@@ -76,6 +76,7 @@ internal sealed partial class ParserDriver
                 _runtime.Engine.Constraints.Check();
                 RunNativeClassic(entry.Element, entry.Source);
             }
+            if (IsFrameDocument(document) && CanRunFrame(document) && _runtime.ScriptingEnabled) RunModules(document);
         }
         catch
         {
@@ -211,7 +212,6 @@ internal sealed partial class ParserDriver
             return HtmlHostRequestOutcome.Finished;
         if (type == NativeScriptType.ImportMap)
         {
-            if (IsFrameDocument(script.OwnerDocument!)) return HtmlHostRequestOutcome.Finished;
             ReadImportMapEarly(script.OwnerDocument!);
             return HtmlHostRequestOutcome.Finished;
         }
@@ -256,7 +256,7 @@ internal sealed partial class ParserDriver
             !ReferenceEquals(flags.PreparationTimeDocument, script.OwnerDocument)) return;
         var document = script.OwnerDocument!;
         _runtime.CustomElementsIfCreated?.UpgradeParsedElements();
-        if (!IsFrameDocument(document)) ReadImportMapEarly(document);
+        ReadImportMapEarly(document);
         if (IsFrameDocument(document))
         {
             if (!CanRunFrame(document)) return;

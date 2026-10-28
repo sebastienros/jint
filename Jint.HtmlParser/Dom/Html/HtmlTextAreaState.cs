@@ -438,5 +438,5 @@ internal sealed class HtmlTextAreaState
         "backward" => HtmlSelectionDirection.Backward,
         _ => HtmlSelectionDirection.None
     };
-    private void MarkStateChange() => _element.OwnerDocument!.MarkMutation();
+    private void MarkStateChange() => _element.OwnerDocument!.MarkMutation(_element, NativeMutationKind.ControlState);
 }

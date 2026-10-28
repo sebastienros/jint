@@ -315,8 +315,8 @@ internal sealed class Emitter
     /// <summary>The field holding one interface's <c>[Unscopable]</c> member names.</summary>
     private static string UnscopablesField(InterfaceModel model) => "_unscopables" + model.FieldName;
 
-    // Only operations with no native writes may keep geometry alive. Unknown operations default to
-    // a mutation scope; getters remain reads and every setter is bracketed independently of its name.
+    // Only operations with no native tree/style writes may keep geometry alive (scroll projects boxes).
+    // Unknown operations default to a mutation scope; getters remain reads and every setter is bracketed.
     private static bool IsLayoutRead(string name) => name is
         "querySelector" or "querySelectorAll" or "getElementById" or "getElementsByClassName"
         or "getElementsByTagName" or "getElementsByTagNameNS" or "getElementsByName"
@@ -325,7 +325,8 @@ internal sealed class Emitter
         or "contains" or "matches" or "closest" or "isSameNode" or "isEqualNode"
         or "compareDocumentPosition" or "lookupPrefix" or "lookupNamespaceURI" or "isDefaultNamespace"
         or "item" or "namedItem" or "getPropertyValue" or "getPropertyPriority"
-        or "getBoundingClientRect" or "getClientRects" or "elementFromPoint" or "elementsFromPoint"
+        or "getBoundingClientRect" or "getClientRects" or "checkVisibility" or "scrollIntoView"
+        or "elementFromPoint" or "elementsFromPoint"
         or "getRootNode" or "hasChildNodes" or "getNamedItem" or "getNamedItemNS"
         or "substringData" or "toString" or "supports" or "webkitMatchesSelector"
         or "compareBoundaryPoints" or "comparePoint" or "intersectsNode" or "isPointInRange"

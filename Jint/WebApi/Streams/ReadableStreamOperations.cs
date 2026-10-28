@@ -57,15 +57,16 @@ internal static class ReadableStreamOperations
     /// <summary>
     /// https://streams.spec.whatwg.org/#create-readable-byte-stream — the byte-stream counterpart of
     /// <see cref="CreateReadableStream"/>, for the streams the engine builds itself. The standard fixes its
-    /// high water mark at 0 and gives it no automatic allocation: a stream created this way pulls only when
-    /// a consumer asks.
+    /// high water mark at 0 and gives it no automatic allocation. Network bodies opt into bounded
+    /// read-ahead; other internal byte streams retain the demand-only default.
     /// </summary>
     internal static JsReadableStream CreateReadableByteStream(
         Engine engine,
         Realm realm,
         Func<JsValue> startAlgorithm,
         Func<JsPromise> pullAlgorithm,
-        Func<JsValue, JsPromise> cancelAlgorithm)
+        Func<JsValue, JsPromise> cancelAlgorithm,
+        double highWaterMark = 0)
     {
         var stream = new JsReadableStream(engine, realm)
         {
@@ -78,7 +79,7 @@ internal static class ReadableStreamOperations
         };
 
         ReadableByteStreamControllerOperations.SetUp(
-            stream, controller, startAlgorithm, pullAlgorithm, cancelAlgorithm, highWaterMark: 0, autoAllocateChunkSize: null);
+            stream, controller, startAlgorithm, pullAlgorithm, cancelAlgorithm, highWaterMark, autoAllocateChunkSize: null);
 
         return stream;
     }

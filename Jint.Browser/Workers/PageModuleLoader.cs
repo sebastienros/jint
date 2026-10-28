@@ -2,10 +2,13 @@ using System.Net.Http;
 using System.Text;
 using Jint.Browser.Runtime;
 using Jint.Constraints;
+using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
+using Jint.WebApi.DomException;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Performance;
+using Jint.WebApi.Workers;
 
 namespace Jint.Browser.Workers;
 
@@ -74,6 +77,38 @@ internal sealed class PageModuleLoader : ModuleLoader
 
     internal void SetClient(HttpClient client) => _client = client;
 
+    /// <summary>https://html.spec.whatwg.org/multipage/workers.html#import-scripts-into-worker-global-scope</summary>
+    internal JsValue ImportScripts(Engine engine, JsValue[] arguments)
+    {
+        var urls = new Uri[arguments.Length];
+        for (var i = 0; i < urls.Length; i++)
+        {
+            var parsed = PageUrl.Parse(TypeConverter.ToString(arguments[i]),
+                engine.Options.WebApi.Fetch.BaseUrl!.AbsoluteUri);
+            if (parsed is null || PageUrl.ToUri(parsed) is not { } uri)
+            {
+                WorkerErrors.ThrowDomException(engine, engine.Realm, DomExceptionNames.Syntax, "Invalid importScripts URL.");
+                return JsValue.Undefined;
+            }
+            urls[i] = uri;
+        }
+        foreach (var url in urls)
+        {
+            string source;
+            try
+            {
+                source = LoadScript(engine, url, "same-origin", classic: true);
+            }
+            catch (Exception exception) when (!Throw.MustPropagateHostException(exception))
+            {
+                WorkerErrors.ThrowDomException(engine, engine.Realm, DomExceptionNames.Network, exception.Message);
+                return JsValue.Undefined;
+            }
+            engine.Execute(source, url.AbsoluteUri);
+        }
+        return JsValue.Undefined;
+    }
+
     /// <inheritdoc />
     public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
     {
@@ -115,7 +150,7 @@ internal sealed class PageModuleLoader : ModuleLoader
 
     /// <summary>Fetches classic worker source through the module loader's bounded network path.</summary>
     /// <remarks>https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-classic-worker-script</remarks>
-    internal string LoadScript(Engine engine, Uri uri, string credentials)
+    internal string LoadScript(Engine engine, Uri uri, string credentials, bool classic = false)
     {
         var isMainScript = !_mainScriptLoaded && _sharedWorkerUrl is not null && uri == _sharedWorkerUrl;
         bool Allowed(Uri target) => _network.UrlFilter(target)
@@ -195,9 +230,16 @@ internal sealed class PageModuleLoader : ModuleLoader
                 throw new InvalidOperationException("'" + uri + "' is larger than a page may load.");
             }
 
+            if (classic && !JavaScriptMime.IsJavaScript(
+                exchange.Response.Content.Headers.ContentType?.MediaType ?? ""))
+            {
+                throw new InvalidOperationException("'" + uri + "' did not return a JavaScript MIME type.");
+            }
+
             if (isMainScript)
             {
                 _mainScriptLoaded = true;
+                WorkerLocationInstaller.Install(engine, exchange.RequestUri);
                 var workerPolicy = ReferrerPolicy.StrictOriginWhenCrossOrigin;
                 if (exchange.Response.Headers.TryGetValues("Referrer-Policy", out var values))
                 {

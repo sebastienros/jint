@@ -92,7 +92,7 @@ internal sealed class WorkerGlobalScope
     /// Called on the parent's thread, with that engine owned and quiescent.
     /// </summary>
     internal static void Install(WorkerLink link, string name)
-        => InstallCore(link.Worker, name, link, link.CloseFromWorker, importScripts: null);
+        => InstallCore(link.Worker, name, link, link.CloseFromWorker, link.ImportScripts);
 
     /// <summary>Installs the shared worker global without a dedicated worker's hidden message port.</summary>
     /// <remarks>https://html.spec.whatwg.org/multipage/workers.html#shared-workers-and-the-sharedworkerglobalscope-interface</remarks>

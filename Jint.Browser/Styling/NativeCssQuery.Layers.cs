@@ -4,7 +4,7 @@ using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Browser.Styling;
 
-// Query-owned layer identities. Nested layers precede their parent's implicit final sublayer.
+// Rule-plan-owned layer identities. Nested layers precede their parent's implicit final sublayer.
 internal sealed class NativeCssLayer
 {
     private readonly Dictionary<string, NativeCssLayer> _named = new(StringComparer.Ordinal);

@@ -30,6 +30,10 @@ internal sealed class NativeCssQueryDiagnostics(bool captureDetails = false)
         internal long StatePublications { get; private set; }
         internal long RuleAttempts { get; private set; }
         internal long RuleMatches { get; private set; }
+        internal long RulePlanBuilds { get; private set; }
+        internal long RulePlanReuses { get; private set; }
+        internal void RulePlanBuilt() => RulePlanBuilds++;
+        internal void RulePlanReused() => RulePlanReuses++;
         internal Dictionary<string, long> ComputedPublications { get; } = new(StringComparer.Ordinal);
         internal Dictionary<string, long> CacheHits { get; } = new(StringComparer.Ordinal);
         internal Dictionary<Element, ElementRecord>? Elements { get; }
