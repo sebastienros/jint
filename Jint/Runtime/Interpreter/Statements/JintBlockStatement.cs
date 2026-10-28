@@ -1,13 +1,6 @@
-using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
-using Jint.Native.AsyncFunction;
-using Jint.Native.AsyncGenerator;
 using Jint.Native.Disposable;
-using Jint.Native.Object;
-using Jint.Native.Promise;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
-using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
 
@@ -200,31 +193,6 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         ISuspendable suspendable)
     {
         var engine = context.Engine;
-        // The IsResuming setter delegates to the async function's or the async generator's _isResuming, so this
-        // single assignment clears both the interface flag and the underlying field.
-        suspendable.IsResuming = false;
-
-        JsValue awaitResult;
-        bool awaitThrew;
-        var asyncFn = engine.ExecutionContext.AsyncFunction;
-        if (asyncFn is not null)
-        {
-            awaitResult = asyncFn._resumeValue ?? JsValue.Undefined;
-            awaitThrew = asyncFn._resumeWithThrow;
-            asyncFn._resumeValue = null;
-            asyncFn._resumeWithThrow = false;
-            asyncFn._lastAwaitNode = null;
-        }
-        else
-        {
-            // Nothing else suspends a block mid-dispose (CompleteDispose), and the async generator's await
-            // continuation left the settled value where an await expression reads it.
-            var asyncGenerator = engine.ExecutionContext.AsyncGenerator!;
-            awaitResult = asyncGenerator._nextValue ?? JsValue.Undefined;
-            awaitThrew = asyncGenerator._resumeWithThrow;
-            asyncGenerator._resumeWithThrow = false;
-            asyncGenerator._lastYieldNode = null;
-        }
 
         // Use the env captured at suspend time, in case the env-setup branch above
         // didn't run on this re-entry (no declarations path).
@@ -237,7 +205,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
             blockEnv,
             oldEnv,
             suspendable,
-            blockEnv.ContinueDisposeResources(awaitResult, awaitThrew));
+            StatementDisposal.Resume(engine, suspendable, blockEnv));
     }
 
     /// <summary>
@@ -256,43 +224,8 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     {
         var engine = context.Engine;
 
-        while (!step.IsDone)
+        if (StatementDisposal.Drive(engine, this, blockEnv, ref step))
         {
-            var pending = step.PendingPromise!;
-            var asyncFn = engine.ExecutionContext.AsyncFunction;
-
-            if (asyncFn is not null)
-            {
-                SetupDisposeSuspension(engine, asyncFn, pending);
-            }
-            else if (engine.ExecutionContext.AsyncGenerator is { } asyncGenerator)
-            {
-                if (!SetupAsyncGeneratorDisposeSuspension(engine, asyncGenerator, pending, out var awaitError))
-                {
-                    // The await was abrupt before it could suspend: that throw completion is the dispose result's.
-                    step = blockEnv.ContinueDisposeResources(awaitError, awaitThrew: true);
-                    continue;
-                }
-            }
-            else
-            {
-                // Non-async context fallback. `await using` is syntactically only valid
-                // in async, so this path is reached only by unusual hosts. Sync wait.
-                JsValue resolved;
-                bool threw = false;
-                try
-                {
-                    resolved = pending.UnwrapIfPromise(engine.Options.Constraints.PromiseTimeout);
-                }
-                catch (PromiseRejectedException e)
-                {
-                    resolved = e.RejectedValue;
-                    threw = true;
-                }
-                step = blockEnv.ContinueDisposeResources(resolved, threw);
-                continue;
-            }
-
             var data = suspendable!.Data.GetOrCreate<BlockSuspendData>(this);
             data.BlockEnvironment = blockEnv;
             data.OuterEnvironment = oldEnv;
@@ -332,75 +265,6 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         }
 
         return result;
-    }
-
-    /// <summary>
-    /// Mirror of <see cref="JintAwaitExpression.SuspendForAwait"/> for the dispose path:
-    /// suspends the async function on the pending dispose promise, with handlers that
-    /// resume the function (which re-enters this block via <see cref="ResumeDispose"/>).
-    /// </summary>
-    private void SetupDisposeSuspension(Engine engine, AsyncFunctionInstance asyncFn, JsValue pendingPromise)
-    {
-        var promise = pendingPromise as JsPromise
-            ?? (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(pendingPromise);
-
-        asyncFn._lastAwaitNode = this;
-        asyncFn._state = AsyncFunctionState.SuspendedAwait;
-        asyncFn._savedContext = engine.ExecutionContext;
-
-        var onFulfilled = new ClrFunction(engine, "", (_, args) =>
-        {
-            asyncFn._resumeValue = args.At(0);
-            asyncFn._resumeWithThrow = false;
-            JintAwaitExpression.AsyncFunctionResume(engine, asyncFn);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        var onRejected = new ClrFunction(engine, "", (_, args) =>
-        {
-            asyncFn._resumeValue = args.At(0);
-            asyncFn._resumeWithThrow = true;
-            JintAwaitExpression.AsyncFunctionResume(engine, asyncFn);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
-    }
-
-    /// <summary>
-    /// The async generator's counterpart of <see cref="SetupDisposeSuspension"/>: suspends the generator on
-    /// <c>Await(<paramref name="pending"/>)</c> exactly as an <c>await</c> expression does
-    /// (<see cref="JintAwaitExpression.SuspendAsyncGenerator"/>), with this block as the suspension point, so the
-    /// replayed body re-enters it via <see cref="ResumeDispose"/> (sebastienros/jint#4355).
-    /// </summary>
-    /// <returns>
-    /// <see langword="false"/> when the await is abrupt before it suspends: Await's PromiseResolve(%Promise%, value)
-    /// reads a promise's <c>constructor</c>, which may throw, and <paramref name="error"/> is that throw.
-    /// </returns>
-    private bool SetupAsyncGeneratorDisposeSuspension(
-        Engine engine,
-        AsyncGeneratorInstance asyncGenerator,
-        JsValue pending,
-        [NotNullWhen(false)] out JsValue? error)
-    {
-        // A primitive, which can never be a thenable, is handed to the continuation directly.
-        JsPromise? promise = null;
-        if (pending is ObjectInstance)
-        {
-            try
-            {
-                promise = (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(pending);
-            }
-            catch (JavaScriptException e)
-            {
-                error = e.Error;
-                return false;
-            }
-        }
-
-        JintAwaitExpression.SuspendAsyncGenerator(engine, asyncGenerator, this, promise, pending);
-        error = null;
-        return true;
     }
 
     /// <summary>

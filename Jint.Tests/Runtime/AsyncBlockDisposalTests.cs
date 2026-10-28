@@ -25,7 +25,8 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class AsyncBlockDisposalTests
 {
-    private const string Prelude = """
+    // ForStatementDisposalTests runs its rows against the same helpers.
+    internal const string Prelude = """
         function ladder(log, n) {
           let p = Promise.resolve();
           for (let i = 1; i <= n; i++) {
