@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1291
+anchors: 1293
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -26,6 +26,7 @@ ecma262 exportentry-record
 ecma262 graphloadingstate-record
 ecma262 importentry-record
 ecma262 prod-ModuleExportName
+ecma262 prod-ModuleItem
 ecma262 sec-%arrayiteratorprototype%-object
 ecma262 sec-%asyncfromsynciteratorprototype%-object
 ecma262 sec-%asyncfromsynciteratorprototype%.next
@@ -724,6 +725,7 @@ ecma262 sec-static-semantics-contains
 ecma262 sec-static-semantics-isconstantdeclaration
 ecma262 sec-static-semantics-lexicallyscopeddeclarations
 ecma262 sec-static-semantics-privateboundidentifiers
+ecma262 sec-static-semantics-varscopeddeclarations
 ecma262 sec-strict-mode-code
 ecma262 sec-string-constructor
 ecma262 sec-string-constructor-string-value

@@ -988,6 +988,19 @@ myarr[0](0);
         Invoking(() => new Engine().Execute(sb.ToString())).Should().ThrowExactly<ScriptPreparationException>();
     }
 
+    [Test]
+    public void ShouldThrowScriptPreparationExceptionForAChainTooDeepForTheStack()
+    {
+        // The other half of what sebastienros/jint#2340 protects against. An operator chain is exempt from the
+        // 256-level limit (sebastienros/jint#4356), and the parser builds one in a loop, so it hands over a tree
+        // of a hundred thousand levels; what refuses it is the stack probe of the build, on any stack this size.
+        var script = "var r = 1" + string.Concat(Enumerable.Repeat(" - 1", 100_000)) + ";";
+
+        DedicatedThread.Run(
+            () => Invoking(() => new Engine().Execute(script)).Should().ThrowExactly<ScriptPreparationException>(),
+            maxStackSize: 1024 * 1024);
+    }
+
     // https://github.com/sebastienros/jint/discussions/2707
     // With only amortized constraints registered (here: a cancellation token), the
     // statement-count amortization must not defer cancellation across host calls that can each

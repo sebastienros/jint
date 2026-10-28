@@ -56,6 +56,8 @@ internal sealed class JintAsyncGeneratorReturnStatement : JintStatement<ReturnSt
     /// </remarks>
     internal static void MarkReturnStatements(Node body)
     {
+        using var nesting = SyntaxNesting.Enter();
+
         foreach (var child in body.ChildNodes)
         {
             switch (child)

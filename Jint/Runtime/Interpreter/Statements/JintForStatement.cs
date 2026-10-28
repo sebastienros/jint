@@ -725,6 +725,8 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             return false;
         }
 
+        using var nesting = SyntaxNesting.Enter();
+
         foreach (var childNode in node.ChildNodes)
         {
             if (ReferencesAnyName(childNode, names))

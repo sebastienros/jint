@@ -11,7 +11,7 @@ internal sealed class NullishCoalescingExpression : JintExpression
 
     public NullishCoalescingExpression(LogicalExpression expression) : base(expression)
     {
-        _left = Build(expression.Left);
+        _left = JintStackProbeExpression.BuildOperand(expression.Left);
 
         // we can create a fast path for common literal case like variable ?? 0
         if (expression.Right is Literal l)
@@ -20,7 +20,7 @@ internal sealed class NullishCoalescingExpression : JintExpression
         }
         else
         {
-            _right = Build(expression.Right);
+            _right = JintStackProbeExpression.BuildOperand(expression.Right);
         }
     }
 
