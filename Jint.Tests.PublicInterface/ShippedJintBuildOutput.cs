@@ -11,8 +11,8 @@ namespace Jint.Tests.PublicInterface;
 /// <remarks>
 /// <para>
 /// Both the public API baselines and the documentation gate read the <em>built</em> assemblies rather than the
-/// one this test process loaded, because three of the five target frameworks — <c>netstandard2.0</c>,
-/// <c>netstandard2.1</c> and <c>net8.0</c> — cannot be loaded by any test project at all. Keeping them
+/// one this test process loaded, because two of the five target frameworks — <c>netstandard2.0</c>
+/// and <c>netstandard2.1</c> — cannot be loaded by any test project at all. Keeping them
 /// present and current is the <c>BuildJintForEveryShippedTargetFramework</c> target in this project's
 /// <c>.csproj</c>.
 /// </para>

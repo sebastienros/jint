@@ -75,6 +75,7 @@ jobs:
     - name: Setup NET
       uses: actions/setup-dotnet@v6
       with:
+        global-json-file: global.json
         dotnet-version: 10.0
 
     # One corpus, one pin: the commit is read out of the file that owns it, so the scoreboard and the

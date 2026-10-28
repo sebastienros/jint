@@ -17,7 +17,7 @@ namespace Jint.WebApi.Compression;
 /// The writable side accepts any <c>BufferSource</c> and the readable side produces <c>Uint8Array</c>s.
 /// Input the format rejects errors <b>both</b> sides with a <c>TypeError</c>, which is what the standard's
 /// "throw a TypeError" inside the transform algorithm means for a transform stream; see
-/// <see cref="DecompressionCodec"/> for the two truncation cases the BCL does not let us detect.
+/// <see cref="DecompressionCodec"/> for the truncation and trailing-input detection available on .NET 11.
 /// </remarks>
 internal sealed class JsDecompressionStream : JsGenericTransformStream, IDisposable
 {

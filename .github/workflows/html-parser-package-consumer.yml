@@ -21,14 +21,13 @@ jobs:
         # Exercise both a preserved prerelease and GA Browser's experimental parser dependency.
         version: [5.0.0-consumer-smoke, 5.0.0]
     steps:
+    - name: Checkout source code
+      uses: actions/checkout@v7
     - name: Setup NET
       uses: actions/setup-dotnet@v6
       with:
-        dotnet-version: |
-          8.0
-          10.0
-    - name: Checkout source code
-      uses: actions/checkout@v7
+        global-json-file: global.json
+        dotnet-version: 10.0
     - name: Setup Python
       uses: actions/setup-python@v7
       with:
@@ -44,12 +43,12 @@ jobs:
             -o artifacts/html-parser-package-consumer/feed
         done
         python3 tools/html-parser-package-consumer/verify_packages.py feed \
-          --version "$PACKAGE_VERSION" --framework net8.0 --framework net10.0 >> "$GITHUB_ENV"
+          --version "$PACKAGE_VERSION" --framework net10.0 --framework net11.0 >> "$GITHUB_ENV"
     - name: Build and run both packaged consumers
       run: |
         set -euo pipefail
         project=tools/html-parser-package-consumer/HtmlParserPackageConsumer.csproj
-        for framework in net8.0 net10.0; do
+        for framework in net10.0 net11.0; do
           dotnet build "$project" -c Release -f "$framework" -p:IncludeBrowser=true \
             -p:HtmlParserPackageVersion="$PARSER_PACKAGE_VERSION" -p:BrowserPackageVersion="$BROWSER_PACKAGE_VERSION"
           python3 tools/html-parser-package-consumer/verify_packages.py restore \
