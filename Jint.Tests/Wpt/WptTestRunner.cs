@@ -147,14 +147,14 @@ public class WptTestRunner
         ("compression/compression-output-length.any.js", "fetches a 384 kB binary media fixture from the wpt server"),
         ("compression/compression-stream.any.js", "fetches binary media fixtures from the wpt server, at file scope"),
 
-        // The file writes a member plus one trailing byte and never closes the writer, so the second
+        // On targets before .NET 11, the file writes a member plus one trailing byte and never closes the writer, so the second
         // `reader.read()` settles only if the trailing byte errors the stream. It does not here — that is the
         // second of the two divergences DecompressionCodec documents (see WptDivergence.NeedsIncrementalInflater)
         // — so the read waits for input that cannot arrive and the *file* stalls rather than any test failing.
         // A stalled run is a harness error for the whole file, which no per-test exclusion can name. The
         // divergence itself is still asserted, by decompression-corrupt-input.any.js's six excluded rows.
         ("compression/decompression-extra-input.any.js",
-            "hangs on the trailing-byte divergence rather than failing a test"),
+            "hangs on the trailing-byte divergence before .NET 11 rather than failing a test"),
 
         // ---------------------------------------------------------------- urlpattern
         // Byte-identical to urlpattern.any.js — upstream ships both so a browser runs the corpus over http
@@ -1165,7 +1165,8 @@ public class WptTestRunner
         new("compression/decompression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for *", WptDivergence.NeedsWebAssembly),
         new("compression/decompression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for *", WptDivergence.NeedsWebAssembly),
 
-        // The two lenient-decompression divergences DecompressionCodec documents, and the only six rows in
+#if !NET11_0_OR_GREATER
+        // The two lenient-decompression divergences on older targets, and the only six rows in
         // the whole corpus that assert them: a member that ends early and a member with something after it.
         // Globbed over the format now, because all three of the formats this file carries — deflate, gzip and
         // brotli, the fourth value deflate-raw not being one of them — diverge in exactly the same way and for
@@ -1175,6 +1176,7 @@ public class WptTestRunner
         // passes, which is what the driver's no-passing-test rule holds these two globs to.
         new("compression/decompression-corrupt-input.any.js", "truncating the input for * should give an error", WptDivergence.NeedsIncrementalInflater),
         new("compression/decompression-corrupt-input.any.js", "trailing junk for * should give an error", WptDivergence.NeedsIncrementalInflater),
+#endif
 
         // ---------------------------------------------------------------- FileAPI
         // Nothing: the corpus is 342-for-342. Blob.textStream() arrived with sebastienros/jint#3211, and the

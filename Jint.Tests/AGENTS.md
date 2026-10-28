@@ -39,7 +39,7 @@ starts sharing an engine fails somewhere else, intermittently, in a test nobody 
 ## Local Microsoft Testing Platform runs
 
 All NUnit test projects use MTP v2 through `NUnit3TestAdapter`, with `EnableNUnitRunner`
-and `OutputType=Exe`. The .NET 10 SDK selects the native MTP runner via `global.json`.
+and `OutputType=Exe`. The .NET 11 SDK selects the native MTP runner via `global.json`.
 `dotnet test --project <project> -c Release --filter "FullyQualifiedName~<fixture>"`
 builds and runs a filtered suite;
 `dotnet run --project <project> -c Release -f <framework> -- --timeout 30s`
@@ -135,7 +135,7 @@ repository-wide, so the annotation you add has to be right rather than approxima
 
 ## Two things about the project shape
 
-- **The target frameworks are `net8.0;net10.0`, plus `net472` on Windows.** A test written against a modern
+- **The target frameworks are `net10.0;net11.0`, plus `net472` on Windows.** A test written against a modern
   BCL API still has to compile on `net472`; the polyfill discipline that answers that is
   [`Jint/Extensions/AGENTS.md`](../Jint/Extensions/AGENTS.md), and it applies to test code too.
 - **The dependency on `Jint.Tests.Browser` is one way.** This assembly grants it `InternalsVisibleTo` so the

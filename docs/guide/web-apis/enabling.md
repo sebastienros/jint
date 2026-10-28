@@ -1,6 +1,6 @@
 # Enabling Web APIs
 
-Web APIs require .NET 8 or later and are absent from a default engine.
+Web APIs require .NET 10 or later and are absent from a default engine.
 
 Enable the standard non-network, non-persistent set:
 

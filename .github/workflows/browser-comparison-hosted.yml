@@ -34,7 +34,8 @@ jobs:
       - uses: actions/setup-dotnet@v6
         if: inputs.phase != 'idle-audit'
         with:
-          dotnet-version: '10.0'
+          global-json-file: global.json
+          dotnet-version: 10.0
       - name: Preserve runner and dispatch provenance
         run: |
           OUTPUT="$RUNNER_TEMP/browser-comparison"

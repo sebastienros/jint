@@ -4,6 +4,9 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+#if NET11_0_OR_GREATER
+using System.Text.Unicode;
+#endif
 using Jint.Extensions;
 using Jint.Native.Intl;
 using Jint.Native.Json;
@@ -2164,7 +2167,7 @@ internal sealed partial class StringPrototype : StringInstance
     {
         var s = TypeConverter.ToString(thisObject);
 
-        return IsStringWellFormedUnicode(s);
+        return Utf16.IsValid(s.AsSpan());
     }
 
     [JsFunction]
@@ -2176,7 +2179,7 @@ internal sealed partial class StringPrototype : StringInstance
         // An already well-formed string maps to the same sequence of code units, so there is nothing
         // to rebuild — hand back the receiver's own string instead of copying it through the builder.
         // This is the overwhelmingly common case, and it was previously paying a full copy.
-        if (IsStringWellFormedUnicode(s))
+        if (Utf16.IndexOfInvalidSubsequence(s.AsSpan()) < 0)
         {
             return thisObject.IsString() ? thisObject : JsString.Create(s);
         }
@@ -2207,40 +2210,5 @@ internal sealed partial class StringPrototype : StringInstance
         }
 
         return result.ToString();
-    }
-
-    private static bool IsStringWellFormedUnicode(string s)
-    {
-        // Only a surrogate code unit can make a string ill-formed, and most strings contain none.
-        // One vectorized range scan settles those, leaving the pairing walk below for the rest.
-        if (!s.AsSpan().ContainsAnyInRange('\uD800', '\uDFFF'))
-        {
-            return true;
-        }
-
-        for (var i = 0; i < s.Length; ++i)
-        {
-            var isSurrogate = (s.CharCodeAt(i) & 0xF800) == 0xD800;
-            if (!isSurrogate)
-            {
-                continue;
-            }
-
-            var isLeadingSurrogate = s.CharCodeAt(i) < 0xDC00;
-            if (!isLeadingSurrogate)
-            {
-                return false; // unpaired trailing surrogate
-            }
-
-            var isFollowedByTrailingSurrogate = i + 1 < s.Length && (s.CharCodeAt(i + 1) & 0xFC00) == 0xDC00;
-            if (!isFollowedByTrailingSurrogate)
-            {
-                return false; // unpaired leading surrogate
-            }
-
-            ++i;
-        }
-
-        return true;
     }
 }

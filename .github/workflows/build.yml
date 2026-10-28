@@ -26,18 +26,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
     - name: Setup NET
       uses: actions/setup-dotnet@v6
       with:
-        # 8.0 alongside 10.0 because Jint.Tests and Jint.Tests.PublicInterface run a net8.0 leg:
-        # net8.0 is the asset most consumers resolve, and it used to be compiled but never executed.
-        # global.json still pins the SDK to 10.0.100, so 10.0 is what actually builds.
-        dotnet-version: |
-          8.0
-          10.0
-
-    - name: Checkout source code
-      uses: actions/checkout@v7
+        global-json-file: global.json
+        # Also install .NET 10 for runtime coverage.
+        dotnet-version: 10.0
 
     # This job (push to main) is the only one that seeds a cache the PR workflow can read: PR jobs
     # can restore caches from the base branch, but a cache saved inside a PR is scoped to that PR
@@ -102,7 +99,7 @@ jobs:
     - name: Pack Jint.Browser.Mcp with dotnet
       run: dotnet pack Jint.Browser.Mcp/Jint.Browser.Mcp.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
-    # The preview tool is the managed, framework-dependent build (net8.0 and net10.0, run by `dotnet`), not the
+    # The preview tool is the managed, framework-dependent build (net10.0 and net11.0, run by `dotnet`), not the
     # release's manifest over six Native AOT RID packages: building those on every push to main is the cost this
     # workflow no longer pays. release.yml builds them; run browser-tool.yml by hand for a native build of a branch.
     - name: Pack Jint.Browser.Tool with dotnet
@@ -127,13 +124,14 @@ jobs:
 
     steps:
 
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
     - name: Setup NET
       uses: actions/setup-dotnet@v6
       with:
+        global-json-file: global.json
         dotnet-version: 10.0
-
-    - name: Checkout source code
-      uses: actions/checkout@v7
 
     - name: Pack
       run: dotnet pack Jint/Jint.csproj --configuration Release
@@ -172,6 +170,13 @@ jobs:
         set -o pipefail
         ./tools/package-consumer/bin/Release/net472/PackageConsumer.exe | tee net472.log
         grep -q '^ALL PROBES PASSED' net472.log
+
+    - name: Run it on net11.0
+      shell: bash
+      run: |
+        set -o pipefail
+        ./tools/package-consumer/bin/Release/net11.0/PackageConsumer.exe | tee net11.log
+        grep -q '^ALL PROBES PASSED' net11.log
 
     - name: A promoted decline fails the consumer's build
       shell: bash

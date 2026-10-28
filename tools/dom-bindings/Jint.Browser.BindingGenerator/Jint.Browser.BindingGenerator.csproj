@@ -6,11 +6,11 @@
     <!--
       One target framework, and it is the LOWEST one Jint.Tests.Browser runs on rather than the newest — the
       same call tools/devtools-protocol makes and for the same reason. The staleness test runs this emitter in
-      memory on every leg of that suite, so the emitter has to be loadable by the net8.0 leg; and a single
+      memory on every leg of that suite, so the emitter has to be loadable by the net10.0 leg; and a single
       target framework is what lets the regeneration command in tools/dom-bindings/README.md be a plain
       `dotnet run` with no framework switch.
     -->
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
 
     <AssemblyOriginatorKeyFile>..\..\..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>

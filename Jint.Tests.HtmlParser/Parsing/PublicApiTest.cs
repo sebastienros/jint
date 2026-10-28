@@ -8,7 +8,7 @@ using VerifyNUnit;
 
 namespace Jint.Tests.HtmlParser.Parsing;
 
-/// <summary>Records the implemented Jint.HtmlParser public surface on both shipped frameworks.</summary>
+/// <summary>Records the implemented Jint.HtmlParser public surface on each shipped framework.</summary>
 public class PublicApiTest
 {
     [Test]
@@ -19,8 +19,8 @@ public class PublicApiTest
             .Cast<TargetFrameworkAttribute>().Single().FrameworkName;
         var targetFramework = framework switch
         {
-            ".NETCoreApp,Version=v8.0" => "net8.0",
             ".NETCoreApp,Version=v10.0" => "net10.0",
+            ".NETCoreApp,Version=v11.0" => "net11.0",
             _ => throw new InvalidOperationException($"Unexpected parser target framework: {framework}")
         };
 
