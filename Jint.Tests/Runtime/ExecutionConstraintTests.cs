@@ -7,6 +7,42 @@ namespace Jint.Tests.Runtime;
 
 public class ExecutionConstraintTests
 {
+    [TestCase("input.replace(/a/g, 'b')")]
+    [TestCase("input.replaceAll(/a/g, 'b')")]
+    [TestCase("input.replace(/a/g, Boolean)")]
+    [TestCase("input.replaceAll('a', 'b')")]
+    public void ShouldCheckConstraintsDuringNativeReplacement(string script)
+    {
+        var engine = new Engine(cfg => cfg.LimitStatements(2));
+        engine.SetValue("input", new string('a', 40_000));
+
+        Invoking(() => engine.Evaluate(script)).Should().ThrowExactly<StatementsCountOverflowException>();
+    }
+
+    [Test]
+    public void ShouldCheckConstraintsBeforeCollectingAllNativeRegexMatches()
+    {
+        var engine = new Engine(cfg => cfg.LimitStatements(2).Constraints.RegexTimeout = TimeSpan.FromSeconds(2));
+        engine.SetValue("input", new string('a', 40_000) + new string('b', 40) + "!");
+
+        // Reaching the expensive suffix before checking the statement budget throws RegexMatchTimeoutException instead.
+        Invoking(() => engine.Evaluate("input.match(/a|(b+)+$/g)"))
+            .Should().ThrowExactly<StatementsCountOverflowException>();
+    }
+
+    [TestCase(3)]
+    [TestCase(5)]
+    public void NativeRegexMatchAllowsResultsAtTheArraySizeLimit(int limit)
+    {
+        var engine = new Engine(cfg => cfg.Constraints.MaxArraySize = (uint) limit);
+        engine.SetValue("input", new string('a', limit));
+        engine.Evaluate("input.match(/a/g).length").Should().Be(limit);
+
+        engine.SetValue("input", new string('a', limit + 1));
+        Invoking(() => engine.Evaluate("input.match(/a/g)"))
+            .Should().ThrowExactly<MemoryLimitExceededException>();
+    }
+
     [Test]
     public void ShouldThrowStatementCountOverflow()
     {

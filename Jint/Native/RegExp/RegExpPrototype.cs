@@ -305,12 +305,18 @@ internal sealed partial class RegExpPrototype : Prototype
             && !rei.NeedsCaseFoldingFallback(s))
         {
             var count = global ? int.MaxValue : 1;
+            var nativeMatchCount = 0;
 
             string result;
             if (functionalReplace)
             {
                 string Evaluator(Match match)
                 {
+                    if (++nativeMatchCount % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
                     var actualGroupCount = GetActualRegexGroupCount(rei, match);
 
                     ObjectInstance? groups = null;
@@ -360,7 +366,16 @@ internal sealed partial class RegExpPrototype : Prototype
             }
             else
             {
-                result = rei.Value.Replace(s, TypeConverter.ToString(replaceValue), count);
+                var replacement = TypeConverter.ToString(replaceValue);
+                result = rei.Value.Replace(s, _ =>
+                {
+                    if (++nativeMatchCount % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    return replacement;
+                }, count);
             }
 
             return result;
@@ -1190,60 +1205,38 @@ internal sealed partial class RegExpPrototype : Prototype
             && !dotnetRei.NeedsCaseFoldingFallback(s))
         {
             // fast path (only for .NET Regex engine)
-            var a = _realm.Intrinsics.Array.ArrayCreate(0);
-
-            if (dotnetRei.Sticky)
+            var builder = new JsValueListBuilder(16);
+            try
             {
                 var match = dotnetRei.Value.Match(s);
-                if (!match.Success || match.Index != 0)
+                if (!match.Success || (dotnetRei.Sticky && match.Index != 0))
                 {
                     return Null;
                 }
 
-                uint matchCount = 0;
                 while (true)
                 {
-                    a.SetIndexValue(matchCount, match.Value, updateLength: false);
-                    matchCount++;
+                    builder.Add(match.Value);
 
-                    if (matchCount % ConstraintCheckInterval == 0)
+                    if (builder.Length % ConstraintCheckInterval == 0)
                     {
                         _engine.Constraints.Check();
                     }
 
-                    // sticky continuation: the next match must start exactly where the previous one
-                    // ended; an empty match advances by one (AdvanceStringIndex, never unicode here)
+                    // Sticky matches must be contiguous; NextMatch advances empty matches by one.
                     var expectedIndex = match.Length == 0 ? match.Index + 1 : match.Index + match.Length;
                     match = match.NextMatch();
-                    if (!match.Success || match.Index != expectedIndex)
+                    if (!match.Success || (dotnetRei.Sticky && match.Index != expectedIndex))
                     {
                         break;
                     }
                 }
 
-                a.SetLength(matchCount);
-                return a;
+                return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
             }
-            else
+            finally
             {
-                var matches = dotnetRei.Value.Matches(s);
-                if (matches.Count == 0)
-                {
-                    return Null;
-                }
-
-                a.EnsureCapacity((uint) matches.Count);
-                a.SetLength((uint) matches.Count);
-                for (var i = 0; i < matches.Count; i++)
-                {
-                    if (i > 0 && i % ConstraintCheckInterval == 0)
-                    {
-                        _engine.Constraints.Check();
-                    }
-
-                    a.SetIndexValue((uint) i, matches[i].Value, updateLength: false);
-                }
-                return a;
+                builder.Dispose();
             }
         }
 

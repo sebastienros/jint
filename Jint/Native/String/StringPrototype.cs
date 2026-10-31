@@ -1530,14 +1530,6 @@ internal sealed partial class StringPrototype : StringInstance
         if (!functionalReplace)
         {
             replaceValue = TypeConverter.ToJsString(replaceValue);
-
-            // check fast case
-            var newValue = replaceValue.ToString();
-            if (!newValue.Contains('$') && searchString.Length > 0)
-            {
-                // just plain old string replace
-                return thisString.Replace(searchString, newValue);
-            }
         }
 
         // https://tc39.es/ecma262/#sec-stringindexof
