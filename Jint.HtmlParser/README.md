@@ -7,7 +7,7 @@ behavior and value-type layouts may change between prereleases, including positi
 as `ShadowRootInit` and `BoundaryPoint`; pin a tested package version when integrating.
 
 The package remains prerelease even when Jint releases GA. Existing prerelease inputs are preserved
-(for example `5.0.0-preview-123`); stable version inputs become `5.0.0-experimental-0` by default,
+(for example `5.0.0-preview.123`); stable version inputs become `5.0.0-experimental-0` by default,
 or `5.0.0-experimental-<BuildNumber>` when a build number is supplied. This applies to explicit
 `Version` and `PackageVersion` overrides as well as the normal prefix/suffix calculation. The numeric
 base follows the repository release; it is not a promise that this package's API has frozen.
