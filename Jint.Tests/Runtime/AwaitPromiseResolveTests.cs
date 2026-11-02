@@ -252,16 +252,24 @@ public class AwaitPromiseResolveTests
         { "AModulesAwaitUsing/observed", "t1, awaited, body, dispose, get constructor, t2, t3, t4, t5, t6", "resolved" },
         { "AModulesAwaitUsing/subclassed", "t1, awaited, body, dispose, t2, then, t3, t4, t5, t6", "resolved" },
         { "AModulesAwaitUsing/native", "t1, awaited, body, dispose, t2, t3, t4, t5, t6", "resolved" },
+        // A module whose only await is its `await using` is asynchronous too (sebastienros/jint#4367). Node reads the
+        // constructor twice here as well.
+        { "AModulesOnlyAwaitUsing/poisoned", "body, dispose, get constructor, t1, t2, t3, t4, t5, t6", "rejected C" },
+        { "AModulesOnlyAwaitUsing/observed", "body, dispose, get constructor, t1, t2, t3, t4, t5, t6", "resolved" },
+        { "AModulesOnlyAwaitUsing/subclassed", "body, dispose, t1, then, t2, t3, t4, t5, t6", "resolved" },
+        { "AModulesOnlyAwaitUsing/native", "body, dispose, t1, t2, t3, t4, t5, t6", "resolved" },
     };
 
     private static readonly Dictionary<string, string> ModuleSites = new()
     {
         ["ATopLevelAwait"] =
             "const log = globalThis.moduleLog = []; const done = ladder(log, 6); try { log.push('got ' + await MAKE(log, 1)); } catch (e) { log.push('caught ' + show(e)); } log.push('after'); await done;",
-        // The `await null` keeps Jint on the asynchronous module evaluation: a module whose only await is an `await
-        // using` is evaluated synchronously, which is sebastienros/jint#4367.
+        // The disposal awaited after the module body has already suspended once ...
         ["AModulesAwaitUsing"] =
             "const log = globalThis.moduleLog = []; ladder(log, 6); await null; log.push('awaited'); await using r = { [Symbol.asyncDispose]() { log.push('dispose'); return MAKE(log, 1); } }; log.push('body');",
+        // ... and as the module's first and only await.
+        ["AModulesOnlyAwaitUsing"] =
+            "const log = globalThis.moduleLog = []; ladder(log, 6); await using r = { [Symbol.asyncDispose]() { log.push('dispose'); return MAKE(log, 1); } }; log.push('body');",
     };
 
     [TestCaseSource(nameof(InBothKinds)), CancelAfter(10000)]

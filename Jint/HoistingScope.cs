@@ -590,8 +590,9 @@ internal sealed class HoistingScope
     }
 
     /// <summary>
-    /// Checks if the module has top-level await expressions.
-    /// Only checks at the module level, not inside function bodies.
+    /// [[HasTLA]], which is <c>body Contains await</c> (https://tc39.es/ecma262/#sec-parsemodule, step 11): an await
+    /// expression, a <c>for await</c> or an <c>await using</c> declaration, found outside every function. Classes are
+    /// skipped whole, although Contains looks into a class's heritage and computed keys (sebastienros/jint#4395).
     /// </summary>
     public static bool HasTopLevelAwait(Module module)
     {
@@ -628,6 +629,15 @@ internal sealed class HoistingScope
 
             // Found a top-level for-await-of statement
             if (node is ForOfStatement { Await: true })
+            {
+                _hasTopLevelAwait = true;
+                return;
+            }
+
+            // An await using declaration contains the await token, wherever it sits: as a statement, in a block, in a
+            // for header or a for-of head. Its disposal is awaited as the enclosing block or the module body ends, so a
+            // module whose only await it is has top-level await all the same (sebastienros/jint#4367).
+            if (node.Type == NodeType.VariableDeclaration && ((VariableDeclaration) node).Kind == VariableDeclarationKind.AwaitUsing)
             {
                 _hasTopLevelAwait = true;
                 return;

@@ -6919,6 +6919,36 @@ This covers every way a throw leaves the loop: a `throw` in the body, a call tha
 assignment target in the loop head that throws, and a `using` or `await using` disposal that throws. It applies in
 async functions, async generators and at the top level of a module. There is no switch back.
 
+### 4.182 A module whose only `await` is an `await using` is evaluated asynchronously ([#4367](https://github.com/sebastienros/jint/issues/4367))
+
+A module has top-level await when its body contains `await` outside every function, and an `await using` declaration
+contains it. In 4.16, Jint looked only for an `await` expression or a `for await`, so a module whose only `await` was
+an `await using` declaration was evaluated as a synchronous module. Its disposal waited for each result on the spot,
+running the host's job queue inside the module's evaluation, and a module importing it ran straight after its body:
+
+```js
+// module "m"
+globalThis.log = [];
+Promise.resolve().then(() => log.push("tick"));
+await using r = { [Symbol.asyncDispose]() { log.push("dispose"); } };
+
+// module "main"
+import "m";
+log.push("main");
+// 4.16.x / earlier 5.0: ["dispose", "main", "tick"]    5.x: ["dispose", "tick", "main"]
+```
+
+Now such a module is evaluated asynchronously, wherever the declaration sits: as a statement, in a block, a `for` header
+or a `for`-`of` head, even in a branch that never runs. Each disposal is awaited as an `await` expression is. A module
+importing it runs once the disposal has settled, and a module imported after it is evaluated while the disposal is
+pending. A dispose that throws or rejects rejects the module's evaluation, which `Engine.Modules.Import` throws as
+before, but that sibling has already run. `import defer` evaluates such a module up front, as it does any module with
+top-level await, rather than on first access to its namespace. A promise a dispose method returns is resolved as
+§4.177 describes, so a `constructor` getter that throws now rejects the module. For a host, such a module is now a
+top-level-await module: `ModuleRecord.Evaluate()` returns a pending promise that needs the event loop pumped, and a
+blocking `Engine.Modules.Import` of it from inside an event-loop job waits out `PromiseTimeout` and throws, where it
+used to complete. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
