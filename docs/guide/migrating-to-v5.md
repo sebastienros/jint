@@ -6570,6 +6570,31 @@ Now each declarator runs once, as in every other engine: the resume continues at
 suspended. A script that split such lists into one statement per declarator to work around this can stop.
 There is no switch back.
 
+### 4.169 A destructuring pattern resumes at the element that suspended, so its iterator steps once ([#4313](https://github.com/sebastienros/jint/issues/4313))
+
+In 4.16 a destructuring pattern whose default, computed key, member target or nested pattern held an `await` or a
+`yield` replayed from its first element every time that suspension resumed. An array pattern over an iterator was
+stepped again for every element before the suspended one, so the elements after it were bound to the wrong values;
+an object pattern read every property before the suspended one a second time, getters and all; and the assignment,
+declaration or `catch` clause around the pattern evaluated its right-hand side again:
+
+```js
+var a, b;
+var it = (function* () { [a = yield 0, b] = iterable(); })();   // iterable() steps undefined, 2
+it.next();
+it.next(5);   // 4.16.x / earlier 5.0: a = 2, b = undefined and a third step    5.x: a = 5, b = 2
+```
+
+A `throw()` at such a `yield` could be lost outright, because the re-stepped value no longer needed the default
+that held it, and a `return()` there closed only the outer of two nested iterators. The same pattern in a
+`for`-`of` head stepped the loop's own iterator again on the first iteration, and a `catch` parameter whose default
+suspended ran the `catch` block before the binding had finished, which failed with a `ReferenceError`.
+
+Now each element steps the iterator once and each property is read once, as in every other engine: the resume
+continues at the element or property that suspended, with whatever it had already read, and the right-hand side
+is not evaluated again. Patterns with no `await` or `yield` in them take the same path as before. There is no
+switch back.
+
 ### 4.170 A call whose argument suspends resumes with the function it resolved, so its callee runs once ([#4314](https://github.com/sebastienros/jint/issues/4314))
 
 A call works out its function and its `this` value before it evaluates its arguments. In 4.16, when an argument
@@ -6703,6 +6728,48 @@ disposed a microtask after `b` rather than together with it, in async functions 
 
 A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
 There is no switch back.
+
+### 4.175 Operator chains and `else if` chains no longer count against the 256-level nesting limit ([#4356](https://github.com/sebastienros/jint/issues/4356))
+
+A script or function whose syntax tree was more than 256 levels deep failed with a `ScriptPreparationException`,
+"Script nesting exceeds maximum depth of 256 levels". The count included every operand of an operator chain and
+every arm of an `else if` chain, so ordinary generated code reached it. A proxy auto-config file is the usual case:
+
+```js
+function FindProxyForURL(url, host) {
+    if (shExpMatch(host, "*.a.example") || shExpMatch(host, "*.b.example") || /* … 300 terms … */)
+        return "PROXY proxy.example:8080";
+    return "DIRECT";
+}
+// earlier 5.0: ScriptPreparationException    5.x: runs
+```
+
+Those two shapes no longer count. A chain of binary or logical operators (`||`, `??`, `+`, `<`, …) and an `else if`
+chain are bounded by the thread's stack instead, and probe it every 64 levels as they run. Every other kind of
+nesting keeps the limit, with the same message. That covers blocks, member and call chains, unary operators, nested
+literals and arguments, because nothing probes the stack while they are evaluated.
+
+How long a chain may be depends on the thread. On a 1 MB stack, an `||` chain of about 2,900 operands runs, and so
+does an `else if` chain of about 1,500 arms. On a 16 MB stack the figures are about 52,000 and 27,000. Past the
+`else if` figure the parser runs out of stack first, and fails as it did before.
+
+A chain too long to prepare fails with a `ScriptPreparationException`, "Script nesting is too deep: preparing it
+would exhaust the stack", when the script or module holding it is prepared or started. `Engine.PrepareScript` and
+`Engine.PrepareModule` analyse every function up front, so there a function too deep fails the same way, wrapped as
+before. Otherwise a function's body is analysed and built when the function is first called, or its `length` first
+read, and a chain too long for that fails with a `RangeError: Maximum call stack size exceeded` instead, whoever
+calls it: the script can catch it, and a host calling through `Invoke` or `Call` receives it as a
+`JavaScriptException`. Anything else first built while script runs, such as a block in a `catch`, fails the same way.
+An async function returns a promise rejected with that `RangeError`, and a promise executor rejects its promise, as
+they do when the script throws one. A chain that is prepared but too long to run throws the same `RangeError` as it
+runs, and so does a chain run near the bottom of the stack, from a deep recursion. With `MaxExecutionStackCount` set, it moves to a fresh stack, as a call does. Before, a
+chain of 200 operands could overflow the native stack there and end the process.
+
+A script that a host callback runs with `Execute` or `Evaluate` is an entry of its own. If it is too deep, the
+`ScriptPreparationException` reaches that host code, as before, not the script that called the host.
+
+There is no switch back. A host that relied on the limit to bound untrusted input still has it for every other kind
+of nesting; to bound a chain, use `MaxSourceLength` and `MaxNodeCount` on the parsing options.
 
 ### 4.176 A `for (using …; …; …)` loop disposes its header's resources once it ends, and throws what the dispose throws ([#4359](https://github.com/sebastienros/jint/issues/4359))
 

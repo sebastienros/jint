@@ -91,10 +91,11 @@ internal sealed class JintFunctionDefinition
     /// The source text matched by the production this function was defined by, or <see langword="null"/>
     /// when the parse did not retain it. https://tc39.es/ecma262/#sec-function.prototype.tostring
     /// </summary>
-    internal string? GetSourceText()
+    internal string? GetSourceText(Realm realm)
     {
         var sourceTextNode = (Node) SourceTextNode;
-        return Initialize().SourceText.GetValue(sourceTextNode) ?? _ownSourceText.GetValue(sourceTextNode);
+        var state = BuiltState ?? InitializeOrThrowRangeError(realm);
+        return state.SourceText.GetValue(sourceTextNode) ?? _ownSourceText.GetValue(sourceTextNode);
     }
 
     public bool Strict => Function.IsStrict();
@@ -111,9 +112,6 @@ internal sealed class JintFunctionDefinition
         JsArguments? argumentsInstance = null;
         if (Function.Body is not FunctionBody)
         {
-            // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
-            _bodyExpression ??= JintExpression.Build((Expression) Function.Body);
-
             // The async path captures locals into a closure; keeping it in a separate non-inlined
             // method ensures the C# compiler does not allocate that display class on the hot sync
             // call path (every function call goes through EvaluateBody).
@@ -122,9 +120,12 @@ internal sealed class JintFunctionDefinition
                 return EvaluateConciseBodyAsync(context, functionObject, argumentsList);
             }
 
+            // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
+            var bodyExpression = _bodyExpression ?? BuildBodyExpression(context);
+
             argumentsInstance = context.Engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList, state);
             context.RunBeforeExecuteStatementChecks(Function.Body);
-            var jsValue = _bodyExpression.GetValue(context);
+            var jsValue = bodyExpression.GetValue(context);
             result = new Completion(CompletionType.Return, jsValue, Function.Body);
         }
         else if (Function.Generator)
@@ -143,8 +144,7 @@ internal sealed class JintFunctionDefinition
 
             // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
             argumentsInstance = context.Engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList, state);
-            _bodyStatementList ??= new JintStatementList(Function);
-            result = _bodyStatementList.Execute(context);
+            result = (_bodyStatementList ?? BuildBodyStatementList(context)).Execute(context);
         }
 
         argumentsInstance?.FunctionWasCalled();
@@ -167,18 +167,17 @@ internal sealed class JintFunctionDefinition
         if (Function.Body is not FunctionBody)
         {
             // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
-            _bodyExpression ??= JintExpression.Build((Expression) Function.Body);
+            var bodyExpression = _bodyExpression ?? BuildBodyExpression(context);
 
             context.Engine.FunctionDeclarationInstantiationFast(state, in argumentsList);
             context.RunBeforeExecuteStatementChecks(Function.Body);
-            var jsValue = _bodyExpression.GetValue(context);
+            var jsValue = bodyExpression.GetValue(context);
             return new Completion(CompletionType.Return, jsValue, Function.Body);
         }
 
         // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
         context.Engine.FunctionDeclarationInstantiationFast(state, in argumentsList);
-        _bodyStatementList ??= new JintStatementList(Function);
-        return _bodyStatementList.Execute(context);
+        return (_bodyStatementList ?? BuildBodyStatementList(context)).Execute(context);
     }
 
     /// <summary>
@@ -189,7 +188,7 @@ internal sealed class JintFunctionDefinition
     internal Completion EvaluateLeafBody(EvaluationContext context)
     {
         System.Diagnostics.Debug.Assert(Function.Body is FunctionBody && !Function.Generator && !Function.Async);
-        var list = _bodyStatementList ??= new JintStatementList(Function);
+        var list = _bodyStatementList ?? BuildBodyStatementList(context);
         return list.Execute(context);
     }
 
@@ -209,9 +208,19 @@ internal sealed class JintFunctionDefinition
         // on this handler's nodes anyway, the way a generator or an async body holds its statement list. The
         // handler's node is Function.Body itself, so the delegate captures it in place of `this` and its closure
         // is no larger than before.
-        var bodyExpression = _bodyExpression!;
-
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
+        var bodyExpression = _bodyExpression;
+        if (bodyExpression is null)
+        {
+            bodyExpression = BuildAsyncBody(context, promiseCapability, static function => JintExpression.Build((Expression) function.Body));
+            if (bodyExpression is null)
+            {
+                return new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
+            }
+
+            _bodyExpression = bodyExpression;
+        }
+
         // Expression bodies don't have a statement list (used only for resumption)
         AsyncFunctionStart(context, promiseCapability, body: null, context =>
         {
@@ -252,7 +261,17 @@ internal sealed class JintFunctionDefinition
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
         // The statement list is immutable and shareable across invocations: each invocation's
         // resume position lives on its AsyncFunctionInstance (SuspendDataDictionary).
-        var bodyStatementList = _bodyStatementList ??= new JintStatementList(Function);
+        var bodyStatementList = _bodyStatementList;
+        if (bodyStatementList is null)
+        {
+            bodyStatementList = BuildAsyncBody(context, promiseCapability, static function => new JintStatementList(function));
+            if (bodyStatementList is null)
+            {
+                return new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
+            }
+
+            _bodyStatementList = bodyStatementList;
+        }
 
         // No delegate: the start step (instantiation, then the statement list) reads the function and the
         // arguments off the AsyncFunctionInstance, and a resume replays the statement list without either, so a
@@ -428,8 +447,7 @@ internal sealed class JintFunctionDefinition
 
         // The statement list is immutable and shareable across generator instances:
         // each instance's resume position lives on the instance itself (SuspendDataDictionary).
-        _bodyStatementList ??= new JintStatementList(Function);
-        G.GeneratorStart(_bodyStatementList);
+        G.GeneratorStart(_bodyStatementList ?? BuildBodyStatementList(context));
 
         return new Completion(CompletionType.Return, G, Function.Body);
     }
@@ -450,10 +468,87 @@ internal sealed class JintFunctionDefinition
             static (Engine engine, Realm _, object? _) => new AsyncGeneratorInstance(engine));
 
         // See EvaluateGeneratorBody: the shared list is safe, positions are per instance.
-        _bodyStatementList ??= new JintStatementList(Function);
-        G.AsyncGeneratorStart(_bodyStatementList);
+        G.AsyncGeneratorStart(_bodyStatementList ?? BuildBodyStatementList(context));
 
         return new Completion(CompletionType.Return, G, Function.Body);
+    }
+
+    /// <summary>
+    /// Builds the body's statement list. Building is part of the call, so a body too deep for the stack fails as a
+    /// <c>RangeError</c> the script can catch, the way the statements' own lazy builds do; see <see cref="SyntaxNesting"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JintStatementList BuildBodyStatementList(EvaluationContext context)
+        => _bodyStatementList = BuildBody(context, static function => new JintStatementList(function));
+
+    /// <summary>
+    /// <see cref="BuildBodyStatementList"/> for a concise body.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JintExpression BuildBodyExpression(EvaluationContext context)
+        => _bodyExpression = BuildBody(context, static function => JintExpression.Build((Expression) function.Body));
+
+    private T BuildBody<T>(EvaluationContext context, Func<IFunction, T> build)
+    {
+        try
+        {
+            return build(Function);
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // Nothing runs in here: a catch block runs on top of the frames of the build that threw, and only
+            // leaving it gives their stack back.
+        }
+
+        Throw.RangeError(context.Engine.Realm, SyntaxNesting.RangeErrorMessage);
+        return default!;
+    }
+
+    /// <summary>
+    /// <see cref="BuildBody{T}"/> for an async function, which reports a body too deep for the stack by rejecting its
+    /// promise, as it reports a throw from its body; <see langword="null"/> when it has.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private T? BuildAsyncBody<T>(EvaluationContext context, PromiseCapability promiseCapability, Func<IFunction, T> build) where T : class
+    {
+        try
+        {
+            return build(Function);
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // See BuildBody: the rejection waits until the build's frames are gone.
+        }
+
+        promiseCapability.Reject(SyntaxNesting.CreateRangeError(context.Engine.Realm));
+        return null;
+    }
+
+    /// <summary>
+    /// The State, when <see cref="Initialize"/> has built it.
+    /// </summary>
+    internal State? BuiltState => ((Node) Function).UserData as State;
+
+    /// <summary>
+    /// <see cref="Initialize"/> for a function being called, constructed, or having its <c>length</c> or source text
+    /// read: a body too deep for the stack to analyse fails as the <c>RangeError</c> a call throws, whoever asked,
+    /// script or host. See <see cref="SyntaxNesting"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal State InitializeOrThrowRangeError(Realm realm)
+    {
+        try
+        {
+            return Initialize();
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // Nothing runs in here: a catch block runs on top of the frames of the walk that threw, and only
+            // leaving it gives their stack back.
+        }
+
+        Throw.RangeError(realm, SyntaxNesting.RangeErrorMessage);
+        return null!;
     }
 
     internal State Initialize()
@@ -1061,10 +1156,14 @@ internal sealed class JintFunctionDefinition
 
         private static void MarkReturns(Node node, bool blockedByCleanup)
         {
-            if (node is IFunction)
+            // A return is a statement, and no expression holds one of this function's: the functions and
+            // arrows inside an expression return for themselves.
+            if (node is IFunction or Expression)
             {
                 return;
             }
+
+            using var nesting = SyntaxNesting.Enter();
 
             if (node is ReturnStatement returnStatement)
             {
@@ -1117,6 +1216,8 @@ internal sealed class JintFunctionDefinition
 
         private static void MarkTailExpression(Expression expression)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             switch (expression)
             {
                 case CallExpression call:
@@ -1209,6 +1310,8 @@ internal sealed class JintFunctionDefinition
     /// </summary>
     private static bool IsShapeEligibleCtorStatement(Statement statement)
     {
+        using var nesting = SyntaxNesting.Enter();
+
         switch (statement.Type)
         {
             case NodeType.EmptyStatement:
@@ -1272,6 +1375,8 @@ internal sealed class JintFunctionDefinition
     /// </summary>
     private static bool ContainsThisEscapingCall(Node node)
     {
+        using var nesting = SyntaxNesting.Enter();
+
         var type = node.Type;
         if (type is NodeType.CallExpression or NodeType.NewExpression or NodeType.TaggedTemplateExpression)
         {
@@ -1298,6 +1403,8 @@ internal sealed class JintFunctionDefinition
 
     private static bool ContainsThis(Node node)
     {
+        using var nesting = SyntaxNesting.Enter();
+
         foreach (var childNode in node.ChildNodes)
         {
             if (childNode.Type == NodeType.ThisExpression
@@ -1456,6 +1563,8 @@ Start:
 
         private static bool HasArgumentsReference(Node node)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 var childType = childNode.Type;
@@ -1496,6 +1605,8 @@ Start:
 
         private static bool HasReference(Node node)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 var childType = childNode.Type;
@@ -1579,6 +1690,8 @@ Start:
 
         private static void Scan(Node node, bool sharesArguments, ref Usage usage)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 if (usage == Usage.Both)
@@ -1623,6 +1736,8 @@ Start:
     {
         internal static bool HasExpression(ChildNodes nodes)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in nodes)
             {
                 switch (childNode.Type)
@@ -1663,6 +1778,8 @@ Start:
     {
         internal static bool ContainsCallTo(Node node, string name)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 if (childNode.Type == NodeType.CallExpression
@@ -1760,6 +1877,8 @@ Start:
 
         internal static bool MayEscape(Node node)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 // Captures the environment — function/class/eval/with create closures over bindings
@@ -1786,6 +1905,8 @@ Start:
         /// </summary>
         private static bool ScanForCapturingReferences(Node node, Key[] slotNames)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in node.ChildNodes)
             {
                 // eval() and with statement always capture — can't analyze dynamic references
@@ -1832,6 +1953,8 @@ Start:
         /// </summary>
         private static bool ClosureReferencesAny(Node closureNode, Key[] slotNames)
         {
+            using var nesting = SyntaxNesting.Enter();
+
             foreach (var childNode in closureNode.ChildNodes)
             {
                 if (childNode.Type == NodeType.Identifier)
