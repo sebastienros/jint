@@ -7869,8 +7869,10 @@ What the read promises:
   socket again. A success is immutable and reused by every later read.
 - **A failure is thrown, never returned as a short body**, and the read is valid only while the callback is
   running — the context is sealed as soon as it returns.
-- **Nothing is read unless it is asked for.** `fetch`, a document or subresource load, `XMLHttpRequest` and
-  `EventSource` all stay streaming for an observer that does not call `TryReadBodyAsync`.
+- **The observer reads nothing unless it asks.** An observer that does not call `TryReadBodyAsync` leaves
+  the body streaming. After interception returns, `fetch` permits bounded read-ahead: up to a 64 KiB queue
+  plus at most one transport chunk. Small bodies can finish without a consumer; larger unread bodies
+  backpressure the transport. Read-ahead does not mark `bodyUsed` or discard bytes.
 
 A read waits for the whole body, so reading a response that never ends — a server-sent event stream — is
 bounded only by `Options.WebApi.Fetch.Timeout`. Decide per response whether to read.

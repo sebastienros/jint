@@ -58,7 +58,7 @@ measurements; membership and changed subtrees do not. Text-control state is expl
 not an attribute mutation, and semantic selector dependencies retain their global fallback.
 Only rendered flags, exact row counts and child snapshots are retained. Cascade/work/token ownership,
 widths, stretched heights, complete sizes and placement are always fresh after a write. See
-[`Layout/box-model.md`](../../Jint.Browser/Layout/box-model.md) for the dependency boundaries.
+[`Layout/box-model.md`](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Layout/box-model.md) for the dependency boundaries.
 
 The binding generator emits `DomFailures.GuardMutation` for every setter and for operations outside an
 explicit list of reads. Unknown/new operations default to invalidation. Both guard variants share the
