@@ -101,7 +101,7 @@ internal sealed partial class WorkerConstructor : Constructor
             _engine,
             specifier,
             ReferencingLocation(),
-            WorkerType.Module,
+            options.Type,
             options.Name,
             registry.Depth,
             live,
@@ -168,6 +168,7 @@ internal sealed partial class WorkerConstructor : Constructor
                 request.Name,
                 request.Specifier,
                 request.ReferencingLocation,
+                request.Type,
                 termination);
 
             worker.Link = link;
@@ -276,9 +277,8 @@ internal sealed partial class WorkerConstructor : Constructor
     {
         if (options.IsNullOrUndefined())
         {
-            // The dictionary's own defaults, which means type 'classic' — refused below, exactly as an
-            // explicit one is.
-            ThrowClassicRefusal();
+            if (_engine._webApi?.Workers?.Provider is not IClassicWorkerProvider) ThrowClassicRefusal();
+            return new WorkerOptionsValues(string.Empty, WorkerType.Classic);
         }
 
         if (options is not ObjectInstance dictionary)
@@ -309,28 +309,26 @@ internal sealed partial class WorkerConstructor : Constructor
             Throw.TypeError(_realm, $"Failed to construct 'Worker': Failed to read the 'type' property from 'WorkerOptions': The provided value '{typeValue}' is not a valid enum value of type WorkerType.");
         }
 
-        if (string.Equals(typeValue, ClassicType, StringComparison.Ordinal))
+        if (string.Equals(typeValue, ClassicType, StringComparison.Ordinal)
+            && _engine._webApi?.Workers?.Provider is not IClassicWorkerProvider)
         {
             ThrowClassicRefusal();
         }
 
-        return new WorkerOptionsValues(workerName);
+        return new WorkerOptionsValues(workerName,
+            string.Equals(typeValue, ClassicType, StringComparison.Ordinal) ? WorkerType.Classic : WorkerType.Module);
     }
 
     /// <summary>
-    /// Jint's own refusal of the specification's own default, and the one message here that names a fix:
-    /// there is no classic-script loader to run one with, and a synchronous fetch-and-execute inside a
-    /// statement is the one thing this feature family refuses. Every non-browser runtime that ships workers
-    /// has converged on module workers for the same reasons.
+    /// Providers without a classic-script loader retain the module-only contract.
     /// </summary>
     private void ThrowClassicRefusal()
-        => Throw.TypeError(_realm, "Failed to construct 'Worker': Jint runs module workers only. Pass { type: 'module' } — the HTML Standard's default is 'classic', which Jint does not implement.");
+        => Throw.TypeError(_realm, "Failed to construct 'Worker': this worker provider supports module workers only. Pass { type: 'module' }.");
 
     /// <summary>
-    /// What the constructor keeps from <c>WorkerOptions</c>. <c>type</c> has already decided whether there is
-    /// a worker at all, and <c>credentials</c> is validated and discarded.
+    /// What the constructor keeps from <c>WorkerOptions</c>; credentials are validated and discarded.
     /// </summary>
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-    private readonly record struct WorkerOptionsValues(string Name);
+    private readonly record struct WorkerOptionsValues(string Name, WorkerType Type);
 }
 #endif

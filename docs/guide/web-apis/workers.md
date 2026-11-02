@@ -14,7 +14,8 @@ engine.Execute("""
     """);
 ```
 
-Only module workers are supported. With no provider, the `Worker` global is not installed. The provider sees
+Standalone providers support module workers; Browser's default provider also supports classic workers.
+With no provider, the `Worker` global is not installed. The provider sees
 every request and may return `null` to refuse it. It creates a quiescent worker `Engine`, configures its module
 loader and restrictions, then starts and owns the thread or loop that pumps it. Jint itself never starts a
 worker thread.
@@ -35,6 +36,31 @@ from different threads and must be thread-safe.
 A worker engine is still in-process. Threads isolate engine state but do not protect the process from unsafe CLR
 access, native calls, or unbounded resources. Combine workers with [constraints](../constraints.md),
 [untrusted-code hardening](../untrusted-code.md), and the general [thread-safety rules](../thread-safety.md).
+
+## Dedicated workers in Jint.Browser
+
+Browser's default provider accepts `new Worker(url)` and `{ type: 'classic' }` as classic global scripts.
+Top-level `var` and function declarations are globals, top-level `this` is `self`, and classic code is not
+implicitly strict. Static module declarations are syntax errors. Messages posted during startup wait until
+the initial script has run. Runtime exceptions use the worker error channel without disabling message delivery;
+fetch and parse failures fire a worker-object `error` and release the worker.
+
+Classic script URLs resolve against the document base and must be same-origin HTTP(S), including redirects.
+The existing network filter, response-size limit, timeout and worker execution budgets remain in force.
+The response must have a JavaScript MIME type. Worker-relative `fetch` and synchronous `importScripts` use
+the final script response URL as their base; imports execute on the worker thread, never the page thread.
+`data:` and `blob:` worker entry scripts are not supported. Module workers remain explicit
+`{ type: 'module' }` and reject `importScripts`.
+
+Browser workers expose `navigator.language` and a frozen `navigator.languages` list. They snapshot the
+constructor's browser locale and `Accept-Language` override using the same rules as the parent navigator;
+they do not retain the page to answer those getters. Standalone providers keep the engine's minimal
+navigator unless they explicitly extend it.
+
+Browser's classic and module workers expose a readonly `WorkerLocation` through `self.location`.
+Its URL components and stringifier use the final entry-script response URL, including redirects.
+Termination and owning-document navigation cancellation do not report script failures; unrelated
+cancellation and genuine startup/runtime errors retain their diagnostic channels.
 
 ## Shared workers in Jint.Browser
 

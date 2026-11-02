@@ -60,7 +60,7 @@ public sealed class Attr
             }
 
             _prefix = value;
-            OwnerDocument.MarkMutation();
+            OwnerDocument.MarkMutation(OwnerElement, NativeMutationKind.Attributes, LocalName);
         }
     }
     public string Name => Prefix is null ? LocalName : string.Concat(Prefix, ":", LocalName);
@@ -79,7 +79,7 @@ public sealed class Attr
         var matches = owner is null ? null : MutationTracking.Match(owner, MutationRecordKind.Attributes,
             LocalName, NamespaceUri);
         _value = new StringSliceStorage(new StringSlice(value));
-        OwnerDocument.MarkMutation();
+        OwnerDocument.MarkMutation(owner, NativeMutationKind.Attributes, LocalName);
         if (owner is not null)
         {
             OwnerDocument.MarkIdAttributeMutation(NamespaceUri, LocalName);

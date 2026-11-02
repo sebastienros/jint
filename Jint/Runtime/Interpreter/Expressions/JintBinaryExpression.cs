@@ -36,8 +36,14 @@ internal abstract class JintBinaryExpression : JintExpression
     private JintBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
     {
         // TODO check https://tc39.es/ecma262/#sec-applystringornumericbinaryoperator
-        _left = Build(expression.Left);
-        _right = Build(expression.Right);
+        _left = JintStackProbeExpression.BuildOperand(expression.Left);
+        _right = JintStackProbeExpression.BuildOperand(expression.Right);
+    }
+
+    private JintBinaryExpression(NonLogicalBinaryExpression expression, JintExpression left, JintExpression right) : base(expression)
+    {
+        _left = left;
+        _right = right;
     }
 
     /// <summary>
@@ -1132,6 +1138,17 @@ internal abstract class JintBinaryExpression : JintExpression
         }
 
         result = new AdditionChainExpression(expression, operands.ToArray());
+
+        // The flattened lane evaluates every operand from this node, past where the nested tree would have carried
+        // probes on its spine, and the hoisting walk counts an operand below such a place as just past one, even in
+        // a short chain that ends a longer one (`a + b + … || x || …`). So a chain whose nested form would have
+        // carried one carries a probe of its own, ahead of all its operands: one level per nested addition, and one
+        // for the deepest operand. Every chain over the interval does; a short one only at a depth near a multiple.
+        if (SyntaxNesting.SpansEvaluationProbeDepth(operands.Count - 1))
+        {
+            result = JintStackProbeExpression.Around(result);
+        }
+
         return true;
     }
 
@@ -1144,15 +1161,17 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private static void CollectAdditionOperands(Expression expression, List<Expression> operands)
     {
-        if (expression is NonLogicalBinaryExpression { Operator: Operator.Addition } binary)
+        // A loop down the left spine rather than a recursion: the chain is as deep as it has operands, and
+        // the parser builds one of any length.
+        var current = expression;
+        while (current is NonLogicalBinaryExpression { Operator: Operator.Addition } binary)
         {
-            CollectAdditionOperands(binary.Left, operands);
             operands.Add(binary.Right);
+            current = binary.Left;
         }
-        else
-        {
-            operands.Add(expression);
-        }
+
+        operands.Add(current);
+        operands.Reverse();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1545,9 +1564,37 @@ internal abstract class JintBinaryExpression : JintExpression
     {
         private readonly BoxedNumericOperandLane? _numericLane;
 
-        public PlusBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
+        public PlusBinaryExpression(NonLogicalBinaryExpression expression)
+            : base(expression, BuildLeftOperand(expression.Left), JintStackProbeExpression.BuildOperand(expression.Right))
         {
             _numericLane = BoxedNumericOperandLane.TryBuild(_left, _right);
+        }
+
+        /// <summary>
+        /// Builds the left operand of a <c>+</c> that is itself a chain of <c>+</c> as the nested node directly,
+        /// without asking <see cref="TryBuildAdditionChain"/> again. The chain was decided at its outermost
+        /// <c>+</c>: a sub-chain shares its opening pair, so a numeric chain declines at every level, and a
+        /// flattened chain only ever reaches its nested tree through the outermost node's pairwise lane. Asking
+        /// anyway re-walked the rest of the chain at every level, and gave each level a copy of its operands:
+        /// time and memory quadratic in a chain's length. The chain's opening pair still goes through
+        /// <c>JintExpression.Build</c>, which folds a pair of literals into a constant.
+        /// </summary>
+        private static JintExpression BuildLeftOperand(Expression left)
+        {
+            if (left is NonLogicalBinaryExpression { Operator: Operator.Addition, Left: NonLogicalBinaryExpression { Operator: Operator.Addition } } addition
+                && addition.UserData is not JintExpression)
+            {
+                // The recursion JintExpression.Build would have taken, so it probes as Build does.
+                JintExpression nested;
+                using (SyntaxNesting.Enter())
+                {
+                    nested = new PlusBinaryExpression(addition);
+                }
+
+                return JintStackProbeExpression.AtProbeDepth(addition, nested);
+            }
+
+            return JintStackProbeExpression.BuildOperand(left);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
@@ -1709,6 +1756,10 @@ internal abstract class JintBinaryExpression : JintExpression
         private readonly Expression[] _operandExpressions;
         private JintExpression[]? _operands;
 
+        // The depth, as probes are placed, this node was built at: its operands are built lazily, from the top of a
+        // fresh build, and are placed as the nested tree's copies of them were (see EnsureInitialized).
+        private readonly int _probeDepth;
+
         /// <summary>
         /// What the opening pair of this chain produced last time it ran. A performance hint, but
         /// only where nothing can suspend: it selects between two lanes whose suspend/resume
@@ -1727,6 +1778,7 @@ internal abstract class JintBinaryExpression : JintExpression
             : base(expression)
         {
             _operandExpressions = operandExpressions;
+            _probeDepth = SyntaxNesting.ProbeDepth;
         }
 
         private void EnsureInitialized()
@@ -1736,13 +1788,29 @@ internal abstract class JintBinaryExpression : JintExpression
                 return;
             }
 
-            var operands = new JintExpression[_operandExpressions.Length];
-            for (var i = 0; i < _operandExpressions.Length; i++)
+            _operands = BuildOperands();
+        }
+
+        /// <summary>
+        /// Builds the flattened lane's own copy of every operand, each as though at the depth the nested tree built
+        /// its copy: the last operand one level below this node, the first two one level below the deepest
+        /// <c>+</c>. The hoisting walk counted an operand that is itself an operator chain as more levels of the
+        /// chain it ends, and an operand built from the top of a fresh build would carry its probes elsewhere.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private JintExpression[] BuildOperands()
+        {
+            var count = _operandExpressions.Length;
+            var operands = new JintExpression[count];
+            for (var i = 0; i < count; i++)
             {
-                operands[i] = Build(_operandExpressions[i]);
+                using (SyntaxNesting.BuildAsIfAt(_probeDepth + count - Math.Max(i, 1)))
+                {
+                    operands[i] = Build(_operandExpressions[i]);
+                }
             }
 
-            _operands = operands;
+            return operands;
         }
 
         protected override object EvaluateInternal(EvaluationContext context)

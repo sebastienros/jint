@@ -2,6 +2,34 @@ namespace Jint.HtmlParser;
 
 internal sealed partial class HtmlInputValueState
 {
+    // https://html.spec.whatwg.org/multipage/input.html#common-input-element-events
+    // Picker controls commit a whole sanitized value, without a text selection.
+    internal bool ApplyPickerUserValue(string value, Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        work.Check(); work.Step();
+        if (!IsAvailable || ReadOnly || Type is not (HtmlInputType.Date or HtmlInputType.Month
+            or HtmlInputType.Week or HtmlInputType.Time or HtmlInputType.DateTimeLocal))
+        {
+            work.Finish();
+            return false;
+        }
+        if (HtmlDisabledness.GetState(Element, checkpoint, cancellationToken) != HtmlDisabledState.Enabled)
+        {
+            work.Finish();
+            return false;
+        }
+        var prepared = Sanitize(value, ref work);
+        var valid = value.Length == 0 || prepared.Length != 0;
+        var changed = !work.StringEquals(_value!, prepared);
+        work.Finish();
+        if (!valid) throw new ArgumentException("The value is not valid for this input type.", nameof(value));
+        CommitValue(prepared, HtmlValueChangeOrigin.User, changed);
+        SetDirty(true);
+        return true;
+    }
+
     // Optional presentation only when it differs from _value. API/submission
     // value and UTF-16 selection remain the existing authoritative stores.
     private string? _numberPresentation;

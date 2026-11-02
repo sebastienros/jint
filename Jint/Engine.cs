@@ -1413,15 +1413,17 @@ public sealed partial class Engine : IDisposable
 
     // Per-engine cache of the interpreter handler built for a property key expression that has to be
     // evaluated — every computed key (`{ [k]: v }`, `class { [k]() {} }`, `({ [k]: v } = o)`) plus the
-    // literal keys of a destructuring pattern. Keyed on the stable AST node and engine-owned for the same
-    // lifetime reasons as _functionDefinitions above: a handler tree accumulates engine-affine per-node
-    // inline caches, so it must not be published to the AST's UserData and shared across engines.
+    // literal keys of a destructuring pattern — and for the defaults and member targets of a destructuring
+    // pattern that may suspend, which static code walks with no handler tree of its own to hang them on
+    // (DestructuringPatternAssignmentExpression.Resumable.cs). Keyed on the stable AST node and engine-owned
+    // for the same lifetime reasons as _functionDefinitions above: a handler tree accumulates engine-affine
+    // per-node inline caches, so it must not be published to the AST's UserData and shared across engines.
     //
     // Identity is what makes this correct, not merely cheaper. Everything a suspension parks for its
     // replay — LeftOperandSuspendData, AdditionChainSuspendData, the argument buffers — is keyed on the
     // handler instance that parked it, so a key expression rebuilt on every evaluation can never find its
     // own parked state. Building it afresh made `{ [f() + await g()]: 1 }` replay the whole key subtree
-    // and call f twice (issue #3142).
+    // and call f twice (issue #3142), and `[a = side() + await p] = []` call side twice (issue #4313).
     private Dictionary<Expression, JintExpression>? _propertyKeyExpressions;
 
     internal JintExpression GetOrBuildPropertyKeyExpression(Expression expression)
@@ -4358,11 +4360,18 @@ public sealed partial class Engine : IDisposable
         var previousTryCatchDepth = _tryCatchDepth;
         _tryCatchDepth = 0;
         var completed = false;
+        ScriptPreparationException? tooDeep;
         try
         {
             var result = callback(source, state);
             completed = true;
             return result;
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // Leaving the entry, a tree too deep for the stack is the host's failure, not a RangeError for a script
+            // that called the host: see SyntaxNesting. Thrown below, once this block has given the stack back.
+            tooDeep = exception;
         }
         finally
         {
@@ -4401,6 +4410,8 @@ public sealed partial class Engine : IDisposable
                 }
             }
         }
+
+        throw SyntaxNesting.RethrowForHost(tooDeep);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -4427,6 +4438,7 @@ public sealed partial class Engine : IDisposable
         var previousTryCatchDepth = _tryCatchDepth;
         _tryCatchDepth = 0;
         var completed = false;
+        ScriptPreparationException? tooDeep;
         try
         {
             memoryLimit.Check();
@@ -4434,6 +4446,12 @@ public sealed partial class Engine : IDisposable
             memoryLimit.Check();
             completed = true;
             return result;
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // The same boundary as the constraint-only path above.
+            memoryLimit.Check();
+            tooDeep = exception;
         }
         catch (Exception exception) when (!ConstraintFailure.MustPropagate(exception))
         {
@@ -4473,6 +4491,8 @@ public sealed partial class Engine : IDisposable
                 }
             }
         }
+
+        throw SyntaxNesting.RethrowForHost(tooDeep);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

@@ -6570,6 +6570,58 @@ Now each declarator runs once, as in every other engine: the resume continues at
 suspended. A script that split such lists into one statement per declarator to work around this can stop.
 There is no switch back.
 
+### 4.169 A destructuring pattern resumes at the element that suspended, so its iterator steps once ([#4313](https://github.com/sebastienros/jint/issues/4313))
+
+In 4.16 a destructuring pattern whose default, computed key, member target or nested pattern held an `await` or a
+`yield` replayed from its first element every time that suspension resumed. An array pattern over an iterator was
+stepped again for every element before the suspended one, so the elements after it were bound to the wrong values;
+an object pattern read every property before the suspended one a second time, getters and all; and the assignment,
+declaration or `catch` clause around the pattern evaluated its right-hand side again:
+
+```js
+var a, b;
+var it = (function* () { [a = yield 0, b] = iterable(); })();   // iterable() steps undefined, 2
+it.next();
+it.next(5);   // 4.16.x / earlier 5.0: a = 2, b = undefined and a third step    5.x: a = 5, b = 2
+```
+
+A `throw()` at such a `yield` could be lost outright, because the re-stepped value no longer needed the default
+that held it, and a `return()` there closed only the outer of two nested iterators. The same pattern in a
+`for`-`of` head stepped the loop's own iterator again on the first iteration, and a `catch` parameter whose default
+suspended ran the `catch` block before the binding had finished, which failed with a `ReferenceError`.
+
+Now each element steps the iterator once and each property is read once, as in every other engine: the resume
+continues at the element or property that suspended, with whatever it had already read, and the right-hand side
+is not evaluated again. Patterns with no `await` or `yield` in them take the same path as before. There is no
+switch back.
+
+### 4.170 A call whose argument suspends resumes with the function it resolved, so its callee runs once ([#4314](https://github.com/sebastienros/jint/issues/4314))
+
+A call works out its function and its `this` value before it evaluates its arguments. In 4.16, when an argument
+suspended on an `await` or a `yield`, the resume evaluated the callee again. The arguments that had already run
+were kept, but everything in the callee ran once more for every suspension: the inner call of a chain, a getter
+on the method, and a computed key.
+
+```js
+var log = [];
+var o = { m(x) { log.push("m(" + x + ")"); return o; } };
+var it = (function* () { o.m(1).m(yield 0).m(3); })();
+it.next();
+it.next(2);   // 4.16.x / earlier 5.0: log is m(1),m(1),m(2),m(3)    5.x: m(1),m(2),m(3)
+```
+
+So `t.m((t = other, await x))` called `other.m` with `this` set to `other`, where every other engine calls the
+original method on the original `t`. `new (factory().C)(await x)` ran `factory()` twice. The same happened with
+an optional call (`o?.m(1).m(await x)`) and with spread arguments. In an async generator a chain that awaits in
+one call and yields in a later one (`o.m(await a).m(yield b)`) never finished, because each replay of the callee
+awaited again. A direct `eval` whose argument suspended ran its code once at the suspension and once more on the
+resume. A `super(…)` call in an async arrow function inside a constructor built the parent at the suspension,
+with the suspended argument missing, and the resume then threw `ReferenceError`.
+
+Now each call resolves its callee once and resumes in its arguments. A `throw()` or `return()` resumption, or a
+rejected `await`, leaves the call without running the callee again. A script that read the callee a second time
+to see a change made while it was suspended must now read it itself after the call. There is no switch back.
+
 ### 4.171 An async generator's `return(value)` awaits `value` at the `yield`, before the `finally` blocks run ([#4315](https://github.com/sebastienros/jint/issues/4315))
 
 `return(value)` on an async generator suspended at a `yield` resumes it at that `yield`, and the first thing the
@@ -6600,6 +6652,246 @@ value was forwarded to the delegate as that `throw()` or `return()` again; it is
 on the `finally` blocks having run by the time `return()` returned must await the request instead. There is no switch
 back.
 
+### 4.172 DevTools `Fetch.enable` with `patterns: []` intercepts nothing, and a request's URL is reported without its fragment ([#4319](https://github.com/sebastienros/jint/issues/4319))
+
+Two more places where the DevTools `Fetch` domain differed from Chromium.
+
+`Fetch.enable` treated an explicit empty `patterns: []` like an omitted `patterns`, so it paused every request. Now, as in
+Chromium, an omitted `patterns` still means "intercept everything" (it is the protocol's `*`), while **`patterns: []`
+intercepts nothing**, and a client that sends it no longer sees any `Fetch.requestPaused`. `patterns: []` together with
+`handleAuthRequests: true` is refused with `-32602` ("Can't specify empty patterns with handleAuth set"), since no
+challenge could be matched to a pattern.
+
+`Fetch.requestPaused` reported `request.url` with its `#fragment` and no `urlFragment`. Now `request.url` is the URL
+**without** its fragment and the fragment is sent separately as `request.urlFragment`, including the leading `#`;
+a request with no fragment has no `urlFragment` member. `Network.requestWillBeSent` shares the same `Network.Request`
+shape, and follows the same rule. A client that read the fragment out of `request.url` must read `request.urlFragment`
+instead, or concatenate the two. There is no switch back.
+
+### 4.173 An async generator's `return expr;` awaits `expr` in the statement, before the `finally` blocks run ([#4332](https://github.com/sebastienros/jint/issues/4332))
+
+In an async generator, `return expr;` awaits `expr` before the return leaves the statement. Jint awaited it only once
+the body had finished, so the `finally` blocks around the `return` ran inside the `next()` call that reached it, and a
+rejected `expr` skipped every `catch` and rejected the request:
+
+```js
+var log = [];
+async function* g() {
+    try { return Promise.reject("X"); } catch (e) { log.push("caught " + e); } finally { log.push("fin"); }
+}
+var p = g().next().then(r => log.push(JSON.stringify(r)), e => log.push("rejected " + e));
+log.push("called");
+await p;
+// earlier 5.0: ["fin", "called", "rejected X"]    5.x: ["called", "caught X", "fin", "{\"done\":true}"]
+```
+
+Now the statement suspends the generator on the await, as an `await` expression does: the `finally` blocks, the
+iterator close of a `for`-`of` the `return` leaves, the disposal of its `using` declarations and the generator's own
+completion all come a microtask later (one more for a thenable), and a rejection is thrown at the `return`, where a
+`catch` around it handles it like any other throw. A literal operand is awaited as well, so
+`try { return 1; } finally { … }` runs its `finally` a microtask later, and a promise whose `constructor` getter throws
+is thrown at the `return`. Where nothing runs between the `return` and the end of the generator, the request settles
+when it did before. `return;`, which has no operand, and the `return` of a function nested inside an async generator
+are not affected. A script that relied on the `finally` blocks having run by the time `next()` returned must await the
+request instead. There is no switch back.
+
+### 4.174 A block's `await using` in an async generator suspends the generator while it disposes ([#4355](https://github.com/sebastienros/jint/issues/4355))
+
+When a block ends, it disposes its `await using` resources and awaits each result. In an async function that await
+suspended the function, but in an async generator Jint waited for the result on the spot. It ran the host's job queue
+inside the `next()` call, so the rest of the body ran before the caller's next statement, and jobs the caller had
+queued earlier ran in the middle of the request:
+
+```js
+var log = [];
+async function* g() {
+    { await using r = { [Symbol.asyncDispose]() { log.push("dispose"); } }; }
+    log.push("after");
+}
+var p = g().next();
+log.push("called");
+await p;
+// earlier 5.0: ["dispose", "after", "called"]    5.x: ["dispose", "called", "after"]
+```
+
+Now each of those awaits suspends the generator the way an `await` expression does. This holds for a block in a loop
+body, a `catch` or a `finally`, and for a block that a `return()` or a `throw()` resumption leaves. The request
+settles a microtask later for each await, and a request made meanwhile queues behind it. A dispose that throws or
+rejects is thrown from the block, or wrapped in a `SuppressedError` over the block's own throw, as before.
+
+Two neighbours changed with it. A `return()` request whose block then has a dispose throw no longer completes the
+generator with the return value. The throw replaces the return, and a `catch` around the block now sees it, in a
+generator of either kind. And a `using` resource disposed after a `null` or `undefined` `await using` waits a
+microtask first, as the specification's DisposeResources step 4.d says, every time that happens, where Jint waited
+only the first time. In `{ using a = …; await using x = null; using b = …; await using y = null; }`, `a` is now
+disposed a microtask after `b` rather than together with it, in async functions too.
+
+A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
+There is no switch back.
+
+### 4.175 Operator chains and `else if` chains no longer count against the 256-level nesting limit ([#4356](https://github.com/sebastienros/jint/issues/4356))
+
+A script or function whose syntax tree was more than 256 levels deep failed with a `ScriptPreparationException`,
+"Script nesting exceeds maximum depth of 256 levels". The count included every operand of an operator chain and
+every arm of an `else if` chain, so ordinary generated code reached it. A proxy auto-config file is the usual case:
+
+```js
+function FindProxyForURL(url, host) {
+    if (shExpMatch(host, "*.a.example") || shExpMatch(host, "*.b.example") || /* … 300 terms … */)
+        return "PROXY proxy.example:8080";
+    return "DIRECT";
+}
+// earlier 5.0: ScriptPreparationException    5.x: runs
+```
+
+Those two shapes no longer count. A chain of binary or logical operators (`||`, `??`, `+`, `<`, …) and an `else if`
+chain are bounded by the thread's stack instead, and probe it every 64 levels as they run. Every other kind of
+nesting keeps the limit, with the same message. That covers blocks, member and call chains, unary operators, nested
+literals and arguments, because nothing probes the stack while they are evaluated.
+
+How long a chain may be depends on the thread. On a 1 MB stack, an `||` chain of about 2,900 operands runs, and so
+does an `else if` chain of about 1,500 arms. On a 16 MB stack the figures are about 52,000 and 27,000. Past the
+`else if` figure the parser runs out of stack first, and fails as it did before.
+
+A chain too long to prepare fails with a `ScriptPreparationException`, "Script nesting is too deep: preparing it
+would exhaust the stack", when the script or module holding it is prepared or started. `Engine.PrepareScript` and
+`Engine.PrepareModule` analyse every function up front, so there a function too deep fails the same way, wrapped as
+before. Otherwise a function's body is analysed and built when the function is first called, or its `length` first
+read, and a chain too long for that fails with a `RangeError: Maximum call stack size exceeded` instead, whoever
+calls it: the script can catch it, and a host calling through `Invoke` or `Call` receives it as a
+`JavaScriptException`. Anything else first built while script runs, such as a block in a `catch`, fails the same way.
+An async function returns a promise rejected with that `RangeError`, and a promise executor rejects its promise, as
+they do when the script throws one. A chain that is prepared but too long to run throws the same `RangeError` as it
+runs, and so does a chain run near the bottom of the stack, from a deep recursion. With `MaxExecutionStackCount` set, it moves to a fresh stack, as a call does. Before, a
+chain of 200 operands could overflow the native stack there and end the process.
+
+A script that a host callback runs with `Execute` or `Evaluate` is an entry of its own. If it is too deep, the
+`ScriptPreparationException` reaches that host code, as before, not the script that called the host.
+
+There is no switch back. A host that relied on the limit to bound untrusted input still has it for every other kind
+of nesting; to bound a chain, use `MaxSourceLength` and `MaxNodeCount` on the parsing options.
+
+### 4.176 A `for (using …; …; …)` loop disposes its header's resources once it ends, and throws what the dispose throws ([#4359](https://github.com/sebastienros/jint/issues/4359))
+
+A `for` loop whose header declares `using` or `await using` disposed those resources whenever the statement was left,
+including at every `await` or `yield` inside the loop, and threw away what the dispose produced. An `await using`
+header was never awaited, a `using` header was disposed at the first suspension while the loop went on using it, and a
+dispose that threw was swallowed:
+
+```js
+var log = [];
+try {
+    for (using x = { [Symbol.dispose]() { log.push("dispose"); throw "D"; } }; log.length < 1; ) { log.push("body"); }
+} catch (e) { log.push("caught " + e); }
+// earlier 5.0: ["body", "dispose"]    5.x: ["body", "dispose", "caught D"]
+```
+
+Now the resources are disposed once, when the loop ends or a declarator of the header throws, as the specification's
+ForLoopEvaluation says. Each `await using` result is awaited, which suspends the async function or async generator, so
+the statement after the loop runs a microtask later for each await. A dispose that throws or rejects is thrown from the
+loop, or wrapped in a `SuppressedError` over the loop's own throw, and so reaches `Execute` and `Evaluate` when nothing
+catches it. As with a block, a `return()` request whose loop then has a dispose throw no longer completes the generator
+with the return value.
+
+A host exception or a constraint (`LimitStatements`, a timeout, cancellation) that ends the script inside such a loop no
+longer runs its dispose methods on the way out, which a block never did. There is no switch back.
+
+### 4.177 `await` reads a promise's `constructor`, so a subclass's promise settles two microtasks later ([#4361](https://github.com/sebastienros/jint/issues/4361))
+
+`await p` starts by resolving `p` against `%Promise%`, which reads `p.constructor`. A promise whose `constructor` is
+`Promise` is awaited as it is. Any other promise is wrapped in a new `Promise`, and the wrapper reaches it through its
+`then`. Several places that await skipped that read whenever `p` was a promise. So a `constructor` getter never ran,
+and a promise subclass was awaited as if it were a plain `Promise`:
+
+```js
+var log = [];
+var p = Promise.resolve(1);
+Object.defineProperty(p, "constructor", { get() { log.push("get"); throw "C"; } });
+(async () => { try { await p; } catch (e) { log.push("caught " + e); } })();
+log.push("called");
+// earlier 5.0: ["called"]    5.x: ["get", "caught C", "called"]
+```
+
+The places that skipped it now make the read: an `await` expression, including one at the top level of a module, an
+async generator's `yield*`, `for await`'s close, and the disposal of `await using` resources in a block, a loop, a
+function body or a module. A getter that throws makes the `await` throw on the spot, where a `catch` around it sees it.
+A subclass instance, or a promise from another realm, settles the `await` two microtasks later than it did, and its
+`then` is now called, as it is in other engines. An untouched promise is awaited exactly as before, and the read is
+skipped for it, so nothing about it is observable.
+
+An async generator's `yield`, `return` statement and `return()` already made the read. At a `yield`, though, a getter
+that throws left the request pending for good; it is now thrown at the `yield`. There is no switch back.
+
+### 4.178 An arrow whose whole body is a direct `eval` keeps its parameters for what the eval creates ([#4366](https://github.com/sebastienros/jint/issues/4366))
+
+In 4.16, when an arrow's concise body was itself a direct `eval` call, the engine did not see the `eval`. It emptied
+the arrow's environment on return, to reuse it for the next call, so a function created by that `eval` lost the
+arrow's parameters. Reading one threw a `ReferenceError`; in sloppy code, assigning one created a global of that name.
+A block body, a function expression, an `eval` anywhere below the body's root, an async arrow and an arrow with a
+destructuring, rest or default parameter were not affected:
+
+```js
+const f = (log => eval('(function () { return log; })'))(42);
+f(); // 4.16: ReferenceError: log is not defined    5.x: 42
+```
+
+Now such an arrow gets a new environment on every call, as its block-bodied form `log => { return eval(...); }`
+does, and the function the `eval` returns reads the parameter as in other engines. There is no switch back.
+
+### 4.179 An async generator's `yield` of a rejected promise throws at the `yield` ([#4369](https://github.com/sebastienros/jint/issues/4369))
+
+In an async generator, `yield p` awaits `p` before it yields anything. In 4.16, when `p` rejected, the generator
+completed and the pending request was rejected on the spot. No `catch` or `finally` around the `yield` ran, and neither
+did the close of a `for`-`of` loop around it or the disposal of a `using` resource in scope:
+
+```js
+var log = [];
+async function* g() {
+    try { yield Promise.reject("X"); } catch (e) { log.push("caught " + e); } finally { log.push("fin"); }
+    yield "after";
+}
+await g().next().then(r => log.push(JSON.stringify(r)), e => log.push("rejected " + e));
+// 4.16.x / earlier 5.0: ["rejected X"]    5.x: ["caught X", "fin", "{\"value\":\"after\",\"done\":false}"]
+```
+
+Now the rejection is thrown at the `yield`, in the microtask where an `await` of the same promise would throw. A
+`catch` around it handles it like any other throw: the generator carries on, and the request is answered by what the
+body does next, which is its next `yield`, its return, or a throw nothing catches. Only that last case still rejects
+the request and completes the generator, after the `finally` blocks, iterator closes and disposals on the way out. A
+`yield*` whose delegate is an async generator sees the delegate behave the same way.
+
+One neighbour changed with it. Requests made while an async generator is busy queue behind the one it is serving.
+Once the generator completed, only the first of them was answered, and the rest stayed pending for good. Now each is
+answered in turn: a `next()` with `{ value: undefined, done: true }`, a `throw()` with its rejection, and a `return()`
+once its value is awaited. There is no switch back.
+
+### 4.180 An `import()` whose options suspend evaluates its specifier once, and a suspended operand starts no load ([#4335](https://github.com/sebastienros/jint/issues/4335))
+
+`import(specifier, options)` evaluates the specifier, then the options, and only then asks the host for the module.
+In 4.16, when the options suspended on an `await` or a `yield`, the resume evaluated the specifier again, so every
+call and getter in it ran once more for every suspension:
+
+```js
+let calls = 0;
+const spec = () => { calls++; return "./m.js"; };
+async function f() {
+  await import(spec(), await Promise.resolve({}));
+  return calls;   // 4.16.x / earlier 5.0: 2    5.x: 1
+}
+```
+
+In an async function or an async generator, a suspension in either operand also failed to stop the call. It went on
+to ask the host for the module, with the suspension's placeholder in place of the operand not yet produced.
+`import(await name)` asked the module loader for a module named `undefined` before the real one, and
+`import(name, { with: { type: await t } })` asked for `name` without its import attributes. A synchronous
+`IModuleLoader` that throws for a specifier it does not know made that first request's exception escape the host's
+`Evaluate` call; one that answers it saw a request the script never made. A generator's `yield` already stopped the
+call there.
+
+Now the specifier is evaluated once, the resume goes back into the options with it, and the loader is handed only the
+requests the script makes. The same holds for `import.defer(…)` and `import.source(…)`, whose one operand is the
+specifier. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -6608,7 +6900,7 @@ none of it changes an engine that does not.
 | Area | Enable with | Reference |
 | --- | --- | --- |
 | WHATWG web APIs — `console`, timers, `URL`, encoding, streams, `fetch`, storage, `WebSocket`, `EventSource`, crypto | `options.UseWebApis(...)` | [Web APIs](web-apis.md) |
-| Web Workers, on a thread you supply | `options.UseWebApis().UseWorkers(provider)` | [Workers](web-apis/workers.md) |
+| Web Workers, on a thread you supply; `WorkerType.Classic = 1` additionally identifies classic scripts supported by Browser's provider (`Module = 0` is unchanged) | `options.UseWebApis().UseWorkers(provider)`; Browser's default provider accepts classic and module dedicated workers and snapshots the browser's navigator languages | [Workers](web-apis/workers.md) |
 | Node compatibility — the `process` shim, `node:` builtin modules | `options.UseNodeProcess()`, `options.UseNodeBuiltinModules()` | [Node compatibility](node-compatibility.md) |
 | Script profiling — a sampling profiler writing [Firefox Profiler](https://profiler.firefox.com) profiles with script / built-in / host-interop frame categories, and an evented one writing speedscope profiles | `options.Profiling.Enabled = true` | [Profiling](profiling.md) |
 | Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage](code-coverage.md) |
@@ -6628,7 +6920,7 @@ none of it changes an engine that does not.
 | Reading the body of the response an observer is answering, against a memory allowance you own, without the caller losing a byte | override `OnInterceptedResponseAsync` instead of `OnResponseAsync` | [§5.34](#5-34-a-fetch-observer-can-read-the-body-of-the-response-it-is-answering-3828) |
 | When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#5-29-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Jint.DevTools](../packages/jint-devtools/index.md) |
-| A headless browser — the native DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
+| A headless browser — the native DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line; same-origin frame modules now use document-local maps, and same-page messages identify their source window | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
 | A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Jint.Browser.Mcp](../packages/jint-browser-mcp/index.md) |
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#5-27-a-host-can-list-the-global-lexical-bindings-3610) |
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#5-28-a-function-value-names-the-program-it-was-parsed-in-3666) |
@@ -7725,8 +8017,10 @@ What the read promises:
   socket again. A success is immutable and reused by every later read.
 - **A failure is thrown, never returned as a short body**, and the read is valid only while the callback is
   running — the context is sealed as soon as it returns.
-- **Nothing is read unless it is asked for.** `fetch`, a document or subresource load, `XMLHttpRequest` and
-  `EventSource` all stay streaming for an observer that does not call `TryReadBodyAsync`.
+- **The observer reads nothing unless it asks.** An observer that does not call `TryReadBodyAsync` leaves
+  the body streaming. After interception returns, `fetch` permits bounded read-ahead: up to a 64 KiB queue
+  plus at most one transport chunk. Small bodies can finish without a consumer; larger unread bodies
+  backpressure the transport. Read-ahead does not mark `bodyUsed` or discard bytes.
 
 A read waits for the whole body, so reading a response that never ends — a server-sent event stream — is
 bounded only by `Options.WebApi.Fetch.Timeout`. Decide per response whether to read.

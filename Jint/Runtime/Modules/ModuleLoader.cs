@@ -28,7 +28,7 @@ public abstract class ModuleLoader : IModuleLoader
             }
 
             engine.Modules.EnsureModuleRegistrationAllowed(
-                Engine.ModuleCacheKey.From(resolved),
+                engine.Modules.CacheKey(resolved),
                 bytes.Length);
             moduleRecord = ModuleFactory.BuildBytesModule(engine, resolved, bytes);
         }
@@ -47,7 +47,7 @@ public abstract class ModuleLoader : IModuleLoader
             }
 
             engine.Modules.EnsureModuleRegistrationAllowed(
-                Engine.ModuleCacheKey.From(resolved),
+                engine.Modules.CacheKey(resolved),
                 System.Text.Encoding.UTF8.GetByteCount(code));
             if (resolved.ModuleRequest.IsTextModule())
             {

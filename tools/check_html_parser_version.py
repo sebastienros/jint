@@ -8,7 +8,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = (
-    (("VersionSuffix=preview-123",), "5.0.0-preview-123"),
+    (("VersionSuffix=preview.123",), "5.0.0-preview.123"),
     (("VersionSuffix=",), "5.0.0-experimental-0"),
     (("Version=5.0.0",), "5.0.0-experimental-0"),
     (("Version=5.1.0", "BuildNumber=42"), "5.1.0-experimental-42"),

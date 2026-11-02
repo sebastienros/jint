@@ -287,6 +287,86 @@ public class FetchDomainTests
         (await fixture.AnswerAsync()).Should().Be("payload");
     }
 
+    /// <summary>
+    /// An explicit empty <c>patterns</c> intercepts nothing, as Chromium's <c>ToInterceptionPatterns</c> leaves it,
+    /// while an omitted one is the protocol's default and intercepts everything.
+    /// </summary>
+    [Test]
+    public async Task AnEmptyPatternListInterceptsNothingAndAnOmittedOneInterceptsEverything()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("payload"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+
+        await fixture.EnableAsync("""{"patterns":[]}""");
+        await fixture.FetchOnThePageAsync("/data");
+        (await fixture.AnswerAsync()).Should().Be("payload", "an empty list of patterns matches no request, so nothing waits for a client");
+        fixture.Session.EventsOf("Fetch.requestPaused", fixture.Attachment).Should().BeEmpty();
+
+        await fixture.EnableAsync("""{}""");
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+        paused.GetProperty("request").GetProperty("url").GetString().Should().Be(server.Url("/data"));
+        await fixture.ContinueAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be("payload");
+    }
+
+    /// <summary>
+    /// Chromium refuses <c>patterns: []</c> together with <c>handleAuthRequests: true</c> as invalid params, since
+    /// no challenge could be matched to a pattern; with a pattern, or with auth handling off, it is accepted.
+    /// </summary>
+    [Test]
+    public async Task AnEmptyPatternListWithHandleAuthRequestsIsInvalidParams()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+
+        var error = await fixture.Session.ErrorAsync("Fetch.enable", """{"patterns":[],"handleAuthRequests":true}""", fixture.Attachment);
+        error.GetProperty("code").GetInt32().Should().Be(-32602);
+        error.GetProperty("message").GetString().Should().Contain("empty patterns");
+
+        await fixture.EnableAsync("""{"patterns":[],"handleAuthRequests":false}""");
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*"}],"handleAuthRequests":true}""");
+        await fixture.EnableAsync("""{"handleAuthRequests":true}""");
+    }
+
+    /// <summary>
+    /// <c>request.url</c> is the URL without its fragment and <c>request.urlFragment</c> is the fragment with its
+    /// leading <c>#</c>, which is how Chromium's <c>NetworkHandler::ExtractFragment</c> hands a request over;
+    /// a URL with no fragment has no <c>urlFragment</c> key at all.
+    /// </summary>
+    [Test]
+    public async Task APausedRequestReportsTheFragmentSeparately()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("payload"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync();
+
+        await fixture.FetchOnThePageAsync("/data?q=1#frag");
+        var withFragment = await fixture.PausedAsync();
+        var request = withFragment.GetProperty("request");
+        request.GetProperty("url").GetString().Should().Be(server.Url("/data?q=1"));
+        request.GetProperty("urlFragment").GetString().Should().Be("#frag");
+        await fixture.ContinueAsync(withFragment);
+        (await fixture.AnswerAsync()).Should().Be("payload");
+
+        await fixture.FetchOnThePageAsync("/data?q=1");
+        var without = await fixture.PausedAsync(1);
+        without.GetProperty("request").GetProperty("url").GetString().Should().Be(server.Url("/data?q=1"));
+        without.GetProperty("request").TryGetProperty("urlFragment", out _).Should().BeFalse();
+        await fixture.ContinueAsync(without);
+        (await fixture.AnswerAsync()).Should().Be("payload");
+    }
+
     [Test]
     public async Task ThePageGoesOnRunningWhileARequestIsPaused()
     {

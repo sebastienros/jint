@@ -67,7 +67,8 @@ its unique `5.0.0-consumer-smoke` version and can only restore from the local fe
 
 ## Continuous integration
 
-The shared `html-parser-package-consumer.yml` workflow runs from both PR and main builds. Each Linux
+The shared `html-parser-package-consumer.yml` workflow runs from PR, main and release builds; only
+release sets its `native-aot` input, so the Native AOT publish below runs there alone. Each Linux
 job starts with an empty feed and consumer package cache, then packs Jint, Jint.DevTools, Jint.HtmlParser
 and Jint.Browser. Its two version inputs cover a prerelease and a GA Browser whose parser remains
 experimental. `verify_packages.py` checks both shipped framework assets, the parser's package policy,

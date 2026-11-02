@@ -32,8 +32,9 @@ internal sealed class StackGuard
 
     // The same snapshot without that exclusion, for recursions that cannot take the call-path hop.
     // The exclusion above is about ordering between two probes a few native frames apart on one path;
-    // MaxExecutionStackCount's lane is TryEnterOnCurrentStack, which nothing but a call expression
-    // reaches, so on the module pipeline there is nothing for it to win against — and honouring the
+    // MaxExecutionStackCount's lane is TryEnterOnCurrentStack, which only a call expression and a deep
+    // chain's probe (JintStackProbeExpression, JintStackProbeStatement, each asking it first) reach, so
+    // on the module pipeline there is nothing for it to win against — and honouring the
     // exclusion there would leave an engine that asked for a call-depth limit with no protection at all
     // for a deep import.
     private readonly bool _nativeBackstopEnabled;

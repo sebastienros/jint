@@ -27,6 +27,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     private readonly ProbablyBlockStatement _body;
     private readonly JintExpression? _expr;
     private readonly DestructuringPattern? _assignmentPattern;
+
+    // Whether the head's pattern contains an await or a yield of the enclosing frame, so that it takes the
+    // destructuring's resumable lane and a suspension inside it parks the iteration it belongs to.
+    private readonly bool _patternMaySuspend;
     private readonly JintExpression _right;
     private readonly List<Key>? _tdzNames;
     private readonly bool _destructuring;
@@ -63,6 +67,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _forBody = statement.Body;
         _iterationKind = IterationKind.Enumerate;
         InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
+        _patternMaySuspend = _assignmentPattern is not null && MaySuspendVisitor.MaySuspend(_assignmentPattern);
         _body = new ProbablyBlockStatement(_forBody);
         _right = JintExpression.Build(_rightExpression);
 
@@ -84,6 +89,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _forBody = statement.Body;
         _iterationKind = statement.Await ? IterationKind.AsyncIterate : IterationKind.Iterate;
         InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
+        _patternMaySuspend = _assignmentPattern is not null && MaySuspendVisitor.MaySuspend(_assignmentPattern);
         _body = new ProbablyBlockStatement(_forBody);
         _right = JintExpression.Build(_rightExpression);
 
@@ -578,43 +584,22 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             var nextPromise = nextMethod.Call(iteratorRecord.Instance, Arguments.Empty);
 
                             // Per spec 13.7.5.13 step 5.b.c: Await(nextResult)
-                            // Await step 1: PromiseResolve(%Promise%, nextResult)
+                            // Await step 2: PromiseResolve(%Promise%, nextResult)
                             // This makes constructor lookups observable per spec.
-                            var promiseResolved = engine.Realm.Intrinsics.Promise.PromiseResolve(nextPromise);
+                            var promise = PromiseConstructor.ResolveForAwaitToPromise(engine, nextPromise);
 
-                            // If result is a Promise, we need to await it
-                            if (promiseResolved is JsPromise promise)
+                            // Save current state for resume (including iterator)
+                            if (asyncSuspendData is not null)
                             {
-                                // Save current state for resume (including iterator)
-                                if (asyncSuspendData is not null)
-                                {
-                                    asyncSuspendData.AccumulatedValue = v;
-                                    asyncSuspendData.Iterator = iteratorRecord;
-                                }
-
-                                // Don't close the iterator when suspending - we'll resume later
-                                close = false;
-
-                                // Suspend and await the promise
-                                return SuspendForAsyncIteration(context, promise, asyncInstance, asyncGenerator, iteratorRecord, v);
+                                asyncSuspendData.AccumulatedValue = v;
+                                asyncSuspendData.Iterator = iteratorRecord;
                             }
 
-                            // Not a promise - treat as sync iterator result
-                            nextResult = (nextPromise as ObjectInstance)!;
-                            if (nextResult is null)
-                            {
-                                Throw.TypeError(engine.Realm, "Iterator result is not an object");
-                                return default;
-                            }
+                            // Don't close the iterator when suspending - we'll resume later
+                            close = false;
 
-                            // Check if iterator is done
-                            var doneVal = nextResult.Get(CommonProperties.Done);
-                            if (!doneVal.IsUndefined() && TypeConverter.ToBoolean(doneVal))
-                            {
-                                // step 8.e: "If done is true, return iterationResult" — no close
-                                suspendable?.Data.Clear(this);
-                                return new Completion(CompletionType.Normal, v, _statement!);
-                            }
+                            // Suspend and await the promise; the resume finds the settled result above
+                            return SuspendForAsyncIteration(context, promise, asyncInstance, asyncGenerator, iteratorRecord, v);
                         }
                     }
 
@@ -685,7 +670,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         iterationEnv = reusableEnv;
                         engine.UpdateLexicalEnvironment(iterationEnv);
                     }
-                    else
+                    else if (iterationEnv is null)
                     {
                         iterationEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
                         if (_tdzNames != null)
@@ -701,6 +686,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             lhsRef = engine.ResolveBinding(lhsName);
                         }
                     }
+
+                    // Otherwise this is a resume inside the head's pattern, and the environment its first attempt
+                    // was initializing is current again (restored above). The pattern resumes at the element that
+                    // suspended and does not run the ones before it again, so their bindings have to be the ones
+                    // already initialized there; a fresh environment would leave them in their temporal dead zone.
 
                     if (context.DebugMode)
                     {
@@ -740,24 +730,51 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     }
                     else
                     {
-                        nextValue = DestructuringPatternAssignmentExpression.ProcessPatterns(
-                            context,
-                            _assignmentPattern!,
-                            valueForResume,
-                            iterationEnv,
-                            checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
+                        nextValue = _patternMaySuspend
+                            ? DestructuringPatternAssignmentExpression.ProcessResumablePattern(
+                                context,
+                                _assignmentPattern!,
+                                valueForResume,
+                                iterationEnv,
+                                checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding)
+                            : DestructuringPatternAssignmentExpression.ProcessPatterns(
+                                context,
+                                _assignmentPattern!,
+                                valueForResume,
+                                iterationEnv,
+                                checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
 
                         // Check for suspension after destructuring (yield inside pattern)
                         if (context.IsSuspended())
                         {
                             close = false; // Don't close iterator, we'll resume later
-                            // Save the ORIGINAL iterator value for replay when resuming
+
+                            // Park the iteration the pattern suspended in: the value this step produced and the
+                            // environment the pattern was initializing. The resume re-enters this iteration with
+                            // them rather than stepping the iterator again, and the pattern resumes at the element
+                            // that suspended (sebastienros/jint#4313). Every field is written, since an entry left
+                            // by an earlier iteration's body still holds that iteration's environment.
                             if (_iterationKind == IterationKind.AsyncIterate && suspendable is not null)
                             {
                                 var asyncSD = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this);
+                                asyncSD.Iterator = iteratorRecord;
                                 asyncSD.CurrentValue = valueForResume;
                                 asyncSD.AccumulatedValue = v;
+                                asyncSD.IterationEnv = iterationEnv;
+                                asyncSD.OuterEnv = oldEnv;
+                                asyncSD.LhsBindingComplete = false;
                             }
+                            else if (suspendable is not null)
+                            {
+                                var syncSD = suspendable.Data.GetOrCreate<ForOfSuspendData>(this, iteratorRecord);
+                                syncSD.Iterator = iteratorRecord;
+                                syncSD.CurrentValue = valueForResume;
+                                syncSD.AccumulatedValue = v;
+                                syncSD.IterationEnv = iterationEnv;
+                                syncSD.OuterEnv = oldEnv;
+                                syncSD.LhsBindingComplete = false;
+                            }
+
                             completionType = CompletionType.Return;
                             return new Completion(CompletionType.Return, suspendable?.SuspendedValue ?? nextValue, _statement!);
                         }
@@ -1364,7 +1381,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// <summary>
     /// Suspends the surrounding async function or async generator on AsyncIteratorClose's Await
     /// (step 4.d), parking the completion steps 5 and 8 still owe. Returns <see langword="null"/>
-    /// when there is no async context to suspend in.
+    /// when there is no async context to suspend in. An Await that is abrupt before it can suspend
+    /// finishes the close at once, with its throw completion as innerResult.
     /// </summary>
     private Completion? SuspendForAsyncClose(
         EvaluationContext context,
@@ -1382,9 +1400,17 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             return null;
         }
 
-        // Await step 1: PromiseResolve(%Promise%, value).
-        var promise = innerResult as JsPromise
-            ?? (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(innerResult);
+        // Await step 2: PromiseResolve(%Promise%, value), whose read of a promise's constructor may throw. Then the Await
+        // is abrupt before it suspends, and its throw completion is innerResult, which steps 5-8 take as it is.
+        JsPromise promise;
+        try
+        {
+            promise = PromiseConstructor.ResolveForAwaitToPromise(engine, innerResult);
+        }
+        catch (JavaScriptException e)
+        {
+            return FinishAsyncIteratorClose(context, completion, e.Error, rejected: true);
+        }
 
         var data = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this, iteratorRecord);
         data.Iterator = iteratorRecord;
@@ -1568,17 +1594,22 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         out Completion finalCompletion)
     {
         var engine = context.Engine;
-        if (step.IsDone)
+        while (!step.IsDone)
         {
-            finalCompletion = step.CompletedResult;
-            return null;
+            if (SetupDisposeSuspension(engine, asyncFn, step.PendingPromise!, out var awaitError))
+            {
+                SaveDisposeSuspendState(suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind);
+                engine.UpdateLexicalEnvironment(oldEnv);
+                finalCompletion = default;
+                return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
+            }
+
+            // The await was abrupt before it could suspend: that throw completion is the dispose result's.
+            step = iterationEnv.ContinueDisposeResources(awaitError, awaitThrew: true);
         }
 
-        SetupDisposeSuspension(engine, asyncFn, step.PendingPromise!);
-        SaveDisposeSuspendState(suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind);
-        engine.UpdateLexicalEnvironment(oldEnv);
-        finalCompletion = default;
-        return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
+        finalCompletion = step.CompletedResult;
+        return null;
     }
 
     /// <summary>
@@ -1643,7 +1674,13 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             if (asyncFn is not null)
             {
-                SetupDisposeSuspension(engine, asyncFn, step.PendingPromise!);
+                if (!SetupDisposeSuspension(engine, asyncFn, step.PendingPromise!, out var awaitError))
+                {
+                    // The await was abrupt before it could suspend: that throw completion is the dispose result's.
+                    step = iterationEnv.ContinueDisposeResources(awaitError, awaitThrew: true);
+                    continue;
+                }
+
                 SaveDisposeSuspendState(suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind);
                 engine.UpdateLexicalEnvironment(oldEnv);
                 return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
@@ -1730,10 +1767,27 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// path: suspends the async function on the pending dispose promise so the
     /// next event-loop tick resumes us via <see cref="ResumeFromDispose"/>.
     /// </summary>
-    private void SetupDisposeSuspension(Engine engine, AsyncFunctionInstance asyncFn, JsValue pendingPromise)
+    /// <returns>
+    /// <see langword="false"/> when the await is abrupt before it suspends: Await's PromiseResolve(%Promise%, value)
+    /// reads a promise's <c>constructor</c>, which may throw, and <paramref name="error"/> is that throw
+    /// (sebastienros/jint#4361).
+    /// </returns>
+    private bool SetupDisposeSuspension(
+        Engine engine,
+        AsyncFunctionInstance asyncFn,
+        JsValue pendingPromise,
+        [NotNullWhen(false)] out JsValue? error)
     {
-        var promise = pendingPromise as JsPromise
-            ?? (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(pendingPromise);
+        JsPromise promise;
+        try
+        {
+            promise = PromiseConstructor.ResolveForAwaitToPromise(engine, pendingPromise);
+        }
+        catch (JavaScriptException e)
+        {
+            error = e.Error;
+            return false;
+        }
 
         asyncFn._lastAwaitNode = this;
         asyncFn._state = AsyncFunctionState.SuspendedAwait;
@@ -1741,6 +1795,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
         // The async instance is its own await continuation (same as a plain await).
         PromiseOperations.PerformPromiseThen(engine, promise, asyncFn);
+        error = null;
+        return true;
     }
 
     private void SaveDisposeSuspendState(

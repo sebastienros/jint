@@ -53,7 +53,7 @@ public partial class Engine
                 throw;
             }
 
-            throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
+            throw new ScriptPreparationException("Could not prepare script: " + e.Message, SyntaxNesting.Unmark(e));
         }
     }
 
@@ -131,7 +131,7 @@ public partial class Engine
                 throw;
             }
 
-            throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
+            throw new ScriptPreparationException("Could not prepare script: " + e.Message, SyntaxNesting.Unmark(e));
         }
     }
 
@@ -198,7 +198,7 @@ public partial class Engine
                 throw;
             }
 
-            throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
+            throw new ScriptPreparationException("Could not prepare script: " + e.Message, SyntaxNesting.Unmark(e));
         }
     }
 

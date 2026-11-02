@@ -6,7 +6,9 @@ namespace Jint.Native.Disposable;
 /// <summary>
 /// Result of a single step of <see cref="DisposeCapability"/>'s state machine.
 /// Either the dispose finished (<see cref="IsDone"/> with <see cref="CompletedResult"/>)
-/// or it needs to await a promise (<see cref="PendingPromise"/>) before continuing.
+/// or it needs to await a value (<see cref="PendingPromise"/>) before continuing: an async dispose method's
+/// result, or <see cref="JsValue.Undefined"/> for the implicit <c>Await(undefined)</c> of
+/// https://tc39.es/ecma262/#sec-disposeresources steps 4.d and 5, which no getter can observe.
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct DisposeStepResult(
@@ -25,8 +27,8 @@ internal readonly record struct DisposeStepResult(
 internal enum DisposeResumePoint
 {
     None,
-    AfterMethodAwait,   // resumed after step 3.e.ii.1
-    AfterImplicitAwait, // resumed after step 3.d.i or 4.a
+    AfterMethodAwait,   // resumed after step 4.e.ii.1
+    AfterImplicitAwait, // resumed after step 4.d.i or 5.a
 }
 
 internal sealed class DisposeCapability
@@ -34,7 +36,7 @@ internal sealed class DisposeCapability
     private readonly Engine _engine;
     private readonly List<DisposableResource> _disposableResourceStack = [];
 
-    // State preserved across suspensions (3.e.ii.1, 3.d.i, 4.a). Not reentrant —
+    // State preserved across suspensions (4.e.ii.1, 4.d.i, 5.a). Not reentrant —
     // a single DisposeCapability instance can only drive one in-flight dispose at a
     // time. This matches the engine's single-thread-per-Engine assumption: a JS
     // dispose method cannot synchronously re-enter dispose on its own capability.
@@ -161,7 +163,7 @@ internal sealed class DisposeCapability
         switch (_disposeResume)
         {
             case DisposeResumePoint.AfterMethodAwait:
-                // Spec step 3.e.ii.1 just settled. Promote rejection per 3.e.iii.
+                // Spec step 4.e.ii.1 just settled. Promote rejection per 4.e.iii.
                 if (awaitThrew)
                 {
                     HandleDisposeException(awaitResult);
@@ -170,13 +172,13 @@ internal sealed class DisposeCapability
                 break;
 
             case DisposeResumePoint.AfterImplicitAwait:
-                // Spec step 3.d.i or 4.a — Await(undefined) has no error path.
+                // Spec step 4.d.i or 5.a — Await(undefined) has no error path.
                 if (_disposeIndex < 0)
                 {
-                    // We were on step 4.a (final implicit tick).
+                    // We were on step 5.a (final implicit tick).
                     return Finish();
                 }
-                // Otherwise we were on step 3.d.i — fall through to process
+                // Otherwise we were on step 4.d.i — fall through to process
                 // the current resource (no decrement).
                 break;
         }
@@ -194,17 +196,18 @@ internal sealed class DisposeCapability
             var hint = resource.Hint;
             var method = resource.DisposeMethod;
 
-            // Step 3.d: implicit Await tick when a sync-dispose follows pending async resources.
+            // Step 4.d: implicit Await tick when a sync-dispose follows pending async resources. It sets needsAwait
+            // back and leaves hasAwaited as it is, so a null async-dispose resource further down owes an await of its
+            // own (https://tc39.es/ecma262/#sec-disposeresources).
             if (hint == DisposeHint.Sync && _disposeNeedsAwait && !_disposeHasAwaited)
             {
-                _disposeHasAwaited = true;
                 _disposeNeedsAwait = false;
                 _disposeResume = DisposeResumePoint.AfterImplicitAwait;
                 // Don't decrement — current resource will be processed after resume.
-                return DisposeStepResult.Suspend(CreateResolvedUndefinedPromise());
+                return DisposeStepResult.Suspend(JsValue.Undefined);
             }
 
-            // Step 3.e: call the dispose method.
+            // Step 4.e: call the dispose method.
             if (method is not null)
             {
                 JsValue methodResult;
@@ -221,7 +224,7 @@ internal sealed class DisposeCapability
 
                 if (hint == DisposeHint.Async)
                 {
-                    // Step 3.e.ii.1: Await the result before continuing.
+                    // Step 4.e.ii.1: Await the result before continuing.
                     _disposeHasAwaited = true;
                     _disposeResume = DisposeResumePoint.AfterMethodAwait;
                     return DisposeStepResult.Suspend(methodResult);
@@ -229,21 +232,21 @@ internal sealed class DisposeCapability
             }
             else
             {
-                // Step 3.f: null/undefined async-dispose resource — accumulates needsAwait.
+                // Step 4.f: null/undefined async-dispose resource — accumulates needsAwait.
                 _disposeNeedsAwait = true;
             }
 
             _disposeIndex--;
         }
 
-        // Step 4: final implicit Await(undefined) if needsAwait was set but never satisfied.
+        // Step 5: final implicit Await(undefined) if needsAwait was set but never satisfied.
         if (_disposeNeedsAwait && !_disposeHasAwaited)
         {
             _disposeHasAwaited = true;
             _disposeNeedsAwait = false;
             _disposeResume = DisposeResumePoint.AfterImplicitAwait;
             // _disposeIndex is already -1; ContinueDispose will Finish on resume.
-            return DisposeStepResult.Suspend(CreateResolvedUndefinedPromise());
+            return DisposeStepResult.Suspend(JsValue.Undefined);
         }
 
         return Finish();
@@ -269,11 +272,6 @@ internal sealed class DisposeCapability
         {
             _disposeCompletion = new Completion(CompletionType.Throw, error, _disposeCompletion._source);
         }
-    }
-
-    private JsValue CreateResolvedUndefinedPromise()
-    {
-        return _engine.Realm.Intrinsics.Promise.PromiseResolve(JsValue.Undefined);
     }
 
     private readonly record struct DisposableResource(JsValue ResourceValue, DisposeHint Hint, ICallable? DisposeMethod);
