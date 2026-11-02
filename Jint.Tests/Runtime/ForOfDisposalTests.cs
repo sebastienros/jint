@@ -1,6 +1,8 @@
 #nullable enable
 
 using AwesomeAssertions.Execution;
+using Jint.Native;
+using Jint.Native.Object;
 
 namespace Jint.Tests.Runtime;
 
@@ -227,6 +229,46 @@ public class ForOfDisposalTests
             "called, t1, body, dispose x1, t2, t3, body, dispose x2, t4, return, t5, after, t6, resolved undefined, t7, t8, t9",
             "called, t1, body, dispose x1, t2, t3, body, dispose x2, t4, return, t5, after, t6, resolved {undefined,true}, t7, t8, t9"
         },
+        {
+            // https://tc39.es/ecma262/#sec-iteratorclose step 6: for any completion but a throw, a return() that throws
+            // replaces it, once the dispose has settled. Jint swallowed it, in an async function too.
+            "ABreakWhenTheIteratorsReturnThrows",
+            "try { for (await using x of closeThrows(log)) { log.push('body'); break; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "body, dispose x1, called, t1, finally, caught F, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "body, dispose x1, called, t1, finally, caught F, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "AReturnStatementWhenTheIteratorsReturnThrows",
+            "try { for (await using x of closeThrows(log)) { log.push('body'); return 5; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "body, dispose x1, called, t1, finally, caught F, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "body, called, t1, dispose x1, t2, finally, caught F, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ALabelledBreakWhenTheIteratorsReturnThrows",
+            "try { outer: for (const i of [1]) { for (await using x of closeThrows(log)) { log.push('body'); break outer; } } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "body, dispose x1, called, t1, finally, caught F, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "body, dispose x1, called, t1, finally, caught F, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ALabelledContinueWhenTheIteratorsReturnThrows",
+            "try { outer: for (const i of [1]) { for (await using x of closeThrows(log)) { log.push('body'); continue outer; } } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "body, dispose x1, called, t1, finally, caught F, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "body, dispose x1, called, t1, finally, caught F, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // Step 7: ... and so does a return() that answers a value that is not an object, with a TypeError.
+            "ABreakWhenTheIteratorsReturnAnswersANonObject",
+            "try { for (await using x of closeAnswersANonObject(log)) { log.push('body'); break; } } catch (e) { log.push('caught ' + (e instanceof TypeError ? 'TypeError' : show(e))); } log.push('after');",
+            "body, dispose x1, called, t1, return, caught TypeError, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "body, dispose x1, called, t1, return, caught TypeError, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // Step 5: a throw completion is the one that is kept.
+            "AThrowWhenTheIteratorsReturnThrows",
+            "try { for (await using x of closeThrows(log)) { log.push('body'); throw 'E'; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "body, dispose x1, called, t1, finally, caught E, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "body, dispose x1, called, t1, finally, caught E, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
     };
 
     public static TestCases<string, string, string, string> GeneratorFromTheStart => new()
@@ -357,6 +399,33 @@ public class ForOfDisposalTests
             "it.throw('E')",
             "dispose x1, called, t1, t2, caught E, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
         },
+        {
+            // The rejection replaces the return completion here too: the return() request is no longer in force, so the
+            // statement list around the loop must not turn the throw back into the return.
+            "ReturnAtAYieldInAForAwaitLoopWhenTheDisposeRejects",
+            "for await (await using x of [rejecting(log, 'x1', 'D')]) { yield 1; } log.push('UNREACHED');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, t3, t4, rejected D, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtAYieldInAForAwaitLoopWhenTheDisposeRejectsCaught",
+            "try { for await (await using x of [rejecting(log, 'x1', 'D')]) { yield 1; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, t3, caught D, after, t4, resolved {undefined,true}, t5, t6, t7, t8, t9"
+        },
+        {
+            "ThrowAtAYieldInAForAwaitLoopWhenTheDisposeRejects",
+            "try { for await (await using x of [rejecting(log, 'x1', 'D')]) { yield 1; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.throw('E')",
+            "dispose x1, called, t1, t2, caught SuppressedError(D over E), after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // The return completion closes the iterator once the dispose has settled, and the close's throw replaces it.
+            "ReturnAtAYieldWhenTheIteratorsReturnThrows",
+            "try { for (await using x of closeThrows(log)) { yield 1; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, finally, caught F, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
     };
 
     /// <summary>
@@ -433,10 +502,79 @@ public class ForOfDisposalTests
         engine.Evaluate("let n = 0; for (using x of [{ [Symbol.dispose]() {} }, { [Symbol.dispose]() {} }]) { n++ * 10; }").AsNumber().Should().Be(10);
     }
 
+    /// <summary>
+    /// A body's throw waits for the iteration's dispose, and then leaves the loop as the throw completion it already
+    /// is: it is reported to the debugger once, where it was thrown, not a second time where the loop hands it on.
+    /// </summary>
+    [Test, CancelAfter(10000)]
+    public void ABodysThrowThatWaitsForTheDisposeIsReportedOnce()
+    {
+        var engine = new Engine(options =>
+        {
+            options.Debugger.Enabled = true;
+            options.ObserveCancellation(TestContext.CurrentContext.CancellationToken);
+        });
+
+        var thrown = new List<string>();
+        engine.Debugger.ExceptionThrown += (_, args) => thrown.Add(args.ThrownValue.ToString());
+
+        engine.Execute("""
+            const r = () => ({ [Symbol.asyncDispose]() {} });
+            (async function () {
+                try { for (await using x of [r()]) { throw 'function'; } } catch (e) {}
+                try { for await (await using x of [r()]) { throw 'function, for await'; } } catch (e) {}
+            })();
+            (async function* () {
+                try { for (await using x of [r()]) { throw 'generator'; } } catch (e) {}
+                try { for await (await using x of [r()]) { throw 'generator, for await'; } } catch (e) {}
+            })().next();
+            """);
+
+        thrown.OrderBy(s => s, StringComparer.Ordinal).Should().Equal("function", "function, for await", "generator", "generator, for await");
+    }
+
+    /// <summary>
+    /// A host exception that escapes the rest of an async function's body, once a dispose await has resumed it, reaches
+    /// the host as one escaping after an <c>await</c> does, whatever <c>Interop.ExceptionHandler</c> says: the dispose
+    /// await resumes the function directly, not through a pair of handler functions that turned the exception into a
+    /// script error with nowhere to go and left the function's promise pending.
+    /// </summary>
+    [TestCase("await null; host.Boom;")]
+    [TestCase("{ await using r = { [Symbol.asyncDispose]() {} }; } host.Boom;")]
+    [TestCase("let n = 0; for (await using r = { [Symbol.asyncDispose]() {} }; n < 1; n++) { } host.Boom;")]
+    [TestCase("for (await using r of [{ [Symbol.asyncDispose]() {} }]) { } host.Boom;")]
+    [CancelAfter(10000)]
+    public void AHostExceptionAfterADisposeAwaitReachesTheHost(string body)
+    {
+        var engine = new Engine(options => options.CatchClrExceptions().ObserveCancellation(TestContext.CurrentContext.CancellationToken));
+        engine.SetValue("host", new ThrowingObject(engine));
+
+        Caught.Exception(() => engine.Execute("(async function () { " + body + " })();"))
+            .Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("boom");
+    }
+
+    // A host object whose property read throws a CLR exception the interpreter does not translate.
+    private sealed class ThrowingObject(Engine engine) : ObjectInstance(engine)
+    {
+        public override JsValue Get(JsValue property, JsValue receiver) => throw new InvalidOperationException("boom");
+    }
+
+    // An iterable whose return() throws F once its generator's finally runs, and one whose return() answers a number.
+    private const string IteratorHelpers = """
+        function closeThrows(log) {
+          return (function* () { try { yield ar(log, 'x1'); yield ar(log, 'x2'); } finally { log.push('finally'); throw 'F'; } })();
+        }
+        function closeAnswersANonObject(log) {
+          let n = 0;
+          return { [Symbol.iterator]() { return { next() { n++; return { value: ar(log, 'x' + n), done: false }; }, return() { log.push('return'); return 1; } }; } };
+        }
+
+        """;
+
     private static string RunAsync(string script)
     {
         var engine = new Engine(options => options.ObserveCancellation(TestContext.CurrentContext.CancellationToken));
-        return engine.Evaluate(AsyncBlockDisposalTests.Prelude + script).UnwrapIfPromise().AsString();
+        return engine.Evaluate(AsyncBlockDisposalTests.Prelude + IteratorHelpers + script).UnwrapIfPromise().AsString();
     }
 
     private static string Run(string script)

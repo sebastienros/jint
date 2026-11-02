@@ -1701,18 +1701,27 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             v = result.Value;
         }
 
-        // Post-dispose abrupt handling — mirrors the inline code in BodyEvaluation.
+        // Post-dispose abrupt handling — mirrors the inline code in BodyEvaluation, closing the iterator with the
+        // completion the dispose left (step 8.m): https://tc39.es/ecma262/#sec-iteratorclose swallows what return()
+        // does only for a throw completion, and propagates it for every other.
         if (result.Type == CompletionType.Throw)
         {
             suspendable.Data.Clear(this);
+
+            // A dispose that threw or rejected replaced the completion the body left with (DisposeResources step
+            // 4.e.iii), so a generator's return() request that completion stood for is no longer in force; left set,
+            // the statement list around the loop would turn the throw back into the return
+            // (JintBlockStatement.CompleteDispose).
+            JintStatementList.ClearReturnRequest(engine);
             if (iteratorKind == IteratorKind.Async)
             {
                 return CloseAsyncIterator(context, iteratorRecord, result);
             }
 
+            // Handed back as the completion it is rather than raised again, as BodyEvaluation hands back a throw
+            // completion: a body's throw has been reported to the debugger once already, where it was thrown.
             TryCloseIterator(iteratorRecord, CompletionType.Throw);
-            Throw.JavaScriptException(engine, result.Value, _statement!.Location);
-            return default;
+            return result;
         }
 
         if (result.Type == CompletionType.Break
@@ -1725,7 +1734,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 return CloseAsyncIterator(context, iteratorRecord, breakCompletion);
             }
 
-            TryCloseIterator(iteratorRecord, CompletionType.Normal);
+            iteratorRecord.Close(CompletionType.Normal);
             return breakCompletion;
         }
 
@@ -1737,7 +1746,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 return CloseAsyncIterator(context, iteratorRecord, result);
             }
 
-            TryCloseIterator(iteratorRecord, CompletionType.Return);
+            iteratorRecord.Close(CompletionType.Return);
             return result;
         }
 
@@ -1753,7 +1762,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 return CloseAsyncIterator(context, iteratorRecord, result);
             }
 
-            TryCloseIterator(iteratorRecord, result.Type);
+            iteratorRecord.Close(result.Type);
             return result;
         }
 

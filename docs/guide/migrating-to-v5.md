@@ -6973,16 +6973,25 @@ await p;
 Now each of those awaits suspends the generator the way an `await` expression does, as a block's `await using`
 does since §4.174. The request settles a microtask later for each await, and a request made meanwhile queues behind
 it. A dispose that throws or rejects is thrown from the loop, or wrapped in a `SuppressedError` over the body's own
-throw, as before.
+throw, as before. A `return()` request whose iteration then has an `await using` dispose reject no longer completes
+the generator with the return value: the rejection replaces it, and a `catch` around the loop sees it. A dispose
+that throws without being awaited still loses its throw there
+([#4360](https://github.com/sebastienros/jint/issues/4360)).
 
-Two neighbours changed with it:
+Four neighbours changed with it:
 
 - In every kind of function, a body that suspended at an `await` or a `yield` had its iteration's resource disposed
   at the suspension, while the body went on to use it. Now the resource is disposed once the body completes, whether
   it runs to its end or a `return()` or `throw()` resumption ends it. In
   `function* g() { for (using x of xs) { yield x; use(x); } }`, `x` is no longer disposed before `use(x)` runs.
-- In an async function, a `continue` naming an enclosing loop's label went on with the inner loop's next iteration
-  when an `await using` dispose had made that loop wait. Now it continues the labelled loop.
+- In an async function, once an `await using` dispose had made the loop wait, a `continue` naming an enclosing loop's
+  label went on with the inner loop's next iteration. Now it continues the labelled loop.
+- In the same position, a `break`, a `return` or a labelled jump closed the iterator and swallowed whatever its
+  `return()` threw, and a `return()` answering something other than an object. Now the throw, or a `TypeError`,
+  replaces the loop's completion, as it does when no dispose had to wait.
+- With an `Interop.ExceptionHandler` that catches it, a CLR exception that escaped untranslated from the rest of an
+  async function's body, once a block's or a `for` header's dispose await had resumed it, was dropped, and the
+  function's promise never settled. Now it reaches the host, as one escaping after an `await` does.
 
 One case is not finished. A brace-less body, such as `for (using x of xs) yield x;`, that a `return()` or `throw()`
 resumption ends at its `yield` used to have its resource disposed at that `yield`. Now it is not disposed at all,
