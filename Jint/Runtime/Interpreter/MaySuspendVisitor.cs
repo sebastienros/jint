@@ -12,8 +12,9 @@ namespace Jint.Runtime.Interpreter;
 /// <para>
 /// The answer lets a handler keep its resume bookkeeping off the path that cannot suspend.
 /// <c>JintObjectExpression</c> decides its shape-backed build with it, <c>JintVariableDeclaration</c>
-/// whether a declaration list has to remember the declarator it suspended at, and <c>JintCallExpression</c>
-/// and <c>JintNewExpression</c> whether a call has to keep its callee for a resume in its arguments.
+/// whether a declaration list has to remember the declarator it suspended at, <c>JintCallExpression</c>
+/// and <c>JintNewExpression</c> whether a call has to keep its callee for a resume in its arguments, and
+/// <c>JintImportExpression</c> whether an <c>import()</c> has to keep its specifier for a resume in its options.
 /// </para>
 /// </remarks>
 internal static class MaySuspendVisitor

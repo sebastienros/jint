@@ -223,7 +223,7 @@ internal abstract class JintExpression
             NodeType.TemplateLiteral => new JintTemplateLiteralExpression((TemplateLiteral) expression),
             NodeType.TaggedTemplateExpression => new JintTaggedTemplateExpression((TaggedTemplateExpression) expression),
             NodeType.ClassExpression => new JintClassExpression((ClassExpression) expression),
-            NodeType.ImportExpression => new JintImportExpression((ImportExpression) expression),
+            NodeType.ImportExpression => JintImportExpression.Build((ImportExpression) expression),
             NodeType.Super => new JintSuperExpression((Super) expression),
             NodeType.MetaProperty => new JintMetaPropertyExpression((MetaProperty) expression),
             NodeType.ChainExpression => ((ChainExpression) expression).Expression.Type == NodeType.CallExpression

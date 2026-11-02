@@ -6798,6 +6798,33 @@ Once the generator completed, only the first of them was answered, and the rest 
 answered in turn: a `next()` with `{ value: undefined, done: true }`, a `throw()` with its rejection, and a `return()`
 once its value is awaited. There is no switch back.
 
+### 4.180 An `import()` whose options suspend evaluates its specifier once, and a suspended operand starts no load ([#4335](https://github.com/sebastienros/jint/issues/4335))
+
+`import(specifier, options)` evaluates the specifier, then the options, and only then asks the host for the module.
+In 4.16, when the options suspended on an `await` or a `yield`, the resume evaluated the specifier again, so every
+call and getter in it ran once more for every suspension:
+
+```js
+let calls = 0;
+const spec = () => { calls++; return "./m.js"; };
+async function f() {
+  await import(spec(), await Promise.resolve({}));
+  return calls;   // 4.16.x / earlier 5.0: 2    5.x: 1
+}
+```
+
+In an async function or an async generator, a suspension in either operand also failed to stop the call. It went on
+to ask the host for the module, with the suspension's placeholder in place of the operand not yet produced.
+`import(await name)` asked the module loader for a module named `undefined` before the real one, and
+`import(name, { with: { type: await t } })` asked for `name` without its import attributes. A synchronous
+`IModuleLoader` that throws for a specifier it does not know made that first request's exception escape the host's
+`Evaluate` call; one that answers it saw a request the script never made. A generator's `yield` already stopped the
+call there.
+
+Now the specifier is evaluated once, the resume goes back into the options with it, and the loader is handed only the
+requests the script makes. The same holds for `import.defer(…)` and `import.source(…)`, whose one operand is the
+specifier. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
