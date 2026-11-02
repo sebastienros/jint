@@ -24,8 +24,8 @@ internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclara
         var classBinding = _classDefinition._className;
         if (classBinding != null)
         {
-            // A class whose heritage or computed key suspended is not defined yet, and its binding stays in its
-            // temporal dead zone until the resume defines it.
+            // A class whose decorator, heritage or computed key suspended is not defined yet, and its binding stays in
+            // its temporal dead zone until the resume defines it.
             if (_classDefinition._maySuspend && context.IsSuspended())
             {
                 return new Completion(CompletionType.Normal, JsEmpty.Instance, _statement);
