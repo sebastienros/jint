@@ -351,6 +351,10 @@ internal static class AstExtensions
         }
     }
 
+    /// <summary>
+    /// BindingInitialization of a <c>catch</c> parameter that cannot suspend. A pattern with an <c>await</c> or a
+    /// <c>yield</c> in it takes the destructuring's resumable lane instead, from <c>JintTryStatement</c>.
+    /// </summary>
     internal static void BindingInitialization(
         this Node? expression,
         EvaluationContext context,
