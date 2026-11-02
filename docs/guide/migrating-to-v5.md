@@ -6909,7 +6909,7 @@ Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
 // 4.16.x / earlier 5.0: ["return", "caught", "t1", "t2"]    5.x: ["return", "t1", "caught", "t2"]
 ```
 
-Now the throw waits for that await, as it does in other engines. A value or a promise costs one microtask, and a
+Now the throw waits for that await, as it does in other engines. A value or a native promise costs one microtask, and a
 thenable costs two and has its `then` called. Whatever the promise settles with, the loop's own throw is still the one
 handed on. A rejected promise is now handled, so `engine.Tasks.PromiseRejectionTracker` no longer reports it and no
 `unhandledrejection` event fires for it. The throw still moves on at once when nothing is awaited: when there is no
