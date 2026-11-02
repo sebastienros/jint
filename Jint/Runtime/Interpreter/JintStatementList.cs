@@ -305,14 +305,22 @@ internal sealed class JintStatementList
     /// alone, since the annotation is idempotent and the frames above it would only redo the same test.
     /// </para>
     /// </remarks>
-    internal static bool ShouldCatch(Exception exception) => exception switch
+    internal static bool ShouldCatch(Exception exception)
+        => exception is GeneratorReturnException
+           || BecomesThrowCompletion(exception)
+           || (exception is not JintException && !ExceptionDataHelper.HasJavaScriptLocation(exception));
+
+    /// <summary>
+    /// Whether <see cref="HandleException"/> turns <paramref name="exception"/> into a Throw completion — the
+    /// exceptions a script's <c>catch</c> can see. Asked from exception filters, so it neither allocates nor throws.
+    /// </summary>
+    internal static bool BecomesThrowCompletion(Exception exception) => exception switch
     {
         // Keep in lock-step with HandleException's switch below.
-        JavaScriptException or TypeErrorException or RangeErrorException or SyntaxErrorException or GeneratorReturnException => true,
+        JavaScriptException or TypeErrorException or RangeErrorException or SyntaxErrorException => true,
         // A syntax tree too deep for the stack, built while script runs: see SyntaxNesting.
-        ScriptPreparationException tooDeep when SyntaxNesting.IsTooDeep(tooDeep) => true,
-        JintException => false,
-        _ => !ExceptionDataHelper.HasJavaScriptLocation(exception),
+        ScriptPreparationException tooDeep => SyntaxNesting.IsTooDeep(tooDeep),
+        _ => false,
     };
 
     internal static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)

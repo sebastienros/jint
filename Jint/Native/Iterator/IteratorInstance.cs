@@ -147,8 +147,8 @@ internal abstract class IteratorInstance : ObjectInstance
     /// </para>
     /// <para>
     /// An abrupt completion of either step propagates. Step 5 — the one that would swallow it —
-    /// applies only when the caller's own completion is a throw completion, and such a completion
-    /// never reaches this method.
+    /// applies only when the caller's own completion is a throw completion, and a caller holding one
+    /// catches it there and skips the Await (<c>JintForInForOfStatement.TryStartAsyncCloseDiscardingAbrupt</c>).
     /// </para>
     /// </summary>
     internal virtual bool TryStartAsyncClose(out JsValue innerResult)

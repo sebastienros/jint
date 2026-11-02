@@ -468,6 +468,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
         var completionType = CompletionType.Normal;
         var close = false;
+        Exception? thrownOutOfAsyncLoop;
 
         try
         {
@@ -990,10 +991,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     completionType = result.Type;
                     if (result.IsAbrupt())
                     {
-                        // Same step, for a return or a jump naming an enclosing label. A throw
-                        // completion stays on the synchronous close below: step 5 returns it
-                        // whatever the close does.
-                        if (iteratorKind == IteratorKind.Async && result.Type != CompletionType.Throw)
+                        // Same step, for a throw, a return or a jump naming an enclosing label. A
+                        // throw completion awaits the close too, even though step 5 then returns it
+                        // whatever the close did (sebastienros/jint#4354).
+                        if (iteratorKind == IteratorKind.Async)
                         {
                             close = false;
                             return CloseAsyncIterator(context, iteratorRecord, result);
@@ -1005,6 +1006,14 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     }
                 }
             }
+        }
+        catch (Exception exception) when (iterationKind == IterationKind.AsyncIterate && close && LeavingAsyncLoopOnThrow(suspendable, exception))
+        {
+            // A throw a for-await-of loop's AsyncIteratorClose has to await, which only a frame that has left the
+            // unwind can do. Taken below, once the finally has restored the environment the close suspends in.
+            // (iterationKind rather than the equivalent iteratorKind: the finally already reads it.)
+            close = false;
+            thrownOutOfAsyncLoop = exception;
         }
         catch (Exception exception) when (LeavingOnException(suspendable, exception, out completionType))
         {
@@ -1059,6 +1068,33 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
             engine.UpdateLexicalEnvironment(oldEnv);
         }
+
+        // Reached only from the first catch above: every other way out of the loop returns or rethrows.
+        return CloseAsyncIteratorOnException(context, iteratorRecord, thrownOutOfAsyncLoop);
+    }
+
+    /// <summary>
+    /// Filter for the catch in <see cref="BodyEvaluation"/> that hands a for-await-of loop's throw to
+    /// <see cref="CloseAsyncIteratorOnException"/>: an exception a script can catch — the ones a statement list would
+    /// turn into a throw completion — leaving a loop whose iterator is due a close. Everything else declines into
+    /// <see cref="LeavingOnException"/> as before, and so does a throw out of a frame that has already suspended, which
+    /// must not suspend a second time (the sentinel-leak gotcha in the interpreter's AGENTS.md).
+    /// </summary>
+    private static bool LeavingAsyncLoopOnThrow(ISuspendable? suspendable, Exception exception)
+        => suspendable is { IsSuspended: false } && JintStatementList.BecomesThrowCompletion(exception);
+
+    /// <summary>
+    /// The abrupt status of a for-await-of loop whose throw arrived as an exception — from a body that is not a block,
+    /// a destructuring binding, an assignment target — handed to
+    /// <see href="https://tc39.es/ecma262/#sec-asynciteratorclose">AsyncIteratorClose</see> exactly as a throw completion
+    /// returned by the body is. The exception becomes that completion the way a statement list makes it one, debugger
+    /// report included.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private Completion CloseAsyncIteratorOnException(EvaluationContext context, IteratorInstance iteratorRecord, Exception exception)
+    {
+        var completion = JintStatementList.HandleException(context, exception, this);
+        return CloseAsyncIterator(context, iteratorRecord, completion);
     }
 
     /// <summary>
@@ -1101,6 +1137,14 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// throw is a <see cref="GeneratorReturnException"/>: the return completion a <c>yield</c> in the loop's binding
     /// pattern or brace-less body was resumed with. It closes the iterator with <see cref="CompletionType.Return"/>,
     /// so a failing <c>return()</c> does replace it, as it replaces a <c>return</c> statement's.
+    /// </para>
+    /// <para>
+    /// One catch ahead of this filter does accept: a <c>for await</c> loop's throw that a script could catch, because
+    /// <see href="https://tc39.es/ecma262/#sec-asynciteratorclose">AsyncIteratorClose</see> awaits and only a frame that
+    /// has left the unwind can suspend (<see cref="LeavingAsyncLoopOnThrow"/>, sebastienros/jint#4354). That is not the
+    /// shape above: its handler only parks the exception and returns, the close runs after the <c>finally</c>, and
+    /// nothing a statement list would decline is accepted, so a constraint exception still unwinds through every loop
+    /// untouched.
     /// </para>
     /// </remarks>
     private bool LeavingOnException(ISuspendable? suspendable, Exception exception, out CompletionType completionType)
@@ -1311,10 +1355,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asynciteratorclose
-    /// AsyncIteratorClose for a for-await-of leaving its loop with a completion that is <em>not</em>
-    /// a throw completion — a break, a return, or a jump naming an enclosing label. Steps 3 and
-    /// 4.a-4.c run here; step 4.d's Await suspends the async function or async generator, and
-    /// <see cref="ResumeFromAsyncClose"/> performs steps 5-8 once it settles.
+    /// AsyncIteratorClose for a for-await-of leaving its loop with an abrupt completion — a break, a
+    /// return, a jump naming an enclosing label, or a throw. Steps 3 and 4.a-4.c run here; step 4.d's
+    /// Await suspends the async function or async generator, and <see cref="ResumeFromAsyncClose"/>
+    /// performs steps 5-8 once it settles.
     /// <para>
     /// The suspension is the whole point. Jint used to perform the synchronous IteratorClose here,
     /// which calls <c>return()</c>, sees the promise it answers with, finds it <em>is</em> an object
@@ -1323,12 +1367,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// become the loop's completion (#3098).
     /// </para>
     /// <para>
-    /// A throw completion deliberately does not come here, and keeps taking the synchronous close in
-    /// <see cref="BodyEvaluation"/>'s <c>finally</c>. Step 5 returns that completion whatever the
-    /// close does, so the outcome is already the spec's; and the throw reaches that <c>finally</c> as
-    /// a CLR unwind, which could only be suspended by catching it — the very thing
-    /// <see cref="LeavingOnException"/> exists to avoid. What is given up is confined to the
-    /// microtask the discarded Await would have taken.
+    /// A throw completion suspends too. Step 5 returns it whatever the close did, but only after step
+    /// 4.d has awaited what <c>return()</c> answered, so the throw reaches the next <c>catch</c> a
+    /// microtask (a thenable: its two jobs) after the close — where the synchronous close it used to
+    /// take had it arrive at once and never called a thenable's <c>then</c> at all (#4354).
     /// </para>
     /// </summary>
     private Completion CloseAsyncIterator(EvaluationContext context, IteratorInstance iteratorRecord, Completion completion)
@@ -1339,19 +1381,18 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         // The loop is over either way: whatever happens from here, it never resumes iterating.
         suspendable?.Data.Clear(this);
 
-        // Step 5 folded forward for a throw completion, so that every caller may hand one over. The
-        // close still happens, but its abrupt completion, its awaited value and therefore the Await
-        // itself are all discarded — which is precisely the synchronous IteratorClose.
+        // Steps 3 and 4.a-4.c. An abrupt completion of either is innerResult: for a throw completion
+        // step 5 discards it, and there is no Await to perform; otherwise it propagates as the loop's
+        // own, which is step 6.
+        JsValue innerResult;
         if (completion.Type == CompletionType.Throw)
         {
-            TryCloseIterator(iteratorRecord, CompletionType.Throw);
-            return completion;
+            if (!TryStartAsyncCloseDiscardingAbrupt(iteratorRecord, out innerResult))
+            {
+                return completion;
+            }
         }
-
-        // Steps 3 and 4.a-4.c. An abrupt completion of either propagates as the loop's own, which
-        // is step 6 — step 5, the one that would swallow it, needs a throw completion and this
-        // method never sees one.
-        if (!iteratorRecord.TryStartAsyncClose(out var innerResult))
+        else if (!iteratorRecord.TryStartAsyncClose(out innerResult))
         {
             // Step 4.b: If return is undefined, return ? completion.
             return completion;
@@ -1375,6 +1416,25 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         catch (PromiseRejectedException e)
         {
             return FinishAsyncIteratorClose(context, completion, e.RejectedValue, rejected: true);
+        }
+    }
+
+    /// <summary>
+    /// AsyncIteratorClose steps 3 and 4.a-4.c for a throw completion: <see langword="false"/> when there is nothing to
+    /// await, because <c>return</c> is undefined (step 4.b) or reading or calling it was abrupt — a throw completion
+    /// that step 5 then discards in favour of the loop's own. Everything is swallowed, as
+    /// <see cref="IteratorInstance.Close"/> swallows it for a throw completion.
+    /// </summary>
+    private static bool TryStartAsyncCloseDiscardingAbrupt(IteratorInstance iteratorRecord, out JsValue innerResult)
+    {
+        try
+        {
+            return iteratorRecord.TryStartAsyncClose(out innerResult);
+        }
+        catch
+        {
+            innerResult = JsValue.Undefined;
+            return false;
         }
     }
 
@@ -1481,12 +1541,12 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     {
         var engine = context.Engine;
 
-        // Step 5: If completion is a throw completion, return ? completion. Kept whole even though
-        // CloseAsyncIterator now answers a throw completion before it can reach here, so this
-        // method reads as the algorithm's tail rather than as the half of it that happens to remain.
+        // Step 5: If completion is a throw completion, return ? completion. Handed back as the completion
+        // it is rather than raised again: it has been reported to the debugger once already, and a fresh
+        // exception would report it a second time and lose the location it was thrown at.
         if (completion.Type == CompletionType.Throw)
         {
-            Throw.JavaScriptException(engine, completion.Value, _statement!.Location);
+            return completion;
         }
 
         // Step 6: If innerResult is a throw completion, return ? innerResult.
@@ -1711,6 +1771,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         if (result.Type == CompletionType.Throw)
         {
             suspendable.Data.Clear(this);
+            if (iteratorKind == IteratorKind.Async)
+            {
+                return CloseAsyncIterator(context, iteratorRecord, result);
+            }
+
             TryCloseIterator(iteratorRecord, CompletionType.Throw);
             Throw.JavaScriptException(engine, result.Value, _statement!.Location);
             return default;

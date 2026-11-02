@@ -6892,6 +6892,33 @@ Now the specifier is evaluated once, the resume goes back into the options with 
 requests the script makes. The same holds for `import.defer(…)` and `import.source(…)`, whose one operand is the
 specifier. There is no switch back.
 
+### 4.181 A `for await` loop left by a throw awaits its iterator's `return()` before the throw moves on ([#4354](https://github.com/sebastienros/jint/issues/4354))
+
+A `for await` loop that ends early calls its iterator's `return()` and awaits what it answers. Then it hands on
+whatever ended the loop. In 4.16, a loop ended by a throw skipped that await, so the throw reached the next `catch` a
+microtask early. A `return()` that answered with a thenable never had its `then` called, and one that answered with a
+rejected promise left that rejection unhandled:
+
+```js
+var log = [];
+var src = { [Symbol.asyncIterator]() { return {
+  next() { return { value: 1, done: false }; },
+  return() { log.push("return"); return {}; } }; } };
+(async () => { try { for await (var x of src) throw "E"; } catch (e) { log.push("caught"); } })();
+Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
+// 4.16.x / earlier 5.0: ["return", "caught", "t1", "t2"]    5.x: ["return", "t1", "caught", "t2"]
+```
+
+Now the throw waits for that await, as it does in other engines. A value or a promise costs one microtask, and a
+thenable costs two and has its `then` called. Whatever the promise settles with, the loop's own throw is still the one
+handed on. A rejected promise is now handled, so `engine.Tasks.PromiseRejectionTracker` no longer reports it and no
+`unhandledrejection` event fires for it. The throw still moves on at once when nothing is awaited: when there is no
+`return()`, when reading or calling it throws, or when its promise's `constructor` getter throws.
+
+This covers every way a throw leaves the loop: a `throw` in the body, a call that throws, a destructuring or an
+assignment target in the loop head that throws, and a `using` or `await using` disposal that throws. It applies in
+async functions, async generators and at the top level of a module. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
