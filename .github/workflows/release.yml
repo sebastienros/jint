@@ -23,11 +23,22 @@ jobs:
   browser-tool:
     uses: ./.github/workflows/browser-tool.yml
 
+  # Pull requests and main skip every Native AOT leg; publishing is where an embedder depends on them.
+  aot:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/aot.yml
+
+  html-parser-package-consumer:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/html-parser-package-consumer.yml
+    with:
+      native-aot: true
+
   build:
 
     # Publishing release notes must not push the same NuGet version again.
     if: github.event_name == 'push'
-    needs: [browser-tool, parser-lookups]
+    needs: [browser-tool, parser-lookups, aot, html-parser-package-consumer]
     runs-on: ubuntu-latest
 
     # Must match the Environment field of the nuget.org trusted publishing policy.

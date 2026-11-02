@@ -1,11 +1,19 @@
 # Input and forms
 
+`Page.ClickAsync` performs trusted, hit-tested input at the requested element's synthetic-box centre.
+It returns `false` without dispatching input if an unrelated element covers that point; descendants of
+the requested element remain valid hits. This does not add real rendering geometry or a logical-click fallback.
+If focus or pointer listeners move the element during input, the real pointer sequence still completes,
+but the result is `false` when the eventual click is outside the requested element. No second activation
+is synthesized. A matching click remains successful if its own handler subsequently removes the element.
+
 Host input uses the same trusted input dispatcher as the DevTools Protocol path:
 
 ```csharp
 await page.FillAsync("#email", "ada@example.org");
 await page.TypeAsync("#search", "jint");
 await page.PressAsync("Enter");
+await page.PressAsync("k", KeyModifiers.Control); // Meta for Command on macOS
 await page.ClickAsync("#save");
 await page.SelectAsync("#country", "FR");
 await page.SetInputFilesAsync("#avatar", ["/tmp/portrait.png"]);
@@ -23,9 +31,10 @@ await page.ClickAsync("ref=42");
 
 References belong to one document and stop resolving after navigation.
 
-- `FillAsync` focuses, selects all, and inserts one replacement.
-- `TypeAsync` preserves the current value and dispatches keys one character at a time.
-- `PressAsync` targets the focused element, or the body when nothing is focused.
+- `FillAsync` focuses, selects all, and inserts one replacement in text controls. Date, month, week, time and local date-time inputs commit a native sanitized value and fire trusted `input` then `change` events when it changes. Invalid picker values throw `ArgumentException`; disabled, readonly and unsupported controls return `false`.
+- `TypeAsync` preserves the current value and dispatches keys one Unicode scalar at a time, including supplementary characters represented by UTF-16 surrogate pairs. Each scalar follows the trusted keyboard and cancelable input sequence for text controls and contenteditable hosts.
+- `PressAsync` targets the focused element, or the body when nothing is focused. Its modifier overload accepts the `KeyModifiers` flags `Alt`, `Control`, `Meta` and `Shift` on both keydown and keyup.
+- Focused buttons and button-state inputs activate with a trusted click on Enter's keydown or Space's keyup, without pointer events or hit testing. Canceling the key default or click prevents activation; moving focus abandons a pending Space press. Submit buttons retain their name/value and run validation and submit listeners.
 - `ClickAsync` scrolls the target into view and runs link, button, checkbox, radio, label, summary, and option activation.
 - `SelectAsync` matches an option by value, then by visible text, and fires `input` followed by `change`.
 - `SetInputFilesAsync` selects files into an `<input type=file>`, which is what a file picker would do and what clicking one cannot: the files are read into memory, `input.files` becomes a `FileList`, `input.value` becomes a fake Windows path plus the first name, and `input` then `change` fire. An overload takes `PageFile` values for content that has no path. An input without `multiple` keeps only the first file, and passing no files clears the selection.
@@ -35,6 +44,12 @@ References belong to one document and stop resolving after navigation.
 
 Methods that name an element return `false` when no suitable target exists.
 
+Color inputs keep their current value, dirty flag and reset behavior in native control state.
+The opaque limited-sRGB path accepts CSS names, hex, RGB, HSL and HWB and serializes lowercase
+six-digit hex; invalid colors become black. Script assignments do not fire input events. Alpha-enabled
+controls, display-P3, system colors and advanced or dependent CSS color functions remain explicitly
+unsupported and throw rather than silently substituting black.
+
 `SubmitFormAsync("#form")` runs validation, `submit`, entry-list construction, `formdata`, and GET or POST submission. It returns `null` when nothing matched, validation failed, or submission was cancelled.
 
 Page scripts can use `new FormData(form, submitter)` to read the same entry list without submitting or
@@ -42,5 +57,8 @@ validating the form. The optional submitter must be a submit button owned by tha
 `formdata` event lets listeners amend the entries; constructing another `FormData` for that same form
 inside the listener throws `InvalidStateError`. Standalone engines and workers keep the no-DOM
 `FormData()` constructor.
+
+An activated submit input with no `value` attribute submits the UA's default label, `Submit`.
+An explicitly empty `value=""` remains empty; the input's `.value` getter still reflects its attribute.
 
 Input uses a deterministic synthetic box model, not visual layout. See [Limitations](./limitations).

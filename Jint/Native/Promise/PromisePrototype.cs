@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -13,6 +14,16 @@ internal sealed partial class PromisePrototype : Prototype
 
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString PromiseToStringTag = new("Promise");
 
+    // Stands in for an own `constructor` that is not a data property; its value is never a constructor.
+    private static readonly PropertyDescriptor NotADataProperty = new(Undefined, PropertyFlag.None);
+
+    // The own `constructor` data descriptor as it stood at _constructorDescriptorVersion (NotADataProperty if it was not
+    // one), or null while it has not been read. Replacing, deleting or redefining the property as an accessor goes
+    // through SetOwnProperty, SetProperty or RemoveOwnProperty and moves _propertiesVersion; an assignment, or a
+    // redefinition that keeps it a data property, changes this descriptor's value in place, which is re-read every time.
+    private PropertyDescriptor? _constructorDescriptor;
+    private uint _constructorDescriptorVersion;
+
     internal PromisePrototype(
         Engine engine,
         Realm realm,
@@ -27,6 +38,45 @@ internal sealed partial class PromisePrototype : Prototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
+    }
+
+    /// <summary>
+    /// Whether this prototype's own <c>constructor</c> is a data property holding its realm's <c>%Promise%</c>, so that
+    /// reading <c>constructor</c> off a promise that inherits it answers <c>%Promise%</c> and runs no code.
+    /// </summary>
+    /// <remarks>
+    /// <see href="https://tc39.es/ecma262/#sec-promise-resolve">PromiseResolve</see> performs that read for every
+    /// promise it is handed, which is every <c>await</c> of one; this is what lets it skip the read when the answer
+    /// is known. The descriptor is looked up again only after this prototype's own property set has changed.
+    /// </remarks>
+    internal bool HasIntrinsicConstructor
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get
+        {
+            var descriptor = _constructorDescriptor;
+            if (descriptor is null || _propertiesVersion != _constructorDescriptorVersion)
+            {
+                descriptor = ReadConstructorDescriptor();
+            }
+
+            return ReferenceEquals(descriptor.Value, _constructor);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private PropertyDescriptor ReadConstructorDescriptor()
+    {
+        // GetOwnProperty first: it initializes the prototype on first use, and the version is the one after that.
+        var descriptor = GetOwnProperty(CommonProperties.Constructor);
+        if (!descriptor.IsDataDescriptor())
+        {
+            descriptor = NotADataProperty;
+        }
+
+        _constructorDescriptorVersion = _propertiesVersion;
+        _constructorDescriptor = descriptor;
+        return descriptor;
     }
 
     // https://tc39.es/ecma262/#sec-promise.prototype.then

@@ -8,6 +8,249 @@ namespace Jint.Tests.Browser.Workers;
 /// </summary>
 public sealed class WorkerTests
 {
+    [TestCase("classic", false, false)]
+    [TestCase("classic", true, false)]
+    [TestCase("classic", false, true)]
+    [TestCase("classic", true, true)]
+    [TestCase("module", false, false)]
+    [TestCase("module", true, false)]
+    [TestCase("module", false, true)]
+    [TestCase("module", true, true)]
+    public async Task EndingAWorkerDuringExecutionDoesNotReportAScriptFailure(string type, bool navigate, bool task)
+    {
+        var script = task
+            ? "onmessage=()=>{postMessage('running');while(true){}};"
+            : "postMessage('running');while(true){}";
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/worker.js", _ => LoopbackResponse.Script(script))
+            .MapHtml("/", "<!doctype html><title>worker cancellation</title>")
+            .MapHtml("/next", "<!doctype html><title>next document</title>"),
+            configureBrowser: options => options.MaxTaskDuration = Timeout.InfiniteTimeSpan);
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        await fixture.Page.EvaluateAsync("window.running=false;var worker=new Worker('/worker.js',{type:'"
+            + type + "'});worker.onmessage=()=>running=true;worker.postMessage('go');");
+        await WaitFor(fixture, "running");
+        var disposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await fixture.Page.RunOnLoopAsync(engine =>
+        {
+            var worker = (Jint.WebApi.Workers.JsWorker) engine.GetValue("worker");
+            worker.Link!.Worker.Disposed += (_, _) => disposed.TrySetResult();
+            return true;
+        });
+        if (navigate) await fixture.Page.NavigateAsync(fixture.Url("/next"));
+        else await fixture.Page.EvaluateAsync("worker.terminate()");
+        await disposed.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("classic")]
+    [TestCase("module")]
+    public async Task BundledWorkerBootstrapUsesTheFinalLocationAndBrowserLocale(string type)
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/worker.js", _ => LoopbackResponse.Redirect(302, "/assets/worker.js?bundle=1"))
+            .Map("/assets/worker.js", _ => LoopbackResponse.Script("""
+                self._VSCODE_FILE_ROOT = self.location.href;
+                const language = navigator.language.toLowerCase();
+                postMessage({
+                    root:self._VSCODE_FILE_ROOT, language, href:location.href,
+                    origin:location.origin, protocol:location.protocol, host:location.host,
+                    hostname:location.hostname, port:location.port, pathname:location.pathname,
+                    search:location.search, hash:location.hash, text:String(location),
+                    brand:Object.prototype.toString.call(location),
+                    instance:location instanceof WorkerLocation,
+                    readonly:!Reflect.set(location,'href','https://invalid.example/'),
+                    illegal:(() => {
+                        try { Object.getOwnPropertyDescriptor(WorkerLocation.prototype,'href').get.call({}); }
+                        catch(e) { return e.name; }
+                    })()
+                });
+                """))
+            .MapHtml("/", "<!doctype html><title>worker bootstrap</title>"));
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        await fixture.Page.EvaluateAsync("window.bootstrap=null;var worker=new Worker('/worker.js',{type:'"
+            + type + "'});worker.onmessage=e=>bootstrap=e.data");
+        await WaitFor(fixture, "bootstrap !== null");
+        (await fixture.Page.EvaluateAsync<string>("bootstrap.root")).Should().Be(fixture.Url("/assets/worker.js?bundle=1"));
+        (await fixture.Page.EvaluateAsync<bool>("""
+            bootstrap.language === navigator.language.toLowerCase() &&
+            bootstrap.href === bootstrap.root && bootstrap.text === bootstrap.root &&
+            bootstrap.origin === location.origin && bootstrap.protocol === location.protocol &&
+            bootstrap.host === location.host && bootstrap.hostname === location.hostname &&
+            bootstrap.port === location.port && bootstrap.pathname === '/assets/worker.js' &&
+            bootstrap.search === '?bundle=1' && bootstrap.hash === '' &&
+            bootstrap.brand === '[object WorkerLocation]' && bootstrap.instance &&
+            bootstrap.readonly && bootstrap.illegal === 'TypeError'
+            """)).Should().BeTrue();
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("classic", "", null, "en-US")]
+    [TestCase("module", "fr-CA", null, "fr-CA")]
+    [TestCase("classic", "fr-CA", "de-DE,de;q=0.8,en;q=0.5", "de-DE")]
+    [TestCase("module", "fr-CA", "de-DE,de;q=0.8,en;q=0.5", "de-DE")]
+    public async Task WorkersInheritBrowserLanguages(string type, string culture, string? acceptLanguage, string expected)
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/worker.js", _ => LoopbackResponse.Script("""
+                const language = navigator.language.toLowerCase();
+                postMessage({
+                    language:navigator.language, lower:language, languages:Array.from(navigator.languages),
+                    frozen:Object.isFrozen(navigator.languages),
+                    prototype:!Object.hasOwn(navigator,'language') && !Object.hasOwn(navigator,'languages'),
+                    brand:(() => {
+                        try { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(navigator),'language').get.call({}); }
+                        catch (e) { return e.name; }
+                    })()
+                });
+                """))
+            .MapHtml("/", "<!doctype html><title>worker locale</title>"),
+            configureBrowser: options => options.ConfigureEngine(o => o.Culture = System.Globalization.CultureInfo.GetCultureInfo(culture)));
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        await fixture.Page.RunOnLoopAsync(engine =>
+        {
+            global::Jint.Browser.Runtime.PageRuntime.Find(engine)!.Emulation.AcceptLanguage = acceptLanguage;
+            return true;
+        });
+        await fixture.Page.EvaluateAsync("window.locale=null;var worker=new Worker('/worker.js',{type:'"
+            + type + "'});worker.onmessage=e=>locale=e.data");
+        await WaitFor(fixture, "locale !== null");
+        (await fixture.Page.EvaluateAsync<string>("locale.language")).Should().Be(expected);
+        (await fixture.Page.EvaluateAsync<bool>("""
+            locale.lower === navigator.language.toLowerCase() &&
+            locale.languages.join('|') === navigator.languages.join('|') &&
+            locale.frozen && locale.prototype && locale.brand === 'TypeError'
+            """)).Should().BeTrue();
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("")]
+    [TestCase(", { type: 'classic', name: 'bundle' }")]
+    public async Task ClassicBundlesUseGlobalScriptSemanticsAndBufferEarlyMessages(string options)
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/bundle.js", _ => LoopbackResponse.Bytes("""
+                var bundleGlobal = 41;
+                let lexical = 1;
+                function topThis() { return this === self; }
+                onmessage = event => postMessage([
+                    event.data, self.bundleGlobal, typeof self.lexical,
+                    lexical, topThis(), this === self, name
+                ].join('|'));
+                """, "text/javascript"))
+            .MapHtml("/index.html", "<script>window.replies=[]; window.worker=new Worker('/bundle.js'"
+                + options + "); worker.onmessage=e=>replies.push(e.data); worker.postMessage('ready');</script>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+        await WaitFor(fixture, "replies.length === 1");
+
+        (await fixture.Page.EvaluateAsync<string>("replies[0]"))
+            .Should().Be("ready|41|undefined|1|true|true|" + (options.Length == 0 ? "" : "bundle"));
+        fixture.Page.Errors.Should().BeEmpty();
+        await fixture.Page.EvaluateAsync("worker.terminate()");
+        await WaitForWorkers(fixture, 0);
+    }
+
+    [Test]
+    public async Task ClassicImportsAndFetchUseTheRedirectedWorkerUrl()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/bundle.js", _ => LoopbackResponse.Redirect(302, "/assets/bundle.js"))
+            .Map("/assets/bundle.js", _ => LoopbackResponse.Bytes("""
+                importScripts('helper.js');
+                onmessage = () => fetch('answer').then(r=>r.text()).then(t=>postMessage(prefix+t));
+                """, "text/javascript"))
+            .Map("/assets/helper.js", _ => LoopbackResponse.Bytes("var prefix='bundle:';", "text/javascript"))
+            .Map("/assets/answer", _ => LoopbackResponse.Text("ok"))
+            .MapHtml("/index.html", """
+                <script>
+                window.reply=null;
+                var worker=new Worker('/bundle.js');
+                worker.onmessage=e=>reply=e.data;
+                worker.postMessage('go');
+                </script>
+                """));
+        await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+        await WaitFor(fixture, "reply !== null");
+        (await fixture.Page.EvaluateAsync<string>("reply")).Should().Be("bundle:ok");
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("/missing.js")]
+    [TestCase("/syntax.js")]
+    [TestCase("/module.js")]
+    [TestCase("/html.js")]
+    public async Task ClassicStartupFailuresFireAnErrorAndReleaseTheWorker(string source)
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/syntax.js", _ => LoopbackResponse.Bytes("function {", "text/javascript"))
+            .Map("/module.js", _ => LoopbackResponse.Bytes("export const value=1;", "text/javascript"))
+            .MapHtml("/html.js", "<html>not JavaScript</html>")
+            .MapHtml("/index.html", "<script>window.failed=false; var worker=new Worker('"
+                + source + "'); worker.onerror=event=>{failed=event.constructor.name;event.preventDefault();};</script>"));
+        await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+        await WaitFor(fixture, "failed !== false");
+        (await fixture.Page.EvaluateAsync<string>("failed")).Should().Be("Event");
+        await WaitForWorkers(fixture, 0);
+        fixture.Page.Workers.Should().Be(0);
+    }
+
+    [Test]
+    public async Task ClassicEntryScriptsCannotRedirectToAnotherOrigin()
+    {
+        using var other = new LoopbackServer();
+        other.Map("/worker.js", _ => LoopbackResponse.Bytes("postMessage('wrong-origin');", "text/javascript"));
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/worker.js", _ => LoopbackResponse.Redirect(302, other.Url("/worker.js")))
+            .MapHtml("/index.html", """
+                <script>window.failed=false;
+                var worker=new Worker('/worker.js');
+                worker.onerror=event=>{failed=true;event.preventDefault();};
+                </script>
+                """),
+            configureContext: context => context.UrlFilter = uri => uri.IsLoopback);
+        await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+        await WaitFor(fixture, "failed");
+        other.Received.Should().BeEmpty();
+        await WaitForWorkers(fixture, 0);
+    }
+
+    [Test]
+    public async Task ClassicEntryScriptsRequireTheConstructorDocumentsOrigin()
+    {
+        using var other = new LoopbackServer();
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/index.html", "<title>origin</title>"),
+            configureContext: context => context.UrlFilter = uri => uri.IsLoopback);
+        await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+        (await fixture.Page.EvaluateAsync<string>("try { new Worker('" + other.Url("/worker.js")
+            + "'); 'unexpected'; } catch (error) { error.name; }")).Should().Be("SecurityError");
+        other.Received.Should().BeEmpty();
+        fixture.Page.Workers.Should().Be(0);
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task ClassicRuntimeErrorsDoNotDisableTheMessageQueue(bool handleInWorker)
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/worker.js", _ => LoopbackResponse.Bytes((handleInWorker ? "onerror=()=>true;" : "") + """
+                onmessage=e=>postMessage(e.data);
+                throw new Error('The script execution was canceled.');
+                """, "text/javascript"))
+            .MapHtml("/index.html", """
+                <script>window.reply=null; window.workerErrors=[];
+                var worker=new Worker('/worker.js');
+                worker.onerror=e=>{workerErrors.push(e.constructor.name);e.preventDefault();};
+                worker.onmessage=e=>reply=e.data; worker.postMessage('alive');</script>
+                """));
+        await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+        await WaitFor(fixture, "reply !== null");
+        (await fixture.Page.EvaluateAsync<string>("reply")).Should().Be("alive");
+        if (!handleInWorker) await WaitFor(fixture, "workerErrors.length === 1");
+        (await fixture.Page.EvaluateAsync<string>("workerErrors.join('|')"))
+            .Should().Be(handleInWorker ? "" : "ErrorEvent");
+    }
+
     private const string EchoWorker =
         """
         self.addEventListener('message', function (e) {

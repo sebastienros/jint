@@ -309,6 +309,8 @@ internal sealed class JintStatementList
     {
         // Keep in lock-step with HandleException's switch below.
         JavaScriptException or TypeErrorException or RangeErrorException or SyntaxErrorException or GeneratorReturnException => true,
+        // A syntax tree too deep for the stack, built while script runs: see SyntaxNesting.
+        ScriptPreparationException tooDeep when SyntaxNesting.IsTooDeep(tooDeep) => true,
         JintException => false,
         _ => !ExceptionDataHelper.HasJavaScriptLocation(exception),
     };
@@ -317,11 +319,10 @@ internal sealed class JintStatementList
     {
         // A return() resumption that a yield inside this statement received: the statement ends with that return
         // completion, exactly as it would had the yield been the whole statement (the ReturnRequested test in
-        // Execute). It is not an exception as far as the script or the debugger is concerned. The completion is the
-        // yield's, so it says so: see GeneratorReturnException.CompletionSource.
+        // Execute). It is not an exception as far as the script or the debugger is concerned.
         if (exception is GeneratorReturnException generatorReturn)
         {
-            return new Completion(CompletionType.Return, generatorReturn.Value, generatorReturn.CompletionSource);
+            return new Completion(CompletionType.Return, generatorReturn.Value, s!._statement);
         }
 
         var completion = exception switch
@@ -330,6 +331,7 @@ internal sealed class JintStatementList
             TypeErrorException typeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, typeErrorException.Node ?? s!._statement),
             RangeErrorException rangeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!._statement),
             SyntaxErrorException syntaxErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.SyntaxError, syntaxErrorException, s!._statement),
+            ScriptPreparationException tooDeep when SyntaxNesting.IsTooDeep(tooDeep) => new Completion(CompletionType.Throw, SyntaxNesting.CreateRangeError(context.Engine.Realm), s!._statement),
             // Unreachable through the callers, whose filters decline anything this switch cannot map;
             // kept so the switch stays total and so a future caller without a filter still behaves.
             _ => throw exception

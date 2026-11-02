@@ -20,12 +20,13 @@ internal enum AsyncGeneratorState
 
     /// <summary>
     /// The async generator is currently executing statements.
-    /// Transitions to SuspendedYield (on yield), AwaitingReturn (on return), or Completed.
+    /// Transitions to SuspendedYield (on yield) or Completed.
     /// </summary>
     Executing,
 
     /// <summary>
-    /// The async generator is awaiting a return value before completing.
+    /// The async generator is awaiting the value of a return() request made before it started or after it completed
+    /// (https://tc39.es/ecma262/#sec-asyncgeneratorawaitreturn).
     /// Transitions to Completed when the awaited promise settles.
     /// </summary>
     AwaitingReturn,

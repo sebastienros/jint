@@ -82,14 +82,38 @@ internal static class NavigatorInstaller
     /// language would branch on nothing, so it is reported as <c>en-US</c>.
     /// </remarks>
     internal static string LanguageOf(PageRuntime runtime)
+        => LanguageOf(runtime.Emulation.AcceptLanguage, runtime.Engine.Options.Culture);
+
+    private static string LanguageOf(string? acceptLanguage, CultureInfo culture)
     {
-        if (FirstTag(runtime.Emulation.AcceptLanguage) is { } tag)
+        if (FirstTag(acceptLanguage) is { } tag)
         {
             return tag;
         }
 
-        var culture = runtime.Engine.Options.Culture;
         return culture.Name.Length != 0 ? culture.Name : "en-US";
+    }
+
+    // https://html.spec.whatwg.org/multipage/workers.html#the-workernavigator-interface
+    // Capture only locale values: a shared worker must not retain its constructor's page runtime.
+    internal static void InstallWorker(Engine engine, string? acceptLanguage, CultureInfo culture)
+    {
+        if ((engine.Options.WebApi.Features & WebApiFeatures.Navigator) == 0) return;
+        var navigator = engine._mainRealm.Intrinsics.NavigatorObject;
+        var language = JsString.Create(LanguageOf(acceptLanguage, culture));
+        var languages = engine._mainRealm.Intrinsics.Array.ConstructFast(
+            LanguageTags(acceptLanguage, culture).Select(tag => (JsValue) JsString.Create(tag)).ToArray());
+        languages.SetIntegrityLevel(ObjectInstance.IntegrityLevel.Frozen);
+        Add("language", language);
+        Add("languages", languages);
+
+        void Add(string name, JsValue value) => navigator.Prototype!.DefineOwnProperty(name, new GetSetPropertyDescriptor(
+            new ClrFunction(engine, "get " + name, (receiver, _) =>
+            {
+                if (!ReferenceEquals(receiver, navigator))
+                    Jint.Runtime.Throw.TypeError(engine.Realm, "Illegal invocation of WorkerNavigator." + name);
+                return value;
+            }), null, PropertyFlag.Configurable | PropertyFlag.Enumerable));
     }
 
     internal static string PlatformOf(PageRuntime runtime) => runtime.Emulation.Platform ?? "";
@@ -211,28 +235,29 @@ internal static class NavigatorInstaller
     private static JsArray Languages(PageRuntime runtime)
     {
         var engine = runtime.Engine;
-        var header = runtime.Emulation.AcceptLanguage;
+        return engine._mainRealm.Intrinsics.Array.ConstructFast(
+            LanguageTags(runtime.Emulation.AcceptLanguage, engine.Options.Culture)
+                .Select(tag => (JsValue) JsString.Create(tag)).ToArray());
+    }
 
-        if (string.IsNullOrEmpty(header))
-        {
-            return engine._mainRealm.Intrinsics.Array.ConstructFast((JsValue[]) [JsString.Create(LanguageOf(runtime))]);
-        }
-
-        var tags = new List<JsValue>();
-        foreach (var entry in header!.Split(','))
+    private static string[] LanguageTags(string? header, CultureInfo culture)
+    {
+        if (string.IsNullOrEmpty(header)) return [LanguageOf(header, culture)];
+        var tags = new List<string>();
+        foreach (var entry in header.Split(','))
         {
             if (Tag(entry) is { } tag)
             {
-                tags.Add(JsString.Create(tag));
+                tags.Add(tag);
             }
         }
 
         if (tags.Count == 0)
         {
-            tags.Add(JsString.Create(LanguageOf(runtime)));
+            tags.Add(LanguageOf(header, culture));
         }
 
-        return engine._mainRealm.Intrinsics.Array.ConstructFast((JsValue[]) [.. tags]);
+        return [.. tags];
     }
 
     /// <summary>The first language tag of an <c>Accept-Language</c> header, or <see langword="null"/>.</summary>

@@ -33,6 +33,10 @@ tenant or browsing session. Fetch bodies are streams, and network progress reach
 is pumped. `MaxResponseBytes` applies after decompression and may error the body stream after headers have
 already resolved the fetch promise.
 
+Network response bodies permit bounded read-ahead: up to a 64 KiB queue plus at most one transport chunk.
+A small body can therefore finish before script reads it; a larger unread body backpressures the transport.
+Read-ahead neither locks the stream nor marks `bodyUsed`, and the consumer still receives every byte.
+
 ## Other transports
 
 Each transport is a separate grant, though all use the shared fetch policy:

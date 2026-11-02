@@ -18,7 +18,8 @@ codes. **The property is not evidence, and the `NoWarn` is why**: it is a proper
 *compilation* and reaches nothing downstream, since ILC re-derives the whole set over the closed program
 — so **an embedder publishing Native AOT sees every diagnostic it hides**, attributed to Jint's files.
 What makes the claim checkable instead is the CI leg that publishes `Jint.AotExample` with
-`PublishAot=true` and *runs the native binary* (`aot` in `.github/workflows/pr.yml` and `build.yml`).
+`PublishAot=true` and *runs the native binary* (`.github/workflows/aot.yml`, which `release.yml` gates
+publishing on and which can be dispatched by hand for a branch; pull requests and `main` do not run it).
 
 **A source `#pragma warning disable IL....` is Roslyn-only for the same reason, and `Jint` now has
 none** — the sixty-one that sat at the tops of the interop files bought Jint a green build and an

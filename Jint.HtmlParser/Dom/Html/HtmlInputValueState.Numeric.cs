@@ -28,15 +28,16 @@ internal sealed partial class HtmlInputValueState
 
     private static string SanitizeFamily(HtmlInputType type, string value, bool multiple,
         string? minimum, string? maximum, string? step, string? defaultValue,
-        Action<int>? checkpoint, CancellationToken cancellationToken)
+        Action<int>? checkpoint, CancellationToken cancellationToken, bool colorAlpha = false, string? colorSpace = null)
     {
         var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
-        var result = SanitizeFamily(type, value, multiple, minimum, maximum, step, defaultValue, ref work);
+        var result = SanitizeFamily(type, value, multiple, minimum, maximum, step, defaultValue, ref work, colorAlpha, colorSpace);
         work.Finish();
         return result;
     }
     private static string SanitizeFamily(HtmlInputType type, string value, bool multiple,
-        string? minimum, string? maximum, string? step, string? defaultValue, ref HtmlInputValueWork work)
+        string? minimum, string? maximum, string? step, string? defaultValue, ref HtmlInputValueWork work,
+        bool colorAlpha = false, string? colorSpace = null)
     {
         if (IsTextType(type))
         {
@@ -47,6 +48,11 @@ internal sealed partial class HtmlInputValueState
         }
         if (type == HtmlInputType.Number)
             return HtmlInputNumberSyntax.TryGetNumber(value, true, out _, ref work) == HtmlInputNumericParseResult.Success ? value : string.Empty;
+        if (type == HtmlInputType.Color)
+        {
+            HtmlInputColorValue.RequireConfiguration(colorAlpha, colorSpace);
+            return HtmlInputColorValue.Sanitize(value, ref work);
+        }
         if (HtmlInputTemporalSyntax.IsTemporal(type))
             return HtmlInputTemporalSyntax.Sanitize(type, value, ref work);
         if (type == HtmlInputType.Range)

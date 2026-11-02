@@ -46,25 +46,32 @@ internal sealed partial class PageLayout
     /// Suspend retention throughout native writes: conversions, reactions and callbacks can reenter
     /// geometry before the write returns, and a failed operation can already have changed the DOM.
     /// </summary>
-    internal MutationScope BeginMutation()
+    internal MutationScope BeginMutation(bool unknown = false)
     {
+        if (unknown) ResetMeasurements("unknown-scope");
         if (_mutationDepth++ == 0)
         {
-            Invalidate();
+            RetireQueries();
         }
-        return new MutationScope(this);
+        return new MutationScope(this, unknown);
     }
 
     internal void Invalidate()
     {
-        _sizes = null;
-        _layout = null;
+        ResetMeasurements();
+        RetireQueries();
         _cachedDocument = null;
         _cachedFocus = null;
         _cachedPress = null;
         _supportedStyles = null;
         _cachedSheetRevisions = null;
         _cachedSheetWork = null;
+    }
+
+    private void RetireQueries()
+    {
+        _sizes = null;
+        _layout = null;
         if (Version == ulong.MaxValue)
         {
             _reuseDisabled = true;
@@ -91,6 +98,7 @@ internal sealed partial class PageLayout
         {
             _sizes = null;
             _layout = null;
+            if (_mutationDepth == 0) ResetMeasurements("reuse-disabled");
             return false;
         }
 
@@ -101,13 +109,22 @@ internal sealed partial class PageLayout
         var document = _runtime.Document;
         var controlRevision = document is null ? 0 : Dom.BrowserSelectorSemanticRevision.Read(document);
         var url = document is null ? null : Dom.DomDocumentState.Of(document).Url;
-        if (!ReferenceEquals(_cachedDocument, document) || _cachedNativeStamp != document?.MutationStamp || _cachedMedia != _runtime.Media
+        var globalChange = !ReferenceEquals(_cachedDocument, document) || _cachedMedia != _runtime.Media
             || document is not null && (!_cachedResources.CanReuse || _cachedResources != NativeCssStyleSheets.Stamp(document)) || stylesChanged
             || controlRevision == ulong.MaxValue || _cachedControlRevision != controlRevision
             || _cachedUrl != url || !ReferenceEquals(_cachedFocus, events.FocusedElement)
-            || !ReferenceEquals(_cachedPress, events.MousePressTarget))
+            || !ReferenceEquals(_cachedPress, events.MousePressTarget);
+        if (globalChange || _cachedNativeStamp != document?.MutationStamp)
         {
-            Invalidate();
+            if (globalChange || !ReferenceEquals(_observedDocument, document) || _observedStamp != document?.MutationStamp)
+                ResetMeasurements(stylesChanged ? "stylesheet" : _cachedControlRevision != controlRevision ? "control-state"
+                    : !ReferenceEquals(_cachedFocus, events.FocusedElement) ? "focus"
+                    : !ReferenceEquals(_cachedPress, events.MousePressTarget) ? "press"
+                    : "global-witness");
+            RetireQueries();
+            _supportedStyles = null;
+            _cachedSheetRevisions = null;
+            _cachedSheetWork = null;
             _cachedDocument = document;
             _cachedNativeStamp = document?.MutationStamp ?? 0;
             _cachedControlRevision = controlRevision;
@@ -153,15 +170,18 @@ internal sealed partial class PageLayout
         return _cachedSheetRevisions is { } revisions && !revisions.IsCurrent(_cachedSheetWork!);
     }
 
-    internal readonly struct MutationScope(PageLayout layout) : IDisposable
+    internal readonly struct MutationScope(PageLayout layout, bool unknown) : IDisposable
     {
         private readonly PageLayout? _layout = layout;
+        private readonly bool _unknown = unknown;
 
         public void Dispose()
         {
-            if (_layout is { } owner && --owner._mutationDepth == 0)
+            if (_layout is not { } owner) return;
+            if (_unknown) owner.ResetMeasurements();
+            if (--owner._mutationDepth == 0)
             {
-                owner.Invalidate();
+                owner.RetireQueries();
             }
         }
     }

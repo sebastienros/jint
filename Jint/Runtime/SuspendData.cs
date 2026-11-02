@@ -20,17 +20,74 @@ internal abstract class SuspendData
 }
 
 /// <summary>
-/// Stores the state of an array destructuring pattern when a generator yields inside it.
-/// When a generator yields during array destructuring (e.g., [x[yield]] = iterable),
-/// the iterator must be preserved so it can be properly closed when the generator
-/// completes or returns.
+/// Where a destructuring pattern was when its frame suspended inside it, so that the resume continues at the
+/// element or property that suspended instead of starting the pattern over (sebastienros/jint#4313).
 /// </summary>
+/// <remarks>
+/// <para>
+/// Keyed by the pattern's AST node, which is the only identity a nested pattern has: the patterns are walked by
+/// static code with no handler of their own. That is safe because the dictionary belongs to one suspendable, and
+/// one frame cannot be inside the same pattern twice at once. Only the resumable lane of
+/// <see cref="Interpreter.Expressions.DestructuringPatternAssignmentExpression"/> parks one, at the moment the
+/// pattern suspends, and it reads one back only while the frame is resuming. A resume that completes the pattern,
+/// or leaves it with an exception, removes the entry.
+/// </para>
+/// <para>
+/// <see cref="SuspendData.Iterator"/> is an array pattern's iterator record.
+/// </para>
+/// </remarks>
 internal sealed class DestructuringSuspendData : SuspendData
 {
     /// <summary>
-    /// Whether the iterator has been exhausted (done=true).
+    /// The value being destructured. The construct that evaluated it (an assignment, a declaration, a <c>catch</c>
+    /// clause) takes it from here on the resume instead of evaluating its right-hand side again.
+    /// </summary>
+    public JsValue Argument { get; set; } = JsValue.Undefined;
+
+    /// <summary>
+    /// Whether an array pattern's iterator has reported done, or failed, so it is neither stepped nor closed again.
     /// </summary>
     public bool Done { get; set; }
+
+    /// <summary>
+    /// An object pattern's <c>ToObject</c> of <see cref="Argument"/>.
+    /// </summary>
+    public ObjectInstance? Source { get; set; }
+
+    /// <summary>
+    /// The property keys an object pattern has read so far, which its rest element leaves out.
+    /// </summary>
+    public HashSet<JsValue>? ProcessedProperties { get; set; }
+
+    /// <summary>
+    /// The index of the element or property that suspended.
+    /// </summary>
+    public int Index { get; set; }
+
+    /// <summary>
+    /// The property key of an object pattern's suspended property, once it has been evaluated; null when the
+    /// computed key itself suspended.
+    /// </summary>
+    public JsValue? PendingKey { get; set; }
+
+    /// <summary>
+    /// The value already produced for the suspended element: the step of an array pattern's iterator, the read of
+    /// an object pattern's property, or a rest element's array. Null when the suspension came before it.
+    /// </summary>
+    public JsValue? PendingValue { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="PendingValue"/> already went through the element's default, so it is what the nested
+    /// pattern destructures; false while the default itself is what suspended.
+    /// </summary>
+    public bool PendingValueIsFinal { get; set; }
+
+    /// <summary>
+    /// The suspended element's target, when it was resolved before the suspension: a member expression evaluated
+    /// before the step or the read, or an object pattern's binding resolved before the read. The resume writes
+    /// through it, and it goes back to the reference pool only then.
+    /// </summary>
+    public Reference? PendingTarget { get; set; }
 }
 
 /// <summary>
@@ -162,8 +219,18 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// resumes at the declarator that suspended (<see cref="VariableDeclarationSuspendData"/>), so the
     /// declarators before it, already initialized in this environment, are not run again.
     /// </para>
+    /// <para>
+    /// For a <c>using</c> or <c>await using</c> header it is also the environment holding the resources the
+    /// declarations registered, which the loop disposes only once it has ended.
+    /// </para>
     /// </summary>
     public DeclarativeEnvironment? IterationEnv { get; set; }
+
+    /// <summary>
+    /// True while a <c>using</c> or <c>await using</c> header's dispose is suspended on an await. On resume, the loop
+    /// does not run again: it advances the dispose with the settled value (<see cref="BlockSuspendData.DisposeInProgress"/>).
+    /// </summary>
+    public bool DisposeInProgress { get; set; }
 }
 
 internal sealed class SwitchBlockSuspendData : SuspendData
@@ -559,6 +626,60 @@ internal sealed class VariableDeclarationSuspendData : SuspendData
     public int DeclarationIndex { get; set; }
 }
 
+/// <summary>
+/// Stores what a call (<c>f(…)</c>, <c>o.m(…)</c>, <c>super(…)</c>) or a <c>new</c> had resolved when its
+/// argument list suspended, so the resume goes back into the arguments instead of evaluating the callee, and
+/// every call and member read inside it, a second time.
+/// </summary>
+/// <remarks>
+/// The handler parks it keyed by itself and the resume that re-enters the handler takes it back, reading it and
+/// removing it, so an entry lives only from a suspension in the arguments to the next resume through them. A
+/// throw that leaves through the arguments finds nothing left to go stale. Only a handler whose arguments may
+/// suspend, which is decided at build time, ever parks one.
+/// </remarks>
+internal sealed class CallSuspendData : SuspendData
+{
+    /// <summary>
+    /// The function the call invokes; for <c>new</c> and <c>super(…)</c>, the constructor.
+    /// </summary>
+    public JsValue Function { get; set; } = JsValue.Undefined;
+
+    /// <summary>
+    /// The this value the call passes. Unused by <c>new</c> and <c>super(…)</c>.
+    /// </summary>
+    public JsValue ThisValue { get; set; } = JsValue.Undefined;
+
+    /// <summary>
+    /// What the callee evaluated to, for the not-a-function message and a reference resolver's
+    /// <c>TryGetCallable</c>: the value itself, or a <see cref="Reference"/> that stays rented while it is
+    /// parked and goes back to the pool only when the call completes.
+    /// </summary>
+    public object? Callee { get; set; }
+
+    /// <summary>
+    /// Whether the callee is <c>%eval%</c> named by an identifier <c>eval</c>, which makes the call a direct
+    /// eval.
+    /// </summary>
+    public bool DirectEval { get; set; }
+}
+
+/// <summary>
+/// Stores the specifier a dynamic <c>import()</c> had evaluated when its options suspended, so the resume goes back
+/// into the options instead of evaluating the specifier, and every call and getter inside it, a second time.
+/// </summary>
+/// <remarks>
+/// Parked and taken back as <see cref="CallSuspendData"/> is: keyed by the handler, read and removed by the resume
+/// that re-enters it, and parked only by a handler whose operands may suspend, which is decided at build time.
+/// </remarks>
+internal sealed class ImportCallSuspendData : SuspendData
+{
+    /// <summary>
+    /// The specifier's value, not yet converted: EvaluateImportCall calls <c>ToString</c> on it only once the
+    /// options are in hand.
+    /// </summary>
+    public JsValue Specifier { get; set; } = JsValue.Undefined;
+}
+
 internal sealed class SuspendDataDictionary
 {
     /// <summary>
@@ -622,6 +743,13 @@ internal sealed class SuspendDataDictionary
     /// <summary>
     /// Gets or creates suspend data of the specified type (for constructs without iterators).
     /// </summary>
+    /// <remarks>
+    /// One key holds one entry, so creating a second type under a key silently evicts the first. A handler
+    /// that parks state of its own must therefore keep it off a key a helper already uses:
+    /// <c>ExpressionCache</c> parks its argument buffer under the key it is handed, which is the handler itself on
+    /// the hot lanes, and that is why <c>JintCallExpression.EvaluateSuspendable</c> hands it the argument list
+    /// and keeps the handler's own key for <see cref="CallSuspendData"/> (sebastienros/jint#4314).
+    /// </remarks>
     public T GetOrCreate<T>(object key, IteratorInstance? iteratorInstance = null) where T : SuspendData, new()
     {
         _suspendData ??= [];

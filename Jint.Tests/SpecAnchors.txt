@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1288
+anchors: 1298
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -26,6 +26,7 @@ ecma262 exportentry-record
 ecma262 graphloadingstate-record
 ecma262 importentry-record
 ecma262 prod-ModuleExportName
+ecma262 prod-ModuleItem
 ecma262 sec-%arrayiteratorprototype%-object
 ecma262 sec-%asyncfromsynciteratorprototype%-object
 ecma262 sec-%asyncfromsynciteratorprototype%.next
@@ -178,6 +179,7 @@ ecma262 sec-bigint.asintn
 ecma262 sec-bigint.asuintn
 ecma262 sec-bigint.prototype.tostring
 ecma262 sec-bigint.prototype.valueof
+ecma262 sec-block-runtime-semantics-evaluation
 ecma262 sec-blockdeclarationinstantiation
 ecma262 sec-boolean-constructor-boolean-value
 ecma262 sec-bound-function-exotic-objects
@@ -257,6 +259,7 @@ ecma262 sec-definefield
 ecma262 sec-definemethodproperty
 ecma262 sec-deletepropertyorthrow
 ecma262 sec-detacharraybuffer
+ecma262 sec-disposeresources
 ecma262 sec-dowait
 ecma262 sec-ecmascript-function-objects-call-thisargument-argumentslist
 ecma262 sec-ecmascript-function-objects-construct-argumentslist-newtarget
@@ -272,7 +275,9 @@ ecma262 sec-error.iserror
 ecma262 sec-error.prototype.tostring
 ecma262 sec-escape-string
 ecma262 sec-evaldeclarationinstantiation
+ecma262 sec-evaluate-import-call
 ecma262 sec-evaluatecall
+ecma262 sec-evaluatenew
 ecma262 sec-example-cyclic-module-record-graphs
 ecma262 sec-execute-async-module
 ecma262 sec-expanded-years
@@ -288,6 +293,7 @@ ecma262 sec-forbodyevaluation
 ecma262 sec-frompropertydescriptor
 ecma262 sec-fulfillpromise
 ecma262 sec-function-calls
+ecma262 sec-function-calls-runtime-semantics-evaluation
 ecma262 sec-function-constructor
 ecma262 sec-function-environment-records
 ecma262 sec-function.prototype-@@hasinstance
@@ -645,6 +651,7 @@ ecma262 sec-resolvebinding
 ecma262 sec-resolveexport
 ecma262 sec-resolvethisbinding
 ecma262 sec-return-statement-runtime-semantics-evaluation
+ecma262 sec-runtime-semantics-argumentlistevaluation
 ecma262 sec-runtime-semantics-bindinginitialization
 ecma262 sec-runtime-semantics-canonicalize-ch
 ecma262 sec-runtime-semantics-catchclauseevaluation
@@ -652,6 +659,7 @@ ecma262 sec-runtime-semantics-classdefinitionevaluation
 ecma262 sec-runtime-semantics-classfielddefinitionevaluation
 ecma262 sec-runtime-semantics-classstaticblockdefinitionevaluation
 ecma262 sec-runtime-semantics-definemethod
+ecma262 sec-runtime-semantics-destructuringassignmentevaluation
 ecma262 sec-runtime-semantics-evaluateasyncgeneratorbody
 ecma262 sec-runtime-semantics-evaluateconcisebody
 ecma262 sec-runtime-semantics-evaluatefunctionbody
@@ -659,6 +667,7 @@ ecma262 sec-runtime-semantics-evaluategeneratorbody
 ecma262 sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
 ecma262 sec-runtime-semantics-forin-div-ofheadevaluation-tdznames-expr-iterationkind
 ecma262 sec-runtime-semantics-forinofloopevaluation
+ecma262 sec-runtime-semantics-forloopevaluation
 ecma262 sec-runtime-semantics-instantiatearrowfunctionexpression
 ecma262 sec-runtime-semantics-instantiateasyncarrowfunctionexpression
 ecma262 sec-runtime-semantics-instantiateasyncfunctionexpression
@@ -673,6 +682,7 @@ ecma262 sec-runtime-semantics-instantiateordinaryfunctionobject
 ecma262 sec-runtime-semantics-iteratorbindinginitialization
 ecma262 sec-runtime-semantics-iteratordestructuringassignmentevaluation
 ecma262 sec-runtime-semantics-keyedbindinginitialization
+ecma262 sec-runtime-semantics-keyeddestructuringassignmentevaluation
 ecma262 sec-runtime-semantics-methoddefinitionevaluation
 ecma262 sec-runtime-semantics-propertydefinitionevaluation
 ecma262 sec-runtime-semantics-repeatmatcher-abstract-operation
@@ -721,6 +731,7 @@ ecma262 sec-static-semantics-contains
 ecma262 sec-static-semantics-isconstantdeclaration
 ecma262 sec-static-semantics-lexicallyscopeddeclarations
 ecma262 sec-static-semantics-privateboundidentifiers
+ecma262 sec-static-semantics-varscopeddeclarations
 ecma262 sec-strict-mode-code
 ecma262 sec-string-constructor
 ecma262 sec-string-constructor-string-value
@@ -1054,7 +1065,6 @@ proposal-immutable-arraybuffer sec-integerindexedelementset
 proposal-immutable-arraybuffer sec-isimmutablebuffer
 proposal-immutable-arraybuffer sec-setviewvalue
 proposal-import-attributes sec-ModuleRequestsEqual
-proposal-import-attributes sec-evaluate-import-call
 proposal-import-bytes sec-create-bytes-module
 proposal-import-text sec-create-text-module
 proposal-intl-duration-format sec-Intl.DurationFormat-internal-slots

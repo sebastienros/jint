@@ -42,7 +42,7 @@ internal sealed class HoistingScope
         // otherwise the same AST answers differently depending on which factory was called, and the module's
         // own exported lexical declarations go missing from the scope this returns.
         var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames, module: script is Module);
-        treeWalker.Visit(script, null);
+        treeWalker.Walk(script);
 
         return new HoistingScope(
             treeWalker._functions,
@@ -57,7 +57,7 @@ internal sealed class HoistingScope
     {
         // A function body is never module scope, whatever encloses it: an export declaration cannot appear inside one.
         var treeWalker = new ScriptWalker(collectVarNames: true, collectLexicalNames: true, module: false);
-        treeWalker.Visit(node.Body, null);
+        treeWalker.Walk(node.Body);
 
         return new HoistingScope(
             treeWalker._functions,
@@ -75,7 +75,7 @@ internal sealed class HoistingScope
     {
         // modules area always strict
         var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames, module: true);
-        treeWalker.Visit(module, null);
+        treeWalker.Walk(module);
         return new HoistingScope(
             treeWalker._functions,
             treeWalker._varNames,
@@ -201,8 +201,13 @@ internal sealed class HoistingScope
         /// </summary>
         internal List<FunctionDeclaration>? _annexBFunctions;
 
+        /// <summary>
+        /// How many walk frames are live, and the stack the walk may still spend: the stack probe's gate. Not
+        /// restored when a walk throws, since the walker is abandoned with the exception. Fields of the walker rather
+        /// than <see cref="SyntaxNesting"/>'s thread-static state, because the walker lives exactly as long as one walk.
+        /// </summary>
         private int _depth;
-        private const int MaxDepth = 256;
+        private SyntaxNesting.StackBudget _budget;
 
         public ScriptWalker(bool collectVarNames, bool collectLexicalNames, bool module)
         {
@@ -211,31 +216,117 @@ internal sealed class HoistingScope
             _module = module;
         }
 
+        /// <summary>
+        /// Walks a script, module or function body. A concise arrow's body is an expression, which declares
+        /// nothing and is only measured.
+        /// </summary>
+        public void Walk(Node root)
+        {
+            _budget.Start();
+            if (root is Expression expression)
+            {
+                VisitExpression(expression, SyntaxNesting.Unprobed.Root);
+            }
+            else
+            {
+                Visit(root, null, SyntaxNesting.Unprobed.Root);
+            }
+        }
+
         // labelHost / labelHostParent: when `node` is a LabelledStatement, the statement-list container
         // the label chain sits in and that container's own parent. A LabelledStatement is transparent
         // for the FunctionDeclaration classification below - TopLevelVarScopedDeclarations sees through
         // the label (so `l: function f(){}` at the top level of a script or function body hoists like
         // any other function declaration) while VarScopedDeclarations does not (so inside a Block it is
         // scoped to that Block).
-        public void Visit(Node node, Node? parent, HashSet<string>? enclosingLexicalNames = null, Node? labelHost = null, Node? labelHostParent = null)
+        private void Visit(Node node, Node? parent, SyntaxNesting.Unprobed nesting, HashSet<string>? enclosingLexicalNames = null, Node? labelHost = null, Node? labelHostParent = null)
         {
-            if (++_depth > MaxDepth)
+            EnterLevel(nesting);
+
+            // An `else if` is the `else`'s tail position, so a chain of them is walked in this loop rather than one
+            // frame deeper per arm. Its arms share the scope the chain sits in: an `if` declares nothing of its own.
+            while (VisitCore(node, parent, nesting, enclosingLexicalNames, labelHost, labelHostParent) is { } elseIf)
             {
-                _depth--;
-                throw new ScriptPreparationException($"Script nesting exceeds maximum depth of {MaxDepth} levels.", null);
+                parent = node;
+                node = elseIf;
+                nesting = nesting.ContinueChain();
+                labelHost = null;
+                labelHostParent = null;
+                if (nesting.Depth > SyntaxNesting.MaxUnprobedDepth)
+                {
+                    SyntaxNesting.ThrowExceedsMaximumDepth();
+                }
             }
-            try
+
+            _depth--;
+        }
+
+        /// <summary>
+        /// Bounds the walk, which is as deep as the tree: by the fixed limit for nesting no evaluation probe covers,
+        /// and by the stack for the rest.
+        /// </summary>
+        private void EnterLevel(SyntaxNesting.Unprobed nesting)
+        {
+            if (nesting.Depth > SyntaxNesting.MaxUnprobedDepth)
             {
-                VisitCore(node, parent, enclosingLexicalNames, labelHost, labelHostParent);
+                SyntaxNesting.ThrowExceedsMaximumDepth();
             }
-            finally
+
+            if (++_depth > SyntaxNesting.UncheckedDepth && !_budget.HasHeadroom())
             {
-                _depth--;
+                SyntaxNesting.ThrowTooDeep();
             }
         }
 
-        private void VisitCore(Node node, Node? parent, HashSet<string>? enclosingLexicalNames, Node? labelHost = null, Node? labelHostParent = null)
+        /// <summary>
+        /// Measures an expression, which declares nothing in this scope: the function, arrow, method and static
+        /// block inside one are var scopes of their own, walked when their definitions are built. An operator chain
+        /// is followed down its left operands in a loop, since the parser builds one of any length.
+        /// </summary>
+        private void VisitExpression(Node node, SyntaxNesting.Unprobed nesting)
         {
+            EnterLevel(nesting);
+
+            while (node is BinaryExpression binary)
+            {
+                var right = binary.Right;
+                if (!right.ChildNodes.IsEmpty())
+                {
+                    VisitExpression(right, right is BinaryExpression ? nesting.ContinueChain() : nesting.Enter());
+                }
+
+                var left = binary.Left;
+                if (left.ChildNodes.IsEmpty())
+                {
+                    _depth--;
+                    return;
+                }
+
+                nesting = left is BinaryExpression ? nesting.ContinueChain() : nesting.Enter();
+                if (nesting.Depth > SyntaxNesting.MaxUnprobedDepth)
+                {
+                    SyntaxNesting.ThrowExceedsMaximumDepth();
+                }
+
+                node = left;
+            }
+
+            foreach (var child in node.ChildNodes)
+            {
+                if (child.Type is not (NodeType.FunctionExpression or NodeType.ArrowFunctionExpression or NodeType.StaticBlock)
+                    && !child.ChildNodes.IsEmpty())
+                {
+                    VisitExpression(child, nesting.Enter());
+                }
+            }
+
+            _depth--;
+        }
+
+        /// <returns>The <c>else if</c> of an <c>if</c>, which the caller walks next in place of a recursion.</returns>
+        private Node? VisitCore(Node node, Node? parent, SyntaxNesting.Unprobed nesting, HashSet<string>? enclosingLexicalNames, Node? labelHost = null, Node? labelHostParent = null)
+        {
+            Node? elseIf = null;
             // Collect lexical names from this scope level for AnnexB conflict checking.
             // These are let/const/class declarations in non-root scopes (blocks, for headers, etc.)
             // that would prevent a var hoisting from the function declaration's position.
@@ -396,26 +487,47 @@ internal sealed class HoistingScope
                     }
                 }
 
-                // A class static block is its own var scope — ClassStaticBlockDefinitionEvaluation hoists it as a
-                // function body of its own — so its `var` and `function` declarations must not reach this one.
-                if (childType != NodeType.FunctionDeclaration
-                    && childType != NodeType.ArrowFunctionExpression
-                    && childType != NodeType.FunctionExpression
-                    && childType != NodeType.StaticBlock
-                    && !childNode.ChildNodes.IsEmpty())
+                // A function and a class static block are var scopes of their own (a static block is hoisted as a
+                // function body by ClassStaticBlockDefinitionEvaluation), walked when their definitions are built,
+                // so nothing they declare may reach this one.
+                if (childType is NodeType.FunctionDeclaration or NodeType.FunctionExpression or NodeType.ArrowFunctionExpression or NodeType.StaticBlock
+                    || childNode.ChildNodes.IsEmpty())
                 {
-                    // Carry this statement list's container into a label chain so the classification
-                    // above can see through it (labels nest, so an already-set host wins).
-                    if (childType == NodeType.LabeledStatement)
-                    {
-                        Visit(childNode, node, effectiveLexicalNames, labelHost ?? node, labelHost is not null ? labelHostParent : parent);
-                    }
-                    else
-                    {
-                        Visit(childNode, node, effectiveLexicalNames);
-                    }
+                    continue;
+                }
+
+                // An expression contributes nothing to
+                // https://tc39.es/ecma262/#sec-static-semantics-varscopeddeclarations or to the lexically scoped
+                // declarations, so it is only measured.
+                if (childNode is Expression)
+                {
+                    VisitExpression(childNode, nesting.Enter());
+                    continue;
+                }
+
+                // An `else if` continues a chain that carries evaluation probes (JintStackProbeStatement), and is the
+                // last child: the caller walks it next.
+                if (childType == NodeType.IfStatement && node is IfStatement ifStatement && ReferenceEquals(ifStatement.Alternate, childNode))
+                {
+                    elseIf = childNode;
+                    continue;
+                }
+
+                var childNesting = nesting.Enter();
+
+                // Carry this statement list's container into a label chain so the classification
+                // above can see through it (labels nest, so an already-set host wins).
+                if (childType == NodeType.LabeledStatement)
+                {
+                    Visit(childNode, node, childNesting, effectiveLexicalNames, labelHost ?? node, labelHost is not null ? labelHostParent : parent);
+                }
+                else
+                {
+                    Visit(childNode, node, childNesting, effectiveLexicalNames);
                 }
             }
+
+            return elseIf;
         }
 
         private static void EnsureSet(ref HashSet<string>? set, HashSet<string>? source)
@@ -451,9 +563,13 @@ internal sealed class HoistingScope
         internal List<ExportEntry>? _exportEntries;
         internal HashSet<ModuleRequest>? _requestedModules;
 
-        internal void Visit(Node node)
+        internal void Visit(Module module)
         {
-            foreach (var childNode in node.ChildNodes)
+            // An import or export declaration is a ModuleItem, so it is only ever a direct child of the module
+            // (https://tc39.es/ecma262/#prod-ModuleItem): there is nothing to find below the top level, and
+            // descending into every statement and expression only made this the one walk over a module that
+            // a deep `a || b || …` chain could overflow.
+            foreach (var childNode in module.ChildNodes)
             {
                 if (childNode.Type == NodeType.ImportDeclaration)
                 {
@@ -468,11 +584,6 @@ internal sealed class HoistingScope
                     _requestedModules ??= [];
                     var export = (ExportDeclaration) childNode;
                     export.GetExportEntries(_exportEntries, _requestedModules);
-                }
-
-                if (!childNode.ChildNodes.IsEmpty())
-                {
-                    Visit(childNode);
                 }
             }
         }
@@ -504,6 +615,9 @@ internal sealed class HoistingScope
             {
                 return;
             }
+
+            // An await can sit anywhere in an expression, so this walk has to descend into them all.
+            using var nesting = SyntaxNesting.Enter();
 
             // Found a top-level await expression
             if (node.Type == NodeType.AwaitExpression)

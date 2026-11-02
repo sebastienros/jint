@@ -5,6 +5,132 @@ namespace Jint.Tests.HtmlParser.Html;
 
 public class InputValueComponentTests
 {
+    [TestCase(null, "#000000")]
+    [TestCase("", "#000000")]
+    [TestCase("#336699", "#336699")]
+    [TestCase(" #ABC ", "#aabbcc")]
+    [TestCase("#12345678", "#123456")]
+    [TestCase("red", "#ff0000")]
+    [TestCase("rgb(51, 102, 153)", "#336699")]
+    [TestCase("hsl(0 100% 50%)", "#ff0000")]
+    [TestCase("hwb(120 0% 0%)", "#00ff00")]
+    [TestCase("transparent", "#000000")]
+    [TestCase("currentColor", "#000000")]
+    [TestCase("invalid", "#000000")]
+    [TestCase("#12345", "#000000")]
+    public void ColorDefaultsUseTheSharedCssSrgbParser(string? value, string expected)
+    {
+        var state = Create("color", value);
+        state.IsAvailable.Should().BeTrue();
+        state.GetValue(default).Should().Be(expected);
+        state.GetDefaultValue(default).Should().Be(value ?? "");
+        state.DirtyValue.Should().BeFalse();
+        state.GetEditingSelection(default).Should().BeNull();
+        state.GetSelection(default).Should().BeNull();
+    }
+
+    [Test]
+    public void ColorAssignmentsResetAndTypeChangesRetainNativeValueHistory()
+    {
+        var state = Create("text", "#ABCDEF");
+        state.SetValue("#336699", default);
+        state.Element.SetAttribute("type", "color");
+        state.GetValue(default).Should().Be("#336699");
+        state.DirtyValue.Should().BeTrue();
+        state.SetDefaultValue("red", default);
+        state.GetValue(default).Should().Be("#336699");
+        state.ResetValue(default);
+        state.GetValue(default).Should().Be("#ff0000");
+        state.DirtyValue.Should().BeFalse();
+        state.SetDefaultValue("#ABC", default);
+        state.GetValue(default).Should().Be("#aabbcc");
+        state.SetValue("invalid", default);
+        state.GetValue(default).Should().Be("#000000");
+        state.LastValueChangeOrigin.Should().Be(HtmlValueChangeOrigin.NonUser);
+        state.Element.SetAttribute("type", "text");
+        state.GetValue(default).Should().Be("#000000");
+        state.DirtyValue.Should().BeTrue();
+    }
+
+    [Test]
+    public void ColorSanitizationHonorsCooperativeCancellationBeforeCommitting()
+    {
+        var state = Create("color", "#336699");
+        using var cancellation = new CancellationTokenSource();
+        var assign = () => state.SetValue(new string(' ', 1024) + "red",
+            _ => cancellation.Cancel(), cancellation.Token);
+        assign.Should().Throw<OperationCanceledException>();
+        state.GetValue(default).Should().Be("#336699");
+        state.DirtyValue.Should().BeFalse();
+    }
+
+    [TestCase("color(display-p3 1 0 0)")]
+    [TestCase("lab(50 0 0)")]
+    [TestCase("rgb(from red r g b)")]
+    [TestCase("CanvasText")]
+    public void UnsupportedCssColorsFailExplicitlyRatherThanBecomingBlack(string value)
+    {
+        var state = Create("color", "#336699");
+        var set = () => state.SetValue(value, default);
+        set.Should().Throw<NotSupportedException>();
+        state.GetValue(default).Should().Be("#336699");
+        state.DirtyValue.Should().BeFalse();
+    }
+
+    [TestCase("alpha", "")]
+    [TestCase("colorspace", "display-p3")]
+    public void UnsupportedColorWellConfigurationsFailExplicitly(string attribute, string value)
+    {
+        var state = Create("color", "#336699");
+        var set = () => state.Element.SetAttribute(attribute, value);
+        set.Should().Throw<NotSupportedException>();
+        var read = () => state.GetValue(default);
+        read.Should().Throw<NotSupportedException>();
+        state.Element.RemoveAttribute(attribute);
+        state.GetValue(default).Should().Be("#336699");
+    }
+
+    [TestCase("date", "2026-10-26")]
+    [TestCase("month", "2026-10")]
+    [TestCase("week", "2026-W44")]
+    [TestCase("time", "12:34")]
+    [TestCase("datetime-local", "2026-10-26T12:34")]
+    public void PickerEditsUseNativeValueStateWithoutInventingASelection(string type, string value)
+    {
+        var state = Create(type);
+        state.ApplyPickerUserValue(value, null, default).Should().BeTrue();
+        state.GetValue(default).Should().Be(value);
+        state.DirtyValue.Should().BeTrue();
+        state.LastValueChangeOrigin.Should().Be(HtmlValueChangeOrigin.User);
+        state.GetEditingSelection(default).Should().BeNull();
+        state.GetDefaultValue(default).Should().BeEmpty();
+        state.ResetValue(default);
+        state.GetValue(default).Should().BeEmpty();
+    }
+
+    [Test]
+    public void PickerEditsRejectInvalidValuesAndCancellationBeforeCommitting()
+    {
+        var state = Create("date", "2026-10-26");
+        var invalid = () => state.ApplyPickerUserValue("2026-02-30", null, default);
+        invalid.Should().Throw<ArgumentException>();
+        state.GetValue(default).Should().Be("2026-10-26");
+        state.DirtyValue.Should().BeFalse();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var canceled = () => state.ApplyPickerUserValue("2026-10-27", null, cancellation.Token);
+        canceled.Should().Throw<OperationCanceledException>();
+        state.GetValue(default).Should().Be("2026-10-26");
+    }
+
+    [Test]
+    public void PickerEditsAcceptValidValuesThatTheNativeSanitizerNormalizes()
+    {
+        var state = Create("datetime-local");
+        state.ApplyPickerUserValue("2026-10-26 12:34:00", null, default).Should().BeTrue();
+        state.GetValue(default).Should().Be("2026-10-26T12:34");
+    }
+
     private static HtmlInputValueState Create(string type = "text", string? value = null, bool multiple = false)
     {
         var document = Document.CreateHtml();
@@ -140,19 +266,16 @@ public class InputValueComponentTests
         state.GetSelection(default).Should().Be(new HtmlTextSelection(4, 4, HtmlSelectionDirection.None));
     }
 
-    [Test]
-    public void UnsupportedFamiliesAreNamedAndNeverReturnTextFallbacks()
+    [TestCase("file")]
+    public void UnsupportedFamiliesAreNamedAndNeverReturnTextFallbacks(string type)
     {
-        foreach (var type in new[] { "color", "file" })
-        {
-            var state = Create(type, "sentinel");
-            state.IsAvailable.Should().BeFalse();
-            Assert.Throws<NotSupportedException>(() => state.GetValue(default))!.Message.Should().Contain(type);
-            Assert.Throws<NotSupportedException>(() => state.SetValue("", default));
-            state.GetDefaultValue(default).Should().Be("sentinel");
-            state.GetEditingSelection(default).Should().BeNull();
-            state.GetFacts(default).TextLength.Should().BeNull();
-        }
+        var state = Create(type, "sentinel");
+        state.IsAvailable.Should().BeFalse();
+        Assert.Throws<NotSupportedException>(() => state.GetValue(default))!.Message.Should().Contain(type);
+        Assert.Throws<NotSupportedException>(() => state.SetValue("", default));
+        state.GetDefaultValue(default).Should().Be("sentinel");
+        state.GetEditingSelection(default).Should().BeNull();
+        state.GetFacts(default).TextLength.Should().BeNull();
     }
 
     [Test]
@@ -260,15 +383,16 @@ public class InputValueComponentTests
     }
 
     [Test]
-    public void UnsupportedCrossingsDiscardCurrentValueUntilExplicitRecovery()
+    public void ColorCrossingsSanitizeCurrentValuesWithoutDiscardingTheDefault()
     {
         var state = Create("text", "default");
         state.SetValue("secret", default);
         state.Element.SetAttribute("type", "color");
-        state.IsAvailable.Should().BeFalse();
+        state.IsAvailable.Should().BeTrue();
+        state.GetValue(default).Should().Be("#000000");
         state.Element.SetAttribute("type", "text");
-        state.IsAvailable.Should().BeFalse();
-        Assert.Throws<NotSupportedException>(() => state.GetValue(default));
+        state.IsAvailable.Should().BeTrue();
+        state.GetValue(default).Should().Be("#000000");
         state.GetDefaultValue(default).Should().Be("default");
         state.SetValue("new", default);
         state.GetValue(default).Should().Be("new");
@@ -417,14 +541,13 @@ public class InputValueComponentTests
     }
 
     [Test]
-    public void ExplicitRecoveryOfUnavailableDefaultModeAdvancesDocumentStamp()
+    public void ColorToDefaultModeCopiesItsSanitizedValueAndAdvancesDocumentStamp()
     {
         var state = Create("color");
-        state.Element.SetAttribute("type", "hidden");
-        state.IsAvailable.Should().BeFalse();
         var stamp = state.Element.OwnerDocument!.MutationStamp;
-        state.ResetValue(default);
-        state.GetValue(default).Should().Be("");
+        state.Element.SetAttribute("type", "hidden");
+        state.IsAvailable.Should().BeTrue();
+        state.GetValue(default).Should().Be("#000000");
         state.Element.OwnerDocument.MutationStamp.Should().BeGreaterThan(stamp);
     }
 

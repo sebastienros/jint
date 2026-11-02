@@ -15,6 +15,115 @@ using Browser = global::Jint.Browser.Browser;
 /// </remarks>
 public sealed class InputDispatcherTests
 {
+    [TestCase("button type=button", "Enter", "keydown,click,keyup")]
+    [TestCase("button type=button", " ", "keydown,keypress,keyup,click")]
+    [TestCase("input type=button", "Enter", "keydown,click,keyup")]
+    [TestCase("input type=button", " ", "keydown,keypress,keyup,click")]
+    public async Task FocusedButtonsActivateThroughTrustedKeyboardDefaults(string tag, string key, string order)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<" + tag + " id=target>Activate</" + tag.Split(' ')[0] + ">");
+        await page.EvaluateAsync("""
+            window.events=[];
+            for(const type of ['keydown','keypress','keyup','click','mousedown','mouseup'])
+                target.addEventListener(type,e=>events.push({type:e.type,trusted:e.isTrusted,detail:e.detail}));
+            """);
+
+        await page.PressAsync("Tab");
+        (await page.EvaluateAsync<bool>("document.activeElement===target")).Should().BeTrue();
+        await page.EvaluateAsync("events=[];");
+        await page.PressAsync(key);
+
+        (await page.EvaluateAsync<string>("events.map(e=>e.type).join(',')")).Should().Be(order);
+        (await page.EvaluateAsync<bool>("events.every(e=>e.trusted) && events.find(e=>e.type==='click').detail===0"))
+            .Should().BeTrue();
+    }
+
+    [TestCase("Enter", "keydown")]
+    [TestCase("Enter", "click")]
+    [TestCase(" ", "keydown")]
+    [TestCase(" ", "keypress")]
+    [TestCase(" ", "keyup")]
+    [TestCase(" ", "click")]
+    public async Task CancelingButtonKeyboardDefaultsPreventsSubmission(string key, string canceledEvent)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<form><button id=target name='submit.Save' value=Save>Save</button></form>");
+        await page.EvaluateAsync("""
+            window.submits=0;window.clicks=0;
+            document.addEventListener('submit',e=>{submits++;e.preventDefault();});
+            target.addEventListener('click',()=>clicks++);
+            """ + "target.addEventListener('" + canceledEvent + "',e=>e.preventDefault());");
+        await page.PressAsync("Tab");
+
+        await page.PressAsync(key);
+
+        (await page.EvaluateAsync<int>("submits")).Should().Be(0);
+        (await page.EvaluateAsync<int>("clicks")).Should().Be(canceledEvent == "click" ? 1 : 0);
+    }
+
+    [TestCase("target.blur();target.focus()")]
+    [TestCase("other.focus()")]
+    [TestCase("target.remove()")]
+    [TestCase("target.disabled=true")]
+    public async Task SpaceDoesNotActivateAButtonThatLostItsPendingPress(string change)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<button id=target type=button>Save</button><button id=other>Other</button>");
+        await page.EvaluateAsync("window.clicks=0;document.addEventListener('click',()=>clicks++);");
+        await page.PressAsync("Tab");
+        await page.RunOnLoopAsync(engine =>
+        {
+            InputDispatcher.DispatchKey(Jint.Browser.Runtime.PageRuntime.Find(engine)!, KeyOptions.For(" "), KeyInputKind.KeyDown);
+            return true;
+        });
+        (await page.EvaluateAsync<int>("clicks")).Should().Be(0);
+        await page.EvaluateAsync(change);
+        await page.RunOnLoopAsync(engine =>
+        {
+            InputDispatcher.DispatchKey(Jint.Browser.Runtime.PageRuntime.Find(engine)!, KeyOptions.For(" "), KeyInputKind.KeyUp);
+            return true;
+        });
+        (await page.EvaluateAsync<int>("clicks")).Should().Be(0);
+    }
+
+    [Test]
+    public async Task SpaceReleaseRequiresAPressAndDoesNotActivateTwiceAfterRepeating()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<button id=target type=button>Save</button>");
+        await page.EvaluateAsync("window.clicks=0;target.onclick=()=>clicks++;");
+        await page.PressAsync("Tab");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = Jint.Browser.Runtime.PageRuntime.Find(engine)!;
+            InputDispatcher.DispatchKey(runtime, KeyOptions.For(" "), KeyInputKind.KeyUp);
+            InputDispatcher.DispatchKey(runtime, KeyOptions.For(" "), KeyInputKind.Char);
+            return true;
+        });
+        (await page.EvaluateAsync<int>("clicks")).Should().Be(0);
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = Jint.Browser.Runtime.PageRuntime.Find(engine)!;
+            InputDispatcher.DispatchKey(runtime, KeyOptions.For(" "), KeyInputKind.RawKeyDown);
+            InputDispatcher.DispatchKey(runtime, KeyOptions.For(" ") with { Repeat = true }, KeyInputKind.RawKeyDown);
+            return true;
+        });
+        (await page.EvaluateAsync<int>("clicks")).Should().Be(0);
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = Jint.Browser.Runtime.PageRuntime.Find(engine)!;
+            InputDispatcher.DispatchKey(runtime, KeyOptions.For(" "), KeyInputKind.KeyUp);
+            InputDispatcher.DispatchKey(runtime, KeyOptions.For(" "), KeyInputKind.KeyUp);
+            return true;
+        });
+        (await page.EvaluateAsync<int>("clicks")).Should().Be(1);
+    }
+
     [Test]
     public async Task TypingIntoAFocusedInputProducesTheValueOneCharacterAtATime()
     {
