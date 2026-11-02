@@ -6944,7 +6944,10 @@ importing it runs once the disposal has settled, and a module imported after it 
 pending. A dispose that throws or rejects rejects the module's evaluation, which `Engine.Modules.Import` throws as
 before, but that sibling has already run. `import defer` evaluates such a module up front, as it does any module with
 top-level await, rather than on first access to its namespace. A promise a dispose method returns is resolved as
-§4.177 describes, so a `constructor` getter that throws now rejects the module. There is no switch back.
+§4.177 describes, so a `constructor` getter that throws now rejects the module. For a host, such a module is now a
+top-level-await module: `ModuleRecord.Evaluate()` returns a pending promise that needs the event loop pumped, and a
+blocking `Engine.Modules.Import` of it from inside an event-loop job waits out `PromiseTimeout` and throws, where it
+used to complete. There is no switch back.
 
 ## 5. New in v5
 

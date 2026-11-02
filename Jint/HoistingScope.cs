@@ -591,7 +591,8 @@ internal sealed class HoistingScope
 
     /// <summary>
     /// [[HasTLA]], which is <c>body Contains await</c> (https://tc39.es/ecma262/#sec-parsemodule, step 11): an await
-    /// expression, a <c>for await</c> or an <c>await using</c> declaration, found outside every function and class.
+    /// expression, a <c>for await</c> or an <c>await using</c> declaration, found outside every function. Classes are
+    /// skipped whole, although Contains looks into a class's heritage and computed keys (sebastienros/jint#4395).
     /// </summary>
     public static bool HasTopLevelAwait(Module module)
     {
