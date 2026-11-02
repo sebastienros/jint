@@ -6949,6 +6949,58 @@ top-level-await module: `ModuleRecord.Evaluate()` returns a pending promise that
 blocking `Engine.Modules.Import` of it from inside an event-loop job waits out `PromiseTimeout` and throws, where it
 used to complete. There is no switch back.
 
+### 4.183 A `for (await using … of …)` loop in an async generator suspends while it disposes, and a suspended body keeps its resource ([#4358](https://github.com/sebastienros/jint/issues/4358))
+
+A `for`-`of` or `for await` loop whose head declares `using` or `await using` disposes each iteration's resource
+when that iteration's body completes, and awaits each `await using` result. In an async function that await
+suspended the function, but in an async generator Jint waited for the result on the spot. It ran the host's job
+queue inside the `next()` call, so the rest of the body ran before the caller's next statement. A dispose whose
+promise settled a microtask later could not settle there, and the request was rejected once
+`Options.Constraints.PromiseTimeout` had passed:
+
+```js
+var log = [];
+async function* g() {
+    for (await using x of [{ [Symbol.asyncDispose]() { log.push("dispose"); } }]) { log.push("body"); }
+    log.push("after");
+}
+var p = g().next();
+log.push("called");
+await p;
+// 4.16.x / earlier 5.0: ["body", "dispose", "after", "called"]    5.x: ["body", "dispose", "called", "after"]
+```
+
+Now each of those awaits suspends the generator the way an `await` expression does, as a block's `await using`
+does since §4.174. The request settles a microtask later for each await, and a request made meanwhile queues behind
+it. A dispose that throws or rejects is thrown from the loop, or wrapped in a `SuppressedError` over the body's own
+throw, as before. A `return()` request whose iteration then has an `await using` dispose reject no longer completes
+the generator with the return value: the rejection replaces it, and a `catch` around the loop sees it. A dispose
+that throws without being awaited still loses its throw there
+([#4360](https://github.com/sebastienros/jint/issues/4360)).
+
+Four neighbours changed with it:
+
+- In every kind of function, a body that suspended at an `await` or a `yield` had its iteration's resource disposed
+  at the suspension, while the body went on to use it. Now the resource is disposed once the body completes, whether
+  it runs to its end or a `return()` or `throw()` resumption ends it. In
+  `function* g() { for (using x of xs) { yield x; use(x); } }`, `x` is no longer disposed before `use(x)` runs.
+- In an async function, once an `await using` dispose had made the loop wait, a `continue` naming an enclosing loop's
+  label went on with the inner loop's next iteration. Now it continues the labelled loop.
+- In the same position, a `break`, a `return` or a labelled jump closed the iterator and swallowed whatever its
+  `return()` threw, and a `return()` answering something other than an object. Now the throw, or a `TypeError`,
+  replaces the loop's completion, as it does when no dispose had to wait.
+- With an `Interop.ExceptionHandler` that catches it, a CLR exception that escaped untranslated from the rest of an
+  async function's body, once a block's or a `for` header's dispose await had resumed it, was dropped, and the
+  function's promise never settled. Now it reaches the host, as one escaping after an `await` does.
+
+One case is not finished. A brace-less body, such as `for (using x of xs) yield x;`, that a `return()` or `throw()`
+resumption ends at its `yield` used to have its resource disposed at that `yield`. Now it is not disposed at all,
+which is how a brace-less body that throws already behaves
+([#4393](https://github.com/sebastienros/jint/issues/4393)). Braces around the body have it disposed.
+
+A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
+There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
