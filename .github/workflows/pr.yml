@@ -104,12 +104,14 @@ jobs:
           ConvertTo-Json -Depth 3 | Set-Content $filter
         dotnet test --solution $filter --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
+    # The .NET 11 MTP runner resolves relative --project paths twice for multi-target projects.
+    # Use absolute paths for project-level runs so every target framework is still exercised.
     - name: Test (Test262 alone)
-      run: dotnet test --project Jint.Tests.Test262/Jint.Tests.Test262.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+      run: dotnet test --project "${{ github.workspace }}/Jint.Tests.Test262/Jint.Tests.Test262.csproj" --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     - name: Test (the browser suite alone)
       if: matrix.os.name == 'windows'
-      run: dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+      run: dotnet test --project "${{ github.workspace }}/Jint.Tests.Browser/Jint.Tests.Browser.csproj" --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
   # The matrix above is the shipped configuration: Release with host-contract verification off, which is what
   # the probe-count and no-descriptor pins in Jint.Tests.PublicInterface document as costing nothing. This leg
@@ -139,10 +141,10 @@ jobs:
         dotnet-version: 10.0
 
     - name: Test Jint.Tests
-      run: dotnet test --project Jint.Tests/Jint.Tests.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+      run: dotnet test --project "${{ github.workspace }}/Jint.Tests/Jint.Tests.csproj" --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     - name: Test Jint.Tests.PublicInterface
-      run: dotnet test --project Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+      run: dotnet test --project "${{ github.workspace }}/Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj" --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
   # Native AOT legs (Jint.AotExample, the packed parser's AOT publish, the six-RID browser tool) run only
   # in release.yml, where a published package depends on them: they are the slowest legs and the gaps they
@@ -192,7 +194,7 @@ jobs:
         dotnet-version: 10.0
 
     - name: Test Jint.Tests.Browser with both client suites
-      run: dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+      run: dotnet test --project "${{ github.workspace }}/Jint.Tests.Browser/Jint.Tests.Browser.csproj" --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     # The gate is only a gate if it is switched: a suite that ignored the variable and ran everywhere would
     # make the leg above pointless, and one that ignored it and ran nowhere would make this leg a lie. So the
@@ -204,7 +206,7 @@ jobs:
       shell: bash
       run: |
         set -o pipefail
-        env -u JINT_BROWSER_CLIENTS dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj \
+        env -u JINT_BROWSER_CLIENTS dotnet test --project "${{ github.workspace }}/Jint.Tests.Browser/Jint.Tests.Browser.csproj" \
           --configuration Release --framework net10.0 \
           --filter "FullyQualifiedName~PlaywrightCourseTests" \
           --no-progress --no-ansi --report-github \
