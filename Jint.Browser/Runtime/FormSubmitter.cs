@@ -243,6 +243,8 @@ internal static class FormSubmitter
             if (string.IsNullOrEmpty(name)) return;
             var value = element.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, realm.CancellationToken)!
                 .GetValue(realm.NativeReadCheckpoint, realm.CancellationToken);
+            // HTML's value-for-submission uses the UA label only when the submit value attribute is absent.
+            if (type == HtmlInputType.Submit && work.Attribute(element, "value") is null) value = "Submit";
             if (type == HtmlInputType.Hidden && work.EqualAsciiIgnoreCase(name, "_charset_")) value = "UTF-8";
             entries.Add(StringEntry(name, value));
             AppendDirection(realm, entries, element, work);

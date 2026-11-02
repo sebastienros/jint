@@ -1717,7 +1717,7 @@ internal static partial class DomInterfaces
                 }),
                 length: 0)
             .Method("checkVisibility",
-                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.checkVisibility", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Element.checkVisibility", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.checkVisibility");
                     return global::Jint.Browser.Layout.LayoutMembers.CheckVisibility(self.Realm, self.Target, args);
@@ -1964,7 +1964,7 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Layout.LayoutMembers.ScrollHeight(self.Realm, self.Target);
                 }))
             .Method("scrollIntoView",
-                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.scrollIntoView", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Element.scrollIntoView", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.scrollIntoView");
                     return global::Jint.Browser.Layout.LayoutMembers.ScrollIntoView(self.Realm, self.Target, args);

@@ -81,8 +81,9 @@ internal sealed partial class PageLayout
 
     private FlatLayout.SizeQuery CreateSizes()
     {
-        var traversal = Visibility.CreateTraversal(_runtime.Document);
-        return traversal?.ReadContext is { } context ? context.MeasureSizes()
+        var traversal = _runtime.Document is { } document && Visibility.CascadeAvailable
+            ? CssCascade.Traversal.Current(document) : null;
+        return traversal?.ReadContext is { } context ? RetainedSizes(context)
             : new(_runtime.Document, Visibility, _runtime.Viewport.Width, traversal, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
     }
 
@@ -104,7 +105,17 @@ internal sealed partial class PageLayout
         return box is { } placed ? placed with { Y = placed.Y - _scrollY } : null;
     }
 
-    /// <summary>The layout of the document as it stands, with the current viewport and scroll offset.</summary>
+    /// <summary>Fresh point hit testing without constructing unrelated document boxes.</summary>
+    internal FlatLayout.PointQuery ReadPoint()
+    {
+        Diagnostics?.PointQueryRequested();
+        var sizes = MeasureSizes();
+        if (_scrollY > 0) _scrollY = Math.Min(_scrollY, ScrollMaximum(sizes, _scrollY));
+        var viewport = _runtime.Viewport;
+        return new(sizes, viewport.Width, viewport.Height, _scrollY);
+    }
+
+    /// <summary>The complete layout, including boxes not needed by a single hit test.</summary>
     internal FlatLayout Current()
     {
         var reuse = CanReuse();
@@ -115,6 +126,7 @@ internal sealed partial class PageLayout
 
         var viewport = _runtime.Viewport;
         var sizes = MeasureSizes();
+        Diagnostics?.FullLayoutBuilt();
         var layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, _scrollY, sizes, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
 
         // A document that shrank under a scrolled page leaves the offset past its end, so the clamp is read
@@ -130,6 +142,7 @@ internal sealed partial class PageLayout
         }
 
         _scrollY = clamped;
+        Diagnostics?.FullLayoutBuilt();
         layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, clamped, sizes, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
         if (reuse)
         {
@@ -142,8 +155,22 @@ internal sealed partial class PageLayout
     /// https://drafts.csswg.org/cssom-view/#dom-window-scroll — scrolls to <paramref name="y"/>, clamped.
     /// </summary>
     internal void ScrollTo(double y)
+        => ScrollTo(y, ScrollMaximum(MeasureSizes(), y));
+
+    private double ScrollMaximum(FlatLayout.SizeQuery sizes, double requested)
     {
-        var target = double.IsNaN(y) ? 0 : Math.Clamp(y, 0, Current().MaxScrollY);
+        if (double.IsNaN(requested) || requested <= 0) return 0;
+        // A bounded height is sufficient: either it proves the requested offset fits, or it is
+        // the exact shorter extent. No unrelated element positions or hit-test boxes are needed.
+        var viewport = _runtime.Viewport.Height;
+        var height = _runtime.Document?.DocumentElement is { } root
+            ? sizes.HeightUpTo(root, requested + viewport) : 0;
+        return Math.Max(0, height - viewport);
+    }
+
+    private void ScrollTo(double y, double maximum)
+    {
+        var target = double.IsNaN(y) ? 0 : Math.Clamp(y, 0, maximum);
         if (target == _scrollY)
         {
             return;
@@ -172,24 +199,26 @@ internal sealed partial class PageLayout
     /// </remarks>
     internal void ScrollIntoView(Element element, string block)
     {
-        var layout = Current();
-        if (layout.DocumentBoxOf(element) is not { } box)
+        var sizes = MeasureSizes();
+        _scrollY = Math.Min(_scrollY, ScrollMaximum(sizes, _scrollY));
+        if (!sizes.HasBox(element))
         {
             return;
         }
 
+        var box = sizes.Place(element);
         var top = box.Y;
         var bottom = box.Bottom;
-        var height = layout.ViewportHeight;
+        var height = _runtime.Viewport.Height;
 
         switch (block)
         {
             case "center":
-                ScrollTo(box.CenterY - (height / 2));
+                ScrollTo(box.CenterY - (height / 2), ScrollMaximum(sizes, box.CenterY - (height / 2)));
                 return;
 
             case "end":
-                ScrollTo(bottom - height);
+                ScrollTo(bottom - height, ScrollMaximum(sizes, bottom - height));
                 return;
 
             case "nearest":
@@ -201,18 +230,18 @@ internal sealed partial class PageLayout
                 if ((top < _scrollY && box.Height <= height)
                     || (bottom > _scrollY + height && box.Height > height))
                 {
-                    ScrollTo(top);
+                    ScrollTo(top, ScrollMaximum(sizes, top));
                 }
                 else if ((bottom > _scrollY + height && box.Height <= height)
                     || (top < _scrollY && box.Height > height))
                 {
-                    ScrollTo(bottom - height);
+                    ScrollTo(bottom - height, ScrollMaximum(sizes, bottom - height));
                 }
 
                 return;
 
             default:
-                ScrollTo(top);
+                ScrollTo(top, ScrollMaximum(sizes, top));
                 return;
         }
     }
@@ -244,6 +273,17 @@ internal sealed partial class PageLayout
 // Opt-in per-page counters for source regression tests, with no callbacks or ambient collector.
 internal sealed class PageLayoutDiagnostics
 {
+    internal long PointQueries { get; private set; }
+    internal long FullLayouts { get; private set; }
     internal long SizeQueryRequests { get; private set; }
+    internal long RetainedQueries { get; private set; }
+    internal long RetainedRowHits { get; private set; }
+    internal Dictionary<string, long> MeasurementDiscardReasons { get; } = new(StringComparer.Ordinal);
     internal void SizeQueryRequested() => SizeQueryRequests++;
+    internal void PointQueryRequested() => PointQueries++;
+    internal void FullLayoutBuilt() => FullLayouts++;
+    internal void MeasurementsRetained() => RetainedQueries++;
+    internal void RetainedRowUsed() => RetainedRowHits++;
+    internal void MeasurementsDiscarded(string reason)
+        => MeasurementDiscardReasons[reason] = MeasurementDiscardReasons.GetValueOrDefault(reason) + 1;
 }

@@ -66,7 +66,7 @@ public sealed class Text : Node
         _parsedStorage = null;
         _parsedLength = 0;
         _cachedParsedData = null;
-        OwnerDocument!.MarkMutation();
+        OwnerDocument!.MarkMutation(this, NativeMutationKind.CharacterData);
         if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
         MutationTracking.QueueCharacterData(this, oldValue, matches);
     }
@@ -148,7 +148,7 @@ public sealed class Text : Node
             _parsedLength = newLength;
             _data = new StringSliceStorage(source);
             _cachedParsedData = null;
-            OwnerDocument!.MarkMutation();
+            OwnerDocument!.MarkMutation(this, NativeMutationKind.CharacterData);
             if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent, mayShorten: false);
             MutationTracking.QueueCharacterData(this, oldValue, matches);
 
@@ -186,7 +186,7 @@ public sealed class Comment : Node
         var oldValue = matches?.NeedsOldValue == true ? _data : null;
         LiveTraversalTracking.ReplaceData(this, offset, count, insertedLength);
         _data = value;
-        OwnerDocument!.MarkMutation();
+        OwnerDocument!.MarkMutation(this, NativeMutationKind.CharacterData);
         if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
         MutationTracking.QueueCharacterData(this, oldValue, matches);
     }
@@ -232,7 +232,7 @@ public sealed class CDataSection : Node
         var oldValue = matches?.NeedsOldValue == true ? _data : null;
         LiveTraversalTracking.ReplaceData(this, offset, count, insertedLength);
         _data = value;
-        OwnerDocument!.MarkMutation();
+        OwnerDocument!.MarkMutation(this, NativeMutationKind.CharacterData);
         if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
         MutationTracking.QueueCharacterData(this, oldValue, matches);
     }
@@ -369,7 +369,7 @@ public sealed partial class ProcessingInstruction : Node
         LiveTraversalTracking.ReplaceData(this, offset, count, insertedLength);
         _data = value;
         if (!preserveAttributes) InvalidateAttributes();
-        OwnerDocument!.MarkMutation();
+        OwnerDocument!.MarkMutation(this, NativeMutationKind.CharacterData);
         if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
         MutationTracking.QueueCharacterData(this, oldValue, matches);
     }

@@ -12,7 +12,7 @@ namespace Jint.WebApi.Fetch;
 
 /// <summary>
 /// A network response body, streamed: the HTTP content on one side and a readable <i>byte</i> stream on the
-/// other, joined by demand rather than by a buffer.
+/// other, joined by bounded read-ahead and stream backpressure.
 /// <para>
 /// https://fetch.spec.whatwg.org/#concept-response-body
 /// </para>
@@ -36,7 +36,7 @@ namespace Jint.WebApi.Fetch;
 /// restored engine can see.
 /// </para>
 /// <para>
-/// <b>Backpressure is the point.</b> The loop reads nothing until the stream's <c>pull</c> asks, and
+/// <b>Backpressure is the point.</b> The stream permits 64 KiB of read-ahead, and
 /// <c>pull</c>'s promise stays pending until that chunk has been enqueued — so the standard's own
 /// <c>[[pulling]]</c> guard bounds the loop to one outstanding read, and a consumer that stops reading stops
 /// the socket. The signal between them is a <see cref="SemaphoreSlim"/> released once per pull; nothing
@@ -152,11 +152,11 @@ internal sealed class FetchBodyStream : IDisposable
             }
         }
 
-        // A high water mark of zero means the transport is only asked for bytes once a consumer wants them:
-        // nothing is read ahead into a queue the script may never drain. CreateReadableByteStream fixes that
-        // mark at zero, which is what the default-controller predecessor asked for explicitly.
+        // Fetch's transport can finish a small response even when script only inspects its headers.
+        // The byte controller stops pulling once this bounded queue fills; a live or larger response
+        // still holds its network lease until EOF, cancellation or failure.
         _stream = ReadableStreamOperations.CreateReadableByteStream(
-            engine, realm, static () => JsValue.Undefined, PullAlgorithm, CancelAlgorithm);
+            engine, realm, static () => JsValue.Undefined, PullAlgorithm, CancelAlgorithm, highWaterMark: ChunkSize);
 
         engine._webApi?.RegisterBodyStream(this);
 

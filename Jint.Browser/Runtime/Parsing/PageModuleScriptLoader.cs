@@ -1,4 +1,5 @@
 using System.Net.Http;
+using Jint.HtmlParser;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 using Jint.WebApi.Fetch;
@@ -60,6 +61,13 @@ internal sealed class PageModuleScriptLoader : AsyncModuleLoader
 
     /// <summary>The document's import map, or <see langword="null"/> when it declared none.</summary>
     internal ImportMap? Map { get; set; }
+
+    internal Element? ImportMapElement { get; set; }
+
+    internal int PendingScripts { get; set; }
+
+    internal PageModuleScriptLoader ForDocument(string url)
+        => new(_network, _requests, _emulation, url, _maxBytes);
 
     /// <summary>Registers an inline module's source and answers the specifier that names it.</summary>
     internal string AddInline(string source)
@@ -151,7 +159,7 @@ internal sealed class PageModuleScriptLoader : AsyncModuleLoader
                 RequestInitiator.Subresource,
                 _emulation.EffectiveUserAgent,
                 PageRequestKind.Script,
-                Jint.WebApi.Performance.ResourceTiming.Start(engine, engine._mainRealm,
+                Jint.WebApi.Performance.ResourceTiming.Start(engine, engine.Realm,
                     url.Serialize(excludeFragment: true), "script", referrer?.SerializeOrigin(), JsRequest.CredentialsSameOrigin)),
             _requests,
             cancellationToken).ConfigureAwait(false);

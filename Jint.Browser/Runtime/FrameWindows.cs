@@ -114,6 +114,8 @@ internal static class FrameWindows
         BrowserEventRealm.Install(engine, realm);
         var dom = DomRealm.Of(engine, realm);
         dom.AssociateWindowDocument(document);
+        realm.ModuleLoader = runtime.Modules?.ForDocument(DomDocumentState.BaseUri(document,
+            engine.Constraints.Check, dom.CancellationToken));
         return dom;
     }
 
