@@ -274,6 +274,7 @@ ecma262 sec-error.iserror
 ecma262 sec-error.prototype.tostring
 ecma262 sec-escape-string
 ecma262 sec-evaldeclarationinstantiation
+ecma262 sec-evaluate-import-call
 ecma262 sec-evaluatecall
 ecma262 sec-evaluatenew
 ecma262 sec-example-cyclic-module-record-graphs
@@ -1060,7 +1061,6 @@ proposal-immutable-arraybuffer sec-integerindexedelementset
 proposal-immutable-arraybuffer sec-isimmutablebuffer
 proposal-immutable-arraybuffer sec-setviewvalue
 proposal-import-attributes sec-ModuleRequestsEqual
-proposal-import-attributes sec-evaluate-import-call
 proposal-import-bytes sec-create-bytes-module
 proposal-import-text sec-create-text-module
 proposal-intl-duration-format sec-Intl.DurationFormat-internal-slots

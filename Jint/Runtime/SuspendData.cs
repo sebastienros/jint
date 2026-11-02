@@ -606,6 +606,23 @@ internal sealed class CallSuspendData : SuspendData
     public bool DirectEval { get; set; }
 }
 
+/// <summary>
+/// Stores the specifier a dynamic <c>import()</c> had evaluated when its options suspended, so the resume goes back
+/// into the options instead of evaluating the specifier, and every call and getter inside it, a second time.
+/// </summary>
+/// <remarks>
+/// Parked and taken back as <see cref="CallSuspendData"/> is: keyed by the handler, read and removed by the resume
+/// that re-enters it, and parked only by a handler whose operands may suspend, which is decided at build time.
+/// </remarks>
+internal sealed class ImportCallSuspendData : SuspendData
+{
+    /// <summary>
+    /// The specifier's value, not yet converted: EvaluateImportCall calls <c>ToString</c> on it only once the
+    /// options are in hand.
+    /// </summary>
+    public JsValue Specifier { get; set; } = JsValue.Undefined;
+}
+
 internal sealed class SuspendDataDictionary
 {
     /// <summary>

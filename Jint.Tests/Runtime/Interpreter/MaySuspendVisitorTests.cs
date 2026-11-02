@@ -47,6 +47,31 @@ public class MaySuspendVisitorTests
         JintNewExpression.Build(expression).Should().BeOfType(suspendable ? typeof(JintSuspendableNewExpression) : typeof(JintNewExpression));
     }
 
+    /// <summary>
+    /// Either operand decides: a suspension in the options needs the specifier kept, and one in the specifier
+    /// needs the call stopped before it loads anything.
+    /// </summary>
+    [TestCase("async function m() { import(f(), await o); }", true)]
+    [TestCase("async function m() { import(await s); }", true)]
+    [TestCase("async function m() { import(s, { with: { type: await t } }); }", true)]
+    [TestCase("function* g() { import(s, yield 0); }", true)]
+    [TestCase("async function* g() { import((yield s), o); }", true)]
+    [TestCase("async function m() { import.defer(await s); }", true)]
+    [TestCase("async function m() { import.source(await s); }", true)]
+    [TestCase("async function m() { import(s, class { [await k]() {} }); }", true)]
+    [TestCase("async function m() { import(f(), { with: { type: 'json' } }); }", false)]
+    [TestCase("async function m() { import(s, async () => await o); }", false)]
+    [TestCase("function* g() { import(s, function* () { yield 0; }); }", false)]
+    [TestCase("async function m() { (await import(s)).x; }", false)]
+    [TestCase("async function m() { import.defer(s); }", false)]
+    public void BuildsTheSuspendableImportHandlerOnlyForOperandsThatCanSuspend(string code, bool suspendable)
+    {
+        // The engine's own parser options, which enable the import.defer and import.source phases.
+        var expression = Find<ImportExpression>(new Parser(Engine.BaseParserOptions).ParseScript(code));
+
+        JintImportExpression.Build(expression).Should().BeOfType(suspendable ? typeof(JintSuspendableImportExpression) : typeof(JintImportExpression));
+    }
+
     [TestCase("async function m() { let a = await f(); }", true)]
     [TestCase("function* g() { let a = yield 1; }", true)]
     [TestCase("async function m() { let a = (side(), await f()); }", true)]
