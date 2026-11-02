@@ -3,6 +3,7 @@
 using AwesomeAssertions.Execution;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -460,8 +461,539 @@ public class ForOfDisposalTests
         },
     };
 
+    /// <summary>
+    /// A body that is not a block and leaves as an exception rather than as a completion — a call that throws, an
+    /// operator's <c>TypeError</c>, an <c>if</c> whose test throws, a nested statement — is a throw completion all the
+    /// same, and step 8.k disposes the iteration's resources with it before the iterator is closed
+    /// (sebastienros/jint#4393). Jint skipped the dispose. A <c>throw</c> statement was always a completion, and is the
+    /// control.
+    /// </summary>
+    public static TestCases<string, string, string> BracelessBodiesInASyncFunction => new()
+    {
+        {
+            "AThrowStatement",
+            "try { for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) throw 'E'; } catch (e) { log.push('caught ' + show(e)); }",
+            "dispose a, return, caught E"
+        },
+        {
+            "ACallThatThrows",
+            "try { for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) boom('E'); } catch (e) { log.push('caught ' + show(e)); }",
+            "dispose a, return, caught E"
+        },
+        {
+            "ACallThatThrowsNotCaught",
+            "try { (() => { for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) boom('E'); log.push('UNREACHED'); })(); } catch (e) { log.push('uncaught ' + show(e)); }",
+            "dispose a, return, uncaught E"
+        },
+        {
+            "ATypeError",
+            "try { for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) undefined.p; } catch (e) { log.push('caught ' + (e instanceof TypeError ? 'TypeError' : show(e))); }",
+            "dispose a, return, caught TypeError"
+        },
+        {
+            "AnIfWhoseTestThrows",
+            "try { for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) if (boom('E')) log.push('UNREACHED'); } catch (e) { log.push('caught ' + show(e)); }",
+            "dispose a, return, caught E"
+        },
+        {
+            "ALabelledStatement",
+            "try { for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) l: boom('E'); } catch (e) { log.push('caught ' + show(e)); }",
+            "dispose a, return, caught E"
+        },
+        {
+            // The inner loop disposes and closes, then hands its throw completion to the outer one, which does the same.
+            "ANestedLoop",
+            "try { for (using x of logged(log, [sr(log, 'a')])) for (using y of logged(log, [sr(log, 'b')])) boom('E'); } catch (e) { log.push('caught ' + show(e)); }",
+            "dispose b, return, dispose a, return, caught E"
+        },
+        {
+            "ANestedLoopWhoseHeadThrows",
+            "try { for (using x of logged(log, [sr(log, 'a')])) for (const y of 1) log.push('UNREACHED'); } catch (e) { log.push('caught ' + (e instanceof TypeError ? 'TypeError' : show(e))); }",
+            "dispose a, return, caught TypeError"
+        },
+        {
+            "ALoopInsideAForIn",
+            "try { for (const k in { a: 1 }) for (using x of logged(log, [sr(log, k)])) boom('E'); } catch (e) { log.push('caught ' + show(e)); }",
+            "dispose a, return, caught E"
+        },
+        {
+            // DisposeResources step 4.e.iii.1: the dispose's throw is wrapped over the body's.
+            "TheBodyThrowsAndTheDisposeThrows",
+            "try { for (using x of logged(log, [throwingSync(log, 'a', 'D')])) boom('E'); } catch (e) { log.push('caught ' + show(e)); }",
+            "dispose a, return, caught SuppressedError(D over E)"
+        },
+    };
+
+    /// <summary>
+    /// The same bodies in an async function and an async generator, with <c>await using</c> as well: the dispose awaits
+    /// with the body's throw parked, as it does for a block body.
+    /// </summary>
+    public static TestCases<string, string, string, string> BracelessBodiesInBothKinds => new()
+    {
+        {
+            "AThrowStatement",
+            "try { for (await using x of [ar(log, 'x1'), ar(log, 'x2')]) throw 'E'; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "dispose x1, called, t1, caught E, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "dispose x1, called, t1, caught E, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ACallThatThrows",
+            "try { for (await using x of [ar(log, 'x1'), ar(log, 'x2')]) boom('E'); } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "dispose x1, called, t1, caught E, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "dispose x1, called, t1, caught E, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ACallThatThrowsUncaught",
+            "for (await using x of [ar(log, 'x1'), ar(log, 'x2')]) boom('E'); log.push('UNREACHED');",
+            "dispose x1, called, t1, t2, rejected E, t3, t4, t5, t6, t7, t8, t9",
+            "dispose x1, called, t1, t2, rejected E, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ATypeError",
+            "try { for (await using x of [ar(log, 'x1')]) undefined.p; } catch (e) { log.push('caught ' + (e instanceof TypeError ? 'TypeError' : show(e))); } log.push('after');",
+            "dispose x1, called, t1, caught TypeError, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "dispose x1, called, t1, caught TypeError, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ASyncUsing",
+            "try { for (using x of [sr(log, 'x1'), sr(log, 'x2')]) boom('E'); } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "dispose x1, caught E, after, called, t1, resolved undefined, t2, t3, t4, t5, t6, t7, t8, t9",
+            "dispose x1, caught E, after, called, t1, resolved {undefined,true}, t2, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "TheBodyThrowsAndTheDisposeSettlesLater",
+            "try { for (await using x of [later(log, 'x1')]) boom('B'); } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "dispose x1, called, t1, disposed x1, t2, caught B, after, t3, resolved undefined, t4, t5, t6, t7, t8, t9",
+            "dispose x1, called, t1, disposed x1, t2, caught B, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "TheBodyThrowsAndTheDisposeRejects",
+            "try { for (await using x of [rejecting(log, 'x1', 'D')]) boom('B'); } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "dispose x1, called, t1, caught SuppressedError(D over B), after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "dispose x1, called, t1, caught SuppressedError(D over B), after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "TheBodyThrowsAndTheDisposeThrows",
+            "try { for (await using x of [throwing(log, 'x1', 'D')]) boom('B'); } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "dispose x1, caught SuppressedError(D over B), after, called, t1, resolved undefined, t2, t3, t4, t5, t6, t7, t8, t9",
+            "dispose x1, caught SuppressedError(D over B), after, called, t1, resolved {undefined,true}, t2, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // IteratorClose step 5: return()'s throw is discarded for the body's, once the dispose has settled.
+            "WhenTheIteratorsReturnThrows",
+            "try { for (await using x of closeThrows(log)) boom('E'); } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "dispose x1, called, t1, finally, caught E, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "dispose x1, called, t1, finally, caught E, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "InsideATryWithAFinally",
+            "try { for (await using x of [ar(log, 'x1')]) boom('E'); } catch (e) { log.push('caught ' + show(e)); } finally { log.push('finally'); } log.push('after');",
+            "dispose x1, called, t1, caught E, finally, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9",
+            "dispose x1, called, t1, caught E, finally, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // The dispose settles before AsyncIteratorClose awaits.
+            "AForAwaitLoop",
+            "try { for await (await using x of [ar(log, 'x1'), ar(log, 'x2')]) boom('E'); } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "called, t1, t2, dispose x1, t3, t4, caught E, after, t5, resolved undefined, t6, t7, t8, t9",
+            "called, t1, t2, dispose x1, t3, t4, caught E, after, t5, resolved {undefined,true}, t6, t7, t8, t9"
+        },
+        {
+            "AForAwaitLoopWithASyncUsing",
+            "try { for await (using x of [sr(log, 'x1'), sr(log, 'x2')]) boom('E'); } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "called, t1, t2, dispose x1, t3, caught E, after, t4, resolved undefined, t5, t6, t7, t8, t9",
+            "called, t1, t2, dispose x1, t3, caught E, after, t4, resolved {undefined,true}, t5, t6, t7, t8, t9"
+        },
+        {
+            "AForAwaitLoopWhoseDisposeRejects",
+            "try { for await (await using x of [rejecting(log, 'x1', 'D')]) boom('B'); } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "called, t1, t2, dispose x1, t3, t4, caught SuppressedError(D over B), after, t5, resolved undefined, t6, t7, t8, t9",
+            "called, t1, t2, dispose x1, t3, t4, caught SuppressedError(D over B), after, t5, resolved {undefined,true}, t6, t7, t8, t9"
+        },
+    };
+
+    /// <summary>
+    /// A brace-less body that a generator's <c>return()</c> or <c>throw()</c> resumption ends at its <c>yield</c>: the
+    /// yield evaluates to that abrupt completion (https://tc39.es/ecma262/#sec-generatorresumeabrupt), which Jint carries
+    /// as an exception out of an expression, and the iteration is disposed with it. Jint skipped the dispose; until
+    /// sebastienros/jint#4358 it disposed the resource at the yield instead.
+    /// </summary>
+    public static TestCases<string, string, string, string> BracelessYieldsInASyncGenerator => new()
+    {
+        {
+            "ReturnAtAYield",
+            "for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) yield 1; log.push('UNREACHED');",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "step, dispose a, return, {5,true}"
+        },
+        {
+            "ReturnAtANestedYield",
+            "for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) log.push('got ' + (yield 1)); log.push('UNREACHED');",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "step, dispose a, return, {5,true}"
+        },
+        {
+            "ReturnAtAYieldStar",
+            "for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) yield* (function* () { try { yield 1; } finally { log.push('inner finally'); } })(); log.push('UNREACHED');",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "step, inner finally, dispose a, return, {5,true}"
+        },
+        {
+            "ReturnAtAYieldInATryWithAFinally",
+            "try { for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) yield 1; } finally { log.push('finally'); }",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "step, dispose a, return, finally, {5,true}"
+        },
+        {
+            // The dispose's throw replaces the return completion.
+            "ReturnAtAYieldWhenTheDisposeThrows",
+            "try { for (using x of logged(log, [throwingSync(log, 'a', 'D')])) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "step, dispose a, return, caught D, after, {undefined,true}"
+        },
+        {
+            "ReturnAtAYieldWhenTheDisposeThrowsUncaught",
+            "for (using x of logged(log, [throwingSync(log, 'a', 'D')])) yield 1; log.push('UNREACHED');",
+            "it.next(); log.push('step'); try { it.return(5); } catch (e) { log.push('threw ' + show(e)); }",
+            "step, dispose a, return, threw D"
+        },
+        {
+            "ThrowAtAYield",
+            "try { for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.next(); log.push('step'); log.push(fmt(it.throw('E')));",
+            "step, dispose a, return, caught E, after, {undefined,true}"
+        },
+        {
+            "ThrowAtAYieldUncaught",
+            "for (using x of logged(log, [sr(log, 'a'), sr(log, 'b')])) yield 1; log.push('UNREACHED');",
+            "it.next(); log.push('step'); try { it.throw('E'); } catch (e) { log.push('threw ' + show(e)); }",
+            "step, dispose a, return, threw E"
+        },
+        {
+            "ThrowAtAYieldWhenTheDisposeThrows",
+            "try { for (using x of logged(log, [throwingSync(log, 'a', 'D')])) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.next(); log.push('step'); log.push(fmt(it.throw('E')));",
+            "step, dispose a, return, caught SuppressedError(D over E), after, {undefined,true}"
+        },
+    };
+
+    /// <summary>
+    /// A <c>return()</c> resumption leaving a braced body whose iteration's dispose then throws: the throw replaces the
+    /// return completion, and a <c>catch</c> around the loop sees it (sebastienros/jint#4360). Jint completed the
+    /// generator with the return value, because the request <c>return()</c> raised was still in force once the dispose
+    /// had thrown.
+    /// </summary>
+    public static TestCases<string, string, string, string> ADisposeThatThrowsOverAReturnInASyncGenerator => new()
+    {
+        {
+            "AYieldThatIsTheWholeBody",
+            "try { for (using x of logged(log, [throwingSync(log, 'a', 'D')])) { yield 1; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "step, dispose a, return, caught D, after, {undefined,true}"
+        },
+        {
+            "AYieldThatIsTheWholeBodyUncaught",
+            "for (using x of logged(log, [throwingSync(log, 'a', 'D')])) { yield 1; } log.push('UNREACHED');",
+            "it.next(); log.push('step'); try { it.return(5); } catch (e) { log.push('threw ' + show(e)); }",
+            "step, dispose a, return, threw D"
+        },
+        {
+            "AYieldInAStatementList",
+            "try { for (using x of logged(log, [throwingSync(log, 'a', 'D')])) { log.push('body'); yield 1; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.next(); log.push('step'); log.push(fmt(it.return(5)));",
+            "body, step, dispose a, return, caught D, after, {undefined,true}"
+        },
+    };
+
+    /// <summary>
+    /// The async generator's counterpart of <see cref="BracelessYieldsInASyncGenerator"/>, the generator first run to its
+    /// first yield. A <c>return()</c> is awaited at the yield (sebastienros/jint#4315), then the body's return completion
+    /// waits for the dispose, as it does for a block body.
+    /// </summary>
+    public static TestCases<string, string, string, string> BracelessYieldsInAnAsyncGenerator => new()
+    {
+        {
+            "ReturnAtAYield",
+            "for (await using x of [ar(log, 'x1'), ar(log, 'x2')]) yield 1; log.push('UNREACHED');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, t3, resolved {5,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtANestedYield",
+            "for (await using x of [ar(log, 'x1'), ar(log, 'x2')]) log.push('got ' + (yield 1)); log.push('UNREACHED');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, t3, resolved {5,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtAYieldDisposingALaterPromise",
+            "for (await using x of [later(log, 'x1'), ar(log, 'x2')]) yield 1; log.push('UNREACHED');",
+            "it.return(Promise.resolve(5))",
+            "called, t1, dispose x1, t2, disposed x1, t3, t4, resolved {5,true}, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtAYieldInATryWithAFinally",
+            "try { for (await using x of [ar(log, 'x1'), ar(log, 'x2')]) yield 1; } finally { log.push('finally'); }",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, finally, t3, resolved {5,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtAYieldWithASyncUsing",
+            "for (using x of [sr(log, 'x1'), sr(log, 'x2')]) yield 1; log.push('UNREACHED');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, resolved {5,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtAYieldWhenTheDisposeRejects",
+            "try { for (await using x of [rejecting(log, 'x1', 'D')]) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, caught D, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtAYieldWhenTheDisposeRejectsUncaught",
+            "for (await using x of [rejecting(log, 'x1', 'D')]) yield 1; log.push('UNREACHED');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, t3, rejected D, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // A dispose method that throws has no result to await, and its throw replaces the return completion at once.
+            "ReturnAtAYieldWhenTheDisposeThrows",
+            "try { for (await using x of [throwing(log, 'x1', 'D')]) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.return(5)",
+            "called, t1, dispose x1, caught D, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtAYieldWhenTheIteratorsReturnThrows",
+            "try { for (await using x of closeThrows(log)) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, finally, caught F, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ThrowAtAYield",
+            "try { for (await using x of [ar(log, 'x1'), ar(log, 'x2')]) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.throw('E')",
+            "dispose x1, called, t1, caught E, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ThrowAtAYieldUncaught",
+            "for (await using x of [ar(log, 'x1'), ar(log, 'x2')]) yield 1; log.push('UNREACHED');",
+            "it.throw('E')",
+            "dispose x1, called, t1, t2, rejected E, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ThrowAtAYieldWithASyncUsing",
+            "try { for (using x of [sr(log, 'x1'), sr(log, 'x2')]) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.throw('E')",
+            "dispose x1, caught E, after, called, t1, resolved {undefined,true}, t2, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ThrowAtAYieldWhenTheDisposeRejects",
+            "try { for (await using x of [rejecting(log, 'x1', 'D')]) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.throw('E')",
+            "dispose x1, called, t1, caught SuppressedError(D over E), after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // The iterator is closed, and its close awaited, once the dispose has settled.
+            "ReturnAtAYieldInAForAwaitLoop",
+            "for await (await using x of [ar(log, 'x1'), ar(log, 'x2')]) yield 1; log.push('UNREACHED');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, t3, t4, resolved {5,true}, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtAYieldInAForAwaitLoopWhenTheDisposeRejects",
+            "try { for await (await using x of [rejecting(log, 'x1', 'D')]) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, t3, caught D, after, t4, resolved {undefined,true}, t5, t6, t7, t8, t9"
+        },
+        {
+            "ThrowAtAYieldInAForAwaitLoop",
+            "try { for await (await using x of [ar(log, 'x1'), ar(log, 'x2')]) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.throw('E')",
+            "dispose x1, called, t1, t2, caught E, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ThrowAtAYieldInAForAwaitLoopWhenTheDisposeRejects",
+            "try { for await (await using x of [rejecting(log, 'x1', 'D')]) yield 1; } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.throw('E')",
+            "dispose x1, called, t1, t2, caught SuppressedError(D over E), after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            // sebastienros/jint#4360 in an async generator, with braces: a dispose that throws without being awaited.
+            "ReturnAtABracedYieldWhenTheDisposeThrows",
+            "try { for (await using x of [throwing(log, 'x1', 'D')]) { yield 1; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.return(5)",
+            "called, t1, dispose x1, caught D, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtABracedYieldWhenTheDisposeThrowsUncaught",
+            "for (await using x of [throwing(log, 'x1', 'D')]) { yield 1; } log.push('UNREACHED');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, rejected D, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtABracedYieldWithASyncUsingWhenTheDisposeThrows",
+            "try { for (using x of [throwingSync(log, 'x1', 'D')]) { yield 1; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.return(5)",
+            "called, t1, dispose x1, caught D, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9"
+        },
+        {
+            "ReturnAtABracedYieldInAForAwaitLoopWhenTheDisposeThrows",
+            "try { for await (await using x of [throwing(log, 'x1', 'D')]) { yield 1; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+            "it.return(5)",
+            "called, t1, dispose x1, t2, caught D, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9"
+        },
+    };
+
     [TestCaseSource(nameof(InBothKinds)), CancelAfter(10000)]
     public void AnAsyncLoopDisposesEachIteration(string name, string body, string asAFunction, string asAGenerator)
+        => RunInBothKinds(name, body, asAFunction, asAGenerator);
+
+    [TestCaseSource(nameof(BracelessBodiesInBothKinds)), CancelAfter(10000)]
+    public void ABracelessBodyLeavingAsAnExceptionDisposesItsIteration(string name, string body, string asAFunction, string asAGenerator)
+        => RunInBothKinds(name, body, asAFunction, asAGenerator);
+
+    [TestCaseSource(nameof(BracelessBodiesInASyncFunction)), CancelAfter(10000)]
+    public void ABracelessBodyLeavingAsAnExceptionDisposesItsIterationInASyncFunction(string name, string body, string expected)
+    {
+        Run("""
+            (() => {
+              const log = [];
+              BODY
+              return log.join(', ');
+            })();
+            """.Replace("BODY", body)).Should().Be(expected, name);
+    }
+
+    [TestCaseSource(nameof(BracelessYieldsInASyncGenerator)), CancelAfter(10000)]
+    public void ABracelessBodyEndedAtItsYieldDisposesItsIterationInASyncGenerator(string name, string body, string driver, string expected)
+        => ALoopInASyncGeneratorDisposesEachIterationWhenItsBodyCompletes(name, body, driver, expected);
+
+    [TestCaseSource(nameof(ADisposeThatThrowsOverAReturnInASyncGenerator)), CancelAfter(10000)]
+    public void ADisposeThatThrowsReplacesAReturnResumptionInASyncGenerator(string name, string body, string driver, string expected)
+        => ALoopInASyncGeneratorDisposesEachIterationWhenItsBodyCompletes(name, body, driver, expected);
+
+    [TestCaseSource(nameof(BracelessYieldsInAnAsyncGenerator)), CancelAfter(10000)]
+    public void ABracelessBodyEndedAtItsYieldDisposesItsIterationInAnAsyncGenerator(string name, string body, string request, string expected)
+        => ALoopInAnAsyncGeneratorResumedAtAYield(name, body, request, expected);
+
+    /// <summary>
+    /// The issue's own example, at the top level of a script.
+    /// </summary>
+    [Test, CancelAfter(10000)]
+    public void TheIssuesExample()
+    {
+        var engine = new Engine(options => options.ObserveCancellation(TestContext.CurrentContext.CancellationToken));
+        engine.Evaluate("""
+            const log = [];
+            const res = { [Symbol.dispose]() { log.push('disposed'); } };
+            function f() { throw new Error('E'); }
+            try {
+              for (using x of [res]) f();
+            } catch (e) { log.push('caught'); }
+            log.join();
+            """).AsString().Should().Be("disposed,caught");
+    }
+
+    /// <summary>
+    /// A brace-less body's throw is reported to the debugger once, where it was thrown, whether it leaves as an exception
+    /// or waits for an await using dispose; a dispose that throws over it is reported where it throws, and the
+    /// <c>SuppressedError</c> wrapping the two is not a throw of its own.
+    /// </summary>
+    [Test, CancelAfter(10000)]
+    public void ABracelessBodysThrowIsReportedOnce()
+    {
+        var engine = new Engine(options =>
+        {
+            options.Debugger.Enabled = true;
+            options.ObserveCancellation(TestContext.CurrentContext.CancellationToken);
+        });
+
+        var thrown = new List<string>();
+        engine.Debugger.ExceptionThrown += (_, args) => thrown.Add(args.ThrownValue.IsObject() ? "TypeError" : args.ThrownValue.ToString());
+
+        engine.Execute("""
+            const r = () => ({ [Symbol.dispose]() {} });
+            const ar = () => ({ [Symbol.asyncDispose]() {} });
+            const d = () => ({ [Symbol.dispose]() { throw 'dispose'; } });
+            function boom(e) { throw e; }
+            try { for (using x of [r()]) boom('call'); } catch (e) {}
+            try { for (using x of [r()]) undefined.p; } catch (e) {}
+            try { for (using x of [d()]) boom('under a dispose'); } catch (e) {}
+            const it = (function* () { try { for (using x of [r(), r()]) yield 1; } catch (e) {} })();
+            it.next();
+            it.throw('throw()');
+            (async function () {
+                try { for (await using x of [ar()]) boom('function'); } catch (e) {}
+                try { for await (await using x of [ar()]) boom('function, for await'); } catch (e) {}
+            })();
+            (async function* () {
+                try { for (await using x of [ar()]) boom('generator'); } catch (e) {}
+            })().next();
+            """);
+
+        thrown.OrderBy(s => s, StringComparer.Ordinal).Should().Equal(
+            "TypeError", "call", "dispose", "function", "function, for await", "generator", "throw()", "under a dispose");
+    }
+
+    /// <summary>
+    /// What a brace-less body hands the loop as a completion is only what a statement list would: a host exception and a
+    /// constraint still unwind through the loop to the host untouched, exactly as they do from a block body, whose rules
+    /// for disposing on the way out the brace-less body now shares.
+    /// </summary>
+    [TestCase("for (using x of [r]) host.Boom;", "for (using x of [r]) { host.Boom; }")]
+    [TestCase("for (using x of [r]) l: host.Boom;", "for (using x of [r]) { l: host.Boom; }")]
+    [CancelAfter(10000)]
+    public void AHostExceptionInABracelessBodyReachesTheHostAsOneInABlockBodyDoes(string braceless, string braced)
+    {
+        var (bracelessException, bracelessLog) = RunWithHostObject(braceless);
+        var (bracedException, bracedLog) = RunWithHostObject(braced);
+
+        using var _ = new AssertionScope();
+        bracelessException.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("boom");
+        bracedException.Should().BeOfType<InvalidOperationException>();
+        bracelessLog.Should().Be(bracedLog);
+
+        static (Exception? Exception, string Log) RunWithHostObject(string loop)
+        {
+            var engine = new Engine(options => options.ObserveCancellation(TestContext.CurrentContext.CancellationToken));
+            engine.SetValue("host", new ThrowingObject(engine));
+            engine.Execute("var log = []; var r = { [Symbol.dispose]() { log.push('disposed'); } };");
+            var exception = Caught.Exception(() => engine.Execute("try { " + loop + " } catch (e) { log.push('caught'); }"));
+            return (exception, engine.Evaluate("log.join()").AsString());
+        }
+    }
+
+    [Test, CancelAfter(10000)]
+    public void AStatementLimitInABracelessBodyStaysFatal()
+    {
+        var engine = new Engine(options =>
+        {
+            options.LimitStatements(200);
+            options.ObserveCancellation(TestContext.CurrentContext.CancellationToken);
+        });
+
+        Caught.Exception(() => engine.Execute("""
+            var r = { [Symbol.dispose]() {} };
+            try { for (using x of [r]) (function () { while (true) {} })(); } catch (e) { throw 'caught a constraint'; }
+            """)).Should().BeOfType<StatementsCountOverflowException>();
+    }
+
+    [Test, CancelAfter(10000)]
+    public void ARecursionLimitInABracelessBodyStaysFatal()
+    {
+        var engine = new Engine(options =>
+        {
+            options.Constraints.MaxRecursionDepth = 20;
+            options.ObserveCancellation(TestContext.CurrentContext.CancellationToken);
+        });
+
+        Caught.Exception(() => engine.Execute("""
+            var r = { [Symbol.dispose]() {} };
+            function f() { for (using x of [r]) f(); }
+            try { f(); } catch (e) { throw 'caught a constraint'; }
+            """)).Should().BeOfType<RecursionDepthOverflowException>();
+    }
+
+    private static void RunInBothKinds(string name, string body, string asAFunction, string asAGenerator)
     {
         using var _ = new AssertionScope();
         RunAsync("probe(log => (async function () { " + body + " }), it => it(), false);")
@@ -559,7 +1091,9 @@ public class ForOfDisposalTests
         public override JsValue Get(JsValue property, JsValue receiver) => throw new InvalidOperationException("boom");
     }
 
-    // An iterable whose return() throws F once its generator's finally runs, and one whose return() answers a number.
+    // An iterable whose return() throws F once its generator's finally runs, one whose return() answers a number, one
+    // over a list whose return() is logged, a function that throws its argument, and a sync-disposable resource whose
+    // dispose throws.
     private const string IteratorHelpers = """
         function closeThrows(log) {
           return (function* () { try { yield ar(log, 'x1'); yield ar(log, 'x2'); } finally { log.push('finally'); throw 'F'; } })();
@@ -567,6 +1101,15 @@ public class ForOfDisposalTests
         function closeAnswersANonObject(log) {
           let n = 0;
           return { [Symbol.iterator]() { return { next() { n++; return { value: ar(log, 'x' + n), done: false }; }, return() { log.push('return'); return 1; } }; } };
+        }
+        function logged(log, items) {
+          return { [Symbol.iterator]() { let i = 0; return { next() { return i < items.length ? { value: items[i++], done: false } : { value: undefined, done: true }; }, return() { log.push('return'); return {}; } }; } };
+        }
+        function boom(reason) {
+          throw reason;
+        }
+        function throwingSync(log, name, reason) {
+          return { [Symbol.dispose]() { log.push('dispose ' + name); throw reason; } };
         }
 
         """;
@@ -580,6 +1123,6 @@ public class ForOfDisposalTests
     private static string Run(string script)
     {
         var engine = new Engine(options => options.ObserveCancellation(TestContext.CurrentContext.CancellationToken));
-        return engine.Evaluate(AsyncBlockDisposalTests.Prelude + script).AsString();
+        return engine.Evaluate(AsyncBlockDisposalTests.Prelude + IteratorHelpers + script).AsString();
     }
 }

@@ -90,7 +90,12 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _iterationKind = statement.Await ? IterationKind.AsyncIterate : IterationKind.Iterate;
         InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
         _patternMaySuspend = _assignmentPattern is not null && MaySuspendVisitor.MaySuspend(_assignmentPattern);
-        _body = new ProbablyBlockStatement(_forBody);
+
+        // Only a using or await using head registers resources, and only a body that is not a block can leave as an
+        // exception: see DisposingIterationBody. Every other loop runs its body as it always has.
+        _body = _disposeHint != DisposeHint.Normal && _forBody is not NestedBlockStatement
+            ? new ProbablyBlockStatement(new DisposingIterationBody(JintStatement.Build(_forBody)))
+            : new ProbablyBlockStatement(_forBody);
         _right = JintExpression.Build(_rightExpression);
 
         InitializeIterationEnvReuse(out _canReuseIterationEnv, out _iterationSlotNames, out _iterationSlotTemplates);
@@ -1119,7 +1124,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// <see href="https://tc39.es/ecma262/#sec-iteratorclose">IteratorClose</see>. The one exception that is not a
     /// throw is a <see cref="GeneratorReturnException"/>: the return completion a <c>yield</c> in the loop's binding
     /// pattern or brace-less body was resumed with. It closes the iterator with <see cref="CompletionType.Return"/>,
-    /// so a failing <c>return()</c> does replace it, as it replaces a <c>return</c> statement's.
+    /// so a failing <c>return()</c> does replace it, as it replaces a <c>return</c> statement's. A loop whose head
+    /// declares <c>using</c> never sees one from its body: <see cref="DisposingIterationBody"/> hands the body's
+    /// exceptions on as completions, which the iteration's dispose needs.
     /// </para>
     /// <para>
     /// One catch ahead of this filter does accept: a <c>for await</c> loop's throw that a script could catch, because
@@ -1642,6 +1649,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
 
         disposed = step.CompletedResult;
+        if (disposed.Type == CompletionType.Throw)
+        {
+            // A dispose that threw replaced the completion the body left with (DisposeResources step 4.e.iii.2), so a
+            // generator's return() request that completion stood for is no longer in force; left set, the test of it
+            // below turned the throw back into the return, and no catch saw it (sebastienros/jint#4360). The resume
+            // after a suspended dispose does the same (ResumeFromDispose), as a block does (JintBlockStatement.CompleteDispose).
+            JintStatementList.ClearReturnRequest(engine);
+        }
+
         return false;
     }
 
@@ -1820,6 +1836,49 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         catch
         {
             // Best-effort close on abrupt — main path already has its own completion.
+        }
+    }
+
+    /// <summary>
+    /// The body of a loop whose head declares <c>using</c> or <c>await using</c>, when that body is not a block. Step 8.j
+    /// takes the body's completion, abrupt or not, and step 8.k disposes the iteration's resources with it before the
+    /// iterator is closed
+    /// (https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset).
+    /// A statement's abrupt completion reaches its caller as a completion or, from inside an expression, as an exception:
+    /// a call that throws, a <c>TypeError</c>, a generator's <c>return()</c> or <c>throw()</c> resumption at a
+    /// <c>yield</c> (<see cref="GeneratorReturnException"/>). This turns the exceptions a statement list turns into
+    /// completions into those completions, as a block body's own statements are, so that the dispose and everything after
+    /// it — awaiting an <c>await using</c> result, closing the iterator — runs on the path a block body takes
+    /// (sebastienros/jint#4393).
+    /// </summary>
+    /// <remarks>
+    /// Built only for such a loop, so every other loop runs its body exactly as before. It is transparent as
+    /// <see cref="JintStackProbeStatement"/> is: <see cref="JintStatement.Execute"/> runs the per-statement checks once, for
+    /// the node both handlers share, and the wrapped statement then runs without them. What it declines — a constraint,
+    /// a cancellation, a host exception — unwinds through the loop untouched and is not disposed for, as out of a block
+    /// body.
+    /// </remarks>
+    private sealed class DisposingIterationBody : JintStatement
+    {
+        private readonly JintStatement _body;
+
+        internal DisposingIterationBody(JintStatement body) : base(body._statement)
+        {
+            _body = body;
+        }
+
+        protected override Completion ExecuteInternal(EvaluationContext context)
+        {
+            try
+            {
+                return _body.ExecuteWithoutStatementChecks(context);
+            }
+            catch (Exception exception) when (exception is GeneratorReturnException || JintStatementList.BecomesThrowCompletion(exception))
+            {
+                // Reported to the debugger here, once, as a statement list reports it; the loop hands the throw on as the
+                // completion it now is.
+                return JintStatementList.HandleException(context, exception, _body);
+            }
         }
     }
 
