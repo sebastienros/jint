@@ -589,17 +589,17 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             Throw.InvalidOperationException("AsyncGeneratorYield called without current promise capability");
         }
 
-        // Capture the current promise capability for use in closures
-        // (it will be cleared after ResumeExecution returns, before callbacks run)
+        // Capture the current request's capability for the reactions below: the fulfilled one clears the field
+        // before it resolves, and the rejected one hands it back to the body it resumes.
         var promiseCapability = _currentPromiseCapability;
 
         // Set state to suspendedYield
         _asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
         _suspendedValue = value;
 
-        // Per spec AsyncGeneratorYield step 4: Set value to ? Await(value). The caller has performed Await's
-        // PromiseResolve(%Promise%, value), which returns the value as-is if it's already a %Promise% (avoids extra
-        // thenable job tick for Promise values); what is left is to await it.
+        // https://tc39.es/ecma262/#sec-yield step 2: AsyncGeneratorYield(? Await(value)). The caller has performed
+        // Await's PromiseResolve(%Promise%, value), which returns the value as-is if it's already a %Promise% (no
+        // extra thenable job tick for Promise values); what is left is to await it, here.
 
         // Create fulfillment handler
         var onFulfilled = new ClrFunction(_engine, "", (thisObj, args) =>
