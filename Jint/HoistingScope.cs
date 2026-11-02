@@ -591,8 +591,9 @@ internal sealed class HoistingScope
 
     /// <summary>
     /// [[HasTLA]], which is <c>body Contains await</c> (https://tc39.es/ecma262/#sec-parsemodule, step 11): an await
-    /// expression, a <c>for await</c> or an <c>await using</c> declaration, found outside every function. Classes are
-    /// skipped whole, although Contains looks into a class's heritage and computed keys (sebastienros/jint#4395).
+    /// expression, a <c>for await</c> or an <c>await using</c> declaration, found outside every function. A class is
+    /// searched as Contains searches a ClassTail (https://tc39.es/ecma262/#sec-static-semantics-contains): its heritage
+    /// and its computed keys, and none of its method bodies, field initializers or static blocks.
     /// </summary>
     public static bool HasTopLevelAwait(Module module)
     {
@@ -644,10 +645,16 @@ internal sealed class HoistingScope
             }
 
             // Don't descend into function bodies - those have their own async context
-            if (node.Type is NodeType.FunctionDeclaration or NodeType.FunctionExpression
-                or NodeType.ArrowFunctionExpression or NodeType.ClassDeclaration
-                or NodeType.ClassExpression)
+            if (node.Type is NodeType.FunctionDeclaration or NodeType.FunctionExpression or NodeType.ArrowFunctionExpression)
             {
+                return;
+            }
+
+            // A class's heritage and computed keys are evaluated in the enclosing frame, so an await in either is the
+            // module's (sebastienros/jint#4395). Everything else in its body is a function of its own.
+            if (node.Type is NodeType.ClassDeclaration or NodeType.ClassExpression)
+            {
+                VisitClass((IClass) node);
                 return;
             }
 
@@ -657,6 +664,27 @@ internal sealed class HoistingScope
                 if (_hasTopLevelAwait)
                 {
                     return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Contains for a ClassTail: the ClassHeritage, then ComputedPropertyContains of each class element, which
+        /// looks at a computed ClassElementName only — never at a method body, a field initializer or a static block.
+        /// </summary>
+        private void VisitClass(IClass @class)
+        {
+            if (@class.SuperClass is not null)
+            {
+                Visit(@class.SuperClass);
+            }
+
+            ref readonly var elements = ref @class.Body.Body;
+            for (var i = 0; i < elements.Count && !_hasTopLevelAwait; i++)
+            {
+                if (elements[i] is IProperty { Computed: true } property)
+                {
+                    Visit(property.Key);
                 }
             }
         }

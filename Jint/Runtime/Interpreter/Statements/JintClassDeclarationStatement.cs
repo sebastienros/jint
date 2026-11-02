@@ -12,6 +12,9 @@ internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclara
         _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name, classDeclaration);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-bindingclassdeclarationevaluation
+    /// </summary>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         var engine = context.Engine;
@@ -21,6 +24,13 @@ internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclara
         var classBinding = _classDefinition._className;
         if (classBinding != null)
         {
+            // A class whose heritage or computed key suspended is not defined yet, and its binding stays in its
+            // temporal dead zone until the resume defines it.
+            if (_classDefinition._maySuspend && context.IsSuspended())
+            {
+                return new Completion(CompletionType.Normal, JsEmpty.Instance, _statement);
+            }
+
             env.InitializeBinding(classBinding, value, DisposeHint.Normal);
         }
 

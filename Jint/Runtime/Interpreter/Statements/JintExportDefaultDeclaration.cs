@@ -52,6 +52,13 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
         if (_classDefinition is not null)
         {
             value = _classDefinition.BuildConstructor(context, env);
+
+            // A class whose heritage or computed key suspended is not defined yet; the resume binds it.
+            if (asyncFn?._state == AsyncFunctionState.SuspendedAwait)
+            {
+                return Completion.Empty();
+            }
+
             var classBinding = _classDefinition._className;
             if (classBinding != null)
             {

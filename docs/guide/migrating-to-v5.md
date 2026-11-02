@@ -7000,6 +7000,58 @@ the body, as a braced body's is ([#4393](https://github.com/sebastienros/jint/is
 A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
 There is no switch back.
 
+### 4.184 A class whose `extends` clause or computed key suspends resumes where it suspended ([#4395](https://github.com/sebastienros/jint/issues/4395))
+
+A class's `extends` clause and its computed keys run in the frame around the class. An `await` or a `yield` in them
+suspends that frame, and the resume should continue inside the class. In 4.16, it did not. In an async function, an
+`await` in the `extends` clause made the whole function body run again from its first statement. In a generator, a
+`yield` there made `next()` throw `TypeError: super class is not a constructor`:
+
+```js
+const log = [];
+async function f() {
+  log.push("start");
+  class C extends (await Promise.resolve(Object)) {}
+  log.push("end");
+}
+f();
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: ["start", "start", "end"]    5.x: ["start", "end"]
+```
+
+A suspended computed key stopped the class, but the resume rebuilt the class from the start. The `extends` clause and
+the keys before the suspended one ran again. The class's name was bound to `undefined` while the frame was suspended,
+where reading it should throw a `ReferenceError`. In an async function, what ran after the class still ran in strict
+mode, and a closure created before the class could see a different binding from the one the class was assigned to.
+`V = class V extends (await b) {}` threw a `ReferenceError`. Now the class resumes where it suspended, and its name is
+bound once it is defined. Each part runs once, in async functions, generators and async generators.
+
+A module has top-level await when its body has an `await` outside every function. An `await` in a class's `extends`
+clause or in one of its computed keys counts, but one in a method, a field initializer or a static block does not. In
+4.16, Jint did not look inside classes at all. A module whose only `await` was there was evaluated as a synchronous
+module, so a module importing it ran straight after its body:
+
+```js
+// module "m"
+globalThis.log = [];
+Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
+export class C extends (await Object) {}
+log.push("m");
+
+// module "main"
+import "m";
+log.push("main");
+// 4.16.x / earlier 5.0: ["m", "main", "t1", "t2"]    5.x: ["t1", "m", "t2", "main"]
+```
+
+Now such a module is evaluated asynchronously, as §4.182 describes for `await using`. For a host it is a
+top-level-await module, with the same consequences.
+
+Two neighbours changed with it. When the `extends` clause throws, the class's own scope is left before a `catch` runs.
+So a `catch` that reads a name the class also uses gets the outer binding, not a `ReferenceError`. And a getter, a
+setter or a generator method in an object literal whose computed key awaits no longer adds a property named
+`"undefined"` next to its own. There is no switch back.
+
 ### 4.185 A brace-less `for (using … of …)` body that throws disposes its resource ([#4393](https://github.com/sebastienros/jint/issues/4393))
 
 A `for`-`of` or `for await` loop whose head declares `using` or `await using` disposes each iteration's resource
