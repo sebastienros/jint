@@ -6771,6 +6771,33 @@ f(); // 4.16: ReferenceError: log is not defined    5.x: 42
 Now such an arrow gets a new environment on every call, as its block-bodied form `log => { return eval(...); }`
 does, and the function the `eval` returns reads the parameter as in other engines. There is no switch back.
 
+### 4.179 An async generator's `yield` of a rejected promise throws at the `yield` ([#4369](https://github.com/sebastienros/jint/issues/4369))
+
+In an async generator, `yield p` awaits `p` before it yields anything. In 4.16, when `p` rejected, the generator
+completed and the pending request was rejected on the spot. No `catch` or `finally` around the `yield` ran, and neither
+did the close of a `for`-`of` loop around it or the disposal of a `using` resource in scope:
+
+```js
+var log = [];
+async function* g() {
+    try { yield Promise.reject("X"); } catch (e) { log.push("caught " + e); } finally { log.push("fin"); }
+    yield "after";
+}
+await g().next().then(r => log.push(JSON.stringify(r)), e => log.push("rejected " + e));
+// 4.16.x / earlier 5.0: ["rejected X"]    5.x: ["caught X", "fin", "{\"value\":\"after\",\"done\":false}"]
+```
+
+Now the rejection is thrown at the `yield`, in the microtask where an `await` of the same promise would throw. A
+`catch` around it handles it like any other throw: the generator carries on, and the request is answered by what the
+body does next, which is its next `yield`, its return, or a throw nothing catches. Only that last case still rejects
+the request and completes the generator, after the `finally` blocks, iterator closes and disposals on the way out. A
+`yield*` whose delegate is an async generator sees the delegate behave the same way.
+
+One neighbour changed with it. Requests made while an async generator is busy queue behind the one it is serving.
+Once the generator completed, only the first of them was answered, and the rest stayed pending for good. Now each is
+answered in turn: a `next()` with `{ value: undefined, done: true }`, a `throw()` with its rejection, and a `return()`
+once its value is awaited. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

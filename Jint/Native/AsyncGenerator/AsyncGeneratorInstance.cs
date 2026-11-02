@@ -128,102 +128,117 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// https://tc39.es/ecma262/#sec-asyncgeneratordrainqueue
     /// Processes the next request in the queue if any.
     /// </summary>
+    /// <remarks>
+    /// A completed generator answers a queued <c>next()</c> or <c>throw()</c> at once and goes on to the request behind
+    /// it, until the queue is empty or a <c>return()</c> has to await its value. Every other request leaves the
+    /// generator busy, and whatever settles that request calls back in here.
+    /// </remarks>
     internal void AsyncGeneratorResumeNext()
     {
-        if (_asyncGeneratorState == AsyncGeneratorState.Executing || _asyncGeneratorState == AsyncGeneratorState.AwaitingReturn)
+        while (true)
         {
-            return;
-        }
-
-        if (_asyncGeneratorQueue.Count == 0)
-        {
-            return;
-        }
-
-        var next = _asyncGeneratorQueue[0];
-        _asyncGeneratorQueue.RemoveAt(0);
-
-        var completion = next.Completion;
-        var promiseCapability = next.Capability;
-
-        try
-        {
-            if (completion.Type == CompletionType.Normal)
+            if (_asyncGeneratorState == AsyncGeneratorState.Executing || _asyncGeneratorState == AsyncGeneratorState.AwaitingReturn)
             {
-                // Corresponds to next() call
-                if (_asyncGeneratorState == AsyncGeneratorState.SuspendedStart)
-                {
-                    _asyncGeneratorState = AsyncGeneratorState.Executing;
-                    _nextValue = completion.Value;
-                    _isResuming = false;
-                    ResumeExecution(promiseCapability);
-                }
-                else if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
-                {
-                    _asyncGeneratorState = AsyncGeneratorState.Executing;
-                    _nextValue = completion.Value;
-                    _isResuming = true;
-                    // a next() is a normal completion; see GeneratorInstance.GeneratorResume
-                    _resumeCompletionType = CompletionType.Normal;
-                    ResumeExecution(promiseCapability);
-                }
-                else if (_asyncGeneratorState == AsyncGeneratorState.Completed)
-                {
-                    AsyncGeneratorResolve(Undefined, true, promiseCapability);
-                }
+                return;
             }
-            else if (completion.Type == CompletionType.Throw)
+
+            if (_asyncGeneratorQueue.Count == 0)
             {
-                if (_asyncGeneratorState == AsyncGeneratorState.SuspendedStart)
-                {
-                    _asyncGeneratorState = AsyncGeneratorState.Completed;
-                    AsyncGeneratorReject(completion.Value, promiseCapability);
-                    return;
-                }
-                else if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
-                {
-                    _asyncGeneratorState = AsyncGeneratorState.Executing;
-                    _nextValue = completion.Value;
-                    _isResuming = true;
-                    _resumeCompletionType = CompletionType.Throw;
-                    ResumeExecution(promiseCapability);
-                }
-                else if (_asyncGeneratorState == AsyncGeneratorState.Completed)
-                {
-                    AsyncGeneratorReject(completion.Value, promiseCapability);
-                    return;
-                }
+                return;
             }
-            else // CompletionType.Return
+
+            var next = _asyncGeneratorQueue[0];
+            _asyncGeneratorQueue.RemoveAt(0);
+
+            var completion = next.Completion;
+            var promiseCapability = next.Capability;
+
+            try
             {
-                if (_asyncGeneratorState == AsyncGeneratorState.SuspendedStart)
+                if (completion.Type == CompletionType.Normal)
                 {
-                    // Per spec step 7: wrap value in PromiseResolve and await it
-                    _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
-                    AsyncGeneratorAwaitReturn(completion.Value, promiseCapability);
-                    return;
+                    // Corresponds to next() call
+                    if (_asyncGeneratorState == AsyncGeneratorState.SuspendedStart)
+                    {
+                        _asyncGeneratorState = AsyncGeneratorState.Executing;
+                        _nextValue = completion.Value;
+                        _isResuming = false;
+                        ResumeExecution(promiseCapability);
+                        return;
+                    }
+                    else if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
+                    {
+                        _asyncGeneratorState = AsyncGeneratorState.Executing;
+                        _nextValue = completion.Value;
+                        _isResuming = true;
+                        // a next() is a normal completion; see GeneratorInstance.GeneratorResume
+                        _resumeCompletionType = CompletionType.Normal;
+                        ResumeExecution(promiseCapability);
+                        return;
+                    }
+                    else if (_asyncGeneratorState == AsyncGeneratorState.Completed)
+                    {
+                        AsyncGeneratorResolve(Undefined, true, promiseCapability);
+                        continue;
+                    }
                 }
-                else if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
+                else if (completion.Type == CompletionType.Throw)
                 {
-                    // AsyncGeneratorResume: the generator is executing from here on, and the first thing it does at
-                    // the yield is await the value.
-                    _asyncGeneratorState = AsyncGeneratorState.Executing;
-                    UnwrapReturnResumption(completion.Value, promiseCapability);
-                    return;
+                    if (_asyncGeneratorState == AsyncGeneratorState.SuspendedStart)
+                    {
+                        _asyncGeneratorState = AsyncGeneratorState.Completed;
+                        AsyncGeneratorReject(completion.Value, promiseCapability);
+                        continue;
+                    }
+                    else if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
+                    {
+                        _asyncGeneratorState = AsyncGeneratorState.Executing;
+                        _nextValue = completion.Value;
+                        _isResuming = true;
+                        _resumeCompletionType = CompletionType.Throw;
+                        ResumeExecution(promiseCapability);
+                        return;
+                    }
+                    else if (_asyncGeneratorState == AsyncGeneratorState.Completed)
+                    {
+                        AsyncGeneratorReject(completion.Value, promiseCapability);
+                        continue;
+                    }
                 }
-                else if (_asyncGeneratorState == AsyncGeneratorState.Completed)
+                else // CompletionType.Return
                 {
-                    // Per spec: wrap value in PromiseResolve and await it
-                    _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
-                    AsyncGeneratorAwaitReturn(completion.Value, promiseCapability);
-                    return;
+                    if (_asyncGeneratorState == AsyncGeneratorState.SuspendedStart)
+                    {
+                        // Per spec step 7: wrap value in PromiseResolve and await it
+                        _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
+                        AsyncGeneratorAwaitReturn(completion.Value, promiseCapability);
+                        return;
+                    }
+                    else if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
+                    {
+                        // AsyncGeneratorResume: the generator is executing from here on, and the first thing it does at
+                        // the yield is await the value.
+                        _asyncGeneratorState = AsyncGeneratorState.Executing;
+                        UnwrapReturnResumption(completion.Value, promiseCapability);
+                        return;
+                    }
+                    else if (_asyncGeneratorState == AsyncGeneratorState.Completed)
+                    {
+                        // Per spec: wrap value in PromiseResolve and await it
+                        _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
+                        AsyncGeneratorAwaitReturn(completion.Value, promiseCapability);
+                        return;
+                    }
                 }
+
+                return;
             }
-        }
-        catch (JavaScriptException ex)
-        {
-            _asyncGeneratorState = AsyncGeneratorState.Completed;
-            AsyncGeneratorReject(ex.Error, promiseCapability);
+            catch (JavaScriptException ex)
+            {
+                // the generator is completed, and answers the rest of the queue as such
+                _asyncGeneratorState = AsyncGeneratorState.Completed;
+                AsyncGeneratorReject(ex.Error, promiseCapability);
+            }
         }
     }
 
@@ -552,7 +567,8 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asyncgeneratoryield
     /// Yields a value from the async generator.
-    /// Awaits the value, then resolves the current request's promise with the awaited value.
+    /// Awaits the value, then resolves the current request's promise with the awaited value, or resumes the body with
+    /// the reason the await rejected with thrown at the yield.
     /// </summary>
     internal JsValue AsyncGeneratorYield(JsValue value)
         => AsyncGeneratorYield(value, PromiseConstructor.ResolveForAwaitToPromise(_engine, value));
@@ -598,15 +614,14 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             return Undefined;
         }, 1, PropertyFlag.Configurable);
 
-        // Create rejection handler
+        // Create rejection handler: https://tc39.es/ecma262/#sec-yield step 2 awaits the operand before anything is
+        // yielded, so a rejection is the yield expression's throw completion, in the body, as an `await` of the same
+        // promise's would be. The body resumes at the yield and decides the request's fate; only a throw nothing in it
+        // catches completes the generator and rejects the request (sebastienros/jint#4369).
         var onRejected = new ClrFunction(_engine, "", (thisObj, args) =>
         {
-            var rejectedValue = args.At(0);
-            // Clear the current promise capability before rejecting
-            _currentPromiseCapability = null;
-            _asyncGeneratorState = AsyncGeneratorState.Completed;
-            AsyncGeneratorReject(rejectedValue, promiseCapability);
-            AsyncGeneratorResumeNext();
+            _asyncGeneratorState = AsyncGeneratorState.Executing;
+            ResumeWithAbruptCompletion(CompletionType.Throw, args.At(0), promiseCapability);
             return Undefined;
         }, 1, PropertyFlag.Configurable);
 
