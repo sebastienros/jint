@@ -217,6 +217,68 @@ public class SuspendedClassDefinitionTests
             .Should().Be("true|pre,d,apply,post");
     }
 
+    // ------------------------------------------------------------------ a suspension in a decorator
+
+    // A decorator's expression is evaluated in the frame around the class too, before anything of the class exists
+    // (https://tc39.es/proposal-decorators/). Its suspension stops the class there, and the resume evaluates the class
+    // from the start: the class is defined once, each decorator applied once and each static block run once. The
+    // expected values follow the proposal, since Node has no decorators.
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedClassDecoratorDecoratesTheClassOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0, staticRuns = 0; function dec(c) { applied++; } @(SUSPEND dec) class C { m() {} static { staticRuns++; } }",
+                "applied + ',' + staticRuns + ',' + typeof C.prototype.m")
+            .Should().Be("1,1,function|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedMethodDecoratorDecoratesTheMethodOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0, staticRuns = 0; function mdec(m) { applied++; return function () { return m.call(this) + 1; }; } class C { @(SUSPEND mdec) m() { return 1; } static { staticRuns++; } }",
+                "applied + ',' + staticRuns + ',' + new C().m()")
+            .Should().Be("1,1,2|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedFieldDecoratorDecoratesTheFieldOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0, staticRuns = 0; function fdec() { applied++; return v => v + 1; } class C { @(SUSPEND fdec) x = 1; static { staticRuns++; } }",
+                "applied + ',' + staticRuns + ',' + new C().x")
+            .Should().Be("1,1,2|pre,post");
+    }
+
+    /// <summary>
+    /// The decorators after the one that suspended are not evaluated until the resume reaches them.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ADecoratorAfterASuspendedOneIsEvaluatedOnce(string suspension)
+    {
+        Probe(suspension,
+                "let cRuns = 0; function a() {} function b() {} function c() {} @(SUSPEND a) @(cRuns++, b) class C { @(cRuns++, c) m() {} }",
+                "cRuns")
+            .Should().Be("2|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorAndASuspendedHeritageEachResumeOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0; function dec(c) { applied++; } @(SUSPEND dec) class C extends (log.push('h'), SUSPEND Base) {}",
+                "applied + ',' + (Object.getPrototypeOf(C) === Base)")
+            .Should().Be("1,true|pre,h,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorLeavesTheFrameAsStrictAsItWas(string suspension)
+    {
+        Probe(suspension, "function dec() {} @(SUSPEND dec) class C {} undeclaredAfterDecorator = 1;", "typeof undeclaredAfterDecorator")
+            .Should().Be("number|pre,post");
+    }
+
     // ------------------------------------------------------------------ a suspension in a computed key
 
     [TestCaseSource(nameof(Suspensions))]
@@ -316,6 +378,7 @@ public class SuspendedClassDefinitionTests
     /// </summary>
     [TestCase("class C extends (SUSPEND Base) {}")]
     [TestCase("class C { [SUSPEND 'k']() {} }")]
+    [TestCase("@(SUSPEND (c => c)) class C {}")]
     public void TheClassBindingIsUninitializedWhileTheFrameIsSuspended(string declaration)
     {
         const string Peek = "peek = function () { try { C; return 'initialized'; } catch (e) { return e.constructor.name; } };";

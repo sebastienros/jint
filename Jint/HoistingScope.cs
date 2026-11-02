@@ -604,6 +604,18 @@ internal sealed class HoistingScope
     {
         private bool _hasTopLevelAwait;
 
+        // Visits a part of a class and answers whether the walk has found its await.
+        private readonly Func<Node, bool> _visitClassPart;
+
+        private HasTopLevelAwaitVisitor()
+        {
+            _visitClassPart = node =>
+            {
+                Visit(node);
+                return _hasTopLevelAwait;
+            };
+        }
+
         public static bool Check(Module module)
         {
             var visitor = new HasTopLevelAwaitVisitor();
@@ -651,10 +663,12 @@ internal sealed class HoistingScope
             }
 
             // A class's heritage and computed keys are evaluated in the enclosing frame, so an await in either is the
-            // module's (sebastienros/jint#4395). Everything else in its body is a function of its own.
+            // module's (sebastienros/jint#4395). Everything else in its body is a function of its own. Decorators are
+            // left out: ECMA-262's Contains does not know them, so a module whose only await is in a decorator keeps
+            // being evaluated synchronously. ClassDefinition shares the walk and does count them.
             if (node.Type is NodeType.ClassDeclaration or NodeType.ClassExpression)
             {
-                VisitClass((IClass) node);
+                ((IClass) node).AnyPartEvaluatedInEnclosingFrame(decorators: false, _visitClassPart);
                 return;
             }
 
@@ -664,27 +678,6 @@ internal sealed class HoistingScope
                 if (_hasTopLevelAwait)
                 {
                     return;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Contains for a ClassTail: the ClassHeritage, then ComputedPropertyContains of each class element, which
-        /// looks at a computed ClassElementName only — never at a method body, a field initializer or a static block.
-        /// </summary>
-        private void VisitClass(IClass @class)
-        {
-            if (@class.SuperClass is not null)
-            {
-                Visit(@class.SuperClass);
-            }
-
-            ref readonly var elements = ref @class.Body.Body;
-            for (var i = 0; i < elements.Count && !_hasTopLevelAwait; i++)
-            {
-                if (elements[i] is IProperty { Computed: true } property)
-                {
-                    Visit(property.Key);
                 }
             }
         }

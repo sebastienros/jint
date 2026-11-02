@@ -7026,6 +7026,12 @@ mode, and a closure created before the class could see a different binding from 
 `V = class V extends (await b) {}` threw a `ReferenceError`. Now the class resumes where it suspended, and its name is
 bound once it is defined. Each part runs once, in async functions, generators and async generators.
 
+A decorator's expression runs in that frame too, before anything of the class exists. In 4.16, an `await` in one made
+an async function run again from its first statement, as above. Now the class stops at the decorator and starts over
+once its value is in, so the class is defined once and each decorator is applied once. The decorators before the one
+that suspended, and the part of it before its `await` or `yield`, are evaluated again on the resume. A module whose only
+`await` is in a decorator is still evaluated synchronously, since ECMA-262 does not define decorators.
+
 A module has top-level await when its body has an `await` outside every function. An `await` in a class's `extends`
 clause or in one of its computed keys counts, but one in a method, a field initializer or a static block does not. In
 4.16, Jint did not look inside classes at all. A module whose only `await` was there was evaluated as a synchronous

@@ -26,8 +26,8 @@ internal sealed class ClassDefinition
     private readonly ClassBody _body;
 
     /// <summary>
-    /// Whether the heritage or a computed key can suspend the generator or async frame the class is evaluated in,
-    /// decided at build time so a class that cannot suspend never consults the frame's suspend data.
+    /// Whether a decorator, the heritage or a computed key can suspend the generator or async frame the class is
+    /// evaluated in, decided at build time so a class that cannot suspend never consults the frame's suspend data.
     /// </summary>
     internal readonly bool _maySuspend;
 
@@ -86,31 +86,9 @@ internal sealed class ClassDefinition
         _superClass = @class.SuperClass;
         _body = @class.Body;
         _class = @class;
-        _maySuspend = MaySuspend(@class);
-    }
-
-    /// <summary>
-    /// Whether an <c>await</c> or a <c>yield</c> of the enclosing frame can occur in the heritage or in a computed key:
-    /// the two parts of a class evaluated in that frame. Decorators are evaluated there too, but a suspension inside
-    /// one is not resumed.
-    /// </summary>
-    private static bool MaySuspend(IClass @class)
-    {
-        if (@class.SuperClass is not null && MaySuspendVisitor.MaySuspend(@class.SuperClass))
-        {
-            return true;
-        }
-
-        ref readonly var elements = ref @class.Body.Body;
-        for (var i = 0; i < elements.Count; i++)
-        {
-            if (elements[i] is IProperty { Computed: true } property && MaySuspendVisitor.MaySuspend(property.Key))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        // An await or a yield of the enclosing frame can occur in the decorators, the heritage and the computed keys:
+        // the parts of a class evaluated in that frame.
+        _maySuspend = @class.AnyPartEvaluatedInEnclosingFrame(decorators: true, MaySuspendVisitor.MaySuspend);
     }
 
     /// <summary>
@@ -165,7 +143,7 @@ internal sealed class ClassDefinition
             if (HasDecorators())
             {
                 // Evaluate class-level decorators
-                classDecoratorValues = EvaluateDecorators(context, _class.Decorators);
+                classDecoratorValues = EvaluateDecorators(context, _class.Decorators, _maySuspend);
 
                 // Evaluate element-level decorators
                 ref readonly var bodyElements = ref _body.Body;
@@ -176,21 +154,29 @@ internal sealed class ClassDefinition
                     JsValue[] decs;
                     if (elem is MethodDefinition md && md.Decorators.Count > 0)
                     {
-                        decs = EvaluateDecorators(context, md.Decorators);
+                        decs = EvaluateDecorators(context, md.Decorators, _maySuspend);
                     }
                     else if (elem is PropertyDefinition pd && pd.Decorators.Count > 0)
                     {
-                        decs = EvaluateDecorators(context, pd.Decorators);
+                        decs = EvaluateDecorators(context, pd.Decorators, _maySuspend);
                     }
                     else if (elem is AccessorProperty ap2 && ap2.Decorators.Count > 0)
                     {
-                        decs = EvaluateDecorators(context, ap2.Decorators);
+                        decs = EvaluateDecorators(context, ap2.Decorators, _maySuspend);
                     }
                     else
                     {
                         decs = System.Array.Empty<JsValue>();
                     }
                     elementDecorators.Add(new ElementDecoratorPair(elem, decs));
+                }
+
+                // A decorator that suspended: nothing of the class exists yet, so nothing is parked and the resume
+                // evaluates the class from its start, where the suspended await or yield hands back its value.
+                if (_maySuspend && context.IsSuspended())
+                {
+                    RestoreEntryContext(engine, env, outerPrivateEnvironment, previousStrict);
+                    return JsValue.Undefined;
                 }
             }
         }
@@ -699,14 +685,6 @@ internal sealed class ClassDefinition
     /// Parks what the class has built when its heritage or a computed key suspended the frame, keyed by the class
     /// body: one frame cannot be inside the same class twice at once.
     /// </summary>
-    /// <remarks>
-    /// An async function captures its context afresh at every await, which here is from inside the class: the class
-    /// scope, the class's private environment, strict mode code. Its resume replays the statement holding the class,
-    /// and whatever that statement evaluates before reaching the class again (the reference a
-    /// <c>let C = class C …</c> initializes, the environment the class's own scope is created in) has to be evaluated
-    /// where it was the first time, so the context it resumes in is put back to the one the class was entered with.
-    /// A generator re-enters the context it started with on every resume, so it needs no such repair.
-    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private ClassSuspendData Park(
         Engine engine,
@@ -726,15 +704,31 @@ internal sealed class ClassDefinition
         data.ElementDecorators = elementDecorators;
         data.Prototype = null;
 
-        if (suspendable is AsyncFunctionInstance asyncFunction)
+        RestoreEntryContext(engine, env, outerPrivateEnvironment, previousStrict);
+        return data;
+    }
+
+    /// <summary>
+    /// Puts the context a suspended async function will resume in back to the one the class was entered with.
+    /// </summary>
+    /// <remarks>
+    /// An async function captures its context afresh at every await, which here is from inside the class: the class
+    /// scope, the class's private environment, strict mode code. Its resume replays the statement holding the class,
+    /// and whatever that statement evaluates before reaching the class again (the reference a
+    /// <c>let C = class C …</c> initializes, the environment the class's own scope is created in) has to be evaluated
+    /// where it was the first time. A generator re-enters the context it started with on every resume, so it needs no
+    /// such repair.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void RestoreEntryContext(Engine engine, Environment env, PrivateEnvironment? outerPrivateEnvironment, bool previousStrict)
+    {
+        if (engine.ExecutionContext.Suspendable is AsyncFunctionInstance asyncFunction)
         {
             asyncFunction._savedContext = asyncFunction._savedContext
                 .UpdateLexicalEnvironment(env)
                 .UpdatePrivateEnvironment(outerPrivateEnvironment)
                 .UpdateStrict(previousStrict);
         }
-
-        return data;
     }
 
     /// <summary>
@@ -1223,7 +1217,11 @@ internal sealed class ClassDefinition
     /// Evaluates all decorator expressions in source order (left-to-right).
     /// Returns array of evaluated decorator functions.
     /// </summary>
-    private static JsValue[] EvaluateDecorators(EvaluationContext context, in NodeList<Decorator> decorators)
+    /// <remarks>
+    /// Once a decorator has suspended the frame, none after it is evaluated: the class stops there and the resume
+    /// evaluates them all again, so the array is left incomplete and is never used.
+    /// </remarks>
+    private static JsValue[] EvaluateDecorators(EvaluationContext context, in NodeList<Decorator> decorators, bool maySuspend)
     {
         if (decorators.Count == 0)
         {
@@ -1233,6 +1231,11 @@ internal sealed class ClassDefinition
         var result = new JsValue[decorators.Count];
         for (var i = 0; i < decorators.Count; i++)
         {
+            if (maySuspend && context.IsSuspended())
+            {
+                break;
+            }
+
             result[i] = JintExpression.Build(decorators[i].Expression).GetValue(context);
         }
         return result;
