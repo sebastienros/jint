@@ -223,4 +223,103 @@ try { it.next(); } catch (e) { log.push(e.constructor.name); }
 log.join(',');").AsString();
         result.Should().Be("1,finally,2,TypeError");
     }
+
+    // The resumable lane: a catch parameter pattern holding an await or a yield.
+
+    [Test]
+    public void AsyncFunctionRunsFinallyWhenTheCatchParameterThrowsAfterAnAwait()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+async function f() {
+  try {
+    try { throw {}; }
+    catch ({ a = await 1, b = (() => { throw new RangeError('after'); })() }) { log.push('catch'); }
+    finally { log.push('finally'); }
+  } catch (e) {
+    log.push(e.constructor.name + ':' + e.message);
+  }
+  return log.join(',');
+}
+f();").UnwrapIfPromise().AsString();
+        result.Should().Be("finally,RangeError:after");
+    }
+
+    [Test]
+    public void GeneratorRunsFinallyWhenTheCatchParameterThrowsAfterAYield()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+function* g() {
+  try { throw {}; }
+  catch ({ a = yield 1, b = (() => { throw new RangeError('after'); })() }) { log.push('catch'); }
+  finally { log.push('finally'); }
+}
+const it = g();
+log.push(it.next().value);
+try { it.next(5); } catch (e) { log.push(e.constructor.name + ':' + e.message); }
+log.push(it.next().done);
+log.join(',');").AsString();
+        result.Should().Be("1,finally,RangeError:after,true");
+    }
+
+    [Test]
+    public void FinallyRunsWhenTheCatchParameterThrowsBeforeItsSuspensionPoint()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+async function f() {
+  try {
+    try { throw {}; }
+    catch ({ b = (() => { throw new RangeError('before'); })(), a = await 1 }) { log.push('catch'); }
+    finally { log.push('finally'); }
+  } catch (e) {
+    log.push(e.constructor.name + ':' + e.message);
+  }
+  return log.join(',');
+}
+f();").UnwrapIfPromise().AsString();
+        result.Should().Be("finally,RangeError:before");
+    }
+
+    [Test]
+    public void ReturnAtAYieldInTheCatchParameterRunsFinally()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+function* g() {
+  try { throw {}; }
+  catch ({ a = yield 1 }) { log.push('catch'); }
+  finally { log.push('finally'); }
+}
+const it = g();
+log.push(it.next().value);
+const r = it.return(7);
+log.push(r.value + ':' + r.done);
+log.join(',');").AsString();
+        result.Should().Be("1,finally,7:true");
+    }
+
+    [Test]
+    public void SuspendingFinallyKeepsTheThrowOfAResumedCatchParameter()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+function* g() {
+  try { throw {}; }
+  catch ({ a = yield 1, b = (() => { throw new RangeError('after'); })() }) { log.push('catch'); }
+  finally { log.push('finally'); yield 2; }
+}
+const it = g();
+log.push(it.next().value);
+log.push(it.next().value);
+try { it.next(); } catch (e) { log.push(e.constructor.name + ':' + e.message); }
+log.join(',');").AsString();
+        result.Should().Be("1,finally,2,RangeError:after");
+    }
 }
