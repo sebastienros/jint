@@ -257,7 +257,17 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
                 engine.UpdateLexicalEnvironment(catchEnv);
 
                 var catchParam = _statement.Handler?.Param;
-                catchParam.BindingInitialization(context, thrownValue, catchEnv);
+                try
+                {
+                    catchParam.BindingInitialization(context, thrownValue, catchEnv);
+                }
+                catch (Exception ex) when (ex is JintException && JintStatementList.ShouldCatch(ex))
+                {
+                    // A throwing binding is the catch clause's abrupt completion (step 6 of CatchClauseEvaluation):
+                    // leave the catch environment and hand the throw back, so the finally block still runs first.
+                    engine.UpdateLexicalEnvironment(oldEnv);
+                    return JintStatementList.HandleException(context, ex, this);
+                }
             }
 
             b = _catch.Execute(context);
