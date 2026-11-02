@@ -1011,12 +1011,13 @@ internal abstract class JintBinaryExpression : JintExpression
     }
 
     /// <summary>
-    /// Build-time fusion for the guard idioms `x === undefined`, `x === null` and
-    /// `typeof x === "literal"` (plus the !== forms): the constant side is known statically, so
-    /// the fused node evaluates only the interesting operand and answers with one type test or
-    /// one reference compare — no evaluation of the constant side and no generic strict-equality
-    /// dispatch. Returns null when the expression is not one of these shapes (including when both
-    /// sides are constants, which keeps the existing literal-vs-literal constant fold).
+    /// Build-time fusion for the guard idioms `x === undefined`, `x === null`,
+    /// `typeof x === "literal"`, `x === true` and `x === "literal"` (plus the !== forms): the
+    /// constant side is known statically, so the fused node evaluates only the interesting operand
+    /// and answers with one type test, one reference compare or one Equals call — no evaluation
+    /// of the constant side and no generic strict-equality dispatch. Returns null when the
+    /// expression is not one of these shapes (including when both sides are constants, which keeps
+    /// the existing literal-vs-literal constant fold).
     /// </summary>
     private static JintBinaryExpression? TryBuildFusedStrictEquality(NonLogicalBinaryExpression expression, bool invert)
     {
@@ -1044,8 +1045,24 @@ internal abstract class JintBinaryExpression : JintExpression
             return new SingletonStrictEqualityExpression(expression, operandIsLeft: false, leftSingleton.Value, invert);
         }
 
+        // x === true / x === "literal" (either orientation)
+        if (expression.Right is Literal rightLiteral && expression.Left is not Literal && GetFusibleLiteralValue(rightLiteral) is { } rightValue)
+        {
+            return new LiteralStrictEqualityExpression(expression, operandIsLeft: true, rightValue, invert);
+        }
+
+        if (expression.Left is Literal leftLiteral && expression.Right is not Literal && GetFusibleLiteralValue(leftLiteral) is { } leftValue)
+        {
+            return new LiteralStrictEqualityExpression(expression, operandIsLeft: false, leftValue, invert);
+        }
+
         return null;
     }
+
+    // The same conversion the literal operand evaluates through, so the fused node compares against
+    // exactly the value the generic path would.
+    private static JsValue? GetFusibleLiteralValue(Literal literal)
+        => JintLiteralExpression.ConvertToJsValue(literal) is { } value && value is JsBoolean or JsString ? value : null;
 
     /// <summary>
     /// Build-time fusion for the guard idioms `x == null` and `x == undefined` (plus the != forms):
@@ -1174,6 +1191,27 @@ internal abstract class JintBinaryExpression : JintExpression
         operands.Reverse();
     }
 
+    /// <summary>
+    /// The relational operators' lane for two evaluated number operands: their doubles compare
+    /// directly, with IEEE semantics giving false for NaN exactly as the generic path does. It
+    /// declines when operator overloading is allowed, like the other number lanes: overload
+    /// resolution sees a JS number as a CLR double, and its result goes through the object converters.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool TryGetNumberOperands(EvaluationContext context, JsValue left, JsValue right, out double leftNumber, out double rightNumber)
+    {
+        if (left.IsNumber() && right.IsNumber() && !context.OperatorOverloadingAllowed)
+        {
+            leftNumber = Unsafe.As<JsNumber>(left)._value;
+            rightNumber = Unsafe.As<JsNumber>(right)._value;
+            return true;
+        }
+
+        leftNumber = 0;
+        rightNumber = 0;
+        return false;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool AreNonBigIntOperands(JsValue left, JsValue right)
     {
@@ -1245,6 +1283,53 @@ internal abstract class JintBinaryExpression : JintExpression
 
             return (value._type == _expectedType) != _invert;
         }
+    }
+
+    /// <summary>
+    /// Fused `x === true` / `x === "literal"` (and the !== forms): only the interesting operand
+    /// evaluates, and the literal is converted once, when the node is built. The comparison calls
+    /// Equals from the same side as the generic strict-equality path, so the result is identical
+    /// for every operand type.
+    /// </summary>
+    private sealed class LiteralStrictEqualityExpression : JintBinaryExpression
+    {
+        private readonly JintExpression _operand;
+        private readonly bool _operandIsLeft;
+        private readonly JsValue _literal;
+        private readonly bool _invert;
+
+        public LiteralStrictEqualityExpression(NonLogicalBinaryExpression expression, bool operandIsLeft, JsValue literal, bool invert) : base(expression)
+        {
+            _operand = operandIsLeft ? _left : _right;
+            _operandIsLeft = operandIsLeft;
+            _literal = literal;
+            _invert = invert;
+        }
+
+        protected override object EvaluateInternal(EvaluationContext context)
+        {
+            var value = _operand.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return JsValue.Undefined;
+            }
+
+            return IsEqual(value) != _invert ? JsBoolean.True : JsBoolean.False;
+        }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            var value = _operand.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return false;
+            }
+
+            return IsEqual(value) != _invert;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool IsEqual(JsValue value) => _operandIsLeft ? value.Equals(_literal) : _literal.Equals(value);
     }
 
     /// <summary>
@@ -1464,6 +1549,11 @@ internal abstract class JintBinaryExpression : JintExpression
                 return JsValue.Undefined;
             }
 
+            if (TryGetNumberOperands(context, left, right, out var leftNumber, out var rightNumber))
+            {
+                return leftNumber < rightNumber ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_LessThan", out var opResult))
             {
@@ -1485,6 +1575,11 @@ internal abstract class JintBinaryExpression : JintExpression
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return false;
+            }
+
+            if (TryGetNumberOperands(context, left, right, out var leftNumber, out var rightNumber))
+            {
+                return leftNumber < rightNumber;
             }
 
             if (context.OperatorOverloadingAllowed
@@ -1520,6 +1615,11 @@ internal abstract class JintBinaryExpression : JintExpression
                 return JsValue.Undefined;
             }
 
+            if (TryGetNumberOperands(context, left, right, out var leftNumber, out var rightNumber))
+            {
+                return leftNumber > rightNumber ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_GreaterThan", out var opResult))
             {
@@ -1541,6 +1641,11 @@ internal abstract class JintBinaryExpression : JintExpression
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return false;
+            }
+
+            if (TryGetNumberOperands(context, left, right, out var leftNumber, out var rightNumber))
+            {
+                return leftNumber > rightNumber;
             }
 
             if (context.OperatorOverloadingAllowed
@@ -2454,6 +2559,12 @@ internal abstract class JintBinaryExpression : JintExpression
                 return JsValue.Undefined;
             }
 
+            if (TryGetNumberOperands(context, leftValue, rightValue, out var leftNumber, out var rightNumber))
+            {
+                var result = _leftFirst ? leftNumber >= rightNumber : leftNumber <= rightNumber;
+                return result ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, leftValue, rightValue, _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
             {
@@ -2478,6 +2589,11 @@ internal abstract class JintBinaryExpression : JintExpression
             if (!TryEvaluateOperands(context, out var leftValue, out var rightValue))
             {
                 return false;
+            }
+
+            if (TryGetNumberOperands(context, leftValue, rightValue, out var leftNumber, out var rightNumber))
+            {
+                return _leftFirst ? leftNumber >= rightNumber : leftNumber <= rightNumber;
             }
 
             if (context.OperatorOverloadingAllowed
