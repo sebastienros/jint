@@ -583,15 +583,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         }
                         else
                         {
-                            // Call next() on the iterator - for async iterators this returns a Promise
-                            var nextMethod = iteratorRecord.Instance.Get(CommonProperties.Next) as ICallable;
-                            if (nextMethod is null)
-                            {
-                                Throw.TypeError(engine.Realm, "Iterator does not have a next method");
-                                return default;
-                            }
-
-                            var nextPromise = nextMethod.Call(iteratorRecord.Instance, Arguments.Empty);
+                            // Call(iteratorRecord.[[NextMethod]], iteratorRecord.[[Iterator]]) - for async iterators
+                            // this returns a Promise. The method is the record's, never `next` read again
+                            // (sebastienros/jint#4410).
+                            var nextPromise = iteratorRecord.CallNextMethod();
 
                             // Per spec 13.7.5.13 step 5.b.c: Await(nextResult)
                             // Await step 2: PromiseResolve(%Promise%, nextResult)
