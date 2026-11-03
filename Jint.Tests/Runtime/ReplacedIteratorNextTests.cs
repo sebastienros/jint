@@ -6,7 +6,7 @@ namespace Jint.Tests.Runtime;
 /// Pins step 3 of <a href="https://tc39.es/ecma262/#sec-getiteratorfrommethod">GetIteratorFromMethod</a>: the
 /// iterator record's [[NextMethod]] is whatever <c>next</c> resolves to on the object <c>@@iterator</c> handed
 /// back, and every step calls it. Jint steps a built-in iterator natively instead, and may do so only while that
-/// read would still find the built-in <c>next</c> — <see cref="IteratorInstance.HasNativeNext"/>.
+/// read would still find the built-in <c>next</c> — <see cref="IteratorInstance.ToIteratorRecord"/>.
 /// <para>
 /// Only the array iterators answered that question. Every other built-in kind answered <see langword="true"/>
 /// unconditionally, so a <c>next</c> the script set on the iterator, or one it put on the kind's prototype in
@@ -101,8 +101,40 @@ public class ReplacedIteratorNextTests
         }
         """;
 
+    private const string ReadCountHarness = """
+        // Makes `next` resolve, for a fresh iterator from make(), to a replacement whose every read is counted: an
+        // accessor on the iterator ('ownAccessor'), one on its prototype ('protoAccessor'), the same with an unrelated
+        // own property on the iterator ('protoAccessorOwnProperty'), or a Proxy's get trap above a prototype that lost
+        // its own `next` ('getTrapAbove'). Runs the consumer, puts the prototype back and answers
+        // "<values> <calls> <reads>".
+        async function nextReads(make, where, consumer) {
+            const calls = { count: 0 };
+            const next = replacement(calls);
+            let reads = 0;
+            const counted = { get() { reads++; return next; }, configurable: true };
+            const it = make();
+            const P = Object.getPrototypeOf(it);
+            const IP = Object.getPrototypeOf(P);
+            const saved = Object.getOwnPropertyDescriptor(P, 'next');
+            switch (where) {
+                case 'ownAccessor': Object.defineProperty(it, 'next', counted); break;
+                case 'protoAccessor': Object.defineProperty(P, 'next', counted); break;
+                case 'protoAccessorOwnProperty': it.unrelated = 1; Object.defineProperty(P, 'next', counted); break;
+                case 'getTrapAbove':
+                    delete P.next;
+                    Object.setPrototypeOf(P, new Proxy(IP, { get(t, k, r) { if (k === 'next') { reads++; return next; } return Reflect.get(t, k, r); } }));
+                    break;
+            }
+            try { return (await consumers[consumer](it)) + ' ' + calls.count + ' ' + reads; }
+            finally { Object.setPrototypeOf(P, IP); Object.defineProperty(P, 'next', saved); }
+        }
+        """;
+
     private static string Run(Engine engine, string script) =>
         engine.Evaluate(Harness + "\n" + script).UnwrapIfPromise().AsString();
+
+    // The record GetIterator builds around an untouched built-in iterator is the iterator itself, stepped natively.
+    private static bool StepsNatively(IteratorInstance instance) => ReferenceEquals(instance.ToIteratorRecord(), instance);
 
     /// <summary>
     /// Each built-in kind, with <c>next</c> replaced on the iterator and on its prototype, under each consumer.
@@ -340,6 +372,76 @@ public class ReplacedIteratorNextTests
     }
 
     /// <summary>
+    /// GetIteratorFromMethod step 3 is one <c>Get(iterator, "next")</c>, and the record holds what it read
+    /// (sebastienros/jint#4408). Jint read <c>next</c> once to decide whether it could step the iterator natively and,
+    /// when it could not, the <c>ObjectIterator</c> it built read it again — on every array and typed-array iterator,
+    /// and on any other kind that had an own property. A prototype accessor on an iterator with no own property is the
+    /// control: the cheap check never reads it. Node 26 reads <c>next</c> exactly once in every combination;
+    /// destructuring two values calls it twice, the others three times.
+    /// </summary>
+    [Test]
+    public void AReplacedNextIsReadOnce(
+        [Values(
+            "new Set([1, 2]).values()",
+            "new Map([[1, 'a']]).entries()",
+            "[1, 2].values()",
+            "new Uint8Array([1, 2]).values()",
+            "'ab'[Symbol.iterator]()",
+            "'a1b2'.matchAll(/[0-9]/g)",
+            "new Intl.Segmenter().segment('ab')[Symbol.iterator]()")] string iterator,
+        [Values("ownAccessor", "protoAccessor", "protoAccessorOwnProperty", "getTrapAbove")] string where,
+        [Values("spread", "from", "destructure", "forAwait")] string consumer)
+    {
+        var expected = consumer == "destructure" ? "R1,R2 2 1" : "R1,R2 3 1";
+        Run(new Engine(), ReadCountHarness + "\n" + $"nextReads(function () {{ return {iterator}; }}, '{where}', '{consumer}')")
+            .Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A wrapped CLR collection's iterator, whose prototype is <c>%ArrayIteratorPrototype%</c>. Node has no
+    /// counterpart; the expected value is the one read GetIteratorFromMethod step 3 makes for every other iterator.
+    /// </summary>
+    [Test]
+    public void AReplacedNextOnAClrCollectionsIteratorIsReadOnce(
+        [Values("list", "dictionary")] string name,
+        [Values("ownAccessor", "protoAccessor", "protoAccessorOwnProperty", "getTrapAbove")] string where,
+        [Values("spread", "from", "destructure", "forAwait")] string consumer)
+    {
+        var engine = new Engine();
+        engine.SetValue("list", new List<int> { 1, 2 });
+        engine.SetValue("dictionary", new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 });
+
+        var expected = consumer == "destructure" ? "R1,R2 2 1" : "R1,R2 3 1";
+        Run(engine, ReadCountHarness + "\n" + $"nextReads(function () {{ return {name}[Symbol.iterator](); }}, '{where}', '{consumer}')")
+            .Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The issue's two probes, spelled out: an own accessor <c>next</c> on a Set iterator, and an accessor <c>next</c>
+    /// on <c>%ArrayIteratorPrototype%</c> reached by a <c>for…of</c> over a plain array. Node 26 calls each getter once.
+    /// </summary>
+    [TestCase("""
+        let reads = 0;
+        const it = new Set([1, 2]).values();
+        const next = it.next.bind(it);
+        Object.defineProperty(it, 'next', { get() { reads++; return next; } });
+        [...it].join(',') + ' ' + reads
+        """, "1,2 1")]
+    [TestCase("""
+        let reads = 0;
+        const AIP = Object.getPrototypeOf([].values());
+        const original = AIP.next;
+        Object.defineProperty(AIP, 'next', { get() { reads++; return function () { return original.call(this); }; }, configurable: true });
+        const out = [];
+        for (const x of [1, 2]) { out.push(x); }
+        out.join(',') + ' ' + reads
+        """, "1,2 1")]
+    public void TheIssuesProbesReadNextOnce(string script, string expected)
+    {
+        new Engine().Evaluate(script).AsString().Should().Be(expected);
+    }
+
+    /// <summary>
     /// The cheap check is a cache, so it has to come back as well as go away: once the built-in <c>next</c> is
     /// back in place - assigned, redefined, or deleted and defined again - a fresh iterator steps natively again,
     /// and an accessor that answers the built-in function is a replacement the cheap check does not see through
@@ -356,7 +458,7 @@ public class ReplacedIteratorNextTests
             function fresh() { return new Set([1, 2]).values(); }
             """);
 
-        bool Native() => ((IteratorInstance) engine.Evaluate("fresh()")).HasNativeNext;
+        bool Native() => StepsNatively((IteratorInstance) engine.Evaluate("fresh()"));
 
         Native().Should().BeTrue();
         engine.Execute("P.next = function () { return { done: true }; };");
@@ -403,11 +505,11 @@ public class ReplacedIteratorNextTests
             return;
         }
 
-        instance.HasNativeNext.Should().BeTrue();
+        StepsNatively(instance).Should().BeTrue();
 
         engine.SetValue("it", instance);
         engine.Execute("it.next = function () { return { done: true }; };");
-        instance.HasNativeNext.Should().BeFalse();
+        StepsNatively(instance).Should().BeFalse();
     }
 
 #if NET8_0_OR_GREATER
@@ -465,11 +567,11 @@ public class ReplacedIteratorNextTests
             return;
         }
 
-        instance.HasNativeNext.Should().BeTrue();
+        StepsNatively(instance).Should().BeTrue();
 
         engine.SetValue("it", instance);
         engine.Execute("it.next = function () { return { done: true }; };");
-        instance.HasNativeNext.Should().BeFalse();
+        StepsNatively(instance).Should().BeFalse();
     }
 #endif
 }

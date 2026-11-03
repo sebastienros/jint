@@ -89,7 +89,19 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
 
         if (returnMethod is null)
         {
-            // If return is undefined, create a done iterator result
+            // Step 8: if return is undefined, resolve a done result, which is all the script sees. A built-in sync
+            // iterator may still hold native state that its own close releases - a CLR collection's iterator disposes
+            // its host enumerator - and the IteratorClose of a sync loop reaches it (sebastienros/jint#4408).
+            try
+            {
+                syncIterator.CloseWithoutReturn(CompletionType.Normal);
+            }
+            catch (JavaScriptException e)
+            {
+                promiseCapability.Reject(e.Error);
+                return promiseCapability.PromiseInstance;
+            }
+
             var iterResult = IteratorResult.CreateValueIteratorPosition(_engine, value, done: JsBoolean.True);
             promiseCapability.Resolve(iterResult);
             return promiseCapability.PromiseInstance;
