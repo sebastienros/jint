@@ -25,10 +25,12 @@ unavailable. Broad CLR interop options are rejected. Generated CLR wrappers are
 not qualified by this example. Every rejection is a `NotSupportedException` that
 names the switch; section 6.8 of `docs/guide/migrating-to-v5.md` lists which ones
 fire at engine construction and which at conversion, and the two registrations
-that only half-work: `SetValue(string, Delegate)` and `TypeReference`.
+that only half-work: `SetValue(string, Delegate)` and `TypeReference`. Neither is
+probed here, because both reach Jint's reflection lanes directly and would bring
+linker warnings back into this publication.
 
-The PR workflow publishes this example for `linux-x64` and runs both commands
-below.
+The PR workflow publishes this example for `linux-x64`, runs it, and runs the
+default-mode command at the end of this file.
 
 The Promise probe posts settlement from a worker to the engine queue. The worker
 does not enter JavaScript; the owning thread pumps and unwraps the result.

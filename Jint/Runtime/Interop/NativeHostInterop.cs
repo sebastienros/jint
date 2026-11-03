@@ -58,6 +58,8 @@ internal sealed class NativeHostInterop : HostInterop
     internal override void AttachExtensionMethods(Engine engine) =>
         Throw.NotSupportedException(ExtensionMethodsMessage);
 
+    // Reflects over nothing; the attribute matches the base so the requirement holds at every virtual call.
+    [RequiresUnreferencedCode(ObjectWrapper.CreateRequiresUnreferencedCodeMessage)]
     internal override ObjectInstance CreateObjectWrapper(Engine engine, object target, Type? type)
     {
         Throw.NotSupportedException(WrapperMessage);
@@ -71,12 +73,20 @@ internal sealed class NativeHostInterop : HostInterop
     }
 }
 
+// Passes through a value that already is the target type, which needs no reflection: that is what lets a
+// delegate's double, bool or string parameter receive the argument script passed. Anything that would need
+// coercion is declined, and refused when the caller insists.
 internal sealed class ReflectionFreeTypeConverter : ClrTypeConverter
 {
     public override object? Convert(object? value,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors |
             DynamicallyAccessedMemberTypes.PublicFields)] Type type, IFormatProvider formatProvider)
     {
+        if (type.IsInstanceOfType(value))
+        {
+            return value;
+        }
+
         Throw.NotSupportedException(NativeHostInterop.ConversionMessage);
         return null;
     }
@@ -86,6 +96,12 @@ internal sealed class ReflectionFreeTypeConverter : ClrTypeConverter
             DynamicallyAccessedMemberTypes.PublicFields)] Type type, IFormatProvider formatProvider,
         [NotNullWhen(true)] out object? converted)
     {
+        if (value is not null && type.IsInstanceOfType(value))
+        {
+            converted = value;
+            return true;
+        }
+
         converted = null;
         return false;
     }

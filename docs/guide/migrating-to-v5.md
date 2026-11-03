@@ -8356,16 +8356,20 @@ characters and strings through `JsValue.FromObject` keep working. Everything els
 | `AddExtensionMethods(...)` | at engine construction |
 | `JsValue.FromObject` over a CLR object no `ObjectConverter` handles | at that conversion |
 | `ObjectWrapper.Create`, including from a custom `WrapObjectHandler` | at that call |
-| an argument or return value that needs `ClrTypeConverter` | at the call that converts it |
+| an argument that needs coercion, or a return value that is not a scalar | at the call that converts it |
 
 Two registrations **half-work**, and they are the ones to check first:
 
-* **`SetValue(string, Delegate)`** registers, and a call works while no argument needs converting: `JsValue`,
-  string and integer parameters and an `Action` are fine, but a `double` or `bool` parameter, or an argument that
-  needs coercion, throws at the call, and so does a return value that is not a scalar. Register a `ClrFunction`
-  instead.
+* **`SetValue(string, Delegate)`** registers, and a call works while every argument already is its parameter's
+  type: `JsValue`, `double`, `bool`, string and integer parameters and an `Action` are fine. An argument that needs
+  coercion — `1.5` for an `int` parameter, `'1'` for a number — throws at the call, and so does a return value that
+  is not a scalar. Register a `ClrFunction` when you need either.
 * **`TypeReference.CreateTypeReference<T>`** and `SetValue(string, Type)` resolve the type and its static members,
   but `new T()` throws, because the constructed instance has no projection.
+
+Both still reach Jint's reflection lanes directly rather than through the switch, so a trimmed publication that
+uses either keeps the trim-analysis warnings the switch otherwise removes. A strict publication like
+`Jint.TrimmedExample` registers `ClrFunction`s instead.
 
 Operator overloading is not merely rejected at construction: with the switch off, no CLR operator is ever resolved.
 [`Jint.TrimmedExample`](https://github.com/sebastienros/jint/blob/main/Jint.TrimmedExample/README.md) is the

@@ -23,6 +23,7 @@ internal abstract class HostInterop
     internal abstract JsValue FromObject(Engine engine, object value, Type? type);
     internal abstract void ApplyOptions(Options options, Engine engine);
     internal abstract void AttachExtensionMethods(Engine engine);
+    [RequiresUnreferencedCode(ObjectWrapper.CreateRequiresUnreferencedCodeMessage)]
     internal abstract ObjectInstance CreateObjectWrapper(Engine engine, object target, Type? type);
 
     internal virtual bool TryBinaryOperator(EvaluationContext context, JsValue left, JsValue right,

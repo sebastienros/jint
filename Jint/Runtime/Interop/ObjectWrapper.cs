@@ -156,19 +156,19 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <c>[DynamicallyAccessedMembers]</c> at all, and the optional <c>type</c> is a hint about which type
     /// to expose rather than a promise that its members survive.
     /// </remarks>
-    [RequiresUnreferencedCode("Members are resolved from target's runtime type by reflection and cannot be preserved by the trimmer from this signature; a removed one reads as undefined rather than as an error. Root the type, or project it through Engine.SetValue<T> / TypeReference.CreateTypeReference<T>, which annotate what they reflect over.")]
+    [RequiresUnreferencedCode(CreateRequiresUnreferencedCodeMessage)]
     public static ObjectInstance Create(Engine engine, object target, Type? type = null) =>
         HostInterop.Instance.CreateObjectWrapper(engine, target, type);
+
+    // One message for the public entry point and every HostInterop member behind it, so the analyzer
+    // enforces the requirement along the whole chain instead of a suppression asserting it.
+    internal const string CreateRequiresUnreferencedCodeMessage = "Members are resolved from target's runtime type by reflection and cannot be preserved by the trimmer from this signature; a removed one reads as undefined rather than as an error. Root the type, or project it through Engine.SetValue<T> / TypeReference.CreateTypeReference<T>, which annotate what they reflect over.";
 
     /// <summary>
     /// The reflection body of <see cref="Create"/>, reached only through
     /// <see cref="ReflectionHostInterop.CreateObjectWrapper"/>.
     /// </summary>
-    [UnconditionalSuppressMessage("Trimming", "IL2067:DynamicallyAccessedMembers",
-        Justification = "The only way in is ObjectWrapper.Create, through ReflectionHostInterop.CreateObjectWrapper, " +
-                        "and Create carries [RequiresUnreferencedCode] stating exactly this requirement: members are " +
-                        "resolved from target's runtime type. Moving the body behind HostInterop did not open a " +
-                        "second entry point, so reporting here as well would report the same decision twice.")]
+    [RequiresUnreferencedCode(CreateRequiresUnreferencedCodeMessage)]
     internal static ObjectInstance CreateWithReflection(Engine engine, object target, Type? type)
     {
         if (target == null)

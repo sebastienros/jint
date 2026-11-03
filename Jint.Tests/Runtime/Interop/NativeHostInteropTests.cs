@@ -103,16 +103,32 @@ public class NativeHostInteropTests
     }
 
     [Test]
-    public void TheTypeConverterDeclinesAndThenRefuses()
+    public void TheTypeConverterDeclinesCoercionAndThenRefusesIt()
     {
         using var engine = new Engine();
         var converter = Native.CreateTypeConverter(engine);
 
         converter.TryConvert(1d, typeof(int), CultureInfo.InvariantCulture, out var converted).Should().BeFalse();
         converted.Should().BeNull();
+        converter.TryConvert(null, typeof(string), CultureInfo.InvariantCulture, out converted).Should().BeFalse();
+        converted.Should().BeNull();
 
         var act = () => converter.Convert(1d, typeof(int), CultureInfo.InvariantCulture);
         act.Should().Throw<NotSupportedException>().WithMessage($"*{Switch}*");
+    }
+
+    [TestCase(1.5d, typeof(double))]
+    [TestCase(true, typeof(bool))]
+    [TestCase("text", typeof(string))]
+    [TestCase(1.5d, typeof(object))]
+    public void AValueThatAlreadyIsTheTargetTypePassesThrough(object value, Type type)
+    {
+        using var engine = new Engine();
+        var converter = Native.CreateTypeConverter(engine);
+
+        converter.TryConvert(value, type, CultureInfo.InvariantCulture, out var converted).Should().BeTrue();
+        converted.Should().BeSameAs(value);
+        converter.Convert(value, type, CultureInfo.InvariantCulture).Should().BeSameAs(value);
     }
 
     [Test]

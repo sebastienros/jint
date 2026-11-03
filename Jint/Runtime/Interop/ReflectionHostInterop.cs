@@ -23,6 +23,7 @@ internal sealed class ReflectionHostInterop : HostInterop
     internal override void ApplyOptions(Options options, Engine engine) => options.ApplyReflectionInterop(engine);
     internal override void AttachExtensionMethods(Engine engine) => Options.AttachReflectedExtensionMethodsToPrototypes(engine);
 
+    [RequiresUnreferencedCode(ObjectWrapper.CreateRequiresUnreferencedCodeMessage)]
     internal override ObjectInstance CreateObjectWrapper(Engine engine, object target, Type? type) =>
         ObjectWrapper.CreateWithReflection(engine, target, type);
 
