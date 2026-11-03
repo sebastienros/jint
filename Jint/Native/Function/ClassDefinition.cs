@@ -37,6 +37,13 @@ internal sealed class ClassDefinition
     /// </summary>
     private JintExpression? _superClassExpression;
 
+    /// <summary>
+    /// The decorator expressions' handlers, in evaluation order, built on the first evaluation of a decorated class and
+    /// kept for the reason <see cref="_superClassExpression"/> is: a decorator that suspended resumes through the same
+    /// handlers, so what a sequence, a call or a <c>yield*</c> inside it parked is found and taken back.
+    /// </summary>
+    private DecoratorSite[]? _decoratorSites;
+
     static ClassDefinition()
     {
         var parser = new Parser(Engine.BaseParserOptions);
@@ -88,7 +95,7 @@ internal sealed class ClassDefinition
         _class = @class;
         // An await or a yield of the enclosing frame can occur in the decorators, the heritage and the computed keys:
         // the parts of a class evaluated in that frame.
-        _maySuspend = @class.AnyPartEvaluatedInEnclosingFrame(decorators: true, MaySuspendVisitor.MaySuspend);
+        _maySuspend = @class.AnyPartEvaluatedInEnclosingFrame(elementDecorators: true, MaySuspendVisitor.MaySuspend);
     }
 
     /// <summary>
@@ -124,7 +131,11 @@ internal sealed class ClassDefinition
     /// <c>ClassBenchmark.ReEvaluateClassDeclarations</c> about 2%. With this split the <c>ScriptFunction</c>
     /// constructor and the method-property definitions are inlined again; <c>MakeConstructor</c> is not. So keep
     /// resume-only code behind <c>maySuspend</c> and exception regions in out-of-line helpers, and check a change here
-    /// with <c>DOTNET_JitDisasm</c> and that benchmark row.
+    /// with <c>DOTNET_JitDisasm</c> and that benchmark row. Behind <c>maySuspend</c> is not enough for anything the
+    /// JIT could inline: it inlines before it folds the mode, so a property read or a suspension test in a resume
+    /// branch still spends inlining budget in the <see cref="CannotSuspend"/> code: a parked-state read and an
+    /// <c>IsSuspended()</c> test there cost two <c>Engine.Realm</c> reads their inlining (sebastienros/jint#4399). Put
+    /// them in the helper the branch calls.
     /// </remarks>
     private JsValue BuildConstructorCore<TMode>(EvaluationContext context, Environment env, string? classBinding, bool previousStrict)
         where TMode : struct, ISuspendMode
@@ -132,8 +143,8 @@ internal sealed class ClassDefinition
         var engine = context.Engine;
         var maySuspend = default(TMode).MaySuspend;
 
-        // A frame resuming into a class that suspended in its heritage or in a computed key continues it where it
-        // stopped, in the class scope it built the first time (sebastienros/jint#4395).
+        // A frame resuming into a class that suspended in a decorator, its heritage or a computed key continues it where
+        // it stopped, in the class scope it built the first time (sebastienros/jint#4395, sebastienros/jint#4399).
         var resumed = maySuspend ? TakeSuspendData(engine) : null;
 
         DeclarativeEnvironment classEnv;
@@ -159,11 +170,11 @@ internal sealed class ClassDefinition
             {
                 elementDecorators = EvaluateAllDecorators(context, out classDecoratorValues);
 
-                // A decorator that suspended: nothing of the class exists yet, so nothing is parked and the resume
-                // evaluates the class from its start, where the suspended await or yield hands back its value.
+                // A decorator that suspended: nothing of the class exists yet. The decorators evaluated so far are
+                // parked, and the resume continues at the one that suspended (sebastienros/jint#4399).
                 if (maySuspend && context.IsSuspended())
                 {
-                    RestoreEntryContext(engine, env, outerPrivateEnvironment, previousStrict);
+                    Park(engine, env, outerPrivateEnvironment, previousStrict, classEnv, classPrivateEnvironment, classDecoratorValues, elementDecorators);
                     return JsValue.Undefined;
                 }
             }
@@ -174,6 +185,11 @@ internal sealed class ClassDefinition
             classPrivateEnvironment = resumed.ClassPrivateEnvironment;
             classDecoratorValues = resumed.ClassDecoratorValues;
             elementDecorators = resumed.ElementDecorators;
+
+            if (ContinueDecorators(context, resumed, env, outerPrivateEnvironment, previousStrict))
+            {
+                return JsValue.Undefined;
+            }
         }
 
         var hasDecorators = classDecoratorValues is not null;
@@ -673,7 +689,7 @@ internal sealed class ClassDefinition
 
     /// <summary>
     /// Evaluates the decorator expressions of the class and of each element, in source order, before the class scope is
-    /// entered. Once one suspends the frame, none after it is evaluated.
+    /// entered. Once one suspends the frame, none after it is evaluated (see <see cref="EvaluateDecorators"/>).
     /// </summary>
     /// <remarks>
     /// Out of line for the same reason as <see cref="EvaluateHeritage"/>: decorated classes are rare, and this code would
@@ -682,36 +698,128 @@ internal sealed class ClassDefinition
     [MethodImpl(MethodImplOptions.NoInlining)]
     private List<ElementDecoratorPair> EvaluateAllDecorators(EvaluationContext context, out JsValue[] classDecoratorValues)
     {
-        // Evaluate class-level decorators
-        classDecoratorValues = EvaluateDecorators(context, _class.Decorators, _maySuspend);
+        classDecoratorValues = NewDecoratorValues(_class.Decorators.Count);
 
-        // Evaluate element-level decorators
         ref readonly var bodyElements = ref _body.Body;
         var elementDecorators = new List<ElementDecoratorPair>(bodyElements.Count);
         for (var i = 0; i < bodyElements.Count; i++)
         {
-            var elem = (IClassElement) bodyElements[i];
-            JsValue[] decs;
-            if (elem is MethodDefinition md && md.Decorators.Count > 0)
-            {
-                decs = EvaluateDecorators(context, md.Decorators, _maySuspend);
-            }
-            else if (elem is PropertyDefinition pd && pd.Decorators.Count > 0)
-            {
-                decs = EvaluateDecorators(context, pd.Decorators, _maySuspend);
-            }
-            else if (elem is AccessorProperty ap2 && ap2.Decorators.Count > 0)
-            {
-                decs = EvaluateDecorators(context, ap2.Decorators, _maySuspend);
-            }
-            else
-            {
-                decs = System.Array.Empty<JsValue>();
-            }
-            elementDecorators.Add(new ElementDecoratorPair(elem, decs));
+            var element = bodyElements[i];
+            elementDecorators.Add(new ElementDecoratorPair((IClassElement) element, NewDecoratorValues(DecoratorsOf(element).Count)));
         }
 
+        EvaluateDecorators(context, start: 0, classDecoratorValues, elementDecorators);
         return elementDecorators;
+
+        static JsValue[] NewDecoratorValues(int count) => count > 0 ? new JsValue[count] : [];
+    }
+
+    /// <summary>
+    /// Evaluates the decorator expressions from the one at <paramref name="start"/> in evaluation order, each into its
+    /// slot of <paramref name="classDecoratorValues"/> or of its element's values.
+    /// </summary>
+    /// <remarks>
+    /// Once one suspends the frame, none after it is evaluated and its value is not stored: its index is parked on the
+    /// frame's <see cref="ClassSuspendData"/>, beside which <see cref="Park"/> parks the values, and the resume calls
+    /// this again from that index. The decorators before it are not evaluated again, and the one that suspended
+    /// resumes through the handlers it suspended in, so the part of it before its <c>await</c> or <c>yield</c> is not
+    /// evaluated again either.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void EvaluateDecorators(EvaluationContext context, int start, JsValue[] classDecoratorValues, List<ElementDecoratorPair> elementDecorators)
+    {
+        var sites = _decoratorSites ??= BuildDecoratorSites();
+        for (var i = start; i < sites.Length; i++)
+        {
+            var site = sites[i];
+            var value = site.Expression.GetValue(context);
+
+            if (_maySuspend && context.IsSuspended())
+            {
+                context.Engine.ExecutionContext.Suspendable!.Data.GetOrCreate<ClassSuspendData>(_body).PendingDecorator = i;
+                return;
+            }
+
+            var values = site.Element < 0 ? classDecoratorValues : elementDecorators[site.Element].Decorators;
+            values[site.Index] = value;
+        }
+    }
+
+    /// <summary>
+    /// The class's decorators, then each element's, in source order.
+    /// </summary>
+    /// <remarks>
+    /// That is the order Jint evaluates them in, all before the heritage. The decorators spec text
+    /// (https://github.com/tc39/ecma262/pull/2417) evaluates the class's first, but an element's only after the
+    /// heritage, just before the element's key.
+    /// </remarks>
+    private DecoratorSite[] BuildDecoratorSites()
+    {
+        var sites = new List<DecoratorSite>();
+        Add(sites, _class.Decorators, element: -1);
+
+        ref readonly var elements = ref _body.Body;
+        for (var i = 0; i < elements.Count; i++)
+        {
+            Add(sites, DecoratorsOf(elements[i]), element: i);
+        }
+
+        return sites.ToArray();
+
+        static void Add(List<DecoratorSite> sites, in NodeList<Decorator> decorators, int element)
+        {
+            for (var i = 0; i < decorators.Count; i++)
+            {
+                sites.Add(new DecoratorSite(JintExpression.Build(decorators[i].Expression), element, i));
+            }
+        }
+    }
+
+    private static NodeList<Decorator> DecoratorsOf(Node element) => element switch
+    {
+        MethodDefinition method => method.Decorators,
+        PropertyDefinition field => field.Decorators,
+        AccessorProperty accessor => accessor.Decorators,
+        _ => default,
+    };
+
+    /// <summary>
+    /// A decorator expression's handler and the slot its value fills: index <see cref="Index"/> of the class's
+    /// decorator values when <see cref="Element"/> is -1, and of that element's otherwise.
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private readonly record struct DecoratorSite(JintExpression Expression, int Element, int Index);
+
+    /// <summary>
+    /// Continues the decorator evaluation at the decorator that suspended, when that is where the class stopped, and
+    /// parks it again if another decorator suspends. Answers whether the frame is suspended again.
+    /// </summary>
+    /// <remarks>
+    /// The JIT inlines before it folds the suspension mode, so the <see cref="CannotSuspend"/> instantiation still
+    /// imports the resume branch that calls this: a single call that cannot be inlined adds nothing there for the
+    /// inliner to weigh, where the reads and the suspension test this makes would take inlining budget from the
+    /// constructor's creation.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool ContinueDecorators(EvaluationContext context, ClassSuspendData resumed, Environment env, PrivateEnvironment? outerPrivateEnvironment, bool previousStrict)
+    {
+        if (resumed.PendingDecorator < 0)
+        {
+            return false;
+        }
+
+        // Through the handlers the decorator suspended in, so the part of it before its await or yield is not evaluated
+        // again either.
+        var classDecoratorValues = resumed.ClassDecoratorValues!;
+        var elementDecorators = resumed.ElementDecorators!;
+        EvaluateDecorators(context, resumed.PendingDecorator, classDecoratorValues, elementDecorators);
+        if (!context.IsSuspended())
+        {
+            return false;
+        }
+
+        Park(context.Engine, env, outerPrivateEnvironment, previousStrict, resumed.ClassEnvironment, resumed.ClassPrivateEnvironment, classDecoratorValues, elementDecorators);
+        return true;
     }
 
     /// <summary>
@@ -731,8 +839,8 @@ internal sealed class ClassDefinition
     }
 
     /// <summary>
-    /// Parks what the class has built when its heritage or a computed key suspended the frame, keyed by the class
-    /// body: one frame cannot be inside the same class twice at once.
+    /// Parks what the class has built when a decorator, its heritage or a computed key suspended the frame, keyed by the
+    /// class body: one frame cannot be inside the same class twice at once.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private ClassSuspendData Park(
@@ -834,9 +942,10 @@ internal sealed class ClassDefinition
     }
 
     /// <summary>
-    /// What a class definition had built when its frame suspended in its heritage or in a computed key
+    /// What a class definition had built when its frame suspended in a decorator, its heritage or a computed key
     /// (https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation), so the resume continues there
-    /// instead of evaluating the heritage and the keys before the suspended one again, in a new class scope.
+    /// instead of evaluating the decorators, the heritage and the keys before the suspended one again, in a new class
+    /// scope.
     /// </summary>
     private sealed class ClassSuspendData : SuspendData
     {
@@ -845,11 +954,17 @@ internal sealed class ClassDefinition
         public PrivateEnvironment ClassPrivateEnvironment { get; set; } = null!;
 
         /// <summary>
-        /// The decorators, which are evaluated before the heritage; null for a class without any.
+        /// The decorators, which are evaluated before the heritage; null for a class without any. While
+        /// <see cref="PendingDecorator"/> is set, only the slots of the decorators before it are filled.
         /// </summary>
         public JsValue[]? ClassDecoratorValues { get; set; }
 
         public List<ElementDecoratorPair>? ElementDecorators { get; set; }
+
+        /// <summary>
+        /// The index, in evaluation order, of the decorator that suspended; -1 once every decorator has a value.
+        /// </summary>
+        public int PendingDecorator { get; set; } = -1;
 
         /// <summary>
         /// Null when the heritage suspended; the class's prototype once a computed key did, with the fields below.
@@ -1288,34 +1403,6 @@ internal sealed class ClassDefinition
     /// </summary>
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
     private readonly record struct ElementDecoratorPair(IClassElement Element, JsValue[] Decorators);
-
-    /// <summary>
-    /// Evaluates all decorator expressions in source order (left-to-right).
-    /// Returns array of evaluated decorator functions.
-    /// </summary>
-    /// <remarks>
-    /// Once a decorator has suspended the frame, none after it is evaluated: the class stops there and the resume
-    /// evaluates them all again, so the array is left incomplete and is never used.
-    /// </remarks>
-    private static JsValue[] EvaluateDecorators(EvaluationContext context, in NodeList<Decorator> decorators, bool maySuspend)
-    {
-        if (decorators.Count == 0)
-        {
-            return [];
-        }
-
-        var result = new JsValue[decorators.Count];
-        for (var i = 0; i < decorators.Count; i++)
-        {
-            if (maySuspend && context.IsSuspended())
-            {
-                break;
-            }
-
-            result[i] = JintExpression.Build(decorators[i].Expression).GetValue(context);
-        }
-        return result;
-    }
 
     /// <summary>
     /// Creates the decorator context object passed as the second argument to a decorator.

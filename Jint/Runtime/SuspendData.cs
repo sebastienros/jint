@@ -791,4 +791,9 @@ internal sealed class SuspendDataDictionary
     {
         _suspendData?.Remove(key);
     }
+
+    /// <summary>
+    /// How many constructs have suspend data parked, for tests proving that an entry does not outlive its construct.
+    /// </summary>
+    internal int Count => _suspendData?.Count ?? 0;
 }

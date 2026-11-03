@@ -15,8 +15,8 @@ namespace Jint.Runtime.Interpreter;
 /// whether a declaration list has to remember the declarator it suspended at, <c>JintCallExpression</c>
 /// and <c>JintNewExpression</c> whether a call has to keep its callee for a resume in its arguments,
 /// <c>JintImportExpression</c> whether an <c>import()</c> has to keep its specifier for a resume in its options, and
-/// <c>ClassDefinition</c> whether a class has to stop at a suspended decorator or park what it built for a resume in
-/// its heritage or a computed key.
+/// <c>ClassDefinition</c> whether a class has to park what it built for a resume in a decorator, its heritage or a
+/// computed key.
 /// </para>
 /// </remarks>
 internal static class MaySuspendVisitor

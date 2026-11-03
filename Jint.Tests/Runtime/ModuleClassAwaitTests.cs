@@ -6,15 +6,18 @@ using Jint.Runtime;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// A module whose only <c>await</c> sits in a class's heritage or in a computed key of one of its elements is an
-/// asynchronous module. <see href="https://tc39.es/ecma262/#sec-parsemodule">ParseModule</see> sets [[HasTLA]] to
-/// <c>body Contains await</c>, and <see href="https://tc39.es/ecma262/#sec-static-semantics-contains">Contains</see>
-/// for a ClassTail looks into the ClassHeritage and, through ComputedPropertyContains, into every computed
-/// ClassElementName, but into no method body, field initializer or static block.
+/// A module whose only <c>await</c> sits in a class's heritage, in a computed key of one of its elements or in one of
+/// the class's own decorators is an asynchronous module.
+/// <see href="https://tc39.es/ecma262/#sec-parsemodule">ParseModule</see> sets [[HasTLA]] to <c>body Contains await</c>,
+/// and <see href="https://tc39.es/ecma262/#sec-static-semantics-contains">Contains</see> for a ClassTail looks into the
+/// ClassHeritage and, through ComputedPropertyContains, into every computed ClassElementName, but into no method body,
+/// field initializer or static block. A class's own decorators sit outside its ClassTail.
 /// <para>
 /// Jint skipped classes whole, so such a module was evaluated synchronously and its await settled by a blocking
-/// unwrap (sebastienros/jint#4395). Each log is the module's own entries interleaved with a ladder of microtasks
-/// <c>t1</c>, <c>t2</c>, … the module starts; every expected log is Node 26's.
+/// unwrap (sebastienros/jint#4395, and sebastienros/jint#4399 for a decorator). Each log is the module's own entries
+/// interleaved with a ladder of microtasks <c>t1</c>, <c>t2</c>, … the module starts; every expected log is Node 26's,
+/// except the decorator rows, which Node cannot run: theirs is the heritage row's, an await of a function that is not
+/// a thenable at the same point of the module.
 /// </para>
 /// </summary>
 public class ModuleClassAwaitTests
@@ -54,6 +57,11 @@ public class ModuleClassAwaitTests
             "log.push('m body'); ladder(8); class C extends class extends (await Object) {} {} log.push('m end');",
         ["ANestedComputedKey"] =
             "log.push('m body'); ladder(8); class C { [class { static [await 'k'] = 'n'; }.k]() {} } log.push('m end ' + Object.getOwnPropertyNames(C.prototype));",
+        // A class's decorators sit outside its ClassTail, so Contains reaches them as any other child (#4399).
+        ["AClassDecorator"] =
+            "log.push('m body'); ladder(8); @(log.push('m decorator'), await (c => c)) class C {} log.push('m end ' + typeof C);",
+        ["AClassExpressionDecorator"] =
+            "log.push('m body'); ladder(8); const C = @(await (c => c)) class {}; log.push('m end ' + C.name);",
         // None of these is an await of the module's: each belongs to a function of its own.
         ["AnAwaitInAMethod"] =
             "log.push('m body'); ladder(8); class C { async m() { await 0; } } log.push('m end');",
@@ -77,6 +85,8 @@ public class ModuleClassAwaitTests
         { "AStaticComputedFieldKey", "m body, t1, m end 2, t2, root, t3, t4, t5, t6, t7, t8" },
         { "ANestedClassHeritage", "m body, t1, m end, t2, root, t3, t4, t5, t6, t7, t8" },
         { "ANestedComputedKey", "m body, t1, m end constructor,n, t2, root, t3, t4, t5, t6, t7, t8" },
+        { "AClassDecorator", "m body, m decorator, t1, m end function, t2, root, t3, t4, t5, t6, t7, t8" },
+        { "AClassExpressionDecorator", "m body, t1, m end C, t2, root, t3, t4, t5, t6, t7, t8" },
         { "AnAwaitInAMethod", "m body, m end, root, t1, t2, t3, t4, t5, t6, t7, t8" },
         { "AnAwaitInAFieldArrow", "m body, m end, root, t1, t2, t3, t4, t5, t6, t7, t8" },
         { "AnAwaitInAStaticBlockArrow", "m body, m end, root, t1, t2, t3, t4, t5, t6, t7, t8" },
@@ -100,6 +110,12 @@ public class ModuleClassAwaitTests
     /// The answer [[HasTLA]] is computed from: Contains for a ClassTail
     /// (https://tc39.es/ecma262/#sec-static-semantics-contains) searches the heritage and each computed key, nested
     /// classes included, and returns false for everything a function of its own evaluates.
+    /// <para>
+    /// The decorators proposal puts a class's own decorator list beside its ClassTail, a child of the ClassDeclaration
+    /// or ClassExpression that the default rule of Contains searches, so an await there counts. Its rule for
+    /// ComputedPropertyContains of a decorated element returns that of the MethodDefinition or FieldDefinition alone
+    /// (tc39/ecma262#2417), so an await in an element's decorator does not (sebastienros/jint#4399).
+    /// </para>
     /// </summary>
     [TestCase("class C extends (await x) {}", true)]
     [TestCase("class C extends f(await x) {}", true)]
@@ -117,6 +133,12 @@ public class ModuleClassAwaitTests
     [TestCase("class C extends class extends (await x) {} {}", true)]
     [TestCase("class C { [class { [await k]() {} }.name]() {} }", true)]
     [TestCase("class C extends (class { static [await k] = 1; }) {}", true)]
+    [TestCase("@(await d) class C {}", true)]
+    [TestCase("@a @(await d) class C {}", true)]
+    [TestCase("(@(await d) class {});", true)]
+    [TestCase("export default @(await d) class {}", true)]
+    [TestCase("class C extends (@(await d) class {}) {}", true)]
+    [TestCase("class C { [(@(await d) class {}).name]() {} }", true)]
     [TestCase("class C {}", false)]
     [TestCase("class C extends B { [k]() {} static [k] = 1; }", false)]
     [TestCase("class C { async m() { await 0; } }", false)]
@@ -127,6 +149,11 @@ public class ModuleClassAwaitTests
     [TestCase("class C extends (async () => await 0, B) {}", false)]
     [TestCase("class C { [(async () => await 0, k)]() {} }", false)]
     [TestCase("class C extends (async function () { class D extends (await x) {} }, B) {}", false)]
+    [TestCase("@(async () => await 0) class C {}", false)]
+    [TestCase("class C { @(await d) m() {} }", false)]
+    [TestCase("class C { @(await d) static m() {} }", false)]
+    [TestCase("class C { @(await d) x = 1; }", false)]
+    [TestCase("class C { @(await d) accessor x = 1; }", false)]
     public void AnAwaitInAClassHeritageOrComputedKeyIsATopLevelAwait(string source, bool expected)
     {
         var module = Engine.PrepareModule(source, "m");

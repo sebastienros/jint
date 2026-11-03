@@ -1,5 +1,7 @@
 #nullable enable
 
+using Jint.Runtime.Interop;
+
 namespace Jint.Tests.Runtime;
 
 /// <summary>
@@ -40,6 +42,17 @@ public class SuspendedClassDefinitionTests
     /// </summary>
     public static readonly string[] Suspensions = ["async function", "generator", "async generator await", "async generator yield"];
 
+    /// <summary>
+    /// An engine on which script can read <c>suspendDataCount()</c>: how many constructs of the running frame have
+    /// suspend data parked, which a construct that resumes is expected to take back.
+    /// </summary>
+    private static Engine NewEngine()
+    {
+        var engine = new Engine();
+        engine.SetValue("suspendDataCount", new ClrFunction(engine, "suspendDataCount", (_, _) => engine.ExecutionContext.Suspendable?.Data.Count ?? -1));
+        return engine;
+    }
+
     private static string Probe(string suspension, string body, string report)
     {
         return suspension switch
@@ -60,7 +73,7 @@ public class SuspendedClassDefinitionTests
     /// Runs <paramref name="body"/> inside an async function bracketed by the <c>pre</c>/<c>post</c> markers and
     /// returns <c>"&lt;report&gt;|&lt;log&gt;"</c>, or <c>"threw &lt;message&gt;|&lt;log&gt;"</c> when it rejects.
     /// </summary>
-    private static string AsyncProbe(string body, string report) => new Engine().Evaluate($$"""
+    private static string AsyncProbe(string body, string report) => NewEngine().Evaluate($$"""
         {{Setup}}
         async function m() {
           log.push('pre');
@@ -77,7 +90,7 @@ public class SuspendedClassDefinitionTests
     /// The synchronous-generator twin of <see cref="AsyncProbe"/>: every <c>yield</c> is resumed with its own
     /// yielded value, standing in for the awaited one, and a yielded <c>THROW</c> with a throw of <c>Error('no')</c>.
     /// </summary>
-    private static string GeneratorProbe(string body, string report) => new Engine().Evaluate($$"""
+    private static string GeneratorProbe(string body, string report) => NewEngine().Evaluate($$"""
         {{Setup}}
         function* g() {
           log.push('pre');
@@ -102,7 +115,7 @@ public class SuspendedClassDefinitionTests
     /// <c>next()</c> until it is done. Both generator drivers stop after a fixed number of steps, so a generator that
     /// never finishes fails the assertion instead of spinning the test host.
     /// </summary>
-    private static string AsyncGeneratorProbe(string body, string report) => new Engine().Evaluate($$"""
+    private static string AsyncGeneratorProbe(string body, string report) => NewEngine().Evaluate($$"""
         {{Setup}}
         async function* ag() {
           log.push('pre');
@@ -220,9 +233,9 @@ public class SuspendedClassDefinitionTests
     // ------------------------------------------------------------------ a suspension in a decorator
 
     // A decorator's expression is evaluated in the frame around the class too, before anything of the class exists
-    // (https://tc39.es/proposal-decorators/). Its suspension stops the class there, and the resume evaluates the class
-    // from the start: the class is defined once, each decorator applied once and each static block run once. The
-    // expected values follow the proposal, since Node has no decorators.
+    // (https://tc39.es/proposal-decorators/). Its suspension stops the class there, and the resume continues at that
+    // decorator: the class is defined once, each decorator applied once and each static block run once. The expected
+    // values follow the proposal, since Node has no decorators.
 
     [TestCaseSource(nameof(Suspensions))]
     public void ASuspendedClassDecoratorDecoratesTheClassOnce(string suspension)
@@ -277,6 +290,96 @@ public class SuspendedClassDefinitionTests
     {
         Probe(suspension, "function dec() {} @(SUSPEND dec) class C {} undeclaredAfterDecorator = 1;", "typeof undeclaredAfterDecorator")
             .Should().Be("number|pre,post");
+    }
+
+    // The proposal evaluates each decorator expression once (DecoratorListEvaluation,
+    // https://tc39.es/proposal-decorators/), so a resume continues at the decorator that suspended. Nothing before it is
+    // evaluated again: not the decorators before it, and not the part of it before its await or yield, which a
+    // sequence's index or a call's callee keeps only for as long as the resume finds the handler that parked it
+    // (sebastienros/jint#4399).
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ADecoratorBeforeASuspendedOneAndThePartBeforeTheSuspensionRunOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = []; function a() { applied.push('a'); } function b() { applied.push('b'); } @(log.push('a'), a) @(log.push('b'), SUSPEND b) class C {}",
+                "applied.join('') + ',' + typeof C")
+            .Should().Be("ba,function|pre,a,b,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorCallResolvesItsCalleeOnce(string suspension)
+    {
+        Probe(suspension,
+                "var o = { get make() { log.push('get'); return function (v) { return function () { log.push('apply ' + v); }; }; } }; @(o.make(SUSPEND 'x')) class C {}",
+                "typeof C")
+            .Should().Be("function|pre,get,apply x,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void EveryKindOfDecoratorBeforeASuspendedOneIsEvaluatedOnce(string suspension)
+    {
+        Probe(suspension,
+                "function dec() {} function fdec() { return v => v * 10; } function adec() {} "
+                + "@(log.push('c'), dec) class C { @(log.push('m'), SUSPEND dec) m() { return 1; } @(log.push('f'), SUSPEND fdec) x = 2; @(log.push('a'), SUSPEND adec) accessor y = 3; @(log.push('g'), dec) get z() { return 4; } }",
+                "new C().m() + new C().x + new C().y + new C().z")
+            .Should().Be("28|pre,c,m,f,a,g,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void TwoSuspendedDecoratorsEachRunWhatPrecedesThemOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = []; function a() { applied.push('a'); } function b() { applied.push('b'); } @(log.push('a'), SUSPEND a) @(log.push('b'), SUSPEND b) class C {}",
+                "applied.join('')")
+            .Should().Be("ba|pre,a,b,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorOfAClassInADecoratorResumesBothClasses(string suspension)
+    {
+        Probe(suspension,
+                "function dec(c) { log.push('apply ' + c.name); } @(log.push('outer'), (@(log.push('inner'), SUSPEND dec) class Inner {}), dec) class Outer {}",
+                "typeof Outer")
+            .Should().Be("function|pre,outer,inner,apply Inner,apply Outer,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorThatResumesWithAThrowEvaluatesNoDecoratorAgain(string suspension)
+    {
+        Probe(suspension,
+                "function a() {} try { @(log.push('a'), a) @(log.push('b'), REJECT) class C {} log.push('not here'); } catch (e) { log.push('caught ' + e.message); } @(log.push('again'), SUSPEND a) class D {}",
+                "typeof D")
+            .Should().Be("function|pre,a,b,caught no,again,post");
+    }
+
+    /// <summary>
+    /// A <c>yield*</c> in a decorator resumes its delegation at each step, and once it has completed and a later
+    /// decorator suspends, it is not started over. The decorators are applied last to first.
+    /// </summary>
+    [TestCase("generator")]
+    [TestCase("async generator yield")]
+    public void ACompletedDelegationInAnEarlierDecoratorIsNotRestarted(string suspension)
+    {
+        Probe(suspension,
+                "function* inner() { log.push('inner'); yield 'i1'; log.push('i2'); yield 'i2'; return function () { log.push('apply a'); }; } function b() { log.push('apply b'); } @(yield* inner()) @(SUSPEND b) class C {}",
+                "typeof C")
+            .Should().Be("function|pre,inner,i2,apply b,apply a,post");
+    }
+
+    /// <summary>
+    /// What a suspended decorator's sub-expressions park is taken back by its resume, so a frame that evaluates such a
+    /// class on every iteration holds as much suspend data after the last iteration as after the first. The handlers
+    /// were rebuilt for every evaluation, so the sequence and the call each left an entry behind, against a handler
+    /// nothing would reach again, on every iteration.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorInALoopLeavesNoSuspendDataBehind(string suspension)
+    {
+        Probe(suspension,
+                "var counts = []; function id(v) { return v; } function dec() {} for (let i = 0; i < 4; i++) { @(log.push('d' + i), id(SUSPEND dec)) class C {} counts.push(suspendDataCount()); }",
+                "counts.length + ' ' + (counts[0] >= 0 && counts.every(function (c) { return c === counts[0]; }))")
+            .Should().Be("4 true|pre,d0,d1,d2,d3,post");
     }
 
     // ------------------------------------------------------------------ a suspension in a computed key
