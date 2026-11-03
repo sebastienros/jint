@@ -259,6 +259,14 @@ internal abstract class IteratorInstance : ObjectInstance
 
             if (callable is null)
             {
+                // Step 4.b: with no `return` there is nothing to call. A built-in iterator this record wraps only
+                // because its `next` was replaced (HasNativeNext) may still hold native state that its own Close
+                // releases, such as a host enumerator to dispose, and stepping it natively would have closed it.
+                if (_target is IteratorInstance native)
+                {
+                    native.Close(completion);
+                }
+
                 return;
             }
 

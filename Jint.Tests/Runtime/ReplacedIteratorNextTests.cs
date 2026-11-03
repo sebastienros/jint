@@ -173,6 +173,61 @@ public class ReplacedIteratorNextTests
     }
 
     /// <summary>
+    /// A replaced <c>%ArrayIteratorPrototype%.next</c> sends a wrapped CLR enumerable's iterator through the
+    /// <c>ObjectIterator</c>, which closes by calling a script <c>return</c>. The CLR iterator has none, but it holds
+    /// a host enumerator only its native close disposes, so a <c>break</c> must still reach it: here a
+    /// <c>yield</c> method's <c>finally</c>. The untouched row is the control.
+    /// </summary>
+    [TestCase(false, "1 0")]
+    [TestCase(true, "1 1")]
+    public void ABreakDisposesAClrEnumeratorWhetherOrNotTheArrayIteratorsNextWasReplaced(bool replaceNext, string expected)
+    {
+        var probe = new DisposalProbe();
+        var engine = new Engine();
+        engine.SetValue("items", probe.Items());
+
+        var result = engine.Evaluate($$"""
+            (function () {
+                const proto = Object.getPrototypeOf([].values());
+                const original = proto.next;
+                let calls = 0;
+                if ({{(replaceNext ? "true" : "false")}}) {
+                    proto.next = function () { calls++; return original.call(this); };
+                }
+                try {
+                    const seen = [];
+                    for (const x of items) { seen.push(x); break; }
+                    return seen.join(',') + ' ' + calls;
+                } finally {
+                    proto.next = original;
+                }
+            })()
+            """).AsString();
+
+        result.Should().Be(expected);
+        probe.Disposed.Should().BeTrue();
+    }
+
+    private sealed class DisposalProbe
+    {
+        public bool Disposed;
+
+        public IEnumerable<int> Items()
+        {
+            try
+            {
+                yield return 1;
+                yield return 2;
+                yield return 3;
+            }
+            finally
+            {
+                Disposed = true;
+            }
+        }
+    }
+
+    /// <summary>
     /// The other half of the contract: an untouched built-in iterator of every kind keeps stepping natively, so
     /// the comparison costs a read and never the wrapper. A kind whose prototype stopped capturing its
     /// <c>next</c> would still iterate correctly, through the wrapper, and would show up only here.
