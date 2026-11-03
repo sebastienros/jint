@@ -164,7 +164,11 @@ public class DecoratorApplicationTests
 
     /// <summary>
     /// ApplyDecoratorsToElementDefinition prepends each initializer a field decorator returns, and the decorators are
-    /// applied last to first, so the outermost decorator's initializer gets the field's value first.
+    /// applied last to first, so the outermost decorator's initializer gets the field's value first. That is what the
+    /// spec text intends rather than what it says: read literally, the field's own initializer, appended to
+    /// [[Initializers]] before the decorators' are prepended, runs last and its 3 wins. Babel and the test262 tests
+    /// proposed for decorators give 8, and https://github.com/tc39/proposal-decorators/issues/569 reports the text as
+    /// a bug.
     /// </summary>
     [Test]
     public void TheOutermostFieldDecoratorsInitializerRunsFirst()

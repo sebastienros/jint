@@ -391,7 +391,9 @@ public class DecoratorTests
             }
 
             // times2 is applied first (inner) and add1 second (outer), and each prepends its initializer
-            // (https://github.com/tc39/ecma262/pull/2417), so add1's runs first: (3 + 1) * 2 = 8
+            // (https://github.com/tc39/ecma262/pull/2417), so add1's runs first: (3 + 1) * 2 = 8. The
+            // text, read literally, runs the field's own initializer last and gives 3; that is
+            // https://github.com/tc39/proposal-decorators/issues/569, and 8 is the intended result.
             new C().x;
             """);
 

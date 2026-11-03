@@ -7370,6 +7370,10 @@ class C {
 
 The initializers that the decorators of a field or an accessor return now run outermost first. With
 `@a @b x = 1`, `a`'s initializer gets `1` and `b`'s gets what `a`'s returned. It used to be the other way round.
+This is what the spec text intends rather than what its steps say. Read literally, they run the field's own
+initializer after the decorators', so its value always wins: `@add1 @times2 x = 3` would give `3`.
+[tc39/proposal-decorators#569](https://github.com/tc39/proposal-decorators/issues/569) reports that as a bug in the
+text. Jint gives the intended `8`, as Babel and the test262 tests proposed for decorators do.
 
 **Class decorators run before the static fields and blocks.** They used to run last, so a static field or a static
 block saw the undecorated class, both as `this` and through the class's own name. Methods saw it through the name too.
@@ -7397,7 +7401,8 @@ check, through the element's key or its private name. The context's members come
 `access`, `static`, `private`, `name`, `addInitializer`. A class's context has only `kind`, `name` and
 `addInitializer`; it used to have `static` and `private` as well. A private element's `name` now includes the `#`
 (`"#x"`, not `"x"`). Calling `addInitializer` after its decorator has returned throws a `TypeError`. So does an
-accessor decorator that returns a `get`, `set` or `init` that is not a function, where Jint used to keep the value.
+accessor decorator that returns a `get` or a `set` that is not a function, where Jint used to keep the value. A
+non-function `init`, and a return value that is neither an object nor `undefined`, already threw.
 
 There is no switch back.
 

@@ -1526,9 +1526,9 @@ internal sealed class ClassDefinition
     }
 
     /// <summary>
-    /// The index in <paramref name="container"/> of the private element named as <paramref name="key"/> is. A getter and
-    /// a setter of one private name each have a <see cref="PrivateName"/> of their own, so the name is compared by
-    /// its description.
+    /// The index of the private element in <paramref name="container"/> whose name has the description of
+    /// <paramref name="key"/>, or -1. The names are compared by description, not by identity: a private getter and a
+    /// private setter of one name each have their own <see cref="PrivateName"/>.
     /// </summary>
     private static int IndexOfPrivateElement(List<PrivateElement> container, PrivateName key)
     {
@@ -1560,12 +1560,17 @@ internal sealed class ClassDefinition
     /// A public method, getter or setter was defined on its home object when it was evaluated, as an undecorated
     /// class's is, and each is defined again here, decorated, in source order, which leaves the home object as
     /// DefineMethodProperty element by element would: nothing can reach the prototype or the constructor between the
-    /// two, and the second definition of a key replaces the first in place.
+    /// two, and the second definition of a key replaces the first in place. The one difference is a first definition
+    /// that throws, such as <c>@d static ['prototype']() {}</c> in a decorated class. Jint throws it in the element
+    /// loop, when the element is evaluated. The spec text throws it here, after it has evaluated every later key and
+    /// decorator and applied the decorators of the static elements before it. That is where Jint threw it before
+    /// sebastienros/jint#4413 as well.
     /// </para>
     /// <para>
     /// The instance initializers <c>addInitializer</c> collects all run after the instance fields, as they did before:
     /// the spec text runs a method's before the fields and a field's right after it, which needs a hook in
-    /// <see cref="ObjectInstance.InitializeInstanceElements"/> that every class construction would pay for.
+    /// <see cref="ObjectInstance.InitializeInstanceElements"/> that every class construction would pay for
+    /// (sebastienros/jint#4421).
     /// </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1787,6 +1792,14 @@ internal sealed class ClassDefinition
     /// The definition a field or an accessor's backing field is initialized from: InitializeFieldOrAccessor's
     /// [[Initializers]], the element's own first, each passing its value on to the next.
     /// </summary>
+    /// <remarks>
+    /// The element's own initializer runs first, which is what the spec text intends rather than what it says.
+    /// ClassFieldDefinitionEvaluation appends the element's own initializer to [[Initializers]], and
+    /// ApplyDecoratorsToElementDefinition then prepends the decorators' initializers, so read literally the element's
+    /// own runs last and its value always wins: <c>@add1 @times2 x = 3</c> would give 3.
+    /// https://github.com/tc39/proposal-decorators/issues/569 reports that as a bug in the text, and Babel and the
+    /// test262 tests proposed for decorators give the intended 8.
+    /// </remarks>
     private static ClassFieldDefinition FieldDefinition(Engine engine, DecoratedElement element)
     {
         var field = element.Field!;
