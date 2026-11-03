@@ -591,8 +591,9 @@ internal sealed class HoistingScope
 
     /// <summary>
     /// [[HasTLA]], which is <c>body Contains await</c> (https://tc39.es/ecma262/#sec-parsemodule, step 11): an await
-    /// expression, a <c>for await</c> or an <c>await using</c> declaration, found outside every function. Classes are
-    /// skipped whole, although Contains looks into a class's heritage and computed keys (sebastienros/jint#4395).
+    /// expression, a <c>for await</c> or an <c>await using</c> declaration, found outside every function. A class is
+    /// searched as Contains searches a ClassTail (https://tc39.es/ecma262/#sec-static-semantics-contains): its heritage
+    /// and its computed keys, and none of its method bodies, field initializers or static blocks.
     /// </summary>
     public static bool HasTopLevelAwait(Module module)
     {
@@ -602,6 +603,18 @@ internal sealed class HoistingScope
     private sealed class HasTopLevelAwaitVisitor
     {
         private bool _hasTopLevelAwait;
+
+        // Visits a part of a class and answers whether the walk has found its await.
+        private readonly Func<Node, bool> _visitClassPart;
+
+        private HasTopLevelAwaitVisitor()
+        {
+            _visitClassPart = node =>
+            {
+                Visit(node);
+                return _hasTopLevelAwait;
+            };
+        }
 
         public static bool Check(Module module)
         {
@@ -644,10 +657,18 @@ internal sealed class HoistingScope
             }
 
             // Don't descend into function bodies - those have their own async context
-            if (node.Type is NodeType.FunctionDeclaration or NodeType.FunctionExpression
-                or NodeType.ArrowFunctionExpression or NodeType.ClassDeclaration
-                or NodeType.ClassExpression)
+            if (node.Type is NodeType.FunctionDeclaration or NodeType.FunctionExpression or NodeType.ArrowFunctionExpression)
             {
+                return;
+            }
+
+            // A class's heritage and computed keys are evaluated in the enclosing frame, so an await in either is the
+            // module's (sebastienros/jint#4395). Everything else in its body is a function of its own. Decorators are
+            // left out: ECMA-262's Contains does not know them, so a module whose only await is in a decorator keeps
+            // being evaluated synchronously. ClassDefinition shares the walk and does count them.
+            if (node.Type is NodeType.ClassDeclaration or NodeType.ClassExpression)
+            {
+                ((IClass) node).AnyPartEvaluatedInEnclosingFrame(decorators: false, _visitClassPart);
                 return;
             }
 

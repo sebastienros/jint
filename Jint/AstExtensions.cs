@@ -159,6 +159,67 @@ internal static class AstExtensions
         return false;
     }
 
+    /// <summary>
+    /// Whether <paramref name="test"/> holds for a part of the class evaluated in the frame around it: the heritage and
+    /// each computed key, which are what Contains searches in a ClassTail
+    /// (https://tc39.es/ecma262/#sec-static-semantics-contains), and with <paramref name="decorators"/> also the
+    /// decorator expressions of the class and of its elements. Method bodies, field initializers and static blocks are
+    /// functions of their own and are never tested.
+    /// </summary>
+    internal static bool AnyPartEvaluatedInEnclosingFrame(this IClass @class, bool decorators, Func<Node, bool> test)
+    {
+        if (decorators && AnyDecorator(@class.Decorators, test))
+        {
+            return true;
+        }
+
+        if (@class.SuperClass is not null && test(@class.SuperClass))
+        {
+            return true;
+        }
+
+        ref readonly var elements = ref @class.Body.Body;
+        for (var i = 0; i < elements.Count; i++)
+        {
+            var element = elements[i];
+            if (decorators)
+            {
+                var elementDecorators = element switch
+                {
+                    MethodDefinition method => method.Decorators,
+                    PropertyDefinition field => field.Decorators,
+                    AccessorProperty accessor => accessor.Decorators,
+                    _ => default,
+                };
+
+                if (AnyDecorator(in elementDecorators, test))
+                {
+                    return true;
+                }
+            }
+
+            if (element is IProperty { Computed: true } property && test(property.Key))
+            {
+                return true;
+            }
+        }
+
+        return false;
+
+        static bool AnyDecorator(in NodeList<Decorator> list, Func<Node, bool> test)
+        {
+            for (var i = 0; i < list.Count; i++)
+            {
+                if (test(list[i].Expression))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsAnonymousFunctionDefinition<T>(this T node) where T : Node
     {

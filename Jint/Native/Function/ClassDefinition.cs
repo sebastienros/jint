@@ -1,4 +1,6 @@
-﻿using Jint.Native.Object;
+using System.Runtime.CompilerServices;
+using Jint.Native.AsyncFunction;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -22,6 +24,18 @@ internal sealed class ClassDefinition
     internal readonly string? _className;
     private readonly Expression? _superClass;
     private readonly ClassBody _body;
+
+    /// <summary>
+    /// Whether a decorator, the heritage or a computed key can suspend the generator or async frame the class is
+    /// evaluated in, decided at build time so a class that cannot suspend never consults the frame's suspend data.
+    /// </summary>
+    internal readonly bool _maySuspend;
+
+    /// <summary>
+    /// The heritage's handler, built on the first evaluation and kept: what a suspension inside it parks is keyed by
+    /// the handlers it is made of, which a tree rebuilt for the resume would not find.
+    /// </summary>
+    private JintExpression? _superClassExpression;
 
     static ClassDefinition()
     {
@@ -72,6 +86,9 @@ internal sealed class ClassDefinition
         _superClass = @class.SuperClass;
         _body = @class.Body;
         _class = @class;
+        // An await or a yield of the enclosing frame can occur in the decorators, the heritage and the computed keys:
+        // the parts of a class evaluated in that frame.
+        _maySuspend = @class.AnyPartEvaluatedInEnclosingFrame(decorators: true, MaySuspendVisitor.MaySuspend);
     }
 
     /// <summary>
@@ -88,7 +105,9 @@ internal sealed class ClassDefinition
         var previousStrict = context.Engine.ReplaceTopStrict(true);
         try
         {
-            return BuildConstructorCore(context, env, classBinding);
+            return _maySuspend
+                ? BuildConstructorCore<CanSuspend>(context, env, classBinding, previousStrict)
+                : BuildConstructorCore<CannotSuspend>(context, env, classBinding, previousStrict);
         }
         finally
         {
@@ -96,125 +115,153 @@ internal sealed class ClassDefinition
         }
     }
 
-    private JsValue BuildConstructorCore(EvaluationContext context, Environment env, string? classBinding = null)
+    /// <remarks>
+    /// Compiled once per <typeparamref name="TMode"/>. Every class whose decorators, heritage and computed keys hold no
+    /// <c>await</c> or <c>yield</c> takes <see cref="CannotSuspend"/>, where <c>maySuspend</c> is a constant false:
+    /// every branch of the resume (taking parked state back, parking it, stopping at a suspension) folds away, and
+    /// that code is not emitted, and the per-element suspension test the class had before it could resume is gone.
+    /// Keeping the resume code in the same body made the JIT stop inlining the constructor's creation, which cost
+    /// <c>ClassBenchmark.ReEvaluateClassDeclarations</c> about 2%. With this split the <c>ScriptFunction</c>
+    /// constructor and the method-property definitions are inlined again; <c>MakeConstructor</c> is not. So keep
+    /// resume-only code behind <c>maySuspend</c> and exception regions in out-of-line helpers, and check a change here
+    /// with <c>DOTNET_JitDisasm</c> and that benchmark row.
+    /// </remarks>
+    private JsValue BuildConstructorCore<TMode>(EvaluationContext context, Environment env, string? classBinding, bool previousStrict)
+        where TMode : struct, ISuspendMode
     {
         var engine = context.Engine;
-        var classEnv = JintEnvironment.NewDeclarativeEnvironment(engine, env);
+        var maySuspend = default(TMode).MaySuspend;
 
-        if (_className is not null)
-        {
-            classEnv.CreateImmutableBinding(_className, true);
-        }
+        // A frame resuming into a class that suspended in its heritage or in a computed key continues it where it
+        // stopped, in the class scope it built the first time (sebastienros/jint#4395).
+        var resumed = maySuspend ? TakeSuspendData(engine) : null;
 
+        DeclarativeEnvironment classEnv;
+        PrivateEnvironment classPrivateEnvironment;
         var outerPrivateEnvironment = engine.ExecutionContext.PrivateEnvironment;
-        var classPrivateEnvironment = JintEnvironment.NewPrivateEnvironment(engine, outerPrivateEnvironment);
-
-        // Step: Evaluate all decorator expressions in the current environment (before entering class scope)
-        // Decorator expressions are evaluated left-to-right, top-to-bottom in source order.
-        var hasDecorators = HasDecorators();
         JsValue[]? classDecoratorValues = null;
         List<ElementDecoratorPair>? elementDecorators = null;
 
-        if (hasDecorators)
+        if (!maySuspend || resumed is null)
         {
-            // Evaluate class-level decorators
-            classDecoratorValues = EvaluateDecorators(context, _class.Decorators);
+            classEnv = JintEnvironment.NewDeclarativeEnvironment(engine, env);
 
-            // Evaluate element-level decorators
-            ref readonly var bodyElements = ref _body.Body;
-            elementDecorators = new List<ElementDecoratorPair>(bodyElements.Count);
-            for (var i = 0; i < bodyElements.Count; i++)
+            if (_className is not null)
             {
-                var elem = (IClassElement) bodyElements[i];
-                JsValue[] decs;
-                if (elem is MethodDefinition md && md.Decorators.Count > 0)
-                {
-                    decs = EvaluateDecorators(context, md.Decorators);
-                }
-                else if (elem is PropertyDefinition pd && pd.Decorators.Count > 0)
-                {
-                    decs = EvaluateDecorators(context, pd.Decorators);
-                }
-                else if (elem is AccessorProperty ap2 && ap2.Decorators.Count > 0)
-                {
-                    decs = EvaluateDecorators(context, ap2.Decorators);
-                }
-                else
-                {
-                    decs = System.Array.Empty<JsValue>();
-                }
-                elementDecorators.Add(new ElementDecoratorPair(elem, decs));
+                classEnv.CreateImmutableBinding(_className, true);
             }
-        }
 
-        ObjectInstance? protoParent = null;
-        ObjectInstance? constructorParent = null;
-        if (_superClass is null)
-        {
-            protoParent = engine.Realm.Intrinsics.Object.PrototypeObject;
-            constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
+            classPrivateEnvironment = JintEnvironment.NewPrivateEnvironment(engine, outerPrivateEnvironment);
+
+            // Step: Evaluate all decorator expressions in the current environment (before entering class scope)
+            // Decorator expressions are evaluated left-to-right, top-to-bottom in source order.
+            if (HasDecorators())
+            {
+                elementDecorators = EvaluateAllDecorators(context, out classDecoratorValues);
+
+                // A decorator that suspended: nothing of the class exists yet, so nothing is parked and the resume
+                // evaluates the class from its start, where the suspended await or yield hands back its value.
+                if (maySuspend && context.IsSuspended())
+                {
+                    RestoreEntryContext(engine, env, outerPrivateEnvironment, previousStrict);
+                    return JsValue.Undefined;
+                }
+            }
         }
         else
         {
-            engine.UpdateLexicalEnvironment(classEnv);
-            var superclass = JintExpression.Build(_superClass).GetValue(context);
-            engine.UpdateLexicalEnvironment(env);
+            classEnv = resumed.ClassEnvironment;
+            classPrivateEnvironment = resumed.ClassPrivateEnvironment;
+            classDecoratorValues = resumed.ClassDecoratorValues;
+            elementDecorators = resumed.ElementDecorators;
+        }
 
-            if (superclass.IsNull())
+        var hasDecorators = classDecoratorValues is not null;
+
+        ObjectInstance proto;
+        ObjectInstance? constructorParent = null;
+        MethodDefinition? constructor = null;
+        ref readonly var elements = ref _body.Body;
+
+        // A computed key suspended: the heritage was evaluated and the prototype made the first time.
+        var resumedIntoElements = maySuspend && resumed is { Prototype: not null };
+        if (resumedIntoElements)
+        {
+            proto = resumed!.Prototype!;
+        }
+        else
+        {
+            ObjectInstance? protoParent = null;
+            if (_superClass is null)
             {
-                protoParent = null;
+                protoParent = engine.Realm.Intrinsics.Object.PrototypeObject;
                 constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
-            }
-            else if (!superclass.IsConstructor)
-            {
-                Throw.TypeError(engine.Realm, "super class is not a constructor");
             }
             else
             {
-                var temp = superclass.Get(CommonProperties.Prototype);
-                if (temp is ObjectInstance protoParentObject)
+                var superclass = EvaluateHeritage(context, env, classEnv);
+
+                // A suspended heritage hands back a placeholder, not its value: the class is defined on the resume.
+                if (maySuspend && context.IsSuspended())
                 {
-                    protoParent = protoParentObject;
+                    Park(engine, env, outerPrivateEnvironment, previousStrict, classEnv, classPrivateEnvironment, classDecoratorValues, elementDecorators);
+                    return JsValue.Undefined;
                 }
-                else if (temp.IsNull())
+
+                if (superclass.IsNull())
                 {
-                    // OK
+                    protoParent = null;
+                    constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
+                }
+                else if (!superclass.IsConstructor)
+                {
+                    Throw.TypeError(engine.Realm, "super class is not a constructor");
                 }
                 else
                 {
-                    Throw.TypeError(engine.Realm, "cannot resolve super class prototype chain");
-                    return default;
+                    var temp = superclass.Get(CommonProperties.Prototype);
+                    if (temp is ObjectInstance protoParentObject)
+                    {
+                        protoParent = protoParentObject;
+                    }
+                    else if (temp.IsNull())
+                    {
+                        // OK
+                    }
+                    else
+                    {
+                        Throw.TypeError(engine.Realm, "cannot resolve super class prototype chain");
+                        return default;
+                    }
+
+                    constructorParent = (ObjectInstance) superclass;
+                }
+            }
+
+            proto = new JsObject(engine) { _prototype = protoParent };
+
+            var privateBoundIdentifiers = new HashSet<PrivateIdentifier>(PrivateIdentifierNameComparer._instance);
+            var classBody = elements;
+            for (var i = 0; i < classBody.Count; ++i)
+            {
+                var element = classBody[i];
+                if (element is MethodDefinition { Kind: PropertyKind.Constructor } c)
+                {
+                    constructor = c;
                 }
 
-                constructorParent = (ObjectInstance) superclass;
+                privateBoundIdentifiers.Clear();
+                element.PrivateBoundIdentifiers(privateBoundIdentifiers);
+                foreach (var name in privateBoundIdentifiers)
+                {
+                    classPrivateEnvironment.Names.Add(name, new PrivateName(name));
+                }
             }
+
+            constructor ??= _superClass != null
+                ? _superConstructor
+                : _emptyConstructor;
         }
-
-        ObjectInstance proto = new JsObject(engine) { _prototype = protoParent };
-
-        var privateBoundIdentifiers = new HashSet<PrivateIdentifier>(PrivateIdentifierNameComparer._instance);
-        MethodDefinition? constructor = null;
-        ref readonly var elements = ref _body.Body;
-        var classBody = elements;
-        for (var i = 0; i < classBody.Count; ++i)
-        {
-            var element = classBody[i];
-            if (element is MethodDefinition { Kind: PropertyKind.Constructor } c)
-            {
-                constructor = c;
-            }
-
-            privateBoundIdentifiers.Clear();
-            element.PrivateBoundIdentifiers(privateBoundIdentifiers);
-            foreach (var name in privateBoundIdentifiers)
-            {
-                classPrivateEnvironment.Names.Add(name, new PrivateName(name));
-            }
-        }
-
-        constructor ??= _superClass != null
-            ? _superConstructor
-            : _emptyConstructor;
 
         engine.UpdateLexicalEnvironment(classEnv);
         engine.UpdatePrivateEnvironment(classPrivateEnvironment);
@@ -222,36 +269,57 @@ internal sealed class ClassDefinition
         ScriptFunction F;
         try
         {
-            // The definition is keyed on the class BODY, not on the constructor's function node and not on
-            // the class node. Not the function node, because a class with no explicit constructor borrows a
-            // synthesized one that every such class shares. Not the class node, because a class expression is
-            // also a field initializer's own value node, which the field-initializer cache already keys on
-            // (`B = class {}` would collide). A ClassBody is unique per class and is never a cache key elsewhere.
-            var constructorInfo = constructor.DefineMethod(proto, constructorParent, sourceTextNode: _class, definitionCacheKey: _body);
-            F = constructorInfo.Closure;
-
-            F.SetFunctionName(_className ?? classBinding ?? "");
-
-            F.MakeConstructor(writableProperty: false, proto);
-            F._constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived;
-            F.MakeClassConstructor();
-            proto.CreateMethodProperty(CommonProperties.Constructor, F);
-
-            var instancePrivateMethods = new List<PrivateElement>();
-            var staticPrivateMethods = new List<PrivateElement>();
-            var instanceFields = new List<ClassFieldDefinition>();
-            var staticElements = new List<object>();
-
-            // Collect extra initializers from decorators
-            List<ICallable>? instanceExtraInitializers = hasDecorators ? new List<ICallable>() : null;
-            List<ICallable>? staticExtraInitializers = hasDecorators ? new List<ICallable>() : null;
-
+            List<PrivateElement> instancePrivateMethods;
+            List<PrivateElement> staticPrivateMethods;
+            List<ClassFieldDefinition> instanceFields;
+            List<object> staticElements;
+            List<ICallable>? instanceExtraInitializers;
+            List<ICallable>? staticExtraInitializers;
             var elementIndex = 0;
-            foreach (IClassElement e in elements)
+
+            if (resumedIntoElements)
             {
+                F = resumed!.Constructor!;
+                instancePrivateMethods = resumed.InstancePrivateMethods!;
+                staticPrivateMethods = resumed.StaticPrivateMethods!;
+                instanceFields = resumed.InstanceFields!;
+                staticElements = resumed.StaticElements!;
+                instanceExtraInitializers = resumed.InstanceExtraInitializers;
+                staticExtraInitializers = resumed.StaticExtraInitializers;
+                elementIndex = resumed.ElementIndex;
+            }
+            else
+            {
+                // The definition is keyed on the class BODY, not on the constructor's function node and not on
+                // the class node. Not the function node, because a class with no explicit constructor borrows a
+                // synthesized one that every such class shares. Not the class node, because a class expression is
+                // also a field initializer's own value node, which the field-initializer cache already keys on
+                // (`B = class {}` would collide). A ClassBody is unique per class and is never a cache key elsewhere.
+                var constructorInfo = constructor!.DefineMethod(proto, constructorParent, sourceTextNode: _class, definitionCacheKey: _body);
+                F = constructorInfo.Closure;
+
+                F.SetFunctionName(_className ?? classBinding ?? "");
+
+                F.MakeConstructor(writableProperty: false, proto);
+                F._constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived;
+                F.MakeClassConstructor();
+                proto.CreateMethodProperty(CommonProperties.Constructor, F);
+
+                instancePrivateMethods = new List<PrivateElement>();
+                staticPrivateMethods = new List<PrivateElement>();
+                instanceFields = new List<ClassFieldDefinition>();
+                staticElements = new List<object>();
+
+                // Collect extra initializers from decorators
+                instanceExtraInitializers = hasDecorators ? new List<ICallable>() : null;
+                staticExtraInitializers = hasDecorators ? new List<ICallable>() : null;
+            }
+
+            for (; elementIndex < elements.Count; elementIndex++)
+            {
+                var e = (IClassElement) elements[elementIndex];
                 if (e is MethodDefinition { Kind: PropertyKind.Constructor })
                 {
-                    elementIndex++;
                     continue;
                 }
 
@@ -266,10 +334,10 @@ internal sealed class ClassDefinition
                 {
                     var result = AutoAccessorDefinitionEvaluation(engine, target, ap, isStatic);
 
-                    // Check for generator suspension after evaluating computed property key
-                    if (engine.ExecutionContext.Suspended)
+                    // A computed key that suspended: parked once the loop is left, at this element's index.
+                    if (maySuspend && context.IsSuspended())
                     {
-                        return JsValue.Undefined;
+                        break;
                     }
 
                     // Apply accessor decorators if present
@@ -355,16 +423,15 @@ internal sealed class ClassDefinition
                         container.Add(result.PrivateElement);
                     }
 
-                    elementIndex++;
                     continue;
                 }
 
                 var element = ClassElementEvaluation(engine, target, e, out var definedKey);
 
-                // Check for generator suspension after evaluating class element
-                if (engine.ExecutionContext.Suspended)
+                // A computed key that suspended: parked once the loop is left, at this element's index.
+                if (maySuspend && context.IsSuspended())
                 {
-                    return JsValue.Undefined;
+                    break;
                 }
 
                 // Apply decorators to methods, getters, setters
@@ -477,8 +544,14 @@ internal sealed class ClassDefinition
                 {
                     staticElements.Add(element);
                 }
+            }
 
-                elementIndex++;
+            // A computed key suspended the frame: the elements before it are defined, it and the rest are not.
+            if (maySuspend && context.IsSuspended())
+            {
+                ParkElements(Park(engine, env, outerPrivateEnvironment, previousStrict, classEnv, classPrivateEnvironment, classDecoratorValues, elementDecorators),
+                    proto, F, elementIndex, instancePrivateMethods, staticPrivateMethods, instanceFields, staticElements, instanceExtraInitializers, staticExtraInitializers);
+                return JsValue.Undefined;
             }
 
             if (_className is not null)
@@ -575,6 +648,235 @@ internal sealed class ClassDefinition
     }
 
     /// <summary>
+    /// Evaluates the heritage with the class scope as the running LexicalEnvironment, steps 8.a-8.d of
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation: the outer environment is back before
+    /// the result is used, or a throw leaves the evaluation.
+    /// </summary>
+    /// <remarks>
+    /// Out of line so the exception region and its temporaries stay out of <see cref="BuildConstructorCore{TMode}"/>, whose
+    /// inlining they would otherwise crowd.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue EvaluateHeritage(EvaluationContext context, Environment env, DeclarativeEnvironment classEnv)
+    {
+        var engine = context.Engine;
+        engine.UpdateLexicalEnvironment(classEnv);
+        try
+        {
+            return (_superClassExpression ??= JintExpression.Build(_superClass!)).GetValue(context);
+        }
+        finally
+        {
+            engine.UpdateLexicalEnvironment(env);
+        }
+    }
+
+    /// <summary>
+    /// Evaluates the decorator expressions of the class and of each element, in source order, before the class scope is
+    /// entered. Once one suspends the frame, none after it is evaluated.
+    /// </summary>
+    /// <remarks>
+    /// Out of line for the same reason as <see cref="EvaluateHeritage"/>: decorated classes are rare, and this code would
+    /// otherwise crowd the inlining of <see cref="BuildConstructorCore{TMode}"/>.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private List<ElementDecoratorPair> EvaluateAllDecorators(EvaluationContext context, out JsValue[] classDecoratorValues)
+    {
+        // Evaluate class-level decorators
+        classDecoratorValues = EvaluateDecorators(context, _class.Decorators, _maySuspend);
+
+        // Evaluate element-level decorators
+        ref readonly var bodyElements = ref _body.Body;
+        var elementDecorators = new List<ElementDecoratorPair>(bodyElements.Count);
+        for (var i = 0; i < bodyElements.Count; i++)
+        {
+            var elem = (IClassElement) bodyElements[i];
+            JsValue[] decs;
+            if (elem is MethodDefinition md && md.Decorators.Count > 0)
+            {
+                decs = EvaluateDecorators(context, md.Decorators, _maySuspend);
+            }
+            else if (elem is PropertyDefinition pd && pd.Decorators.Count > 0)
+            {
+                decs = EvaluateDecorators(context, pd.Decorators, _maySuspend);
+            }
+            else if (elem is AccessorProperty ap2 && ap2.Decorators.Count > 0)
+            {
+                decs = EvaluateDecorators(context, ap2.Decorators, _maySuspend);
+            }
+            else
+            {
+                decs = System.Array.Empty<JsValue>();
+            }
+            elementDecorators.Add(new ElementDecoratorPair(elem, decs));
+        }
+
+        return elementDecorators;
+    }
+
+    /// <summary>
+    /// Takes back what this class parked when its frame suspended inside it, if the frame is resuming into it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private ClassSuspendData? TakeSuspendData(Engine engine)
+    {
+        var suspendable = engine.ExecutionContext.Suspendable;
+        if (suspendable is { IsResuming: true } && suspendable.Data.TryGet(_body, out ClassSuspendData? data))
+        {
+            suspendable.Data.Clear(_body);
+            return data;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Parks what the class has built when its heritage or a computed key suspended the frame, keyed by the class
+    /// body: one frame cannot be inside the same class twice at once.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private ClassSuspendData Park(
+        Engine engine,
+        Environment env,
+        PrivateEnvironment? outerPrivateEnvironment,
+        bool previousStrict,
+        DeclarativeEnvironment classEnv,
+        PrivateEnvironment classPrivateEnvironment,
+        JsValue[]? classDecoratorValues,
+        List<ElementDecoratorPair>? elementDecorators)
+    {
+        var suspendable = engine.ExecutionContext.Suspendable!;
+        var data = suspendable.Data.GetOrCreate<ClassSuspendData>(_body);
+        data.ClassEnvironment = classEnv;
+        data.ClassPrivateEnvironment = classPrivateEnvironment;
+        data.ClassDecoratorValues = classDecoratorValues;
+        data.ElementDecorators = elementDecorators;
+        data.Prototype = null;
+
+        RestoreEntryContext(engine, env, outerPrivateEnvironment, previousStrict);
+        return data;
+    }
+
+    /// <summary>
+    /// Puts the context a suspended async function will resume in back to the one the class was entered with.
+    /// </summary>
+    /// <remarks>
+    /// An async function captures its context afresh at every await, which here is from inside the class: the class
+    /// scope, the class's private environment, strict mode code. Its resume replays the statement holding the class,
+    /// and whatever that statement evaluates before reaching the class again (the reference a
+    /// <c>let C = class C …</c> initializes, the environment the class's own scope is created in) has to be evaluated
+    /// where it was the first time. A generator re-enters the context it started with on every resume, so it needs no
+    /// such repair.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void RestoreEntryContext(Engine engine, Environment env, PrivateEnvironment? outerPrivateEnvironment, bool previousStrict)
+    {
+        if (engine.ExecutionContext.Suspendable is AsyncFunctionInstance asyncFunction)
+        {
+            asyncFunction._savedContext = asyncFunction._savedContext
+                .UpdateLexicalEnvironment(env)
+                .UpdatePrivateEnvironment(outerPrivateEnvironment)
+                .UpdateStrict(previousStrict);
+        }
+    }
+
+    /// <summary>
+    /// Adds to what <see cref="Park"/> parked what a suspended computed key leaves: the prototype, the constructor,
+    /// the elements gathered so far and the index of the element whose key suspended.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ParkElements(
+        ClassSuspendData data,
+        ObjectInstance proto,
+        ScriptFunction constructor,
+        int elementIndex,
+        List<PrivateElement> instancePrivateMethods,
+        List<PrivateElement> staticPrivateMethods,
+        List<ClassFieldDefinition> instanceFields,
+        List<object> staticElements,
+        List<ICallable>? instanceExtraInitializers,
+        List<ICallable>? staticExtraInitializers)
+    {
+        data.Prototype = proto;
+        data.Constructor = constructor;
+        data.ElementIndex = elementIndex;
+        data.InstancePrivateMethods = instancePrivateMethods;
+        data.StaticPrivateMethods = staticPrivateMethods;
+        data.InstanceFields = instanceFields;
+        data.StaticElements = staticElements;
+        data.InstanceExtraInitializers = instanceExtraInitializers;
+        data.StaticExtraInitializers = staticExtraInitializers;
+    }
+
+    /// <summary>
+    /// Whether a <see cref="BuildConstructorCore{TMode}"/> instantiation takes part in a resume, as a constant: a struct
+    /// type argument gets code of its own, into which the property's value is inlined and folded.
+    /// </summary>
+    private interface ISuspendMode
+    {
+        bool MaySuspend { get; }
+    }
+
+    /// <summary>
+    /// The instantiation for a class whose decorators, heritage or computed keys can suspend its frame.
+    /// </summary>
+    private readonly struct CanSuspend : ISuspendMode
+    {
+        public bool MaySuspend => true;
+    }
+
+    /// <summary>
+    /// The instantiation for every other class.
+    /// </summary>
+    private readonly struct CannotSuspend : ISuspendMode
+    {
+        public bool MaySuspend => false;
+    }
+
+    /// <summary>
+    /// What a class definition had built when its frame suspended in its heritage or in a computed key
+    /// (https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation), so the resume continues there
+    /// instead of evaluating the heritage and the keys before the suspended one again, in a new class scope.
+    /// </summary>
+    private sealed class ClassSuspendData : SuspendData
+    {
+        public DeclarativeEnvironment ClassEnvironment { get; set; } = null!;
+
+        public PrivateEnvironment ClassPrivateEnvironment { get; set; } = null!;
+
+        /// <summary>
+        /// The decorators, which are evaluated before the heritage; null for a class without any.
+        /// </summary>
+        public JsValue[]? ClassDecoratorValues { get; set; }
+
+        public List<ElementDecoratorPair>? ElementDecorators { get; set; }
+
+        /// <summary>
+        /// Null when the heritage suspended; the class's prototype once a computed key did, with the fields below.
+        /// </summary>
+        public ObjectInstance? Prototype { get; set; }
+
+        public ScriptFunction? Constructor { get; set; }
+
+        /// <summary>
+        /// The index of the element whose computed key suspended.
+        /// </summary>
+        public int ElementIndex { get; set; }
+
+        public List<PrivateElement>? InstancePrivateMethods { get; set; }
+
+        public List<PrivateElement>? StaticPrivateMethods { get; set; }
+
+        public List<ClassFieldDefinition>? InstanceFields { get; set; }
+
+        public List<object>? StaticElements { get; set; }
+
+        public List<ICallable>? InstanceExtraInitializers { get; set; }
+
+        public List<ICallable>? StaticExtraInitializers { get; set; }
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-static-semantics-classelementevaluation
     /// <paramref name="definedKey"/> returns the evaluated property key for method definitions
     /// (undefined otherwise) so decorator bookkeeping can reuse it instead of re-evaluating.
@@ -620,8 +922,9 @@ internal sealed class ClassDefinition
     {
         var name = accessorProperty.GetKey(engine);
 
-        // Check for generator suspension after evaluating computed property key
-        if (engine.ExecutionContext.Suspended)
+        // A computed key that suspended produced no key: defining the accessor would leave an "undefined" property on
+        // a target the resume reuses. IsSuspended rather than Suspended, which sees a generator parked at a yield only.
+        if (accessorProperty.Computed && engine.ExecutionContext.IsSuspended)
         {
             return new AutoAccessorResult(
                 new ClassFieldDefinition { Name = JsValue.Undefined, Initializer = null },
@@ -730,8 +1033,8 @@ internal sealed class ClassDefinition
     {
         var name = fieldDefinition.GetKey(engine);
 
-        // Check for generator suspension after evaluating computed property key
-        if (engine.ExecutionContext.Suspended)
+        // A computed key that suspended, on an await as much as on a yield, produced no key.
+        if (fieldDefinition.Computed && engine.ExecutionContext.IsSuspended)
         {
             return new ClassFieldDefinition { Name = JsValue.Undefined, Initializer = null };
         }
@@ -900,10 +1203,14 @@ internal sealed class ClassDefinition
 
         var intrinsics = engine.Realm.Intrinsics;
 
-        var value = method.TryGetKey(engine);
+        // Read once: on a method shared across reference types, every IProperty read is an interface call.
+        var computed = method.Computed;
+        var value = method.Key.TryGetKey(engine, computed);
 
-        // Check for generator suspension after evaluating computed property key
-        if (engine.ExecutionContext.Suspended)
+        // A computed key that suspended produced no key, as in the branch above: defining the accessor or the
+        // generator would leave an "undefined" property on a target the resume reuses, an object literal's or a
+        // class's. Only a computed key can suspend, which keeps the check off every other definition.
+        if (computed && engine.ExecutionContext.IsSuspended)
         {
             return null;
         }
@@ -986,7 +1293,11 @@ internal sealed class ClassDefinition
     /// Evaluates all decorator expressions in source order (left-to-right).
     /// Returns array of evaluated decorator functions.
     /// </summary>
-    private static JsValue[] EvaluateDecorators(EvaluationContext context, in NodeList<Decorator> decorators)
+    /// <remarks>
+    /// Once a decorator has suspended the frame, none after it is evaluated: the class stops there and the resume
+    /// evaluates them all again, so the array is left incomplete and is never used.
+    /// </remarks>
+    private static JsValue[] EvaluateDecorators(EvaluationContext context, in NodeList<Decorator> decorators, bool maySuspend)
     {
         if (decorators.Count == 0)
         {
@@ -996,6 +1307,11 @@ internal sealed class ClassDefinition
         var result = new JsValue[decorators.Count];
         for (var i = 0; i < decorators.Count; i++)
         {
+            if (maySuspend && context.IsSuspended())
+            {
+                break;
+            }
+
             result[i] = JintExpression.Build(decorators[i].Expression).GetValue(context);
         }
         return result;

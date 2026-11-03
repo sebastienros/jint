@@ -91,6 +91,11 @@ internal readonly struct ExecutionContext
         return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, privateEnvironment, Realm, Generator, Function, ParserOptions, AsyncFunction, AsyncGenerator, Strict);
     }
 
+    public ExecutionContext UpdateStrict(bool strict)
+    {
+        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Generator, Function, ParserOptions, AsyncFunction, AsyncGenerator, strict);
+    }
+
     public ExecutionContext UpdateGenerator(GeneratorInstance generator)
     {
         return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, generator, Function, ParserOptions, AsyncFunction, AsyncGenerator, Strict);
