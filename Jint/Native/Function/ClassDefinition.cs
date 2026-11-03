@@ -221,7 +221,7 @@ internal sealed class ClassDefinition
         MethodDefinition? constructor = null;
         ref readonly var elements = ref _body.Body;
 
-        // A computed key suspended: the heritage was evaluated and the prototype made the first time.
+        // A computed key or an element decorator suspended: the heritage was evaluated and the prototype made the first time.
         var resumedIntoElements = maySuspend && resumed is { Prototype: not null };
         if (resumedIntoElements)
         {
