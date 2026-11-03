@@ -6974,8 +6974,8 @@ Now each of those awaits suspends the generator the way an `await` expression do
 does since §4.174. The request settles a microtask later for each await, and a request made meanwhile queues behind
 it. A dispose that throws or rejects is thrown from the loop, or wrapped in a `SuppressedError` over the body's own
 throw, as before. A `return()` request whose iteration then has an `await using` dispose reject no longer completes
-the generator with the return value: the rejection replaces it, and a `catch` around the loop sees it. A dispose
-that throws without being awaited still loses its throw there
+the generator with the return value: the rejection replaces it, and a `catch` around the loop sees it. Since §4.185
+the same holds for a dispose that throws without being awaited
 ([#4360](https://github.com/sebastienros/jint/issues/4360)).
 
 Four neighbours changed with it:
@@ -6993,12 +6993,51 @@ Four neighbours changed with it:
   async function's body, once a block's or a `for` header's dispose await had resumed it, was dropped, and the
   function's promise never settled. Now it reaches the host, as one escaping after an `await` does.
 
-One case is not finished. A brace-less body, such as `for (using x of xs) yield x;`, that a `return()` or `throw()`
-resumption ends at its `yield` used to have its resource disposed at that `yield`. Now it is not disposed at all,
-which is how a brace-less body that throws already behaves
-([#4393](https://github.com/sebastienros/jint/issues/4393)). Braces around the body have it disposed.
+A brace-less body, such as `for (using x of xs) yield x;`, that a `return()` or `throw()` resumption ends at its
+`yield` used to have its resource disposed at that `yield`. Since §4.185 it is disposed once the resumption has ended
+the body, as a braced body's is ([#4393](https://github.com/sebastienros/jint/issues/4393)).
 
 A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
+There is no switch back.
+
+### 4.185 A brace-less `for (using … of …)` body that throws disposes its resource ([#4393](https://github.com/sebastienros/jint/issues/4393))
+
+A `for`-`of` or `for await` loop whose head declares `using` or `await using` disposes each iteration's resource
+once that iteration's body completes, however it completes, and only then closes the iterator. A body without braces
+that threw from inside an expression skipped that dispose: a call that throws, a `TypeError` such as `undefined.p`, an
+`if` whose test throws, a nested loop whose head throws. So did a generator's `return()` or `throw()` resumption at a
+`yield` in such a body, which since §4.183 left the resource undisposed, where 4.16 disposed it at the `yield` before
+the resumption arrived:
+
+```js
+var log = [];
+var res = { [Symbol.dispose]() { log.push("disposed"); } };
+function f() { throw new Error("E"); }
+try { for (using x of [res]) f(); } catch (e) { log.push("caught"); }
+// 4.16.x / earlier 5.0: ["caught"]    5.x: ["disposed", "caught"]
+```
+
+Now such a body is disposed for exactly as the same statement in braces is. The dispose runs with the body's throw
+or return completion. A dispose that throws over a throw is wrapped in a `SuppressedError`, and one that throws over a
+`return()` replaces it, so a `catch` around the loop sees it. An `await using` result is awaited, suspending the
+async function or async generator, before the iterator is closed and the throw moves on. A `throw` statement as the
+body was always disposed for and is unchanged. A constraint, a cancellation or a host exception still leaves the loop
+without disposing, as it leaves a block.
+
+With it, a `return()` resumption whose iteration's dispose then throws without being awaited no longer completes the
+generator with the return value, braces or not: the dispose's throw replaces it, as a rejected `await using` dispose's
+already did ([#4360](https://github.com/sebastienros/jint/issues/4360)):
+
+```js
+var log = [];
+function* g() {
+    try { for (using x of [{ [Symbol.dispose]() { throw "D"; } }]) { yield 1; } } catch (e) { log.push("caught " + e); }
+}
+var it = g(); it.next();
+it.return(5);
+// 4.16.x / earlier 5.0: [] and {value: 5, done: true}    5.x: ["caught D"] and {value: undefined, done: true}
+```
+
 There is no switch back.
 
 ## 5. New in v5
