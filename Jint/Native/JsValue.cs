@@ -164,11 +164,11 @@ public abstract partial class JsValue : IEquatable<JsValue>
             Throw.TypeError(realm, "Result of the Symbol.iterator method is not an object");
         }
 
-        // GetIteratorFromMethod steps 3-4 read `next` off what @@iterator returned, once, and build the record
-        // around it. A built-in iterator instance is adopted as the record directly — its native stepping *is*
-        // that function's behaviour — but only while the read would still resolve to it; otherwise the
-        // replacement has to drive the iteration, which is what ObjectIterator does. ToIteratorRecord answers
-        // either, and hands the ObjectIterator whatever it read itself so that the read stays one.
+        // GetIteratorFromMethod step 3 (GetIteratorDirect steps 1-2) reads `next` off what @@iterator returned, once,
+        // and builds the record around it. A built-in iterator instance is adopted as the record directly — its native
+        // stepping *is* that function's behaviour — but only while the read would still resolve to it; otherwise the
+        // replacement has to drive the iteration, which is what ObjectIterator does. ToIteratorRecord answers either,
+        // and hands the ObjectIterator whatever it read itself so that the read stays one.
         iterator = iteratorResult is IteratorInstance i
             ? i.ToIteratorRecord()
             : new IteratorInstance.ObjectIterator(iteratorResult);

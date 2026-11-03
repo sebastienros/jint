@@ -34,9 +34,9 @@ internal partial class IteratorPrototype : Prototype
     private uint _nextDescriptorVersion;
 
     /// <summary>
-    /// GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) steps 3 and 4 for
-    /// <paramref name="iterator"/>, whose prototype this is: the one read of <c>next</c> off it, and the record. One
-    /// read covers both ways it can stop finding this prototype's built-in <c>next</c> — an own <c>next</c> on the
+    /// GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3, GetIteratorDirect steps 1-2,
+    /// for <paramref name="iterator"/>, whose prototype this is: the one read of <c>next</c> off it, and the record.
+    /// One read covers both ways it can stop finding this prototype's built-in <c>next</c> — an own <c>next</c> on the
     /// instance shadowing the prototype's, and the prototype's own <c>next</c> replaced — and answers
     /// <paramref name="iterator"/> itself while it still does. Otherwise the record is an
     /// <see cref="IteratorInstance.ObjectIterator"/> holding what was read, which never reads it again

@@ -23,11 +23,11 @@ internal abstract class IteratorInstance : ObjectInstance
     public abstract bool TryIteratorStep(out ObjectInstance nextItem);
 
     /// <summary>
-    /// GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) steps 3 and 4 for a built-in
-    /// iterator the @@iterator method handed back: read <c>next</c> off it once, and build the iterator record
-    /// around what was read, which every step then calls. Answers this instance when the read found the very
-    /// built-in function its native stepping implements, so the record steps it natively and skips both the read
-    /// and the calls; otherwise an <see cref="ObjectIterator"/> that drives the iteration through the replacement.
+    /// GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3, GetIteratorDirect steps 1-2,
+    /// for a built-in iterator the @@iterator method handed back: read <c>next</c> off it once, and build the iterator
+    /// record around what was read, which every step then calls. Answers this instance when the read found the very
+    /// built-in function its native stepping implements, so the record steps it natively and skips both the read and
+    /// the calls; otherwise an <see cref="ObjectIterator"/> that drives the iteration through the replacement.
     /// <see cref="JsValue.TryGetIterator"/> asks this of every built-in iterator it is handed.
     /// <para>
     /// The default asks the instance's prototype, which captured its built-in <c>next</c> when it was set up
@@ -243,11 +243,12 @@ internal abstract class IteratorInstance : ObjectInstance
         }
 
         /// <summary>
-        /// The record GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 4 builds around
-        /// <paramref name="nextMethod"/>, the value step 3 read off <paramref name="target"/>. For a caller that has
-        /// already made that read, so that a getter or a Proxy trap sees it once (sebastienros/jint#4408). Kept apart
-        /// from the constructor above rather than chained from it: chaining made the JIT inline that one into every
-        /// caller, <see cref="JsValue.TryGetIterator"/> among them, which grew the method the array lane runs in.
+        /// The record GetIteratorDirect step 2 builds around <paramref name="nextMethod"/>, the value its step 1 read
+        /// off <paramref name="target"/> (GetIteratorFromMethod step 3,
+        /// https://tc39.es/ecma262/#sec-getiteratorfrommethod). For a caller that has already made that read, so that a
+        /// getter or a Proxy trap sees it once (sebastienros/jint#4408). Kept apart from the constructor above rather
+        /// than chained from it: chaining made the JIT inline that one into every caller,
+        /// <see cref="JsValue.TryGetIterator"/> among them, which grew the method the array lane runs in.
         /// </summary>
         internal ObjectIterator(ObjectInstance target, JsValue nextMethod) : base(target.Engine)
         {
