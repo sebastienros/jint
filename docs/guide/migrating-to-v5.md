@@ -7208,8 +7208,8 @@ Object.getPrototypeOf(s.values()).next = function () { return { value: undefined
 
 This applies wherever an iterator is taken from such an object: spread, `Array.from`, destructuring, `new Map()` and
 `new Set()`, `Promise.all`, a `for`-`of` over the collection, and the `for await` above. A `for`-`of` whose operand is
-the iterator object itself still steps it natively, and so do spread and `for`-`of` over a string primitive. There is
-no switch back.
+the iterator object itself still steps it natively, and so do spread and `for`-`of` over a string primitive, and
+destructuring a CLR list (`const [a] = list`), which reads it by index. There is no switch back.
 
 ## 5. New in v5
 
