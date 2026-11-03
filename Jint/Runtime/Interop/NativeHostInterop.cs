@@ -8,6 +8,24 @@ namespace Jint.Runtime.Interop;
 // by the caller before this closed scalar conversion boundary is reached.
 internal sealed class NativeHostInterop : HostInterop
 {
+    // Every rejection names the switch: the host that sees one is not necessarily the one that set it.
+    private const string Disabled = "Jint.Runtime.Interop.ReflectionEnabled is false in this publication: ";
+
+    internal const string BroadInteropMessage =
+        Disabled + "broad CLR interop (Interop.Enabled, AllowClr, operator overloading) is unavailable.";
+
+    internal const string ExtensionMethodsMessage =
+        Disabled + "reflected CLR extension methods are unavailable; register native JsValue functions instead.";
+
+    internal const string WrapperMessage =
+        Disabled + "reflection-based CLR wrappers are unavailable; use a native JsValue adapter.";
+
+    internal const string ProjectionMessage =
+        Disabled + "reflection-based CLR projection is unavailable; register an ObjectConverter or pass a JsValue.";
+
+    internal const string ConversionMessage =
+        Disabled + "reflection-based CLR conversion is unavailable; use a native JsValue adapter.";
+
     internal override ClrTypeConverter CreateTypeConverter(Engine engine) => new ReflectionFreeTypeConverter();
 
     internal override JsValue FromObject(Engine engine, object value, Type? type) => value switch
@@ -33,19 +51,22 @@ internal sealed class NativeHostInterop : HostInterop
     {
         if (options.Interop.Enabled || options.Interop.AllowOperatorOverloading)
         {
-            Throw.NotSupportedException("Broad CLR interop is disabled in this publication.");
+            Throw.NotSupportedException(BroadInteropMessage);
         }
     }
 
     internal override void AttachExtensionMethods(Engine engine) =>
-        Throw.NotSupportedException("Reflected CLR extension methods are disabled; use native JsValue functions.");
+        Throw.NotSupportedException(ExtensionMethodsMessage);
 
-    internal override ObjectInstance CreateObjectWrapper(Engine engine, object target, Type? type) =>
-        throw new NotSupportedException("Reflection-based CLR wrappers are disabled; use a native JsValue adapter.");
+    internal override ObjectInstance CreateObjectWrapper(Engine engine, object target, Type? type)
+    {
+        Throw.NotSupportedException(WrapperMessage);
+        return null!;
+    }
 
     private static JsValue UnsupportedProjection()
     {
-        Throw.NotSupportedException("Reflection-based CLR projection is disabled; register an ObjectConverter or pass JsValue.");
+        Throw.NotSupportedException(ProjectionMessage);
         return JsValue.Undefined;
     }
 }
@@ -56,7 +77,7 @@ internal sealed class ReflectionFreeTypeConverter : ClrTypeConverter
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors |
             DynamicallyAccessedMemberTypes.PublicFields)] Type type, IFormatProvider formatProvider)
     {
-        Throw.NotSupportedException("Reflection-based CLR conversion is disabled; use a native JsValue adapter.");
+        Throw.NotSupportedException(NativeHostInterop.ConversionMessage);
         return null;
     }
 

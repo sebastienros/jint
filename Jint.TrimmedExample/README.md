@@ -22,7 +22,13 @@ and explicit `ObjectConverter` adapters. Null, booleans, numeric primitives,
 characters and strings still convert through `JsValue.FromObject`. Arbitrary
 CLR objects, reflected extension methods and CLR operator overloading are
 unavailable. Broad CLR interop options are rejected. Generated CLR wrappers are
-not qualified by this example.
+not qualified by this example. Every rejection is a `NotSupportedException` that
+names the switch; section 6.8 of `docs/guide/migrating-to-v5.md` lists which ones
+fire at engine construction and which at conversion, and the two registrations
+that only half-work: `SetValue(string, Delegate)` and `TypeReference`.
+
+The PR workflow publishes this example for `linux-x64` and runs both commands
+below.
 
 The Promise probe posts settlement from a worker to the engine queue. The worker
 does not enter JavaScript; the owning thread pumps and unwraps the result.

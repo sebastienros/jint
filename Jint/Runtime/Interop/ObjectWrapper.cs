@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -160,6 +160,15 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     public static ObjectInstance Create(Engine engine, object target, Type? type = null) =>
         HostInterop.Instance.CreateObjectWrapper(engine, target, type);
 
+    /// <summary>
+    /// The reflection body of <see cref="Create"/>, reached only through
+    /// <see cref="ReflectionHostInterop.CreateObjectWrapper"/>.
+    /// </summary>
+    [UnconditionalSuppressMessage("Trimming", "IL2067:DynamicallyAccessedMembers",
+        Justification = "The only way in is ObjectWrapper.Create, through ReflectionHostInterop.CreateObjectWrapper, " +
+                        "and Create carries [RequiresUnreferencedCode] stating exactly this requirement: members are " +
+                        "resolved from target's runtime type. Moving the body behind HostInterop did not open a " +
+                        "second entry point, so reporting here as well would report the same decision twice.")]
     internal static ObjectInstance CreateWithReflection(Engine engine, object target, Type? type)
     {
         if (target == null)

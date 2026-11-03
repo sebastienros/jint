@@ -8332,6 +8332,46 @@ If you cannot root the whole assembly, an explicit interface member is reachable
 in your program names it with a constant token — `typeof(IYourInterface).GetProperties()` is enough,
 because that *is* a request to preserve them.
 
+### 6.8 Reflection-free managed trimming ([#4371](https://github.com/sebastienros/jint/pull/4371))
+
+**New public configuration:** the runtime configuration option `Jint.Runtime.Interop.ReflectionEnabled`. It is
+read once per process, defaults to `true`, and nothing changes for a host that never sets it. A host that talks
+to script only through `JsValue`, `ClrFunction` and explicit `ObjectConverter`s can set it to `false` with
+`Trim="true"`, and a fully trimmed publication then removes Jint's reflection-based CLR projection instead of
+reporting it:
+
+```xml
+<ItemGroup>
+  <RuntimeHostConfigurationOption Include="Jint.Runtime.Interop.ReflectionEnabled" Value="false" Trim="true" />
+</ItemGroup>
+```
+
+Script itself, `JsValue` values and callbacks, explicit `ObjectConverter`s, and booleans, numeric primitives,
+characters and strings through `JsValue.FromObject` keep working. Everything else that would have reflected throws
+`NotSupportedException` with a message naming the switch, and *when* it throws depends on what asked for it:
+
+| what | when it throws |
+| --- | --- |
+| `Interop.Enabled = true`, `AllowClr()`, `Interop.AllowOperatorOverloading = true` | at engine construction |
+| `AddExtensionMethods(...)` | at engine construction |
+| `JsValue.FromObject` over a CLR object no `ObjectConverter` handles | at that conversion |
+| `ObjectWrapper.Create`, including from a custom `WrapObjectHandler` | at that call |
+| an argument or return value that needs `ClrTypeConverter` | at the call that converts it |
+
+Two registrations **half-work**, and they are the ones to check first:
+
+* **`SetValue(string, Delegate)`** registers, and a call works while no argument needs converting: `JsValue`,
+  string and integer parameters and an `Action` are fine, but a `double` or `bool` parameter, or an argument that
+  needs coercion, throws at the call, and so does a return value that is not a scalar. Register a `ClrFunction`
+  instead.
+* **`TypeReference.CreateTypeReference<T>`** and `SetValue(string, Type)` resolve the type and its static members,
+  but `new T()` throws, because the constructed instance has no projection.
+
+Operator overloading is not merely rejected at construction: with the switch off, no CLR operator is ever resolved.
+[`Jint.TrimmedExample`](https://github.com/sebastienros/jint/blob/main/Jint.TrimmedExample/README.md) is the
+strict, unrooted publication that checks all of this, and the PR CI leg publishes and runs it. This does not
+qualify Native AOT, and it does not qualify arbitrary or generated CLR wrappers.
+
 ## Keeping this document current
 
 A pull request that changes public API or observable default behaviour adds its own row here, in the
@@ -8363,15 +8403,3 @@ with no conflict at all, which is exactly the case nothing draws attention to. S
 rebase, not only after one that conflicted, move the section block to the end of its chapter and run
 `dotnet test --project Jint.Tests -c Release --filter "FullyQualifiedName~MigrationGuideTests"`; that is what
 `SectionNumbersAscendInDocumentOrder` is there to catch.
-
-
-### Reflection-free managed trimming
-
-The process-wide runtime configuration option `Jint.Runtime.Interop.ReflectionEnabled`
-defaults to true. A trimmed application can set it to false with `Trim="true"` to
-remove reflection-based CLR projection. Native JavaScript, explicit `JsValue`
-callbacks and custom converters remain available; broad CLR interop, reflected
-extension methods and CLR operators are rejected. See
-[Jint.TrimmedExample](../../Jint.TrimmedExample/README.md) for the strict, unrooted
-managed publication and its supported conversion boundary. This does not qualify
-NativeAOT or arbitrary CLR wrappers.
