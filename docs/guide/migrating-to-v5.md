@@ -7323,6 +7323,30 @@ direction is unknown or unlisted, or a language with no likely script, answers `
 The answer no longer depends on the machine, and `"ar"`, `"he"`, `"fa"` or `"en"` answer as they did. The result
 still has its own `direction` property when its value is `undefined`. There is no switch back.
 
+### 4.193 A `finally` block runs when the `catch` parameter's binding throws ([#4336](https://github.com/sebastienros/jint/issues/4336))
+
+When a `catch` clause's parameter cannot be bound, for example because it destructures `null` or a default
+initializer throws, the `finally` block of the same `try` statement now runs before the error leaves it. In 4.16 and
+earlier 5.0 builds, the error escaped the `try` statement straight away and the `finally` block was skipped:
+
+```js
+const log = [];
+try {
+  try { throw null; }
+  catch ({ x }) { log.push("catch"); }
+  finally { log.push("finally"); }
+} catch (e) {
+  log.push(e.constructor.name);
+}
+log.join(",")
+// 4.16.x / earlier 5.0: "TypeError"    5.x: "finally,TypeError"
+```
+
+The `catch` block itself still does not run, and the error that leaves the `try` statement is the same one, unless
+the `finally` block replaces it with its own `return`, `throw`, `break` or `continue`. The same holds in a generator
+or an async function, including when the parameter's pattern suspends on a `yield` or an `await` before it throws.
+There is no switch back.
+
 ### 4.194 Decorators are applied when the decorators spec text applies them, and a decorator's context has `access` ([#4413](https://github.com/sebastienros/jint/issues/4413))
 
 §4.190 moved where a decorator is *evaluated*. This moves when it is *applied*, and what the context object a
