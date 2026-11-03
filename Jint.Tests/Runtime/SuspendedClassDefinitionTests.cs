@@ -232,10 +232,11 @@ public class SuspendedClassDefinitionTests
 
     // ------------------------------------------------------------------ a suspension in a decorator
 
-    // A decorator's expression is evaluated in the frame around the class too, before anything of the class exists
-    // (https://tc39.es/proposal-decorators/). Its suspension stops the class there, and the resume continues at that
-    // decorator: the class is defined once, each decorator applied once and each static block run once. The expected
-    // values follow the proposal, since Node has no decorators.
+    // A decorator's expression is evaluated in the frame around the class too: the class's own before anything of the
+    // class exists, an element's after the heritage, just before that element's key (https://github.com/tc39/ecma262/pull/2417).
+    // Its suspension stops the class there, and the resume continues at that decorator: the class is defined once,
+    // each decorator applied once and each static block run once. The expected values follow the spec text, since
+    // Node has no decorators.
 
     [TestCaseSource(nameof(Suspensions))]
     public void ASuspendedClassDecoratorDecoratesTheClassOnce(string suspension)
@@ -380,6 +381,80 @@ public class SuspendedClassDefinitionTests
                 "var counts = []; function id(v) { return v; } function dec() {} for (let i = 0; i < 4; i++) { @(log.push('d' + i), id(SUSPEND dec)) class C {} counts.push(suspendDataCount()); }",
                 "counts.length + ' ' + (counts[0] >= 0 && counts.every(function (c) { return c === counts[0]; }))")
             .Should().Be("4 true|pre,d0,d1,d2,d3,post");
+    }
+
+    // ------------------------------------------------------------------ a suspension in an element decorator
+
+    // An element's decorators are evaluated by ClassElementEvaluation, after the heritage and the keys before them, in
+    // the class scope and with the class's private names, so that is where a resume continues them
+    // (sebastienros/jint#4403).
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedElementDecoratorRunsAfterTheHeritageAndWhatPrecedesItOnce(string suspension)
+    {
+        // `static` keeps a computed key from reading as a member access on the decorator expression before it.
+        Probe(suspension,
+                "function dec() {} class C extends (log.push('h'), Base) { static [(log.push('k0'), 'a')]() {} @(log.push('d1'), SUSPEND dec) @(log.push('d2'), dec) static [(log.push('k1'), 'b')]() {} }",
+                "typeof C.a + typeof C.b")
+            .Should().Be("functionfunction|pre,h,k0,d1,d2,k1,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void AnElementDecoratorAndItsKeyThatEachSuspendAreEachEvaluatedOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0; function mdec(m) { applied++; return function () { return m.call(this) + 1; }; } class C { @(log.push('d'), SUSPEND mdec) static [(log.push('k'), SUSPEND 'm')]() { return 1; } }",
+                "applied + ',' + C.m()")
+            .Should().Be("1,2|pre,d,k,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedElementDecoratorResumesWithTheClassPrivateNames(string suspension)
+    {
+        Probe(suspension,
+                "var check; function dec() {} class C { static #p = 1; @(check = o => #p in o, SUSPEND dec) m() {} }",
+                "check(C) + ',' + check({})")
+            .Should().Be("true,false|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedMemberDecoratorIsCalledWithItsObject(string suspension)
+    {
+        Probe(suspension,
+                "var obj = { dec(v, c) { log.push(c.kind + ' ' + (this === obj)); } }; @((SUSPEND obj).dec) class C { @((SUSPEND obj).dec) m() {} }",
+                "typeof C")
+            .Should().Be("function|pre,method true,class true,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedElementDecoratorThatResumesWithAThrowLeavesTheClassScopeFirst(string suspension)
+    {
+        Probe(suspension,
+                "let K = 'outer'; function dec() {} try { (class K { @(log.push('d'), REJECT) m() {} }); log.push('not here'); } catch (e) { log.push('caught ' + e.message + ' ' + K); } class D { @(log.push('again'), SUSPEND dec) m() {} }",
+                "typeof D")
+            .Should().Be("function|pre,d,caught no outer,again,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedElementDecoratorInALoopLeavesNoSuspendDataBehind(string suspension)
+    {
+        Probe(suspension,
+                "var counts = []; function id(v) { return v; } function dec() {} for (let i = 0; i < 4; i++) { class C { @(log.push('d' + i), id(SUSPEND dec)) m() {} } counts.push(suspendDataCount()); }",
+                "counts.length + ' ' + (counts[0] >= 0 && counts.every(function (c) { return c === counts[0]; }))")
+            .Should().Be("4 true|pre,d0,d1,d2,d3,post");
+    }
+
+    /// <summary>
+    /// The class's own decorators run as the code around the class does, sloppy here, on the resume as well; its
+    /// element decorators stay strict.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedClassDecoratorResumesAsSloppyCodeAndLeavesTheElementDecoratorsStrict(string suspension)
+    {
+        Probe(suspension,
+                "try { @(SUSPEND 0, leakedAfterResume = function () {}) class C { @(leakedByElement = function () {}) m() {} } } catch (e) { log.push(e.constructor.name); }",
+                "typeof leakedAfterResume + ',' + typeof leakedByElement")
+            .Should().Be("function,undefined|pre,ReferenceError,post");
     }
 
     // ------------------------------------------------------------------ a suspension in a computed key

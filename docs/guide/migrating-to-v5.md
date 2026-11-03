@@ -7236,6 +7236,57 @@ it undisposed, so a `finally` block in a C# iterator method never ran. The same 
 `return()` while it is suspended in such a loop, for `yield*` over the collection in an async generator, and for
 `Array.fromAsync` when its mapping function throws. There is no switch back.
 
+### 4.190 A decorator is evaluated where the decorators spec text puts it, and called with its receiver ([#4403](https://github.com/sebastienros/jint/issues/4403))
+
+Jint now follows the decorators spec text ([tc39/ecma262#2417](https://github.com/tc39/ecma262/pull/2417)) in four
+places where 4.16 and earlier 5.0 builds did not.
+
+**Order.** A class's own decorators are still evaluated first. The decorators of a method, a field or an accessor were
+evaluated with them, before the `extends` clause. Now each element's decorators are evaluated after the `extends`
+clause and the elements before it, just before the element's key:
+
+```js
+const log = [];
+const d = (name) => (log.push(name), () => {});
+@(d("class")) class C extends (log.push("extends"), Object) {
+  @(d("m")) static [(log.push("key m"), "m")]() {}
+}
+// 4.16.x / earlier 5.0: ["class", "m", "extends", "key m"]    5.x: ["class", "extends", "m", "key m"]
+```
+
+**Scope.** An element's decorators are evaluated in the class's own scope, as its computed keys are. Reading the
+class's name there throws a `ReferenceError`. It used to read whatever the name meant around the class. A private name
+used there is the class's own. It used to resolve against the scope around the class: to the private name of an
+enclosing class with the same name, or, with no enclosing class, to a `NullReferenceException` out of `Execute`.
+
+**Strictness.** A class's own decorators run as the code around the class does, so they are sloppy in a sloppy script.
+They used to run as strict code. So did an arrow function created in one:
+
+```js
+// a sloppy script
+@(registered = (c) => c) class C {}
+typeof registered
+// 4.16.x / earlier 5.0: ReferenceError: registered is not defined    5.x: "function"
+```
+
+The rest of the class is strict, as before: the `extends` clause, the elements' decorators and the body. The spec text
+calls every part of a class strict mode code, but test262 and Jint's parser treat the class's own decorator list as
+part of the code around it, and Jint follows test262.
+
+**Receiver.** A decorator is called with the `this` a call through the same expression would get. `@obj.dec` and
+`@(obj.dec)` call `dec` with `obj`, and an identifier found through a `with` object is called with that object. All
+of these used to get `undefined`. `@dec`, `@make()` and `@(0, obj.dec)` still get `undefined`:
+
+```js
+const registry = { classes: [], add(c) { this.classes.push(c); } };
+@registry.add class C {}
+registry.classes.length
+// 4.16.x / earlier 5.0: TypeError    5.x: 1
+```
+
+§4.184 and §4.187 describe a decorator as running before anything of the class exists; that now holds for the
+class's own decorators only. When a decorator is applied has not changed. There is no switch back.
+
 ### 4.191 `DataView.prototype.byteLength` and `byteOffset` answer 0 for an out-of-bounds view instead of throwing ([#4411](https://github.com/sebastienros/jint/pull/4411))
 
 A `DataView` is out of bounds when its buffer is detached, or when a resizable buffer shrinks below the view. In 4.16

@@ -38,11 +38,26 @@ internal sealed class ClassDefinition
     private JintExpression? _superClassExpression;
 
     /// <summary>
-    /// The decorator expressions' handlers, in evaluation order, built on the first evaluation of a decorated class and
-    /// kept for the reason <see cref="_superClassExpression"/> is: a decorator that suspended resumes through the same
-    /// handlers, so what a sequence, a call or a <c>yield*</c> inside it parked is found and taken back.
+    /// Whether the class or any of its elements is decorated, and whether an element is, decided at build time so a
+    /// class without decorators never looks for any.
     /// </summary>
-    private DecoratorSite[]? _decoratorSites;
+    private readonly bool _hasDecorators;
+
+    private readonly bool _hasElementDecorators;
+
+    /// <summary>
+    /// The handlers of the class's own decorator expressions, in source order, built on the first evaluation of a
+    /// decorated class and kept for the reason <see cref="_superClassExpression"/> is: a decorator that suspended
+    /// resumes through the same handlers, so what a sequence, a call or a <c>yield*</c> inside it parked is found and
+    /// taken back.
+    /// </summary>
+    private JintExpression[]? _classDecoratorSites;
+
+    /// <summary>
+    /// The handlers of each element's decorator expressions, by element index, null for an element without any; built
+    /// and kept as <see cref="_classDecoratorSites"/> are.
+    /// </summary>
+    private JintExpression[]?[]? _elementDecoratorSites;
 
     static ClassDefinition()
     {
@@ -96,6 +111,14 @@ internal sealed class ClassDefinition
         // An await or a yield of the enclosing frame can occur in the decorators, the heritage and the computed keys:
         // the parts of a class evaluated in that frame.
         _maySuspend = @class.AnyPartEvaluatedInEnclosingFrame(elementDecorators: true, MaySuspendVisitor.MaySuspend);
+
+        ref readonly var elements = ref _body.Body;
+        for (var i = 0; i < elements.Count && !_hasElementDecorators; i++)
+        {
+            _hasElementDecorators = DecoratorsOf(elements[i]).Count > 0;
+        }
+
+        _hasDecorators = _hasElementDecorators || @class.Decorators.Count > 0;
     }
 
     /// <summary>
@@ -104,11 +127,12 @@ internal sealed class ClassDefinition
     public JsValue BuildConstructor(EvaluationContext context, Environment env, string? classBinding = null)
     {
         // A class definition is always strict mode code. The class body (superclass expression,
-        // decorators, computed property keys) is evaluated directly in the enclosing execution
+        // element decorators, computed property keys) is evaluated directly in the enclosing execution
         // context - no new context is pushed - so establish strict on the current context and
         // restore it on exit. Restoring the PREVIOUS value (not false) is required because the
         // enclosing frame may be strict or a generator, and computed keys can be yield expressions
-        // that suspend and re-enter.
+        // that suspend and re-enter. The class's own decorators are the exception, evaluated as the
+        // code around the class is (EvaluateClassDecorators).
         var previousStrict = context.Engine.ReplaceTopStrict(true);
         try
         {
@@ -150,8 +174,7 @@ internal sealed class ClassDefinition
         DeclarativeEnvironment classEnv;
         PrivateEnvironment classPrivateEnvironment;
         var outerPrivateEnvironment = engine.ExecutionContext.PrivateEnvironment;
-        JsValue[]? classDecoratorValues = null;
-        List<ElementDecoratorPair>? elementDecorators = null;
+        DecoratorEvaluation? decorators = null;
 
         if (!maySuspend || resumed is null)
         {
@@ -164,17 +187,17 @@ internal sealed class ClassDefinition
 
             classPrivateEnvironment = JintEnvironment.NewPrivateEnvironment(engine, outerPrivateEnvironment);
 
-            // Step: Evaluate all decorator expressions in the current environment (before entering class scope)
-            // Decorator expressions are evaluated left-to-right, top-to-bottom in source order.
-            if (HasDecorators())
+            // The class's own decorators are evaluated in the scope around the class, before the heritage; an
+            // element's are evaluated with that element, below.
+            if (_hasDecorators)
             {
-                elementDecorators = EvaluateAllDecorators(context, out classDecoratorValues);
+                decorators = StartDecorators(context, previousStrict);
 
                 // A decorator that suspended: nothing of the class exists yet. The decorators evaluated so far are
                 // parked, and the resume continues at the one that suspended (sebastienros/jint#4399).
                 if (maySuspend && context.IsSuspended())
                 {
-                    Park(engine, env, outerPrivateEnvironment, previousStrict, classEnv, classPrivateEnvironment, classDecoratorValues, elementDecorators);
+                    Park(engine, env, outerPrivateEnvironment, previousStrict, classEnv, classPrivateEnvironment, decorators);
                     return JsValue.Undefined;
                 }
             }
@@ -183,8 +206,7 @@ internal sealed class ClassDefinition
         {
             classEnv = resumed.ClassEnvironment;
             classPrivateEnvironment = resumed.ClassPrivateEnvironment;
-            classDecoratorValues = resumed.ClassDecoratorValues;
-            elementDecorators = resumed.ElementDecorators;
+            decorators = resumed.Decorators;
 
             if (ContinueDecorators(context, resumed, env, outerPrivateEnvironment, previousStrict))
             {
@@ -192,14 +214,15 @@ internal sealed class ClassDefinition
             }
         }
 
-        var hasDecorators = classDecoratorValues is not null;
+        var hasDecorators = decorators is not null;
 
         ObjectInstance proto;
         ObjectInstance? constructorParent = null;
         MethodDefinition? constructor = null;
         ref readonly var elements = ref _body.Body;
 
-        // A computed key suspended: the heritage was evaluated and the prototype made the first time.
+        // A computed key or an element decorator suspended: the heritage was evaluated and the prototype made the
+        // first time.
         var resumedIntoElements = maySuspend && resumed is { Prototype: not null };
         if (resumedIntoElements)
         {
@@ -220,7 +243,7 @@ internal sealed class ClassDefinition
                 // A suspended heritage hands back a placeholder, not its value: the class is defined on the resume.
                 if (maySuspend && context.IsSuspended())
                 {
-                    Park(engine, env, outerPrivateEnvironment, previousStrict, classEnv, classPrivateEnvironment, classDecoratorValues, elementDecorators);
+                    Park(engine, env, outerPrivateEnvironment, previousStrict, classEnv, classPrivateEnvironment, decorators);
                     return JsValue.Undefined;
                 }
 
@@ -341,9 +364,21 @@ internal sealed class ClassDefinition
 
                 var isStatic = e.Static;
                 var target = !isStatic ? proto : F;
-                var currentDecorators = elementDecorators is not null && elementIndex < elementDecorators.Count
-                    ? elementDecorators[elementIndex].Decorators
-                    : [];
+
+                // ClassElementEvaluation evaluates an element's decorators just before its key, in the class scope.
+                DecoratorDefinition[] currentDecorators = [];
+                if (decorators is not null)
+                {
+                    var evaluated = EvaluateElementDecorators(context, decorators, elementIndex);
+
+                    // A decorator that suspended: parked once the loop is left, at this element's index.
+                    if (evaluated is null)
+                    {
+                        break;
+                    }
+
+                    currentDecorators = evaluated;
+                }
 
                 // Handle auto-accessors specially since they produce both a field definition and optionally a private element
                 if (e is AccessorProperty ap)
@@ -562,10 +597,11 @@ internal sealed class ClassDefinition
                 }
             }
 
-            // A computed key suspended the frame: the elements before it are defined, it and the rest are not.
+            // An element decorator or a computed key suspended the frame: the elements before it are defined, it and the
+            // rest are not.
             if (maySuspend && context.IsSuspended())
             {
-                ParkElements(Park(engine, env, outerPrivateEnvironment, previousStrict, classEnv, classPrivateEnvironment, classDecoratorValues, elementDecorators),
+                ParkElements(Park(engine, env, outerPrivateEnvironment, previousStrict, classEnv, classPrivateEnvironment, decorators),
                     proto, F, elementIndex, instancePrivateMethods, staticPrivateMethods, instanceFields, staticElements, instanceExtraInitializers, staticExtraInitializers);
                 return JsValue.Undefined;
             }
@@ -626,22 +662,23 @@ internal sealed class ClassDefinition
         }
 
         // Apply class decorators (after class is fully constructed)
-        if (classDecoratorValues is { Length: > 0 })
+        if (decorators is { ClassDecorators.Length: > 0 })
         {
+            var classDecorators = decorators.ClassDecorators;
             var classExtraInitializers = new List<ICallable>();
             // Apply class decorators in reverse order
             JsValue classValue = F;
-            for (var i = classDecoratorValues.Length - 1; i >= 0; i--)
+            for (var i = classDecorators.Length - 1; i >= 0; i--)
             {
-                var decorator = classDecoratorValues[i];
-                if (decorator is not ICallable callable)
+                var decorator = classDecorators[i];
+                if (decorator.Decorator is not ICallable callable)
                 {
                     Throw.TypeError(engine.Realm, "A decorator must be a function");
                     return F;
                 }
 
                 var decoratorContext = CreateDecoratorContext(engine, "class", new JsString(_className ?? classBinding ?? ""), isStatic: false, isPrivate: false, classExtraInitializers);
-                var result = engine.Call((JsValue) callable, JsValue.Undefined, new JsValue[] { classValue, decoratorContext });
+                var result = engine.Call((JsValue) callable, decorator.Receiver, new JsValue[] { classValue, decoratorContext });
 
                 if (!result.IsUndefined())
                 {
@@ -688,91 +725,197 @@ internal sealed class ClassDefinition
     }
 
     /// <summary>
-    /// Evaluates the decorator expressions of the class and of each element, in source order, before the class scope is
-    /// entered. Once one suspends the frame, none after it is evaluated (see <see cref="EvaluateDecorators"/>).
+    /// Starts one evaluation's decorators: evaluates the class's own, in source order, in the scope around the class,
+    /// as the class declaration or expression does before ClassDefinitionEvaluation
+    /// (https://github.com/tc39/ecma262/pull/2417). Its elements' are evaluated with them, by
+    /// <see cref="EvaluateElementDecorators"/>.
     /// </summary>
     /// <remarks>
     /// Out of line for the same reason as <see cref="EvaluateHeritage"/>: decorated classes are rare, and this code would
     /// otherwise crowd the inlining of <see cref="BuildConstructorCore{TMode}"/>.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private List<ElementDecoratorPair> EvaluateAllDecorators(EvaluationContext context, out JsValue[] classDecoratorValues)
+    private DecoratorEvaluation StartDecorators(EvaluationContext context, bool previousStrict)
     {
-        classDecoratorValues = NewDecoratorValues(_class.Decorators.Count);
-
-        ref readonly var bodyElements = ref _body.Body;
-        var elementDecorators = new List<ElementDecoratorPair>(bodyElements.Count);
-        for (var i = 0; i < bodyElements.Count; i++)
-        {
-            var element = bodyElements[i];
-            elementDecorators.Add(new ElementDecoratorPair((IClassElement) element, NewDecoratorValues(DecoratorsOf(element).Count)));
-        }
-
-        EvaluateDecorators(context, start: 0, classDecoratorValues, elementDecorators);
-        return elementDecorators;
-
-        static JsValue[] NewDecoratorValues(int count) => count > 0 ? new JsValue[count] : [];
+        var sites = _classDecoratorSites ??= BuildDecoratorSites(_class.Decorators);
+        var decorators = new DecoratorEvaluation(sites.Length > 0 ? new DecoratorDefinition[sites.Length] : [], _hasElementDecorators);
+        EvaluateClassDecorators(context, decorators, start: 0, previousStrict);
+        return decorators;
     }
 
     /// <summary>
-    /// Evaluates the decorator expressions from the one at <paramref name="start"/> in evaluation order, each into its
-    /// slot of <paramref name="classDecoratorValues"/> or of its element's values.
+    /// Evaluates the class's own decorators from the one at <paramref name="start"/>, each into its slot of
+    /// <see cref="DecoratorEvaluation.ClassDecorators"/>.
     /// </summary>
     /// <remarks>
-    /// Once one suspends the frame, none after it is evaluated and its value is not stored: its index is parked on the
-    /// frame's <see cref="ClassSuspendData"/>, beside which <see cref="Park"/> parks the values, and the resume calls
-    /// this again from that index. The decorators before it are not evaluated again, and the one that suspended
-    /// resumes through the handlers it suspended in, so the part of it before its <c>await</c> or <c>yield</c> is not
-    /// evaluated again either.
+    /// <para>
+    /// The class's decorator list precedes <c>class</c>, outside the ClassTail, and is evaluated as the code around the
+    /// class is: sloppy in sloppy code. The spec text calls every part of a class strict mode code
+    /// (https://tc39.es/ecma262/#sec-strict-mode-code), but test262 parses <c>@yield() class C {}</c> as sloppy code
+    /// (<c>decorator-call-expr-identifier-reference-yield.js</c>, flagged noStrict), and so does Jint's parser; what
+    /// the parser accepted as sloppy code runs as sloppy code. Everything after the list, the elements' decorators
+    /// included, is strict.
+    /// </para>
+    /// <para>
+    /// Once one suspends the frame, none after it is evaluated and its value is not stored: its index is kept in
+    /// <see cref="DecoratorEvaluation.PendingClassDecorator"/>, which <see cref="Park"/> parks, and the resume calls this
+    /// again from that index. The decorators before it are not evaluated again, and the one that suspended resumes
+    /// through the handlers it suspended in, so the part of it before its <c>await</c> or <c>yield</c> is not evaluated
+    /// again either. A suspension or a throw leaves the strictness to <see cref="BuildConstructor"/>, which restores the
+    /// frame's own on the way out.
+    /// </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private void EvaluateDecorators(EvaluationContext context, int start, JsValue[] classDecoratorValues, List<ElementDecoratorPair> elementDecorators)
+    private void EvaluateClassDecorators(EvaluationContext context, DecoratorEvaluation decorators, int start, bool previousStrict)
     {
-        var sites = _decoratorSites ??= BuildDecoratorSites();
+        var sites = _classDecoratorSites!;
+        if (start >= sites.Length)
+        {
+            return;
+        }
+
+        var engine = context.Engine;
+        engine.ReplaceTopStrict(previousStrict);
+
+        var values = decorators.ClassDecorators;
         for (var i = start; i < sites.Length; i++)
         {
-            var site = sites[i];
-            var value = site.Expression.GetValue(context);
+            var decorator = EvaluateDecorator(context, sites[i]);
 
             if (_maySuspend && context.IsSuspended())
             {
-                context.Engine.ExecutionContext.Suspendable!.Data.GetOrCreate<ClassSuspendData>(_body).PendingDecorator = i;
+                decorators.PendingClassDecorator = i;
                 return;
             }
 
-            var values = site.Element < 0 ? classDecoratorValues : elementDecorators[site.Element].Decorators;
-            values[site.Index] = value;
+            values[i] = decorator;
         }
+
+        decorators.PendingClassDecorator = -1;
+        engine.ReplaceTopStrict(true);
     }
 
     /// <summary>
-    /// The class's decorators, then each element's, in source order.
+    /// Evaluates the decorators of the element at <paramref name="elementIndex"/>, ClassElementEvaluation's
+    /// DecoratorListEvaluation (https://github.com/tc39/ecma262/pull/2417): after the heritage and the elements before
+    /// it, with the class scope and the class's PrivateEnvironment as the running ones, just before the element's key.
+    /// Answers the element's decorators, empty for an element without any, or null when one suspended the frame.
     /// </summary>
     /// <remarks>
-    /// That is the order Jint evaluates them in, all before the heritage. The decorators spec text
-    /// (https://github.com/tc39/ecma262/pull/2417) evaluates the class's first, but an element's only after the
-    /// heritage, just before the element's key.
+    /// <see cref="DecoratorEvaluation"/> keeps the element's values and the index of the next one to evaluate, so a
+    /// resume into this element, parked at its index like a suspended key, continues at the decorator that suspended;
+    /// and once they are all evaluated, a resume into the element's key answers them without evaluating any again.
     /// </remarks>
-    private DecoratorSite[] BuildDecoratorSites()
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private DecoratorDefinition[]? EvaluateElementDecorators(EvaluationContext context, DecoratorEvaluation decorators, int elementIndex)
     {
-        var sites = new List<DecoratorSite>();
-        Add(sites, _class.Decorators, element: -1);
-
-        ref readonly var elements = ref _body.Body;
-        for (var i = 0; i < elements.Count; i++)
+        if (!decorators.HasElementDecorators)
         {
-            Add(sites, DecoratorsOf(elements[i]), element: i);
+            return [];
         }
 
-        return sites.ToArray();
-
-        static void Add(List<DecoratorSite> sites, in NodeList<Decorator> decorators, int element)
+        var sites = (_elementDecoratorSites ??= BuildElementDecoratorSites())[elementIndex];
+        if (sites is null)
         {
-            for (var i = 0; i < decorators.Count; i++)
+            return [];
+        }
+
+        if (decorators.Element != elementIndex)
+        {
+            decorators.Element = elementIndex;
+            decorators.NextElementDecorator = 0;
+            decorators.ElementDecorators = new DecoratorDefinition[sites.Length];
+        }
+
+        var values = decorators.ElementDecorators;
+        for (var i = decorators.NextElementDecorator; i < sites.Length; i++)
+        {
+            var decorator = EvaluateDecorator(context, sites[i]);
+
+            if (_maySuspend && context.IsSuspended())
             {
-                sites.Add(new DecoratorSite(JintExpression.Build(decorators[i].Expression), element, i));
+                decorators.NextElementDecorator = i;
+                return null;
+            }
+
+            values[i] = decorator;
+        }
+
+        decorators.NextElementDecorator = sites.Length;
+        return values;
+    }
+
+    /// <summary>
+    /// DecoratorEvaluation (https://github.com/tc39/ecma262/pull/2417): the decorator's value and its [[Receiver]], the
+    /// reference it was read through. The decorator is called with that reference's this value, as EvaluateCall
+    /// (https://tc39.es/ecma262/#sec-evaluatecall) would call it: the base of a property reference (<c>obj</c> for
+    /// <c>@obj.dec</c> and for <c>@(obj.dec)</c>), the object of a <c>with</c> that resolved an identifier, and
+    /// <c>undefined</c> for anything else, a call's result (<c>@make()</c>) included.
+    /// </summary>
+    private static DecoratorDefinition EvaluateDecorator(EvaluationContext context, JintExpression expression)
+    {
+        var engine = context.Engine;
+        var result = expression.Evaluate(context);
+
+        // A suspended expression hands back a placeholder, which the caller discards.
+        if (context.IsSuspended())
+        {
+            engine._referencePool.Return(result as Reference);
+            return default;
+        }
+
+        if (result is not Reference reference)
+        {
+            return new DecoratorDefinition((JsValue) result, JsValue.Undefined);
+        }
+
+        JsValue receiver;
+        if (reference.IsPropertyReference)
+        {
+            receiver = reference.ThisValue;
+        }
+        else if (reference.Base is Environment baseEnvironment)
+        {
+            receiver = baseEnvironment.WithBaseObject();
+        }
+        else
+        {
+            receiver = JsValue.Undefined;
+        }
+
+        return new DecoratorDefinition(engine.GetValue(reference, returnReferenceToPool: true), receiver);
+    }
+
+    private static JintExpression[] BuildDecoratorSites(in NodeList<Decorator> decorators)
+    {
+        if (decorators.Count == 0)
+        {
+            return [];
+        }
+
+        var sites = new JintExpression[decorators.Count];
+        for (var i = 0; i < sites.Length; i++)
+        {
+            sites[i] = JintExpression.Build(decorators[i].Expression);
+        }
+
+        return sites;
+    }
+
+    private JintExpression[]?[] BuildElementDecoratorSites()
+    {
+        ref readonly var elements = ref _body.Body;
+        var sites = new JintExpression[]?[elements.Count];
+        for (var i = 0; i < sites.Length; i++)
+        {
+            var decoratorList = DecoratorsOf(elements[i]);
+            if (decoratorList.Count > 0)
+            {
+                sites[i] = BuildDecoratorSites(in decoratorList);
             }
         }
+
+        return sites;
     }
 
     private static NodeList<Decorator> DecoratorsOf(Node element) => element switch
@@ -784,15 +927,58 @@ internal sealed class ClassDefinition
     };
 
     /// <summary>
-    /// A decorator expression's handler and the slot its value fills: index <see cref="Index"/> of the class's
-    /// decorator values when <see cref="Element"/> is -1, and of that element's otherwise.
+    /// A decorator's value and the receiver it is called with: the spec text's DecoratorDefinition Record, whose
+    /// [[Receiver]] is the reference the value was read through (https://github.com/tc39/ecma262/pull/2417).
     /// </summary>
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-    private readonly record struct DecoratorSite(JintExpression Expression, int Element, int Index);
+    private readonly record struct DecoratorDefinition(JsValue Decorator, JsValue Receiver);
 
     /// <summary>
-    /// Continues the decorator evaluation at the decorator that suspended, when that is where the class stopped, and
-    /// parks it again if another decorator suspends. Answers whether the frame is suspended again.
+    /// One evaluation's decorators: the class's own, evaluated before the heritage, and those of the element being
+    /// evaluated, evaluated just before its key. Parked with the rest of the class when a decorator, the heritage or a
+    /// computed key suspends the frame.
+    /// </summary>
+    private sealed class DecoratorEvaluation
+    {
+        public DecoratorEvaluation(DecoratorDefinition[] classDecorators, bool hasElementDecorators)
+        {
+            ClassDecorators = classDecorators;
+            HasElementDecorators = hasElementDecorators;
+        }
+
+        /// <summary>
+        /// The class's own decorators, in source order. While <see cref="PendingClassDecorator"/> is set, only the
+        /// slots before it are filled.
+        /// </summary>
+        public DecoratorDefinition[] ClassDecorators { get; }
+
+        /// <summary>
+        /// The index of the class decorator that suspended; -1 once every one has a value.
+        /// </summary>
+        public int PendingClassDecorator { get; set; } = -1;
+
+        /// <summary>
+        /// Whether any element is decorated: a class decorated only on itself skips the per-element lookup.
+        /// </summary>
+        public bool HasElementDecorators { get; }
+
+        /// <summary>
+        /// The index of the element whose decorators <see cref="ElementDecorators"/> holds; -1 before the first.
+        /// </summary>
+        public int Element { get; set; } = -1;
+
+        /// <summary>
+        /// The index of that element's next decorator to evaluate: the one that suspended, or the element's decorator
+        /// count once all of them have values.
+        /// </summary>
+        public int NextElementDecorator { get; set; }
+
+        public DecoratorDefinition[] ElementDecorators { get; set; } = [];
+    }
+
+    /// <summary>
+    /// Continues the class's own decorators at the one that suspended, when that is where the class stopped, and
+    /// parks it again if another one suspends. Answers whether the frame is suspended again.
     /// </summary>
     /// <remarks>
     /// The JIT inlines before it folds the suspension mode, so the <see cref="CannotSuspend"/> instantiation still
@@ -803,22 +989,21 @@ internal sealed class ClassDefinition
     [MethodImpl(MethodImplOptions.NoInlining)]
     private bool ContinueDecorators(EvaluationContext context, ClassSuspendData resumed, Environment env, PrivateEnvironment? outerPrivateEnvironment, bool previousStrict)
     {
-        if (resumed.PendingDecorator < 0)
+        var decorators = resumed.Decorators;
+        if (decorators is not { PendingClassDecorator: >= 0 })
         {
             return false;
         }
 
         // Through the handlers the decorator suspended in, so the part of it before its await or yield is not evaluated
         // again either.
-        var classDecoratorValues = resumed.ClassDecoratorValues!;
-        var elementDecorators = resumed.ElementDecorators!;
-        EvaluateDecorators(context, resumed.PendingDecorator, classDecoratorValues, elementDecorators);
+        EvaluateClassDecorators(context, decorators, decorators.PendingClassDecorator, previousStrict);
         if (!context.IsSuspended())
         {
             return false;
         }
 
-        Park(context.Engine, env, outerPrivateEnvironment, previousStrict, resumed.ClassEnvironment, resumed.ClassPrivateEnvironment, classDecoratorValues, elementDecorators);
+        Park(context.Engine, env, outerPrivateEnvironment, previousStrict, resumed.ClassEnvironment, resumed.ClassPrivateEnvironment, decorators);
         return true;
     }
 
@@ -850,15 +1035,13 @@ internal sealed class ClassDefinition
         bool previousStrict,
         DeclarativeEnvironment classEnv,
         PrivateEnvironment classPrivateEnvironment,
-        JsValue[]? classDecoratorValues,
-        List<ElementDecoratorPair>? elementDecorators)
+        DecoratorEvaluation? decorators)
     {
         var suspendable = engine.ExecutionContext.Suspendable!;
         var data = suspendable.Data.GetOrCreate<ClassSuspendData>(_body);
         data.ClassEnvironment = classEnv;
         data.ClassPrivateEnvironment = classPrivateEnvironment;
-        data.ClassDecoratorValues = classDecoratorValues;
-        data.ElementDecorators = elementDecorators;
+        data.Decorators = decorators;
         data.Prototype = null;
 
         RestoreEntryContext(engine, env, outerPrivateEnvironment, previousStrict);
@@ -889,8 +1072,8 @@ internal sealed class ClassDefinition
     }
 
     /// <summary>
-    /// Adds to what <see cref="Park"/> parked what a suspended computed key leaves: the prototype, the constructor,
-    /// the elements gathered so far and the index of the element whose key suspended.
+    /// Adds to what <see cref="Park"/> parked what a suspended element decorator or computed key leaves: the prototype,
+    /// the constructor, the elements gathered so far and the index of the element whose decorator or key suspended.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ParkElements(
@@ -954,27 +1137,21 @@ internal sealed class ClassDefinition
         public PrivateEnvironment ClassPrivateEnvironment { get; set; } = null!;
 
         /// <summary>
-        /// The decorators, which are evaluated before the heritage; null for a class without any. While
-        /// <see cref="PendingDecorator"/> is set, only the slots of the decorators before it are filled.
+        /// The decorators evaluated so far, the class's own and the current element's, and where their evaluation
+        /// stopped; null for a class without any.
         /// </summary>
-        public JsValue[]? ClassDecoratorValues { get; set; }
-
-        public List<ElementDecoratorPair>? ElementDecorators { get; set; }
+        public DecoratorEvaluation? Decorators { get; set; }
 
         /// <summary>
-        /// The index, in evaluation order, of the decorator that suspended; -1 once every decorator has a value.
-        /// </summary>
-        public int PendingDecorator { get; set; } = -1;
-
-        /// <summary>
-        /// Null when the heritage suspended; the class's prototype once a computed key did, with the fields below.
+        /// Null when the heritage suspended; the class's prototype once an element decorator or a computed key did, with
+        /// the fields below.
         /// </summary>
         public ObjectInstance? Prototype { get; set; }
 
         public ScriptFunction? Constructor { get; set; }
 
         /// <summary>
-        /// The index of the element whose computed key suspended.
+        /// The index of the element whose decorator or computed key suspended.
         /// </summary>
         public int ElementIndex { get; set; }
 
@@ -1399,12 +1576,6 @@ internal sealed class ClassDefinition
     }
 
     /// <summary>
-    /// Pairs a class element with its evaluated decorator values.
-    /// </summary>
-    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-    private readonly record struct ElementDecoratorPair(IClassElement Element, JsValue[] Decorators);
-
-    /// <summary>
     /// Creates the decorator context object passed as the second argument to a decorator.
     /// https://tc39.es/proposal-decorators/#sec-createdecoratorcontextobject
     /// </summary>
@@ -1445,7 +1616,7 @@ internal sealed class ClassDefinition
     /// </summary>
     private static JsValue ApplyMethodDecorators(
         Engine engine,
-        JsValue[] decorators,
+        DecoratorDefinition[] decorators,
         JsValue value,
         string kind,
         JsValue name,
@@ -1457,14 +1628,14 @@ internal sealed class ClassDefinition
         for (var i = decorators.Length - 1; i >= 0; i--)
         {
             var decorator = decorators[i];
-            if (decorator is not ICallable callable)
+            if (decorator.Decorator is not ICallable callable)
             {
                 Throw.TypeError(engine.Realm, "A decorator must be a function");
                 return value;
             }
 
             var context = CreateDecoratorContext(engine, kind, name, isStatic, isPrivate, extraInitializers);
-            var result = engine.Call((JsValue) callable, JsValue.Undefined, new JsValue[] { value, context });
+            var result = engine.Call((JsValue) callable, decorator.Receiver, new JsValue[] { value, context });
 
             if (!result.IsUndefined())
             {
@@ -1486,7 +1657,7 @@ internal sealed class ClassDefinition
     /// </summary>
     private static void ApplyFieldDecorators(
         Engine engine,
-        JsValue[] decorators,
+        DecoratorDefinition[] decorators,
         ClassFieldDefinition fieldDefinition,
         JsValue name,
         bool isStatic,
@@ -1499,14 +1670,14 @@ internal sealed class ClassDefinition
         for (var i = decorators.Length - 1; i >= 0; i--)
         {
             var decorator = decorators[i];
-            if (decorator is not ICallable callable)
+            if (decorator.Decorator is not ICallable callable)
             {
                 Throw.TypeError(engine.Realm, "A decorator must be a function");
                 return;
             }
 
             var context = CreateDecoratorContext(engine, "field", name, isStatic, isPrivate, extraInitializers);
-            var result = engine.Call((JsValue) callable, JsValue.Undefined, new JsValue[] { JsValue.Undefined, context });
+            var result = engine.Call((JsValue) callable, decorator.Receiver, new JsValue[] { JsValue.Undefined, context });
 
             if (!result.IsUndefined())
             {
@@ -1556,7 +1727,7 @@ internal sealed class ClassDefinition
 
     private static AccessorDecoratorResult ApplyAccessorDecorators(
         Engine engine,
-        JsValue[] decorators,
+        DecoratorDefinition[] decorators,
         JsValue getter,
         JsValue setter,
         JsValue name,
@@ -1572,7 +1743,7 @@ internal sealed class ClassDefinition
         for (var i = decorators.Length - 1; i >= 0; i--)
         {
             var decorator = decorators[i];
-            if (decorator is not ICallable callable)
+            if (decorator.Decorator is not ICallable callable)
             {
                 Throw.TypeError(engine.Realm, "A decorator must be a function");
                 return new AccessorDecoratorResult(currentGetter, currentSetter, initFunctions);
@@ -1583,7 +1754,7 @@ internal sealed class ClassDefinition
             valueObj.DefineOwnDataPropertyUnchecked("get", currentGetter);
             valueObj.DefineOwnDataPropertyUnchecked("set", currentSetter);
 
-            var result = engine.Call((JsValue) callable, JsValue.Undefined, new JsValue[] { valueObj, context });
+            var result = engine.Call((JsValue) callable, decorator.Receiver, new JsValue[] { valueObj, context });
 
             if (!result.IsUndefined())
             {
@@ -1620,24 +1791,6 @@ internal sealed class ClassDefinition
         }
 
         return new AccessorDecoratorResult(currentGetter, currentSetter, initFunctions);
-    }
-
-    /// <summary>
-    /// Checks if any class element or the class itself has decorators.
-    /// </summary>
-    private bool HasDecorators()
-    {
-        if (_class.Decorators.Count > 0) return true;
-
-        ref readonly var elements = ref _body.Body;
-        for (var i = 0; i < elements.Count; i++)
-        {
-            var element = elements[i];
-            if (element is MethodDefinition md && md.Decorators.Count > 0) return true;
-            if (element is PropertyDefinition pd && pd.Decorators.Count > 0) return true;
-            if (element is AccessorProperty ap && ap.Decorators.Count > 0) return true;
-        }
-        return false;
     }
 
     /// <summary>
