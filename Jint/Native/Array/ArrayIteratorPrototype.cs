@@ -28,7 +28,8 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
         CreateSymbols_Generated();
     }
 
-    // Captured into IteratorPrototype._originalNextFunction, which StepsNatively compares a read of `next` against.
+    // Captured into IteratorPrototype._originalNextFunction, which ToIteratorRecordReadingNext compares a read of `next`
+    // against.
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
@@ -37,7 +38,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
     /// is script-visible — it is what <c>[][Symbol.iterator]()</c> evaluates to — so it always
     /// iterates <paramref name="array"/> with <paramref name="kind"/>, whatever <c>next</c> currently
     /// resolves to. Whether a *consumer* may then step it natively instead of calling <c>next</c> is
-    /// decided where the iterator record is built, by <see cref="IteratorInstance.HasNativeNext"/>.
+    /// decided where the iterator record is built, by <see cref="IteratorInstance.ToIteratorRecord"/>.
     /// </summary>
     internal IteratorInstance Construct(ObjectInstance array, ArrayIteratorType kind)
     {
@@ -63,9 +64,12 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
         }
 
         // The sealed type test keeps the hot lane every for-of over an array takes as cheap as it was; a prototype
-        // swapped out from under the instance fails it and is treated as a replaced `next`.
-        internal override bool HasNativeNext
-            => _prototype is ArrayIteratorPrototype prototype && prototype.StepsNatively(this);
+        // swapped out from under the instance fails it and is treated as a replaced `next`, which the ObjectIterator
+        // reads. Either way `next` is read once (sebastienros/jint#4408).
+        internal override IteratorInstance ToIteratorRecord()
+            => _prototype is ArrayIteratorPrototype prototype
+                ? prototype.ToIteratorRecordReadingNext(this)
+                : WrapReadingNext(this);
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
@@ -138,9 +142,12 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
         }
 
         // The sealed type test keeps the hot lane every for-of over an array takes as cheap as it was; a prototype
-        // swapped out from under the instance fails it and is treated as a replaced `next`.
-        internal override bool HasNativeNext
-            => _prototype is ArrayIteratorPrototype prototype && prototype.StepsNatively(this);
+        // swapped out from under the instance fails it and is treated as a replaced `next`, which the ObjectIterator
+        // reads. Either way `next` is read once (sebastienros/jint#4408).
+        internal override IteratorInstance ToIteratorRecord()
+            => _prototype is ArrayIteratorPrototype prototype
+                ? prototype.ToIteratorRecordReadingNext(this)
+                : WrapReadingNext(this);
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {

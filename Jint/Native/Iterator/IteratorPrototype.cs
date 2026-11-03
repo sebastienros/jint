@@ -18,7 +18,8 @@ internal partial class IteratorPrototype : Prototype
 {
     // A built-in iterator prototype's own `next`, captured by its CreateProperties_Generated (CaptureField on
     // its [JsFunction(Name = "next")]) before any script can replace it. Null on a prototype that captures
-    // nothing, for which both checks below answer false and the iteration goes through the `next` it reads.
+    // nothing, for which both methods below answer an ObjectIterator and the iteration goes through the `next`
+    // it reads.
     private protected FunctionInstance? _originalNextFunction;
 
     // Stands in for an own `next` that is not a data property; its value is never a function.
@@ -33,28 +34,37 @@ internal partial class IteratorPrototype : Prototype
     private uint _nextDescriptorVersion;
 
     /// <summary>
-    /// Whether the read GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3 makes
-    /// — <c>next</c> off <paramref name="iterator"/> — still finds this prototype's built-in <c>next</c>. One read
-    /// covers both ways it can stop doing so: an own <c>next</c> on the instance shadowing the prototype's, and
-    /// the prototype's own <c>next</c> replaced. The array iterators ask it, and <see cref="HasOriginalNext"/>
-    /// falls back to it.
+    /// GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3, GetIteratorDirect steps 1-2,
+    /// for <paramref name="iterator"/>, whose prototype this is: the one read of <c>next</c> off it, and the record.
+    /// One read covers both ways it can stop finding this prototype's built-in <c>next</c> — an own <c>next</c> on the
+    /// instance shadowing the prototype's, and the prototype's own <c>next</c> replaced — and answers
+    /// <paramref name="iterator"/> itself while it still does. Otherwise the record is an
+    /// <see cref="IteratorInstance.ObjectIterator"/> holding what was read, which never reads it again
+    /// (sebastienros/jint#4408). The array iterators ask it, and <see cref="ToIteratorRecord"/> falls back to it.
     /// </summary>
-    internal bool StepsNatively(ObjectInstance iterator)
-        => ReferenceEquals(iterator.Get(CommonProperties.Next), _originalNextFunction);
+    private protected IteratorInstance ToIteratorRecordReadingNext(IteratorInstance iterator)
+    {
+        var next = iterator.Get(CommonProperties.Next);
+        return ReferenceEquals(next, _originalNextFunction)
+            ? iterator
+            : IteratorInstance.WrapReplacedNext(iterator, next);
+    }
 
     /// <summary>
-    /// The answer <see cref="StepsNatively"/> gives for <paramref name="iterator"/>, whose prototype this is,
-    /// without the property read when it can be had cheaper: an instance with no own property cannot shadow
-    /// <c>next</c>, so the answer is whether this prototype's own <c>next</c> is still a data property holding
-    /// the built-in function, which a cached descriptor and this prototype's own-property version answer.
-    /// An instance that has an own property takes the read. <see cref="IteratorInstance.HasNativeNext"/> asks it.
+    /// The record <see cref="ToIteratorRecordReadingNext"/> builds for <paramref name="iterator"/>, whose prototype
+    /// this is, without its property read when the answer can be had cheaper: an instance with no own property
+    /// cannot shadow <c>next</c>, so it steps natively exactly while this prototype's own <c>next</c> is still a data
+    /// property holding the built-in function, which a cached descriptor and this prototype's own-property version
+    /// answer. When it is not, nothing has been read and the <see cref="IteratorInstance.ObjectIterator"/> makes the
+    /// one read. An instance that has an own property takes the read here.
+    /// <see cref="IteratorInstance.ToIteratorRecord"/> asks it.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool HasOriginalNext(IteratorInstance iterator)
+    internal IteratorInstance ToIteratorRecord(IteratorInstance iterator)
     {
         if (iterator._properties is not null)
         {
-            return StepsNatively(iterator);
+            return ToIteratorRecordReadingNext(iterator);
         }
 
         var descriptor = _nextDescriptor;
@@ -63,7 +73,9 @@ internal partial class IteratorPrototype : Prototype
             descriptor = ReadNextDescriptor();
         }
 
-        return ReferenceEquals(descriptor.Value, _originalNextFunction);
+        return ReferenceEquals(descriptor.Value, _originalNextFunction)
+            ? iterator
+            : IteratorInstance.WrapReadingNext(iterator);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
