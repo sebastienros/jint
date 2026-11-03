@@ -390,12 +390,12 @@ public class DecoratorTests
                 x = 3;
             }
 
-            // times2 applied first (inner): 3 * 2 = 6
-            // add1 applied second (outer): 6 + 1 = 7
+            // times2 is applied first (inner) and add1 second (outer), and each prepends its initializer
+            // (https://github.com/tc39/ecma262/pull/2417), so add1's runs first: (3 + 1) * 2 = 8
             new C().x;
             """);
 
-        result.AsInteger().Should().Be(7);
+        result.AsInteger().Should().Be(8);
     }
 
     [Test]
@@ -441,7 +441,8 @@ public class DecoratorTests
             """);
 
         // Three computed keys, each evaluated exactly once (i === 3), and each decorator saw the
-        // same name its element was defined under.
-        result.AsString().Should().Be("3;m1|f2|a3;function;field;accessor");
+        // same name its element was defined under. The static method and accessor are decorated
+        // before the static field (https://github.com/tc39/ecma262/pull/2417).
+        result.AsString().Should().Be("3;m1|a3|f2;function;field;accessor");
     }
 }

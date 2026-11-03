@@ -7285,7 +7285,7 @@ registry.classes.length
 ```
 
 §4.184 and §4.187 describe a decorator as running before anything of the class exists; that now holds for the
-class's own decorators only. When a decorator is applied has not changed. There is no switch back.
+class's own decorators only. When a decorator is applied is §4.194. There is no switch back.
 
 ### 4.191 `DataView.prototype.byteLength` and `byteOffset` answer 0 for an out-of-bounds view instead of throwing ([#4411](https://github.com/sebastienros/jint/pull/4411))
 
@@ -7322,6 +7322,60 @@ direction is unknown or unlisted, or a language with no likely script, answers `
 
 The answer no longer depends on the machine, and `"ar"`, `"he"`, `"fa"` or `"en"` answer as they did. The result
 still has its own `direction` property when its value is `undefined`. There is no switch back.
+
+### 4.194 Decorators are applied when the decorators spec text applies them, and a decorator's context has `access` ([#4413](https://github.com/sebastienros/jint/issues/4413))
+
+§4.190 moved where a decorator is *evaluated*. This moves when it is *applied*, and what the context object a
+decorator gets holds, to the decorators spec text ([tc39/ecma262#2417](https://github.com/tc39/ecma262/pull/2417)).
+
+**Element decorators run after every element is evaluated.** Each element's decorators used to run as soon as that
+element was defined, between the keys of the elements around it. Now every key and every decorator expression is
+evaluated first. Then the decorators are applied in four groups: static methods, getters, setters and accessors; the
+instance ones; static fields; instance fields. Each group runs in source order:
+
+```js
+const log = [];
+const d = (name) => () => { log.push(name); };
+class C {
+  @(d("field")) x;
+  @(d("method")) m() {}
+  @(d("static method")) static s() {}
+}
+// 4.16.x / earlier 5.0: ["field", "method", "static method"]    5.x: ["static method", "method", "field"]
+```
+
+The initializers that the decorators of a field or an accessor return now run outermost first. With
+`@a @b x = 1`, `a`'s initializer gets `1` and `b`'s gets what `a`'s returned. It used to be the other way round.
+
+**Class decorators run before the static fields and blocks.** They used to run last, so a static field or a static
+block saw the undecorated class, both as `this` and through the class's own name. Methods saw it through the name too.
+Now the class binding holds the class that the decorators returned, and the static fields and blocks run against
+that class. A static field is defined on the decorated class, not on the class it replaced:
+
+```js
+let inside;
+const replace = (c) => class extends c {};
+@replace class C {
+  static { inside = this; }
+}
+inside === C
+// 4.16.x / earlier 5.0: false    5.x: true
+```
+
+The `addInitializer` callbacks of a class's static half now run where the spec text puts them. A static method's run
+before the static fields, a static field's right after that field, and the class's own after the last static block.
+They used to run together after the static blocks. The instance-side callbacks still run together after the instance
+fields, as before.
+
+**The context object.** An element's context now has an `access` object. It has `get` for a field, method, getter
+or accessor, and `set` for a field, setter or accessor. It always has `has`. Each takes the object to read, write or
+check, through the element's key or its private name. The context's members come in the spec text's order: `kind`,
+`access`, `static`, `private`, `name`, `addInitializer`. A class's context has only `kind`, `name` and
+`addInitializer`; it used to have `static` and `private` as well. A private element's `name` now includes the `#`
+(`"#x"`, not `"x"`). Calling `addInitializer` after its decorator has returned throws a `TypeError`. So does an
+accessor decorator that returns a `get`, `set` or `init` that is not a function, where Jint used to keep the value.
+
+There is no switch back.
 
 ## 5. New in v5
 
