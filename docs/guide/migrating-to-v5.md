@@ -7169,6 +7169,48 @@ field or an accessor still does not make a module asynchronous, because the prop
 search; such an `await` is then settled on the spot, blocking until its promise settles, as before. There is no switch
 back.
 
+### 4.188 A `for await` loop over a built-in iterator awaits each value, and a replaced `next` is called on every built-in iterator ([#4392](https://github.com/sebastienros/jint/issues/4392))
+
+A `for await` loop over an object with no `Symbol.asyncIterator` wraps the object's sync iterator in an async one.
+That wrapper awaits each value before the body sees it, and the loop awaits the wrapper's `return()` when it ends
+early. A plain array, a string or a generator always went through it. In 4.16 and earlier 5.0 builds, a built-in
+iterator object did not: `arr.values()`, `arr.keys()`, `arr.entries()`, a typed array's iterators, `map.entries()` and
+the other Map and Set iterators, a string's `[Symbol.iterator]()`, `str.matchAll(re)`, a segments iterator, and the
+`entries()`, `keys()` and `values()` of `Headers`, `FormData` and `URLSearchParams`. Jint stepped such an
+iterator directly, so a promise it held reached the body unawaited, and each step and the close ran a microtask early:
+
+```js
+var log = [];
+(async () => { for await (var x of [Promise.resolve(1)].values()) log.push(typeof x); })();
+Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: ["object", "t1", "t2"]    5.x: ["t1", "number", "t2"]
+```
+
+Now these iterators go through the wrapper too, as they do in other engines. Each step costs two microtasks and an
+early close one, as for the array itself. A rejected promise among the values is thrown from the loop. A `return`
+method the script gave the iterator object is called when the loop ends by `break`, `return` or a throw from the
+body, and its answer is awaited, so a rejection or a non-object answer replaces a `break`. It is still not called when
+the loop ends because an iterated promise rejected, where other engines call it. A `Symbol.asyncIterator` or
+`Symbol.iterator` method the script gave the object is called, where Jint used to ignore both.
+
+A `next` method the script replaced is now called too. Jint steps a built-in iterator natively only while reading its
+`next` would find the built-in one, but in 4.16 only the array and typed-array iterators checked. The Map, Set, string,
+`matchAll`, segments and web-API iterators, and the iterator of a wrapped CLR collection, were stepped natively whatever
+their `next` was, whether the script set one on the iterator or replaced the one on its prototype:
+
+```js
+var s = new Set([1, 2]);
+Object.getPrototypeOf(s.values()).next = function () { return { value: undefined, done: true }; };
+[...s]
+// 4.16.x / earlier 5.0: [1, 2]    5.x: []
+```
+
+This applies wherever an iterator is taken from such an object: spread, `Array.from`, destructuring, `new Map()` and
+`new Set()`, `Promise.all`, a `for`-`of` over the collection, and the `for await` above. A `for`-`of` whose operand is
+the iterator object itself still steps it natively, and so do spread and `for`-`of` over a string primitive, and
+destructuring a CLR list (`const [a] = list`), which reads it by index. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

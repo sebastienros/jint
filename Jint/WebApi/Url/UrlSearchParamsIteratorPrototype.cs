@@ -57,7 +57,7 @@ internal sealed partial class UrlSearchParamsIteratorPrototype : IteratorPrototy
     /// a class string is <c>{ [[Writable]]: false, [[Enumerable]]: false, [[Configurable]]: true }</c> in
     /// WebIDL too.
     /// </remarks>
-    [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
+    [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable, CaptureField = nameof(_originalNextFunction))]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
     internal IteratorInstance ConstructEntryIterator(JsUrlSearchParams parameters)

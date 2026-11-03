@@ -4,7 +4,6 @@ using Jint.Native.Object;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using FunctionInstance = Jint.Native.Function.Function;
 
 namespace Jint.Native.Array;
 
@@ -15,10 +14,6 @@ namespace Jint.Native.Array;
 internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 {
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString ArrayIteratorToStringTag = new("Array Iterator");
-
-    // Captured by CreateProperties_Generated (via CaptureField below) before any user code can
-    // replace `next`; StepsNatively identity-compares against this snapshot to detect overrides.
-    private FunctionInstance _originalNextFunction = null!;
 
     internal ArrayIteratorPrototype(
         Engine engine,
@@ -33,6 +28,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
         CreateSymbols_Generated();
     }
 
+    // Captured into IteratorPrototype._originalNextFunction, which StepsNatively compares a read of `next` against.
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
@@ -52,15 +48,6 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
         return instance;
     }
 
-    /// <summary>
-    /// One read covers both ways an array iterator's <c>next</c> can stop being the built-in one: an
-    /// own <c>next</c> on the instance shadowing the prototype's, and the prototype's own <c>next</c>
-    /// having been replaced. A prototype swapped out from under the instance fails the type test and
-    /// is treated as replaced too.
-    /// </summary>
-    private bool StepsNatively(ObjectInstance iterator)
-        => ReferenceEquals(iterator.Get(CommonProperties.Next), _originalNextFunction);
-
     private sealed class ArrayIterator : IteratorInstance
     {
         private readonly ArrayIteratorType _kind;
@@ -75,6 +62,8 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
             _position = 0;
         }
 
+        // The sealed type test keeps the hot lane every for-of over an array takes as cheap as it was; a prototype
+        // swapped out from under the instance fails it and is treated as a replaced `next`.
         internal override bool HasNativeNext
             => _prototype is ArrayIteratorPrototype prototype && prototype.StepsNatively(this);
 
@@ -148,6 +137,8 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
             _position = 0;
         }
 
+        // The sealed type test keeps the hot lane every for-of over an array takes as cheap as it was; a prototype
+        // swapped out from under the instance fails it and is treated as a replaced `next`.
         internal override bool HasNativeNext
             => _prototype is ArrayIteratorPrototype prototype && prototype.StepsNatively(this);
 

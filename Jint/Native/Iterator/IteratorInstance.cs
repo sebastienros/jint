@@ -22,17 +22,23 @@ internal abstract class IteratorInstance : ObjectInstance
     public abstract bool TryIteratorStep(out ObjectInstance nextItem);
 
     /// <summary>
-    /// GetIterator (https://tc39.es/ecma262/#sec-getiterator) step 3 reads <c>next</c> off the object
-    /// the @@iterator method handed back, and every step then calls what that read produced. A
-    /// built-in iterator may only be stepped natively — skipping both the read and the call — while
-    /// the read would resolve to the very built-in function its native stepping implements.
-    /// <see cref="JsValue.TryGetIterator"/> asks this before adopting an instance as the iterator
-    /// record; a <see langword="false"/> answer wraps it in an <see cref="ObjectIterator"/>, which
-    /// performs the read and drives the iteration through the replacement.
-    /// The default is <see langword="true"/>: an iterator whose <c>next</c> the engine cannot observe
-    /// being replaced keeps stepping natively.
+    /// GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3 reads <c>next</c>
+    /// off the object the @@iterator method handed back, and every step then calls what that read produced.
+    /// A built-in iterator may only be stepped natively — skipping both the read and the call — while the
+    /// read would resolve to the very built-in function its native stepping implements.
+    /// <see cref="JsValue.TryGetIterator"/> asks this before adopting an instance as the iterator record; a
+    /// <see langword="false"/> answer wraps it in an <see cref="ObjectIterator"/>, which performs the read and
+    /// drives the iteration through the replacement.
+    /// <para>
+    /// The default asks the instance's prototype, which captured its built-in <c>next</c> when it was set up
+    /// (<see cref="IteratorPrototype.HasOriginalNext"/>). For an instance with no own property that needs no
+    /// property read: a cached descriptor and the prototype's own-property version answer it. A prototype that
+    /// is not a built-in iterator prototype, or that captured nothing, answers <see langword="false"/>: slower,
+    /// never wrong. Until sebastienros/jint#4392 the default was an unconditional <see langword="true"/>, so a
+    /// replaced <c>next</c> on any iterator but an array's was never called.
+    /// </para>
     /// </summary>
-    internal virtual bool HasNativeNext => true;
+    internal virtual bool HasNativeNext => _prototype is IteratorPrototype prototype && prototype.HasOriginalNext(this);
 
     /// <summary>
     /// The iterator record's [[Done]] field, https://tc39.es/ecma262/#sec-iterator-records.
@@ -254,6 +260,14 @@ internal abstract class IteratorInstance : ObjectInstance
 
             if (callable is null)
             {
+                // Step 4.b: with no `return` there is nothing to call. A built-in iterator this record wraps only
+                // because its `next` was replaced (HasNativeNext) may still hold native state that its own Close
+                // releases, such as a host enumerator to dispose, and stepping it natively would have closed it.
+                if (_target is IteratorInstance native)
+                {
+                    native.Close(completion);
+                }
+
                 return;
             }
 
