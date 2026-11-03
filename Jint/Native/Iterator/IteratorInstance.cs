@@ -31,13 +31,14 @@ internal abstract class IteratorInstance : ObjectInstance
     /// drives the iteration through the replacement.
     /// <para>
     /// The default asks the instance's prototype, which captured its built-in <c>next</c> when it was set up
-    /// (<see cref="IteratorPrototype.StepsNatively"/>), and so costs the one read the spec makes. A prototype
-    /// that is not a built-in iterator prototype, or that captured nothing, answers <see langword="false"/>:
-    /// slower, never wrong. Until sebastienros/jint#4392 the default was an unconditional
-    /// <see langword="true"/>, so a replaced <c>next</c> on any iterator but an array's was never called.
+    /// (<see cref="IteratorPrototype.HasOriginalNext"/>). For an instance with no own property that needs no
+    /// property read: a cached descriptor and the prototype's own-property version answer it. A prototype that
+    /// is not a built-in iterator prototype, or that captured nothing, answers <see langword="false"/>: slower,
+    /// never wrong. Until sebastienros/jint#4392 the default was an unconditional <see langword="true"/>, so a
+    /// replaced <c>next</c> on any iterator but an array's was never called.
     /// </para>
     /// </summary>
-    internal virtual bool HasNativeNext => _prototype is IteratorPrototype prototype && prototype.StepsNatively(this);
+    internal virtual bool HasNativeNext => _prototype is IteratorPrototype prototype && prototype.HasOriginalNext(this);
 
     /// <summary>
     /// The iterator record's [[Done]] field, https://tc39.es/ecma262/#sec-iterator-records.

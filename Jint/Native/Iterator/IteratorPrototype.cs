@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -17,17 +18,69 @@ internal partial class IteratorPrototype : Prototype
 {
     // A built-in iterator prototype's own `next`, captured by its CreateProperties_Generated (CaptureField on
     // its [JsFunction(Name = "next")]) before any script can replace it. Null on a prototype that captures
-    // nothing, for which StepsNatively answers false and the iteration goes through the `next` it reads.
+    // nothing, for which both checks below answer false and the iteration goes through the `next` it reads.
     private protected FunctionInstance? _originalNextFunction;
+
+    // Stands in for an own `next` that is not a data property; its value is never a function.
+    private static readonly PropertyDescriptor NotADataProperty = new(Undefined, PropertyFlag.None);
+
+    // The own `next` data descriptor as it stood at _nextDescriptorVersion (NotADataProperty if it was not one), or
+    // null while it has not been read - PromisePrototype.HasIntrinsicConstructor's pattern. Replacing, deleting or
+    // redefining `next` as an accessor goes through SetOwnProperty, SetProperty or RemoveOwnProperty and moves
+    // _propertiesVersion; an assignment, or a redefinition that keeps it a data property, changes this descriptor's
+    // value in place, which is re-read every time.
+    private PropertyDescriptor? _nextDescriptor;
+    private uint _nextDescriptorVersion;
 
     /// <summary>
     /// Whether the read GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3 makes
     /// — <c>next</c> off <paramref name="iterator"/> — still finds this prototype's built-in <c>next</c>. One read
     /// covers both ways it can stop doing so: an own <c>next</c> on the instance shadowing the prototype's, and
-    /// the prototype's own <c>next</c> replaced. <see cref="IteratorInstance.HasNativeNext"/> asks it.
+    /// the prototype's own <c>next</c> replaced. The array iterators ask it, and <see cref="HasOriginalNext"/>
+    /// falls back to it.
     /// </summary>
     internal bool StepsNatively(ObjectInstance iterator)
         => ReferenceEquals(iterator.Get(CommonProperties.Next), _originalNextFunction);
+
+    /// <summary>
+    /// The answer <see cref="StepsNatively"/> gives for <paramref name="iterator"/>, whose prototype this is,
+    /// without the property read when it can be had cheaper: an instance with no own property cannot shadow
+    /// <c>next</c>, so the answer is whether this prototype's own <c>next</c> is still a data property holding
+    /// the built-in function, which a cached descriptor and this prototype's own-property version answer.
+    /// An instance that has an own property takes the read. <see cref="IteratorInstance.HasNativeNext"/> asks it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool HasOriginalNext(IteratorInstance iterator)
+    {
+        if (iterator._properties is not null)
+        {
+            return StepsNatively(iterator);
+        }
+
+        var descriptor = _nextDescriptor;
+        if (descriptor is null || _propertiesVersion != _nextDescriptorVersion)
+        {
+            descriptor = ReadNextDescriptor();
+        }
+
+        return ReferenceEquals(descriptor.Value, _originalNextFunction);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private PropertyDescriptor ReadNextDescriptor()
+    {
+        // GetOwnProperty first: it initializes the prototype (capturing _originalNextFunction) on first use, and the
+        // version is the one after that.
+        var descriptor = GetOwnProperty(CommonProperties.Next);
+        if (!descriptor.IsDataDescriptor())
+        {
+            descriptor = NotADataProperty;
+        }
+
+        _nextDescriptorVersion = _propertiesVersion;
+        _nextDescriptor = descriptor;
+        return descriptor;
+    }
 
     internal IteratorPrototype(
         Engine engine,

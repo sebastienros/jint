@@ -63,6 +63,44 @@ public class ReplacedIteratorNextTests
         }
         """;
 
+    private const string InvalidationHarness = """
+        // Applies one way of making `next` resolve to `next` for `it`, a fresh iterator, and answers the object to
+        // iterate plus the function that puts every prototype back. `makeOther` hands out an iterator of another kind.
+        function applyRoute(route, it, next, makeOther) {
+            const P = Object.getPrototypeOf(it);
+            const IP = Object.getPrototypeOf(P);
+            const saved = [];
+            function save(o, k) { saved.push([o, k, Object.getOwnPropertyDescriptor(o, k)]); }
+            let target = it;
+            switch (route) {
+                case 'assign': save(P, 'next'); P.next = next; break;
+                case 'defineData': save(P, 'next'); Object.defineProperty(P, 'next', { value: next }); break;
+                case 'defineAccessor': save(P, 'next'); Object.defineProperty(P, 'next', { get() { return next; } }); break;
+                case 'delete': save(P, 'next'); save(IP, 'next'); delete P.next; IP.next = next; break;
+                case 'ownAssign': it.next = next; break;
+                case 'ownAccessor': Object.defineProperty(it, 'next', { get() { return next; } }); break;
+                case 'protoPlain': Object.setPrototypeOf(it, { __proto__: IP, next: next }); break;
+                case 'protoOtherKind': { const other = Object.getPrototypeOf(makeOther()); save(other, 'next'); other.next = next; Object.setPrototypeOf(it, other); break; }
+                case 'protoProxy': Object.setPrototypeOf(it, new Proxy(P, { get(t, k, r) { return k === 'next' ? next : Reflect.get(t, k, r); } })); break;
+                case 'proxy': target = new Proxy(it, { get(t, k, r) { return k === 'next' ? next : Reflect.get(t, k, r); } }); break;
+            }
+            return {
+                target: target,
+                restore: function () { for (let i = saved.length - 1; i >= 0; i--) { const s = saved[i]; if (s[2]) { Object.defineProperty(s[0], s[1], s[2]); } else { delete s[0][s[1]]; } } }
+            };
+        }
+
+        // Iterates one iterator of the kind first, so that whatever the engine remembers about the prototype's
+        // `next` is warm, then takes that route on a fresh one, runs the consumer and answers "<values> <calls>".
+        async function invalidated(make, makeOther, route, consumer) {
+            [...make()];
+            const calls = { count: 0 };
+            const applied = applyRoute(route, make(), replacement(calls), makeOther);
+            try { return (await consumers[consumer](applied.target)) + ' ' + calls.count; }
+            finally { applied.restore(); }
+        }
+        """;
+
     private static string Run(Engine engine, string script) =>
         engine.Evaluate(Harness + "\n" + script).UnwrapIfPromise().AsString();
 
@@ -225,6 +263,116 @@ public class ReplacedIteratorNextTests
                 Disposed = true;
             }
         }
+    }
+
+    /// <summary>
+    /// Every way of making <c>next</c> resolve to something else, each taken after an iteration of the same kind
+    /// has warmed whatever the engine remembers about the prototype's <c>next</c>: an assignment and a data
+    /// redefinition (both change the cached descriptor's value in place), an accessor redefinition, a delete
+    /// that uncovers a <c>next</c> further up, an own data or accessor <c>next</c> on the iterator, a prototype
+    /// swapped for a plain object, for another kind's prototype whose <c>next</c> was replaced or for a Proxy, and
+    /// the iterator itself behind a Proxy. Every expected value is Node 26's.
+    /// </summary>
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "assign", "spread", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "assign", "forAwait", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "defineData", "spread", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "defineData", "forAwait", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "defineAccessor", "spread", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "defineAccessor", "forAwait", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "delete", "spread", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "delete", "forAwait", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "ownAssign", "spread", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "ownAssign", "forAwait", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "ownAccessor", "spread", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "ownAccessor", "forAwait", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "protoPlain", "spread", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "protoPlain", "forAwait", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "protoOtherKind", "spread", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "protoOtherKind", "forAwait", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "protoProxy", "spread", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "protoProxy", "forAwait", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "proxy", "spread", "R1,R2 3")]
+    [TestCase("new Set([1, 2]).values()", "new Map([[1, 'a']]).entries()", "proxy", "forAwait", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "assign", "spread", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "assign", "forAwait", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "defineData", "spread", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "defineData", "forAwait", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "defineAccessor", "spread", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "defineAccessor", "forAwait", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "delete", "spread", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "delete", "forAwait", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "ownAssign", "spread", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "ownAssign", "forAwait", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "ownAccessor", "spread", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "ownAccessor", "forAwait", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "protoPlain", "spread", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "protoPlain", "forAwait", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "protoOtherKind", "spread", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "protoOtherKind", "forAwait", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "protoProxy", "spread", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "protoProxy", "forAwait", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "proxy", "spread", "R1,R2 3")]
+    [TestCase("new Map([[1, 'a']]).entries()", "new Set([1, 2]).values()", "proxy", "forAwait", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "assign", "spread", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "assign", "forAwait", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "defineData", "spread", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "defineData", "forAwait", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "defineAccessor", "spread", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "defineAccessor", "forAwait", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "delete", "spread", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "delete", "forAwait", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "ownAssign", "spread", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "ownAssign", "forAwait", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "ownAccessor", "spread", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "ownAccessor", "forAwait", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "protoPlain", "spread", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "protoPlain", "forAwait", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "protoOtherKind", "spread", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "protoOtherKind", "forAwait", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "protoProxy", "spread", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "protoProxy", "forAwait", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "proxy", "spread", "R1,R2 3")]
+    [TestCase("'ab'[Symbol.iterator]()", "new Set([1, 2]).values()", "proxy", "forAwait", "R1,R2 3")]
+    public void EveryRouteToAReplacedNextIsSeenAfterTheCheckIsWarm(string iterator, string otherKind, string route, string consumer, string expected)
+    {
+        Run(new Engine(), InvalidationHarness + "\n" + $"invalidated(function () {{ return {iterator}; }}, function () {{ return {otherKind}; }}, '{route}', '{consumer}')")
+            .Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The cheap check is a cache, so it has to come back as well as go away: once the built-in <c>next</c> is
+    /// back in place - assigned, redefined, or deleted and defined again - a fresh iterator steps natively again,
+    /// and an accessor that answers the built-in function is a replacement the cheap check does not see through
+    /// (the read through the <c>ObjectIterator</c> still finds the built-in function, so only the lane differs).
+    /// </summary>
+    [Test]
+    public void TheNativeLaneComesBackOnceTheBuiltInNextIsBack()
+    {
+        var engine = new Engine();
+        engine.Execute("""
+            var P = Object.getPrototypeOf(new Set().values());
+            var original = P.next;
+            var originalDescriptor = Object.getOwnPropertyDescriptor(P, 'next');
+            function fresh() { return new Set([1, 2]).values(); }
+            """);
+
+        bool Native() => ((IteratorInstance) engine.Evaluate("fresh()")).HasNativeNext;
+
+        Native().Should().BeTrue();
+        engine.Execute("P.next = function () { return { done: true }; };");
+        Native().Should().BeFalse();
+        engine.Execute("P.next = original;");
+        Native().Should().BeTrue();
+        engine.Execute("Object.defineProperty(P, 'next', { get() { return original; } });");
+        Native().Should().BeFalse();
+        engine.Evaluate("[...fresh()].join()").AsString().Should().Be("1,2");
+        engine.Execute("Object.defineProperty(P, 'next', originalDescriptor);");
+        Native().Should().BeTrue();
+        engine.Execute("delete P.next;");
+        Native().Should().BeFalse();
+        engine.Execute("Object.defineProperty(P, 'next', originalDescriptor);");
+        Native().Should().BeTrue();
+        engine.Evaluate("[...fresh()].join()").AsString().Should().Be("1,2");
     }
 
     /// <summary>
