@@ -7027,10 +7027,9 @@ mode, and a closure created before the class could see a different binding from 
 bound once it is defined. Each part runs once, in async functions, generators and async generators.
 
 A decorator's expression runs in that frame too, before anything of the class exists. In 4.16, an `await` in one made
-an async function run again from its first statement, as above. Now the class stops at the decorator and starts over
-once its value is in, so the class is defined once and each decorator is applied once. The decorators before the one
-that suspended, and the part of it before its `await` or `yield`, are evaluated again on the resume. A module whose only
-`await` is in a decorator is still evaluated synchronously, since ECMA-262 does not define decorators.
+an async function run again from its first statement, as above. Now the class stops at the decorator and continues
+there once its value is in, so the class is defined once and each decorator is evaluated and applied once. §4.187 says
+what that took, and when a module whose only `await` is in a decorator is asynchronous.
 
 A module has top-level await when its body has an `await` outside every function. An `await` in a class's `extends`
 clause or in one of its computed keys counts, but one in a method, a field initializer or a static block does not. In
@@ -7126,6 +7125,48 @@ under `for await` too: its close goes through `%AsyncFromSyncIteratorPrototype%.
 promise, so even a loop over an array is one microtask later. A rejected promise is now handled, so
 `engine.Tasks.PromiseRejectionTracker` no longer reports it. Nothing changes when there is no `return()`, when reading
 or calling it throws, or for a sync generator's `for`-`of`. There is no switch back.
+
+### 4.187 A suspended decorator resumes at itself, and an `await` in a class's own decorator is top-level ([#4399](https://github.com/sebastienros/jint/issues/4399))
+
+A class's decorators run in the frame around the class, before anything of the class exists. Since §4.184, an `await`
+or a `yield` in one stops the class until its value is in. Earlier 5.0 builds then evaluated the decorators again from
+the first one. The decorators before the one that suspended ran twice, and so did the part of it before its `await`:
+
+```js
+const log = [];
+async function f() {
+  @(log.push("a"), (c) => c) @(log.push("b"), await ((c) => c)) class C {}
+  log.push("end");
+}
+f();
+// once the job queue has drained:
+// earlier 5.0: ["a", "b", "a", "b", "end"]    5.x: ["a", "b", "end"]
+```
+
+A `yield*` in an earlier decorator started its delegation over. A generator that evaluated such a class in a loop also
+kept a little more memory on every iteration until it finished. Now the class continues at the decorator that
+suspended, and each decorator expression is evaluated once, in async functions, generators and async generators.
+
+A module has top-level await when its body has an `await` outside every function (§4.182). The decorators proposal puts
+a class's own decorators outside the class body, where that search finds an `await` as it finds one in the `extends`
+clause. In 4.16 and earlier 5.0, such a module was evaluated synchronously:
+
+```js
+// module "m"
+globalThis.log = [];
+Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
+export default @(await ((c) => c)) class {}
+log.push("m");
+
+// module "main"
+import "m";
+log.push("main");
+// 4.16.x / earlier 5.0: ["m", "main", "t1", "t2"]    5.x: ["t1", "m", "t2", "main"]
+```
+
+Now it is evaluated asynchronously, with the consequences §4.182 describes. An `await` in the decorator of a method, a
+field or an accessor still does not make a module asynchronous, because the proposal leaves those decorators out of the
+search. There is no switch back.
 
 ## 5. New in v5
 

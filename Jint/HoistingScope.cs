@@ -663,12 +663,14 @@ internal sealed class HoistingScope
             }
 
             // A class's heritage and computed keys are evaluated in the enclosing frame, so an await in either is the
-            // module's (sebastienros/jint#4395). Everything else in its body is a function of its own. Decorators are
-            // left out: ECMA-262's Contains does not know them, so a module whose only await is in a decorator keeps
-            // being evaluated synchronously. ClassDefinition shares the walk and does count them.
+            // module's (sebastienros/jint#4395), and so is one in the class's own decorators, which the decorators
+            // proposal puts outside the ClassTail, where Contains reaches them (sebastienros/jint#4399). Everything else
+            // in its body is a function of its own. An element's decorators are left out: the proposal's
+            // ComputedPropertyContains skips them, so a module whose only await is in one stays synchronous.
+            // ClassDefinition shares the walk and does count them.
             if (node.Type is NodeType.ClassDeclaration or NodeType.ClassExpression)
             {
-                ((IClass) node).AnyPartEvaluatedInEnclosingFrame(decorators: false, _visitClassPart);
+                ((IClass) node).AnyPartEvaluatedInEnclosingFrame(elementDecorators: false, _visitClassPart);
                 return;
             }
 

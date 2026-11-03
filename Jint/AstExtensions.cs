@@ -160,15 +160,21 @@ internal static class AstExtensions
     }
 
     /// <summary>
-    /// Whether <paramref name="test"/> holds for a part of the class evaluated in the frame around it: the heritage and
-    /// each computed key, which are what Contains searches in a ClassTail
-    /// (https://tc39.es/ecma262/#sec-static-semantics-contains), and with <paramref name="decorators"/> also the
-    /// decorator expressions of the class and of its elements. Method bodies, field initializers and static blocks are
-    /// functions of their own and are never tested.
+    /// Whether <paramref name="test"/> holds for a part of the class evaluated in the frame around it: the class's own
+    /// decorators, the heritage and each computed key, and with <paramref name="elementDecorators"/> also the decorators
+    /// of its elements. Method bodies, field initializers and static blocks are functions of their own and are never
+    /// tested.
     /// </summary>
-    internal static bool AnyPartEvaluatedInEnclosingFrame(this IClass @class, bool decorators, Func<Node, bool> test)
+    /// <remarks>
+    /// Without <paramref name="elementDecorators"/> this is what Contains searches
+    /// (https://tc39.es/ecma262/#sec-static-semantics-contains). Its ClassTail rule looks into the heritage and, through
+    /// ComputedPropertyContains, into each computed key. The decorators proposal puts a class's decorator list beside
+    /// its ClassTail, where the default rule reaches it, and gives ComputedPropertyContains a rule for a decorated
+    /// element that skips the element's decorators (tc39/ecma262#2417).
+    /// </remarks>
+    internal static bool AnyPartEvaluatedInEnclosingFrame(this IClass @class, bool elementDecorators, Func<Node, bool> test)
     {
-        if (decorators && AnyDecorator(@class.Decorators, test))
+        if (AnyDecorator(@class.Decorators, test))
         {
             return true;
         }
@@ -182,9 +188,9 @@ internal static class AstExtensions
         for (var i = 0; i < elements.Count; i++)
         {
             var element = elements[i];
-            if (decorators)
+            if (elementDecorators)
             {
-                var elementDecorators = element switch
+                var decoratorList = element switch
                 {
                     MethodDefinition method => method.Decorators,
                     PropertyDefinition field => field.Decorators,
@@ -192,7 +198,7 @@ internal static class AstExtensions
                     _ => default,
                 };
 
-                if (AnyDecorator(in elementDecorators, test))
+                if (AnyDecorator(in decoratorList, test))
                 {
                     return true;
                 }
