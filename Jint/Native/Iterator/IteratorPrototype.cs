@@ -5,6 +5,7 @@ using Jint.Native.Symbol;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using FunctionInstance = Jint.Native.Function.Function;
 
 namespace Jint.Native.Iterator;
 
@@ -14,6 +15,20 @@ namespace Jint.Native.Iterator;
 [JsObject(UseShape = true)]
 internal partial class IteratorPrototype : Prototype
 {
+    // A built-in iterator prototype's own `next`, captured by its CreateProperties_Generated (CaptureField on
+    // its [JsFunction(Name = "next")]) before any script can replace it. Null on a prototype that captures
+    // nothing, for which StepsNatively answers false and the iteration goes through the `next` it reads.
+    private protected FunctionInstance? _originalNextFunction;
+
+    /// <summary>
+    /// Whether the read GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3 makes
+    /// — <c>next</c> off <paramref name="iterator"/> — still finds this prototype's built-in <c>next</c>. One read
+    /// covers both ways it can stop doing so: an own <c>next</c> on the instance shadowing the prototype's, and
+    /// the prototype's own <c>next</c> replaced. <see cref="IteratorInstance.HasNativeNext"/> asks it.
+    /// </summary>
+    internal bool StepsNatively(ObjectInstance iterator)
+        => ReferenceEquals(iterator.Get(CommonProperties.Next), _originalNextFunction);
+
     internal IteratorPrototype(
         Engine engine,
         Realm realm,

@@ -7169,7 +7169,7 @@ field or an accessor still does not make a module asynchronous, because the prop
 search; such an `await` is then settled on the spot, blocking until its promise settles, as before. There is no switch
 back.
 
-### 4.188 A `for await` loop over a built-in iterator awaits each value, as it does over an array ([#4392](https://github.com/sebastienros/jint/issues/4392))
+### 4.188 A `for await` loop over a built-in iterator awaits each value, and a replaced `next` is called on every built-in iterator ([#4392](https://github.com/sebastienros/jint/issues/4392))
 
 A `for await` loop over an object with no `Symbol.asyncIterator` wraps the object's sync iterator in an async one.
 That wrapper awaits each value before the body sees it, and the loop awaits the wrapper's `return()` when it ends
@@ -7189,10 +7189,27 @@ Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
 
 Now these iterators go through the wrapper too, as they do in other engines. Each step costs two microtasks and an
 early close one, as for the array itself. A rejected promise among the values is thrown from the loop. A `return`
-method the script gave the iterator object is called when the loop ends early, and its answer is awaited, so a
-rejection or a non-object answer replaces a `break`. A `Symbol.asyncIterator` or `Symbol.iterator` method the script
-gave it is called, where Jint used to ignore both. A sync `for`-`of` over the same objects is unchanged. There is no
-switch back.
+method the script gave the iterator object is called when the loop ends by `break`, `return` or a throw from the
+body, and its answer is awaited, so a rejection or a non-object answer replaces a `break`. It is still not called when
+the loop ends because an iterated promise rejected, where other engines call it. A `Symbol.asyncIterator` or
+`Symbol.iterator` method the script gave the object is called, where Jint used to ignore both.
+
+A `next` method the script replaced is now called too. Jint steps a built-in iterator natively only while reading its
+`next` would find the built-in one, but in 4.16 only the array and typed-array iterators checked. The Map, Set, string,
+`matchAll`, segments and web-API iterators, and the iterator of a wrapped CLR collection, were stepped natively whatever
+their `next` was, whether the script set one on the iterator or replaced the one on its prototype:
+
+```js
+var s = new Set([1, 2]);
+Object.getPrototypeOf(s.values()).next = function () { return { value: undefined, done: true }; };
+[...s]
+// 4.16.x / earlier 5.0: [1, 2]    5.x: []
+```
+
+This applies wherever an iterator is taken from such an object: spread, `Array.from`, destructuring, `new Map()` and
+`new Set()`, `Promise.all`, a `for`-`of` over the collection, and the `for await` above. A `for`-`of` whose operand is
+the iterator object itself still steps it natively, and so do spread and `for`-`of` over a string primitive. There is
+no switch back.
 
 ## 5. New in v5
 
