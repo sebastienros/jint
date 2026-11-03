@@ -7166,7 +7166,8 @@ log.push("main");
 
 Now it is evaluated asynchronously, with the consequences §4.182 describes. An `await` in the decorator of a method, a
 field or an accessor still does not make a module asynchronous, because the proposal leaves those decorators out of the
-search. There is no switch back.
+search; such an `await` is then settled on the spot, blocking until its promise settles, as before. There is no switch
+back.
 
 ## 5. New in v5
 

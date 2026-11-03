@@ -749,8 +749,9 @@ internal sealed class ClassDefinition
     /// The class's decorators, then each element's, in source order.
     /// </summary>
     /// <remarks>
-    /// That is the order Jint evaluates them in, all before the heritage. https://tc39.es/proposal-decorators/ evaluates
-    /// the class's first, but an element's only after the heritage, just before the element's key.
+    /// That is the order Jint evaluates them in, all before the heritage. The decorators spec text
+    /// (https://github.com/tc39/ecma262/pull/2417) evaluates the class's first, but an element's only after the
+    /// heritage, just before the element's key.
     /// </remarks>
     private DecoratorSite[] BuildDecoratorSites()
     {
