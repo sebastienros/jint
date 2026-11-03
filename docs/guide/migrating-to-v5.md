@@ -7350,7 +7350,10 @@ end. A C# iterator method's `finally` was not affected, since it runs when the m
 answers done without calling `MoveNext` on the disposed enumerator. A loop over a wrapped dictionary that ends early
 now disposes the enumerator over the dictionary's keys, which it never did: a `break`, a `return` or a throw from the
 body, or a destructuring that reads fewer entries than the dictionary has. So does `Array.fromAsync` whose mapping
-function throws, when a `Symbol.asyncIterator` method answered a CLR collection's iterator. There is no switch back.
+function throws, when a `Symbol.asyncIterator` method answered a CLR collection's iterator. A step that throws — the
+host's `MoveNext` or `Current`, or a dictionary's value read — now disposes the enumerator as well, and the iterator
+answers done from then on. A `Dispose` that throws while a destructuring or `Array.from` is already leaving by a throw
+no longer replaces that throw, as it already did not for a `for`-`of`. There is no switch back.
 
 ## 5. New in v5
 

@@ -203,6 +203,223 @@ public class ClrEnumeratorDisposalTests
         finished.Should().Be(1);
     }
 
+    private const string ThrowingStepHarness = """
+        // Consumers of `items` whose second step throws a host exception, which reaches the host.
+        const consume = {
+            forOf: function () { const out = []; for (const x of items) { out.push(x); } return out.join(','); },
+            spread: function () { return [...items].join(','); },
+            destructure: function () { const [a, b, c] = items; return [a, b, c].join(','); },
+            arrayFrom: function () { return Array.from(items).join(','); },
+            forAwait: async function () { const out = []; for await (const x of items) { out.push(x); } return out.join(','); }
+        };
+        """;
+
+    /// <summary>
+    /// A step that throws — the host's <c>MoveNext</c>, or its <c>Current</c> — is an abrupt completion of
+    /// <a href="https://tc39.es/ecma262/#sec-iteratorstepvalue">IteratorStepValue</a>, which marks the record done, so
+    /// no IteratorClose follows it. The iterator has to dispose the host's enumerator itself, as a C# <c>foreach</c>
+    /// does when <c>MoveNext</c> throws.
+    /// </summary>
+    [TestCase("forOf", "moveNext")]
+    [TestCase("forOf", "current")]
+    [TestCase("spread", "moveNext")]
+    [TestCase("spread", "current")]
+    [TestCase("destructure", "moveNext")]
+    [TestCase("destructure", "current")]
+    [TestCase("arrayFrom", "moveNext")]
+    [TestCase("forAwait", "moveNext")]
+    public void AStepThatThrowsDisposesTheEnumerator(string consumer, string fault)
+    {
+        var items = new FaultingEnumerable(fault);
+        var engine = new Engine();
+        engine.SetValue("items", items);
+
+        var thrown = Caught.Exception(() => engine.Evaluate(ThrowingStepHarness + "\n" + $"consume.{consumer}()").UnwrapIfPromise());
+
+        thrown.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("step failed");
+        items.Disposals.Should().Be(1);
+    }
+
+    /// <summary>
+    /// After a step threw, the iterator is done: the next <c>next()</c> answers done without stepping the host's
+    /// enumerator, which it has disposed, and a later close does not dispose it again.
+    /// </summary>
+    [TestCase("moveNext")]
+    [TestCase("current")]
+    public void ANextAfterAStepThatThrewAnswersDone(string fault)
+    {
+        var items = new FaultingEnumerable(fault);
+        var engine = new Engine();
+        engine.SetValue("items", items);
+        engine.Evaluate("globalThis.it = items[Symbol.iterator](); it.next().value").AsNumber().Should().Be(1);
+
+        Caught.Exception(() => engine.Evaluate("it.next()")).Should().BeOfType<InvalidOperationException>();
+
+        engine.Evaluate("const r = it.next(); r.done + ',' + r.value").AsString().Should().Be("true,undefined");
+        engine.Evaluate("const [x] = it; String(x)").AsString().Should().Be("undefined");
+        items.Disposals.Should().Be(1);
+        items.StepsAfterDisposal.Should().Be(0);
+    }
+
+    /// <summary>
+    /// The same for a wrapped dictionary whose value read throws, which is the iterator's own step and not the key
+    /// sequence's: the key sequence is still suspended inside its <c>foreach</c>, and the host's key enumerator with it.
+    /// </summary>
+    [TestCase("forOf")]
+    [TestCase("spread")]
+    [TestCase("destructure")]
+    [TestCase("arrayFrom")]
+    public void AStepWhoseValueReadThrowsDisposesTheDictionarysKeyEnumerator(string consumer)
+    {
+        var entries = new KeyTrackingSortedList { ["a"] = 1, ["b"] = 2, ["c"] = 3 };
+        entries.FailingValueKey = "b";
+        var engine = new Engine();
+        engine.SetValue("items", entries);
+
+        var thrown = Caught.Exception(() => engine.Evaluate(ThrowingStepHarness + "\n" + $"consume.{consumer}()").UnwrapIfPromise());
+
+        thrown.Should().NotBeNull();
+        thrown!.ToString().Should().Contain("value failed");
+        entries.KeyEnumeratorsFinished.Should().Be(1);
+    }
+
+    /// <summary>
+    /// After a dictionary's step threw, its iterator is done, and the entries after the failing one are not read.
+    /// </summary>
+    [Test]
+    public void ANextAfterADictionaryStepThatThrewAnswersDone()
+    {
+        var entries = new KeyTrackingSortedList { ["a"] = 1, ["b"] = 2, ["c"] = 3 };
+        entries.FailingValueKey = "b";
+        var engine = new Engine();
+        engine.SetValue("items", entries);
+        engine.Evaluate("globalThis.it = items[Symbol.iterator](); String(it.next().value)").AsString().Should().Be("a,1");
+
+        Caught.Exception(() => engine.Evaluate("it.next()")).Should().NotBeNull();
+
+        engine.Evaluate("const r = it.next(); r.done + ',' + r.value").AsString().Should().Be("true,undefined");
+        entries.KeyEnumeratorsFinished.Should().Be(1);
+    }
+
+    private const string DisposeThrowsHarness = """
+        // Loops over `items` that end early, each answering what the script caught.
+        const end = {
+            forOfThrow: function () { try { for (const x of items) { throw 'E'; } } catch (e) { return 'caught:' + e; } },
+            destructureThrow: function () {
+                const target = { set x(v) { throw 'E'; } };
+                try { [target.x] = items; } catch (e) { return 'caught:' + e; }
+            },
+            arrayFromMapperThrow: function () { try { Array.from(items, function () { throw 'E'; }); } catch (e) { return 'caught:' + e; } },
+            forAwaitThrow: async function () { try { for await (const x of items) { throw 'E'; } } catch (e) { return 'caught:' + e; } },
+            forOfBreak: function () { for (const x of items) { break; } return 'no throw'; }
+        };
+        """;
+
+    /// <summary>
+    /// <a href="https://tc39.es/ecma262/#sec-iteratorclose">IteratorClose</a> step 5: when the completion closing the
+    /// iterator is a throw, it wins over whatever the close itself throws, so a host <c>Dispose</c> that throws does not
+    /// replace the loop's own throw. Three rows are controls: a <c>for…of</c> and a <c>for await</c> left by a throw
+    /// already discarded whatever their close threw, and a <c>break</c> closes with a normal completion, where the host's
+    /// exception is the loop's result (step 6), as it is for a C# <c>foreach</c> left by a <c>break</c>.
+    /// </summary>
+    [TestCase("forOfThrow", "caught:E")]
+    [TestCase("destructureThrow", "caught:E")]
+    [TestCase("arrayFromMapperThrow", "caught:E")]
+    [TestCase("forAwaitThrow", "caught:E")]
+    [TestCase("forOfBreak", "dispose failed")]
+    public void AHostDisposeThatThrowsDoesNotReplaceTheLoopsThrow(string way, string expected)
+    {
+        var items = new FaultingEnumerable("dispose");
+        var engine = new Engine();
+        engine.SetValue("items", items);
+
+        AnswerOrHostFailure(engine, DisposeThrowsHarness + "\n" + $"end.{way}()").Should().Be(expected);
+        items.Disposals.Should().Be(1);
+    }
+
+    /// <summary>The same for a wrapped dictionary whose host key enumerator throws as it is disposed.</summary>
+    [TestCase("forOfThrow", "caught:E")]
+    [TestCase("destructureThrow", "caught:E")]
+    [TestCase("arrayFromMapperThrow", "caught:E")]
+    [TestCase("forAwaitThrow", "caught:E")]
+    [TestCase("forOfBreak", "dispose failed")]
+    public void AHostKeyEnumeratorDisposeThatThrowsDoesNotReplaceTheLoopsThrow(string way, string expected)
+    {
+        var entries = new KeyTrackingSortedList { ["a"] = 1, ["b"] = 2 };
+        entries.KeyDisposeThrows = true;
+        var engine = new Engine();
+        engine.SetValue("items", entries);
+
+        AnswerOrHostFailure(engine, DisposeThrowsHarness + "\n" + $"end.{way}()").Should().Be(expected);
+        entries.KeyEnumeratorsFinished.Should().Be(1);
+    }
+
+    // What the script answered, or the message of the host exception that left Evaluate instead.
+    private static string AnswerOrHostFailure(Engine engine, string script)
+    {
+        string? answer = null;
+        var thrown = Caught.Exception(() => answer = engine.Evaluate(script).UnwrapIfPromise().AsString());
+        if (thrown is null)
+        {
+            return answer!;
+        }
+
+        return thrown is InvalidOperationException ? thrown.Message : thrown.ToString();
+    }
+
+    /// <summary>
+    /// A host collection of 1, 2 and 3 whose enumerator fails at one point: its second <c>MoveNext</c>
+    /// (<c>moveNext</c>), its second <c>Current</c> (<c>current</c>) or its <c>Dispose</c> (<c>dispose</c>). It counts
+    /// its <c>Dispose</c> calls and the steps taken after one.
+    /// </summary>
+    private sealed class FaultingEnumerable(string fault) : IEnumerable<int>
+    {
+        public int Disposals;
+        public int StepsAfterDisposal;
+
+        public IEnumerator<int> GetEnumerator() => new Enumerator(this, fault);
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        private sealed class Enumerator(FaultingEnumerable owner, string fault) : IEnumerator<int>
+        {
+            private int _current;
+            private bool _disposed;
+
+            public int Current => fault == "current" && _current == 2 ? throw new InvalidOperationException("step failed") : _current;
+
+            object IEnumerator.Current => Current;
+
+            public bool MoveNext()
+            {
+                if (_disposed)
+                {
+                    owner.StepsAfterDisposal++;
+                }
+
+                if (_current >= 3)
+                {
+                    return false;
+                }
+
+                _current++;
+                return fault == "moveNext" && _current == 2 ? throw new InvalidOperationException("step failed") : true;
+            }
+
+            public void Reset() => _current = 0;
+
+            public void Dispose()
+            {
+                _disposed = true;
+                owner.Disposals++;
+                if (fault == "dispose")
+                {
+                    throw new InvalidOperationException("dispose failed");
+                }
+            }
+        }
+    }
+
     /// <summary>A host collection of 1, 2 and 3 whose enumerators count their <see cref="IDisposable.Dispose"/> calls.</summary>
     private sealed class CountingEnumerable : IEnumerable<int>
     {
@@ -248,12 +465,23 @@ public class ClrEnumeratorDisposalTests
         }
     }
 
-    /// <summary>A <see cref="SortedList"/> whose key enumerators are a <c>yield</c> method counting the times its <c>finally</c> ran.</summary>
+    /// <summary>
+    /// A <see cref="SortedList"/> whose key enumerators are a <c>yield</c> method counting the times its <c>finally</c>
+    /// ran. It can fail reading <see cref="FailingValueKey"/>'s value, and throw from that <c>finally</c>.
+    /// </summary>
     private sealed class KeyTrackingSortedList : SortedList
     {
         public int KeyEnumeratorsFinished;
+        public string? FailingValueKey;
+        public bool KeyDisposeThrows;
 
         public override ICollection Keys => new TrackedKeys(this, base.Keys);
+
+        public override object? this[object key]
+        {
+            get => FailingValueKey is not null && FailingValueKey.Equals(key) ? throw new InvalidOperationException("value failed") : base[key];
+            set => base[key] = value;
+        }
 
         private sealed class TrackedKeys(KeyTrackingSortedList owner, ICollection keys) : ICollection
         {
@@ -277,6 +505,10 @@ public class ClrEnumeratorDisposalTests
                 finally
                 {
                     owner.KeyEnumeratorsFinished++;
+                    if (owner.KeyDisposeThrows)
+                    {
+                        throw new InvalidOperationException("dispose failed");
+                    }
                 }
             }
         }

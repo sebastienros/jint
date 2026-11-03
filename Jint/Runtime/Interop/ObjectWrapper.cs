@@ -1632,32 +1632,38 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         /// </summary>
         public override void Close(CompletionType completion)
         {
-            _enumerator.Dispose();
+            try
+            {
+                _enumerator.Dispose();
+            }
+            catch (Exception e) when (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e))
+            {
+                // IteratorClose step 5: the throw that is closing the iterator wins over the host's.
+            }
+
             base.Close(completion);
         }
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
-            var hasNext = _enumerator.MoveNext();
             try
             {
+                var hasNext = _enumerator.MoveNext();
                 _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (hasNext)
+                {
+                    var key = _enumerator.Current;
+                    nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine, key, _target.Get(key));
+                    return true;
+                }
             }
             catch
             {
-                // for-of only starts closing the iterator record after the first successful
-                // step, so dispose the user's enumerator here or it would leak
-                _enumerator.Dispose();
+                // A step that throws completes IteratorStepValue abruptly, which marks the record done, so no
+                // IteratorClose follows: dispose the key sequence here, as a foreach would (sebastienros/jint#4410).
+                // A failed key read has disposed it already; a failed value read leaves it suspended in its foreach.
+                Close(CompletionType.Throw);
                 throw;
-            }
-
-            if (hasNext)
-            {
-                var key = _enumerator.Current;
-                var value = _target.Get(key);
-
-                nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine, key, value);
-                return true;
             }
 
             nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
@@ -1678,30 +1684,38 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         public override void Close(CompletionType completion)
         {
-            Release();
+            try
+            {
+                Release();
+            }
+            catch (Exception e) when (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e))
+            {
+                // IteratorClose step 5 (https://tc39.es/ecma262/#sec-iteratorclose): the throw that is closing the
+                // iterator wins over one from the host's Dispose.
+            }
+
             base.Close(completion);
         }
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
-            var hasNext = _enumerator.MoveNext();
             try
             {
+                var hasNext = _enumerator.MoveNext();
                 _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (hasNext)
+                {
+                    nextItem = IteratorResult.CreateValueIteratorPosition(_engine, FromObject(_engine, _enumerator.Current));
+                    return true;
+                }
             }
             catch
             {
-                // for-of only starts closing the iterator record after the first successful
-                // step, so dispose the user's enumerator here or it would leak
+                // A step that throws - the host's MoveNext or Current, the conversion, a constraint - completes
+                // IteratorStepValue abruptly, which marks the record done, so no IteratorClose follows: dispose the
+                // host's enumerator here, as a foreach does when MoveNext throws (sebastienros/jint#4410).
                 Close(CompletionType.Throw);
                 throw;
-            }
-
-            if (hasNext)
-            {
-                var value = _enumerator.Current;
-                nextItem = IteratorResult.CreateValueIteratorPosition(_engine, FromObject(_engine, value));
-                return true;
             }
 
             // Done. IteratorClose runs only for an abrupt completion (https://tc39.es/ecma262/#sec-iteratorclose), so
