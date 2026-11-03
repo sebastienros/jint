@@ -7040,6 +7040,35 @@ it.return(5);
 
 There is no switch back.
 
+### 4.186 A `for await` loop left by an async generator's `return()` awaits its iterator's `return()` ([#4391](https://github.com/sebastienros/jint/issues/4391))
+
+When an async generator's `return(value)` resumes it at a `yield` inside a `for await` loop, the loop ends with that
+return. It calls its iterator's `return()` and awaits what that answers, as §4.181 describes for a throw. In 4.16 and
+earlier 5.0 builds, this loop skipped the await, with or without braces around its body. The generator finished and
+`return(value)` settled a microtask early, or two early when `return()` answered a thenable. A rejected promise from
+`return()` was dropped. So was a promise of a non-object, which is a `TypeError`. Either way, the request resolved
+with `{ value, done: true }`:
+
+```js
+var log = [];
+var src = { [Symbol.asyncIterator]() { return {
+  next() { return Promise.resolve({ value: 1, done: false }); },
+  return() { log.push("return"); return Promise.reject("R"); } }; } };
+async function* g() { for await (var x of src) { yield x; } }
+var it = g();
+it.next().then(() => it.return(5)).then(r => log.push("resolved " + r.value), e => log.push("rejected " + e));
+// 4.16.x / earlier 5.0: ["return", "resolved 5"]    5.x: ["return", "rejected R"]
+```
+
+Now the return waits for that await, as a `return` statement in the loop's body always did. A rejection, a throw
+from `return()` or a non-object it settles with replaces the return, so a `catch` around the loop sees it, and
+otherwise rejects the request. An enclosing `finally` runs after the await. This applies to every loop head, including
+`using` and `await using`, where the iteration's resource is disposed before the close. It applies to a sync iterable
+under `for await` too: its close goes through `%AsyncFromSyncIteratorPrototype%.return`, which always answers a
+promise, so even a loop over an array is one microtask later. A rejected promise is now handled, so
+`engine.Tasks.PromiseRejectionTracker` no longer reports it. Nothing changes when there is no `return()`, when reading
+or calling it throws, or for a sync generator's `for`-`of`. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
