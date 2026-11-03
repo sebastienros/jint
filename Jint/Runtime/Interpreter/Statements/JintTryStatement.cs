@@ -157,11 +157,31 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
         {
             var catchPattern = (DestructuringPattern) _statement.Handler.Param;
             DestructuringPatternAssignmentExpression.TryGetResumedArgument(context, catchPattern, out var thrownValue);
-            DestructuringPatternAssignmentExpression.ProcessResumablePattern(
-                context,
-                catchPattern,
-                thrownValue ?? JsValue.Undefined,
-                engine.ExecutionContext.LexicalEnvironment);
+
+            Completion? bindingCompletion = null;
+            try
+            {
+                DestructuringPatternAssignmentExpression.ProcessResumablePattern(
+                    context,
+                    catchPattern,
+                    thrownValue ?? JsValue.Undefined,
+                    engine.ExecutionContext.LexicalEnvironment);
+            }
+            catch (Exception ex) when (ex is JintException && JintStatementList.ShouldCatch(ex) && !context.IsSuspended())
+            {
+                // The binding threw after the frame resumed (or a return() arrived at a yield in it): that is the
+                // catch clause's completion, and the finally block runs with it, outside this CLR handler.
+                bindingCompletion = JintStatementList.HandleException(context, ex, this);
+            }
+
+            if (bindingCompletion is { } abrupt)
+            {
+                RestoreOuterEnvironmentAfterCatchResume(engine, suspendData);
+
+                // Cleared before the finalizer, so a finally block that suspends keeps the completion it parks.
+                suspendable?.Data.Clear(this);
+                return ExecuteFinalizer(context, abrupt, engine, suspendable);
+            }
 
             if (context.IsSuspended())
             {
@@ -286,24 +306,34 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
                 engine.UpdateLexicalEnvironment(catchEnv);
 
                 var catchParam = _statement.Handler?.Param;
-                if (_catchParameterMaySuspend)
+                try
                 {
-                    DestructuringPatternAssignmentExpression.ProcessResumablePattern(context, (DestructuringPattern) catchParam!, thrownValue, catchEnv);
-
-                    // Suspended inside the parameter: the block must not run yet. The resume comes back through
-                    // ExecuteCatchResume, which finds the catch environment here and finishes the binding first.
-                    if (context.IsSuspended())
+                    if (_catchParameterMaySuspend)
                     {
-                        var parameterSuspendData = suspendable!.Data.GetOrCreate<TrySuspendData>(this);
-                        parameterSuspendData.CatchEnvironment = catchEnv;
-                        parameterSuspendData.OuterEnvironment = oldEnv;
-                        engine.UpdateLexicalEnvironment(oldEnv);
-                        return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
+                        DestructuringPatternAssignmentExpression.ProcessResumablePattern(context, (DestructuringPattern) catchParam!, thrownValue, catchEnv);
+
+                        // Suspended inside the parameter: the block must not run yet. The resume comes back through
+                        // ExecuteCatchResume, which finds the catch environment here and finishes the binding first.
+                        if (context.IsSuspended())
+                        {
+                            var parameterSuspendData = suspendable!.Data.GetOrCreate<TrySuspendData>(this);
+                            parameterSuspendData.CatchEnvironment = catchEnv;
+                            parameterSuspendData.OuterEnvironment = oldEnv;
+                            engine.UpdateLexicalEnvironment(oldEnv);
+                            return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
+                        }
+                    }
+                    else
+                    {
+                        catchParam.BindingInitialization(context, thrownValue, catchEnv);
                     }
                 }
-                else
+                catch (Exception ex) when (ex is JintException && JintStatementList.ShouldCatch(ex) && !context.IsSuspended())
                 {
-                    catchParam.BindingInitialization(context, thrownValue, catchEnv);
+                    // A throwing binding is the catch clause's abrupt completion (step 6 of CatchClauseEvaluation):
+                    // leave the catch environment and hand the throw back, so the finally block still runs first.
+                    engine.UpdateLexicalEnvironment(oldEnv);
+                    return JintStatementList.HandleException(context, ex, this);
                 }
             }
 
