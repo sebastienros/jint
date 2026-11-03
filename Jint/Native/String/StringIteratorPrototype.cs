@@ -38,4 +38,22 @@ internal sealed partial class StringIteratorPrototype : IteratorPrototype
 
         return instance;
     }
+
+    /// <summary>
+    /// The iterator record GetIterator builds for a string primitive whose <c>@@iterator</c> is
+    /// <c>String.prototype</c>'s own (https://tc39.es/ecma262/#sec-string.prototype-%symbol.iterator%): the method
+    /// answers a fresh CreateStringIterator object (https://tc39.es/ecma262/#sec-createstringiterator), and
+    /// GetIteratorFromMethod step 3 reads <c>next</c> off it. The fresh object has no own property, so that read
+    /// finds this prototype's: while it is the built-in <c>next</c> the record is a native string iterator nothing
+    /// can see; otherwise it is the specified object, wrapped so that its one read and every step go through the
+    /// replacement (sebastienros/jint#4405).
+    /// </summary>
+    internal IteratorInstance ToIteratorRecord(string str)
+    {
+        // Every write to an own property initializes the prototype first, so an uninitialized one still holds the
+        // built-in `next` - and the native lane does not have to initialize it to find that out.
+        return !_initialized || HasOriginalNext()
+            ? new IteratorInstance.StringIterator(_engine, str)
+            : IteratorInstance.WrapReadingNext(Construct(str));
+    }
 }

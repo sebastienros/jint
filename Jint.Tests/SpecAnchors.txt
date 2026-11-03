@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1302
+anchors: 1306
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -42,6 +42,7 @@ ecma262 sec-%mapiteratorprototype%-object
 ecma262 sec-%regexpstringiteratorprototype%-object
 ecma262 sec-%setiteratorprototype%-object
 ecma262 sec-%stringiteratorprototype%-object
+ecma262 sec-%stringiteratorprototype%.next
 ecma262 sec-%typedarray%-intrinsic-object
 ecma262 sec-%typedarray%.from
 ecma262 sec-%typedarray%.of
@@ -218,6 +219,7 @@ ecma262 sec-createrealm
 ecma262 sec-createresolvingfunctions
 ecma262 sec-createsetiterator
 ecma262 sec-createsharedbytedatablock
+ecma262 sec-createstringiterator
 ecma262 sec-cyclic-module-records
 ecma262 sec-dataview-constructor
 ecma262 sec-date
@@ -408,6 +410,7 @@ ecma262 sec-iterabletolist
 ecma262 sec-iterator-helper-objects
 ecma262 sec-iterator-records
 ecma262 sec-iterator.from
+ecma262 sec-iterator.prototype-%symbol.iterator%
 ecma262 sec-iterator.prototype.drop
 ecma262 sec-iterator.prototype.every
 ecma262 sec-iterator.prototype.filter
@@ -739,6 +742,7 @@ ecma262 sec-string-constructor
 ecma262 sec-string-constructor-string-value
 ecma262 sec-string.fromcharcode
 ecma262 sec-string.fromcodepoint
+ecma262 sec-string.prototype-%symbol.iterator%
 ecma262 sec-string.prototype.at
 ecma262 sec-string.prototype.codepointat
 ecma262 sec-string.prototype.endswith
