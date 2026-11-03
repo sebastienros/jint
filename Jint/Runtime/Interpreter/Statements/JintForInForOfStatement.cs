@@ -1086,7 +1086,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// <summary>
     /// The way out of the loop for a generator's return() resumption that a <c>yield</c> in its body or binding pattern
     /// handed back in-band, as <see cref="ISuspendable.ReturnRequested"/>: the return completion is the loop's abrupt
-    /// status, and the iterator is closed with it before it goes on (ForIn/OfBodyEvaluation steps 8.i and 8.l,
+    /// status, and the iterator is closed with it before it goes on (ForIn/OfBodyEvaluation steps 8.i and 8.m,
     /// https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset).
     /// For a <c>for await</c> loop that close is
     /// <see href="https://tc39.es/ecma262/#sec-asynciteratorclose">AsyncIteratorClose</see>, so the return completion
