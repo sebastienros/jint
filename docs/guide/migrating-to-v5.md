@@ -7211,6 +7211,31 @@ This applies wherever an iterator is taken from such an object: spread, `Array.f
 the iterator object itself still steps it natively, and so do spread and `for`-`of` over a string primitive, and
 destructuring a CLR list (`const [a] = list`), which reads it by index. There is no switch back.
 
+### 4.189 A replaced `next` is read once, and a `for await` loop left early disposes a CLR enumerator ([#4408](https://github.com/sebastienros/jint/issues/4408))
+
+Taking an iterator from an object reads the iterator's `next` method once, and every step then calls what was read. In
+4.16 and earlier 5.0 builds, Jint read `next` a second time when the first read found a replacement. That happened for
+the array and typed-array iterators and, once §4.188 made the other built-in iterators check their `next`, for any of
+them that had a property of its own. A getter or a `Proxy` trap on `next` ran twice:
+
+```js
+var reads = 0;
+var it = [1, 2].values();
+var next = it.next.bind(it);
+Object.defineProperty(it, "next", { get() { reads++; return next; } });
+[...it];
+reads
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+Now `next` is read once wherever §4.188 says a replacement is called.
+
+A `for await` loop over a wrapped CLR collection now disposes the collection's `IEnumerator` when it ends early, by
+`break`, `return` or a throw from the body, as a `for`-`of` loop does. In 4.16 and earlier 5.0 the `for await` loop left
+it undisposed, so a `finally` block in a C# iterator method never ran. The same now holds for an async generator's
+`return()` while it is suspended in such a loop, for `yield*` over the collection in an async generator, and for
+`Array.fromAsync` when its mapping function throws. There is no switch back.
+
 ### 4.190 A decorator is evaluated where the decorators spec text puts it, and called with its receiver ([#4403](https://github.com/sebastienros/jint/issues/4403))
 
 Jint now follows the decorators spec text ([tc39/ecma262#2417](https://github.com/tc39/ecma262/pull/2417)) in four

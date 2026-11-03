@@ -284,6 +284,126 @@ public class ForAwaitBuiltInIteratorTests
             """).Should().Be("iterator t1 t2 x9 t3 t4 after t5 t6 t7 t8");
     }
 
+    private const string DisposalHarness = """
+        // The ways a loop over `items` can be left early, each answering what it saw. A sync for-of is the control:
+        // its IteratorClose reaches the CLR iterator's own close, which disposes the host enumerator.
+        const leave = {
+            forOfBreak: async function () { const log = []; for (const x of items) { log.push(x); break; } return log.join(','); },
+            forOfThrow: async function () { const log = []; try { for (const x of items) { log.push(x); throw 'E'; } } catch (e) { log.push('caught:' + e); } return log.join(','); },
+            forAwaitBreak: async function () { const log = []; for await (const x of items) { log.push(x); break; } return log.join(','); },
+            forAwaitThrow: async function () { const log = []; try { for await (const x of items) { log.push(x); throw 'E'; } } catch (e) { log.push('caught:' + e); } return log.join(','); },
+            forAwaitReturn: async function () { const log = []; await (async function () { for await (const x of items) { log.push(x); return; } })(); return log.join(','); },
+            // An async generator's return() at the yield in its loop closes the loop through AsyncIteratorClose.
+            asyncGeneratorReturn: async function () {
+                async function* g() { for await (const x of items) { yield x; } }
+                const it = g();
+                const first = await it.next();
+                const last = await it.return('R');
+                return first.value + ',' + last.value + ':' + last.done;
+            },
+            // yield* in an async generator delegates to the wrapper, and return() forwards to the wrapper's return().
+            yieldStarReturn: async function () {
+                async function* g() { yield* items; }
+                const it = g();
+                const first = await it.next();
+                const last = await it.return('R');
+                return first.value + ',' + last.value + ':' + last.done;
+            },
+            // Array.fromAsync closes the iterator it is reading when the mapper throws.
+            fromAsyncMapperThrows: async function () {
+                try { await Array.fromAsync(items, function () { throw 'M'; }); return 'no throw'; } catch (e) { return 'caught:' + e; }
+            },
+            // %ArrayIteratorPrototype%.next replaced: the wrapper's sync iterator record is an ObjectIterator over the
+            // CLR iterator, as it is for a sync for-of in ReplacedIteratorNextTests.
+            forAwaitBreakReplacedNext: async function () {
+                const proto = Object.getPrototypeOf([].values());
+                const original = proto.next;
+                proto.next = function () { return original.call(this); };
+                try { const log = []; for await (const x of items) { log.push(x); break; } return log.join(','); }
+                finally { proto.next = original; }
+            },
+            // An @@asyncIterator answering the CLR iterator itself, which the loop then steps as its record, and whose
+            // close finds no return() to call - with the iterator's next untouched, and replaced.
+            asyncIteratorIsTheClrIterator: async function () {
+                const source = { [Symbol.asyncIterator]() { return items[Symbol.iterator](); } };
+                const log = [];
+                for await (const x of source) { log.push(x); break; }
+                return log.join(',');
+            },
+            asyncIteratorIsTheClrIteratorReplacedNext: async function () {
+                const proto = Object.getPrototypeOf([].values());
+                const original = proto.next;
+                proto.next = function () { return original.call(this); };
+                try { return await leave.asyncIteratorIsTheClrIterator(); }
+                finally { proto.next = original; }
+            }
+        };
+        """;
+
+    /// <summary>
+    /// <a href="https://tc39.es/ecma262/#sec-%asyncfromsynciteratorprototype%.return">%AsyncFromSyncIteratorPrototype%.return</a>
+    /// finds no <c>return</c> on a CLR collection's iterator and resolves a done result, which is all the script sees.
+    /// But that iterator holds a host enumerator that only its native close disposes, and the sync <c>for…of</c>'s
+    /// IteratorClose reaches it; the wrapper's <c>return()</c> did not, so a <c>for await</c> left early never
+    /// disposed it (sebastienros/jint#4408), and neither did the close of a loop whose <c>@@asyncIterator</c> answered
+    /// the CLR iterator itself. Node has no counterpart: the expected values are the sync loop's, checked in Node 26
+    /// with an array in place of the CLR collection.
+    /// </summary>
+    [TestCase("forOfBreak", "1")]
+    [TestCase("forOfThrow", "1,caught:E")]
+    [TestCase("forAwaitBreak", "1")]
+    [TestCase("forAwaitThrow", "1,caught:E")]
+    [TestCase("forAwaitReturn", "1")]
+    [TestCase("asyncGeneratorReturn", "1,R:true")]
+    [TestCase("yieldStarReturn", "1,R:true")]
+    [TestCase("fromAsyncMapperThrows", "caught:M")]
+    [TestCase("forAwaitBreakReplacedNext", "1")]
+    [TestCase("asyncIteratorIsTheClrIterator", "1")]
+    [TestCase("asyncIteratorIsTheClrIteratorReplacedNext", "1")]
+    public void LeavingALoopOverAClrEnumerableEarlyDisposesItsEnumerator(string way, string expected)
+    {
+        var items = new CountingEnumerable();
+        var engine = new Engine();
+        engine.SetValue("items", items);
+
+        engine.Evaluate(DisposalHarness + "\n" + $"leave.{way}()").UnwrapIfPromise().AsString().Should().Be(expected);
+        items.Disposals.Should().Be(1);
+    }
+
+    /// <summary>A host collection of 1, 2 and 3 whose enumerators count their <see cref="IDisposable.Dispose"/> calls.</summary>
+    private sealed class CountingEnumerable : IEnumerable<int>
+    {
+        public int Disposals;
+
+        public IEnumerator<int> GetEnumerator() => new Enumerator(this);
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+        private sealed class Enumerator(CountingEnumerable owner) : IEnumerator<int>
+        {
+            private int _current;
+
+            public int Current => _current;
+
+            object System.Collections.IEnumerator.Current => _current;
+
+            public bool MoveNext()
+            {
+                if (_current >= 3)
+                {
+                    return false;
+                }
+
+                _current++;
+                return true;
+            }
+
+            public void Reset() => _current = 0;
+
+            public void Dispose() => owner.Disposals++;
+        }
+    }
+
     /// <summary>
     /// A sync <c>for…of</c> over the same objects awaits nothing: it hands a promise to its body as it is,
     /// and runs to completion before the first microtask.

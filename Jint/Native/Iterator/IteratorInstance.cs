@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Jint.Native.Generator;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
@@ -22,23 +23,40 @@ internal abstract class IteratorInstance : ObjectInstance
     public abstract bool TryIteratorStep(out ObjectInstance nextItem);
 
     /// <summary>
-    /// GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3 reads <c>next</c>
-    /// off the object the @@iterator method handed back, and every step then calls what that read produced.
-    /// A built-in iterator may only be stepped natively — skipping both the read and the call — while the
-    /// read would resolve to the very built-in function its native stepping implements.
-    /// <see cref="JsValue.TryGetIterator"/> asks this before adopting an instance as the iterator record; a
-    /// <see langword="false"/> answer wraps it in an <see cref="ObjectIterator"/>, which performs the read and
-    /// drives the iteration through the replacement.
+    /// GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3, GetIteratorDirect steps 1-2,
+    /// for a built-in iterator the @@iterator method handed back: read <c>next</c> off it once, and build the iterator
+    /// record around what was read, which every step then calls. Answers this instance when the read found the very
+    /// built-in function its native stepping implements, so the record steps it natively and skips both the read and
+    /// the calls; otherwise an <see cref="ObjectIterator"/> that drives the iteration through the replacement.
+    /// <see cref="JsValue.TryGetIterator"/> asks this of every built-in iterator it is handed.
     /// <para>
     /// The default asks the instance's prototype, which captured its built-in <c>next</c> when it was set up
-    /// (<see cref="IteratorPrototype.HasOriginalNext"/>). For an instance with no own property that needs no
-    /// property read: a cached descriptor and the prototype's own-property version answer it. A prototype that
-    /// is not a built-in iterator prototype, or that captured nothing, answers <see langword="false"/>: slower,
-    /// never wrong. Until sebastienros/jint#4392 the default was an unconditional <see langword="true"/>, so a
-    /// replaced <c>next</c> on any iterator but an array's was never called.
+    /// (<see cref="IteratorPrototype.ToIteratorRecord"/>). For an instance with no own property the answer needs
+    /// no property read: a cached descriptor and the prototype's own-property version give it, and the
+    /// <see cref="ObjectIterator"/> then makes the one read. A prototype that is not a built-in iterator prototype,
+    /// or that captured nothing, gets the <see cref="ObjectIterator"/>: slower, never wrong. Where the answer did
+    /// take the read, the <see cref="ObjectIterator"/> is handed what it read rather than reading again, since a
+    /// getter or a Proxy trap sees every read (sebastienros/jint#4408). Until sebastienros/jint#4392 the default
+    /// adopted every instance, so a replaced <c>next</c> on any iterator but an array's was never called.
     /// </para>
     /// </summary>
-    internal virtual bool HasNativeNext => _prototype is IteratorPrototype prototype && prototype.HasOriginalNext(this);
+    internal virtual IteratorInstance ToIteratorRecord()
+        => _prototype is IteratorPrototype prototype ? prototype.ToIteratorRecord(this) : WrapReadingNext(this);
+
+    /// <summary>
+    /// The record for an iterator <see cref="ToIteratorRecord"/> may not step natively and has not read <c>next</c>
+    /// off: the <see cref="ObjectIterator"/> makes GetIteratorFromMethod's one read. Out of line, so the lanes that
+    /// adopt the iterator keep the size they had.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static ObjectIterator WrapReadingNext(ObjectInstance iterator) => new(iterator);
+
+    /// <summary>
+    /// The record for an iterator whose <c>next</c> <see cref="ToIteratorRecord"/> has already read and found
+    /// replaced: the <see cref="ObjectIterator"/> holds what was read and does not read again.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static ObjectIterator WrapReplacedNext(ObjectInstance iterator, JsValue next) => new(iterator, next);
 
     /// <summary>
     /// The iterator record's [[Done]] field, https://tc39.es/ecma262/#sec-iterator-records.
@@ -140,6 +158,27 @@ internal abstract class IteratorInstance : ObjectInstance
     }
 
     /// <summary>
+    /// IteratorClose step 4.b (https://tc39.es/ecma262/#sec-iteratorclose), AsyncIteratorClose step 4.b
+    /// (https://tc39.es/ecma262/#sec-asynciteratorclose) and %AsyncFromSyncIteratorPrototype%.return step 8
+    /// (https://tc39.es/ecma262/#sec-%asyncfromsynciteratorprototype%.return): the iterator this record holds has
+    /// no <c>return</c>, so nothing script-visible happens. A built-in iterator may still hold native state that only
+    /// its own <see cref="Close"/> releases — a wrapped CLR collection's iterator disposes its host enumerator there —
+    /// and a record that steps it natively closes it through that method. This reaches the same method from the other
+    /// records around a built-in iterator: an <see cref="ObjectIterator"/> built because its <c>next</c> was replaced
+    /// (<see cref="ToIteratorRecord"/>) or by GetIteratorDirect for an iterator helper, and the sync record behind a
+    /// CreateAsyncFromSyncIterator wrapper, whichever of the two that is.
+    /// </summary>
+    internal void CloseWithoutReturn(CompletionType completion) => CloseNatively(Instance, completion);
+
+    private static void CloseNatively(ObjectInstance iterator, CompletionType completion)
+    {
+        if (iterator is IteratorInstance native and not ObjectIterator)
+        {
+            native.Close(completion);
+        }
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-asynciteratorclose
     /// AsyncIteratorClose steps 3 and 4.a-4.c: read the iterator's <c>return</c> method and call it,
     /// handing back the value whose Await — step 4.d — the caller still owes. Answers
@@ -156,9 +195,15 @@ internal abstract class IteratorInstance : ObjectInstance
     /// applies only when the caller's own completion is a throw completion, and a caller holding one
     /// catches it there and skips the Await (<c>JintForInForOfStatement.TryStartAsyncCloseDiscardingAbrupt</c>).
     /// </para>
+    /// <para>
+    /// A built-in iterator stepped natively answers step 4.b, and still releases its native state as a sync close
+    /// does (<see cref="CloseWithoutReturn"/>); it is the loop's record when a script's <c>@@asyncIterator</c>
+    /// answered one.
+    /// </para>
     /// </summary>
     internal virtual bool TryStartAsyncClose(out JsValue innerResult)
     {
+        Close(CompletionType.Normal);
         innerResult = Undefined;
         return false;
     }
@@ -195,6 +240,20 @@ internal abstract class IteratorInstance : ObjectInstance
             {
                 _nextMethod = callable;
             }
+        }
+
+        /// <summary>
+        /// The record GetIteratorDirect step 2 builds around <paramref name="nextMethod"/>, the value its step 1 read
+        /// off <paramref name="target"/> (GetIteratorFromMethod step 3,
+        /// https://tc39.es/ecma262/#sec-getiteratorfrommethod). For a caller that has already made that read, so that a
+        /// getter or a Proxy trap sees it once (sebastienros/jint#4408). Kept apart from the constructor above rather
+        /// than chained from it: chaining made the JIT inline that one into every caller,
+        /// <see cref="JsValue.TryGetIterator"/> among them, which grew the method the array lane runs in.
+        /// </summary>
+        internal ObjectIterator(ObjectInstance target, JsValue nextMethod) : base(target.Engine)
+        {
+            _target = target;
+            _nextMethod = nextMethod as ICallable;
         }
 
         public override bool TryIteratorStep(out ObjectInstance result)
@@ -260,14 +319,10 @@ internal abstract class IteratorInstance : ObjectInstance
 
             if (callable is null)
             {
-                // Step 4.b: with no `return` there is nothing to call. A built-in iterator this record wraps only
-                // because its `next` was replaced (HasNativeNext) may still hold native state that its own Close
-                // releases, such as a host enumerator to dispose, and stepping it natively would have closed it.
-                if (_target is IteratorInstance native)
-                {
-                    native.Close(completion);
-                }
-
+                // Step 4.b: with no `return` there is nothing to call. A built-in iterator this record wraps - because
+                // its `next` was replaced, or because GetIteratorDirect took it for an iterator helper - may still hold
+                // native state that its own Close releases, such as a host enumerator to dispose (CloseWithoutReturn).
+                CloseNatively(_target, completion);
                 return;
             }
 
@@ -297,7 +352,10 @@ internal abstract class IteratorInstance : ObjectInstance
             var callable = _target.GetMethod(CommonProperties.Return);
             if (callable is null)
             {
-                // Step 4.b: If return is undefined, return ? completion.
+                // Step 4.b: If return is undefined, return ? completion. A built-in iterator this record wraps - one a
+                // script @@asyncIterator answered with its `next` replaced - still releases its native state, as Close
+                // does at the same step (CloseWithoutReturn).
+                CloseNatively(_target, CompletionType.Normal);
                 innerResult = Undefined;
                 return false;
             }
