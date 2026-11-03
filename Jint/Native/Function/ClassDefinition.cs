@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Jint.Native.AsyncFunction;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -119,8 +119,12 @@ internal sealed class ClassDefinition
     /// Compiled once per <typeparamref name="TMode"/>. Every class whose decorators, heritage and computed keys hold no
     /// <c>await</c> or <c>yield</c> takes <see cref="CannotSuspend"/>, where <c>maySuspend</c> is a constant false:
     /// every branch of the resume (taking parked state back, parking it, stopping at a suspension) folds away, and
-    /// that code is not emitted. The class keeps the inlining it had before classes could resume, and the per-element
-    /// suspension test it had then is gone.
+    /// that code is not emitted, and the per-element suspension test the class had before it could resume is gone.
+    /// Keeping the resume code in the same body made the JIT stop inlining the constructor's creation, which cost
+    /// <c>ClassBenchmark.ReEvaluateClassDeclarations</c> about 2%. With this split the <c>ScriptFunction</c>
+    /// constructor and the method-property definitions are inlined again; <c>MakeConstructor</c> is not. So keep
+    /// resume-only code behind <c>maySuspend</c> and exception regions in out-of-line helpers, and check a change here
+    /// with <c>DOTNET_JitDisasm</c> and that benchmark row.
     /// </remarks>
     private JsValue BuildConstructorCore<TMode>(EvaluationContext context, Environment env, string? classBinding, bool previousStrict)
         where TMode : struct, ISuspendMode
@@ -671,6 +675,10 @@ internal sealed class ClassDefinition
     /// Evaluates the decorator expressions of the class and of each element, in source order, before the class scope is
     /// entered. Once one suspends the frame, none after it is evaluated.
     /// </summary>
+    /// <remarks>
+    /// Out of line for the same reason as <see cref="EvaluateHeritage"/>: decorated classes are rare, and this code would
+    /// otherwise crowd the inlining of <see cref="BuildConstructorCore{TMode}"/>.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private List<ElementDecoratorPair> EvaluateAllDecorators(EvaluationContext context, out JsValue[] classDecoratorValues)
     {
