@@ -402,6 +402,30 @@ public class ScriptNestingTests
         exception.Should().BeOfType<ScriptPreparationException>().Which.Message.Should().Contain("maximum depth of 256 levels");
     });
 
+    // A script that is one expression statement skips global declaration instantiation, the walk's usual caller,
+    // and must be refused all the same. With no prelude, the unary chain is the whole script.
+    [Test]
+    public void ASingleExpressionScriptKeepsTheFixedLimit() => DedicatedThread.Run(() =>
+    {
+        var expression = string.Concat(Enumerable.Repeat("~", 300)) + "1";
+        var engine = new Engine();
+
+        ShouldBeRefused(() => engine.Evaluate(expression));
+        ShouldBeRefused(() => Engine.PrepareScript(expression));
+
+        // Not analysed when prepared: the run after a run that threw walks it again.
+        var unanalysed = Engine.PrepareScript(expression, options: new ScriptPreparationOptions { StaticAnalysis = false });
+        for (var run = 0; run < 2; run++)
+        {
+            ShouldBeRefused(() => engine.Evaluate(unanalysed));
+        }
+
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+
+        static void ShouldBeRefused(Action action)
+            => Caught.Exception(action).Should().BeOfType<ScriptPreparationException>().Which.Message.Should().Contain("maximum depth of 256 levels");
+    });
+
     // With MaxExecutionStackCount set, a call that finds the stack low continues on a fresh stack rather than
     // throwing, and a deep chain's probe has to defer to that lane the same way. The chain is within the old
     // limit, so this ran before the probes existed; a probe that threw instead would meet a low stack on most of

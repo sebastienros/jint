@@ -1348,8 +1348,9 @@ public sealed partial class Engine : IDisposable
     // long-lived engine does, and the reset is what bounds what that engine retains.
     internal const int HandlerTreeCacheCeiling = 2048;
 
-    // Scripts this engine has run global declaration instantiation for, so the definition cache
-    // above only engages on RE-evaluation (see GlobalDeclarationInstantiation).
+    // Scripts this engine has evaluated, so the definition cache above only engages on RE-evaluation
+    // (see GlobalDeclarationInstantiation). A script is added only after its hoisting walk succeeded,
+    // which is what lets the single-expression path in ScriptEvaluation skip the walk for a member.
     //
     // Bounded like the caches it gates. A membership marker looks free, but a HashSet holds its keys
     // strongly, so every distinct script an engine had ever run stayed reachable through this set -
@@ -2871,7 +2872,26 @@ public sealed partial class Engine : IDisposable
         try
         {
             var script = scriptRecord.EcmaScriptCode;
-            var reEvaluation = GlobalDeclarationInstantiation(script, globalEnv);
+
+            // A script that is one expression (`a + b`, `isValid(x)`) declares nothing, so global declaration
+            // instantiation has nothing to do, and its completion value is the expression's.
+            var singleExpression = script.Body.Count == 1 && script.Body[0] is ExpressionStatement;
+            bool reEvaluation;
+            if (singleExpression)
+            {
+                // The hoisting walk is what enforces SyntaxNesting.MaxUnprobedDepth on a script that was not
+                // analysed when prepared, so it still runs on the first evaluation; an analysed script already had it.
+                if (script.UserData is not CachedHoistingScope && !_evaluatedScripts.Contains(script))
+                {
+                    _ = script.GetHoistingScope();
+                }
+
+                reEvaluation = MarkScriptEvaluated(script);
+            }
+            else
+            {
+                reEvaluation = GlobalDeclarationInstantiation(script, globalEnv);
+            }
 
             // On re-evaluation reuse this engine's cached top-level handler tree (and its warm
             // per-node inline caches) instead of rebuilding it; a first evaluation - the fresh-
@@ -2883,7 +2903,10 @@ public sealed partial class Engine : IDisposable
             Completion result;
             try
             {
-                result = list.Execute(_evaluationContext);
+                // The single expression runs its statement directly rather than through the list's loop.
+                result = singleExpression
+                    ? list.ExecuteOnlyStatement(_evaluationContext)
+                    : list.Execute(_evaluationContext);
             }
             catch
             {
@@ -4713,7 +4736,7 @@ public sealed partial class Engine : IDisposable
         // byte-identical to the uncached path.
         var reEvaluation = MarkScriptEvaluated(script);
 
-        // A script that declares nothing (an expression, a call) has nothing to instantiate: skip the
+        // A script that declares nothing (`f(); g()`) has nothing to instantiate: skip the
         // working collections below. Annex B block functions only bind in sloppy mode.
         var varNames = script.GetVarNames(hoistingScope);
         var lexNames = script.GetLexNames(hoistingScope);
