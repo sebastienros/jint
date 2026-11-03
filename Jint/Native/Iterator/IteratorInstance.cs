@@ -68,6 +68,11 @@ internal abstract class IteratorInstance : ObjectInstance
             && _prototype is IteratorPrototype prototype
             && prototype.InheritsOriginalIteratorMethod())
         {
+            // The prototype's check, not the virtual ToIteratorRecord(): this skips the ArrayIterator and
+            // ArrayLikeIterator overrides, which wrap an iterator whose prototype is not %ArrayIteratorPrototype%.
+            // Native stepping is still the same answer only because no built-in `next` brand-checks its receiver, so
+            // another kind's untouched `next` steps this iterator exactly as the native lane does. A built-in `next`
+            // that starts brand-checking must make this lane check the prototype's kind too.
             iterator = prototype.ToIteratorRecord(this);
             return true;
         }

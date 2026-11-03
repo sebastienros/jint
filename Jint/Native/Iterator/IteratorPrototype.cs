@@ -94,7 +94,7 @@ internal partial class IteratorPrototype : Prototype
     /// (<c>StringIteratorPrototype.ToIteratorRecord</c>).
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool HasOriginalNext()
+    private protected bool HasOriginalNext()
     {
         var descriptor = _nextDescriptor;
         if (descriptor is null || _propertiesVersion != _nextDescriptorVersion)
