@@ -21,16 +21,11 @@ internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclara
         var env = engine.ExecutionContext.LexicalEnvironment;
         var value = _classDefinition.BuildConstructor(context, env);
 
+        // A class whose decorator, heritage or computed key suspended is not defined yet, and its binding stays in its
+        // temporal dead zone until the resume defines it. One exit, so the completion is built in one place.
         var classBinding = _classDefinition._className;
-        if (classBinding != null)
+        if (classBinding != null && !(_classDefinition._maySuspend && context.IsSuspended()))
         {
-            // A class whose decorator, heritage or computed key suspended is not defined yet, and its binding stays in
-            // its temporal dead zone until the resume defines it.
-            if (_classDefinition._maySuspend && context.IsSuspended())
-            {
-                return new Completion(CompletionType.Normal, JsEmpty.Instance, _statement);
-            }
-
             env.InitializeBinding(classBinding, value, DisposeHint.Normal);
         }
 
