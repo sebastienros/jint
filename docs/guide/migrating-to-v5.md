@@ -7169,6 +7169,31 @@ field or an accessor still does not make a module asynchronous, because the prop
 search; such an `await` is then settled on the spot, blocking until its promise settles, as before. There is no switch
 back.
 
+### 4.188 A `for await` loop over a built-in iterator awaits each value, as it does over an array ([#4392](https://github.com/sebastienros/jint/issues/4392))
+
+A `for await` loop over an object with no `Symbol.asyncIterator` wraps the object's sync iterator in an async one.
+That wrapper awaits each value before the body sees it, and the loop awaits the wrapper's `return()` when it ends
+early. A plain array, a string or a generator always went through it. In 4.16 and earlier 5.0 builds, a built-in
+iterator object did not: `arr.values()`, `arr.keys()`, `arr.entries()`, a typed array's iterators, `map.entries()` and
+the other Map and Set iterators, a string's `[Symbol.iterator]()`, `str.matchAll(re)`, a segments iterator, and the
+`entries()`, `keys()` and `values()` of `Headers`, `FormData` and `URLSearchParams`. Jint stepped such an
+iterator directly, so a promise it held reached the body unawaited, and each step and the close ran a microtask early:
+
+```js
+var log = [];
+(async () => { for await (var x of [Promise.resolve(1)].values()) log.push(typeof x); })();
+Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: ["object", "t1", "t2"]    5.x: ["t1", "number", "t2"]
+```
+
+Now these iterators go through the wrapper too, as they do in other engines. Each step costs two microtasks and an
+early close one, as for the array itself. A rejected promise among the values is thrown from the loop. A `return`
+method the script gave the iterator object is called when the loop ends early, and its answer is awaited, so a
+rejection or a non-object answer replaces a `break`. A `Symbol.asyncIterator` or `Symbol.iterator` method the script
+gave it is called, where Jint used to ignore both. A sync `for`-`of` over the same objects is unchanged. There is no
+switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
