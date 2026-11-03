@@ -7211,7 +7211,7 @@ This applies wherever an iterator is taken from such an object: spread, `Array.f
 the iterator object itself still steps it natively, and so do spread and `for`-`of` over a string primitive, and
 destructuring a CLR list (`const [a] = list`), which reads it by index. There is no switch back.
 
-### 4.191 `DataView.prototype.byteLength` and `byteOffset` answer 0 for an out-of-bounds view instead of throwing
+### 4.191 `DataView.prototype.byteLength` and `byteOffset` answer 0 for an out-of-bounds view instead of throwing ([#4411](https://github.com/sebastienros/jint/pull/4411))
 
 A `DataView` is out of bounds when its buffer is detached, or when a resizable buffer shrinks below the view. In 4.16
 and earlier 5.0 builds, reading `byteLength` or `byteOffset` of such a view threw a `TypeError`, as ECMAScript 2024
@@ -7230,7 +7230,7 @@ Every read and write through the view still throws a `TypeError`. Once a resizab
 report the view's real size and offset again. A script that put a `try` around `view.byteLength` to find out whether
 the buffer was detached should read `view.buffer.detached` instead. There is no switch back.
 
-### 4.192 `Intl.Locale.prototype.getTextInfo().direction` is the script's direction, and can be `undefined`
+### 4.192 `Intl.Locale.prototype.getTextInfo().direction` is the script's direction, and can be `undefined` ([#4411](https://github.com/sebastienros/jint/pull/4411))
 
 In 4.16 and earlier 5.0 builds, `direction` was the .NET culture's `TextInfo.IsRightToLeft`, so it depended on the
 machine's globalization data. It ignored a script subtag that disagreed with the language and answered `"ltr"` for any
