@@ -7772,6 +7772,38 @@ Now destructuring calls it, as spread, a function parameter, `for`-`of` and `Arr
 there runs once. Once the property is deleted, the wrapper's own iterator, which enumerates the collection, comes
 back. A wrapper whose `Symbol.iterator` is still its own is still read by index. There is no switch back.
 
+### 4.210 The web APIs read `Symbol.iterator` once to tell a sequence from the alternative, and `Headers` refuses a non-callable one ([#4449](https://github.com/sebastienros/jint/issues/4449))
+
+Several web APIs take either a sequence or something else in the same argument. They read the argument's
+`Symbol.iterator` once to decide, and iterate with the method that read found. Earlier previews read it a second
+time to take the iterator, so a getter on `Symbol.iterator` ran twice:
+
+```js
+let reads = 0;
+const init = [["a", "1"]];
+const it = init[Symbol.iterator];
+Object.defineProperty(init, Symbol.iterator, { get() { reads++; return it; } });
+new Headers(init);
+reads
+// earlier previews: 2    5.x: 1
+```
+
+The arguments that changed are:
+
+- the `Headers` constructor's argument, and the `headers` member of `new Request`, `new Response` and `fetch`;
+- the transfer list of `MessagePort.prototype.postMessage`, `Worker.prototype.postMessage` and a dedicated worker's
+  `postMessage`;
+- the `WebSocket` constructor's `protocols`;
+- `IDBDatabase.prototype.transaction`'s store names, and the key path of `createObjectStore` and `createIndex`.
+
+A getter that answers a method on the first read and `undefined` on a later one now iterates with that method. Before,
+the second read found nothing and threw a `TypeError`.
+
+`Headers` also checks what the read found the way the rest already did. A `Symbol.iterator` that is neither callable
+nor `undefined` or `null`, such as `42`, now throws a `TypeError` (a rejection from `fetch`). Before, the argument was
+read as a record of its own properties. `undefined` and `null` still select the record. Node's `Headers` reads such an
+argument as a record too; WebIDL's union conversion says it is a `TypeError`. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
