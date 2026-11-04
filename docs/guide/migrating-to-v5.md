@@ -7573,11 +7573,11 @@ step that throws still disposes the enumerator and calls no `return`. There is n
 
 ### 4.200 `yield*` calls the `next` it read once ([#4424](https://github.com/sebastienros/jint/issues/4424))
 
-`yield*` reads its delegate's `next` once, when it takes the iterator, and every step calls what was read. In 4.16 and
-earlier 5.0 builds, `yield*` read `next` a second time before the first step whenever Jint steps the delegate natively:
-an array, a typed array, an `arguments` object, or a built-in iterator object that has a property of its own, a CLR
-collection's iterator among them. A getter on `next` ran twice, and a `next` replaced while the first read ran was the
-one called:
+`yield*` reads its delegate's `next` once, when it takes the iterator, and every step calls what was read. Before,
+`yield*` read `next` a second time before the first step for some delegates Jint steps natively. In 4.16 those were
+the iterators of an array, a typed array and an `arguments` object. Earlier 5.0 builds added a built-in iterator object
+that has a property of its own, such as a `Set`, `Map`, string or CLR collection iterator, which 4.16 read once. A
+getter on `next` ran twice, and a `next` replaced while the first read ran was the one called:
 
 ```js
 var P = Object.getPrototypeOf([][Symbol.iterator]());
