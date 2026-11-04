@@ -7406,6 +7406,38 @@ non-function `init`, and a return value that is neither an object nor `undefined
 
 There is no switch back.
 
+### 4.196 A `for await` loop and `Array.fromAsync` call the `next` they read once, and a CLR enumerator that runs out is disposed ([#4410](https://github.com/sebastienros/jint/issues/4410))
+
+A `for await` loop and `Array.fromAsync` read the iterator's `next` method once, when they take the iterator, and
+every step calls what was read. In 4.16 and earlier 5.0 builds, both read `next` again on every step. A getter on
+`next` ran once more per step, and a `next` replaced during the loop was called from the following step on:
+
+```js
+var reads = 0, i = 0;
+var source = { [Symbol.asyncIterator]() {
+  return { get next() { reads++; return () => Promise.resolve({ value: ++i, done: i > 3 }); } };
+} };
+(async () => { for await (var x of source); })();
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: reads === 5    5.x: reads === 1
+```
+
+This applies to whatever a `Symbol.asyncIterator` method answers, an async generator object and a built-in iterator
+among them. An object with only a `Symbol.iterator` already had its `next` read once. A `next` that was not a function
+when it was read now fails the first step with a `TypeError`, even if the object has a callable `next` by then.
+
+A wrapped CLR collection's `IEnumerator` is now disposed when the iteration runs out, as a C# `foreach` disposes it.
+In 4.16 and earlier 5.0 builds only an iteration that ended early disposed it, so an enumerator that releases a
+reader, a connection or a lock in `Dispose` still held it after a `for`-`of`, a spread or `Array.from` had run to the
+end. A C# iterator method's `finally` was not affected, since it runs when the method runs out. A step after the end
+answers done without calling `MoveNext` on the disposed enumerator. A loop over a wrapped dictionary that ends early
+now disposes the enumerator over the dictionary's keys, which it never did: a `break`, a `return` or a throw from the
+body, or a destructuring that reads fewer entries than the dictionary has. So does `Array.fromAsync` whose mapping
+function throws, when a `Symbol.asyncIterator` method answered a CLR collection's iterator. A step that throws — the
+host's `MoveNext` or `Current`, or a dictionary's value read — now disposes the enumerator as well, and the iterator
+answers done from then on. A `Dispose` that throws while a destructuring or `Array.from` is already leaving by a throw
+no longer replaces that throw, as it already did not for a `for`-`of`. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

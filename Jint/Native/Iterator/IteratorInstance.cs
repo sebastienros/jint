@@ -153,6 +153,23 @@ internal abstract class IteratorInstance : ObjectInstance
     /// </summary>
     public virtual ICallable? NextMethod => null;
 
+    /// <summary>
+    /// IteratorNext step 1 (https://tc39.es/ecma262/#sec-iteratornext) as the async consumers take it: call the record's
+    /// [[NextMethod]] on its [[Iterator]] and answer the result unchecked, since a <c>for await</c> loop and
+    /// Array.fromAsync await it before they look at it. Neither may read <c>next</c> again: the record holds what
+    /// GetIteratorFromMethod read once (sebastienros/jint#4410).
+    /// <para>
+    /// This record steps natively, which <see cref="ToIteratorRecord"/> allowed because <c>next</c> resolved to the
+    /// built-in function the prototype captured. That function is the [[NextMethod]], and all it does is this step
+    /// (<see cref="IteratorPrototype.Next"/>), so a <c>next</c> the script assigns afterwards is never reached.
+    /// </para>
+    /// </summary>
+    internal virtual JsValue CallNextMethod()
+    {
+        TryIteratorStep(out var result);
+        return result;
+    }
+
     public virtual void Close(CompletionType completion)
     {
     }
@@ -297,6 +314,21 @@ internal abstract class IteratorInstance : ObjectInstance
             }
 
             return instance;
+        }
+
+        /// <summary>
+        /// IteratorNext step 1 through the [[NextMethod]] this record captured, never a fresh read of <c>next</c>; a
+        /// value that was not callable fails here, as the Call would.
+        /// </summary>
+        internal override JsValue CallNextMethod()
+        {
+            if (_nextMethod is null)
+            {
+                Throw.TypeError(_target.Engine.Realm, "Iterator does not have a next method");
+                return null!;
+            }
+
+            return _nextMethod.Call(_target, Arguments.Empty);
         }
 
         /// <summary>
