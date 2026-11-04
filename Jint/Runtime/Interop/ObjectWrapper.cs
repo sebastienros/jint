@@ -455,11 +455,15 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     // iterator only where index reads reproduce what enumeration yields. For a countable but non-indexable
     // collection they do not: [...queue] yields the elements while every index reads undefined. Nor do they
     // once %ArrayIteratorPrototype%.next is replaced: the iterator inherits it, so every other lane over the
-    // wrapper calls the replacement (sebastienros/jint#4418). Until a script touches one, that is one byte test.
-    internal override bool HasOriginalIterator
-        => IsArrayLike
-           && HasIndexedElements
-           && (!_engine._arrayIteratorNextMayBeReplaced || _engine.Realm.Intrinsics.Array.PrototypeObject.ArrayIteratorsStepNatively());
+    // wrapper calls the replacement (sebastienros/jint#4418). Until a script touches one, that is one byte test. It reads
+    // no @@iterator, so it hands the caller's GetIterator nothing.
+    internal override bool HasOriginalIterator(out JsValue? iteratorMethod)
+    {
+        iteratorMethod = null;
+        return IsArrayLike
+               && HasIndexedElements
+               && (!_engine._arrayIteratorNextMayBeReplaced || _engine.Realm.Intrinsics.Array.PrototypeObject.ArrayIteratorsStepNatively());
+    }
 
     internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexed;
 

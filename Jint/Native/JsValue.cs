@@ -177,6 +177,46 @@ public abstract partial class JsValue : IEquatable<JsValue>
     }
 
     /// <summary>
+    /// GetIterator(value, sync) (https://tc39.es/ecma262/#sec-getiterator) for a lane whose check,
+    /// <see cref="ObjectInstance.HasOriginalIterator"/>, may already have made the one read of <c>@@iterator</c> that
+    /// GetIterator makes: <paramref name="iteratorMethod"/> is what that read found, or null when the check read nothing,
+    /// in which case this is <see cref="TryGetIterator"/>. What was read goes through the rest of GetMethod
+    /// (https://tc39.es/ecma262/#sec-getmethod), and GetIteratorFromMethod
+    /// (https://tc39.es/ecma262/#sec-getiteratorfrommethod) calls it, without a second read (sebastienros/jint#4426).
+    /// Answers false where <see cref="TryGetIterator"/> does, for undefined or null.
+    /// </summary>
+    [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryGetIteratorFromRead(Realm realm, JsValue? iteratorMethod, [NotNullWhen(true)] out IteratorInstance? iterator)
+    {
+        if (iteratorMethod is null)
+        {
+            return TryGetIterator(realm, out iterator);
+        }
+
+        return TryGetIteratorFromMethodRead(realm, iteratorMethod, out iterator);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool TryGetIteratorFromMethodRead(Realm realm, JsValue iteratorMethod, [NotNullWhen(true)] out IteratorInstance? iterator)
+    {
+        if (iteratorMethod.IsNullOrUndefined())
+        {
+            iterator = null;
+            return false;
+        }
+
+        if (iteratorMethod is not ICallable method)
+        {
+            Throw.TypeError(realm, $"Value returned for property '{GlobalSymbolRegistry.Iterator}' of object is not a function");
+            iterator = null;
+            return false;
+        }
+
+        return TryGetIterator(realm, out iterator, GeneratorKind.Sync, method);
+    }
+
+    /// <summary>
     /// Cached reflection lookups for Task interop to avoid repeated GetMethod/GetProperty calls.
     /// </summary>
     /// <remarks>
