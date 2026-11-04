@@ -1439,11 +1439,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         try
         {
             var resolved = innerResult.UnwrapIfPromise(engine.Options.Constraints.PromiseTimeout);
-            return FinishAsyncIteratorClose(context, completion, resolved, rejected: false);
+            return FinishAsyncIteratorClose(context, iteratorRecord, completion, resolved, rejected: false);
         }
         catch (PromiseRejectedException e)
         {
-            return FinishAsyncIteratorClose(context, completion, e.RejectedValue, rejected: true);
+            return FinishAsyncIteratorClose(context, iteratorRecord, completion, e.RejectedValue, rejected: true);
         }
     }
 
@@ -1497,7 +1497,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
         catch (JavaScriptException e)
         {
-            return FinishAsyncIteratorClose(context, completion, e.Error, rejected: true);
+            return FinishAsyncIteratorClose(context, iteratorRecord, completion, e.Error, rejected: true);
         }
 
         var data = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this, iteratorRecord);
@@ -1537,6 +1537,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         var completion = data.CloseCompletion;
         var settled = data.CloseSettledValue ?? JsValue.Undefined;
         var rejected = data.CloseSettledRejected;
+        var iteratorRecord = data.Iterator;
 
         suspendable.IsResuming = false;
         suspendable.Data.Clear(this);
@@ -1558,16 +1559,31 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             asyncGenerator._lastYieldNode = null;
         }
 
-        return FinishAsyncIteratorClose(context, completion, settled, rejected);
+        return FinishAsyncIteratorClose(context, iteratorRecord, completion, settled, rejected);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asynciteratorclose steps 5-8, applied once the Await of step 4.d
     /// has settled.
+    /// <para>
+    /// First the built-in iterator under the record releases its native state - a wrapped CLR collection's iterator
+    /// disposes its host enumerator - now that the <c>return</c> the close called has settled, and before the steps
+    /// below decide what leaves the loop (sebastienros/jint#4406). It is told a throw completion whenever one is what
+    /// leaves, so that a host's <c>Dispose</c> cannot replace it. Without a <c>return</c> it was released at step 4.b,
+    /// and this is never reached.
+    /// </para>
     /// </summary>
-    private Completion FinishAsyncIteratorClose(EvaluationContext context, Completion completion, JsValue settled, bool rejected)
+    private Completion FinishAsyncIteratorClose(
+        EvaluationContext context,
+        IteratorInstance? iteratorRecord,
+        Completion completion,
+        JsValue settled,
+        bool rejected)
     {
         var engine = context.Engine;
+
+        iteratorRecord?.CloseNativeStateAfterReturn(
+            completion.Type == CompletionType.Throw || rejected || !settled.IsObject() ? CompletionType.Throw : completion.Type);
 
         // Step 5: If completion is a throw completion, return ? completion. Handed back as the completion
         // it is rather than raised again: it has been reported to the debugger once already, and a fresh

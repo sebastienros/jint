@@ -843,31 +843,44 @@ internal sealed class JintYieldExpression : JintExpression
         return JsValue.Undefined;
     }
 
+    /// <summary>
+    /// The AsyncIteratorClose (https://tc39.es/ecma262/#sec-asynciteratorclose) yield* performs on a delegate that has
+    /// no <c>throw</c>, before it throws its <c>TypeError</c>.
+    /// </summary>
     private static void AsyncIteratorClose(IteratorInstance iteratorRecord, CompletionType closeCompletion)
     {
-        var engine = iteratorRecord.Engine;
         var iterator = iteratorRecord.Instance;
-        var returnMethod = iterator.GetMethod(CommonProperties.Return);
-
-        if (returnMethod is null)
-        {
-            return;
-        }
-
         try
         {
-            var innerResult = returnMethod.Call(iterator, Arguments.Empty);
-            // TODO: Should await innerResult for async iterators
-            // For now, just call the return method
-        }
-        catch
-        {
-            // If closeCompletion is throw, rethrow
-            if (closeCompletion == CompletionType.Throw)
+            var returnMethod = iterator.GetMethod(CommonProperties.Return);
+            if (returnMethod is null)
             {
-                throw;
+                return;
             }
-            // Otherwise ignore the exception
+
+            try
+            {
+                var innerResult = returnMethod.Call(iterator, Arguments.Empty);
+                // TODO: Should await innerResult for async iterators
+                // For now, just call the return method
+            }
+            catch
+            {
+                // If closeCompletion is throw, rethrow
+                if (closeCompletion == CompletionType.Throw)
+                {
+                    throw;
+                }
+                // Otherwise ignore the exception
+            }
+        }
+        finally
+        {
+            // A CLR collection's iterator the delegate is - itself, or behind the CreateAsyncFromSyncIterator wrapper -
+            // disposes its host enumerator in its native close: in place of a missing `return` (step 4.b), and after one,
+            // since nothing here awaits what it answered (sebastienros/jint#4406). The yield* throws next, so a throw is
+            // what leaves, and a host's Dispose does not replace it.
+            iteratorRecord.CloseNativeStateAfterReturn(CompletionType.Throw);
         }
     }
 

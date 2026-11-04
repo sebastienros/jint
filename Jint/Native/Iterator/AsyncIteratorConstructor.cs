@@ -102,6 +102,13 @@ internal sealed partial class AsyncIteratorConstructor : Constructor
             iterator = obj;
         }
 
+        // GetIteratorFlattenable's last steps: read `next` off the iterator once, for the record the wrapper steps. This
+        // precedes OrdinaryHasInstance, which a Proxy's getPrototypeOf trap sees, and happens even when the iterator is
+        // answered itself (sebastienros/jint#4419). A `next` that is not callable is not rejected here, although
+        // the proposal's GetIteratorFlattenable says so: like GetIteratorDirect (tc39/ecma262#274) and core-js,
+        // the TypeError comes from the first step's call.
+        var iteratorRecord = new IteratorInstance.ObjectIterator(iterator);
+
         // 5. Let hasInstance be ? OrdinaryHasInstance(%AsyncIterator%, iterator).
         var hasInstance = _engine.Intrinsics.AsyncIterator.OrdinaryHasInstance(iterator);
 
@@ -112,7 +119,6 @@ internal sealed partial class AsyncIteratorConstructor : Constructor
         }
 
         // 7. Let wrapper be WrapForValidAsyncIterator
-        var iteratorRecord = new IteratorInstance.ObjectIterator(iterator);
         var wrapper = new WrapForValidAsyncIterator(_engine, iteratorRecord);
         return wrapper;
     }
@@ -149,8 +155,9 @@ internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
     protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
-    /// %WrapForValidAsyncIteratorPrototype%.next()
-    /// Delegates to the underlying iterator's next() and wraps in a promise.
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-wrapforvalidasynciteratorprototype.next
+    /// IteratorNext on the wrapped record, wrapped in a promise: the call is to the [[NextMethod]] that AsyncIterator.from
+    /// read once, never <c>next</c> read again (sebastienros/jint#4419).
     /// </summary>
     [JsFunction]
     private JsValue Next(JsValue thisObject)
@@ -165,16 +172,8 @@ internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
 
         try
         {
-            // Call the underlying iterator's next method
-            var target = wrapper.Iterated.Instance;
-            var nextMethod = target.Get(CommonProperties.Next);
-            if (nextMethod is not ICallable callable)
-            {
-                Throw.TypeError(_realm, "Iterator does not have a next method");
-                return Undefined;
-            }
-
-            var result = callable.Call(target, Arguments.Empty);
+            // Call(iteratorRecord.[[NextMethod]], iteratorRecord.[[Iterator]])
+            var result = wrapper.Iterated.CallNextMethod();
 
             // Normalize the result to a promise
             var resultPromise = (JsPromise) _realm.Intrinsics.Promise.PromiseResolve(result);

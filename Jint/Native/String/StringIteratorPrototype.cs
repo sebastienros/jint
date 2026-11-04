@@ -31,12 +31,7 @@ internal sealed partial class StringIteratorPrototype : IteratorPrototype
 
     public ObjectInstance Construct(string str)
     {
-        var instance = new IteratorInstance.StringIterator(Engine, str)
-        {
-            _prototype = this
-        };
-
-        return instance;
+        return new IteratorInstance.StringIterator(Engine, str, this);
     }
 
     /// <summary>
@@ -53,7 +48,7 @@ internal sealed partial class StringIteratorPrototype : IteratorPrototype
         // Every write to an own property initializes the prototype first, so an uninitialized one still holds the
         // built-in `next` - and the native lane does not have to initialize it to find that out.
         return !_initialized || HasOriginalNext()
-            ? new IteratorInstance.StringIterator(_engine, str)
+            ? new IteratorInstance.StringIterator(_engine, str, this)
             : IteratorInstance.WrapReadingNext(Construct(str));
     }
 }
