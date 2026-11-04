@@ -701,6 +701,17 @@ public sealed partial class Options
         }
     }
 
+    internal void ApplyReflectionInterop(Engine engine)
+    {
+        // The lambda below captures the engine parameter, and C# allocates that closure on entry to the
+        // method that owns the parameter. Keeping it in its own method means an engine without
+        // Interop.Enabled allocates nothing here.
+        if (Interop.Enabled)
+        {
+            InstallClrGlobals(engine);
+        }
+    }
+
     [UnconditionalSuppressMessage("Trimming", "IL2026:RequiresUnreferencedCode",
         Justification = "The three reflection-dependent registrations below - System, importNamespace and " +
                         "clrHelper - are installed only when the host set Interop.Enabled, which is the gate " +
@@ -708,25 +719,22 @@ public sealed partial class Options
                         "= false as well), so docs/guide/migrating-to-v5.md section 6.3 states the requirement and " +
                         "Options.AllowClr, the way a host normally opens the gate, carries the attribute. " +
                         "Warning here as well would report Jint's own file for a decision made in the host's.")]
-    internal void ApplyReflectionInterop(Engine engine)
+    private void InstallClrGlobals(Engine engine)
     {
-        if (Interop.Enabled)
-        {
-            var typeResolutionPolicy = new ClrTypeResolutionPolicy(Interop);
+        var typeResolutionPolicy = new ClrTypeResolutionPolicy(Interop);
 
-            engine.Realm.GlobalObject.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System", typeResolutionPolicy), PropertyFlag.AllForbidden));
+        engine.Realm.GlobalObject.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System", typeResolutionPolicy), PropertyFlag.AllForbidden));
 
-            engine.Realm.GlobalObject.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunction(
+        engine.Realm.GlobalObject.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunction(
+                engine,
+                "importNamespace",
+                (_, arguments) => new NamespaceReference(
                     engine,
-                    "importNamespace",
-                    (_, arguments) => new NamespaceReference(
-                        engine,
-                        arguments.At(0).IsNullOrUndefined() ? null : TypeConverter.ToString(arguments.At(0)),
-                        typeResolutionPolicy)),
-                PropertyFlag.AllForbidden));
+                    arguments.At(0).IsNullOrUndefined() ? null : TypeConverter.ToString(arguments.At(0)),
+                    typeResolutionPolicy)),
+            PropertyFlag.AllForbidden));
 
-            engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(ObjectWrapper.Create(engine, new ClrHelper(Interop, typeResolutionPolicy)), PropertyFlag.AllForbidden));
-        }
+        engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(ObjectWrapper.Create(engine, new ClrHelper(Interop, typeResolutionPolicy)), PropertyFlag.AllForbidden));
     }
 
     internal Options CreateEngineOptions()

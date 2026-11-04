@@ -59,6 +59,22 @@ public class NativeHostInteropTests
             "the switch defaults to true, so a host that never set it keeps ordinary CLR interop");
     }
 
+    [Test]
+    public void TheReflectionPathAllocatesNothingForAnEngineWithoutClrInterop()
+    {
+        // A closure over the engine parameter used to be allocated on entry, before the Interop.Enabled
+        // check, adding 32 bytes to every default engine (sebastienros/jint#4371).
+        using var engine = new Engine();
+        var options = new Options();
+        Reflection.ApplyOptions(options, engine);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        Reflection.ApplyOptions(options, engine);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        allocated.Should().Be(0);
+    }
+
     [TestCaseSource(nameof(Scalars))]
     public void AScalarConvertsExactlyAsTheReflectionPathConvertsIt(object value)
     {
