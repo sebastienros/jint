@@ -45,6 +45,9 @@ public sealed class ScriptFunction : Function, IConstructor
     // no engine references and stay shared on State._cachedSlots.
     internal object? _envReuse;
 
+    // [[PrivateMethods]] and [[Fields]] of a class constructor, both lists even when empty; an ordinary function has
+    // neither. A class whose decorators added instance initializers keeps its fields in its private-methods list, a
+    // DecoratedInstanceElements, and has no fields list: ObjectInstance.InitializeInstanceElements relies on all three.
     internal List<PrivateElement>? _privateMethods;
     internal List<ClassFieldDefinition>? _fields;
 
@@ -935,10 +938,11 @@ public sealed class ScriptFunction : Function, IConstructor
     /// Combines the shared AST-level body verdict (cached on the cross-engine State) with this function's
     /// class-field names: every field must be a plain string key that cannot be an array index — a
     /// digit-leading key would force the ordered-enumeration deopt on first keys read. Private names are
-    /// fine (PrivateFieldAdd bypasses property storage), while symbol names and decorator
-    /// extra-initializer runners (Name == Undefined; they invoke arbitrary callables against `this`)
-    /// reject. Field initializer bodies are deliberately not scanned: post-threshold hot constructors
-    /// already run them under shape building today, and TryShapeAdd's MaxFanout bounds any dynamism.
+    /// fine (PrivateFieldAdd bypasses property storage), while symbol names reject, and so does a
+    /// class whose decorators added instance initializers (its fields are in a
+    /// <see cref="DecoratedInstanceElements"/>; they invoke arbitrary callables against `this`). Field
+    /// initializer bodies are deliberately not scanned: post-threshold hot constructors already run
+    /// them under shape building today, and TryShapeAdd's MaxFanout bounds any dynamism.
     /// </summary>
     private byte ComputeCtorStaticEligibility(JintFunctionDefinition.State state)
     {
@@ -950,6 +954,11 @@ public sealed class ScriptFunction : Function, IConstructor
         }
 
         if (bodyEligibility != 1)
+        {
+            return 2;
+        }
+
+        if (_privateMethods is DecoratedInstanceElements)
         {
             return 2;
         }

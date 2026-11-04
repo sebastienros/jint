@@ -468,6 +468,20 @@ public class SuspendedClassDefinitionTests
     }
 
     /// <summary>
+    /// A class finished on a resume initializes its instances as any other class does: a method decorator's
+    /// <c>addInitializer</c> callback runs before the fields, and a field decorator's right after that field
+    /// (sebastienros/jint#4421).
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void AClassFinishedOnAResumeRunsItsInstanceInitializersWhereTheSpecTextPutsThem(string suspension)
+    {
+        Probe(suspension,
+                "function init(name) { return function (v, c) { c.addInitializer(function () { log.push('init ' + name); }); }; } class C { [SUSPEND 'k'] = log.push('k'); @(SUSPEND init('m')) m() {} @(init('x')) x = log.push('x'); } var c = new C();",
+                "Reflect.ownKeys(c).join()")
+            .Should().Be("k,x|pre,init m,k,x,init x,post");
+    }
+
+    /// <summary>
     /// The class's own decorators run as the code around the class does, sloppy here, on the resume as well; its
     /// element decorators stay strict.
     /// </summary>

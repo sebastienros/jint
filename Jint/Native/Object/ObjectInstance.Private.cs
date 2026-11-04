@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Jint.Native.Function;
 using Jint.Runtime;
@@ -15,24 +16,73 @@ public partial class ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-initializeinstanceelements
     /// </summary>
+    /// <remarks>
+    /// A class constructor always has a private-methods list, if only an empty one, and an ordinary function has
+    /// neither list. A class whose decorators added instance initializers is the one case with a private-methods list
+    /// and no fields list. Its list is a <see cref="DecoratedInstanceElements"/>, which carries the fields along with
+    /// those initializers. So the decorated case is told apart by the null tests this method already made, and an
+    /// undecorated class runs exactly what it ran before (sebastienros/jint#4421).
+    /// </remarks>
     internal void InitializeInstanceElements(ScriptFunction constructor)
     {
         var methods = constructor._privateMethods;
-        if (methods is not null)
+        if (methods is null)
         {
-            for (var i = 0; i < methods.Count; i++)
-            {
-                PrivateMethodOrAccessorAdd(methods[i]);
-            }
+            Debug.Assert(constructor._fields is null, "a constructor with fields has a private-methods list");
+            return;
+        }
+
+        for (var i = 0; i < methods.Count; i++)
+        {
+            PrivateMethodOrAccessorAdd(methods[i]);
         }
 
         var fields = constructor._fields;
-        if (fields is not null)
+        if (fields is null)
         {
-            for (var i = 0; i < fields.Count; i++)
-            {
-                DefineField(this, fields[i]);
-            }
+            InitializeDecoratedInstanceElements(methods);
+            return;
+        }
+
+        for (var i = 0; i < fields.Count; i++)
+        {
+            DefineField(this, fields[i]);
+        }
+    }
+
+    /// <summary>
+    /// The rest of InitializeInstanceElements (https://github.com/tc39/ecma262/pull/2417) for a class whose decorators
+    /// added instance initializers, once its private methods are added. First the extra initializers of the methods',
+    /// getters' and setters' decorators run. Then each field and accessor is initialized in source order, and
+    /// InitializeFieldOrAccessor runs that element's own extra initializers right after defining it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void InitializeDecoratedInstanceElements(List<PrivateElement> privateMethods)
+    {
+        var elements = (DecoratedInstanceElements) privateMethods;
+        RunExtraInitializers(elements.MethodExtraInitializers);
+
+        var fields = elements.Fields;
+        for (var i = 0; i < fields.Length; i++)
+        {
+            DefineField(this, fields[i].Definition);
+            RunExtraInitializers(fields[i].ExtraInitializers);
+        }
+    }
+
+    /// <summary>
+    /// Calls each of <paramref name="initializers"/> with this object as its this, in order.
+    /// </summary>
+    private void RunExtraInitializers(ICallable[]? initializers)
+    {
+        if (initializers is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < initializers.Length; i++)
+        {
+            _engine.Call(initializers[i], this, Arguments.Empty, expression: null);
         }
     }
 
@@ -219,6 +269,48 @@ internal sealed class ClassFieldDefinition
     public required JsValue Name { get; set; }
     public Function.Function? Initializer { get; set; }
 }
+
+/// <summary>
+/// The instance half of a class whose decorators added instance initializers: the [[Elements]] and [[Initializers]]
+/// of its constructor (https://github.com/tc39/ecma262/pull/2417). It is the constructor's private-methods list, so it
+/// holds the private methods as any class's list does, and the constructor keeps no fields list.
+/// </summary>
+/// <remarks>
+/// It derives from the list so that <see cref="ObjectInstance.InitializeInstanceElements"/> finds it with the reads and
+/// null tests it already makes. A field of its own on every function would also cost every closure eight bytes.
+/// </remarks>
+internal sealed class DecoratedInstanceElements : List<PrivateElement>
+{
+    public DecoratedInstanceElements(List<PrivateElement>? privateMethods, ICallable[]? methodExtraInitializers, DecoratedInstanceField[] fields)
+    {
+        if (privateMethods is not null)
+        {
+            AddRange(privateMethods);
+        }
+
+        MethodExtraInitializers = methodExtraInitializers;
+        Fields = fields;
+    }
+
+    /// <summary>
+    /// [[Initializers]]: what the decorators of the instance methods, getters and setters passed to
+    /// <c>addInitializer</c>, in the order they passed it; null for none.
+    /// </summary>
+    public ICallable[]? MethodExtraInitializers { get; }
+
+    /// <summary>
+    /// The instance fields and accessors' backing fields, in source order.
+    /// </summary>
+    public DecoratedInstanceField[] Fields { get; }
+}
+
+/// <summary>
+/// An instance field or accessor of a class with <see cref="DecoratedInstanceElements"/>. It holds the definition
+/// <see cref="ObjectInstance.DefineField"/> initializes the field from and the field's [[ExtraInitializers]]: what its
+/// decorators passed to <c>addInitializer</c>, null for none.
+/// </summary>
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+internal readonly record struct DecoratedInstanceField(ClassFieldDefinition Definition, ICallable[]? ExtraInitializers);
 
 internal sealed class ClassStaticBlockDefinition
 {
