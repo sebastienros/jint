@@ -50,7 +50,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// %ArrayIteratorPrototype%.next (https://tc39.es/ecma262/#sec-%arrayiteratorprototype%.next). A fresh iterator has
     /// no own property, so that prototype's own <c>next</c> decides.
     /// <para>
-    /// <see cref="ObjectInstance.HasOriginalIterator"/> asks it, before its <c>@@iterator</c> read, only once
+    /// <see cref="ObjectInstance.HasOriginalIterator"/> asks it, after its <c>@@iterator</c> read, only once
     /// <see cref="Engine._arrayIteratorNextMayBeReplaced"/> is set; until then that flag alone answers. The descriptor
     /// validated last stays that <c>next</c> while the prototype's own-property version has not moved, which replacing,
     /// deleting or redefining it as an accessor moves. An assignment writes the value in place, so the value is compared

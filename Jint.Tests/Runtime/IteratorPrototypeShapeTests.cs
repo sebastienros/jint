@@ -315,18 +315,18 @@ public class IteratorPrototypeShapeTests
 
         Native().Should().BeTrue();
         StringNative().Should().BeTrue();
-        array.HasOriginalIterator.Should().BeTrue();
+        array.HasOriginalIterator(out _).Should().BeTrue();
 
         engine.Execute("delete P.next;");
         Native().Should().BeFalse();
         StringNative().Should().Be(!iterator.StartsWith("'ab'", StringComparison.Ordinal));
-        array.HasOriginalIterator.Should().Be(!isArrayIterator);
+        array.HasOriginalIterator(out _).Should().Be(!isArrayIterator);
         engine._arrayIteratorNextMayBeReplaced.Should().Be(isArrayIterator);
 
         engine.Execute("Object.defineProperty(P, 'next', nextDescriptor);");
         Native().Should().BeTrue();
         StringNative().Should().BeTrue();
-        array.HasOriginalIterator.Should().BeTrue();
+        array.HasOriginalIterator(out _).Should().BeTrue();
         engine.Evaluate("[...fresh()].length + ',' + [...'ab'].length + ',' + [...[1, 2]].length").AsString().Should().Be("2,2,2");
     }
 

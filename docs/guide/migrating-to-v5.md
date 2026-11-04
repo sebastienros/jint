@@ -7694,6 +7694,34 @@ segments iterator's prototype no longer reaches an array. The prototype is the o
 `Intl.Segmenter.prototype.segment` created the segments object. It used to be the array iterator prototype of whichever
 realm was running. There is no switch back.
 
+### 4.205 Spread and array destructuring read an array's `Symbol.iterator` once ([#4426](https://github.com/sebastienros/jint/issues/4426))
+
+Taking an iterator from a value reads its `Symbol.iterator` once and calls what that read found. In 4.16 and earlier
+5.0 builds, spread over an array (in an array literal, a call, `new` or `super(...)`) read it twice, once to take the
+iterator and once more to check whether the array could be read by index. Array destructuring (in a declaration, an
+assignment, a parameter, a `for`-`of` head or a `catch` parameter) read it twice when it was not
+`Array.prototype.values`:
+
+```js
+let reads = 0;
+const arr = [1, 2];
+const values = arr[Symbol.iterator];
+Object.defineProperty(arr, Symbol.iterator, { get() { reads++; return values; } });
+[...arr];
+reads
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+A getter on `Symbol.iterator` now runs once per spread or destructuring. What it answers is what iterates, even if a
+second read would have answered something else. Before, a spread whose getter answered a method of the script's
+first and then `Array.prototype.values` called that method and then read the array by index anyway. A destructuring
+read the array's iterator from the second answer.
+
+The check now runs after the read. Destructuring therefore calls a `next` or a `return` that the getter put on the
+array iterator prototype while it ran. Before, the check had already passed, and the array was read by index. The same
+holds for a host `ArrayLikeObject` whose `Symbol.iterator` is `Array.prototype.values`. An array whose
+`Symbol.iterator` and iterator `next` are both the built-in ones is still read by index. There is no switch back.
+
 ### 4.206 `Intl.ListFormat` iterates its argument as the spec says, and calls the `next` it read once ([#4438](https://github.com/sebastienros/jint/issues/4438))
 
 `Intl.ListFormat.prototype.format` and `formatToParts` take an iterator from their argument, read its `next` method

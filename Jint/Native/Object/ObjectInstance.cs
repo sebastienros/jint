@@ -2771,8 +2771,15 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     // Whether iterating this object is unobservable and yields what reading its elements by index yields, so that the
     // spread and destructuring lanes may read by index instead. An override answers true only while @@iterator and the
     // `next` of the iterator it answers are both still the built-ins (sebastienros/jint#4418); false is the safe default.
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    internal virtual bool HasOriginalIterator => false;
+    // GetIterator reads @@iterator once (https://tc39.es/ecma262/#sec-getiterator), so an override that reads it decides
+    // on that one read, after it, and hands what it found out as iteratorMethod: a caller that cannot read by index
+    // passes it to TryGetIteratorFromRead, which takes it as GetIterator's method instead of reading again. Null means
+    // nothing was read (sebastienros/jint#4426).
+    internal virtual bool HasOriginalIterator(out JsValue? iteratorMethod)
+    {
+        iteratorMethod = null;
+        return false;
+    }
 
     internal override bool IsIntegerIndexedArray => false;
 

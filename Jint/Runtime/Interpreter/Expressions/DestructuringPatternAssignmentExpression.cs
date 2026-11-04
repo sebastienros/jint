@@ -140,10 +140,11 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
     /// Leaving the iterator out is unobservable only while it would have no <c>return</c> to call
     /// (sebastienros/jint#4406). It inherits the <c>%ArrayIteratorPrototype%</c> of the realm whose function the lane's
     /// check finds: an array's own, and the running realm's for an array-like object, whose check compares against that
-    /// realm's, and for a CLR collection, whose iterator is created in it. Asked before that check, which reads
-    /// <c>@@iterator</c>: with a <c>return</c> on the chain the pattern takes GetIterator, whose read is the one the
-    /// specification makes. Reached only once <see cref="Engine._builtinIteratorChainMayHaveReturn"/> is set; until
-    /// then the lane's one load of that field answers.
+    /// realm's, and for a CLR collection, whose iterator is created in it. Asked after that check, which makes
+    /// GetIterator's one read of <c>@@iterator</c>, since a getter can add a <c>return</c>; with one on the chain the
+    /// pattern takes GetIterator with what that read found (sebastienros/jint#4426). Reached only once
+    /// <see cref="Engine._builtinIteratorChainMayHaveReturn"/> is set; until then the lane's one load of that field
+    /// answers.
     /// </summary>
     private static bool IndexReadsCloseNothing(ObjectInstance obj, Realm realm)
         => obj is JsArray array
@@ -164,11 +165,14 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
         ArrayOperations? arrayOperations = null;
         IteratorInstance? iterator = null;
 
-        // read by index while GetIterator would be unobservable: no `return` for the pattern to call (sebastienros/jint#4406),
-        // and @@iterator and the `next` of the iterator it answers both the built-ins (sebastienros/jint#4418)
+        // read by index while GetIterator would be unobservable: @@iterator and the `next` of the iterator it answers both
+        // the built-ins (sebastienros/jint#4418), and no `return` for the pattern to call (sebastienros/jint#4406). The
+        // check makes GetIterator's one @@iterator read, and both questions are asked after it, which is what a getter
+        // that changes either needs; GetIterator then takes what the read found (sebastienros/jint#4426).
+        JsValue? iteratorMethod = null;
         if (obj.IsArrayLike
-            && (!engine._builtinIteratorChainMayHaveReturn || IndexReadsCloseNothing(obj, realm))
-            && obj.HasOriginalIterator)
+            && obj.HasOriginalIterator(out iteratorMethod)
+            && (!engine._builtinIteratorChainMayHaveReturn || IndexReadsCloseNothing(obj, realm)))
         {
             arrayOperations = ArrayOperations.For(obj, forWrite: false);
         }
@@ -177,7 +181,10 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
             // ArrayBindingPattern's step is GetIterator(value, sync) over the *value*, not over
             // the object ToObject built from it (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization).
             // The conversion above exists for the array fast path and for the null/undefined throw.
-            iterator = argument.GetIterator(realm);
+            if (!argument.TryGetIteratorFromRead(realm, iteratorMethod, out iterator))
+            {
+                Throw.TypeError(realm, "The value is not iterable");
+            }
         }
 
         // The pattern cannot suspend, so every way out of the loop below ends it: a normal completion closes the

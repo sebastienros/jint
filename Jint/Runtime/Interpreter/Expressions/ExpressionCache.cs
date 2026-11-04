@@ -205,19 +205,20 @@ internal sealed class ExpressionCache
             var expression = expressions[i];
             if (expression is JintSpreadExpression jse)
             {
-                jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
+                var argument = jse._argument.GetValue(context);
 
-                // If generator suspended during spread expression evaluation, stop processing
-                // The iterator will be null because we haven't started iteration yet.
-                // Resume re-evaluates the spread (the await inside is cached).
+                // If generator suspended during spread expression evaluation, stop processing before
+                // GetIterator. Resume re-evaluates the spread (the await inside is cached).
                 if (context.IsSuspended())
                 {
                     return i;
                 }
 
-                // walk an array by index while its @@iterator and the `next` of the iterator that answers are both the
-                // built-ins; otherwise step the record GetIterator built above (sebastienros/jint#4418)
-                if (objectInstance is JsArray { HasOriginalIterator: true } ai)
+                // Walk an array by index while its @@iterator and the `next` of the iterator that answers are both the
+                // built-ins (sebastienros/jint#4418). The check makes GetIterator's one @@iterator read, and when it
+                // cannot walk, GetIterator takes what that read found instead of reading again (sebastienros/jint#4426).
+                JsValue? iteratorMethod = null;
+                if (argument is JsArray ai && ai.HasOriginalIterator(out iteratorMethod))
                 {
                     var length = ai.GetLength();
                     for (uint j = 0; j < length; ++j)
@@ -228,7 +229,7 @@ internal sealed class ExpressionCache
                 }
                 else
                 {
-                    var protocol = new ArraySpreadProtocol(context.Engine, target, iterator!);
+                    var protocol = new ArraySpreadProtocol(context.Engine, target, jse.GetIterator(context.Engine.Realm, argument, iteratorMethod));
                     protocol.Execute();
                 }
             }
