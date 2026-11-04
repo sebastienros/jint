@@ -7207,9 +7207,10 @@ Object.getPrototypeOf(s.values()).next = function () { return { value: undefined
 ```
 
 This applies wherever an iterator is taken from such an object: spread, `Array.from`, destructuring, `new Map()` and
-`new Set()`, `Promise.all`, a `for`-`of` over the collection, and the `for await` above. A `for`-`of` whose operand is
-the iterator object itself still steps it natively, and so do spread and `for`-`of` over a string primitive, and
-destructuring a CLR list (`const [a] = list`), which reads it by index. There is no switch back.
+`new Set()`, `Promise.all`, a `for`-`of` over the collection, and the `for await` above. Destructuring a CLR list
+(`const [a] = list`) still reads it by index and calls no `next`. A `for`-`of` whose operand is the iterator object
+itself, and spread and `for`-`of` over a string primitive, ignored a replaced `next` too until §4.195. There is no
+switch back.
 
 ### 4.189 A replaced `next` is read once, and a `for await` loop left early disposes a CLR enumerator ([#4408](https://github.com/sebastienros/jint/issues/4408))
 
@@ -7404,6 +7405,41 @@ check, through the element's key or its private name. The context's members come
 accessor decorator that returns a `get` or a `set` that is not a function, where Jint used to keep the value. A
 non-function `init`, and a return value that is neither an object nor `undefined`, already threw.
 
+There is no switch back.
+
+### 4.195 A `for`-`of` over an iterator object calls its `Symbol.iterator` and `next`, and iterating a string calls a replaced `next` ([#4405](https://github.com/sebastienros/jint/issues/4405))
+
+Taking an iterator from an object calls the object's `Symbol.iterator` method and reads `next` off what it returns. A
+built-in iterator object inherits its `Symbol.iterator` from `Iterator.prototype`, and that method returns the iterator
+itself. In 4.16 and earlier 5.0 builds, a `for`-`of` loop whose operand was a built-in iterator object (`arr.values()`,
+`map.entries()`, `str.matchAll(re)` and the others §4.188 lists) used the object as its iterator without reading
+either. A `Symbol.iterator` method the script gave the object or one of its prototypes was never called, and neither was
+a `next` the script set on the iterator or on its prototype:
+
+```js
+var a = [1, 2].values();
+a[Symbol.iterator] = () => [9].values();
+var log = [];
+for (var x of a) log.push(x);
+log
+// 4.16.x / earlier 5.0: [1, 2]    5.x: [9]
+```
+
+Now the loop calls whatever `Symbol.iterator` resolves to, as spread, `Array.from` and destructuring of the iterator
+object already did. It throws a `TypeError` when that method is missing, is not callable or returns a non-object, where
+the loop used to iterate the object anyway.
+
+Spread, `for`-`of`, `Array.from`, destructuring, `new Set()` and `yield*` over a string primitive iterate its
+characters without creating a string iterator object. In 4.16 and earlier 5.0 builds they did so even when the script
+had replaced `next` on the string iterator prototype. Now that `next` is called:
+
+```js
+Object.getPrototypeOf(""[Symbol.iterator]()).next = () => ({ done: true });
+[..."ab"]
+// 4.16.x / earlier 5.0: ["a", "b"]    5.x: []
+```
+
+An iterator object or a string whose `Symbol.iterator` and `next` are the built-in ones is still stepped natively.
 There is no switch back.
 
 ### 4.196 A `for await` loop and `Array.fromAsync` call the `next` they read once, and a CLR enumerator that runs out is disposed ([#4410](https://github.com/sebastienros/jint/issues/4410))

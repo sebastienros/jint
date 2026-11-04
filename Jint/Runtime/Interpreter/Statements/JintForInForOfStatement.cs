@@ -395,13 +395,16 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             // GetIterator(obj, async), https://tc39.es/ecma262/#sec-getiterator: a built-in iterator object
             // (arr.values(), map.entries(), ...) has no @@asyncIterator, so step 1.b wraps the sync iterator
             // its @@iterator hands back in CreateAsyncFromSyncIterator, whose next() and return() each await.
-            // Adopting the built-in iterator as the record, as the sync kind below does, skipped both awaits
+            // Adopting the built-in iterator as the record, as the sync kind below once did, skipped both awaits
             // (sebastienros/jint#4392).
             result = exprValue.GetIterator(engine.Realm, Native.Generator.GeneratorKind.Async);
         }
         else
         {
-            result = exprValue as IteratorInstance ?? exprValue.GetIterator(engine.Realm);
+            // GetIterator(obj, sync) for every operand. A built-in iterator object used to be adopted as the record
+            // directly, which ignored any @@iterator or `next` but the built-in ones (sebastienros/jint#4405); its
+            // TryGetIterator now answers that same record, without a property read, whenever both are built-in.
+            result = exprValue.GetIterator(engine.Realm);
         }
 
         return true;
