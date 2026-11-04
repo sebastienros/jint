@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.AsyncGenerator;
 using Jint.Native.Generator;
@@ -484,74 +485,96 @@ internal sealed class JintYieldExpression : JintExpression
             }
             else // receivedType == CompletionType.Return
             {
-                var iteratorInstance = iterator.Instance;
-                var returnMethod = iteratorInstance.GetMethod(CommonProperties.Return);
-                if (returnMethod is null)
+                // Only a generator runs this loop; an async generator's return() is DelegateReturn's.
+                var innerReturnObj = ForwardReturnToDelegate(engine.Realm, iterator, receivedValue, out var returnValue);
+                if (innerReturnObj is null)
                 {
-                    var temp = receivedValue;
-                    if (generatorKind == GeneratorKind.Async)
-                    {
-                        temp = Await(context, receivedValue);
-                    }
-
-                    // Per spec: "Return Completion(received)" - the generator should complete
-                    // with the received return value, but we must let try-finally blocks execute.
-                    // Use _returnRequested to signal return completion through normal execution flow.
+                    // Steps 7.c.iii.3 and 7.c.viii.2: Return ReturnCompletion(value). The generator completes with it
+                    // once the statement has run the finally blocks, which _returnRequested asks it to; see DeliverReturn.
                     generator._delegatingIterator = null;
                     generator._delegatingYieldNode = null;
-                    generator._returnRequested = true;
-                    generator._suspendedValue = temp;
-
-                    // Hand the return completion on to the statement, which runs the finally blocks
-                    // before the generator completes; see DeliverReturn.
-                    return DeliverReturn(temp, syncGenerator: true);
-                }
-
-                var innerReturnResult = returnMethod.Call(iteratorInstance, new[] { receivedValue });
-                if (generatorKind == GeneratorKind.Async)
-                {
-                    innerReturnResult = Await(context, innerReturnResult);
-                }
-
-                if (innerReturnResult is not ObjectInstance innerReturnObj)
-                {
-                    Throw.TypeError(engine.Realm, "Iterator result is not an object");
-                    return JsValue.Undefined; // unreachable
-                }
-
-                var done = IteratorComplete(innerReturnObj);
-                if (done)
-                {
-                    // Per spec 14.4.14 step 5.c.vii: Return Completion{[[Type]]: return, [[Value]]: value}
-                    // This means we need to signal a Return completion to the generator
-                    var returnValue = IteratorValue(innerReturnObj);
-                    generator._delegatingIterator = null;
-                    generator._delegatingYieldNode = null;
-
-                    // Signal return request - callers check _returnRequested flag
-                    // This will trigger finally blocks and then complete the generator
                     generator._returnRequested = true;
                     generator._suspendedValue = returnValue;
                     return DeliverReturn(returnValue, syncGenerator: true);
                 }
 
-                if (generatorKind == GeneratorKind.Async)
-                {
-                    var asyncReceived = AsyncGeneratorYield(context, IteratorValue(innerReturnObj));
-                    receivedType = asyncReceived.Type;
-                    receivedValue = asyncReceived.Value;
-                }
-                else
-                {
-                    // Yield the result and suspend
-                    SuspendForDelegation(context, generator, innerReturnObj, CompletionType.Normal);
+                // Step 7.c.x: GeneratorYield(innerReturnResult), and the delegation goes on.
+                SuspendForDelegation(context, generator, innerReturnObj, CompletionType.Normal);
 
-                    // Check if suspended - if so, return to propagate suspension up the call stack
-                    if (context.IsSuspended())
-                    {
-                        return JsValue.Undefined;
-                    }
+                // Check if suspended - if so, return to propagate suspension up the call stack
+                if (context.IsSuspended())
+                {
+                    return JsValue.Undefined;
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The return branch of https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation
+    /// (step 7.c) in a generator: forwards a return() resumption to the delegate. Answers <see langword="null"/> when the
+    /// delegation ends with a return completion of <paramref name="returnValue"/>, because the delegate has no
+    /// <c>return</c> (7.c.iii) or its <c>return</c> answered done (7.c.viii), and otherwise what that <c>return</c>
+    /// answered, which the generator yields (7.c.x) while the delegation goes on.
+    /// <para>
+    /// Every way the delegation ends here, a throw included, releases the native state of a built-in iterator the
+    /// delegate is, after its <c>return</c> or in place of one, as IteratorClose does: a CLR collection's iterator disposes
+    /// its host enumerator (sebastienros/jint#4429). An answer that is not done keeps the iterator for the steps still to
+    /// come. The release is told a throw completion whenever one is leaving, so that a host's <c>Dispose</c> cannot
+    /// replace it. Out of line: only a return() reaches it.
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static ObjectInstance? ForwardReturnToDelegate(
+        Realm realm,
+        IteratorInstance iterator,
+        JsValue receivedValue,
+        out JsValue returnValue)
+    {
+        var iteratorInstance = iterator.Instance;
+
+        // The completion leaving the delegation, as the native release is told it: a throw until a step below is known
+        // to have completed.
+        var leaving = CompletionType.Throw;
+        var delegationEnds = true;
+        try
+        {
+            // Step 7.c.ii: Let return be ? GetMethod(iterator, "return").
+            var returnMethod = iteratorInstance.GetMethod(CommonProperties.Return);
+            if (returnMethod is null)
+            {
+                // Step 7.c.iii: the value received is the return completion's.
+                returnValue = receivedValue;
+                leaving = CompletionType.Return;
+                return null;
+            }
+
+            // Steps 7.c.iv and 7.c.vi.
+            var innerReturnResult = returnMethod.Call(iteratorInstance, new[] { receivedValue });
+            if (innerReturnResult is not ObjectInstance innerReturnObj)
+            {
+                Throw.TypeError(realm, "Iterator result is not an object");
+                returnValue = null!;
+                return null;
+            }
+
+            // Steps 7.c.vii-viii.
+            if (IteratorComplete(innerReturnObj))
+            {
+                returnValue = IteratorValue(innerReturnObj);
+                leaving = CompletionType.Return;
+                return null;
+            }
+
+            delegationEnds = false;
+            returnValue = JsValue.Undefined;
+            return innerReturnObj;
+        }
+        finally
+        {
+            if (delegationEnds)
+            {
+                iterator.CloseNativeStateAfterReturn(leaving);
             }
         }
     }
@@ -688,6 +711,7 @@ internal sealed class JintYieldExpression : JintExpression
             if (resolvedResult is not ObjectInstance resultObj)
             {
                 var error = engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object");
+                ReleaseAfterForwardedReturn(asyncGenerator, delegationResumeType, CompletionType.Throw);
                 asyncGenerator.ThrowAfterDelegation(error, promiseCapability);
                 return JsValue.Undefined;
             }
@@ -702,13 +726,22 @@ internal sealed class JintYieldExpression : JintExpression
             }
             catch (JavaScriptException e)
             {
+                ReleaseAfterForwardedReturn(asyncGenerator, delegationResumeType, CompletionType.Throw);
                 asyncGenerator.ThrowAfterDelegation(e.Error, promiseCapability);
                 return JsValue.Undefined;
+            }
+            catch
+            {
+                // A constraint that tripped or a host exception, which no script can catch: it leaves the job as it is,
+                // and the delegation it ends still owes the release.
+                ReleaseAfterForwardedReturn(asyncGenerator, delegationResumeType, CompletionType.Throw);
+                throw;
             }
 
             if (done)
             {
                 // Delegation complete - clean up and resume the outer generator with the final value
+                ReleaseAfterForwardedReturn(asyncGenerator, delegationResumeType, CompletionType.Return);
                 asyncGenerator.ClearDelegationIterator();
 
                 if (delegationResumeType == CompletionType.Return)
@@ -740,6 +773,7 @@ internal sealed class JintYieldExpression : JintExpression
         var onRejected = new ClrFunction(engine, "", (_, args) =>
         {
             // The delegate failed: `? Await(innerResult)` is abrupt, and the throw is the yield*'s own
+            ReleaseAfterForwardedReturn(asyncGenerator, delegationResumeType, CompletionType.Throw);
             asyncGenerator.ThrowAfterDelegation(args.At(0), promiseCapability);
             return JsValue.Undefined;
         }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
@@ -767,6 +801,13 @@ internal sealed class JintYieldExpression : JintExpression
     /// https://tc39.es/ecma262/#sec-asyncgeneratorunwrapyieldresumption <c>AsyncGeneratorInstance</c> ran before the
     /// body resumed, and a rejected await arrives as a throw instead. Every step here is <c>?</c>, and the body is
     /// running, so a failure is thrown at the yield*, where a try/catch around it sees it.
+    /// <para>
+    /// Every way the delegation ends releases the native state of a built-in iterator the delegate is, a CLR
+    /// collection's iterator disposing its host enumerator (sebastienros/jint#4429): at once without a <c>return</c>
+    /// or when reading, calling or awaiting it throws here, a constraint or a host exception included, and otherwise once
+    /// its answer has settled done, or failed (<see cref="ReleaseAfterForwardedReturn"/>). The CreateAsyncFromSyncIterator
+    /// wrapper of a sync delegate has a <c>return</c> of its own, and the release reaches the sync iterator behind it.
+    /// </para>
     /// </summary>
     private static JsValue DelegateReturn(
         EvaluationContext context,
@@ -776,29 +817,55 @@ internal sealed class JintYieldExpression : JintExpression
     {
         var engine = context.Engine;
 
-        JsValue innerReturnResult;
+        JsPromise innerPromise;
         try
         {
             var returnMethod = iterator.Instance.GetMethod(CommonProperties.Return);
             if (returnMethod is null)
             {
+                // Step 7.c.iii: the delegation is over, so the release comes now, as IteratorClose's step 4.b does.
+                iterator.CloseWithoutReturn(CompletionType.Return);
                 return AwaitDelegationReturnValue(engine, asyncGenerator, receivedValue);
             }
 
-            innerReturnResult = returnMethod.Call(iterator.Instance, new[] { receivedValue });
+            var innerReturnResult = returnMethod.Call(iterator.Instance, new[] { receivedValue });
+
+            // Await and step through the delegate's answer exactly as a next() result is, with Return as the
+            // completion a done result resumes the body with.
+            asyncGenerator._delegationResumeType = CompletionType.Return;
+            innerPromise = EnsurePromise(engine, asyncGenerator, innerReturnResult);
         }
-        catch (JavaScriptException)
+        catch
         {
-            // The throw ends the delegation here and now, so nothing may resume into it later.
+            // The throw ends the delegation here and now, so nothing may resume into it later. Whatever it is - a script
+            // throw, a constraint that tripped inside the `return`, a host exception - it propagates as it is: the release
+            // is told a throw completion, so a host's Dispose cannot replace it unless MustPropagateHostException says so.
             asyncGenerator.ClearDelegationIterator();
             asyncGenerator._delegatingYieldNode = null;
+            iterator.CloseNativeStateAfterReturn(CompletionType.Throw);
             throw;
         }
 
-        // Await and step through the delegate's answer exactly as a next() result is, with Return as the
-        // completion a done result resumes the body with.
-        asyncGenerator._delegationResumeType = CompletionType.Return;
-        return AwaitAndYieldDelegation(context, asyncGenerator, iterator, EnsurePromise(engine, asyncGenerator, innerReturnResult));
+        return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
+    }
+
+    /// <summary>
+    /// The answer of the <c>return</c> <see cref="DelegateReturn"/> forwarded a return() to has settled, and ended the
+    /// delegation: done, which is <paramref name="leaving"/> <see cref="CompletionType.Return"/>, or as a throw. The
+    /// delegate's native state is released now, as IteratorClose releases it after a <c>return</c>, and only for a
+    /// delegation <paramref name="delegationResumeType"/> says was forwarding one: a next() that ends a delegation leaves
+    /// a delegate that ran out or failed a step, and a CLR collection's iterator releases itself at either. The iterator
+    /// is read off the generator while the delegation still holds it, so the reactions capture nothing more for it.
+    /// </summary>
+    private static void ReleaseAfterForwardedReturn(
+        AsyncGeneratorInstance asyncGenerator,
+        CompletionType delegationResumeType,
+        CompletionType leaving)
+    {
+        if (delegationResumeType == CompletionType.Return)
+        {
+            asyncGenerator._delegatingIterator?.CloseNativeStateAfterReturn(leaving);
+        }
     }
 
     /// <summary>
