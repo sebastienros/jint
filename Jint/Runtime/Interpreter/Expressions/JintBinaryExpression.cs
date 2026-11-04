@@ -778,7 +778,20 @@ internal abstract class JintBinaryExpression : JintExpression
     private readonly record struct MethodResolverState(JsCallArguments Arguments);
 
     /// <summary>
-    /// Calls the CLR operator this pair of operands selects, if there is one.
+    /// Calls the CLR operator this pair of operands selects, if there is one. A reflection-free publication
+    /// answers <see langword="false"/> through <see cref="HostInterop"/>; the selection rules are on
+    /// <see cref="TryOperatorOverloadingWithReflection"/>.
+    /// </summary>
+    internal static bool TryOperatorOverloading(
+        EvaluationContext context,
+        JsValue leftValue,
+        JsValue rightValue,
+        string? clrName,
+        [NotNullWhen(true)] out object? result) =>
+        HostInterop.Instance.TryBinaryOperator(context, leftValue, rightValue, clrName, out result);
+
+    /// <summary>
+    /// The reflection lane behind <see cref="TryOperatorOverloading"/>.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -807,7 +820,7 @@ internal abstract class JintBinaryExpression : JintExpression
     /// allocating a candidate list.
     /// </para>
     /// </remarks>
-    internal static bool TryOperatorOverloading(
+    internal static bool TryOperatorOverloadingWithReflection(
         EvaluationContext context,
         JsValue leftValue,
         JsValue rightValue,

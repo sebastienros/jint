@@ -454,6 +454,11 @@ public abstract partial class JsValue : IEquatable<JsValue>
             }
         }
 
+        return HostInterop.Instance.FromObject(engine, value, type);
+    }
+
+    internal static JsValue FromObjectWithReflection(Engine engine, object value, Type? type)
+    {
         if (DefaultObjectConverter.TryConvert(engine, value, type, out var defaultConversion))
         {
             return defaultConversion;
