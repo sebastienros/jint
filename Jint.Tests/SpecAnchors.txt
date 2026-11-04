@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1314
+anchors: 1320
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -852,6 +852,9 @@ ecma402 locale-objects
 ecma402 numberformat-objects
 ecma402 pluralrules-objects
 ecma402 relativetimeformat-objects
+ecma402 sec-%intlsegmentiteratorprototype%-object
+ecma402 sec-%intlsegmentiteratorprototype%.%symbol.tostringtag%
+ecma402 sec-%intlsegmentiteratorprototype%.next
 ecma402 sec-%segmentsprototype%-@@iterator
 ecma402 sec-%segmentsprototype%.containing
 ecma402 sec-InitializeRelativeTimeFormat
@@ -907,6 +910,8 @@ ecma402 sec-collationsoflocale
 ecma402 sec-computeexponent
 ecma402 sec-computeexponentformagnitude
 ecma402 sec-createdatetimeformat
+ecma402 sec-createsegmentiterator
+ecma402 sec-createsegmentsobject
 ecma402 sec-createstringlistfromiterable
 ecma402 sec-date-time-style-format
 ecma402 sec-datetimeformat-format-record
@@ -994,6 +999,7 @@ ecma402 sec-properties-of-the-intl-collator-prototype-object
 ecma402 sec-regionpreference
 ecma402 sec-resolvelocale
 ecma402 sec-resolveoptions
+ecma402 sec-segment-iterator-objects
 ecma402 sec-segments-objects
 ecma402 sec-setnumberformatdigitoptions
 ecma402 sec-textdirectionoflocale

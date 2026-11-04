@@ -7536,9 +7536,8 @@ they throw.
 To call the `return`, destructuring an array (`var [a] = arr`) and an array parameter (`function f([a])`) now create
 the array's iterator whenever a `return` is on its chain. Without one, they still read the array by index. The
 iterator for a string primitive inherits the string iterator prototype, as the specified one does, so it never finds
-a `return` set on `%ArrayIteratorPrototype%`. An `Intl.Segmenter` segments iterator still inherits
-`%ArrayIteratorPrototype%`, which [#4407](https://github.com/sebastienros/jint/issues/4407) tracks, so until that is
-fixed it finds a `return` set there.
+a `return` set on `%ArrayIteratorPrototype%`. Neither does an `Intl.Segmenter` segments iterator, which inherits a
+prototype of its own since §4.204.
 
 A function parameter's array pattern now steps its iterator one element at a time. Each element's default is
 evaluated before the next step, and the iterator is closed only after every default has run, or with the throw of a
@@ -7661,6 +7660,39 @@ a callable `next` by then. `AsyncIterator.from` now reads `next` before it check
 and no iterator method now rejects the step with a `TypeError` and closes the source iterator; in 4.16 and earlier 5.0
 builds that object was skipped. After an inner iterator's `next` throws, `return()` on the helper no longer calls that
 inner iterator's `return`. There is no switch back.
+
+### 4.204 `Iterator.prototype` has no `next`, and a segments iterator has a prototype of its own ([#4407](https://github.com/sebastienros/jint/issues/4407))
+
+Each built-in iterator prototype has a `next` of its own: the array iterator prototype, the `Map`, `Set`, string and
+`matchAll` iterator prototypes, and those of `Headers`, `FormData` and `URLSearchParams`. `Iterator.prototype`, which
+they all inherit, has none. In 4.16 and earlier 5.0 builds it had one too. Deleting a kind's `next` uncovered it, so the
+iterators of that kind went on iterating, and a class extending `Iterator` inherited it:
+
+```js
+delete Object.getPrototypeOf([].values()).next;
+[...[1, 2]]
+// 4.16.x / earlier 5.0: [1, 2]    5.x: TypeError
+Object.hasOwn(Iterator.prototype, "next")
+// 4.16.x / earlier 5.0: true    5.x: false
+```
+
+Now a deleted `next` leaves nothing to inherit. A loop, a spread, a destructuring, `Array.from` or `yield*` over such an
+iterator throws a `TypeError`, unless the script has put a `next` higher up the chain, which is then called.
+
+An `Intl.Segmenter` segments iterator now inherits a prototype of its own. Its `Symbol.toStringTag` is
+`"Segmenter String Iterator"`, and it inherits `Iterator.prototype`. In 4.16 and earlier 5.0 builds the iterator
+inherited the array iterator prototype:
+
+```js
+var it = new Intl.Segmenter().segment("ab")[Symbol.iterator]();
+Object.prototype.toString.call(it)
+// 4.16.x / earlier 5.0: "[object Array Iterator]"    5.x: "[object Segmenter String Iterator]"
+```
+
+So a `next` or a `return` set on the array iterator prototype no longer reaches a segments iterator, and one set on the
+segments iterator's prototype no longer reaches an array. The prototype is the one of the realm whose
+`Intl.Segmenter.prototype.segment` created the segments object. It used to be the array iterator prototype of whichever
+realm was running. There is no switch back.
 
 ### 4.206 `Intl.ListFormat` iterates its argument as the spec says, and calls the `next` it read once ([#4438](https://github.com/sebastienros/jint/issues/4438))
 
