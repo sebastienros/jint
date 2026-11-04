@@ -27,6 +27,11 @@ namespace Jint.Tests.Runtime;
 /// the controls, as are the destructuring patterns that may suspend. Every expected value is Node 26's.
 /// </para>
 /// </summary>
+/// <remarks>
+/// Every case builds its own <see cref="Engine"/> and the fixture holds no mutable state, so its cases run in parallel;
+/// the harness is parsed once and shared by all of them, which a <see cref="Prepared{T}"/> allows.
+/// </remarks>
+[Parallelizable(ParallelScope.All)]
 public class ArrayLaneIteratorReadTests
 {
     private const string Harness = """
@@ -256,8 +261,13 @@ public class ArrayLaneIteratorReadTests
         }
     }
 
-    private static string Run(Engine engine, string script) =>
-        engine.Evaluate(Harness + "\n" + script).UnwrapIfPromise().AsString();
+    private static readonly Prepared<Script> PreparedHarness = Engine.PrepareScript(Harness);
+
+    private static string Run(Engine engine, string script)
+    {
+        engine.Execute(PreparedHarness);
+        return engine.Evaluate(script).UnwrapIfPromise().AsString();
+    }
 
     /// <summary>
     /// The issue's own probe.
