@@ -444,6 +444,29 @@ public class SuspendedClassDefinitionTests
             .Should().Be("4 true|pre,d0,d1,d2,d3,post");
     }
 
+    // An element decorator is applied once every element has been evaluated, and the class's own decorators before any
+    // static field or block runs (https://github.com/tc39/ecma262/pull/2417, sebastienros/jint#4413), so a key that
+    // suspends after a decorated element is evaluated before that element's decorator is applied, and the resume
+    // applies it.
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void AnElementDecoratorIsAppliedAfterALaterKeyThatSuspended(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0; function dec(m) { applied++; log.push('apply'); return function () { return m.call(this) + 1; }; } class C { @dec static a() { return 1; } static [(log.push('k'), SUSPEND 'b')]() { return 10; } }",
+                "applied + ',' + C.a() + ',' + C.b()")
+            .Should().Be("1,2,10|pre,k,apply,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void AClassDecoratorAfterASuspendedKeyIsAppliedBeforeTheStaticBlocks(string suspension)
+    {
+        Probe(suspension,
+                "var R; function cdec(c) { log.push('apply'); return R = class extends c {}; } @cdec class C { static [SUSPEND 'k'] = (log.push('field'), this === R); static { log.push('block ' + (this === R) + ' ' + (C === R)); } }",
+                "(C === R) + ',' + C.k + ',' + Object.hasOwn(R, 'k')")
+            .Should().Be("true,true,true|pre,apply,field,block true true,post");
+    }
+
     /// <summary>
     /// The class's own decorators run as the code around the class does, sloppy here, on the resume as well; its
     /// element decorators stay strict.
