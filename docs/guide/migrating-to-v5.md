@@ -7752,6 +7752,26 @@ A non-string element still throws a `TypeError` and closes the iterator. The `Ty
 when the iterator's `return` throws, and a `return` added to the array iterator prototype is called for an array.
 There is no switch back.
 
+### 4.209 Array destructuring calls a `Symbol.iterator` the script gave a wrapped CLR collection ([#4427](https://github.com/sebastienros/jint/issues/4427))
+
+Array destructuring takes an iterator from its value: it reads the value's `Symbol.iterator` and calls what it found.
+In 4.16 and earlier 5.0 builds, destructuring a wrapped CLR list, array or other indexed collection (in a
+declaration, an assignment, a `for`-`of` head or a `catch` parameter) read the collection by index, even after the
+script had given the wrapper a `Symbol.iterator` of its own. It could do that with `Object.defineProperty`, or by
+assignment when `Options.Interop.AllowWrite` is set. The script's method was never called:
+
+```js
+// host: engine.SetValue("list", new List<int> { 1, 2 });
+Object.defineProperty(list, Symbol.iterator, { value: function* () { yield 9; }, configurable: true });
+const [a] = list;
+[a, ...list]
+// 4.16.x / earlier 5.0: [1, 9]    5.x: [9, 9]
+```
+
+Now destructuring calls it, as spread, a function parameter, `for`-`of` and `Array.from` already did, and a getter
+there runs once. Once the property is deleted, the wrapper's own iterator, which enumerates the collection, comes
+back. A wrapper whose `Symbol.iterator` is still its own is still read by index. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
