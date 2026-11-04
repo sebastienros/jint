@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.Diagnostics;
+using System.Globalization;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -66,6 +67,9 @@ public abstract partial class Test262Test
             cfg.AgentCanSuspend = !file.Flags.Contains("CanBlockIsFalse");
             // Use ICU-based CLDR provider for better Intl support
             cfg.Intl.CldrProvider = IcuCldrProvider.Instance;
+            // The locale a test gets from `[]` or no locale at all, which would otherwise be the culture of the
+            // machine running the suite: en-US on CI, but a 24-hour locale fails order-dayPeriod.js (issue #4444).
+            cfg.Culture = CultureInfo.GetCultureInfo("en-US");
             // Use NodaTime for accurate IANA timezone support (sub-minute offsets, historical DST)
             cfg.Temporal.TimeZoneProvider = NodaTimeZoneProvider.Instance;
         });
