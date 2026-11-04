@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Jint.Native.Generator;
@@ -42,6 +43,42 @@ internal abstract class IteratorInstance : ObjectInstance
     /// </summary>
     internal virtual IteratorInstance ToIteratorRecord()
         => _prototype is IteratorPrototype prototype ? prototype.ToIteratorRecord(this) : WrapReadingNext(this);
+
+    /// <summary>
+    /// GetIterator(obj, sync) (https://tc39.es/ecma262/#sec-getiterator) for a built-in iterator object itself - the
+    /// operand of <c>for (x of arr.values())</c>, a spread of <c>map.keys()</c>. Steps 1-2 read <c>@@iterator</c> and
+    /// call it, and GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3 reads
+    /// <c>next</c> off what it answered. While the instance has no own symbol-keyed property and its prototype's
+    /// lookup finds %Iterator.prototype%'s own built-in <c>@@iterator</c>, which answers its receiver, neither of the
+    /// first two is observable, and the record is what the cheap <c>next</c> check answers: neither check reads a
+    /// property (<see cref="IteratorPrototype.InheritsOriginalIteratorMethod"/>,
+    /// <see cref="IteratorPrototype.ToIteratorRecord"/>). Anything else takes the specified path, which calls a
+    /// replaced <c>@@iterator</c> and throws for a missing or unusable one. Until sebastienros/jint#4405 a sync
+    /// <c>for…of</c> adopted the instance as its record without either read, so it ignored both.
+    /// </summary>
+    internal override bool TryGetIterator(
+        Realm realm,
+        [NotNullWhen(true)] out IteratorInstance? iterator,
+        GeneratorKind hint = GeneratorKind.Sync,
+        ICallable? method = null)
+    {
+        if (hint == GeneratorKind.Sync
+            && method is null
+            && _symbols is null
+            && _prototype is IteratorPrototype prototype
+            && prototype.InheritsOriginalIteratorMethod())
+        {
+            // The prototype's check, not the virtual ToIteratorRecord(): this skips the ArrayIterator and
+            // ArrayLikeIterator overrides, which wrap an iterator whose prototype is not %ArrayIteratorPrototype%.
+            // Native stepping is still the same answer only because no built-in `next` brand-checks its receiver, so
+            // another kind's untouched `next` steps this iterator exactly as the native lane does. A built-in `next`
+            // that starts brand-checking must make this lane check the prototype's kind too.
+            iterator = prototype.ToIteratorRecord(this);
+            return true;
+        }
+
+        return base.TryGetIterator(realm, out iterator, hint, method);
+    }
 
     /// <summary>
     /// The record for an iterator <see cref="ToIteratorRecord"/> may not step natively and has not read <c>next</c>
@@ -152,6 +189,23 @@ internal abstract class IteratorInstance : ObjectInstance
     /// Returns null for built-in iterators that don't have a cached callable.
     /// </summary>
     public virtual ICallable? NextMethod => null;
+
+    /// <summary>
+    /// IteratorNext step 1 (https://tc39.es/ecma262/#sec-iteratornext) as the async consumers take it: call the record's
+    /// [[NextMethod]] on its [[Iterator]] and answer the result unchecked, since a <c>for await</c> loop and
+    /// Array.fromAsync await it before they look at it. Neither may read <c>next</c> again: the record holds what
+    /// GetIteratorFromMethod read once (sebastienros/jint#4410).
+    /// <para>
+    /// This record steps natively, which <see cref="ToIteratorRecord"/> allowed because <c>next</c> resolved to the
+    /// built-in function the prototype captured. That function is the [[NextMethod]], and all it does is this step
+    /// (<see cref="IteratorPrototype.Next"/>), so a <c>next</c> the script assigns afterwards is never reached.
+    /// </para>
+    /// </summary>
+    internal virtual JsValue CallNextMethod()
+    {
+        TryIteratorStep(out var result);
+        return result;
+    }
 
     public virtual void Close(CompletionType completion)
     {
@@ -297,6 +351,21 @@ internal abstract class IteratorInstance : ObjectInstance
             }
 
             return instance;
+        }
+
+        /// <summary>
+        /// IteratorNext step 1 through the [[NextMethod]] this record captured, never a fresh read of <c>next</c>; a
+        /// value that was not callable fails here, as the Call would.
+        /// </summary>
+        internal override JsValue CallNextMethod()
+        {
+            if (_nextMethod is null)
+            {
+                Throw.TypeError(_target.Engine.Realm, "Iterator does not have a next method");
+                return null!;
+            }
+
+            return _nextMethod.Call(_target, Arguments.Empty);
         }
 
         /// <summary>

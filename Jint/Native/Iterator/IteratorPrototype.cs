@@ -33,6 +33,20 @@ internal partial class IteratorPrototype : Prototype
     private PropertyDescriptor? _nextDescriptor;
     private uint _nextDescriptorVersion;
 
+    // %Iterator.prototype%'s own @@iterator, captured by its CreateSymbols_Generated (CaptureField on the
+    // [JsSymbolFunction("Iterator")] below). Null on every other prototype, which is what makes an @@iterator found on
+    // one of those answer the specified path.
+    private FunctionInstance? _originalIteratorFunction;
+
+    // The @@iterator lookup InheritsOriginalIteratorMethod caches: the data descriptor found (NotADataProperty if
+    // none), the object it was found on, both objects' own-property versions and this prototype's own prototype as
+    // they stood then. Null while it has not been looked up.
+    private PropertyDescriptor? _iteratorMethodDescriptor;
+    private IteratorPrototype? _iteratorMethodHolder;
+    private ObjectInstance? _iteratorMethodPrototype;
+    private uint _iteratorMethodVersion;
+    private uint _iteratorMethodHolderVersion;
+
     /// <summary>
     /// GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3, GetIteratorDirect steps 1-2,
     /// for <paramref name="iterator"/>, whose prototype this is: the one read of <c>next</c> off it, and the record.
@@ -67,15 +81,28 @@ internal partial class IteratorPrototype : Prototype
             return ToIteratorRecordReadingNext(iterator);
         }
 
+        return HasOriginalNext()
+            ? iterator
+            : IteratorInstance.WrapReadingNext(iterator);
+    }
+
+    /// <summary>
+    /// Whether <c>next</c>, read off an instance of this prototype that has no own property, finds this prototype's
+    /// built-in <c>next</c>: its own <c>next</c> is still a data property holding that function. A cached descriptor and
+    /// this prototype's own-property version answer it without a property read. <see cref="ToIteratorRecord"/> asks it,
+    /// as does the string primitive's lane, whose iterator is not yet an object anyone could have written to
+    /// (<c>StringIteratorPrototype.ToIteratorRecord</c>).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private protected bool HasOriginalNext()
+    {
         var descriptor = _nextDescriptor;
         if (descriptor is null || _propertiesVersion != _nextDescriptorVersion)
         {
             descriptor = ReadNextDescriptor();
         }
 
-        return ReferenceEquals(descriptor.Value, _originalNextFunction)
-            ? iterator
-            : IteratorInstance.WrapReadingNext(iterator);
+        return ReferenceEquals(descriptor.Value, _originalNextFunction);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -92,6 +119,88 @@ internal partial class IteratorPrototype : Prototype
         _nextDescriptorVersion = _propertiesVersion;
         _nextDescriptor = descriptor;
         return descriptor;
+    }
+
+    /// <summary>
+    /// GetIterator (https://tc39.es/ecma262/#sec-getiterator) step for an instance of this prototype that has no own
+    /// symbol-keyed property: whether the <c>@@iterator</c> it inherits is %Iterator.prototype%'s own built-in method
+    /// (https://tc39.es/ecma262/#sec-iterator.prototype-%symbol.iterator%), which answers its receiver. Then reading and
+    /// calling it is unobservable, and the instance is the object GetIteratorFromMethod reads <c>next</c> off.
+    /// <para>
+    /// The lookup goes one link up at most: this prototype's own <c>@@iterator</c>, else its prototype's when that is a
+    /// built-in iterator prototype. Anything else answers <see langword="false"/>, and the caller takes the specified
+    /// path. The descriptor found is cached with both objects' own-property versions, which a symbol-keyed change moves
+    /// here (<see cref="SetOwnProperty"/>), and with this prototype's own prototype, which <c>setPrototypeOf</c> moves.
+    /// An assignment or a data redefinition changes the cached descriptor's value in place, which is re-read every time.
+    /// <c>IteratorInstance.TryGetIterator</c> asks it (sebastienros/jint#4405).
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool InheritsOriginalIteratorMethod()
+    {
+        var descriptor = _iteratorMethodDescriptor;
+        var holder = _iteratorMethodHolder;
+        if (descriptor is null
+            || _propertiesVersion != _iteratorMethodVersion
+            || !ReferenceEquals(_prototype, _iteratorMethodPrototype)
+            || holder!._propertiesVersion != _iteratorMethodHolderVersion)
+        {
+            descriptor = LookUpIteratorMethod();
+            holder = _iteratorMethodHolder;
+        }
+
+        return ReferenceEquals(descriptor.Value, holder!._originalIteratorFunction);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private PropertyDescriptor LookUpIteratorMethod()
+    {
+        // GetOwnProperty first, on each object: it initializes the prototype (capturing %Iterator.prototype%'s
+        // _originalIteratorFunction) on first use, and the versions are the ones after that.
+        var holder = this;
+        var descriptor = GetOwnProperty(GlobalSymbolRegistry.Iterator);
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined) && _prototype is IteratorPrototype parent)
+        {
+            holder = parent;
+            descriptor = parent.GetOwnProperty(GlobalSymbolRegistry.Iterator);
+        }
+
+        if (!descriptor.IsDataDescriptor())
+        {
+            descriptor = NotADataProperty;
+        }
+
+        _iteratorMethodHolder = holder;
+        _iteratorMethodHolderVersion = holder._propertiesVersion;
+        _iteratorMethodPrototype = _prototype;
+        _iteratorMethodVersion = _propertiesVersion;
+        _iteratorMethodDescriptor = descriptor;
+        return descriptor;
+    }
+
+    /// <summary>
+    /// A symbol-keyed own property is stored apart from the string-keyed ones, and adding, replacing or removing one
+    /// does not move <see cref="ObjectInstance._propertiesVersion"/>. On a built-in iterator prototype it does, because
+    /// the cached <c>@@iterator</c> lookup is validated against it (<see cref="InheritsOriginalIteratorMethod"/>).
+    /// Every script route to a new descriptor comes through here or <see cref="RemoveOwnProperty"/>.
+    /// </summary>
+    protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+    {
+        base.SetOwnProperty(property, desc);
+        if (property.IsSymbol())
+        {
+            unchecked { _propertiesVersion++; }
+        }
+    }
+
+    /// <inheritdoc cref="SetOwnProperty"/>
+    public override void RemoveOwnProperty(JsValue property)
+    {
+        base.RemoveOwnProperty(property);
+        if (property.IsSymbol())
+        {
+            unchecked { _propertiesVersion++; }
+        }
     }
 
     internal IteratorPrototype(
@@ -1103,7 +1212,10 @@ internal partial class IteratorPrototype : Prototype
         return sb.Length == 0 ? JsString.Empty : JsString.Create(sb.ToString());
     }
 
-    [JsSymbolFunction("Iterator", Length = 0, Flags = PropertyFlag.NonEnumerable)]
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iterator.prototype-%symbol.iterator%
+    /// </summary>
+    [JsSymbolFunction("Iterator", Length = 0, Flags = PropertyFlag.NonEnumerable, CaptureField = nameof(_originalIteratorFunction))]
     private static JsValue ToIterator(JsValue thisObject) => thisObject;
 
     [JsSymbolFunction("Dispose", Length = 0, Flags = PropertyFlag.NonEnumerable)]
