@@ -251,9 +251,10 @@ function thrower() { throw new CustomError('custom boom'); }
         EqualIgnoringNewLineDifferences(@"    at thrower (custom.js:4:28)
     at main.js:1:1", e.JavaScriptStackTrace);
 
-        // The engine-built stack is installed as an own data property, so the script can read it too.
+        // The engine-built stack is the host's alone: the thrown object has no [[ErrorData]], so the inherited
+        // accessor still answers undefined, as V8 does for the same object (issue #4430).
         engine.Evaluate(@"
-try { thrower(); } catch (err) { typeof err.stack; }").AsString().Should().Be("string");
+try { thrower(); } catch (err) { typeof err.stack; }").AsString().Should().Be("undefined");
     }
 
     [Test]
@@ -268,6 +269,88 @@ try { thrower(); } catch (err) { typeof err.stack; }").AsString().Should().Be("s
         // The author's non-string "stack" is left untouched; the host side falls back to its own call stack.
         e.JavaScriptStackTrace.Should().Be("    at main.js:1:7");
         engine.Evaluate("(function(){ try { throw { stack: 42 }; } catch (x) { return x.stack; } })()").AsNumber().Should().Be(42);
+    }
+
+    /// <summary>
+    /// A thrown value that is not an Error is left exactly as it was thrown, as V8 leaves it: no own "stack"
+    /// appears on it, frozen or not, whether the throw is caught in script or crosses into the host. The call
+    /// stack is the host's, through <see cref="JavaScriptException.JavaScriptStackTrace"/> (issue #4430).
+    /// </summary>
+    [TestCase("{ a: 1 }")]
+    [TestCase("Object.freeze({ a: 1 })")]
+    [TestCase("Object.seal({ a: 1 })")]
+    [TestCase("Object.preventExtensions({ a: 1 })")]
+    [TestCase("[1, 2]")]
+    [TestCase("Object.create(Error.prototype)")]
+    public void ThrownNonErrorObjectGainsNoStackProperty(string value)
+    {
+        var engine = new Engine();
+        engine.Execute($"function thrower() {{ throw {value}; }}", "lib.js");
+
+        engine.Evaluate("""
+            (function () {
+                try { thrower(); } catch (e) {
+                    return JSON.stringify(Reflect.ownKeys(e)) + ' ' + (Object.getOwnPropertyDescriptor(e, 'stack') === undefined);
+                }
+            })()
+            """).AsString().Should().Be(engine.Evaluate($"JSON.stringify(Reflect.ownKeys({value})) + ' true'").AsString());
+
+        var e = Invoking(() => engine.Execute("thrower();", "main.js")).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Error.AsObject().HasOwnProperty("stack").Should().BeFalse();
+        EqualIgnoringNewLineDifferences(@"    at thrower (lib.js:1:28)
+    at main.js:1:1", e.JavaScriptStackTrace);
+    }
+
+    [Test]
+    public void ThrownFrozenObjectStaysFrozenWithItsOwnKeysOnly()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("""
+            (function () {
+                var o = Object.freeze({ a: 1 });
+                function thrower() { throw o; }
+                try { thrower(); } catch (e) {
+                    return [e === o, Object.isFrozen(e), Reflect.ownKeys(e).join(), typeof e.stack].join(' ');
+                }
+            })()
+            """).AsString().Should().Be("true true a undefined");
+    }
+
+    /// <summary>
+    /// An error the engine raises itself carries its stack in [[ErrorData]], read through the inherited accessor
+    /// rather than an own non-writable property, so a script can replace it as it can on any other error.
+    /// </summary>
+    [Test]
+    public void EngineRaisedErrorKeepsItsStackInErrorDataAndTheScriptCanReplaceIt()
+    {
+        var engine = new Engine();
+
+        engine.Execute("""
+            var t;
+            function read(o) { return o.x; }
+            try { read(null); } catch (e) { t = e; }
+            """, "main.js");
+
+        engine.Evaluate("t instanceof TypeError").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getOwnPropertyDescriptor(t, 'stack') === undefined").AsBoolean().Should().BeTrue();
+        engine.Evaluate("t.stack").AsString().Should().Contain("at read (main.js:2:");
+        engine.Evaluate("'use strict'; t.stack = 'replaced'; t.stack").AsString().Should().Be("replaced");
+    }
+
+    [Test]
+    public void ThrownErrorStillHasNoOwnStackProperty()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("""
+            (function () {
+                function thrower() { throw new Error('boom'); }
+                try { thrower(); } catch (e) {
+                    return [typeof e.stack, Object.getOwnPropertyDescriptor(e, 'stack') === undefined, Reflect.ownKeys(e).join()].join(' ');
+                }
+            })()
+            """).AsString().Should().Be("string true message");
     }
 
     private class Folder

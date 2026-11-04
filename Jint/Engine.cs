@@ -1821,6 +1821,11 @@ public sealed partial class Engine : IDisposable
     // revoked proxies. Keep secondary-realm records weakly, without another pointer on every JS object.
     internal ConditionalWeakTable<ObjectInstance, Realm>? _secondaryObjectRealms;
 
+    // The call stack a thrown object that is not an Error was given where it was thrown, carried to each later
+    // boundary it crosses (a new JavaScriptException per function body it leaves). Kept here, weakly keyed by the
+    // object, so the thrown object itself is never written to (issue #4430); an Error keeps it in [[ErrorData]].
+    internal ConditionalWeakTable<ObjectInstance, string>? _thrownObjectStacks;
+
     // bounded cache of most recently wrapped CLR objects, see Options.Interop.CacheRecentObjectWrappers
     internal RecentObjectWrapperCache? _recentObjectWrapperCache;
 
@@ -5779,6 +5784,7 @@ public sealed partial class Engine : IDisposable
         _recentObjectWrapperCache?.Clear();
         _recentObjectWrapperCache = null;
         _secondaryObjectRealms = null;
+        _thrownObjectStacks = null;
 
 #if NET8_0_OR_GREATER
         // A host CancellationToken bridged to an AbortSignal holds a registration that reaches this engine, and

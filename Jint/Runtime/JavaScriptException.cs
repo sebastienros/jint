@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Diagnostics;
 using Jint.Native;
@@ -319,21 +320,33 @@ public class JavaScriptException : JintException
             if (existingStack.IsString())
             {
                 _callStack = existingStack.AsString();
+                return;
             }
-            else
+
+            // The built stack is the host's (JavaScriptStackTrace, GetJavaScriptErrorString), and a thrown object
+            // is left exactly as it was thrown: a property defined here would be an own key the script never
+            // added, written even into a frozen object (issue #4430). An error keeps it in its [[ErrorData]],
+            // where %Error.prototype%'s "stack" accessor reads it and its setter can still replace it; any other
+            // object keeps it in the engine's weak table, so each function body the throw leaves (a new
+            // exception every time) reports the frames from where it was thrown, not only the outermost one.
+            if (errObj is JsError jsError)
             {
                 _callStack = engine.CallStack.BuildCallStackString(engine, location);
-
-                // An error's message is served from a virtual field until first materialized. Installing the
-                // stack via a raw store would otherwise land before the message in own-key order; materialize
-                // the message first so it keeps its construction-time position (message then stack).
-                if (errObj is JsError jsError)
-                {
-                    jsError.EnsureMessageMaterialized();
-                }
-
-                errObj.DefineOwnPropertyUnchecked(CommonProperties.Stack._value, new PropertyDescriptor(_callStack, false, false, false));
+                jsError._stack = JsString.Create(_callStack);
+                jsError._stackCapture = null;
+                return;
             }
+
+            var recorded = engine._thrownObjectStacks ??= new ConditionalWeakTable<ObjectInstance, string>();
+            if (!overwriteExisting && recorded.TryGetValue(errObj, out var recordedStack))
+            {
+                _callStack = recordedStack;
+                return;
+            }
+
+            _callStack = engine.CallStack.BuildCallStackString(engine, location);
+            recorded.Remove(errObj);
+            recorded.Add(errObj, _callStack);
         }
 
         /// <summary>
