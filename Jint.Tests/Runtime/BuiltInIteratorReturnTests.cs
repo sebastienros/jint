@@ -94,6 +94,8 @@ public class BuiltInIteratorReturnTests
                 case 'kindPrototypeProto': saved.push([P, null, IP]); Object.setPrototypeOf(P, { __proto__: IP, return: method }); break;
                 case 'kindPrototypeProtoProxy': saved.push([P, null, IP]); Object.setPrototypeOf(P, new Proxy(IP, { get(t, k, r) { return k === 'return' ? method : Reflect.get(t, k, r); } })); break;
                 case 'iteratorPrototypeProto': saved.push([IP, null, OP]); Object.setPrototypeOf(IP, { __proto__: OP, return: method }); break;
+                case 'iteratorPrototypeProtoReflect': saved.push([IP, null, OP]); Reflect.setPrototypeOf(IP, { __proto__: OP, return: method }); break;
+                case 'iteratorPrototypeProtoAssigned': saved.push([IP, null, OP]); IP.__proto__ = { __proto__: OP, return: method }; break;
             }
             return function () {
                 for (let i = saved.length - 1; i >= 0; i--) {
@@ -194,7 +196,7 @@ public class BuiltInIteratorReturnTests
     [
         "own", "ownAccessor", "kindPrototype", "kindPrototypeAccessor", "iteratorPrototype", "iteratorPrototypeAccessor",
         "objectPrototype", "objectPrototypeAssigned", "protoPlain", "protoProxy", "kindPrototypeProto", "kindPrototypeProtoProxy",
-        "iteratorPrototypeProto",
+        "iteratorPrototypeProto", "iteratorPrototypeProtoReflect", "iteratorPrototypeProtoAssigned",
     ];
 
     // The routes that reach an iterator a collection creates, which the script never holds.
@@ -833,6 +835,30 @@ public class BuiltInIteratorReturnTests
         engine.Execute("delete Object.getPrototypeOf(Object.getPrototypeOf(it)).return;");
         prototype.InstancesInheritNoReturnMethod().Should().BeTrue();
         prototype.CachesReturnLookup.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A realm of its own - a ShadowRealm's - has iterator prototypes and an <c>Object.prototype</c> of its own, and a
+    /// <c>return</c> put on one of them reaches every close of that realm's iterators: in a loop, in a destructuring
+    /// and in a parameter pattern, after the same consumers ran there untouched. The principal realm, whose chains
+    /// stay untouched, still finds none.
+    /// </summary>
+    [TestCase("Object.getPrototypeOf([].values())")]
+    [TestCase("Object.getPrototypeOf(Object.getPrototypeOf([].values()))")]
+    [TestCase("Object.prototype")]
+    public void AReturnAddedInAnotherRealmIsCalledByThatRealmsCloses(string holder)
+    {
+        NewEngine().Evaluate($$"""
+            const realm = new ShadowRealm();
+            const ways = "for (const x of [1, 2]) { break; } const [a] = [1, 2]; (function ([b]) { })([1, 2]);";
+            realm.evaluate(ways);
+            realm.evaluate("var calls = 0; Object.defineProperty({{holder}}, 'return', { value: function () { calls++; return {}; }, configurable: true, writable: true }); undefined");
+            realm.evaluate(ways);
+            const AIP = Object.getPrototypeOf([].values());
+            for (const x of [1, 2]) { break; }
+            const [c] = [1, 2];
+            (realm.evaluate('calls') + ' ' + ('return' in AIP));
+            """).AsString().Should().Be("3 false");
     }
 
     /// <summary>

@@ -136,12 +136,18 @@ internal partial class IteratorPrototype : Prototype
     internal bool InstancesInheritNoReturnMethod()
     {
         // Until a script has put a `return` on a built-in iterator prototype or on Object.prototype, or moved one of
-        // these prototypes' [[Prototype]], no built-in chain has one: Engine._builtinIteratorChainMayHaveReturn.
-        if (!_engine._builtinIteratorChainMayHaveReturn)
-        {
-            return true;
-        }
+        // these prototypes' [[Prototype]], no built-in chain has one: Engine._builtinIteratorChainMayHaveReturn. That
+        // test is all a caller inlines; the version-checked answer is out of line.
+        return !_engine._builtinIteratorChainMayHaveReturn || InstancesInheritNoReturnMethodOnceTouched();
+    }
 
+    /// <summary>
+    /// <see cref="InstancesInheritNoReturnMethod"/> once <see cref="Engine._builtinIteratorChainMayHaveReturn"/> is set:
+    /// the cached answer while its version keys hold, otherwise a fresh lookup.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool InstancesInheritNoReturnMethodOnceTouched()
+    {
         var grandparent = _returnLookupGrandparent;
         var parent = _prototype;
         if (grandparent is not null

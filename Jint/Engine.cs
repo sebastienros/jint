@@ -2219,7 +2219,10 @@ public sealed partial class Engine : IDisposable
     // this field answers it (sebastienros/jint#4406). IteratorPrototype.SetOwnProperty and SetPrototypeOf and
     // ObjectPrototype's TrackChanges set it; every script route to a new descriptor on those prototypes passes through
     // SetOwnProperty (see ObjectInstance.CreateDataProperty). Once it is set, IteratorPrototype's version-checked
-    // lookup answers instead.
+    // lookup answers instead. A host's DefineOwnPropertyUnchecked / DefineOwnDataPropertyUnchecked stores through the
+    // raw SetProperty and bypasses it, exactly as it bypasses ObjectPrototype's ArrayIndex tracking: a `return` a host
+    // writes that way onto Object.prototype or a built-in iterator prototype is not one closing a built-in iterator is
+    // guaranteed to find, and a host must not rely on it.
     internal bool _builtinIteratorChainMayHaveReturn;
 
     /// <summary>
