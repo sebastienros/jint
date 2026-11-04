@@ -7614,6 +7614,27 @@ An async generator read it twice as well when a `Symbol.asyncIterator` method an
 was not a function when it was read now fails the first step with a `TypeError`, even if the delegate has a callable
 `next` by then. There is no switch back.
 
+### 4.201 Returning from a generator suspended in `yield*` disposes a CLR collection's enumerator ([#4429](https://github.com/sebastienros/jint/issues/4429))
+
+A generator suspended in `yield*` passes a `return()` on to the delegate: it calls the delegate's `return`, or finishes
+with the value it was given when there is none. In 4.16 and earlier 5.0 builds, a delegate that was a wrapped CLR
+collection, or an iterator it handed out, kept its `IEnumerator` undisposed after that, in a generator and in an async
+generator. The one exception was an async generator delegating to the collection itself with no `return` on its
+iterator:
+
+```js
+// host: engine.SetValue("list", list);   // an IEnumerable whose enumerator counts its Dispose calls
+function* g() { yield* list; }
+const it = g(); it.next(); it.return(1);
+// 4.16.x / earlier 5.0: not disposed    5.x: disposed once
+```
+
+Now the enumerator is disposed when the delegation ends: at once if there is no `return`, and otherwise after the
+`return` answers done, throws, or answers something other than an object. An async generator disposes it once that
+answer has settled. A `return` that answers not done keeps the delegation going, so the enumerator stays for the
+steps after it. If `Dispose` throws while the `return`'s throw or `TypeError` is leaving, that throw wins. There is no
+switch back.
+
 ### 4.202 The async iterator helpers call the `next` they read once ([#4419](https://github.com/sebastienros/jint/issues/4419))
 
 The `AsyncIterator.prototype` helpers read the iterator's `next` method once, when they take the iterator, and every
@@ -7672,6 +7693,36 @@ So a `next` or a `return` set on the array iterator prototype no longer reaches 
 segments iterator's prototype no longer reaches an array. The prototype is the one of the realm whose
 `Intl.Segmenter.prototype.segment` created the segments object. It used to be the array iterator prototype of whichever
 realm was running. There is no switch back.
+
+### 4.206 `Intl.ListFormat` iterates its argument as the spec says, and calls the `next` it read once ([#4438](https://github.com/sebastienros/jint/issues/4438))
+
+`Intl.ListFormat.prototype.format` and `formatToParts` take an iterator from their argument, read its `next` method
+once, and call what was read on every step. In 4.16 and earlier 5.0 builds they read `next` again on every step, so a
+getter on `next` ran once more per step and a `next` replaced during the iteration was called from the following step
+on:
+
+```js
+var reads = 0, it = ['a', 'b'].values(), next = it.next.bind(it);
+Object.defineProperty(it, 'next', { get() { reads++; return next; } });
+new Intl.ListFormat('en').format({ [Symbol.iterator]() { return it; } });
+reads
+// 4.16.x / earlier 5.0: 3    5.x: 1
+```
+
+Every argument but `undefined` now goes through its `Symbol.iterator`, which changes what some arguments produce:
+
+- A string is split by code point, not by UTF-16 code unit: `format('a😀')` is `'a and 😀'`, where it used to format
+  the two halves of the emoji as separate elements.
+- An array is read through its iterator, so a replaced `Symbol.iterator` or array iterator `next` is called, and
+  elements added during the iteration are included.
+- An object with no `Symbol.iterator`, such as `{ length: 2, 0: 'a', 1: 'b' }`, throws a `TypeError`. It used to be
+  formatted as an array-like.
+- A `Symbol.iterator` that answers a primitive, and a `next` that answers one, throw a `TypeError`. Both used to end the
+  list quietly.
+
+A non-string element still throws a `TypeError` and closes the iterator. The `TypeError` is now what is thrown even
+when the iterator's `return` throws, and a `return` added to the array iterator prototype is called for an array.
+There is no switch back.
 
 ## 5. New in v5
 
