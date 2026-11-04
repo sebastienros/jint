@@ -453,8 +453,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     // A wrapper's Symbol.iterator is never the array iterator — it enumerates the CLR target — so the
     // index-reading fast path this enables (array destructuring) is indistinguishable from running that
     // iterator only where index reads reproduce what enumeration yields. For a countable but non-indexable
-    // collection they do not: [...queue] yields the elements while every index reads undefined.
-    internal override bool HasOriginalIterator => IsArrayLike && HasIndexedElements;
+    // collection they do not: [...queue] yields the elements while every index reads undefined. Nor do they
+    // once %ArrayIteratorPrototype%.next is replaced: the iterator inherits it, so every other lane over the
+    // wrapper calls the replacement (sebastienros/jint#4418). Until a script touches one, that is one byte test.
+    internal override bool HasOriginalIterator
+        => IsArrayLike
+           && HasIndexedElements
+           && (!_engine._arrayIteratorNextMayBeReplaced || _engine.Realm.Intrinsics.Array.PrototypeObject.ArrayIteratorsStepNatively());
 
     internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexed;
 

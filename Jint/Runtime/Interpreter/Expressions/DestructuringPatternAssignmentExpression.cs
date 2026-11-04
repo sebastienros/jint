@@ -164,7 +164,8 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
         ArrayOperations? arrayOperations = null;
         IteratorInstance? iterator = null;
 
-        // optimize for array unless someone has touched the iterator, or given it a `return` the pattern would call
+        // read by index while GetIterator would be unobservable: no `return` for the pattern to call (sebastienros/jint#4406),
+        // and @@iterator and the `next` of the iterator it answers both the built-ins (sebastienros/jint#4418)
         if (obj.IsArrayLike
             && (!engine._builtinIteratorChainMayHaveReturn || IndexReadsCloseNothing(obj, realm))
             && obj.HasOriginalIterator)

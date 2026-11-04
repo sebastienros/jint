@@ -7571,6 +7571,28 @@ wins. The throw can be the loop's own, what the `return` threw, or the `TypeErro
 `yield*` in an async generator that closes a CLR collection's iterator for want of a `throw` now disposes it too. A
 step that throws still disposes the enumerator and calls no `return`. There is no switch back.
 
+### 4.199 Spread and array destructuring call a replaced `next` on the array iterator prototype ([#4418](https://github.com/sebastienros/jint/issues/4418))
+
+Spreading or destructuring an array takes an iterator from it: `Array.prototype.values` answers an array iterator, and
+every step calls the `next` read off that iterator. In 4.16 and earlier 5.0 builds, spread in an array literal, a call
+or `new`, and array destructuring in a declaration, an assignment, a parameter, a `for`-`of` head or a `catch`
+parameter read the array by index whenever its `Symbol.iterator` was `Array.prototype.values`. A `next` the script had
+put on the array iterator prototype was never called:
+
+```js
+Object.getPrototypeOf([][Symbol.iterator]()).next = () => ({ done: true });
+var arr = [1, 2];
+var [x] = arr;
+[[...arr], x]
+// 4.16.x / earlier 5.0: [[1, 2], 1]    5.x: [[], undefined]
+```
+
+Now they call it, as `for`-`of`, `Array.from`, `new Set()` and `yield*` over an array already did, and a getter on
+`next` runs once per destructuring as it did once per spread. The same holds for destructuring a host
+`ArrayLikeObject` whose `Symbol.iterator` is `Array.prototype.values`, and a wrapped CLR list, whose iterator inherits
+that `next`. An array whose `Symbol.iterator` and `next` are both the built-in ones is still read by index. There is no
+switch back.
+
 ### 4.200 `yield*` calls the `next` it read once ([#4424](https://github.com/sebastienros/jint/issues/4424))
 
 `yield*` reads its delegate's `next` once, when it takes the iterator, and every step calls what was read. Before,
