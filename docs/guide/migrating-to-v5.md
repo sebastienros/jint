@@ -7286,7 +7286,7 @@ registry.classes.length
 ```
 
 §4.184 and §4.187 describe a decorator as running before anything of the class exists; that now holds for the
-class's own decorators only. When a decorator is applied has not changed. There is no switch back.
+class's own decorators only. When a decorator is applied is §4.194. There is no switch back.
 
 ### 4.191 `DataView.prototype.byteLength` and `byteOffset` answer 0 for an out-of-bounds view instead of throwing ([#4411](https://github.com/sebastienros/jint/pull/4411))
 
@@ -7348,6 +7348,65 @@ the `finally` block replaces it with its own `return`, `throw`, `break` or `cont
 or an async function, including when the parameter's pattern suspends on a `yield` or an `await` before it throws.
 There is no switch back.
 
+### 4.194 Decorators are applied when the decorators spec text applies them, and a decorator's context has `access` ([#4413](https://github.com/sebastienros/jint/issues/4413))
+
+§4.190 moved where a decorator is *evaluated*. This moves when it is *applied*, and what the context object a
+decorator gets holds, to the decorators spec text ([tc39/ecma262#2417](https://github.com/tc39/ecma262/pull/2417)).
+
+**Element decorators run after every element is evaluated.** Each element's decorators used to run as soon as that
+element was defined, between the keys of the elements around it. Now every key and every decorator expression is
+evaluated first. Then the decorators are applied in four groups: static methods, getters, setters and accessors; the
+instance ones; static fields; instance fields. Each group runs in source order:
+
+```js
+const log = [];
+const d = (name) => () => { log.push(name); };
+class C {
+  @(d("field")) x;
+  @(d("method")) m() {}
+  @(d("static method")) static s() {}
+}
+// 4.16.x / earlier 5.0: ["field", "method", "static method"]    5.x: ["static method", "method", "field"]
+```
+
+The initializers that the decorators of a field or an accessor return now run outermost first. With
+`@a @b x = 1`, `a`'s initializer gets `1` and `b`'s gets what `a`'s returned. It used to be the other way round.
+This is what the spec text intends rather than what its steps say. Read literally, they run the field's own
+initializer after the decorators', so its value always wins: `@add1 @times2 x = 3` would give `3`.
+[tc39/proposal-decorators#569](https://github.com/tc39/proposal-decorators/issues/569) reports that as a bug in the
+text. Jint gives the intended `8`, as Babel and the test262 tests proposed for decorators do.
+
+**Class decorators run before the static fields and blocks.** They used to run last, so a static field or a static
+block saw the undecorated class, both as `this` and through the class's own name. Methods saw it through the name too.
+Now the class binding holds the class that the decorators returned, and the static fields and blocks run against
+that class. A static field is defined on the decorated class, not on the class it replaced:
+
+```js
+let inside;
+const replace = (c) => class extends c {};
+@replace class C {
+  static { inside = this; }
+}
+inside === C
+// 4.16.x / earlier 5.0: false    5.x: true
+```
+
+The `addInitializer` callbacks of a class's static half now run where the spec text puts them. A static method's run
+before the static fields, a static field's right after that field, and the class's own after the last static block.
+They used to run together after the static blocks. The instance-side callbacks still run together after the instance
+fields, as before.
+
+**The context object.** An element's context now has an `access` object. It has `get` for a field, method, getter
+or accessor, and `set` for a field, setter or accessor. It always has `has`. Each takes the object to read, write or
+check, through the element's key or its private name. The context's members come in the spec text's order: `kind`,
+`access`, `static`, `private`, `name`, `addInitializer`. A class's context has only `kind`, `name` and
+`addInitializer`; it used to have `static` and `private` as well. A private element's `name` now includes the `#`
+(`"#x"`, not `"x"`). Calling `addInitializer` after its decorator has returned throws a `TypeError`. So does an
+accessor decorator that returns a `get` or a `set` that is not a function, where Jint used to keep the value. A
+non-function `init`, and a return value that is neither an object nor `undefined`, already threw.
+
+There is no switch back.
+
 ### 4.195 A `for`-`of` over an iterator object calls its `Symbol.iterator` and `next`, and iterating a string calls a replaced `next` ([#4405](https://github.com/sebastienros/jint/issues/4405))
 
 Taking an iterator from an object calls the object's `Symbol.iterator` method and reads `next` off what it returns. A
@@ -7382,6 +7441,38 @@ Object.getPrototypeOf(""[Symbol.iterator]()).next = () => ({ done: true });
 
 An iterator object or a string whose `Symbol.iterator` and `next` are the built-in ones is still stepped natively.
 There is no switch back.
+
+### 4.196 A `for await` loop and `Array.fromAsync` call the `next` they read once, and a CLR enumerator that runs out is disposed ([#4410](https://github.com/sebastienros/jint/issues/4410))
+
+A `for await` loop and `Array.fromAsync` read the iterator's `next` method once, when they take the iterator, and
+every step calls what was read. In 4.16 and earlier 5.0 builds, both read `next` again on every step. A getter on
+`next` ran once more per step, and a `next` replaced during the loop was called from the following step on:
+
+```js
+var reads = 0, i = 0;
+var source = { [Symbol.asyncIterator]() {
+  return { get next() { reads++; return () => Promise.resolve({ value: ++i, done: i > 3 }); } };
+} };
+(async () => { for await (var x of source); })();
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: reads === 5    5.x: reads === 1
+```
+
+This applies to whatever a `Symbol.asyncIterator` method answers, an async generator object and a built-in iterator
+among them. An object with only a `Symbol.iterator` already had its `next` read once. A `next` that was not a function
+when it was read now fails the first step with a `TypeError`, even if the object has a callable `next` by then.
+
+A wrapped CLR collection's `IEnumerator` is now disposed when the iteration runs out, as a C# `foreach` disposes it.
+In 4.16 and earlier 5.0 builds only an iteration that ended early disposed it, so an enumerator that releases a
+reader, a connection or a lock in `Dispose` still held it after a `for`-`of`, a spread or `Array.from` had run to the
+end. A C# iterator method's `finally` was not affected, since it runs when the method runs out. A step after the end
+answers done without calling `MoveNext` on the disposed enumerator. A loop over a wrapped dictionary that ends early
+now disposes the enumerator over the dictionary's keys, which it never did: a `break`, a `return` or a throw from the
+body, or a destructuring that reads fewer entries than the dictionary has. So does `Array.fromAsync` whose mapping
+function throws, when a `Symbol.asyncIterator` method answered a CLR collection's iterator. A step that throws — the
+host's `MoveNext` or `Current`, or a dictionary's value read — now disposes the enumerator as well, and the iterator
+answers done from then on. A `Dispose` that throws while a destructuring or `Array.from` is already leaving by a throw
+no longer replaces that throw, as it already did not for a `for`-`of`. There is no switch back.
 
 ## 5. New in v5
 

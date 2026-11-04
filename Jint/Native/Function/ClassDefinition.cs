@@ -159,7 +159,10 @@ internal sealed class ClassDefinition
     /// JIT could inline: it inlines before it folds the mode, so a property read or a suspension test in a resume
     /// branch still spends inlining budget in the <see cref="CannotSuspend"/> code: a parked-state read and an
     /// <c>IsSuspended()</c> test there cost two <c>Engine.Realm</c> reads their inlining (sebastienros/jint#4399). Put
-    /// them in the helper the branch calls.
+    /// them in the helper the branch calls. A decorated class is the same case: behind <c>decorators is not null</c>
+    /// there are only calls, to <see cref="DecoratorEvaluation.AddElement"/>, <see cref="DecoratorEvaluation.AddAutoAccessor"/>
+    /// and <see cref="FinishDecoratedClass"/>, which do the rest (sebastienros/jint#4413). And no lambda here: one
+    /// capturing a local of this method makes C# allocate its closure on entry, for every class.
     /// </remarks>
     private JsValue BuildConstructorCore<TMode>(EvaluationContext context, Environment env, string? classBinding, bool previousStrict)
         where TMode : struct, ISuspendMode
@@ -213,8 +216,6 @@ internal sealed class ClassDefinition
                 return JsValue.Undefined;
             }
         }
-
-        var hasDecorators = decorators is not null;
 
         ObjectInstance proto;
         ObjectInstance? constructorParent = null;
@@ -312,8 +313,6 @@ internal sealed class ClassDefinition
             List<PrivateElement> staticPrivateMethods;
             List<ClassFieldDefinition> instanceFields;
             List<object> staticElements;
-            List<ICallable>? instanceExtraInitializers;
-            List<ICallable>? staticExtraInitializers;
             var elementIndex = 0;
 
             if (resumedIntoElements)
@@ -323,8 +322,6 @@ internal sealed class ClassDefinition
                 staticPrivateMethods = resumed.StaticPrivateMethods!;
                 instanceFields = resumed.InstanceFields!;
                 staticElements = resumed.StaticElements!;
-                instanceExtraInitializers = resumed.InstanceExtraInitializers;
-                staticExtraInitializers = resumed.StaticExtraInitializers;
                 elementIndex = resumed.ElementIndex;
             }
             else
@@ -348,10 +345,6 @@ internal sealed class ClassDefinition
                 staticPrivateMethods = new List<PrivateElement>();
                 instanceFields = new List<ClassFieldDefinition>();
                 staticElements = new List<object>();
-
-                // Collect extra initializers from decorators
-                instanceExtraInitializers = hasDecorators ? new List<ICallable>() : null;
-                staticExtraInitializers = hasDecorators ? new List<ICallable>() : null;
             }
 
             for (; elementIndex < elements.Count; elementIndex++)
@@ -365,19 +358,11 @@ internal sealed class ClassDefinition
                 var isStatic = e.Static;
                 var target = !isStatic ? proto : F;
 
-                // ClassElementEvaluation evaluates an element's decorators just before its key, in the class scope.
-                DecoratorDefinition[] currentDecorators = [];
-                if (decorators is not null)
+                // ClassElementEvaluation evaluates an element's decorators just before its key, in the class scope. A
+                // decorator that suspended: parked once the loop is left, at this element's index.
+                if (decorators is not null && !EvaluateElementDecorators(context, decorators, elementIndex))
                 {
-                    var evaluated = EvaluateElementDecorators(context, decorators, elementIndex);
-
-                    // A decorator that suspended: parked once the loop is left, at this element's index.
-                    if (evaluated is null)
-                    {
-                        break;
-                    }
-
-                    currentDecorators = evaluated;
+                    break;
                 }
 
                 // Handle auto-accessors specially since they produce both a field definition and optionally a private element
@@ -391,70 +376,12 @@ internal sealed class ClassDefinition
                         break;
                     }
 
-                    // Apply accessor decorators if present
-                    if (currentDecorators.Length > 0)
+                    // A decorated class keeps the element for FinishDecoratedClass, which decorates it once every
+                    // element has been evaluated.
+                    if (decorators is not null)
                     {
-                        // Reuse the key evaluated by AutoAccessorDefinitionEvaluation (computed keys
-                        // must be evaluated exactly once; FieldDefinition.Name is the private backing
-                        // name, not the declared key).
-                        var propName = result.PropertyName;
-                        var isPrivateAccessor = ap.Key is PrivateIdentifier;
-                        var extraInits = isStatic ? staticExtraInitializers! : instanceExtraInitializers!;
-
-                        JsValue currentGetter;
-                        JsValue currentSetter;
-
-                        if (result.PrivateElement is not null)
-                        {
-                            currentGetter = result.PrivateElement.Get ?? JsValue.Undefined;
-                            currentSetter = result.PrivateElement.Set ?? JsValue.Undefined;
-                        }
-                        else
-                        {
-                            // For public auto-accessors, retrieve getter/setter from the property we just defined
-                            var desc = target.GetOwnProperty(propName);
-                            currentGetter = desc?.Get ?? JsValue.Undefined;
-                            currentSetter = desc?.Set ?? JsValue.Undefined;
-                        }
-
-                        var accessorResult = ApplyAccessorDecorators(engine, currentDecorators, currentGetter, currentSetter, propName, isStatic, isPrivateAccessor, extraInits);
-
-                        // Update getter/setter if decorators returned replacements
-                        if (result.PrivateElement is not null)
-                        {
-                            result.PrivateElement.Get = accessorResult.Getter;
-                            result.PrivateElement.Set = accessorResult.Setter;
-                        }
-                        else
-                        {
-                            target.DefinePropertyOrThrow(propName, new GetSetPropertyDescriptor(
-                                accessorResult.Getter is ICallable ? accessorResult.Getter : null,
-                                accessorResult.Setter is ICallable ? accessorResult.Setter : null,
-                                PropertyFlag.Configurable));
-                        }
-
-                        // If decorators returned init functions, wrap the field initializer
-                        if (accessorResult.InitFunctions is { Count: > 0 })
-                        {
-                            var fieldDef = result.FieldDefinition;
-                            var originalInit = fieldDef.Initializer;
-                            var capturedInits = accessorResult.InitFunctions.ToArray();
-
-                            var wrappedInit = new ClrFunction(engine, "", (thisObj, _) =>
-                            {
-                                var initValue = originalInit is not null
-                                    ? engine.Call(originalInit, thisObj, Arguments.Empty)
-                                    : JsValue.Undefined;
-
-                                for (var j = 0; j < capturedInits.Length; j++)
-                                {
-                                    initValue = engine.Call((JsValue) capturedInits[j], thisObj, new JsValue[] { initValue });
-                                }
-                                return initValue;
-                            }, 0, PropertyFlag.Configurable);
-
-                            fieldDef.Initializer = wrappedInit;
-                        }
+                        decorators.AddAutoAccessor(target, elementIndex, isStatic, result);
+                        continue;
                     }
 
                     // Add the backing field initializer
@@ -485,87 +412,16 @@ internal sealed class ClassDefinition
                     break;
                 }
 
-                // Apply decorators to methods, getters, setters
-                if (currentDecorators.Length > 0 && e is MethodDefinition md)
+                if (decorators is not null)
                 {
-                    // Reuse the key the method was defined under — a computed key expression must be
-                    // evaluated exactly once (re-evaluating would re-run side effects and could produce
-                    // a different name than the one the method was defined under).
-                    var propName = definedKey;
-                    var isPrivateMethod = md.Key is PrivateIdentifier;
-                    var extraInits = isStatic ? staticExtraInitializers! : instanceExtraInitializers!;
-
-                    if (md.Kind == PropertyKind.Get || md.Kind == PropertyKind.Set)
-                    {
-                        var kind = md.Kind == PropertyKind.Get ? "getter" : "setter";
-                        if (element is PrivateElement pe && pe.Kind == PrivateElementKind.Accessor)
-                        {
-                            var decoratedValue = md.Kind == PropertyKind.Get ? pe.Get! : pe.Set!;
-                            var replacement = ApplyMethodDecorators(engine, currentDecorators, decoratedValue, kind, propName, isStatic, isPrivateMethod, extraInits);
-                            if (md.Kind == PropertyKind.Get)
-                            {
-                                pe.Get = replacement;
-                            }
-                            else
-                            {
-                                pe.Set = replacement;
-                            }
-                        }
-                        else
-                        {
-                            // Public getter/setter: get from the property descriptor
-                            var desc = target.GetOwnProperty(propName);
-                            if (desc is not null)
-                            {
-                                var decoratedValue = md.Kind == PropertyKind.Get ? desc.Get ?? JsValue.Undefined : desc.Set ?? JsValue.Undefined;
-                                var replacement = ApplyMethodDecorators(engine, currentDecorators, decoratedValue, kind, propName, isStatic, isPrivateMethod, extraInits);
-                                target.DefinePropertyOrThrow(propName, new GetSetPropertyDescriptor(
-                                    md.Kind == PropertyKind.Get ? replacement : desc.Get,
-                                    md.Kind == PropertyKind.Set ? replacement : desc.Set,
-                                    PropertyFlag.Configurable));
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Regular method
-                        if (element is PrivateElement pe)
-                        {
-                            var replacement = ApplyMethodDecorators(engine, currentDecorators, pe.Value!, "method", propName, isStatic, isPrivateMethod, extraInits);
-                            pe.Value = replacement;
-                        }
-                        else
-                        {
-                            // Public method: get from the property descriptor
-                            var desc = target.GetOwnProperty(propName);
-                            if (desc?.Value is not null)
-                            {
-                                var replacement = ApplyMethodDecorators(engine, currentDecorators, desc.Value, "method", propName, isStatic, isPrivateMethod, extraInits);
-                                target.DefinePropertyOrThrow(propName, new PropertyDescriptor(replacement, PropertyFlag.NonEnumerable));
-                            }
-                        }
-                    }
-                }
-
-                // Apply decorators to fields
-                if (currentDecorators.Length > 0 && e is PropertyDefinition pd)
-                {
-                    if (element is ClassFieldDefinition fieldDef)
-                    {
-                        // Reuse the key evaluated by ClassElementEvaluation — a computed key expression
-                        // must be evaluated exactly once (re-evaluating would re-run side effects and
-                        // could produce a different name than the one the field was defined under).
-                        var propName = fieldDef.Name;
-                        var isPrivateField = pd.Key is PrivateIdentifier;
-                        var extraInits = isStatic ? staticExtraInitializers! : instanceExtraInitializers!;
-                        ApplyFieldDecorators(engine, currentDecorators, fieldDef, propName, isStatic, isPrivateField, extraInits);
-                    }
+                    decorators.AddElement(target, elementIndex, e, element, definedKey);
+                    continue;
                 }
 
                 if (element is PrivateElement privateElement)
                 {
                     var container = !isStatic ? instancePrivateMethods : staticPrivateMethods;
-                    var index = container.FindIndex(x => string.Equals(x.Key.Description, privateElement.Key.Description, StringComparison.Ordinal));
+                    var index = IndexOfPrivateElement(container, privateElement.Key);
                     if (index != -1)
                     {
                         var pe = container[index];
@@ -602,33 +458,20 @@ internal sealed class ClassDefinition
             if (maySuspend && context.IsSuspended())
             {
                 ParkElements(Park(engine, env, outerPrivateEnvironment, previousStrict, classEnv, classPrivateEnvironment, decorators),
-                    proto, F, elementIndex, instancePrivateMethods, staticPrivateMethods, instanceFields, staticElements, instanceExtraInitializers, staticExtraInitializers);
+                    proto, F, elementIndex, instancePrivateMethods, staticPrivateMethods, instanceFields, staticElements);
                 return JsValue.Undefined;
+            }
+
+            // A decorated class is finished out of line: its decorators are applied, the class binding initialized with
+            // what they return, and its static half run against that.
+            if (decorators is not null)
+            {
+                return FinishDecoratedClass(engine, decorators, F, proto, classEnv, classBinding);
             }
 
             if (_className is not null)
             {
                 classEnv.InitializeBinding(_className, F, DisposeHint.Normal);
-            }
-
-            // Store extra initializers so they run during instance/static initialization
-            if (instanceExtraInitializers is { Count: > 0 })
-            {
-                // Add a field definition that runs the extra initializers
-                var capturedInits = instanceExtraInitializers.ToArray();
-                var initRunner = new ClrFunction(engine, "", (thisObj, _) =>
-                {
-                    for (var j = 0; j < capturedInits.Length; j++)
-                    {
-                        engine.Call((JsValue) capturedInits[j], thisObj, Arguments.Empty);
-                    }
-                    return JsValue.Undefined;
-                }, 0, PropertyFlag.Configurable);
-                instanceFields.Add(new ClassFieldDefinition
-                {
-                    Name = JsValue.Undefined,
-                    Initializer = initRunner
-                });
             }
 
             F._privateMethods = instancePrivateMethods;
@@ -651,50 +494,11 @@ internal sealed class ClassDefinition
                     engine.Call(((ClassStaticBlockDefinition) elementRecord).BodyFunction, F);
                 }
             }
-
-            // Run static extra initializers
-            RunExtraInitializers(engine, F, staticExtraInitializers);
         }
         finally
         {
             engine.UpdateLexicalEnvironment(env);
             engine.UpdatePrivateEnvironment(outerPrivateEnvironment);
-        }
-
-        // Apply class decorators (after class is fully constructed)
-        if (decorators is { ClassDecorators.Length: > 0 })
-        {
-            var classDecorators = decorators.ClassDecorators;
-            var classExtraInitializers = new List<ICallable>();
-            // Apply class decorators in reverse order
-            JsValue classValue = F;
-            for (var i = classDecorators.Length - 1; i >= 0; i--)
-            {
-                var decorator = classDecorators[i];
-                if (decorator.Decorator is not ICallable callable)
-                {
-                    Throw.TypeError(engine.Realm, "A decorator must be a function");
-                    return F;
-                }
-
-                var decoratorContext = CreateDecoratorContext(engine, "class", new JsString(_className ?? classBinding ?? ""), isStatic: false, isPrivate: false, classExtraInitializers);
-                var result = engine.Call((JsValue) callable, decorator.Receiver, new JsValue[] { classValue, decoratorContext });
-
-                if (!result.IsUndefined())
-                {
-                    if (result is not ICallable)
-                    {
-                        Throw.TypeError(engine.Realm, "A class decorator must return either undefined or a function");
-                        return F;
-                    }
-                    classValue = result;
-                }
-            }
-
-            // Run class extra initializers on the (possibly replaced) class
-            RunExtraInitializers(engine, classValue, classExtraInitializers);
-
-            return classValue;
         }
 
         return F;
@@ -799,7 +603,8 @@ internal sealed class ClassDefinition
     /// Evaluates the decorators of the element at <paramref name="elementIndex"/>, ClassElementEvaluation's
     /// DecoratorListEvaluation (https://github.com/tc39/ecma262/pull/2417): after the heritage and the elements before
     /// it, with the class scope and the class's PrivateEnvironment as the running ones, just before the element's key.
-    /// Answers the element's decorators, empty for an element without any, or null when one suspended the frame.
+    /// Answers false when one suspended the frame; otherwise <see cref="DecoratorEvaluation.DecoratorsAt"/> answers
+    /// them for the element.
     /// </summary>
     /// <remarks>
     /// <see cref="DecoratorEvaluation"/> keeps the element's values and the index of the next one to evaluate, so a
@@ -807,17 +612,17 @@ internal sealed class ClassDefinition
     /// and once they are all evaluated, a resume into the element's key answers them without evaluating any again.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private DecoratorDefinition[]? EvaluateElementDecorators(EvaluationContext context, DecoratorEvaluation decorators, int elementIndex)
+    private bool EvaluateElementDecorators(EvaluationContext context, DecoratorEvaluation decorators, int elementIndex)
     {
         if (!decorators.HasElementDecorators)
         {
-            return [];
+            return true;
         }
 
         var sites = (_elementDecoratorSites ??= BuildElementDecoratorSites())[elementIndex];
         if (sites is null)
         {
-            return [];
+            return true;
         }
 
         if (decorators.Element != elementIndex)
@@ -835,14 +640,14 @@ internal sealed class ClassDefinition
             if (_maySuspend && context.IsSuspended())
             {
                 decorators.NextElementDecorator = i;
-                return null;
+                return false;
             }
 
             values[i] = decorator;
         }
 
         decorators.NextElementDecorator = sites.Length;
-        return values;
+        return true;
     }
 
     /// <summary>
@@ -934,9 +739,10 @@ internal sealed class ClassDefinition
     private readonly record struct DecoratorDefinition(JsValue Decorator, JsValue Receiver);
 
     /// <summary>
-    /// One evaluation's decorators: the class's own, evaluated before the heritage, and those of the element being
-    /// evaluated, evaluated just before its key. Parked with the rest of the class when a decorator, the heritage or a
-    /// computed key suspends the frame.
+    /// One evaluation's decorators: the class's own, evaluated before the heritage, those of the element being
+    /// evaluated, evaluated just before its key, and every element evaluated so far, which
+    /// <see cref="FinishDecoratedClass"/> decorates once the last one is. Parked with the rest of the class when a
+    /// decorator, the heritage or a computed key suspends the frame.
     /// </summary>
     private sealed class DecoratorEvaluation
     {
@@ -974,6 +780,158 @@ internal sealed class ClassDefinition
         public int NextElementDecorator { get; set; }
 
         public DecoratorDefinition[] ElementDecorators { get; set; } = [];
+
+        /// <summary>
+        /// The elements evaluated so far, in source order, the constructor aside.
+        /// </summary>
+        public List<DecoratedElement> Elements { get; } = [];
+
+        /// <summary>
+        /// The decorators <see cref="EvaluateElementDecorators"/> evaluated for the element at
+        /// <paramref name="elementIndex"/>; empty for an element without any, which never becomes
+        /// <see cref="Element"/>.
+        /// </summary>
+        public DecoratorDefinition[] DecoratorsAt(int elementIndex) => Element == elementIndex ? ElementDecorators : [];
+
+        /// <summary>
+        /// Keeps a method, getter, setter, field or static block of a decorated class as ClassElementEvaluation
+        /// answered it (https://github.com/tc39/ecma262/pull/2417). A public method, getter or setter is already
+        /// defined on <paramref name="target"/>, so its function is read back from there.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void AddElement(ObjectInstance target, int elementIndex, IClassElement e, object? element, JsValue definedKey)
+        {
+            var record = new DecoratedElement { IsStatic = e.Static, Decorators = DecoratorsAt(elementIndex) };
+            switch (element)
+            {
+                case ClassFieldDefinition field:
+                    record.Kind = DecoratedElementKind.Field;
+                    record.Key = field.Name;
+                    record.Field = field;
+                    break;
+                case ClassStaticBlockDefinition staticBlock:
+                    record.Kind = DecoratedElementKind.StaticBlock;
+                    record.IsStatic = true;
+                    record.StaticBlock = staticBlock;
+                    break;
+                default:
+                    var method = (MethodDefinition) e;
+                    var privateElement = element as PrivateElement;
+                    record.Key = privateElement?.Key ?? definedKey;
+                    var descriptor = privateElement is null ? target.GetOwnProperty(definedKey) : null;
+                    if (method.Kind == PropertyKind.Get)
+                    {
+                        record.Kind = DecoratedElementKind.Getter;
+                        record.Get = privateElement is not null ? privateElement.Get : descriptor!.Get;
+                    }
+                    else if (method.Kind == PropertyKind.Set)
+                    {
+                        record.Kind = DecoratedElementKind.Setter;
+                        record.Set = privateElement is not null ? privateElement.Set : descriptor!.Set;
+                    }
+                    else
+                    {
+                        record.Kind = DecoratedElementKind.Method;
+                        record.Value = privateElement is not null ? privateElement.Value : descriptor!.Value;
+                    }
+
+                    break;
+            }
+
+            Elements.Add(record);
+        }
+
+        /// <summary>
+        /// Keeps an auto-accessor of a decorated class: its key, its getter and setter, defined on
+        /// <paramref name="target"/> already when the key is public, and its backing field.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void AddAutoAccessor(ObjectInstance target, int elementIndex, bool isStatic, AutoAccessorResult result)
+        {
+            var record = new DecoratedElement
+            {
+                Kind = DecoratedElementKind.Accessor,
+                IsStatic = isStatic,
+                Decorators = DecoratorsAt(elementIndex),
+                Field = result.FieldDefinition,
+            };
+
+            if (result.PrivateElement is { } privateElement)
+            {
+                record.Key = privateElement.Key;
+                record.Get = privateElement.Get;
+                record.Set = privateElement.Set;
+            }
+            else
+            {
+                record.Key = result.PropertyName;
+                var descriptor = target.GetOwnProperty(result.PropertyName);
+                record.Get = descriptor.Get;
+                record.Set = descriptor.Set;
+            }
+
+            Elements.Add(record);
+        }
+    }
+
+    private enum DecoratedElementKind : byte
+    {
+        Field,
+        Method,
+        Getter,
+        Setter,
+        Accessor,
+        StaticBlock,
+    }
+
+    /// <summary>
+    /// An element of a decorated class between its evaluation and the application of its decorators: the decorators
+    /// spec text's ClassElementDefinition Record, or a static block's ClassStaticBlockDefinition Record
+    /// (https://github.com/tc39/ecma262/pull/2417).
+    /// </summary>
+    private sealed class DecoratedElement
+    {
+        public DecoratedElementKind Kind { get; set; }
+
+        public bool IsStatic { get; set; }
+
+        /// <summary>
+        /// [[Key]]: a property key, or a <see cref="PrivateName"/>. Undefined for a static block.
+        /// </summary>
+        public JsValue Key { get; set; } = JsValue.Undefined;
+
+        /// <summary>
+        /// [[Decorators]], in source order; they are applied last to first.
+        /// </summary>
+        public DecoratorDefinition[] Decorators { get; set; } = [];
+
+        /// <summary>[[Value]], of a method.</summary>
+        public JsValue? Value { get; set; }
+
+        /// <summary>[[Get]], of a getter or an accessor.</summary>
+        public JsValue? Get { get; set; }
+
+        /// <summary>[[Set]], of a setter or an accessor.</summary>
+        public JsValue? Set { get; set; }
+
+        /// <summary>
+        /// A field's definition, or an accessor's backing field (its [[BackingStorageKey]]), with the initializer the
+        /// element itself declares.
+        /// </summary>
+        public ClassFieldDefinition? Field { get; set; }
+
+        /// <summary>
+        /// The initializers the field's or accessor's decorators returned, in the order they run, after the
+        /// element's own: [[Initializers]] without it.
+        /// </summary>
+        public List<ICallable>? Initializers { get; set; }
+
+        /// <summary>
+        /// [[ExtraInitializers]] of a field or an accessor: what its decorators passed to <c>addInitializer</c>.
+        /// </summary>
+        public List<ICallable>? ExtraInitializers { get; set; }
+
+        public ClassStaticBlockDefinition? StaticBlock { get; set; }
     }
 
     /// <summary>
@@ -1084,9 +1042,7 @@ internal sealed class ClassDefinition
         List<PrivateElement> instancePrivateMethods,
         List<PrivateElement> staticPrivateMethods,
         List<ClassFieldDefinition> instanceFields,
-        List<object> staticElements,
-        List<ICallable>? instanceExtraInitializers,
-        List<ICallable>? staticExtraInitializers)
+        List<object> staticElements)
     {
         data.Prototype = proto;
         data.Constructor = constructor;
@@ -1095,8 +1051,6 @@ internal sealed class ClassDefinition
         data.StaticPrivateMethods = staticPrivateMethods;
         data.InstanceFields = instanceFields;
         data.StaticElements = staticElements;
-        data.InstanceExtraInitializers = instanceExtraInitializers;
-        data.StaticExtraInitializers = staticExtraInitializers;
     }
 
     /// <summary>
@@ -1137,8 +1091,8 @@ internal sealed class ClassDefinition
         public PrivateEnvironment ClassPrivateEnvironment { get; set; } = null!;
 
         /// <summary>
-        /// The decorators evaluated so far, the class's own and the current element's, and where their evaluation
-        /// stopped; null for a class without any.
+        /// The decorators evaluated so far, the class's own and the current element's, where their evaluation
+        /// stopped, and the elements a decorated class has evaluated; null for a class without any decorator.
         /// </summary>
         public DecoratorEvaluation? Decorators { get; set; }
 
@@ -1162,10 +1116,6 @@ internal sealed class ClassDefinition
         public List<ClassFieldDefinition>? InstanceFields { get; set; }
 
         public List<object>? StaticElements { get; set; }
-
-        public List<ICallable>? InstanceExtraInitializers { get; set; }
-
-        public List<ICallable>? StaticExtraInitializers { get; set; }
     }
 
     /// <summary>
@@ -1576,232 +1526,607 @@ internal sealed class ClassDefinition
     }
 
     /// <summary>
-    /// Creates the decorator context object passed as the second argument to a decorator.
-    /// https://tc39.es/proposal-decorators/#sec-createdecoratorcontextobject
+    /// The index of the private element in <paramref name="container"/> whose name has the description of
+    /// <paramref name="key"/>, or -1. The names are compared by description, not by identity: a private getter and a
+    /// private setter of one name each have their own <see cref="PrivateName"/>.
     /// </summary>
-    private static JsObject CreateDecoratorContext(
+    private static int IndexOfPrivateElement(List<PrivateElement> container, PrivateName key)
+    {
+        for (var i = 0; i < container.Count; i++)
+        {
+            if (string.Equals(container[i].Key.Description, key.Description, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// The rest of ClassDefinitionEvaluation for a decorated class, once every element has been evaluated
+    /// (https://github.com/tc39/ecma262/pull/2417, sebastienros/jint#4413): applies the decorators of the static
+    /// methods, getters, setters and accessors, then of the instance ones, defining each as it goes, then of the static
+    /// fields, then of the instance fields; keeps the instance half on the constructor and adds the static private
+    /// methods; applies the class's own decorators; initializes the class binding with the class they answer; and
+    /// runs the static half against that class, the static methods' extra initializers first and the class's last.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Out of line, as everything a decorated class does beyond evaluating its decorators is: a class without any
+    /// never reaches it, and <see cref="BuildConstructorCore{TMode}"/> only calls it.
+    /// </para>
+    /// <para>
+    /// A public method, getter or setter was defined on its home object when it was evaluated, as an undecorated
+    /// class's is, and each is defined again here, decorated, in source order, which leaves the home object as
+    /// DefineMethodProperty element by element would: nothing can reach the prototype or the constructor between the
+    /// two, and the second definition of a key replaces the first in place. The one difference is a first definition
+    /// that throws, such as <c>@d static ['prototype']() {}</c> in a decorated class. Jint throws it in the element
+    /// loop, when the element is evaluated. The spec text throws it here, after it has evaluated every later key and
+    /// decorator and applied the decorators of the static elements before it. That is where Jint threw it before
+    /// sebastienros/jint#4413 as well.
+    /// </para>
+    /// <para>
+    /// The instance initializers <c>addInitializer</c> collects all run after the instance fields, as they did before:
+    /// the spec text runs a method's before the fields and a field's right after it, which needs a hook in
+    /// <see cref="ObjectInstance.InitializeInstanceElements"/> that every class construction would pay for
+    /// (sebastienros/jint#4421).
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue FinishDecoratedClass(Engine engine, DecoratorEvaluation decorators, ScriptFunction constructor, ObjectInstance proto, DeclarativeEnvironment classEnv, string? classBinding)
+    {
+        var elements = decorators.Elements;
+
+        // A getter and a setter of one private name have a PrivateName each, and what a lookup by the name finds is the
+        // first one: the one the private methods are added under and the one a decorator's access has to use.
+        var privateEnvironment = engine.ExecutionContext.PrivateEnvironment!;
+        foreach (var element in elements)
+        {
+            if (element.Key is PrivateName privateName)
+            {
+                element.Key = privateEnvironment.ResolvePrivateIdentifier(privateName.Description) ?? privateName;
+            }
+        }
+
+        var staticMethodExtraInitializers = ApplyDecoratorsAndDefineMethods(engine, elements, constructor, isStatic: true);
+        var instanceMethodExtraInitializers = ApplyDecoratorsAndDefineMethods(engine, elements, proto, isStatic: false);
+        ApplyFieldDecorators(engine, elements, isStatic: true);
+        ApplyFieldDecorators(engine, elements, isStatic: false);
+
+        constructor._privateMethods = InitializePrivateMethods(elements, isStatic: false);
+        constructor._fields = InstanceFields(engine, elements, instanceMethodExtraInitializers);
+
+        var staticPrivateMethods = InitializePrivateMethods(elements, isStatic: true);
+        if (staticPrivateMethods is not null)
+        {
+            for (var i = 0; i < staticPrivateMethods.Count; i++)
+            {
+                constructor.PrivateMethodOrAccessorAdd(staticPrivateMethods[i]);
+            }
+        }
+
+        List<ICallable>? classExtraInitializers = null;
+        var classValue = ApplyDecoratorsToClassDefinition(engine, constructor, decorators.ClassDecorators, new JsString(_className ?? classBinding ?? ""), ref classExtraInitializers);
+
+        if (_className is not null)
+        {
+            classEnv.InitializeBinding(_className, classValue, DisposeHint.Normal);
+        }
+
+        // The static half runs against the class the decorators answered: its fields are defined on it and its static
+        // blocks get it as their this.
+        var receiver = (ObjectInstance) classValue;
+        RunInitializers(engine, receiver, staticMethodExtraInitializers);
+
+        foreach (var element in elements)
+        {
+            if (!element.IsStatic)
+            {
+                continue;
+            }
+
+            if (element.Kind == DecoratedElementKind.StaticBlock)
+            {
+                engine.Call(element.StaticBlock!.BodyFunction, receiver);
+            }
+            else if (element.Kind is DecoratedElementKind.Field or DecoratedElementKind.Accessor)
+            {
+                ObjectInstance.DefineField(receiver, FieldDefinition(engine, element));
+                RunInitializers(engine, receiver, element.ExtraInitializers);
+            }
+        }
+
+        RunInitializers(engine, receiver, classExtraInitializers);
+
+        return classValue;
+    }
+
+    /// <summary>
+    /// ApplyDecoratorsAndDefineMethod for every static or every instance method, getter, setter and accessor, in
+    /// source order (https://github.com/tc39/ecma262/pull/2417). Answers the extra initializers the methods',
+    /// getters' and setters' decorators added; an accessor keeps its own.
+    /// </summary>
+    private static List<ICallable>? ApplyDecoratorsAndDefineMethods(Engine engine, List<DecoratedElement> elements, ObjectInstance homeObject, bool isStatic)
+    {
+        List<ICallable>? methodExtraInitializers = null;
+        foreach (var element in elements)
+        {
+            if (element.IsStatic != isStatic || element.Kind is DecoratedElementKind.Field or DecoratedElementKind.StaticBlock)
+            {
+                continue;
+            }
+
+            if (element.Decorators.Length > 0)
+            {
+                var extraInitializers = element.Kind == DecoratedElementKind.Accessor
+                    ? element.ExtraInitializers ??= []
+                    : methodExtraInitializers ??= [];
+                ApplyDecoratorsToElementDefinition(engine, element, extraInitializers);
+            }
+
+            DefineMethodProperty(homeObject, element);
+        }
+
+        return methodExtraInitializers;
+    }
+
+    /// <summary>
+    /// ApplyDecoratorsToElementDefinition for every static or every instance field, in source order.
+    /// </summary>
+    private static void ApplyFieldDecorators(Engine engine, List<DecoratedElement> elements, bool isStatic)
+    {
+        foreach (var element in elements)
+        {
+            if (element.IsStatic == isStatic && element.Kind == DecoratedElementKind.Field && element.Decorators.Length > 0)
+            {
+                ApplyDecoratorsToElementDefinition(engine, element, element.ExtraInitializers ??= []);
+            }
+        }
+    }
+
+    /// <summary>
+    /// DefineMethodProperty (https://tc39.es/ecma262/#sec-definemethodproperty) as the decorators spec text has it:
+    /// defines a public method, getter, setter or accessor from its element record, and leaves a private one to
+    /// <see cref="InitializePrivateMethods"/>.
+    /// </summary>
+    private static void DefineMethodProperty(ObjectInstance homeObject, DecoratedElement element)
+    {
+        if (element.Key is PrivateName)
+        {
+            return;
+        }
+
+        PropertyDescriptor descriptor = element.Kind switch
+        {
+            DecoratedElementKind.Method => new PropertyDescriptor(element.Value, PropertyFlag.NonEnumerable),
+            DecoratedElementKind.Getter => new GetSetPropertyDescriptor(element.Get, null, PropertyFlag.Configurable),
+            DecoratedElementKind.Setter => new GetSetPropertyDescriptor(null, element.Set, PropertyFlag.Configurable),
+            _ => new GetSetPropertyDescriptor(element.Get, element.Set, PropertyFlag.Configurable),
+        };
+
+        homeObject.DefinePropertyOrThrow(element.Key, descriptor);
+    }
+
+    /// <summary>
+    /// InitializePrivateMethods (https://github.com/tc39/ecma262/pull/2417): the private methods, getters, setters and
+    /// accessors of the static or the instance half, with a getter and a setter of one name combined; null for none.
+    /// </summary>
+    private static List<PrivateElement>? InitializePrivateMethods(List<DecoratedElement> elements, bool isStatic)
+    {
+        List<PrivateElement>? privateMethods = null;
+        foreach (var element in elements)
+        {
+            if (element.IsStatic != isStatic || element.Key is not PrivateName key || element.Kind is DecoratedElementKind.Field or DecoratedElementKind.StaticBlock)
+            {
+                continue;
+            }
+
+            privateMethods ??= [];
+            if (element.Kind == DecoratedElementKind.Method)
+            {
+                privateMethods.Add(new PrivateElement { Key = key, Kind = PrivateElementKind.Method, Value = element.Value });
+            }
+            else if (element.Kind == DecoratedElementKind.Accessor)
+            {
+                privateMethods.Add(new PrivateElement { Key = key, Kind = PrivateElementKind.Accessor, Get = element.Get, Set = element.Set });
+            }
+            else
+            {
+                var getter = element.Kind == DecoratedElementKind.Getter ? element.Get : null;
+                var setter = element.Kind == DecoratedElementKind.Setter ? element.Set : null;
+                var index = IndexOfPrivateElement(privateMethods, key);
+                if (index == -1)
+                {
+                    privateMethods.Add(new PrivateElement { Key = key, Kind = PrivateElementKind.Accessor, Get = getter, Set = setter });
+                }
+                else
+                {
+                    var existing = privateMethods[index];
+                    privateMethods[index] = new PrivateElement { Key = existing.Key, Kind = PrivateElementKind.Accessor, Get = existing.Get ?? getter, Set = existing.Set ?? setter };
+                }
+            }
+        }
+
+        return privateMethods;
+    }
+
+    /// <summary>
+    /// The instance fields and accessors' backing fields, in source order, then one entry running every instance
+    /// extra initializer: the methods', getters' and setters' first, then each field's and accessor's in source order.
+    /// </summary>
+    private static List<ClassFieldDefinition> InstanceFields(Engine engine, List<DecoratedElement> elements, List<ICallable>? methodExtraInitializers)
+    {
+        var fields = new List<ClassFieldDefinition>();
+        var extraInitializers = methodExtraInitializers;
+        foreach (var element in elements)
+        {
+            if (element.IsStatic || element.Kind is not (DecoratedElementKind.Field or DecoratedElementKind.Accessor))
+            {
+                continue;
+            }
+
+            fields.Add(FieldDefinition(engine, element));
+            if (element.ExtraInitializers is { Count: > 0 } own)
+            {
+                (extraInitializers ??= []).AddRange(own);
+            }
+        }
+
+        if (extraInitializers is { Count: > 0 })
+        {
+            var initializers = extraInitializers.ToArray();
+            var runner = new ClrFunction(engine, "", (thisObj, _) =>
+            {
+                RunInitializers(engine, thisObj, initializers);
+                return JsValue.Undefined;
+            }, 0, PropertyFlag.Configurable);
+
+            fields.Add(new ClassFieldDefinition { Name = JsValue.Undefined, Initializer = runner });
+        }
+
+        return fields;
+    }
+
+    /// <summary>
+    /// The definition a field or an accessor's backing field is initialized from: InitializeFieldOrAccessor's
+    /// [[Initializers]], the element's own first, each passing its value on to the next.
+    /// </summary>
+    /// <remarks>
+    /// The element's own initializer runs first, which is what the spec text intends rather than what it says.
+    /// ClassFieldDefinitionEvaluation appends the element's own initializer to [[Initializers]], and
+    /// ApplyDecoratorsToElementDefinition then prepends the decorators' initializers, so read literally the element's
+    /// own runs last and its value always wins: <c>@add1 @times2 x = 3</c> would give 3.
+    /// https://github.com/tc39/proposal-decorators/issues/569 reports that as a bug in the text, and Babel and the
+    /// test262 tests proposed for decorators give the intended 8.
+    /// </remarks>
+    private static ClassFieldDefinition FieldDefinition(Engine engine, DecoratedElement element)
+    {
+        var field = element.Field!;
+        if (element.Initializers is { Count: > 0 } decoratorInitializers)
+        {
+            var own = field.Initializer;
+            var initializers = decoratorInitializers.ToArray();
+            field.Initializer = new ClrFunction(engine, "", (thisObj, _) =>
+            {
+                var value = own is not null ? engine.Call(own, thisObj, Arguments.Empty) : JsValue.Undefined;
+                for (var i = 0; i < initializers.Length; i++)
+                {
+                    value = engine.Call((JsValue) initializers[i], thisObj, [value]);
+                }
+
+                return value;
+            }, 0, PropertyFlag.Configurable);
+
+            element.Initializers = null;
+        }
+
+        return field;
+    }
+
+    /// <summary>
+    /// ApplyDecoratorsToElementDefinition (https://github.com/tc39/ecma262/pull/2417): calls the element's decorators,
+    /// last to first, each with the current value and a context of its own, and keeps what each answers. A field's
+    /// and an accessor's initializers are prepended, so the outermost decorator's runs first.
+    /// </summary>
+    private static void ApplyDecoratorsToElementDefinition(Engine engine, DecoratedElement element, List<ICallable> extraInitializers)
+    {
+        var decorators = element.Decorators;
+        var kind = element.Kind;
+        for (var i = decorators.Length - 1; i >= 0; i--)
+        {
+            var decorator = decorators[i];
+            if (decorator.Decorator is not ICallable)
+            {
+                Throw.TypeError(engine.Realm, "A decorator must be a function");
+            }
+
+            var decorationState = new DecorationState();
+            var context = CreateDecoratorContextObject(engine, kind, element.Key, extraInitializers, decorationState, element.IsStatic);
+
+            JsValue value;
+            switch (kind)
+            {
+                case DecoratedElementKind.Method:
+                    value = element.Value!;
+                    break;
+                case DecoratedElementKind.Getter:
+                    value = element.Get!;
+                    break;
+                case DecoratedElementKind.Setter:
+                    value = element.Set!;
+                    break;
+                case DecoratedElementKind.Accessor:
+                    var accessor = new JsObject(engine);
+                    accessor.CreateDataPropertyOrThrow(CommonProperties.Get, element.Get ?? JsValue.Undefined);
+                    accessor.CreateDataPropertyOrThrow(CommonProperties.Set, element.Set ?? JsValue.Undefined);
+                    value = accessor;
+                    break;
+                default:
+                    value = JsValue.Undefined;
+                    break;
+            }
+
+            var newValue = engine.Call(decorator.Decorator, decorator.Receiver, [value, context]);
+            decorationState.Finished = true;
+
+            if (kind == DecoratedElementKind.Field)
+            {
+                if (newValue is ICallable initializer)
+                {
+                    (element.Initializers ??= []).Insert(0, initializer);
+                }
+                else if (!newValue.IsUndefined())
+                {
+                    Throw.TypeError(engine.Realm, "A field decorator must return either undefined or a function");
+                }
+            }
+            else if (kind == DecoratedElementKind.Accessor)
+            {
+                if (newValue is ObjectInstance result)
+                {
+                    element.Get = CallableOrCurrent(engine, result.Get(CommonProperties.Get), element.Get, "get");
+                    element.Set = CallableOrCurrent(engine, result.Get(CommonProperties.Set), element.Set, "set");
+                    var initializer = result.Get("init");
+                    if (initializer is ICallable callable)
+                    {
+                        (element.Initializers ??= []).Insert(0, callable);
+                    }
+                    else if (!initializer.IsUndefined())
+                    {
+                        Throw.TypeError(engine.Realm, "An accessor decorator's init must be a function");
+                    }
+                }
+                else if (!newValue.IsUndefined())
+                {
+                    Throw.TypeError(engine.Realm, "An accessor decorator must return either undefined or an object");
+                }
+            }
+            else if (newValue is ICallable)
+            {
+                switch (kind)
+                {
+                    case DecoratedElementKind.Getter:
+                        element.Get = newValue;
+                        break;
+                    case DecoratedElementKind.Setter:
+                        element.Set = newValue;
+                        break;
+                    default:
+                        element.Value = newValue;
+                        break;
+                }
+            }
+            else if (!newValue.IsUndefined())
+            {
+                Throw.TypeError(engine.Realm, "A decorator must return either undefined or a function");
+            }
+        }
+
+        static JsValue? CallableOrCurrent(Engine engine, JsValue replacement, JsValue? current, string member)
+        {
+            if (replacement is ICallable)
+            {
+                return replacement;
+            }
+
+            if (!replacement.IsUndefined())
+            {
+                Throw.TypeError(engine.Realm, "An accessor decorator's " + member + " must be a function");
+            }
+
+            return current;
+        }
+    }
+
+    /// <summary>
+    /// ApplyDecoratorsToClassDefinition (https://github.com/tc39/ecma262/pull/2417): calls the class's own decorators,
+    /// last to first, each with the class the one before it answered, and answers the last class.
+    /// </summary>
+    private static JsValue ApplyDecoratorsToClassDefinition(Engine engine, ScriptFunction constructor, DecoratorDefinition[] decorators, JsString className, ref List<ICallable>? extraInitializers)
+    {
+        JsValue classDefinition = constructor;
+        for (var i = decorators.Length - 1; i >= 0; i--)
+        {
+            var decorator = decorators[i];
+            if (decorator.Decorator is not ICallable)
+            {
+                Throw.TypeError(engine.Realm, "A decorator must be a function");
+            }
+
+            var decorationState = new DecorationState();
+            var context = CreateDecoratorContextObject(engine, kind: null, className, extraInitializers ??= [], decorationState, isStatic: false);
+            var newDefinition = engine.Call(decorator.Decorator, decorator.Receiver, [classDefinition, context]);
+            decorationState.Finished = true;
+
+            if (newDefinition is ICallable)
+            {
+                classDefinition = newDefinition;
+            }
+            else if (!newDefinition.IsUndefined())
+            {
+                Throw.TypeError(engine.Realm, "A class decorator must return either undefined or a function");
+            }
+        }
+
+        return classDefinition;
+    }
+
+    /// <summary>
+    /// The [[Finished]] Record a decorator's <c>addInitializer</c> captures: set once the decorator returns.
+    /// </summary>
+    private sealed class DecorationState
+    {
+        public bool Finished { get; set; }
+    }
+
+    /// <summary>
+    /// CreateDecoratorContextObject, https://tc39.es/proposal-decorators/#sec-createdecoratorcontextobject as the
+    /// decorators spec text has it (https://github.com/tc39/ecma262/pull/2417): <c>kind</c>, then for an element
+    /// <c>access</c>, <c>static</c>, <c>private</c> and <c>name</c>, for a class only <c>name</c>, then
+    /// <c>addInitializer</c>. <paramref name="kind"/> is null for a class. A private element's name is its private
+    /// name's description, the <c>#</c> included.
+    /// </summary>
+    private static JsObject CreateDecoratorContextObject(
         Engine engine,
-        string kind,
+        DecoratedElementKind? kind,
         JsValue name,
-        bool isStatic,
-        bool isPrivate,
-        List<ICallable> extraInitializers)
+        List<ICallable> extraInitializers,
+        DecorationState decorationState,
+        bool isStatic)
     {
         var context = new JsObject(engine);
-        context.DefineOwnDataPropertyUnchecked("kind", new JsString(kind));
-        context.DefineOwnDataPropertyUnchecked("name", isPrivate && name is PrivateName pn ? (JsValue) new JsString(pn.Description) : name);
-        context.DefineOwnDataPropertyUnchecked("static", isStatic ? JsBoolean.True : JsBoolean.False);
-        context.DefineOwnDataPropertyUnchecked("private", isPrivate ? JsBoolean.True : JsBoolean.False);
-
-        var addInitializer = new ClrFunction(engine, "addInitializer", (_, args) =>
+        var kindName = kind switch
         {
-            var init = args.At(0);
-            if (init is not ICallable initCallable)
+            DecoratedElementKind.Method => "method",
+            DecoratedElementKind.Getter => "getter",
+            DecoratedElementKind.Setter => "setter",
+            DecoratedElementKind.Accessor => "accessor",
+            DecoratedElementKind.Field => "field",
+            _ => "class",
+        };
+
+        context.CreateDataPropertyOrThrow("kind", kindName);
+        if (kind is { } elementKind)
+        {
+            context.CreateDataPropertyOrThrow("access", CreateDecoratorAccessObject(engine, elementKind, name));
+            context.CreateDataPropertyOrThrow("static", isStatic ? JsBoolean.True : JsBoolean.False);
+            if (name is PrivateName privateName)
             {
-                Throw.TypeError(engine.Realm, "An initializer must be a function");
-                return JsValue.Undefined;
+                context.CreateDataPropertyOrThrow("private", JsBoolean.True);
+                context.CreateDataPropertyOrThrow("name", "#" + privateName.Description);
             }
-            extraInitializers.Add(initCallable);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
+            else
+            {
+                context.CreateDataPropertyOrThrow("private", JsBoolean.False);
+                context.CreateDataPropertyOrThrow("name", name);
+            }
+        }
+        else
+        {
+            context.CreateDataPropertyOrThrow("name", name);
+        }
 
-        context.DefineOwnDataPropertyUnchecked("addInitializer", addInitializer);
-
+        context.CreateDataPropertyOrThrow("addInitializer", CreateAddInitializerFunction(engine, extraInitializers, decorationState));
         return context;
     }
 
     /// <summary>
-    /// Applies decorators to a method, getter, or setter.
-    /// Returns the potentially replaced function value.
+    /// CreateAddInitializerFunction (https://github.com/tc39/ecma262/pull/2417): a function that appends to
+    /// <paramref name="extraInitializers"/> until the decorator it was made for returns.
     /// </summary>
-    private static JsValue ApplyMethodDecorators(
-        Engine engine,
-        DecoratorDefinition[] decorators,
-        JsValue value,
-        string kind,
-        JsValue name,
-        bool isStatic,
-        bool isPrivate,
-        List<ICallable> extraInitializers)
+    private static ClrFunction CreateAddInitializerFunction(Engine engine, List<ICallable> extraInitializers, DecorationState decorationState)
     {
-        // Apply decorators in reverse order (last decorator first)
-        for (var i = decorators.Length - 1; i >= 0; i--)
+        return new ClrFunction(engine, "addInitializer", (_, arguments) =>
         {
-            var decorator = decorators[i];
-            if (decorator.Decorator is not ICallable callable)
+            if (decorationState.Finished)
             {
-                Throw.TypeError(engine.Realm, "A decorator must be a function");
-                return value;
+                Throw.TypeError(engine.Realm, "addInitializer cannot be called once its decorator has returned");
             }
 
-            var context = CreateDecoratorContext(engine, kind, name, isStatic, isPrivate, extraInitializers);
-            var result = engine.Call((JsValue) callable, decorator.Receiver, new JsValue[] { value, context });
-
-            if (!result.IsUndefined())
+            if (arguments.At(0) is not ICallable initializer)
             {
-                if (result is not ICallable)
-                {
-                    Throw.TypeError(engine.Realm, "A decorator must return either undefined or a function");
-                    return value;
-                }
-                value = result;
+                Throw.TypeError(engine.Realm, "An initializer must be a function");
+                return JsValue.Undefined;
             }
-        }
 
-        return value;
+            extraInitializers.Add(initializer);
+            return JsValue.Undefined;
+        }, 1, PropertyFlag.Configurable);
     }
 
     /// <summary>
-    /// Applies decorators to a field definition.
-    /// Returns the potentially wrapped initializer.
+    /// CreateDecoratorAccessObject (https://github.com/tc39/ecma262/pull/2417): <c>get</c> for a field, method,
+    /// accessor or getter, <c>set</c> for a field, accessor or setter, and <c>has</c> for every element, each reaching
+    /// the element on the object it is given: through the property key, or the private name for a private element.
     /// </summary>
-    private static void ApplyFieldDecorators(
-        Engine engine,
-        DecoratorDefinition[] decorators,
-        ClassFieldDefinition fieldDefinition,
-        JsValue name,
-        bool isStatic,
-        bool isPrivate,
-        List<ICallable> extraInitializers)
+    private static JsObject CreateDecoratorAccessObject(Engine engine, DecoratedElementKind kind, JsValue name)
     {
-        var initFunctions = new List<ICallable>();
+        var access = new JsObject(engine);
+        var privateName = name as PrivateName;
 
-        // Apply decorators in reverse order
-        for (var i = decorators.Length - 1; i >= 0; i--)
+        if (kind is DecoratedElementKind.Field or DecoratedElementKind.Method or DecoratedElementKind.Accessor or DecoratedElementKind.Getter)
         {
-            var decorator = decorators[i];
-            if (decorator.Decorator is not ICallable callable)
+            access.CreateDataPropertyOrThrow(CommonProperties.Get, new ClrFunction(engine, "", (_, arguments) =>
             {
-                Throw.TypeError(engine.Realm, "A decorator must be a function");
-                return;
-            }
-
-            var context = CreateDecoratorContext(engine, "field", name, isStatic, isPrivate, extraInitializers);
-            var result = engine.Call((JsValue) callable, decorator.Receiver, new JsValue[] { JsValue.Undefined, context });
-
-            if (!result.IsUndefined())
-            {
-                if (result is not ICallable initCallable)
-                {
-                    Throw.TypeError(engine.Realm, "A decorator must return either undefined or a function");
-                    return;
-                }
-                initFunctions.Add(initCallable);
-            }
+                var target = AccessTarget(engine, arguments.At(0));
+                return privateName is not null ? target.PrivateGet(privateName) : target.Get(name);
+            }, 1, PropertyFlag.Configurable));
         }
 
-        if (initFunctions.Count > 0)
+        if (kind is DecoratedElementKind.Field or DecoratedElementKind.Accessor or DecoratedElementKind.Setter)
         {
-            var originalInitializer = fieldDefinition.Initializer;
-            var capturedInits = initFunctions.ToArray();
-
-            // Wrap the initializer to chain through decorator init functions
-            // Init functions are applied in the order they were collected
-            // (which is reverse decorator order = inner decorator first)
-            var wrappedInitializer = new ClrFunction(engine, "", (thisObj, _) =>
+            access.CreateDataPropertyOrThrow(CommonProperties.Set, new ClrFunction(engine, "", (_, arguments) =>
             {
-                var initValue = originalInitializer is not null
-                    ? engine.Call(originalInitializer, thisObj, Arguments.Empty)
-                    : JsValue.Undefined;
-
-                for (var j = 0; j < capturedInits.Length; j++)
+                var target = AccessTarget(engine, arguments.At(0));
+                var value = arguments.At(1);
+                if (privateName is not null)
                 {
-                    initValue = engine.Call((JsValue) capturedInits[j], thisObj, new JsValue[] { initValue });
+                    target.PrivateSet(privateName, value);
                 }
-                return initValue;
-            }, 0, PropertyFlag.Configurable);
+                else
+                {
+                    target.Set(name, value, throwOnError: true);
+                }
 
-            fieldDefinition.Initializer = wrappedInitializer;
+                return JsValue.Undefined;
+            }, 2, PropertyFlag.Configurable));
+        }
+
+        access.CreateDataPropertyOrThrow("has", new ClrFunction(engine, "has", (_, arguments) =>
+        {
+            var target = AccessTarget(engine, arguments.At(0));
+            var found = privateName is not null ? target.PrivateElementFind(privateName) is not null : target.HasProperty(name);
+            return found ? JsBoolean.True : JsBoolean.False;
+        }, 1, PropertyFlag.Configurable));
+
+        return access;
+
+        static ObjectInstance AccessTarget(Engine engine, JsValue value)
+        {
+            if (value is not ObjectInstance target)
+            {
+                Throw.TypeError(engine.Realm, "A decorator's access functions take an object");
+                return null!;
+            }
+
+            return target;
         }
     }
 
     /// <summary>
-    /// Applies decorators to an auto-accessor.
-    /// Returns potentially replaced getter/setter and optional init function.
+    /// Calls each of <paramref name="initializers"/> with <paramref name="receiver"/> as its this, in order.
     /// </summary>
-    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-    private readonly record struct AccessorDecoratorResult(
-        JsValue Getter,
-        JsValue Setter,
-        List<ICallable>? InitFunctions);
-
-    private static AccessorDecoratorResult ApplyAccessorDecorators(
-        Engine engine,
-        DecoratorDefinition[] decorators,
-        JsValue getter,
-        JsValue setter,
-        JsValue name,
-        bool isStatic,
-        bool isPrivate,
-        List<ICallable> extraInitializers)
+    private static void RunInitializers(Engine engine, JsValue receiver, IReadOnlyList<ICallable>? initializers)
     {
-        var currentGetter = getter;
-        var currentSetter = setter;
-        List<ICallable>? initFunctions = null;
-
-        // Apply decorators in reverse order
-        for (var i = decorators.Length - 1; i >= 0; i--)
+        if (initializers is null)
         {
-            var decorator = decorators[i];
-            if (decorator.Decorator is not ICallable callable)
-            {
-                Throw.TypeError(engine.Realm, "A decorator must be a function");
-                return new AccessorDecoratorResult(currentGetter, currentSetter, initFunctions);
-            }
-
-            var context = CreateDecoratorContext(engine, "accessor", name, isStatic, isPrivate, extraInitializers);
-            var valueObj = ObjectInstance.OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
-            valueObj.DefineOwnDataPropertyUnchecked("get", currentGetter);
-            valueObj.DefineOwnDataPropertyUnchecked("set", currentSetter);
-
-            var result = engine.Call((JsValue) callable, decorator.Receiver, new JsValue[] { valueObj, context });
-
-            if (!result.IsUndefined())
-            {
-                if (result is not ObjectInstance resultObj)
-                {
-                    Throw.TypeError(engine.Realm, "A decorator must return either undefined or an object");
-                    return new AccessorDecoratorResult(currentGetter, currentSetter, initFunctions);
-                }
-
-                var newGet = resultObj.Get("get");
-                if (!newGet.IsUndefined())
-                {
-                    currentGetter = newGet;
-                }
-
-                var newSet = resultObj.Get("set");
-                if (!newSet.IsUndefined())
-                {
-                    currentSetter = newSet;
-                }
-
-                var initValue = resultObj.Get("init");
-                if (!initValue.IsUndefined())
-                {
-                    if (initValue is not ICallable initCallable)
-                    {
-                        Throw.TypeError(engine.Realm, "An accessor decorator's init must be a function");
-                        return new AccessorDecoratorResult(currentGetter, currentSetter, initFunctions);
-                    }
-                    initFunctions ??= [];
-                    initFunctions.Add(initCallable);
-                }
-            }
+            return;
         }
 
-        return new AccessorDecoratorResult(currentGetter, currentSetter, initFunctions);
-    }
-
-    /// <summary>
-    /// Runs extra initializers registered via addInitializer.
-    /// </summary>
-    private static void RunExtraInitializers(Engine engine, JsValue target, List<ICallable>? initializers)
-    {
-        if (initializers is null) return;
         for (var i = 0; i < initializers.Count; i++)
         {
-            engine.Call((JsValue) initializers[i], target, Arguments.Empty);
+            engine.Call((JsValue) initializers[i], receiver, Arguments.Empty);
         }
     }
 }
