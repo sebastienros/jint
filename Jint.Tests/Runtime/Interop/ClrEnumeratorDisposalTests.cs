@@ -532,6 +532,60 @@ public class ClrEnumeratorDisposalTests
     }
 
     /// <summary>
+    /// The delegate's <c>return</c>, or the <c>done</c> getter of the object it answers, fails with an exception no script
+    /// can catch: the statement limit trips inside it, or a host function it calls throws. That exception is what leaves
+    /// <c>Evaluate</c>, and the delegation it ends still disposes the enumerator once, as IteratorClose does
+    /// (sebastienros/jint#4429). An async generator reads <c>done</c> once the answer has settled, in a promise job; over
+    /// <c>items</c> itself the CreateAsyncFromSyncIterator wrapper's <c>return</c> reads it inside the call.
+    /// </summary>
+    [TestCase("sync", "it", "own", "statementLimit")]
+    [TestCase("sync", "it", "own", "host")]
+    [TestCase("sync", "it", "own", "doneStatementLimit")]
+    [TestCase("sync", "it", "own", "doneHost")]
+    [TestCase("async", "asyncIterable", "own", "statementLimit")]
+    [TestCase("async", "asyncIterable", "own", "host")]
+    [TestCase("async", "asyncIterable", "own", "doneStatementLimit")]
+    [TestCase("async", "asyncIterable", "own", "doneHost")]
+    [TestCase("async", "items", "prototype", "statementLimit")]
+    [TestCase("async", "items", "prototype", "host")]
+    [TestCase("async", "items", "prototype", "doneStatementLimit")]
+    [TestCase("async", "items", "prototype", "doneHost")]
+    public void AReturnThatTripsAConstraintOrThrowsAHostExceptionStillDisposesTheEnumerator(
+        string kind, string operand, string where, string returnKind)
+    {
+        var items = new CountingEnumerable();
+        var engine = new Engine(options => options.LimitStatements(100_000));
+        engine.SetValue("items", items);
+        engine.SetValue("hostFail", new Action(() => throw new InvalidOperationException("host failed")));
+
+        var thrown = Caught.Exception(() => engine.Evaluate(YieldStarReturnHarness + "\n" + $$"""
+            (async function () {
+                const returns = {
+                    statementLimit: function () { let n = 0; for (;;) { n++; } },
+                    host: function () { hostFail(); },
+                    doneStatementLimit: function () { return { get done() { let n = 0; for (;;) { n++; } } }; },
+                    doneHost: function () { return { get done() { hostFail(); return true; } }; }
+                };
+                const delegate = operandFor('{{operand}}');
+                if ('{{where}}' === 'own') { delegate.it.return = returns.{{returnKind}}; }
+                else { Object.getPrototypeOf([].values()).return = returns.{{returnKind}}; }
+                return String(await returnFrom.{{kind}}(delegate.operand));
+            })()
+            """).UnwrapIfPromise());
+
+        if (returnKind is "host" or "doneHost")
+        {
+            thrown.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("host failed");
+        }
+        else
+        {
+            thrown.Should().BeOfType<Jint.Runtime.StatementsCountOverflowException>();
+        }
+
+        items.Disposals.Should().Be(1);
+    }
+
+    /// <summary>
     /// A step that throws marks the record done, so no IteratorClose follows it and no script <c>return</c> is called
     /// (https://tc39.es/ecma262/#sec-iteratorclose is reached only for the consumer's own abrupt completion): the CLR
     /// iterator disposes its enumerator through its native close and nothing else.

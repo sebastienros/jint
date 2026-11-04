@@ -733,6 +733,13 @@ internal sealed class JintYieldExpression : JintExpression
                 asyncGenerator.ThrowAfterDelegation(e.Error, promiseCapability);
                 return JsValue.Undefined;
             }
+            catch
+            {
+                // A constraint that tripped or a host exception, which no script can catch: it leaves the job as it is,
+                // and the delegation it ends still owes the release.
+                ReleaseAfterForwardedReturn(asyncGenerator, delegationResumeType, CompletionType.Throw);
+                throw;
+            }
 
             if (done)
             {
@@ -800,9 +807,9 @@ internal sealed class JintYieldExpression : JintExpression
     /// <para>
     /// Every way the delegation ends releases the native state of a built-in iterator the delegate is, a CLR
     /// collection's iterator disposing its host enumerator (sebastienros/jint#4429): at once without a <c>return</c>
-    /// or when reading, calling or awaiting it throws here, and otherwise once its answer has settled done, or failed
-    /// (<see cref="ReleaseAfterForwardedReturn"/>). The CreateAsyncFromSyncIterator wrapper of a sync delegate has a
-    /// <c>return</c> of its own, and the release reaches the sync iterator behind it.
+    /// or when reading, calling or awaiting it throws here, a constraint or a host exception included, and otherwise once
+    /// its answer has settled done, or failed (<see cref="ReleaseAfterForwardedReturn"/>). The CreateAsyncFromSyncIterator
+    /// wrapper of a sync delegate has a <c>return</c> of its own, and the release reaches the sync iterator behind it.
     /// </para>
     /// </summary>
     private static JsValue DelegateReturn(
@@ -831,9 +838,11 @@ internal sealed class JintYieldExpression : JintExpression
             asyncGenerator._delegationResumeType = CompletionType.Return;
             innerPromise = EnsurePromise(engine, asyncGenerator, innerReturnResult);
         }
-        catch (JavaScriptException)
+        catch
         {
-            // The throw ends the delegation here and now, so nothing may resume into it later.
+            // The throw ends the delegation here and now, so nothing may resume into it later. Whatever it is - a script
+            // throw, a constraint that tripped inside the `return`, a host exception - it propagates as it is: the release
+            // is told a throw completion, so a host's Dispose cannot replace it unless MustPropagateHostException says so.
             asyncGenerator.ClearDelegationIterator();
             asyncGenerator._delegatingYieldNode = null;
             iterator.CloseNativeStateAfterReturn(CompletionType.Throw);
