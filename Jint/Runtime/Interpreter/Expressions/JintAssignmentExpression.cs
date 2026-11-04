@@ -503,22 +503,22 @@ internal sealed class JintAssignmentExpression : JintExpression
                 return Remainder(context, originalLeftValue, rval);
 
             case Operator.BitwiseAndAssignment:
-                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseAnd, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+                return JintBinaryExpression.EvaluateBitwiseOperation(context.Engine.Realm, Operator.BitwiseAnd, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
 
             case Operator.BitwiseOrAssignment:
-                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseOr, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+                return JintBinaryExpression.EvaluateBitwiseOperation(context.Engine.Realm, Operator.BitwiseOr, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
 
             case Operator.BitwiseXorAssignment:
-                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseXor, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+                return JintBinaryExpression.EvaluateBitwiseOperation(context.Engine.Realm, Operator.BitwiseXor, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
 
             case Operator.LeftShiftAssignment:
-                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.LeftShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+                return JintBinaryExpression.EvaluateBitwiseOperation(context.Engine.Realm, Operator.LeftShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
 
             case Operator.RightShiftAssignment:
-                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.RightShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+                return JintBinaryExpression.EvaluateBitwiseOperation(context.Engine.Realm, Operator.RightShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
 
             case Operator.UnsignedRightShiftAssignment:
-                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.UnsignedRightShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+                return JintBinaryExpression.EvaluateBitwiseOperation(context.Engine.Realm, Operator.UnsignedRightShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
 
             case Operator.ExponentiationAssignment:
                 return JintBinaryExpression.Exponentiate(context, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval));

@@ -1241,7 +1241,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
     /// <summary>
     /// Validates that BigInteger.Pow(base, exponent) won't produce an excessively large result.
-    /// Limits result to ~1 million bits (~125 KB) to prevent memory exhaustion.
+    /// Limits result to <see cref="JsBigInt.MaxBitLength"/> bits (~125 KB) to prevent memory exhaustion.
     /// </summary>
     internal static void ValidateBigIntPowSize(Realm realm, BigInteger baseValue, int exponent)
     {
@@ -1249,7 +1249,7 @@ internal abstract class JintBinaryExpression : JintExpression
         {
             var absBase = BigInteger.Abs(baseValue);
             if (absBase > BigInteger.One
-                && (double) exponent * BigInteger.Log(absBase, 2.0) > 1_000_000)
+                && (double) exponent * BigInteger.Log(absBase, 2.0) > JsBigInt.MaxBitLength)
             {
                 Throw.RangeError(realm, "Maximum BigInt size exceeded");
             }
@@ -2901,7 +2901,7 @@ internal abstract class JintBinaryExpression : JintExpression
             var lnum = TypeConverter.ToNumeric(lval);
             var rnum = TypeConverter.ToNumeric(rval);
 
-            return EvaluateBitwiseOperation(_operator, lnum, rnum, _left._expression);
+            return EvaluateBitwiseOperation(context.Engine.Realm, _operator, lnum, rnum, _left._expression);
         }
     }
 
@@ -2942,11 +2942,34 @@ internal abstract class JintBinaryExpression : JintExpression
     }
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-numeric-types-bigint-leftShift: <c>x × 2^y</c>, rounded toward −∞ for a
+    /// negative <paramref name="y"/>. <see href="https://tc39.es/ecma262/#sec-numeric-types-bigint-signedRightShift">BigInt::signedRightShift</see>
+    /// is this with <c>-y</c>.
+    /// </summary>
+    internal static BigInteger BigIntLeftShift(Realm realm, BigInteger x, BigInteger y)
+    {
+        if (y >= int.MinValue && y <= int.MaxValue)
+        {
+            return x << (int) y;
+        }
+
+        // A count outside Int32: shifting right that far leaves only the sign, and a non-zero value shifted
+        // left that far cannot be represented.
+        if (y.Sign < 0 || x.IsZero)
+        {
+            return x.Sign < 0 ? BigInteger.MinusOne : BigInteger.Zero;
+        }
+
+        Throw.RangeError(realm, "Maximum BigInt size exceeded");
+        return default;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-numberbitwiseop (+ BigInt variants and shift operators).
     /// Operands must already be numeric (ToNumeric applied). Shared by the bitwise/shift
     /// binary operators and their compound assignment forms.
     /// </summary>
-    internal static JsValue EvaluateBitwiseOperation(Operator op, JsValue left, JsValue right, Node? location)
+    internal static JsValue EvaluateBitwiseOperation(Realm realm, Operator op, JsValue left, JsValue right, Node? location)
     {
         if (left.Type != right.Type)
         {
@@ -2994,7 +3017,7 @@ internal abstract class JintBinaryExpression : JintExpression
                     {
                         return JsNumber.Create(TypeConverter.ToInt32(left) << (int) (TypeConverter.ToUint32(right) & 0x1F));
                     }
-                    return JsBigInt.Create(TypeConverter.ToBigInt(left) << (int) TypeConverter.ToBigInt(right));
+                    return JsBigInt.Create(BigIntLeftShift(realm, TypeConverter.ToBigInt(left), TypeConverter.ToBigInt(right)));
                 }
 
             case Operator.RightShift:
@@ -3003,7 +3026,7 @@ internal abstract class JintBinaryExpression : JintExpression
                     {
                         return JsNumber.Create(TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
                     }
-                    return JsBigInt.Create(TypeConverter.ToBigInt(left) >> (int) TypeConverter.ToBigInt(right));
+                    return JsBigInt.Create(BigIntLeftShift(realm, TypeConverter.ToBigInt(left), -TypeConverter.ToBigInt(right)));
                 }
 
             case Operator.UnsignedRightShift:
