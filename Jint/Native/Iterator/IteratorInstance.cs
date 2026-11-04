@@ -199,7 +199,8 @@ internal abstract class IteratorInstance : ObjectInstance
     /// IteratorNext step 1 (https://tc39.es/ecma262/#sec-iteratornext) as the async consumers take it: call the record's
     /// [[NextMethod]] on its [[Iterator]] and answer the result unchecked, since a <c>for await</c> loop and
     /// Array.fromAsync await it before they look at it. Neither may read <c>next</c> again: the record holds what
-    /// GetIteratorFromMethod read once (sebastienros/jint#4410).
+    /// GetIteratorFromMethod read once (sebastienros/jint#4410). <c>yield*</c> steps through it too wherever the record
+    /// has no <see cref="NextMethod"/> to call with the value it was sent (sebastienros/jint#4424).
     /// <para>
     /// This record steps natively, which <see cref="ToIteratorRecord"/> allowed because <c>next</c> resolved to the
     /// built-in function the prototype captured. That function is the [[NextMethod]], and all it does is this step
@@ -337,7 +338,8 @@ internal abstract class IteratorInstance : ObjectInstance
     /// <c>return</c> still using the iterator until its promise settles finds it whole. A consumer that awaits nothing
     /// releases it as soon as the call returns. <paramref name="leaving"/> is the completion the close ends with: a
     /// throw whenever steps 5-7 leave by one. A <c>for await</c> over a sync iterable holds the
-    /// CreateAsyncFromSyncIterator wrapper, and the release reaches the sync iterator behind it.
+    /// CreateAsyncFromSyncIterator wrapper, and the release reaches the sync iterator behind it. <c>yield*</c> releases
+    /// its delegate this way when a return() it forwards ends the delegation (sebastienros/jint#4429).
     /// </summary>
     internal void CloseNativeStateAfterReturn(CompletionType leaving) => CloseNatively(Instance, leaving);
 

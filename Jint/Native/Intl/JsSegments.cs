@@ -18,9 +18,14 @@ internal sealed partial class JsSegments : ObjectInstance
     private readonly string _input;
     private readonly List<SegmentData> _segments;
 
-    internal JsSegments(Engine engine, JsSegmenter segmenter, string input) : base(engine)
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-createsegmentsobject, in <paramref name="realm"/>: the realm of the
+    /// <c>Intl.Segmenter.prototype.segment</c> that was called, which is the realm whose segment iterators this object's
+    /// <c>@@iterator</c> creates, whichever realm the caller or the segmenter belongs to.
+    /// </summary>
+    internal JsSegments(Engine engine, Realm realm, JsSegmenter segmenter, string input) : base(engine)
     {
-        _realm = engine.Realm;
+        _realm = realm;
         _segmenter = segmenter;
         _input = input;
         _segments = ComputeSegments(input, segmenter.Granularity);
@@ -56,12 +61,15 @@ internal sealed partial class JsSegments : ObjectInstance
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-%segmentsprototype%-@@iterator
+    /// https://tc39.es/ecma402/#sec-%segmentsprototype%-@@iterator, step 5's CreateSegmentIterator
+    /// (https://tc39.es/ecma402/#sec-createsegmentiterator) creating the iterator from this function's realm's
+    /// %IntlSegmentIteratorPrototype%. The function is this object's own, so its realm is this object's, also when it is
+    /// called on another realm's segments object.
     /// </summary>
     [JsSymbolFunction("Iterator", Flags = PropertyFlag.Writable | PropertyFlag.Configurable)]
-    private static SegmentIterator GetIterator(JsSegments thisObject)
+    private SegmentIterator GetIterator(JsSegments thisObject)
     {
-        return new SegmentIterator(thisObject._engine, thisObject);
+        return new SegmentIterator(_engine, thisObject, _realm.Intrinsics.SegmentIteratorPrototype);
     }
 
     internal IEnumerable<SegmentData> GetSegments() => _segments;
@@ -268,14 +276,15 @@ internal sealed partial class JsSegments : ObjectInstance
     }
 
     /// <summary>
-    /// Iterator for Segments object.
+    /// A segment iterator (https://tc39.es/ecma402/#sec-segment-iterator-objects), which inherits the
+    /// %IntlSegmentIteratorPrototype% of the realm that created it.
     /// </summary>
     private sealed class SegmentIterator : IteratorInstance
     {
         private readonly JsSegments _segments;
         private readonly IEnumerator<SegmentData> _enumerator;
 
-        public SegmentIterator(Engine engine, JsSegments segments) : base(engine)
+        public SegmentIterator(Engine engine, JsSegments segments, SegmentIteratorPrototype prototype) : base(engine, prototype)
         {
             _segments = segments;
             _enumerator = segments.GetSegments().GetEnumerator();

@@ -7536,9 +7536,8 @@ they throw.
 To call the `return`, destructuring an array (`var [a] = arr`) and an array parameter (`function f([a])`) now create
 the array's iterator whenever a `return` is on its chain. Without one, they still read the array by index. The
 iterator for a string primitive inherits the string iterator prototype, as the specified one does, so it never finds
-a `return` set on `%ArrayIteratorPrototype%`. An `Intl.Segmenter` segments iterator still inherits
-`%ArrayIteratorPrototype%`, which [#4407](https://github.com/sebastienros/jint/issues/4407) tracks, so until that is
-fixed it finds a `return` set there.
+a `return` set on `%ArrayIteratorPrototype%`. Neither does an `Intl.Segmenter` segments iterator, which inherits a
+prototype of its own since §4.204.
 
 A function parameter's array pattern now steps its iterator one element at a time. Each element's default is
 evaluated before the next step, and the iterator is closed only after every default has run, or with the throw of a
@@ -7571,6 +7570,71 @@ wins. The throw can be the loop's own, what the `return` threw, or the `TypeErro
 `yield*` in an async generator that closes a CLR collection's iterator for want of a `throw` now disposes it too. A
 step that throws still disposes the enumerator and calls no `return`. There is no switch back.
 
+### 4.199 Spread and array destructuring call a replaced `next` on the array iterator prototype ([#4418](https://github.com/sebastienros/jint/issues/4418))
+
+Spreading or destructuring an array takes an iterator from it: `Array.prototype.values` answers an array iterator, and
+every step calls the `next` read off that iterator. In 4.16 and earlier 5.0 builds, spread in an array literal, a call
+or `new`, and array destructuring in a declaration, an assignment, a parameter, a `for`-`of` head or a `catch`
+parameter read the array by index whenever its `Symbol.iterator` was `Array.prototype.values`. A `next` the script had
+put on the array iterator prototype was never called:
+
+```js
+Object.getPrototypeOf([][Symbol.iterator]()).next = () => ({ done: true });
+var arr = [1, 2];
+var [x] = arr;
+[[...arr], x]
+// 4.16.x / earlier 5.0: [[1, 2], 1]    5.x: [[], undefined]
+```
+
+Now they call it, as `for`-`of`, `Array.from`, `new Set()` and `yield*` over an array already did, and a getter on
+`next` runs once per destructuring as it did once per spread. The same holds for destructuring a host
+`ArrayLikeObject` whose `Symbol.iterator` is `Array.prototype.values`, and a wrapped CLR list, whose iterator inherits
+that `next`. An array whose `Symbol.iterator` and `next` are both the built-in ones is still read by index. There is no
+switch back.
+
+### 4.200 `yield*` calls the `next` it read once ([#4424](https://github.com/sebastienros/jint/issues/4424))
+
+`yield*` reads its delegate's `next` once, when it takes the iterator, and every step calls what was read. Before,
+`yield*` read `next` a second time before the first step for some delegates Jint steps natively. In 4.16 those were
+the iterators of an array, a typed array and an `arguments` object. Earlier 5.0 builds added a built-in iterator object
+that has a property of its own, such as a `Set`, `Map`, string or CLR collection iterator, which 4.16 read once. A
+getter on `next` ran twice, and a `next` replaced while the first read ran was the one called:
+
+```js
+var P = Object.getPrototypeOf([][Symbol.iterator]());
+var d = Object.getOwnPropertyDescriptor(P, "next");
+var reads = 0;
+Object.defineProperty(P, "next", { get() { reads++; return d.value; }, configurable: true });
+for (var x of (function* () { yield* [1, 2]; })());
+reads
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+An async generator read it twice as well when a `Symbol.asyncIterator` method answered such an iterator. A `next` that
+was not a function when it was read now fails the first step with a `TypeError`, even if the delegate has a callable
+`next` by then. There is no switch back.
+
+### 4.201 Returning from a generator suspended in `yield*` disposes a CLR collection's enumerator ([#4429](https://github.com/sebastienros/jint/issues/4429))
+
+A generator suspended in `yield*` passes a `return()` on to the delegate: it calls the delegate's `return`, or finishes
+with the value it was given when there is none. In 4.16 and earlier 5.0 builds, a delegate that was a wrapped CLR
+collection, or an iterator it handed out, kept its `IEnumerator` undisposed after that, in a generator and in an async
+generator. The one exception was an async generator delegating to the collection itself with no `return` on its
+iterator:
+
+```js
+// host: engine.SetValue("list", list);   // an IEnumerable whose enumerator counts its Dispose calls
+function* g() { yield* list; }
+const it = g(); it.next(); it.return(1);
+// 4.16.x / earlier 5.0: not disposed    5.x: disposed once
+```
+
+Now the enumerator is disposed when the delegation ends: at once if there is no `return`, and otherwise after the
+`return` answers done, throws, or answers something other than an object. An async generator disposes it once that
+answer has settled. A `return` that answers not done keeps the delegation going, so the enumerator stays for the
+steps after it. If `Dispose` throws while the `return`'s throw or `TypeError` is leaving, that throw wins. There is no
+switch back.
+
 ### 4.202 The async iterator helpers call the `next` they read once ([#4419](https://github.com/sebastienros/jint/issues/4419))
 
 The `AsyncIterator.prototype` helpers read the iterator's `next` method once, when they take the iterator, and every
@@ -7596,6 +7660,129 @@ a callable `next` by then. `AsyncIterator.from` now reads `next` before it check
 and no iterator method now rejects the step with a `TypeError` and closes the source iterator; in 4.16 and earlier 5.0
 builds that object was skipped. After an inner iterator's `next` throws, `return()` on the helper no longer calls that
 inner iterator's `return`. There is no switch back.
+
+### 4.204 `Iterator.prototype` has no `next`, and a segments iterator has a prototype of its own ([#4407](https://github.com/sebastienros/jint/issues/4407))
+
+Each built-in iterator prototype has a `next` of its own: the array iterator prototype, the `Map`, `Set`, string and
+`matchAll` iterator prototypes, and those of `Headers`, `FormData` and `URLSearchParams`. `Iterator.prototype`, which
+they all inherit, has none. In 4.16 and earlier 5.0 builds it had one too. Deleting a kind's `next` uncovered it, so the
+iterators of that kind went on iterating, and a class extending `Iterator` inherited it:
+
+```js
+delete Object.getPrototypeOf([].values()).next;
+[...[1, 2]]
+// 4.16.x / earlier 5.0: [1, 2]    5.x: TypeError
+Object.hasOwn(Iterator.prototype, "next")
+// 4.16.x / earlier 5.0: true    5.x: false
+```
+
+Now a deleted `next` leaves nothing to inherit. A loop, a spread, a destructuring, `Array.from` or `yield*` over such an
+iterator throws a `TypeError`, unless the script has put a `next` higher up the chain, which is then called.
+
+An `Intl.Segmenter` segments iterator now inherits a prototype of its own. Its `Symbol.toStringTag` is
+`"Segmenter String Iterator"`, and it inherits `Iterator.prototype`. In 4.16 and earlier 5.0 builds the iterator
+inherited the array iterator prototype:
+
+```js
+var it = new Intl.Segmenter().segment("ab")[Symbol.iterator]();
+Object.prototype.toString.call(it)
+// 4.16.x / earlier 5.0: "[object Array Iterator]"    5.x: "[object Segmenter String Iterator]"
+```
+
+So a `next` or a `return` set on the array iterator prototype no longer reaches a segments iterator, and one set on the
+segments iterator's prototype no longer reaches an array. The prototype is the one of the realm whose
+`Intl.Segmenter.prototype.segment` created the segments object. It used to be the array iterator prototype of whichever
+realm was running. There is no switch back.
+
+### 4.205 Spread and array destructuring read an array's `Symbol.iterator` once ([#4426](https://github.com/sebastienros/jint/issues/4426))
+
+Taking an iterator from a value reads its `Symbol.iterator` once and calls what that read found. In 4.16 and earlier
+5.0 builds, spread over an array (in an array literal, a call, `new` or `super(...)`) read it twice, once to take the
+iterator and once more to check whether the array could be read by index. Array destructuring (in a declaration, an
+assignment, a parameter, a `for`-`of` head or a `catch` parameter) read it twice when it was not
+`Array.prototype.values`:
+
+```js
+let reads = 0;
+const arr = [1, 2];
+const values = arr[Symbol.iterator];
+Object.defineProperty(arr, Symbol.iterator, { get() { reads++; return values; } });
+[...arr];
+reads
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+A getter on `Symbol.iterator` now runs once per spread or destructuring. What it answers is what iterates, even if a
+second read would have answered something else. Before, a spread whose getter answered a method of the script's
+first and then `Array.prototype.values` called that method and then read the array by index anyway. A destructuring
+read the array's iterator from the second answer.
+
+The check now runs after the read. Destructuring therefore calls a `next` or a `return` that the getter put on the
+array iterator prototype while it ran. Before, the check had already passed, and the array was read by index. The same
+holds for a host `ArrayLikeObject` whose `Symbol.iterator` is `Array.prototype.values`. An array whose
+`Symbol.iterator` and iterator `next` are both the built-in ones is still read by index. There is no switch back.
+
+### 4.206 `Intl.ListFormat` iterates its argument as the spec says, and calls the `next` it read once ([#4438](https://github.com/sebastienros/jint/issues/4438))
+
+`Intl.ListFormat.prototype.format` and `formatToParts` take an iterator from their argument, read its `next` method
+once, and call what was read on every step. In 4.16 and earlier 5.0 builds they read `next` again on every step, so a
+getter on `next` ran once more per step and a `next` replaced during the iteration was called from the following step
+on:
+
+```js
+var reads = 0, it = ['a', 'b'].values(), next = it.next.bind(it);
+Object.defineProperty(it, 'next', { get() { reads++; return next; } });
+new Intl.ListFormat('en').format({ [Symbol.iterator]() { return it; } });
+reads
+// 4.16.x / earlier 5.0: 3    5.x: 1
+```
+
+Every argument but `undefined` now goes through its `Symbol.iterator`, which changes what some arguments produce:
+
+- A string is split by code point, not by UTF-16 code unit: `format('a😀')` is `'a and 😀'`, where it used to format
+  the two halves of the emoji as separate elements.
+- An array is read through its iterator, so a replaced `Symbol.iterator` or array iterator `next` is called, and
+  elements added during the iteration are included.
+- An object with no `Symbol.iterator`, such as `{ length: 2, 0: 'a', 1: 'b' }`, throws a `TypeError`. It used to be
+  formatted as an array-like.
+- A `Symbol.iterator` that answers a primitive, and a `next` that answers one, throw a `TypeError`. Both used to end the
+  list quietly.
+
+A non-string element still throws a `TypeError` and closes the iterator. The `TypeError` is now what is thrown even
+when the iterator's `return` throws, and a `return` added to the array iterator prototype is called for an array.
+There is no switch back.
+
+### 4.210 The web APIs read `Symbol.iterator` once to tell a sequence from the alternative, and `Headers` refuses a non-callable one ([#4449](https://github.com/sebastienros/jint/issues/4449))
+
+Several web APIs take either a sequence or something else in the same argument. They read the argument's
+`Symbol.iterator` once to decide, and iterate with the method that read found. Earlier previews read it a second
+time to take the iterator, so a getter on `Symbol.iterator` ran twice:
+
+```js
+let reads = 0;
+const init = [["a", "1"]];
+const it = init[Symbol.iterator];
+Object.defineProperty(init, Symbol.iterator, { get() { reads++; return it; } });
+new Headers(init);
+reads
+// earlier previews: 2    5.x: 1
+```
+
+The arguments that changed are:
+
+- the `Headers` constructor's argument, and the `headers` member of `new Request`, `new Response` and `fetch`;
+- the transfer list of `MessagePort.prototype.postMessage`, `Worker.prototype.postMessage` and a dedicated worker's
+  `postMessage`;
+- the `WebSocket` constructor's `protocols`;
+- `IDBDatabase.prototype.transaction`'s store names, and the key path of `createObjectStore` and `createIndex`.
+
+A getter that answers a method on the first read and `undefined` on a later one now iterates with that method. Before,
+the second read found nothing and threw a `TypeError`.
+
+`Headers` also checks what the read found the way the rest already did. A `Symbol.iterator` that is neither callable
+nor `undefined` or `null`, such as `42`, now throws a `TypeError` (a rejection from `fetch`). Before, the argument was
+read as a record of its own properties. `undefined` and `null` still select the record. Node's `Headers` reads such an
+argument as a record too; WebIDL's union conversion says it is a `TypeError`. There is no switch back.
 
 ## 5. New in v5
 

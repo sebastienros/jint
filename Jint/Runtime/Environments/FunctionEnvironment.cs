@@ -286,13 +286,15 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             Throw.TypeError(_functionObject._realm, "Destructed parameter is null");
         }
 
-        // Read by index in place of the array's iterator while that is unobservable: the iterator would have no `return`
-        // for the pattern's IteratorClose to call, which is asked first so that a `return` on the chain sends the pattern
-        // to GetIterator before anything has read @@iterator, and the iterator is the original one (sebastienros/jint#4406).
-        // Until a script touches a built-in iterator chain, one load of the engine's flag answers the first question.
+        // Read by index in place of the array's iterator while that is unobservable: the iterator is the original one, and
+        // it would have no `return` for the pattern's IteratorClose to call (sebastienros/jint#4406). The first check
+        // makes GetIterator's one @@iterator read; the second is asked after it, since a getter can add a `return`, and
+        // GetIterator then takes what the read found (sebastienros/jint#4426). Until a script touches a built-in
+        // iterator chain, one load of the engine's flag answers the second question.
+        JsValue? iteratorMethod = null;
         if (argument is JsArray array
-            && (!_engine._builtinIteratorChainMayHaveReturn || array.OriginalIteratorInheritsNoReturnMethod)
-            && array.HasOriginalIterator)
+            && array.HasOriginalIterator(out iteratorMethod)
+            && (!_engine._builtinIteratorChainMayHaveReturn || array.OriginalIteratorInheritsNoReturnMethod))
         {
             var arrayContents = array.ToArray();
             for (var i = 0; i < arrayPattern.Elements.Count; i++)
@@ -303,7 +305,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             return;
         }
 
-        if (!argument.TryGetIterator(_functionObject._realm, out var iterator))
+        if (!argument.TryGetIteratorFromRead(_functionObject._realm, iteratorMethod, out var iterator))
         {
             Throw.TypeError(context.Engine.Realm, "object is not iterable");
         }

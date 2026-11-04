@@ -18,8 +18,8 @@ internal partial class IteratorPrototype : Prototype
 {
     // A built-in iterator prototype's own `next`, captured by its CreateProperties_Generated (CaptureField on
     // its [JsFunction(Name = "next")]) before any script can replace it. Null on a prototype that captures
-    // nothing, for which both methods below answer an ObjectIterator and the iteration goes through the `next`
-    // it reads.
+    // nothing - %Iterator.prototype% itself, which has no `next` - for which both methods below answer an
+    // ObjectIterator and the iteration goes through the `next` it reads.
     private protected FunctionInstance? _originalNextFunction;
 
     // Stands in for an own `next` that is not a data property; its value is never a function.
@@ -1368,11 +1368,14 @@ internal partial class IteratorPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(Name = "next")]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
-
-    // Kept with the JsCallArguments signature so still-hand-written subclasses (Array/RegExpString/String
-    // IteratorPrototype) can pass it as a ClrFunction delegate from their Initialize bodies.
+    /// <summary>
+    /// The step every concrete prototype's own <c>next</c> takes: <c>%ArrayIteratorPrototype%.next</c>,
+    /// <c>%MapIteratorPrototype%.next</c>, <c>%IntlSegmentIteratorPrototype%.next</c> and their peers. %Iterator.prototype%
+    /// itself has no <c>next</c> (https://tc39.es/ecma262/#sec-%iteratorprototype%-object), so deleting a concrete
+    /// prototype's leaves nothing to inherit, and until sebastienros/jint#4407 it uncovered a built-in one here. The
+    /// receiver check is <see cref="IteratorInstance"/>, never the iterator's kind, which is what lets
+    /// <see cref="IteratorInstance.TryGetIterator"/> step natively whichever built-in prototype an iterator inherits.
+    /// </summary>
     internal JsValue Next(JsValue thisObject, JsCallArguments arguments)
     {
         var iterator = thisObject as IteratorInstance;

@@ -142,8 +142,22 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     internal sealed override bool IsSpecArray() => true;
 
-    internal sealed override bool HasOriginalIterator
-        => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _constructor?.PrototypeObject._originalIteratorFunction);
+    // Both methods GetIterator reaches have to be the built-ins: @@iterator, GetIterator's one property read, which has
+    // to resolve to this array's realm's %Array.prototype.values% (sebastienros/jint#4418), and `next` on the fresh array
+    // iterator that function creates. The read comes first and is the only one: when this answers false the caller
+    // takes what it found as GetIterator's method, and `next` is asked after it because a getter can replace `next`
+    // (sebastienros/jint#4426). Until a script has touched an %ArrayIteratorPrototype% of this engine, `next` is one byte
+    // test (Engine._arrayIteratorNextMayBeReplaced); after that the realm's Array.prototype answers, out of line.
+    internal sealed override bool HasOriginalIterator(out JsValue? iteratorMethod)
+    {
+        var method = Get(GlobalSymbolRegistry.Iterator);
+        iteratorMethod = method;
+        return ReferenceEquals(method, _constructor?.PrototypeObject._originalIteratorFunction)
+               && (!_engine._arrayIteratorNextMayBeReplaced || ArrayIteratorsStepNatively());
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool ArrayIteratorsStepNatively() => _constructor?.PrototypeObject.ArrayIteratorsStepNatively() == true;
 
     /// <summary>
     /// Whether the iterator the <c>%Array.prototype.values%</c> that <see cref="HasOriginalIterator"/> found would create
