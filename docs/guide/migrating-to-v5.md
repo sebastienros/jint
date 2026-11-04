@@ -7593,6 +7593,28 @@ Now they call it, as `for`-`of`, `Array.from`, `new Set()` and `yield*` over an 
 that `next`. An array whose `Symbol.iterator` and `next` are both the built-in ones is still read by index. There is no
 switch back.
 
+### 4.200 `yield*` calls the `next` it read once ([#4424](https://github.com/sebastienros/jint/issues/4424))
+
+`yield*` reads its delegate's `next` once, when it takes the iterator, and every step calls what was read. Before,
+`yield*` read `next` a second time before the first step for some delegates Jint steps natively. In 4.16 those were
+the iterators of an array, a typed array and an `arguments` object. Earlier 5.0 builds added a built-in iterator object
+that has a property of its own, such as a `Set`, `Map`, string or CLR collection iterator, which 4.16 read once. A
+getter on `next` ran twice, and a `next` replaced while the first read ran was the one called:
+
+```js
+var P = Object.getPrototypeOf([][Symbol.iterator]());
+var d = Object.getOwnPropertyDescriptor(P, "next");
+var reads = 0;
+Object.defineProperty(P, "next", { get() { reads++; return d.value; }, configurable: true });
+for (var x of (function* () { yield* [1, 2]; })());
+reads
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+An async generator read it twice as well when a `Symbol.asyncIterator` method answered such an iterator. A `next` that
+was not a function when it was read now fails the first step with a `TypeError`, even if the delegate has a callable
+`next` by then. There is no switch back.
+
 ### 4.202 The async iterator helpers call the `next` they read once ([#4419](https://github.com/sebastienros/jint/issues/4419))
 
 The `AsyncIterator.prototype` helpers read the iterator's `next` method once, when they take the iterator, and every
