@@ -545,6 +545,155 @@ public class BuiltInIteratorReturnTests
         engine.Evaluate("Object.setPrototypeOf(AIP, IP); brk(); log.join()").AsString().Should().Be("[object Array Iterator]");
     }
 
+    /// <summary>
+    /// A host link on the chain is asked for <c>return</c> as often as GetMethod asks it - once per close - and never
+    /// by the cached lookup too: a link whose version cannot witness the answer is refused on its type flags alone,
+    /// before anything is asked of it. That holds for a loop's close and for the array destructuring lanes, which ask
+    /// the lookup before they decide to read by index.
+    /// </summary>
+    [Test]
+    public void AHostLinkIsAskedForReturnOncePerClose()
+    {
+        var engine = NewEngine();
+        var holder = new CountingReturnProbe(engine);
+        engine.SetValue("holder", holder);
+        engine.Execute("""
+            var AIP = Object.getPrototypeOf([].values());
+            var IP = Object.getPrototypeOf(AIP);
+            Object.setPrototypeOf(holder, Object.prototype);
+            Object.setPrototypeOf(AIP, holder);
+            """);
+
+        try
+        {
+            foreach (var way in new[] { "for (const x of [1, 2]) { break; }", "const [a] = [1, 2];", "let b; [b] = [1, 2];", "(function ([c]) { })([1, 2]);" })
+            {
+                holder.Probes = 0;
+                engine.Execute(way);
+                holder.Probes.Should().Be(1, way);
+            }
+        }
+        finally
+        {
+            engine.Execute("Object.setPrototypeOf(AIP, IP);");
+        }
+    }
+
+    // Counts the reads of its own `return`, which it does not have.
+    private sealed class CountingReturnProbe(Engine engine) : Jint.Native.Object.ObjectInstance(engine)
+    {
+        public int Probes;
+
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property)
+        {
+            if (property.IsString() && string.Equals(property.ToString(), "return", StringComparison.Ordinal))
+            {
+                Probes++;
+            }
+
+            return base.GetOwnProperty(property);
+        }
+    }
+
+    /// <summary>
+    /// An array pattern reads <c>@@iterator</c> once, as GetIterator does, when an accessor on <c>Array.prototype</c>
+    /// answers the original <c>values</c> and a <c>return</c> on the chain sends the pattern to GetIterator: the
+    /// lane asks whether there is a <c>return</c> before it reads <c>@@iterator</c> to decide whether it may read by
+    /// index.
+    /// </summary>
+    [Test]
+    public void AnArrayPatternReadsSymbolIteratorOnceWhenTheChainHasAReturn()
+    {
+        NewEngine().Evaluate("""
+            const AIP = Object.getPrototypeOf([].values());
+            const values = Array.prototype[Symbol.iterator];
+            const out = [];
+            let reads = 0, calls = 0;
+            Object.defineProperty(Array.prototype, Symbol.iterator, { get() { reads++; return values; }, configurable: true });
+            AIP.return = function () { calls++; return {}; };
+            try {
+                const [a] = [1, 2];
+                out.push('binding=' + reads + '/' + calls);
+                reads = 0; calls = 0;
+                let b; [b] = [1, 2];
+                out.push('assignment=' + reads + '/' + calls);
+                reads = 0; calls = 0;
+                (function ([c]) { })([1, 2]);
+                out.push('parameter=' + reads + '/' + calls);
+            } finally {
+                delete AIP.return;
+                Object.defineProperty(Array.prototype, Symbol.iterator, { value: values, writable: true, configurable: true });
+            }
+            out.join(' ');
+            """).AsString().Should().Be("binding=1/1 assignment=1/1 parameter=1/1");
+    }
+
+    /// <summary>
+    /// <a href="https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization">IteratorBindingInitialization</a>
+    /// for a parameter's array pattern: each element steps the iterator and then evaluates its initializer, an elision
+    /// steps too, and only once every element is bound is the iterator closed - or, when an initializer throws, closed
+    /// with that throw before it propagates. Jint used to step every element first and close before any initializer
+    /// ran. Every expected value is Node 26's.
+    /// </summary>
+    [TestCase("(function ([a = log.push('init a'), , b = log.push('init b')]) { })(iterable)", "next1,init a,next2,next3,init b,return")]
+    [TestCase("try { (function ([a = (() => { log.push('init a'); throw 'D'; })(), b = log.push('init b')]) { })(iterable); } catch (e) { log.push('caught:' + e); }", "next1,init a,return,caught:D")]
+    [TestCase("AIP.return = function () { log.push('return'); return {}; }; try { (function ([a = log.push('init a')]) { })([undefined, 2]); } finally { delete AIP.return; }", "init a,return")]
+    public void AParameterPatternClosesItsIteratorAfterItsInitializers(string call, string expected)
+    {
+        NewEngine().Evaluate($$"""
+            const AIP = Object.getPrototypeOf([].values());
+            const log = [];
+            const iterable = { [Symbol.iterator]() { let n = 0; return { next() { log.push('next' + (++n)); return { value: undefined, done: false }; }, return() { log.push('return'); return {}; } }; } };
+            {{call}};
+            log.join();
+            """).AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A parameter's array pattern that runs its iterator out leaves it unclosed, with or without a rest element, and
+    /// one that stops early - an empty pattern included - closes it. Jint closed an iterator the elements had run out,
+    /// calling its <c>return</c> after it had answered done, and never closed for an empty pattern. Node 26 answers the
+    /// same.
+    /// </summary>
+    [Test]
+    public void AParameterPatternClosesOnlyAnIteratorItDidNotRunOut()
+    {
+        NewEngine().Evaluate("""
+            let calls = 0;
+            const iterable = { [Symbol.iterator]() { let n = 0; return { next() { n++; return { value: n, done: n > 2 }; }, return() { calls++; return {}; } }; } };
+            const out = [];
+            (function ([a, b, c]) { })(iterable);
+            (function ([a, b, c, d]) { })(iterable);
+            (function ([a, ...rest]) { })(iterable);
+            out.push(calls);
+            (function ([a]) { })(iterable);
+            (function ([]) { })(iterable);
+            out.push(calls);
+            out.join();
+            """).AsString().Should().Be("0,2");
+    }
+
+    /// <summary>
+    /// <a href="https://tc39.es/ecma262/#sec-math.sumprecise">Math.sumPrecise</a> closes the iterator only for its own
+    /// errors - here the <c>TypeError</c> for a value that is not a Number - and not one it ran out, nor one whose step
+    /// threw. With a <c>return</c> on <c>%ArrayIteratorPrototype%</c>, closing a plain array's iterator after the end
+    /// is observable. Node 26 has no <c>Math.sumPrecise</c>; the expected values are the algorithm's.
+    /// </summary>
+    [TestCase("String(Math.sumPrecise([1, 2]))", "3 0")]
+    [TestCase("(function () { try { Math.sumPrecise([1, 'x']); } catch (e) { return e.constructor.name; } })()", "TypeError 1")]
+    [TestCase("(function () { const it = { [Symbol.iterator]() { return this; }, n: 0, next() { if (++this.n > 1) { throw 'S'; } return { value: 1, done: false }; }, return() { calls++; return {}; } }; try { Math.sumPrecise(it); } catch (e) { return 'caught:' + e; } })()", "caught:S 0")]
+    public void MathSumPreciseClosesOnlyForItsOwnErrors(string call, string expected)
+    {
+        NewEngine().Evaluate($$"""
+            const AIP = Object.getPrototypeOf([].values());
+            var calls = 0;
+            AIP.return = function () { calls++; return {}; };
+            let outcome;
+            try { outcome = {{call}}; } finally { delete AIP.return; }
+            outcome + ' ' + calls;
+            """).AsString().Should().Be(expected);
+    }
+
     // Answers an own `return` from a field the engine never sees change.
     private sealed class SwitchableReturn(Engine engine) : Jint.Native.Object.ObjectInstance(engine)
     {
@@ -676,6 +825,26 @@ public class BuiltInIteratorReturnTests
 
             return rows;
         }
+    }
+
+    /// <summary>
+    /// The <c>entryTypes</c> sequence conversion of <c>PerformanceObserver.prototype.observe</c> closes its iterator only
+    /// when a conversion throws, as the other sequence conversions do, and not once it has run out - which a script
+    /// <c>return</c> on <c>%ArrayIteratorPrototype%</c> would see for a plain array.
+    /// </summary>
+    [TestCase("new PerformanceObserver(function () { }).observe({ entryTypes: ['mark'] }); 'observed'", "observed 0")]
+    [TestCase("try { new PerformanceObserver(function () { }).observe({ entryTypes: [{ toString() { throw 'S'; } }] }); 'observed'; } catch (e) { 'caught:' + e; }", "caught:S 1")]
+    public void APerformanceObserversEntryTypesAreClosedOnlyWhenAConversionThrows(string call, string expected)
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
+        engine.Evaluate($$"""
+            const AIP = Object.getPrototypeOf([].values());
+            let calls = 0;
+            AIP.return = function () { calls++; return {}; };
+            let outcome;
+            try { outcome = eval({{System.Text.Json.JsonSerializer.Serialize(call)}}); } finally { delete AIP.return; }
+            outcome + ' ' + calls;
+            """).AsString().Should().Be(expected);
     }
 
     /// <summary>

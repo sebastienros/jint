@@ -192,18 +192,21 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// Whether <paramref name="link"/> has an own <c>return</c>, answered only when nothing observes the question and
     /// the link's own-property version moves when a <c>return</c> joins or leaves it, so that a cached answer can be
-    /// checked against it (<see cref="ObjectInstance.VersionWitnessesOwnProperty"/>).
+    /// checked against it (<see cref="ObjectInstance.VersionWitnessesOwnProperty"/>). Both are read off the link's type
+    /// flags before anything is asked of it: any other link - a Proxy, a host object, which may count or fail the
+    /// question - is refused unprobed, and the caller's GetMethod is the only read it sees.
     /// </summary>
     private static bool TryProbeForReturn(ObjectInstance link, out bool found)
     {
-        if ((link._type & (InternalTypes.ExoticGet | InternalTypes.OwnValueHook)) != InternalTypes.Empty)
+        if ((link._type & (InternalTypes.ExoticGet | InternalTypes.OwnValueHook)) != InternalTypes.Empty
+            || !VersionWitnessesOwnProperty(link, CommonProperties.Return))
         {
             found = false;
             return false;
         }
 
         found = !ReferenceEquals(link.GetOwnProperty(CommonProperties.Return), PropertyDescriptor.Undefined);
-        return VersionWitnessesOwnProperty(link, CommonProperties.Return);
+        return true;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

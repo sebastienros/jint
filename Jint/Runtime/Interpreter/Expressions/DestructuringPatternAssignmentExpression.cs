@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
@@ -137,13 +136,14 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
     /// <summary>
     /// The array lane reads elements by index in place of the iterator <c>%Array.prototype.values%</c> would create,
     /// and the pattern closes that iterator unless it ran out ("If iteratorRecord.[[Done]] is false, return ?
-    /// IteratorClose(iteratorRecord, result)", https://tc39.es/ecma262/#sec-iteratorclose). Leaving the iterator out is
-    /// unobservable only while it would have no <c>return</c> to call (sebastienros/jint#4406). It inherits the
-    /// <c>%ArrayIteratorPrototype%</c> of the realm whose function the lane's check found: an array's own, and the
-    /// running realm's for an array-like object, whose check compares against that realm's, and for a CLR collection,
-    /// whose iterator is created in it.
+    /// IteratorClose(iteratorRecord, result)", https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization).
+    /// Leaving the iterator out is unobservable only while it would have no <c>return</c> to call
+    /// (sebastienros/jint#4406). It inherits the <c>%ArrayIteratorPrototype%</c> of the realm whose function the lane's
+    /// check finds: an array's own, and the running realm's for an array-like object, whose check compares against that
+    /// realm's, and for a CLR collection, whose iterator is created in it. Asked before that check, which reads
+    /// <c>@@iterator</c>: with a <c>return</c> on the chain the pattern takes GetIterator, whose read is the one the
+    /// specification makes.
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IndexReadsCloseNothing(ObjectInstance obj, Realm realm)
         => obj is JsArray array
             ? array.OriginalIteratorInheritsNoReturnMethod
@@ -164,7 +164,7 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
         IteratorInstance? iterator = null;
 
         // optimize for array unless someone has touched the iterator, or given it a `return` the pattern would call
-        if (obj.IsArrayLike && obj.HasOriginalIterator && IndexReadsCloseNothing(obj, realm))
+        if (obj.IsArrayLike && IndexReadsCloseNothing(obj, realm) && obj.HasOriginalIterator)
         {
             arrayOperations = ArrayOperations.For(obj, forWrite: false);
         }

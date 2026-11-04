@@ -257,6 +257,51 @@ public class ClrEnumeratorDisposalTests
     }
 
     /// <summary>
+    /// A host link on the iterator's chain whose own read of <c>return</c> throws: GetMethod's throw is IteratorClose's
+    /// step 3, so a close under a throw completion keeps the loop's own throw (step 5), one under <c>break</c>
+    /// propagates the host's, and the enumerator is disposed either way. The cached lookup never asks such a link
+    /// itself, so the read happens inside the close, where both rules apply; asked first, its throw would have left
+    /// before the close and skipped the release.
+    /// </summary>
+    [TestCase("for (const x of items) { throw 'E'; }", "caught:E")]
+    [TestCase("const target = { set x(v) { throw 'E'; } }; [target.x] = items;", "caught:E")]
+    [TestCase("for (const x of items) { break; }", "caught:TypeError")]
+    public void AHostLinkWhoseReturnReadThrowsStillLetsTheEnumeratorBeDisposed(string loop, string expected)
+    {
+        var items = new CountingEnumerable();
+        var engine = new Engine();
+        engine.SetValue("items", items);
+        engine.SetValue("link", new ThrowingReturnProbe(engine));
+
+        engine.Evaluate($$"""
+            const AIP = Object.getPrototypeOf([].values());
+            const IP = Object.getPrototypeOf(AIP);
+            Object.setPrototypeOf(link, Object.prototype);
+            Object.setPrototypeOf(AIP, link);
+            let outcome;
+            try { {{loop}} outcome = 'no throw'; }
+            catch (e) { outcome = 'caught:' + (typeof e === 'string' ? e : e.constructor.name); }
+            finally { Object.setPrototypeOf(AIP, IP); }
+            outcome;
+            """).AsString().Should().Be(expected);
+        items.Disposals.Should().Be(1);
+    }
+
+    // A host object whose own read of `return` throws a TypeError.
+    private sealed class ThrowingReturnProbe(Engine engine) : Jint.Native.Object.ObjectInstance(engine)
+    {
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(JsValue property)
+        {
+            if (property.IsString() && string.Equals(property.ToString(), "return", StringComparison.Ordinal))
+            {
+                Jint.Runtime.Throw.TypeError(_engine.Realm, "the return probe failed");
+            }
+
+            return base.GetOwnProperty(property);
+        }
+    }
+
+    /// <summary>
     /// yield* in an async generator handed a <c>throw()</c> its delegate has no <c>throw</c> for closes the delegate
     /// (https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation) before it throws its
     /// <c>TypeError</c>. A CLR collection's iterator answered by a script <c>@@asyncIterator</c> has no <c>return</c>,

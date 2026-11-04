@@ -7528,15 +7528,37 @@ The `return` is now called by:
 - a `for await` whose `Symbol.asyncIterator` method answers a built-in iterator.
 
 A `return` that throws, that is not a function, or that answers something other than an object now makes such a
-close throw, unless the loop is already leaving by a throw, which wins. A `for`-`in` loop still closes nothing.
+close throw, unless the loop is already leaving by a throw, which wins. A `for`-`in` loop still closes nothing, and
+neither does an iteration that runs to its end. `Math.sumPrecise` and the `entryTypes` list of
+`PerformanceObserver.prototype.observe` used to close the iterator after it had run out. Now they close it only when
+they throw.
 
 To call the `return`, destructuring an array (`var [a] = arr`) and an array parameter (`function f([a])`) now create
 the array's iterator whenever a `return` is on its chain. Without one, they still read the array by index. The
 iterator for a string primitive inherits the string iterator prototype, as the specified one does, so it never finds
-a `return` set on `%ArrayIteratorPrototype%`.
+a `return` set on `%ArrayIteratorPrototype%`. An `Intl.Segmenter` segments iterator still inherits
+`%ArrayIteratorPrototype%`, which [#4407](https://github.com/sebastienros/jint/issues/4407) tracks, so until that is
+fixed it finds a `return` set there.
 
-A function parameter's array pattern that runs its iterator to the end no longer closes it. In 4.16 and earlier 5.0
-builds it called `return` after the iterator had answered done, for any iterator that had a `return`.
+A function parameter's array pattern now steps its iterator one element at a time. Each element's default is
+evaluated before the next step, and the iterator is closed only after every default has run, or with the throw of a
+default that throws. In 4.16 and earlier 5.0 builds it took every element before running any default, and closed the
+iterator before the defaults:
+
+```js
+var log = [];
+var iterable = { [Symbol.iterator]() { return {
+  next() { log.push("next"); return { value: undefined, done: false }; },
+  return() { log.push("return"); return {}; } }; } };
+(function ([a = log.push("default a"), b = log.push("default b")]) {})(iterable);
+log
+// 4.16.x / earlier 5.0: ["next", "next", "return", "default a", "default b"]
+// 5.x: ["next", "default a", "next", "default b", "return"]
+```
+
+Such a pattern that runs its iterator to the end no longer closes it. In 4.16 and earlier 5.0 builds it called
+`return` after the iterator had answered done, for any iterator that had a `return`. An empty pattern
+(`function f([])`) now closes the iterator, which it never did.
 
 A wrapped CLR collection's iterator still disposes its `IEnumerator` when it is closed. When the script has given it a
 `return`, the `return` is called first and the enumerator is disposed after it, also when the `return` throws or

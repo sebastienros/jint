@@ -457,6 +457,7 @@ ecma262 sec-math.hypot
 ecma262 sec-math.log1p
 ecma262 sec-math.max
 ecma262 sec-math.min
+ecma262 sec-math.sumprecise
 ecma262 sec-meta-properties
 ecma262 sec-module-environment-records
 ecma262 sec-module-environment-records-getbindingvalue-n-s

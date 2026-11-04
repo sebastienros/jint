@@ -1617,14 +1617,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         private readonly ObjectWrapper _target;
         private readonly IEnumerator<JsValue> _enumerator;
+        private bool _released;
 
         public DictionaryIterator(Engine engine, ObjectWrapper target) : base(engine)
         {
             _target = target;
             _enumerator = target.EnumerateOwnPropertyKeys(Types.String).GetEnumerator();
         }
-
-        private bool _released;
 
         /// <summary>
         /// The native close IteratorClose reaches when a loop over the dictionary is left early, after a <c>return</c>
