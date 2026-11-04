@@ -81,20 +81,32 @@ public class ArrayLaneReplacedNextTests
         };
 
         // The ways a script makes `next`, read off a fresh array iterator, resolve to `next`, each answering the function
-        // that puts everything back. 'reparentOwnIntact' changes only what the prototype's own `next` shadows, and 'none'
-        // nothing: the built-in stays in force under both.
+        // that puts everything back. The three '...OwnIntact' routes change only what the prototype's own `next` shadows,
+        // and 'none' nothing: the built-in stays in force under all four.
         function applyRoute(route, next) {
             const P = Object.getPrototypeOf([][Symbol.iterator]());
             const IP = Object.getPrototypeOf(P);
             const saved = [];
             function save(o, k) { saved.push([o, k, Object.getOwnPropertyDescriptor(o, k)]); }
+            const replacementNext = next;
             switch (route) {
                 case 'assign': save(P, 'next'); P.next = next; break;
+                case 'computedAssign': save(P, 'next'); P['ne' + 'xt'] = next; break;
+                case 'reflectSet': save(P, 'next'); Reflect.set(P, 'next', next); break;
+                case 'objectAssign': save(P, 'next'); Object.assign(P, { next: next }); break;
+                case 'proxySet': save(P, 'next'); new Proxy(P, {}).next = next; break;
+                case 'withStatement': save(P, 'next'); with (P) { next = replacementNext; } break;
+                case 'generatorAssign': save(P, 'next'); (function* () { P.next = replacementNext; })().next(); break;
+                case 'receiverSet': save(P, 'next'); Reflect.set(Object.create(P), 'next', next, P); break;
+                case 'destructuringAssign': save(P, 'next'); [P.next] = [next]; break;
                 case 'defineData': save(P, 'next'); Object.defineProperty(P, 'next', { value: next }); break;
                 case 'defineAccessor': save(P, 'next'); Object.defineProperty(P, 'next', { get() { return next; } }); break;
                 case 'deleteAndInherit': save(P, 'next'); save(IP, 'next'); delete P.next; IP.next = next; break;
                 case 'deleteAndReparent': save(P, 'next'); delete P.next; Object.setPrototypeOf(P, { __proto__: IP, next: next }); break;
+                case 'deleteAndProtoSetter': save(P, 'next'); delete P.next; P.__proto__ = { __proto__: IP, next: next }; break;
                 case 'reparentOwnIntact': Object.setPrototypeOf(P, { __proto__: IP, next: next }); break;
+                case 'protoSetterOwnIntact': P.__proto__ = { __proto__: IP, next: next }; break;
+                case 'reflectSetPrototypeOfOwnIntact': Reflect.setPrototypeOf(P, { __proto__: IP, next: next }); break;
                 case 'none': break;
             }
             return function () {
@@ -103,12 +115,19 @@ public class ArrayLaneReplacedNextTests
             };
         }
 
-        // When `warm`, spreads an array, which creates %ArrayIteratorPrototype% and checks its `next`, and runs the lane
-        // once untouched, so that whatever the engine remembers about `next` is cached. Then takes the route, runs the
-        // lane over a fresh make() - [1, 2] unless the caller says otherwise - and puts everything back; then runs the
-        // lane once more. Answers "<values> <calls> | <values>", the second half showing the built-in iteration back.
-        async function run(lane, route, warm, make) {
+        // When `touched`, first defines and deletes an unrelated property on %ArrayIteratorPrototype%, which leaves `next`
+        // alone but is a change to that prototype, so the lanes go on from an engine that has seen one. When `warm`,
+        // spreads an array, which creates that prototype and checks its `next`, and runs the lane once untouched, so that
+        // whatever the engine remembers about `next` is cached. Then takes the route, runs the lane over a fresh make() -
+        // [1, 2] unless the caller says otherwise - and puts everything back; then runs the lane once more. Answers
+        // "<values> <calls> | <values>", the second half showing the built-in iteration back.
+        async function run(lane, route, warm, make, touched) {
             make = make || function () { return [1, 2]; };
+            if (touched) {
+                const P = Object.getPrototypeOf([][Symbol.iterator]());
+                Object.defineProperty(P, 'touched', { value: 1, configurable: true });
+                delete P.touched;
+            }
             if (warm) { [...[0]]; await lanes[lane](make()); }
             const calls = { count: 0 };
             const restore = applyRoute(route, replacement(calls));
@@ -188,33 +207,50 @@ public class ArrayLaneReplacedNextTests
     private static readonly Dictionary<string, bool> Routes = new()
     {
         ["assign"] = true,
+        ["computedAssign"] = true,
+        ["reflectSet"] = true,
+        ["objectAssign"] = true,
+        ["proxySet"] = true,
+        ["withStatement"] = true,
+        ["generatorAssign"] = true,
+        ["receiverSet"] = true,
+        ["destructuringAssign"] = true,
         ["defineData"] = true,
         ["defineAccessor"] = true,
         ["deleteAndInherit"] = true,
         ["deleteAndReparent"] = true,
+        ["deleteAndProtoSetter"] = true,
         ["reparentOwnIntact"] = false,
+        ["protoSetterOwnIntact"] = false,
+        ["reflectSetPrototypeOfOwnIntact"] = false,
         ["none"] = false,
     };
 
-    // Every lane under every route after a warm-up, and under an assignment with nothing warmed.
-    public static TestCases<string, string, bool, string> EveryLaneUnderEveryRoute
+    // Every lane under every route after a warm-up, and under an assignment with nothing warmed, each on an engine that
+    // nothing had touched and on one whose %ArrayIteratorPrototype% had already been changed ("touched...").
+    public static TestCases<string, string, string, string> EveryLaneUnderEveryRoute
     {
         get
         {
-            var rows = new TestCases<string, string, bool, string>();
+            var rows = new TestCases<string, string, string, string>();
             foreach (var lane in Lanes)
             {
-                foreach (var route in Routes)
+                foreach (var touched in new[] { "", "touched" })
                 {
-                    rows.Add(lane.Key, route.Key, true, (route.Value ? lane.Value.Replaced : lane.Value.Native + " 0") + " | " + lane.Value.Native);
-                }
+                    foreach (var route in Routes)
+                    {
+                        rows.Add(lane.Key, route.Key, touched + "warm", (route.Value ? lane.Value.Replaced : lane.Value.Native + " 0") + " | " + lane.Value.Native);
+                    }
 
-                rows.Add(lane.Key, "assign", false, lane.Value.Replaced + " | " + lane.Value.Native);
+                    rows.Add(lane.Key, "assign", touched + "cold", lane.Value.Replaced + " | " + lane.Value.Native);
+                }
             }
 
             return rows;
         }
     }
+
+    public static TestCases<string> RouteNames => new(Routes.Keys);
 
     public static TestCases<string, string> EveryLaneReadsNextOnce
     {
@@ -272,13 +308,17 @@ public class ArrayLaneReplacedNextTests
 
     /// <summary>
     /// Each lane, with <c>next</c> replaced on %ArrayIteratorPrototype% by every route a script has, after the lane
-    /// has run once untouched; and once with nothing warmed. The two routes that leave the built-in in force are the
+    /// has run once untouched; and once with nothing warmed. Each also runs on an engine that had already seen a change to
+    /// that prototype, so that the answer comes from what the realm's Array.prototype validated rather than from
+    /// <see cref="Engine._arrayIteratorNextMayBeReplaced"/>. The four routes that leave the built-in in force are the
     /// controls, as are the lanes that already took the iterator.
     /// </summary>
     [TestCaseSource(nameof(EveryLaneUnderEveryRoute))]
-    public void EveryArrayLaneCallsAReplacedNext(string lane, string route, bool warm, string expected)
+    public void EveryArrayLaneCallsAReplacedNext(string lane, string route, string mode, string expected)
     {
-        Run(new Engine(), $"run('{lane}', '{route}', {(warm ? "true" : "false")})").Should().Be(expected);
+        var warm = mode.EndsWith("warm", StringComparison.Ordinal) ? "true" : "false";
+        var touched = mode.StartsWith("touched", StringComparison.Ordinal) ? "true" : "false";
+        Run(new Engine(), $"run('{lane}', '{route}', {warm}, undefined, {touched})").Should().Be(expected);
     }
 
     /// <summary>
@@ -387,16 +427,10 @@ public class ArrayLaneReplacedNextTests
 
     /// <summary>
     /// The gate every lane above shares, asked directly: it answers false under each route that leaves the
-    /// replacement in force, true under the two that do not, and true again once the built-in is back, for an array,
+    /// replacement in force, true under the four that do not, and true again once the built-in is back, for an array,
     /// a host array-like and a wrapped CLR list alike.
     /// </summary>
-    [TestCase("assign")]
-    [TestCase("defineData")]
-    [TestCase("defineAccessor")]
-    [TestCase("deleteAndInherit")]
-    [TestCase("deleteAndReparent")]
-    [TestCase("reparentOwnIntact")]
-    [TestCase("none")]
+    [TestCaseSource(nameof(RouteNames))]
     public void TheGateFollowsNextAndComesBack(string route)
     {
         var engine = new Engine();
@@ -435,5 +469,119 @@ public class ArrayLaneReplacedNextTests
         {
             subject.HasOriginalIterator.Should().BeTrue(subject.GetType().Name);
         }
+    }
+
+    /// <summary>
+    /// Until something changes an %ArrayIteratorPrototype%, <see cref="Engine._arrayIteratorNextMayBeReplaced"/> stays
+    /// clear and is all the lanes ask. Reading that prototype, its <c>next</c> and its keys changes nothing; that is what
+    /// regenerator-runtime and feature detection do at startup.
+    /// </summary>
+    [Test]
+    public void ReadingTheArrayIteratorPrototypeLeavesTheEngineUntouched()
+    {
+        var engine = new Engine();
+        engine.Evaluate("""
+            var arr = [1, 2, 3];
+            var it = arr[Symbol.iterator]();
+            var P = Object.getPrototypeOf(it);
+            var getProto = Object.getPrototypeOf;
+            var NativeIteratorPrototype = getProto && getProto(getProto([].values()));
+            var out = [[...arr].join(), ((...r) => r.length)(...arr), Array.from(arr).join()];
+            var [a, b] = arr;
+            for (const x of arr) out.push(x);
+            out.push(a + b, typeof P.next, Object.getOwnPropertyDescriptor(P, 'next').writable, 'next' in it,
+                it instanceof Iterator, Object.keys(P).length, Reflect.ownKeys(P).length, P.hasOwnProperty('next'),
+                String(P[Symbol.toStringTag]), Object.isFrozen(P), it.next().value, P.__proto__ === NativeIteratorPrototype);
+            out.join('|')
+            """).AsString().Should().Be("1,2,3|3|1,2,3|1|2|3|3|function|true|true|true|0|2|true|Array Iterator|false|1|true");
+
+        engine._arrayIteratorNextMayBeReplaced.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Every way a script can define, assign or delete an own property of %ArrayIteratorPrototype% sets the flag, the
+    /// in-place assignments included: they reach DefineOwnProperty through [[Set]], and the member-write cache leaves
+    /// the <c>next</c> descriptor to [[Set]]. So does a ShadowRealm's, whose prototype is another realm's.
+    /// </summary>
+    [TestCase("P.next = f")]
+    [TestCase("for (var i = 0; i < 3; i++) { P.next = f; }")]
+    [TestCase("P['next'] = f")]
+    [TestCase("Reflect.set(P, 'next', f)")]
+    [TestCase("Object.assign(P, { next: f })")]
+    [TestCase("new Proxy(P, {}).next = f")]
+    [TestCase("with (P) { next = f; }")]
+    [TestCase("(function* () { P.next = f; })().next()")]
+    [TestCase("(async function () { P.next = f; })()")]
+    [TestCase("Reflect.set(Object.create(P), 'next', f, P)")]
+    [TestCase("[P.next] = [f]")]
+    [TestCase("({ n: P.next } = { n: f })")]
+    [TestCase("for (P.next of [f]);")]
+    [TestCase("P.next &&= f")]
+    [TestCase("Object.defineProperty(P, 'next', { value: f })")]
+    [TestCase("Object.defineProperty(P, 'next', { get() { return f; } })")]
+    [TestCase("Object.defineProperties(P, { next: { value: f } })")]
+    [TestCase("Reflect.defineProperty(P, 'next', { value: f })")]
+    [TestCase("Object.defineProperty(new Proxy(P, {}), 'next', { value: f })")]
+    [TestCase("delete P.next")]
+    [TestCase("Reflect.deleteProperty(P, 'next')")]
+    [TestCase("delete new Proxy(P, {}).next")]
+    [TestCase("Object.freeze(P)")]
+    [TestCase("Object.seal(P)")]
+    [TestCase("P.unrelated = 1")]
+    [TestCase("P[0] = 1")]
+    [TestCase("P[Symbol.iterator] = f")]
+    [TestCase("new ShadowRealm().evaluate('Object.getPrototypeOf([][Symbol.iterator]()).next = function () { return { done: true }; }; 1')")]
+    public void EveryScriptChangeToTheArrayIteratorPrototypeSetsTheFlag(string change)
+    {
+        var engine = new Engine();
+        engine.Execute("var P = Object.getPrototypeOf([][Symbol.iterator]()); var f = function () { return { done: true, value: undefined }; }; [...[1]];");
+        engine._arrayIteratorNextMayBeReplaced.Should().BeFalse();
+
+        engine.Execute(change);
+
+        engine._arrayIteratorNextMayBeReplaced.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A [[Prototype]] change sets nothing: %ArrayIteratorPrototype%'s own <c>next</c> shadows whatever is above it, and
+    /// only a delete, which sets the flag, removes it. The lanes keep stepping natively and stay right, as in Node 26.
+    /// </summary>
+    [TestCase("Object.setPrototypeOf(P, { __proto__: IP, next: f })")]
+    [TestCase("Reflect.setPrototypeOf(P, { __proto__: IP, next: f })")]
+    [TestCase("P.__proto__ = { __proto__: IP, next: f }")]
+    [TestCase("Object.preventExtensions(P)")]
+    public void APrototypeChangeLeavesTheFlagClearAndTheLanesRight(string change)
+    {
+        var engine = new Engine();
+        engine.Execute("var P = Object.getPrototypeOf([][Symbol.iterator]()); var IP = Object.getPrototypeOf(P); var f = function () { return { done: true, value: undefined }; };");
+
+        engine.Execute(change);
+
+        engine._arrayIteratorNextMayBeReplaced.Should().BeFalse();
+        engine.Evaluate("var [x] = [1, 2]; JSON.stringify([[...[1, 2]], x, ((...a) => a)(...[1, 2]), (([y]) => y)([1, 2])])")
+            .AsString().Should().Be("[[1,2],1,[1,2],1]");
+    }
+
+    /// <summary>
+    /// A ShadowRealm has intrinsics of its own: replacing its %ArrayIteratorPrototype%.next reaches its lanes and not the
+    /// principal realm's, though the flag it sets is the engine's. The expected values are what Node 26 gives for the
+    /// same probe over a <c>vm</c> context, which is a realm with its own intrinsics too.
+    /// </summary>
+    [Test]
+    public void AShadowRealmsReplacedNextReachesOnlyItsOwnLanes()
+    {
+        var engine = new Engine();
+        engine.Evaluate("""
+            var inner = new ShadowRealm().evaluate(`
+                Object.getPrototypeOf([][Symbol.iterator]()).next = function () { return { done: true, value: undefined }; };
+                var a = [1, 2];
+                var [x] = a;
+                JSON.stringify([[...a], x === undefined, ((...r) => r)(...a), (([y]) => y === undefined)(a)])
+            `);
+            var [z] = [1, 2];
+            JSON.stringify([inner, [...[1, 2]], z, ((...r) => r)(...[1, 2]), (([y]) => y)([1, 2])])
+            """).AsString().Should().Be("""["[[],true,[],true]",[1,2],1,[1,2],1]""");
+
+        engine._arrayIteratorNextMayBeReplaced.Should().BeTrue();
     }
 }

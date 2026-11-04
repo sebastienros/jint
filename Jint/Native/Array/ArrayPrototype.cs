@@ -50,16 +50,14 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// %ArrayIteratorPrototype%.next (https://tc39.es/ecma262/#sec-%arrayiteratorprototype%.next). A fresh iterator has
     /// no own property, so that prototype's own <c>next</c> decides.
     /// <para>
-    /// The descriptor validated last stays that <c>next</c> while the prototype's own-property version has not moved,
-    /// which replacing, deleting or redefining it as an accessor moves. An assignment writes the value in place, so the
-    /// value is compared every time. That is two loads off this object, which the lanes that read an array by index
-    /// already hold, and two compares, with no property read. Anything else, including a first ask, goes through
-    /// <see cref="ValidateNextDescriptor"/>. <see cref="ObjectInstance.HasOriginalIterator"/> asks it, before its
-    /// <c>@@iterator</c> read, so that a replaced <c>next</c> leaves that read to the caller's GetIterator
+    /// <see cref="ObjectInstance.HasOriginalIterator"/> asks it, before its <c>@@iterator</c> read, only once
+    /// <see cref="Engine._arrayIteratorNextMayBeReplaced"/> is set; until then that flag alone answers. The descriptor
+    /// validated last stays that <c>next</c> while the prototype's own-property version has not moved, which replacing,
+    /// deleting or redefining it as an accessor moves. An assignment writes the value in place, so the value is compared
+    /// every time. Anything else, including a first ask, goes through <see cref="ValidateNextDescriptor"/>
     /// (sebastienros/jint#4418).
     /// </para>
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool ArrayIteratorsStepNatively()
     {
         var descriptor = _nextDescriptor;

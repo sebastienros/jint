@@ -26,6 +26,30 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
+
+        // An assignment to `next` changes its value in place. Through [[Set]] that ends in DefineOwnProperty below, but the
+        // member-write cache would store into the descriptor directly; this keeps it on [[Set]] (sebastienros/jint#4418).
+        GetOwnProperty(CommonProperties.Next)._flags |= PropertyDescriptor.WritesThroughDefineOwnProperty;
+    }
+
+    /// <summary>
+    /// Every script route to a changed own property ends here or in <see cref="RemoveOwnProperty"/>: a new or redefined
+    /// property, and an assignment to an existing one, whose [[Set]] defines it in place
+    /// (https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor step 2.d.iv). Either sets
+    /// <see cref="Engine._arrayIteratorNextMayBeReplaced"/>, whatever the key, from which point the lanes that read an
+    /// array by index ask what the realm's Array.prototype validated instead (sebastienros/jint#4418).
+    /// </summary>
+    public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
+    {
+        _engine._arrayIteratorNextMayBeReplaced = true;
+        return base.DefineOwnProperty(property, desc);
+    }
+
+    /// <inheritdoc cref="DefineOwnProperty"/>
+    public override void RemoveOwnProperty(JsValue property)
+    {
+        _engine._arrayIteratorNextMayBeReplaced = true;
+        base.RemoveOwnProperty(property);
     }
 
     // Captured into IteratorPrototype._originalNextFunction, which ToIteratorRecordReadingNext compares a read of `next`
