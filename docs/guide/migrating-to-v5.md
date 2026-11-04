@@ -7571,6 +7571,50 @@ wins. The throw can be the loop's own, what the `return` threw, or the `TypeErro
 `yield*` in an async generator that closes a CLR collection's iterator for want of a `throw` now disposes it too. A
 step that throws still disposes the enumerator and calls no `return`. There is no switch back.
 
+### 4.199 Spread and array destructuring call a replaced `next` on the array iterator prototype ([#4418](https://github.com/sebastienros/jint/issues/4418))
+
+Spreading or destructuring an array takes an iterator from it: `Array.prototype.values` answers an array iterator, and
+every step calls the `next` read off that iterator. In 4.16 and earlier 5.0 builds, spread in an array literal, a call
+or `new`, and array destructuring in a declaration, an assignment, a parameter, a `for`-`of` head or a `catch`
+parameter read the array by index whenever its `Symbol.iterator` was `Array.prototype.values`. A `next` the script had
+put on the array iterator prototype was never called:
+
+```js
+Object.getPrototypeOf([][Symbol.iterator]()).next = () => ({ done: true });
+var arr = [1, 2];
+var [x] = arr;
+[[...arr], x]
+// 4.16.x / earlier 5.0: [[1, 2], 1]    5.x: [[], undefined]
+```
+
+Now they call it, as `for`-`of`, `Array.from`, `new Set()` and `yield*` over an array already did, and a getter on
+`next` runs once per destructuring as it did once per spread. The same holds for destructuring a host
+`ArrayLikeObject` whose `Symbol.iterator` is `Array.prototype.values`, and a wrapped CLR list, whose iterator inherits
+that `next`. An array whose `Symbol.iterator` and `next` are both the built-in ones is still read by index. There is no
+switch back.
+
+### 4.200 `yield*` calls the `next` it read once ([#4424](https://github.com/sebastienros/jint/issues/4424))
+
+`yield*` reads its delegate's `next` once, when it takes the iterator, and every step calls what was read. Before,
+`yield*` read `next` a second time before the first step for some delegates Jint steps natively. In 4.16 those were
+the iterators of an array, a typed array and an `arguments` object. Earlier 5.0 builds added a built-in iterator object
+that has a property of its own, such as a `Set`, `Map`, string or CLR collection iterator, which 4.16 read once. A
+getter on `next` ran twice, and a `next` replaced while the first read ran was the one called:
+
+```js
+var P = Object.getPrototypeOf([][Symbol.iterator]());
+var d = Object.getOwnPropertyDescriptor(P, "next");
+var reads = 0;
+Object.defineProperty(P, "next", { get() { reads++; return d.value; }, configurable: true });
+for (var x of (function* () { yield* [1, 2]; })());
+reads
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+An async generator read it twice as well when a `Symbol.asyncIterator` method answered such an iterator. A `next` that
+was not a function when it was read now fails the first step with a `TypeError`, even if the delegate has a callable
+`next` by then. There is no switch back.
+
 ### 4.201 Returning from a generator suspended in `yield*` disposes a CLR collection's enumerator ([#4429](https://github.com/sebastienros/jint/issues/4429))
 
 A generator suspended in `yield*` passes a `return()` on to the delegate: it calls the delegate's `return`, or finishes
@@ -7591,6 +7635,32 @@ Now the enumerator is disposed when the delegation ends: at once if there is no 
 answer has settled. A `return` that answers not done keeps the delegation going, so the enumerator stays for the
 steps after it. If `Dispose` throws while the `return`'s throw or `TypeError` is leaving, that throw wins. There is no
 switch back.
+
+### 4.202 The async iterator helpers call the `next` they read once ([#4419](https://github.com/sebastienros/jint/issues/4419))
+
+The `AsyncIterator.prototype` helpers read the iterator's `next` method once, when they take the iterator, and every
+step calls what was read. That covers `map`, `filter`, `take`, `drop`, `flatMap`, `reduce`, `toArray`, `forEach`,
+`some`, `every` and `find`, and the wrapper `AsyncIterator.from` answers. In 4.16 and earlier 5.0 builds they read
+`next` again on every step. A getter on `next` ran once more per step, and a `next` replaced during the iteration was
+called from the following step on:
+
+```js
+var reads = 0, i = 0;
+var source = { get next() { reads++; return () => Promise.resolve({ value: ++i, done: i > 3 }); } };
+AsyncIterator.prototype.toArray.call(source);
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: reads === 5    5.x: reads === 1
+```
+
+A `next` that was not a function when it was read now fails the first step with a `TypeError`, even if the object has
+a callable `next` by then. `AsyncIterator.from` now reads `next` before it checks whether the iterator is already an
+`AsyncIterator`, and also when it then answers that iterator itself; it used to read `next` only to wrap one. The
+`Iterator.prototype` helpers and `Iterator.from` already read it once.
+
+`flatMap` steps each inner iterator through the `next` it read once too. A mapper answering an object with no `next`
+and no iterator method now rejects the step with a `TypeError` and closes the source iterator; in 4.16 and earlier 5.0
+builds that object was skipped. After an inner iterator's `next` throws, `return()` on the helper no longer calls that
+inner iterator's `return`. There is no switch back.
 
 ## 5. New in v5
 

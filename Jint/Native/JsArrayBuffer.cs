@@ -38,7 +38,9 @@ public class JsArrayBuffer : ObjectInstance
 
     internal static byte[] CreateByteDataBlock(Realm realm, ulong byteLength)
     {
-        if (byteLength > int.MaxValue)
+        // The largest byte[] the CLR can allocate, not int.MaxValue: the lengths in between would escape as an
+        // OutOfMemoryException instead of the RangeError the spec asks for when the block cannot be created.
+        if (byteLength > ClrLimits.MaxArrayLength)
         {
             Throw.RangeError(realm, "Array buffer allocation failed");
         }
