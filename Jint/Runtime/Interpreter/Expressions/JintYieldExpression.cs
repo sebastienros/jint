@@ -287,9 +287,12 @@ internal sealed class JintYieldExpression : JintExpression
         var generatorKind = engine.ExecutionContext.GetGeneratorKind();
         var iterator = value.GetIterator(engine.Realm, generatorKind);
 
-        // Per spec step 7.a.i: use the cached [[NextMethod]] from the iterator record
-        // (already obtained when the iterator was created via GetIterator)
-        var nextMethod = iterator.NextMethod ?? iterator.Instance.GetMethod(CommonProperties.Next);
+        // Step 7.a.i calls the record's [[NextMethod]], which GetIteratorFromMethod
+        // (https://tc39.es/ecma262/#sec-getiteratorfrommethod) read off the iterator once. An ObjectIterator holds what
+        // was read, a callable or null. A record Jint steps natively holds null too: its [[NextMethod]] is the built-in
+        // `next` the read found, and that function is the native step (IteratorInstance.CallNextMethod). Reading `next`
+        // again ran a getter twice and called a `next` replaced in between (sebastienros/jint#4424).
+        var nextMethod = iterator.NextMethod;
 
         if (generatorKind == GeneratorKind.Async)
         {
@@ -370,15 +373,13 @@ internal sealed class JintYieldExpression : JintExpression
         {
             if (receivedType == CompletionType.Normal)
             {
-                // Per spec 14.4.14 step 7.a.v: use cached nextMethod (obtained once in step 7.a.i)
+                // Step 7.a.i: Call(iteratorRecord.[[NextMethod]], iteratorRecord.[[Iterator]], « received.[[Value]] »),
+                // through the method YieldDelegate took off the record. Without one the record takes the call: a native
+                // step, whose built-in `next` ignores the argument, or the TypeError of a `next` that was not callable.
                 var nextMethod = generator._delegatingNextMethod;
-                if (nextMethod is null)
-                {
-                    Throw.TypeError(engine.Realm, "Iterator does not have next method");
-                    return JsValue.Undefined; // unreachable
-                }
-
-                var innerResultValue = nextMethod.Call(iterator.Instance, new[] { receivedValue });
+                var innerResultValue = nextMethod is not null
+                    ? nextMethod.Call(iterator.Instance, new[] { receivedValue })
+                    : iterator.CallNextMethod();
                 if (generatorKind == GeneratorKind.Async)
                 {
                     innerResultValue = Await(context, innerResultValue);
@@ -592,15 +593,11 @@ internal sealed class JintYieldExpression : JintExpression
         {
             if (receivedType == CompletionType.Normal)
             {
-                // Per spec step 7.a.v: use cached nextMethod (obtained once in step 7.a.i)
+                // Step 7.a.i, as RunYieldDelegateLoop takes it: the record's [[NextMethod]], never a fresh read.
                 var nextMethod = asyncGenerator._delegatingNextMethod;
-                if (nextMethod is null)
-                {
-                    Throw.TypeError(engine.Realm, "Iterator does not have next method");
-                    return JsValue.Undefined;
-                }
-
-                var innerResultValue = nextMethod.Call(iterator.Instance, new[] { receivedValue });
+                var innerResultValue = nextMethod is not null
+                    ? nextMethod.Call(iterator.Instance, new[] { receivedValue })
+                    : iterator.CallNextMethod();
 
                 // Per spec step 7.a.vi: if generatorKind is async, set innerResult to Await(innerResult).
                 // Await wraps via PromiseResolve, which handles both Promises and thenables.

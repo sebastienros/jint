@@ -7571,6 +7571,28 @@ wins. The throw can be the loop's own, what the `return` threw, or the `TypeErro
 `yield*` in an async generator that closes a CLR collection's iterator for want of a `throw` now disposes it too. A
 step that throws still disposes the enumerator and calls no `return`. There is no switch back.
 
+### 4.200 `yield*` calls the `next` it read once ([#4424](https://github.com/sebastienros/jint/issues/4424))
+
+`yield*` reads its delegate's `next` once, when it takes the iterator, and every step calls what was read. In 4.16 and
+earlier 5.0 builds, `yield*` read `next` a second time before the first step whenever Jint steps the delegate natively:
+an array, a typed array, an `arguments` object, or a built-in iterator object that has a property of its own, a CLR
+collection's iterator among them. A getter on `next` ran twice, and a `next` replaced while the first read ran was the
+one called:
+
+```js
+var P = Object.getPrototypeOf([][Symbol.iterator]());
+var d = Object.getOwnPropertyDescriptor(P, "next");
+var reads = 0;
+Object.defineProperty(P, "next", { get() { reads++; return d.value; }, configurable: true });
+for (var x of (function* () { yield* [1, 2]; })());
+reads
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+An async generator read it twice as well when a `Symbol.asyncIterator` method answered such an iterator. A `next` that
+was not a function when it was read now fails the first step with a `TypeError`, even if the delegate has a callable
+`next` by then. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

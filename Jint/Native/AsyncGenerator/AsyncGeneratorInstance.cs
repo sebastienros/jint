@@ -40,6 +40,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     internal Dictionary<object, JsValue>? _yieldNodeValues;
     internal IteratorInstance? _delegatingIterator;
     internal object? _delegatingYieldNode;
+
+    // The [[NextMethod]] of _delegatingIterator, or null when that record takes the call itself: see
+    // GeneratorInstance._delegatingNextMethod.
     internal ICallable? _delegatingNextMethod;
     internal CompletionType _delegationResumeType;
     internal bool _returnRequested;
