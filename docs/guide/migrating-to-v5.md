@@ -7538,9 +7538,16 @@ a `return` set on `%ArrayIteratorPrototype%`.
 A function parameter's array pattern that runs its iterator to the end no longer closes it. In 4.16 and earlier 5.0
 builds it called `return` after the iterator had answered done, for any iterator that had a `return`.
 
-A wrapped CLR collection's iterator still disposes its `IEnumerator` when it is closed and has no `return`. A
-`return` the script gives it replaces that close, as it does on any iterator: it is called, and the enumerator is not
-disposed by the close. A step that throws still disposes it and calls no `return`. There is no switch back.
+A wrapped CLR collection's iterator still disposes its `IEnumerator` when it is closed. When the script has given it a
+`return`, the `return` is called first and the enumerator is disposed after it, also when the `return` throws or
+answers something other than an object. A `for await` disposes once the promise the `return` answered has settled. In
+4.16 and earlier 5.0 builds the enumerator was disposed and the `return` never called. The iterator answers done from
+then on, so a later loop over the same iterator object finds nothing to step.
+
+If `Dispose` throws while a throw is already leaving the close, the `Dispose` exception is discarded and that throw
+wins. The throw can be the loop's own, what the `return` threw, or the `TypeError` for its non-object answer. A
+`yield*` in an async generator that closes a CLR collection's iterator for want of a `throw` now disposes it too. A
+step that throws still disposes the enumerator and calls no `return`. There is no switch back.
 
 ## 5. New in v5
 
