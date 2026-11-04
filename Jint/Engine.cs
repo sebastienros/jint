@@ -2225,6 +2225,27 @@ public sealed partial class Engine : IDisposable
     // guaranteed to find, and a host must not rely on it.
     internal bool _builtinIteratorChainMayHaveReturn;
 
+    // Set, and never cleared, once anything has been defined on, assigned to or deleted from an %ArrayIteratorPrototype%
+    // of this engine. Until then every realm's still has its own built-in `next`, which a fresh array iterator inherits,
+    // so stepping one is the index walk and the spread and destructuring lanes may read an array by index: one load of
+    // this field answers it (ObjectInstance.HasOriginalIterator, sebastienros/jint#4418). ArrayIteratorPrototype's
+    // DefineOwnProperty and RemoveOwnProperty set it, and every script write reaches one of them. An assignment
+    // changes `next`'s value in place, which reaches DefineOwnProperty through [[Set]]; the member-write cache that
+    // stores into a writable data descriptor directly (JintMemberExpression.TryAssignFast) leaves that descriptor alone,
+    // because it carries PropertyDescriptor.WritesThroughDefineOwnProperty. A [[Prototype]] change needs no flag: the
+    // prototype's own `next` shadows whatever is above it, and only a delete, which sets this, removes it. Once it is set,
+    // ArrayPrototype.ArrayIteratorsStepNatively answers from what it validated. A host writing through the raw
+    // SetProperty (DefineOwnPropertyUnchecked) or a fetched descriptor's Value bypasses it, as it bypasses
+    // _builtinIteratorChainMayHaveReturn.
+    //
+    // The invariant three lanes that skip DefineOwnProperty rest on: an %ArrayIteratorPrototype% stays in built-in-shape
+    // mode until a DefineOwnProperty, a RemoveOwnProperty or a host's raw SetProperty takes it out. The first two set this
+    // field, and the third is the host caveat above; nothing in the engine writes to the prototype after initializing it.
+    // The dictionary-mode in-place stores of ObjectInstance.Set (its two-argument and three-argument fast paths) and the
+    // brand-new-key lane of ObjectInstance.CreateDataProperty all exclude a built-in-shape object, so by the time one of
+    // them can reach this prototype, this field is already set.
+    internal bool _arrayIteratorNextMayBeReplaced;
+
     /// <summary>
     /// The block-level function declarations of the sloppy direct or indirect eval whose body is
     /// currently running - the Annex B B.3.2 candidates its EvalDeclarationInstantiation considered.

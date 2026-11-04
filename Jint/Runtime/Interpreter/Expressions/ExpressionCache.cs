@@ -215,7 +215,8 @@ internal sealed class ExpressionCache
                     return i;
                 }
 
-                // optimize for array unless someone has touched the iterator
+                // walk an array by index while its @@iterator and the `next` of the iterator that answers are both the
+                // built-ins; otherwise step the record GetIterator built above (sebastienros/jint#4418)
                 if (objectInstance is JsArray { HasOriginalIterator: true } ai)
                 {
                     var length = ai.GetLength();
