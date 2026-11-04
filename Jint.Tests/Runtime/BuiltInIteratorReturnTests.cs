@@ -88,6 +88,7 @@ public class BuiltInIteratorReturnTests
                 case 'iteratorPrototype': save(IP, 'return'); IP.return = method; break;
                 case 'iteratorPrototypeAccessor': save(IP, 'return'); Object.defineProperty(IP, 'return', counted); break;
                 case 'objectPrototype': save(OP, 'return'); Object.defineProperty(OP, 'return', { value: method, configurable: true, writable: true }); break;
+                case 'objectPrototypeAssigned': save(OP, 'return'); OP.return = method; break;
                 case 'protoPlain': Object.setPrototypeOf(it, { __proto__: P, return: method }); break;
                 case 'protoProxy': Object.setPrototypeOf(it, new Proxy(P, { get(t, k, r) { return k === 'return' ? method : Reflect.get(t, k, r); } })); break;
                 case 'kindPrototypeProto': saved.push([P, null, IP]); Object.setPrototypeOf(P, { __proto__: IP, return: method }); break;
@@ -141,6 +142,20 @@ public class BuiltInIteratorReturnTests
         return engine;
     }
 
+    /// <summary>
+    /// An engine on which a script has once put a <c>return</c> on <c>Object.prototype</c> and taken it away again:
+    /// <see cref="Engine._builtinIteratorChainMayHaveReturn"/> is set for good, so every close and every array
+    /// destructuring answers from <see cref="IteratorPrototype.InstancesInheritNoReturnMethod"/>'s version-checked
+    /// lookup, and a route then has to invalidate a cached answer. On an untouched engine the route itself is what sets
+    /// the flag.
+    /// </summary>
+    private static Engine TouchedEngine()
+    {
+        var engine = NewEngine();
+        engine.Execute("Object.defineProperty(Object.prototype, 'return', { value: undefined, configurable: true }); delete Object.prototype.return;");
+        return engine;
+    }
+
     // Each built-in iterator kind, with two elements, and the iterators of a wrapped CLR list and dictionary, which
     // inherit %ArrayIteratorPrototype%.
     private static readonly string[] Kinds =
@@ -178,13 +193,14 @@ public class BuiltInIteratorReturnTests
     private static readonly string[] Routes =
     [
         "own", "ownAccessor", "kindPrototype", "kindPrototypeAccessor", "iteratorPrototype", "iteratorPrototypeAccessor",
-        "objectPrototype", "protoPlain", "protoProxy", "kindPrototypeProto", "kindPrototypeProtoProxy", "iteratorPrototypeProto",
+        "objectPrototype", "objectPrototypeAssigned", "protoPlain", "protoProxy", "kindPrototypeProto", "kindPrototypeProtoProxy",
+        "iteratorPrototypeProto",
     ];
 
     // The routes that reach an iterator a collection creates, which the script never holds.
     private static readonly string[] PrototypeRoutes =
     [
-        "kindPrototype", "kindPrototypeAccessor", "iteratorPrototype", "iteratorPrototypeAccessor", "objectPrototype",
+        "kindPrototype", "kindPrototypeAccessor", "iteratorPrototype", "iteratorPrototypeAccessor", "objectPrototype", "objectPrototypeAssigned",
         "kindPrototypeProto", "kindPrototypeProtoProxy", "iteratorPrototypeProto",
     ];
 
@@ -271,6 +287,16 @@ public class BuiltInIteratorReturnTests
     public void ALoopLeftEarlyCallsTheReturnEveryRouteAdds(string kind, string route, string loop, string expected)
     {
         Run(NewEngine(), $"closed(function () {{ return {kind}; }}, '{route}', '{loop}', false)").Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The same rows on an engine whose built-in iterator chains were touched before the first loop, so that what the
+    /// route has to invalidate is the version-checked lookup's cached answer (<see cref="TouchedEngine"/>).
+    /// </summary>
+    [TestCaseSource(nameof(RouteRows))]
+    public void ALoopLeftEarlyCallsTheReturnEveryRouteAddsOnceTheChainsWereTouched(string kind, string route, string loop, string expected)
+    {
+        Run(TouchedEngine(), $"closed(function () {{ return {kind}; }}, '{route}', '{loop}', false)").Should().Be(expected);
     }
 
     public static TestCases<string, string, string> ConsumerRows
@@ -375,6 +401,16 @@ public class BuiltInIteratorReturnTests
     public void AConsumerOfACollectionCallsAReturnOnTheIteratorItCreated(string source, string route, string consumer, string expected)
     {
         Run(NewEngine(), $"closed(function () {{ return {source}; }}, '{route}', '{consumer}', true)").Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The same rows on an engine whose built-in iterator chains were touched first (<see cref="TouchedEngine"/>), where
+    /// the destructuring lanes ask the version-checked lookup whether they may read by index.
+    /// </summary>
+    [TestCaseSource(nameof(SourceRows))]
+    public void AConsumerOfACollectionCallsAReturnOnTheIteratorItCreatedOnceTheChainsWereTouched(string source, string route, string consumer, string expected)
+    {
+        Run(TouchedEngine(), $"closed(function () {{ return {source}; }}, '{route}', '{consumer}', true)").Should().Be(expected);
     }
 
     /// <summary>
@@ -761,9 +797,10 @@ public class BuiltInIteratorReturnTests
     }
 
     /// <summary>
-    /// The guard that skips the <c>return</c> lookup arms for every built-in kind once one of its iterators was closed
-    /// untouched, and arms again once the script has put the chain back - so the lookup really is skipped, rather than
-    /// merely answering the same.
+    /// The guard that skips the <c>return</c> lookup answers without any lookup for every built-in kind on an engine
+    /// whose chains nobody touched - <see cref="Engine._builtinIteratorChainMayHaveReturn"/> stays clear and nothing is
+    /// cached - and once the script has touched them and put them back, its version-checked lookup arms and answers from
+    /// the cache. So the lookup really is skipped, rather than merely answering the same.
     /// </summary>
     [TestCase("[1, 2].values()")]
     [TestCase("new Uint8Array([1, 2]).values()")]
@@ -783,16 +820,56 @@ public class BuiltInIteratorReturnTests
             return;
         }
 
+        engine.Execute("for (const x of [1, 2]) { break; } const [a] = [1, 2]; (function ([b]) { })(new Set([1]));");
         prototype.InstancesInheritNoReturnMethod().Should().BeTrue();
-        prototype.CachesReturnLookup.Should().BeTrue();
+        engine._builtinIteratorChainMayHaveReturn.Should().BeFalse();
+        prototype.CachesReturnLookup.Should().BeFalse();
 
         engine.SetValue("it", instance);
         engine.Execute("Object.getPrototypeOf(Object.getPrototypeOf(it)).return = function () { return {}; };");
+        engine._builtinIteratorChainMayHaveReturn.Should().BeTrue();
         prototype.InstancesInheritNoReturnMethod().Should().BeFalse();
 
         engine.Execute("delete Object.getPrototypeOf(Object.getPrototypeOf(it)).return;");
         prototype.InstancesInheritNoReturnMethod().Should().BeTrue();
         prototype.CachesReturnLookup.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Iterating, closing and destructuring every kind with every consumer, and giving the iterator prototypes and
+    /// <c>Object.prototype</c> properties of other names - what a polyfill does - leave
+    /// <see cref="Engine._builtinIteratorChainMayHaveReturn"/> clear, so none of it costs the cheap lane. A <c>return</c>
+    /// on an iterator instance does not set it either: an instance with an own property never takes that lane.
+    /// </summary>
+    [Test]
+    public void OrdinaryIterationAndUnrelatedPrototypePropertiesLeaveTheFlagClear()
+    {
+        var engine = NewEngine();
+        engine.Evaluate(Harness + """
+
+            (async function () {
+                const kinds = [
+                    () => [1, 2].values(), () => new Uint8Array([1, 2]).values(), () => new Map([[1, 'a'], [2, 'b']]).entries(),
+                    () => new Set([1, 2]).values(), () => 'ab'[Symbol.iterator](), () => 'a1b2'.matchAll(/[0-9]/g),
+                    () => list[Symbol.iterator](), () => [1, 2], () => 'ab', () => list
+                ];
+                for (const make of kinds) {
+                    for (const consumer in consumers) {
+                        await consumers[consumer](make());
+                    }
+                }
+                const AIP = Object.getPrototypeOf([].values());
+                AIP.polyfilled = 1;
+                Object.getPrototypeOf(AIP).polyfilled = function () { };
+                Object.defineProperty(Object.prototype, 'polyfilled', { value: 1, configurable: true });
+                delete Object.prototype.polyfilled;
+                const it = [1, 2].values();
+                it.return = function () { return {}; };
+                for (const x of it) { break; }
+            })()
+            """).UnwrapIfPromise();
+
+        engine._builtinIteratorChainMayHaveReturn.Should().BeFalse();
     }
 
 #if NET8_0_OR_GREATER

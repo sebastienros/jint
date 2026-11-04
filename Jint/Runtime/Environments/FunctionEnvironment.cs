@@ -289,7 +289,10 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         // Read by index in place of the array's iterator while that is unobservable: the iterator would have no `return`
         // for the pattern's IteratorClose to call, which is asked first so that a `return` on the chain sends the pattern
         // to GetIterator before anything has read @@iterator, and the iterator is the original one (sebastienros/jint#4406).
-        if (argument is JsArray { OriginalIteratorInheritsNoReturnMethod: true, HasOriginalIterator: true } array)
+        // Until a script touches a built-in iterator chain, one load of the engine's flag answers the first question.
+        if (argument is JsArray array
+            && (!_engine._builtinIteratorChainMayHaveReturn || array.OriginalIteratorInheritsNoReturnMethod)
+            && array.HasOriginalIterator)
         {
             var arrayContents = array.ToArray();
             for (var i = 0; i < arrayPattern.Elements.Count; i++)

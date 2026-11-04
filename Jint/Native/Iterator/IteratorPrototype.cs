@@ -135,6 +135,13 @@ internal partial class IteratorPrototype : Prototype
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool InstancesInheritNoReturnMethod()
     {
+        // Until a script has put a `return` on a built-in iterator prototype or on Object.prototype, or moved one of
+        // these prototypes' [[Prototype]], no built-in chain has one: Engine._builtinIteratorChainMayHaveReturn.
+        if (!_engine._builtinIteratorChainMayHaveReturn)
+        {
+            return true;
+        }
+
         var grandparent = _returnLookupGrandparent;
         var parent = _prototype;
         if (grandparent is not null
@@ -286,15 +293,36 @@ internal partial class IteratorPrototype : Prototype
     /// A symbol-keyed own property is stored apart from the string-keyed ones, and adding, replacing or removing one
     /// does not move <see cref="ObjectInstance._propertiesVersion"/>. On a built-in iterator prototype it does, because
     /// the cached <c>@@iterator</c> lookup is validated against it (<see cref="InheritsOriginalIteratorMethod"/>).
-    /// Every script route to a new descriptor comes through here or <see cref="RemoveOwnProperty"/>.
+    /// Every script route to a new descriptor comes through here or <see cref="RemoveOwnProperty"/>, which is also why a
+    /// <c>return</c> put here sets <see cref="Engine._builtinIteratorChainMayHaveReturn"/>, from which point
+    /// <see cref="InstancesInheritNoReturnMethod"/> answers from its version-checked lookup.
     /// </summary>
     protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
     {
+        if (CommonProperties.Return.Equals(property))
+        {
+            _engine._builtinIteratorChainMayHaveReturn = true;
+        }
+
         base.SetOwnProperty(property, desc);
         if (property.IsSymbol())
         {
             unchecked { _propertiesVersion++; }
         }
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ordinarysetprototypeof. A built-in iterator prototype whose [[Prototype]] moves no
+    /// longer has the chain <see cref="Engine._builtinIteratorChainMayHaveReturn"/> vouches for, so a change sets it.
+    /// </summary>
+    internal override bool SetPrototypeOf(JsValue value)
+    {
+        if (!ReferenceEquals(value, _prototype ?? Null))
+        {
+            _engine._builtinIteratorChainMayHaveReturn = true;
+        }
+
+        return base.SetPrototypeOf(value);
     }
 
     /// <inheritdoc cref="SetOwnProperty"/>

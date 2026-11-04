@@ -142,7 +142,8 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
     /// check finds: an array's own, and the running realm's for an array-like object, whose check compares against that
     /// realm's, and for a CLR collection, whose iterator is created in it. Asked before that check, which reads
     /// <c>@@iterator</c>: with a <c>return</c> on the chain the pattern takes GetIterator, whose read is the one the
-    /// specification makes.
+    /// specification makes. Reached only once <see cref="Engine._builtinIteratorChainMayHaveReturn"/> is set; until
+    /// then the lane's one load of that field answers.
     /// </summary>
     private static bool IndexReadsCloseNothing(ObjectInstance obj, Realm realm)
         => obj is JsArray array
@@ -164,7 +165,9 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
         IteratorInstance? iterator = null;
 
         // optimize for array unless someone has touched the iterator, or given it a `return` the pattern would call
-        if (obj.IsArrayLike && IndexReadsCloseNothing(obj, realm) && obj.HasOriginalIterator)
+        if (obj.IsArrayLike
+            && (!engine._builtinIteratorChainMayHaveReturn || IndexReadsCloseNothing(obj, realm))
+            && obj.HasOriginalIterator)
         {
             arrayOperations = ArrayOperations.For(obj, forWrite: false);
         }
