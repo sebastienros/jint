@@ -7662,6 +7662,36 @@ and no iterator method now rejects the step with a `TypeError` and closes the so
 builds that object was skipped. After an inner iterator's `next` throws, `return()` on the helper no longer calls that
 inner iterator's `return`. There is no switch back.
 
+### 4.206 `Intl.ListFormat` iterates its argument as the spec says, and calls the `next` it read once ([#4438](https://github.com/sebastienros/jint/issues/4438))
+
+`Intl.ListFormat.prototype.format` and `formatToParts` take an iterator from their argument, read its `next` method
+once, and call what was read on every step. In 4.16 and earlier 5.0 builds they read `next` again on every step, so a
+getter on `next` ran once more per step and a `next` replaced during the iteration was called from the following step
+on:
+
+```js
+var reads = 0, it = ['a', 'b'].values(), next = it.next.bind(it);
+Object.defineProperty(it, 'next', { get() { reads++; return next; } });
+new Intl.ListFormat('en').format({ [Symbol.iterator]() { return it; } });
+reads
+// 4.16.x / earlier 5.0: 3    5.x: 1
+```
+
+Every argument but `undefined` now goes through its `Symbol.iterator`, which changes what some arguments produce:
+
+- A string is split by code point, not by UTF-16 code unit: `format('a😀')` is `'a and 😀'`, where it used to format
+  the two halves of the emoji as separate elements.
+- An array is read through its iterator, so a replaced `Symbol.iterator` or array iterator `next` is called, and
+  elements added during the iteration are included.
+- An object with no `Symbol.iterator`, such as `{ length: 2, 0: 'a', 1: 'b' }`, throws a `TypeError`. It used to be
+  formatted as an array-like.
+- A `Symbol.iterator` that answers a primitive, and a `next` that answers one, throw a `TypeError`. Both used to end the
+  list quietly.
+
+A non-string element still throws a `TypeError` and closes the iterator. The `TypeError` is now what is thrown even
+when the iterator's `return` throws, and a `return` added to the array iterator prototype is called for an array.
+There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

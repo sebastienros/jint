@@ -1,5 +1,4 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -84,139 +83,56 @@ internal sealed partial class ListFormatPrototype : Prototype
 
     /// <summary>
     /// https://tc39.es/ecma402/#sec-createstringlistfromiterable
+    /// GetIterator once, then IteratorStepValue until done, so every step calls the [[NextMethod]] GetIteratorFromMethod
+    /// read and never reads <c>next</c> again; a string and an array are iterated through their <c>@@iterator</c> like
+    /// anything else. A non-String value closes the iterator under a TypeError, which wins over anything the close throws.
+    /// Until sebastienros/jint#4438 this read <c>next</c> on every step, walked a string by code unit and an array by
+    /// index, took an object without <c>@@iterator</c> for an array-like, and let a throwing <c>return</c> replace the error.
     /// </summary>
     private string[] StringListFromIterable(JsValue iterable)
     {
+        // 1. If iterable is undefined, then
+        //    a. Return a new empty List.
         if (iterable.IsUndefined())
         {
             return [];
         }
 
+        // 2. Let iteratorRecord be ? GetIterator(iterable, sync).
+        var iteratorRecord = iterable.GetIterator(_realm);
+
+        // 3. Let list be a new empty List.
         var list = new List<string>();
-
-        // Handle strings - iterate over each character
-        if (iterable.IsString())
+        try
         {
-            var str = TypeConverter.ToString(iterable);
-            foreach (var c in str)
+            // 4. Repeat,
+            //    a. Let next be ? IteratorStepValue(iteratorRecord).
+            //    b. If next is done, then
+            //       i. Return list.
+            // A step that throws, and the one that reports done, leave the record done, so neither is followed by an
+            // IteratorClose (https://tc39.es/ecma262/#sec-iteratorstepvalue).
+            while (iteratorRecord.TryIteratorStepValue(out var next))
             {
-                list.Add(c.ToString());
-            }
-            return list.ToArray();
-        }
-
-        // Handle array-like objects
-        if (iterable is JsArray jsArray)
-        {
-            var length = jsArray.Length;
-            for (uint i = 0; i < length; i++)
-            {
-                var element = jsArray.Get(i);
-                // Per ECMA-402 13.5.2 step 5.a: If Type(next) is not String, throw a TypeError
-                if (!element.IsString())
+                //    c. If next is not a String, then
+                //       i. Let error be ThrowCompletion(a newly created TypeError object).
+                if (!next.IsString())
                 {
                     Throw.TypeError(_realm, "Iterable yielded a non-String value");
                 }
-                list.Add(element.AsString());
+
+                //    d. Append next to list.
+                list.Add(next.AsString());
             }
         }
-        else if (iterable.IsObject())
+        catch
         {
-            // Handle generic iterables
-            var obj = iterable.AsObject();
-            var iteratorMethod = obj.Get(GlobalSymbolRegistry.Iterator);
-            if (!iteratorMethod.IsUndefined() && !iteratorMethod.IsNull())
-            {
-                if (iteratorMethod is not ICallable callable)
-                {
-                    Throw.TypeError(_realm, "Iterator is not callable");
-                    return null!;
-                }
-
-                var iteratorObj = callable.Call(obj, []);
-                if (iteratorObj.IsObject())
-                {
-                    var iteratorInstance = iteratorObj.AsObject();
-                    while (true)
-                    {
-                        var nextMethod = iteratorInstance.Get("next");
-                        if (nextMethod is not ICallable nextCallable)
-                        {
-                            Throw.TypeError(_realm, "Iterator next is not callable");
-                            return null!;
-                        }
-
-                        var next = nextCallable.Call(iteratorInstance, []);
-                        if (next.IsObject())
-                        {
-                            var done = next.AsObject().Get("done");
-                            if (TypeConverter.ToBoolean(done))
-                            {
-                                break;
-                            }
-
-                            var value = next.AsObject().Get("value");
-                            // Per ECMA-402 13.5.2 step 5.a: If Type(next) is not String, then
-                            // i. Let error be ThrowCompletion(a newly created TypeError object).
-                            // ii. Return ? IteratorClose(iteratorRecord, error).
-                            if (!value.IsString())
-                            {
-                                // Call IteratorClose before throwing
-                                IteratorClose(iteratorInstance);
-                                Throw.TypeError(_realm, "Iterable yielded a non-String value");
-                            }
-                            list.Add(value.AsString());
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // Array-like object with length property
-                var length = TypeConverter.ToLength(obj.Get("length"));
-                for (ulong i = 0; i < length; i++)
-                {
-                    var element = obj.Get(i.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                    // Per ECMA-402 13.5.2 step 5.a: If Type(next) is not String, throw a TypeError
-                    if (!element.IsString())
-                    {
-                        Throw.TypeError(_realm, "Iterable yielded a non-String value");
-                    }
-                    list.Add(element.AsString());
-                }
-            }
-        }
-        else
-        {
-            Throw.TypeError(_realm, "Argument is not iterable");
+            //       ii. Return ? IteratorClose(iteratorRecord, error).
+            // Under a throw completion nothing the close raises replaces the TypeError
+            // (https://tc39.es/ecma262/#sec-iteratorclose step 5).
+            iteratorRecord.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return list.ToArray();
-    }
-
-    /// <summary>
-    /// https://tc39.es/ecma262/#sec-iteratorclose
-    /// Calls the iterator's return method if it exists.
-    /// </summary>
-    private static void IteratorClose(ObjectInstance iterator)
-    {
-        // 1. Let return be ? GetMethod(iterator, "return").
-        var returnMethod = iterator.Get("return");
-
-        // 2. If return is undefined, return NormalCompletion(empty).
-        if (returnMethod.IsUndefined() || returnMethod.IsNull())
-        {
-            return;
-        }
-
-        // 3. Call return method
-        if (returnMethod is ICallable callable)
-        {
-            callable.Call(iterator, []);
-        }
     }
 }
