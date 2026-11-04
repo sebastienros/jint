@@ -117,19 +117,15 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
     protected abstract void ExecuteStep(PromiseCapability promiseCapability);
 
     /// <summary>
-    /// Calls the underlying iterator's next() and normalizes the result as a promise.
+    /// The helper's <c>Await(? IteratorNext(iterated))</c>
+    /// (https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.map): calls the [[NextMethod]] that
+    /// GetIteratorDirect read once (https://tc39.es/ecma262/#sec-getiteratordirect) and normalizes the result as a
+    /// promise. It never reads <c>next</c> again, so a getter on it runs once and a <c>next</c> replaced mid-iteration is
+    /// not called (sebastienros/jint#4419).
     /// </summary>
     protected JsPromise CallIteratorNext()
     {
-        var target = Iterated.Instance;
-        var nextMethod = target.Get(CommonProperties.Next);
-        if (nextMethod is not ICallable callable)
-        {
-            Throw.TypeError(_engine.Realm, "Iterator does not have a next method");
-            return null!;
-        }
-
-        var result = callable.Call(target, Arguments.Empty);
+        var result = Iterated.CallNextMethod();
         return (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(result);
     }
 
@@ -585,16 +581,22 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
         // If we have an inner iterator, consume from it first
         if (_innerIterator is not null)
         {
-            var innerTarget = _innerIterator.Instance;
-            var innerNextMethod = innerTarget.Get(CommonProperties.Next);
-            if (innerNextMethod is not ICallable innerCallable)
+            // IteratorNext(innerIterator) (https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.flatmap)
+            // calls the [[NextMethod]] GetIteratorFlattenable read once, never `next` read again; one that was not
+            // callable fails the step with a TypeError (sebastienros/jint#4419).
+            JsValue innerResult;
+            try
             {
+                innerResult = _innerIterator.CallNextMethod();
+            }
+            catch (JavaScriptException)
+            {
+                // IfAbruptCloseAsyncIterator(innerNextPromise, iterated): whoever catches this closes the outer iterator
+                // and completes the helper. The inner iterator is not closed, then or by a later return().
                 _innerIterator = null;
-                FlatMapStep(promiseCapability);
-                return;
+                throw;
             }
 
-            var innerResult = innerCallable.Call(innerTarget, Arguments.Empty);
             var innerPromise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(innerResult);
             var self = this;
 

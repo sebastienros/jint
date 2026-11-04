@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1307
+anchors: 1311
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -345,6 +345,7 @@ ecma262 sec-getarraybuffermaxbytelengthoption
 ecma262 sec-getexportednames
 ecma262 sec-getfunctionrealm
 ecma262 sec-getiterator
+ecma262 sec-getiteratordirect
 ecma262 sec-getiteratorflattenable
 ecma262 sec-getiteratorfrommethod
 ecma262 sec-getmatchindexpair
@@ -1050,7 +1051,10 @@ proposal-async-iterator-helpers sec-asynciterator-constructor
 proposal-async-iterator-helpers sec-asynciterator.from
 proposal-async-iterator-helpers sec-asynciteratorprototype-@@tostringtag
 proposal-async-iterator-helpers sec-asynciteratorprototype.constructor
+proposal-async-iterator-helpers sec-asynciteratorprototype.flatmap
+proposal-async-iterator-helpers sec-asynciteratorprototype.map
 proposal-async-iterator-helpers sec-wrapforvalidasynciteratorprototype-object
+proposal-async-iterator-helpers sec-wrapforvalidasynciteratorprototype.next
 proposal-await-dictionary sec-performpromiseallkeyed
 proposal-await-dictionary sec-promise.allkeyed
 proposal-await-dictionary sec-promise.allsettledkeyed
