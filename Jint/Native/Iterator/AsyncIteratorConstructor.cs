@@ -104,9 +104,9 @@ internal sealed partial class AsyncIteratorConstructor : Constructor
 
         // GetIteratorFlattenable's last steps: read `next` off the iterator once, for the record the wrapper steps. This
         // precedes OrdinaryHasInstance, which a Proxy's getPrototypeOf trap sees, and happens even when the iterator is
-        // answered itself (sebastienros/jint#4419). A `next` that is not callable is not rejected here, although the
-        // proposal's GetIteratorFlattenable says so: like GetIteratorDirect (tc39/ecma262#274) and core-js, the TypeError
-        // comes from the first step's call.
+        // answered itself (sebastienros/jint#4419). A `next` that is not callable is not rejected here, although
+        // the proposal's GetIteratorFlattenable says so: like GetIteratorDirect (tc39/ecma262#274) and core-js,
+        // the TypeError comes from the first step's call.
         var iteratorRecord = new IteratorInstance.ObjectIterator(iterator);
 
         // 5. Let hasInstance be ? OrdinaryHasInstance(%AsyncIterator%, iterator).
