@@ -457,7 +457,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     // once %ArrayIteratorPrototype%.next is replaced: the iterator inherits it, so every other lane over the
     // wrapper calls the replacement (sebastienros/jint#4418).
     internal override bool HasOriginalIterator
-        => IsArrayLike && HasIndexedElements && _engine.Realm.Intrinsics.ArrayIteratorNextIsBuiltIn;
+        => IsArrayLike && HasIndexedElements && _engine.Realm.Intrinsics.Array.PrototypeObject.ArrayIteratorsStepNatively();
 
     internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexed;
 

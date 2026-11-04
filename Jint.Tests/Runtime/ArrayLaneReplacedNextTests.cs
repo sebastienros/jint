@@ -128,6 +128,18 @@ public class ArrayLaneReplacedNextTests
             try { return (await lanes[lane]([1, 2])) + ' ' + count; }
             finally { Object.defineProperty(P, 'next', saved); }
         }
+
+        // Replaces `next` as 'assign' does, then makes Array.prototype[Symbol.iterator] an accessor that counts its reads
+        // and answers the built-in, runs the lane and answers "<values> <calls> <reads>".
+        async function iteratorReads(lane) {
+            const calls = { count: 0 };
+            const restore = applyRoute('assign', replacement(calls));
+            const saved = Object.getOwnPropertyDescriptor(Array.prototype, Symbol.iterator);
+            let count = 0;
+            Object.defineProperty(Array.prototype, Symbol.iterator, { get() { count++; return saved.value; }, configurable: true });
+            try { return (await lanes[lane]([1, 2])) + ' ' + calls.count + ' ' + count; }
+            finally { Object.defineProperty(Array.prototype, Symbol.iterator, saved); restore(); }
+        }
         """;
 
     // What each lane answers over [1, 2] with the built-in `next`, and with the replacement (followed by its call count).
@@ -224,6 +236,20 @@ public class ArrayLaneReplacedNextTests
         }
     }
 
+    public static TestCases<string, string> EveryLaneReadsIteratorOnceWhenNextIsReplaced
+    {
+        get
+        {
+            var rows = new TestCases<string, string>();
+            foreach (var lane in Lanes)
+            {
+                rows.Add(lane.Key, lane.Value.Replaced + " 1");
+            }
+
+            return rows;
+        }
+    }
+
     private static string Run(Engine engine, string script) =>
         engine.Evaluate(Harness + "\n" + script).UnwrapIfPromise().AsString();
 
@@ -263,6 +289,17 @@ public class ArrayLaneReplacedNextTests
     public void EveryArrayLaneReadsNextOnce(string lane, string expected)
     {
         Run(new Engine(), $"reads('{lane}')").Should().Be(expected);
+    }
+
+    /// <summary>
+    /// GetIterator reads <c>@@iterator</c> once (https://tc39.es/ecma262/#sec-getiterator), which an accessor on
+    /// <c>Array.prototype</c> answering the built-in counts. A lane whose own check read it before finding the replaced
+    /// <c>next</c> and handing the array to GetIterator read it twice, so the check asks about <c>next</c> first.
+    /// </summary>
+    [TestCaseSource(nameof(EveryLaneReadsIteratorOnceWhenNextIsReplaced))]
+    public void EveryArrayLaneReadsIteratorOnceWhenNextIsReplaced(string lane, string expected)
+    {
+        Run(new Engine(), $"iteratorReads('{lane}')").Should().Be(expected);
     }
 
     /// <summary>

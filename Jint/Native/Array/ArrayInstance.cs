@@ -142,17 +142,18 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     internal sealed override bool IsSpecArray() => true;
 
-    // Both methods GetIterator reaches have to be the built-ins: @@iterator, one property read, has to resolve to this
-    // array's realm's %Array.prototype.values%, and `next` on the fresh array iterator that answers has to be that
-    // realm's built-in, which its %ArrayIteratorPrototype% answers without a read (sebastienros/jint#4418). The
-    // constructor's realm is the one its prototype, and so that values function, was created in.
+    // Both methods GetIterator reaches have to be the built-ins: `next` on the fresh array iterator this array's realm's
+    // %Array.prototype.values% creates, which that realm's Array.prototype answers from what it has cached, and
+    // @@iterator, one property read, which has to resolve to that values function (sebastienros/jint#4418). `next`
+    // first: when it was replaced, the caller's GetIterator makes the only @@iterator read.
     internal sealed override bool HasOriginalIterator
     {
         get
         {
-            var constructor = _constructor;
-            return ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), constructor?.PrototypeObject._originalIteratorFunction)
-                   && constructor!._realm.Intrinsics.ArrayIteratorNextIsBuiltIn;
+            var arrayPrototype = _constructor?.PrototypeObject;
+            return arrayPrototype is not null
+                   && arrayPrototype.ArrayIteratorsStepNatively()
+                   && ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), arrayPrototype._originalIteratorFunction);
         }
     }
 
