@@ -1348,8 +1348,9 @@ public sealed partial class Engine : IDisposable
     // long-lived engine does, and the reset is what bounds what that engine retains.
     internal const int HandlerTreeCacheCeiling = 2048;
 
-    // Scripts this engine has run global declaration instantiation for, so the definition cache
-    // above only engages on RE-evaluation (see GlobalDeclarationInstantiation).
+    // Scripts this engine has evaluated, so the definition cache above only engages on RE-evaluation
+    // (see GlobalDeclarationInstantiation). A script is added only after its hoisting walk succeeded,
+    // which is what lets the single-expression path in ScriptEvaluation skip the walk for a member.
     //
     // Bounded like the caches it gates. A membership marker looks free, but a HashSet holds its keys
     // strongly, so every distinct script an engine had ever run stayed reachable through this set -
@@ -1413,15 +1414,17 @@ public sealed partial class Engine : IDisposable
 
     // Per-engine cache of the interpreter handler built for a property key expression that has to be
     // evaluated — every computed key (`{ [k]: v }`, `class { [k]() {} }`, `({ [k]: v } = o)`) plus the
-    // literal keys of a destructuring pattern. Keyed on the stable AST node and engine-owned for the same
-    // lifetime reasons as _functionDefinitions above: a handler tree accumulates engine-affine per-node
-    // inline caches, so it must not be published to the AST's UserData and shared across engines.
+    // literal keys of a destructuring pattern — and for the defaults and member targets of a destructuring
+    // pattern that may suspend, which static code walks with no handler tree of its own to hang them on
+    // (DestructuringPatternAssignmentExpression.Resumable.cs). Keyed on the stable AST node and engine-owned
+    // for the same lifetime reasons as _functionDefinitions above: a handler tree accumulates engine-affine
+    // per-node inline caches, so it must not be published to the AST's UserData and shared across engines.
     //
     // Identity is what makes this correct, not merely cheaper. Everything a suspension parks for its
     // replay — LeftOperandSuspendData, AdditionChainSuspendData, the argument buffers — is keyed on the
     // handler instance that parked it, so a key expression rebuilt on every evaluation can never find its
     // own parked state. Building it afresh made `{ [f() + await g()]: 1 }` replay the whole key subtree
-    // and call f twice (issue #3142).
+    // and call f twice (issue #3142), and `[a = side() + await p] = []` call side twice (issue #4313).
     private Dictionary<Expression, JintExpression>? _propertyKeyExpressions;
 
     internal JintExpression GetOrBuildPropertyKeyExpression(Expression expression)
@@ -2209,6 +2212,40 @@ public sealed partial class Engine : IDisposable
     // never bump: a fresh environment cannot appear in a previously pinned chain.
     internal int _envBindingInjectionEpoch;
 
+    // Set, and never cleared, once a `return` has been put on a built-in iterator prototype or on an Object.prototype of
+    // this engine, or a built-in iterator prototype's [[Prototype]] has been changed. Until then every built-in
+    // iterator's chain - its kind's prototype, %Iterator.prototype%, Object.prototype - has no `return` to find, so
+    // closing an untouched iterator, and reading an array by index in place of its iterator, need no lookup: one load of
+    // this field answers it (sebastienros/jint#4406). IteratorPrototype.SetOwnProperty and SetPrototypeOf and
+    // ObjectPrototype's TrackChanges set it; every script route to a new descriptor on those prototypes passes through
+    // SetOwnProperty (see ObjectInstance.CreateDataProperty). Once it is set, IteratorPrototype's version-checked
+    // lookup answers instead. A host's DefineOwnPropertyUnchecked / DefineOwnDataPropertyUnchecked stores through the
+    // raw SetProperty and bypasses it, exactly as it bypasses ObjectPrototype's ArrayIndex tracking: a `return` a host
+    // writes that way onto Object.prototype or a built-in iterator prototype is not one closing a built-in iterator is
+    // guaranteed to find, and a host must not rely on it.
+    internal bool _builtinIteratorChainMayHaveReturn;
+
+    // Set, and never cleared, once anything has been defined on, assigned to or deleted from an %ArrayIteratorPrototype%
+    // of this engine. Until then every realm's still has its own built-in `next`, which a fresh array iterator inherits,
+    // so stepping one is the index walk and the spread and destructuring lanes may read an array by index: one load of
+    // this field answers it (ObjectInstance.HasOriginalIterator, sebastienros/jint#4418). ArrayIteratorPrototype's
+    // DefineOwnProperty and RemoveOwnProperty set it, and every script write reaches one of them. An assignment
+    // changes `next`'s value in place, which reaches DefineOwnProperty through [[Set]]; the member-write cache that
+    // stores into a writable data descriptor directly (JintMemberExpression.TryAssignFast) leaves that descriptor alone,
+    // because it carries PropertyDescriptor.WritesThroughDefineOwnProperty. A [[Prototype]] change needs no flag: the
+    // prototype's own `next` shadows whatever is above it, and only a delete, which sets this, removes it. Once it is set,
+    // ArrayPrototype.ArrayIteratorsStepNatively answers from what it validated. A host writing through the raw
+    // SetProperty (DefineOwnPropertyUnchecked) or a fetched descriptor's Value bypasses it, as it bypasses
+    // _builtinIteratorChainMayHaveReturn.
+    //
+    // The invariant three lanes that skip DefineOwnProperty rest on: an %ArrayIteratorPrototype% stays in built-in-shape
+    // mode until a DefineOwnProperty, a RemoveOwnProperty or a host's raw SetProperty takes it out. The first two set this
+    // field, and the third is the host caveat above; nothing in the engine writes to the prototype after initializing it.
+    // The dictionary-mode in-place stores of ObjectInstance.Set (its two-argument and three-argument fast paths) and the
+    // brand-new-key lane of ObjectInstance.CreateDataProperty all exclude a built-in-shape object, so by the time one of
+    // them can reach this prototype, this field is already set.
+    internal bool _arrayIteratorNextMayBeReplaced;
+
     /// <summary>
     /// The block-level function declarations of the sloppy direct or indirect eval whose body is
     /// currently running - the Annex B B.3.2 candidates its EvalDeclarationInstantiation considered.
@@ -2804,17 +2841,32 @@ public sealed partial class Engine : IDisposable
         var parserOptions = preparedScript.ParserOptions;
         var parsingConstraints = _parsingConstraints.Combine(preparedScript.ParsingConstraints);
         var strict = _isStrict || script.Strict;
-        // The lambda captures the locals (script, parserOptions), never the `in` parameter.
-        return ExecuteWithConstraints(strict, () => ScriptEvaluation(
-            new ScriptRecord(
-                Realm,
-                script,
-                script.Location.SourceFile,
-                parsingConstraints,
-                parserOptions),
-            parserOptions,
-            in parsingConstraints));
+        // State travels in a struct to a static callback, so the entry allocates no closure.
+        return ExecuteWithConstraints(
+            strict,
+            default,
+            new ScriptEvaluationState(this, script, parserOptions, parsingConstraints),
+            static (_, state) =>
+            {
+                var constraints = state.ParsingConstraints;
+                return state.Engine.ScriptEvaluation(
+                    new ScriptRecord(
+                        state.Engine.Realm,
+                        state.Script,
+                        state.Script.Location.SourceFile,
+                        constraints,
+                        state.ParserOptions),
+                    state.ParserOptions,
+                    in constraints);
+            });
     }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private readonly record struct ScriptEvaluationState(
+        Engine Engine,
+        Script Script,
+        ParserOptions ParserOptions,
+        ParsingConstraints ParsingConstraints);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-scriptevaluation
@@ -2824,7 +2876,13 @@ public sealed partial class Engine : IDisposable
         ParserOptions parserOptions,
         in ParsingConstraints parsingConstraints)
     {
-        Debugger.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
+        // Reading Debugger creates the handler (and claims the engine) on first use. Only a host that already
+        // touched it can have subscribed to BeforeEvaluate; debug mode still creates it here, so its initial
+        // step depth is anchored at script entry.
+        if (_debugger is not null || _isDebugMode)
+        {
+            Debugger.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
+        }
 
         var globalEnv = Realm.GlobalEnv;
 
@@ -2848,7 +2906,26 @@ public sealed partial class Engine : IDisposable
         try
         {
             var script = scriptRecord.EcmaScriptCode;
-            var reEvaluation = GlobalDeclarationInstantiation(script, globalEnv);
+
+            // A script that is one expression (`a + b`, `isValid(x)`) declares nothing, so global declaration
+            // instantiation has nothing to do, and its completion value is the expression's.
+            var singleExpression = script.Body.Count == 1 && script.Body[0] is ExpressionStatement;
+            bool reEvaluation;
+            if (singleExpression)
+            {
+                // The hoisting walk is what enforces SyntaxNesting.MaxUnprobedDepth on a script that was not
+                // analysed when prepared, so it still runs on the first evaluation; an analysed script already had it.
+                if (script.UserData is not CachedHoistingScope && !_evaluatedScripts.Contains(script))
+                {
+                    _ = script.GetHoistingScope();
+                }
+
+                reEvaluation = MarkScriptEvaluated(script);
+            }
+            else
+            {
+                reEvaluation = GlobalDeclarationInstantiation(script, globalEnv);
+            }
 
             // On re-evaluation reuse this engine's cached top-level handler tree (and its warm
             // per-node inline caches) instead of rebuilding it; a first evaluation - the fresh-
@@ -2860,7 +2937,10 @@ public sealed partial class Engine : IDisposable
             Completion result;
             try
             {
-                result = list.Execute(_evaluationContext);
+                // The single expression runs its statement directly rather than through the list's loop.
+                result = singleExpression
+                    ? list.ExecuteOnlyStatement(_evaluationContext)
+                    : list.Execute(_evaluationContext);
             }
             catch
             {
@@ -3361,6 +3441,13 @@ public sealed partial class Engine : IDisposable
 
     internal void RunAvailableContinuations(bool allowTaskDrain = false)
     {
+        // Skipped only when the drain would provably do nothing: the host-call claim taken below guards the
+        // drain's work, and there is none. The engine's own entry points already hold a claim of their own.
+        if (IsContinuationDrainNoOp())
+        {
+            return;
+        }
+
         using var ownership = EnterHostCall();
         _eventLoop.RunAvailableContinuations(this, allowTaskDrain: allowTaskDrain);
     }
@@ -4330,11 +4417,18 @@ public sealed partial class Engine : IDisposable
         var previousTryCatchDepth = _tryCatchDepth;
         _tryCatchDepth = 0;
         var completed = false;
+        ScriptPreparationException? tooDeep;
         try
         {
             var result = callback(source, state);
             completed = true;
             return result;
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // Leaving the entry, a tree too deep for the stack is the host's failure, not a RangeError for a script
+            // that called the host: see SyntaxNesting. Thrown below, once this block has given the stack back.
+            tooDeep = exception;
         }
         finally
         {
@@ -4373,6 +4467,8 @@ public sealed partial class Engine : IDisposable
                 }
             }
         }
+
+        throw SyntaxNesting.RethrowForHost(tooDeep);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -4399,6 +4495,7 @@ public sealed partial class Engine : IDisposable
         var previousTryCatchDepth = _tryCatchDepth;
         _tryCatchDepth = 0;
         var completed = false;
+        ScriptPreparationException? tooDeep;
         try
         {
             memoryLimit.Check();
@@ -4406,6 +4503,12 @@ public sealed partial class Engine : IDisposable
             memoryLimit.Check();
             completed = true;
             return result;
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // The same boundary as the constraint-only path above.
+            memoryLimit.Check();
+            tooDeep = exception;
         }
         catch (Exception exception) when (!ConstraintFailure.MustPropagate(exception))
         {
@@ -4445,6 +4548,8 @@ public sealed partial class Engine : IDisposable
                 }
             }
         }
+
+        throw SyntaxNesting.RethrowForHost(tooDeep);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -4659,17 +4764,29 @@ public sealed partial class Engine : IDisposable
         var hoistingScope = script.GetHoistingScope();
         var functionDeclarations = hoistingScope._functionDeclarations;
 
-        var functionToInitialize = new List<JintFunctionDefinition>();
-        var declaredFunctionNames = new HashSet<Key>();
-        var declaredVarNames = new List<Key>();
-
-        var realm = Realm;
-
         // The definition / statement-list caches pay only when the same script runs on this engine
         // again (the cached-Prepared<Script> embedding pattern); a first evaluation - fresh-engine-
         // per-run hosts never see a second one - takes plain construction so one-shot scripts stay
         // byte-identical to the uncached path.
         var reEvaluation = MarkScriptEvaluated(script);
+
+        // A script that declares nothing (`f(); g()`) has nothing to instantiate: skip the
+        // working collections below. Annex B block functions only bind in sloppy mode.
+        var varNames = script.GetVarNames(hoistingScope);
+        var lexNames = script.GetLexNames(hoistingScope);
+        if (functionDeclarations is null
+            && varNames.Count == 0
+            && lexNames.Count == 0
+            && (_isStrict || script.Strict || hoistingScope._annexBFunctionDeclarations is null))
+        {
+            return reEvaluation;
+        }
+
+        var functionToInitialize = new List<JintFunctionDefinition>();
+        var declaredFunctionNames = new HashSet<Key>();
+        var declaredVarNames = new List<Key>();
+
+        var realm = Realm;
 
         if (functionDeclarations != null)
         {
@@ -4691,7 +4808,6 @@ public sealed partial class Engine : IDisposable
             }
         }
 
-        var varNames = script.GetVarNames(hoistingScope);
         for (var j = 0; j < varNames.Count; j++)
         {
             var vn = varNames[j];
@@ -4713,7 +4829,6 @@ public sealed partial class Engine : IDisposable
         }
 
         PrivateEnvironment? privateEnv = null;
-        var lexNames = script.GetLexNames(hoistingScope);
         for (var i = 0; i < lexNames.Count; i++)
         {
             var declaration = lexNames[i];

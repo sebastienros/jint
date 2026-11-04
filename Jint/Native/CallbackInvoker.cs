@@ -72,7 +72,7 @@ internal readonly struct CallbackInvoker
         // anyway, and the State it returns lives on the AST node, so the reference stays valid.
         if (!engine._isDebugMode
             && callable is ScriptFunction { _isClassConstructor: false } scriptFunction
-            && scriptFunction._functionDefinition!.Initialize() is { SupportsRegisterCall: true } state)
+            && scriptFunction.TryInitializeDefinition() is { SupportsRegisterCall: true } state)
         {
             _registerTarget = scriptFunction;
             _registerState = state;

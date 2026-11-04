@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1291
+anchors: 1320
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -26,7 +26,9 @@ ecma262 exportentry-record
 ecma262 graphloadingstate-record
 ecma262 importentry-record
 ecma262 prod-ModuleExportName
+ecma262 prod-ModuleItem
 ecma262 sec-%arrayiteratorprototype%-object
+ecma262 sec-%arrayiteratorprototype%.next
 ecma262 sec-%asyncfromsynciteratorprototype%-object
 ecma262 sec-%asyncfromsynciteratorprototype%.next
 ecma262 sec-%asyncfromsynciteratorprototype%.return
@@ -41,6 +43,7 @@ ecma262 sec-%mapiteratorprototype%-object
 ecma262 sec-%regexpstringiteratorprototype%-object
 ecma262 sec-%setiteratorprototype%-object
 ecma262 sec-%stringiteratorprototype%-object
+ecma262 sec-%stringiteratorprototype%.next
 ecma262 sec-%typedarray%-intrinsic-object
 ecma262 sec-%typedarray%.from
 ecma262 sec-%typedarray%.of
@@ -200,6 +203,7 @@ ecma262 sec-construct
 ecma262 sec-copydatablockbytes
 ecma262 sec-copydataproperties
 ecma262 sec-createarrayiterator
+ecma262 sec-createasyncfromsynciterator
 ecma262 sec-createdataproperty
 ecma262 sec-createdatapropertyorthrow
 ecma262 sec-createdynamicfunction
@@ -216,6 +220,7 @@ ecma262 sec-createrealm
 ecma262 sec-createresolvingfunctions
 ecma262 sec-createsetiterator
 ecma262 sec-createsharedbytedatablock
+ecma262 sec-createstringiterator
 ecma262 sec-cyclic-module-records
 ecma262 sec-dataview-constructor
 ecma262 sec-date
@@ -274,7 +279,9 @@ ecma262 sec-error.iserror
 ecma262 sec-error.prototype.tostring
 ecma262 sec-escape-string
 ecma262 sec-evaldeclarationinstantiation
+ecma262 sec-evaluate-import-call
 ecma262 sec-evaluatecall
+ecma262 sec-evaluatenew
 ecma262 sec-example-cyclic-module-record-graphs
 ecma262 sec-execute-async-module
 ecma262 sec-expanded-years
@@ -290,6 +297,7 @@ ecma262 sec-forbodyevaluation
 ecma262 sec-frompropertydescriptor
 ecma262 sec-fulfillpromise
 ecma262 sec-function-calls
+ecma262 sec-function-calls-runtime-semantics-evaluation
 ecma262 sec-function-constructor
 ecma262 sec-function-environment-records
 ecma262 sec-function.prototype-@@hasinstance
@@ -338,6 +346,7 @@ ecma262 sec-getarraybuffermaxbytelengthoption
 ecma262 sec-getexportednames
 ecma262 sec-getfunctionrealm
 ecma262 sec-getiterator
+ecma262 sec-getiteratordirect
 ecma262 sec-getiteratorflattenable
 ecma262 sec-getiteratorfrommethod
 ecma262 sec-getmatchindexpair
@@ -403,6 +412,7 @@ ecma262 sec-iterabletolist
 ecma262 sec-iterator-helper-objects
 ecma262 sec-iterator-records
 ecma262 sec-iterator.from
+ecma262 sec-iterator.prototype-%symbol.iterator%
 ecma262 sec-iterator.prototype.drop
 ecma262 sec-iterator.prototype.every
 ecma262 sec-iterator.prototype.filter
@@ -418,6 +428,7 @@ ecma262 sec-iterator.zip
 ecma262 sec-iterator.zipkeyed
 ecma262 sec-iteratorclose
 ecma262 sec-iteratornext
+ecma262 sec-iteratorstep
 ecma262 sec-iteratorstepvalue
 ecma262 sec-iteratorzip
 ecma262 sec-jobcallback-records
@@ -449,6 +460,7 @@ ecma262 sec-math.hypot
 ecma262 sec-math.log1p
 ecma262 sec-math.max
 ecma262 sec-math.min
+ecma262 sec-math.sumprecise
 ecma262 sec-meta-properties
 ecma262 sec-module-environment-records
 ecma262 sec-module-environment-records-getbindingvalue-n-s
@@ -647,6 +659,9 @@ ecma262 sec-resolvebinding
 ecma262 sec-resolveexport
 ecma262 sec-resolvethisbinding
 ecma262 sec-return-statement-runtime-semantics-evaluation
+ecma262 sec-runtime-semantics-argumentlistevaluation
+ecma262 sec-runtime-semantics-arrayaccumulation
+ecma262 sec-runtime-semantics-bindingclassdeclarationevaluation
 ecma262 sec-runtime-semantics-bindinginitialization
 ecma262 sec-runtime-semantics-canonicalize-ch
 ecma262 sec-runtime-semantics-catchclauseevaluation
@@ -654,6 +669,7 @@ ecma262 sec-runtime-semantics-classdefinitionevaluation
 ecma262 sec-runtime-semantics-classfielddefinitionevaluation
 ecma262 sec-runtime-semantics-classstaticblockdefinitionevaluation
 ecma262 sec-runtime-semantics-definemethod
+ecma262 sec-runtime-semantics-destructuringassignmentevaluation
 ecma262 sec-runtime-semantics-evaluateasyncgeneratorbody
 ecma262 sec-runtime-semantics-evaluateconcisebody
 ecma262 sec-runtime-semantics-evaluatefunctionbody
@@ -676,6 +692,7 @@ ecma262 sec-runtime-semantics-instantiateordinaryfunctionobject
 ecma262 sec-runtime-semantics-iteratorbindinginitialization
 ecma262 sec-runtime-semantics-iteratordestructuringassignmentevaluation
 ecma262 sec-runtime-semantics-keyedbindinginitialization
+ecma262 sec-runtime-semantics-keyeddestructuringassignmentevaluation
 ecma262 sec-runtime-semantics-methoddefinitionevaluation
 ecma262 sec-runtime-semantics-propertydefinitionevaluation
 ecma262 sec-runtime-semantics-repeatmatcher-abstract-operation
@@ -724,11 +741,13 @@ ecma262 sec-static-semantics-contains
 ecma262 sec-static-semantics-isconstantdeclaration
 ecma262 sec-static-semantics-lexicallyscopeddeclarations
 ecma262 sec-static-semantics-privateboundidentifiers
+ecma262 sec-static-semantics-varscopeddeclarations
 ecma262 sec-strict-mode-code
 ecma262 sec-string-constructor
 ecma262 sec-string-constructor-string-value
 ecma262 sec-string.fromcharcode
 ecma262 sec-string.fromcodepoint
+ecma262 sec-string.prototype-%symbol.iterator%
 ecma262 sec-string.prototype.at
 ecma262 sec-string.prototype.codepointat
 ecma262 sec-string.prototype.endswith
@@ -833,6 +852,9 @@ ecma402 locale-objects
 ecma402 numberformat-objects
 ecma402 pluralrules-objects
 ecma402 relativetimeformat-objects
+ecma402 sec-%intlsegmentiteratorprototype%-object
+ecma402 sec-%intlsegmentiteratorprototype%.%symbol.tostringtag%
+ecma402 sec-%intlsegmentiteratorprototype%.next
 ecma402 sec-%segmentsprototype%-@@iterator
 ecma402 sec-%segmentsprototype%.containing
 ecma402 sec-InitializeRelativeTimeFormat
@@ -888,6 +910,8 @@ ecma402 sec-collationsoflocale
 ecma402 sec-computeexponent
 ecma402 sec-computeexponentformagnitude
 ecma402 sec-createdatetimeformat
+ecma402 sec-createsegmentiterator
+ecma402 sec-createsegmentsobject
 ecma402 sec-createstringlistfromiterable
 ecma402 sec-date-time-style-format
 ecma402 sec-datetimeformat-format-record
@@ -909,6 +933,7 @@ ecma402 sec-formatnumericrangetoparts
 ecma402 sec-formatnumericseconds
 ecma402 sec-getbooleanorstringnumberformatoption
 ecma402 sec-getlocaleregion
+ecma402 sec-getlocalescript
 ecma402 sec-getnumberformatpattern
 ecma402 sec-getoption
 ecma402 sec-hourcyclesoflocale
@@ -974,8 +999,10 @@ ecma402 sec-properties-of-the-intl-collator-prototype-object
 ecma402 sec-regionpreference
 ecma402 sec-resolvelocale
 ecma402 sec-resolveoptions
+ecma402 sec-segment-iterator-objects
 ecma402 sec-segments-objects
 ecma402 sec-setnumberformatdigitoptions
+ecma402 sec-textdirectionoflocale
 ecma402 sec-the-intl-collator-constructor
 ecma402 sec-tointlmathematicalvalue
 ecma402 sec-torawfixed
@@ -1033,7 +1060,10 @@ proposal-async-iterator-helpers sec-asynciterator-constructor
 proposal-async-iterator-helpers sec-asynciterator.from
 proposal-async-iterator-helpers sec-asynciteratorprototype-@@tostringtag
 proposal-async-iterator-helpers sec-asynciteratorprototype.constructor
+proposal-async-iterator-helpers sec-asynciteratorprototype.flatmap
+proposal-async-iterator-helpers sec-asynciteratorprototype.map
 proposal-async-iterator-helpers sec-wrapforvalidasynciteratorprototype-object
+proposal-async-iterator-helpers sec-wrapforvalidasynciteratorprototype.next
 proposal-await-dictionary sec-performpromiseallkeyed
 proposal-await-dictionary sec-promise.allkeyed
 proposal-await-dictionary sec-promise.allsettledkeyed
@@ -1057,7 +1087,6 @@ proposal-immutable-arraybuffer sec-integerindexedelementset
 proposal-immutable-arraybuffer sec-isimmutablebuffer
 proposal-immutable-arraybuffer sec-setviewvalue
 proposal-import-attributes sec-ModuleRequestsEqual
-proposal-import-attributes sec-evaluate-import-call
 proposal-import-bytes sec-create-bytes-module
 proposal-import-text sec-create-text-module
 proposal-intl-duration-format sec-Intl.DurationFormat-internal-slots

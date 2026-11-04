@@ -198,8 +198,13 @@ public class DataViewBoundsTests
             buffer.resize(4);
             """);
 
-        ThrownErrorName("view.byteLength").Should().Be("TypeError");
-        ThrownErrorName("view.byteOffset").Should().Be("TypeError");
+        // ...except for the two size accessors, which answer +0 for an out-of-bounds view
+        // (https://tc39.es/ecma262/#sec-get-dataview.prototype.bytelength,
+        // https://tc39.es/ecma262/#sec-get-dataview.prototype.byteoffset; tc39/ecma262#3972).
+        ThrownErrorName("view.byteLength").Should().Be("did not throw");
+        ThrownErrorName("view.byteOffset").Should().Be("did not throw");
+        _engine.Evaluate("Object.is(view.byteLength, 0)").AsBoolean().Should().BeTrue("an out-of-bounds view is +0 bytes long");
+        _engine.Evaluate("Object.is(view.byteOffset, 0)").AsBoolean().Should().BeTrue("the view's own offset of 8 is not reported");
         ThrownErrorName("view.getInt8(0)").Should().Be("TypeError");
         ThrownErrorName("view.setInt8(0, 1)").Should().Be("TypeError");
         ThrownErrorName("view.getInt8(2147483648)").Should().Be("TypeError");
@@ -207,19 +212,40 @@ public class DataViewBoundsTests
     }
 
     [Test]
-    public void ADetachedBufferIsATypeError()
+    public void ADetachedBufferIsATypeErrorForEverythingButTheSizeAccessors()
     {
         _engine.Evaluate("""
             var buffer = new ArrayBuffer(16);
-            var view = new DataView(buffer);
+            var view = new DataView(buffer, 4, 8);
             buffer.transfer();
             """);
 
-        ThrownErrorName("view.byteLength").Should().Be("TypeError");
-        ThrownErrorName("view.byteOffset").Should().Be("TypeError");
+        // A detached buffer is out of bounds, and the two size accessors answer +0 for that rather than
+        // throwing (tc39/ecma262#3972); every read and write still throws.
+        _engine.Evaluate("view.byteLength").AsNumber().Should().Be(0);
+        _engine.Evaluate("view.byteOffset").AsNumber().Should().Be(0);
         ThrownErrorName("view.getInt8(0)").Should().Be("TypeError");
         ThrownErrorName("view.setInt8(0, 1)").Should().Be("TypeError");
         ThrownErrorName("view.getInt8(2147483648)").Should().Be("TypeError");
+    }
+
+    [Test]
+    public void ALengthTrackingViewReportsZeroWhileOutOfBoundsAndRecoversWhenTheBufferGrowsBack()
+    {
+        // A length-tracking view is out of bounds only once the buffer shrinks below its offset; on that
+        // boundary it is in bounds and empty. Growing the buffer again brings the view's size and offset back.
+        _engine.Evaluate("""
+            var buffer = new ArrayBuffer(4, { maxByteLength: 5 });
+            var view = new DataView(buffer, 1);
+            function sizes() { return view.byteOffset + ':' + view.byteLength; }
+            """);
+
+        _engine.Evaluate("sizes()").AsString().Should().Be("1:3");
+        _engine.Evaluate("buffer.resize(1); sizes()").AsString().Should().Be("1:0", "on the boundary the view is in bounds and empty");
+        _engine.Evaluate("buffer.resize(0); sizes()").AsString().Should().Be("0:0", "out of bounds, both accessors answer +0");
+        ThrownErrorName("view.getInt8(0)").Should().Be("TypeError");
+        _engine.Evaluate("buffer.resize(2); sizes()").AsString().Should().Be("1:1", "back in bounds");
+        _engine.Evaluate("view.setInt8(0, 7); view.getInt8(0)").AsNumber().Should().Be(7);
     }
 
     [Test]

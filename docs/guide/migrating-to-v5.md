@@ -6580,6 +6580,58 @@ Now each declarator runs once, as in every other engine: the resume continues at
 suspended. A script that split such lists into one statement per declarator to work around this can stop.
 There is no switch back.
 
+### 4.169 A destructuring pattern resumes at the element that suspended, so its iterator steps once ([#4313](https://github.com/sebastienros/jint/issues/4313))
+
+In 4.16 a destructuring pattern whose default, computed key, member target or nested pattern held an `await` or a
+`yield` replayed from its first element every time that suspension resumed. An array pattern over an iterator was
+stepped again for every element before the suspended one, so the elements after it were bound to the wrong values;
+an object pattern read every property before the suspended one a second time, getters and all; and the assignment,
+declaration or `catch` clause around the pattern evaluated its right-hand side again:
+
+```js
+var a, b;
+var it = (function* () { [a = yield 0, b] = iterable(); })();   // iterable() steps undefined, 2
+it.next();
+it.next(5);   // 4.16.x / earlier 5.0: a = 2, b = undefined and a third step    5.x: a = 5, b = 2
+```
+
+A `throw()` at such a `yield` could be lost outright, because the re-stepped value no longer needed the default
+that held it, and a `return()` there closed only the outer of two nested iterators. The same pattern in a
+`for`-`of` head stepped the loop's own iterator again on the first iteration, and a `catch` parameter whose default
+suspended ran the `catch` block before the binding had finished, which failed with a `ReferenceError`.
+
+Now each element steps the iterator once and each property is read once, as in every other engine: the resume
+continues at the element or property that suspended, with whatever it had already read, and the right-hand side
+is not evaluated again. Patterns with no `await` or `yield` in them take the same path as before. There is no
+switch back.
+
+### 4.170 A call whose argument suspends resumes with the function it resolved, so its callee runs once ([#4314](https://github.com/sebastienros/jint/issues/4314))
+
+A call works out its function and its `this` value before it evaluates its arguments. In 4.16, when an argument
+suspended on an `await` or a `yield`, the resume evaluated the callee again. The arguments that had already run
+were kept, but everything in the callee ran once more for every suspension: the inner call of a chain, a getter
+on the method, and a computed key.
+
+```js
+var log = [];
+var o = { m(x) { log.push("m(" + x + ")"); return o; } };
+var it = (function* () { o.m(1).m(yield 0).m(3); })();
+it.next();
+it.next(2);   // 4.16.x / earlier 5.0: log is m(1),m(1),m(2),m(3)    5.x: m(1),m(2),m(3)
+```
+
+So `t.m((t = other, await x))` called `other.m` with `this` set to `other`, where every other engine calls the
+original method on the original `t`. `new (factory().C)(await x)` ran `factory()` twice. The same happened with
+an optional call (`o?.m(1).m(await x)`) and with spread arguments. In an async generator a chain that awaits in
+one call and yields in a later one (`o.m(await a).m(yield b)`) never finished, because each replay of the callee
+awaited again. A direct `eval` whose argument suspended ran its code once at the suspension and once more on the
+resume. A `super(…)` call in an async arrow function inside a constructor built the parent at the suspension,
+with the suspended argument missing, and the resume then threw `ReferenceError`.
+
+Now each call resolves its callee once and resumes in its arguments. A `throw()` or `return()` resumption, or a
+rejected `await`, leaves the call without running the callee again. A script that read the callee a second time
+to see a change made while it was suspended must now read it itself after the call. There is no switch back.
+
 ### 4.171 An async generator's `return(value)` awaits `value` at the `yield`, before the `finally` blocks run ([#4315](https://github.com/sebastienros/jint/issues/4315))
 
 `return(value)` on an async generator suspended at a `yield` resumes it at that `yield`, and the first thing the
@@ -6687,6 +6739,48 @@ disposed a microtask after `b` rather than together with it, in async functions 
 A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
 There is no switch back.
 
+### 4.175 Operator chains and `else if` chains no longer count against the 256-level nesting limit ([#4356](https://github.com/sebastienros/jint/issues/4356))
+
+A script or function whose syntax tree was more than 256 levels deep failed with a `ScriptPreparationException`,
+"Script nesting exceeds maximum depth of 256 levels". The count included every operand of an operator chain and
+every arm of an `else if` chain, so ordinary generated code reached it. A proxy auto-config file is the usual case:
+
+```js
+function FindProxyForURL(url, host) {
+    if (shExpMatch(host, "*.a.example") || shExpMatch(host, "*.b.example") || /* … 300 terms … */)
+        return "PROXY proxy.example:8080";
+    return "DIRECT";
+}
+// earlier 5.0: ScriptPreparationException    5.x: runs
+```
+
+Those two shapes no longer count. A chain of binary or logical operators (`||`, `??`, `+`, `<`, …) and an `else if`
+chain are bounded by the thread's stack instead, and probe it every 64 levels as they run. Every other kind of
+nesting keeps the limit, with the same message. That covers blocks, member and call chains, unary operators, nested
+literals and arguments, because nothing probes the stack while they are evaluated.
+
+How long a chain may be depends on the thread. On a 1 MB stack, an `||` chain of about 2,900 operands runs, and so
+does an `else if` chain of about 1,500 arms. On a 16 MB stack the figures are about 52,000 and 27,000. Past the
+`else if` figure the parser runs out of stack first, and fails as it did before.
+
+A chain too long to prepare fails with a `ScriptPreparationException`, "Script nesting is too deep: preparing it
+would exhaust the stack", when the script or module holding it is prepared or started. `Engine.PrepareScript` and
+`Engine.PrepareModule` analyse every function up front, so there a function too deep fails the same way, wrapped as
+before. Otherwise a function's body is analysed and built when the function is first called, or its `length` first
+read, and a chain too long for that fails with a `RangeError: Maximum call stack size exceeded` instead, whoever
+calls it: the script can catch it, and a host calling through `Invoke` or `Call` receives it as a
+`JavaScriptException`. Anything else first built while script runs, such as a block in a `catch`, fails the same way.
+An async function returns a promise rejected with that `RangeError`, and a promise executor rejects its promise, as
+they do when the script throws one. A chain that is prepared but too long to run throws the same `RangeError` as it
+runs, and so does a chain run near the bottom of the stack, from a deep recursion. With `MaxExecutionStackCount` set, it moves to a fresh stack, as a call does. Before, a
+chain of 200 operands could overflow the native stack there and end the process.
+
+A script that a host callback runs with `Execute` or `Evaluate` is an entry of its own. If it is too deep, the
+`ScriptPreparationException` reaches that host code, as before, not the script that called the host.
+
+There is no switch back. A host that relied on the limit to bound untrusted input still has it for every other kind
+of nesting; to bound a chain, use `MaxSourceLength` and `MaxNodeCount` on the parsing options.
+
 ### 4.176 A `for (using …; …; …)` loop disposes its header's resources once it ends, and throws what the dispose throws ([#4359](https://github.com/sebastienros/jint/issues/4359))
 
 A `for` loop whose header declares `using` or `await using` disposed those resources whenever the statement was left,
@@ -6754,6 +6848,892 @@ f(); // 4.16: ReferenceError: log is not defined    5.x: 42
 Now such an arrow gets a new environment on every call, as its block-bodied form `log => { return eval(...); }`
 does, and the function the `eval` returns reads the parameter as in other engines. There is no switch back.
 
+### 4.179 An async generator's `yield` of a rejected promise throws at the `yield` ([#4369](https://github.com/sebastienros/jint/issues/4369))
+
+In an async generator, `yield p` awaits `p` before it yields anything. In 4.16, when `p` rejected, the generator
+completed and the pending request was rejected on the spot. No `catch` or `finally` around the `yield` ran, and neither
+did the close of a `for`-`of` loop around it or the disposal of a `using` resource in scope:
+
+```js
+var log = [];
+async function* g() {
+    try { yield Promise.reject("X"); } catch (e) { log.push("caught " + e); } finally { log.push("fin"); }
+    yield "after";
+}
+await g().next().then(r => log.push(JSON.stringify(r)), e => log.push("rejected " + e));
+// 4.16.x / earlier 5.0: ["rejected X"]    5.x: ["caught X", "fin", "{\"value\":\"after\",\"done\":false}"]
+```
+
+Now the rejection is thrown at the `yield`, in the microtask where an `await` of the same promise would throw. A
+`catch` around it handles it like any other throw: the generator carries on, and the request is answered by what the
+body does next, which is its next `yield`, its return, or a throw nothing catches. Only that last case still rejects
+the request and completes the generator, after the `finally` blocks, iterator closes and disposals on the way out. A
+`yield*` whose delegate is an async generator sees the delegate behave the same way.
+
+One neighbour changed with it. Requests made while an async generator is busy queue behind the one it is serving.
+Once the generator completed, only the first of them was answered, and the rest stayed pending for good. Now each is
+answered in turn: a `next()` with `{ value: undefined, done: true }`, a `throw()` with its rejection, and a `return()`
+once its value is awaited. There is no switch back.
+
+### 4.180 An `import()` whose options suspend evaluates its specifier once, and a suspended operand starts no load ([#4335](https://github.com/sebastienros/jint/issues/4335))
+
+`import(specifier, options)` evaluates the specifier, then the options, and only then asks the host for the module.
+In 4.16, when the options suspended on an `await` or a `yield`, the resume evaluated the specifier again, so every
+call and getter in it ran once more for every suspension:
+
+```js
+let calls = 0;
+const spec = () => { calls++; return "./m.js"; };
+async function f() {
+  await import(spec(), await Promise.resolve({}));
+  return calls;   // 4.16.x / earlier 5.0: 2    5.x: 1
+}
+```
+
+In an async function or an async generator, a suspension in either operand also failed to stop the call. It went on
+to ask the host for the module, with the suspension's placeholder in place of the operand not yet produced.
+`import(await name)` asked the module loader for a module named `undefined` before the real one, and
+`import(name, { with: { type: await t } })` asked for `name` without its import attributes. A synchronous
+`IModuleLoader` that throws for a specifier it does not know made that first request's exception escape the host's
+`Evaluate` call; one that answers it saw a request the script never made. A generator's `yield` already stopped the
+call there.
+
+Now the specifier is evaluated once, the resume goes back into the options with it, and the loader is handed only the
+requests the script makes. The same holds for `import.defer(…)` and `import.source(…)`, whose one operand is the
+specifier. There is no switch back.
+
+### 4.181 A `for await` loop left by a throw awaits its iterator's `return()` before the throw moves on ([#4354](https://github.com/sebastienros/jint/issues/4354))
+
+A `for await` loop that ends early calls its iterator's `return()` and awaits what it answers. Then it hands on
+whatever ended the loop. In 4.16, a loop ended by a throw skipped that await, so the throw reached the next `catch` a
+microtask early. A `return()` that answered with a thenable never had its `then` called, and one that answered with a
+rejected promise left that rejection unhandled:
+
+```js
+var log = [];
+var src = { [Symbol.asyncIterator]() { return {
+  next() { return { value: 1, done: false }; },
+  return() { log.push("return"); return {}; } }; } };
+(async () => { try { for await (var x of src) throw "E"; } catch (e) { log.push("caught"); } })();
+Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
+// 4.16.x / earlier 5.0: ["return", "caught", "t1", "t2"]    5.x: ["return", "t1", "caught", "t2"]
+```
+
+Now the throw waits for that await, as it does in other engines. A value or a native promise costs one microtask, and a
+thenable costs two and has its `then` called. Whatever the promise settles with, the loop's own throw is still the one
+handed on. A rejected promise is now handled, so `engine.Tasks.PromiseRejectionTracker` no longer reports it and no
+`unhandledrejection` event fires for it. The throw still moves on at once when nothing is awaited: when there is no
+`return()`, when reading or calling it throws, or when its promise's `constructor` getter throws.
+
+This covers every way a throw leaves the loop: a `throw` in the body, a call that throws, a destructuring or an
+assignment target in the loop head that throws, and a `using` or `await using` disposal that throws. It applies in
+async functions, async generators and at the top level of a module. There is no switch back.
+
+### 4.182 A module whose only `await` is an `await using` is evaluated asynchronously ([#4367](https://github.com/sebastienros/jint/issues/4367))
+
+A module has top-level await when its body contains `await` outside every function, and an `await using` declaration
+contains it. In 4.16, Jint looked only for an `await` expression or a `for await`, so a module whose only `await` was
+an `await using` declaration was evaluated as a synchronous module. Its disposal waited for each result on the spot,
+running the host's job queue inside the module's evaluation, and a module importing it ran straight after its body:
+
+```js
+// module "m"
+globalThis.log = [];
+Promise.resolve().then(() => log.push("tick"));
+await using r = { [Symbol.asyncDispose]() { log.push("dispose"); } };
+
+// module "main"
+import "m";
+log.push("main");
+// 4.16.x / earlier 5.0: ["dispose", "main", "tick"]    5.x: ["dispose", "tick", "main"]
+```
+
+Now such a module is evaluated asynchronously, wherever the declaration sits: as a statement, in a block, a `for` header
+or a `for`-`of` head, even in a branch that never runs. Each disposal is awaited as an `await` expression is. A module
+importing it runs once the disposal has settled, and a module imported after it is evaluated while the disposal is
+pending. A dispose that throws or rejects rejects the module's evaluation, which `Engine.Modules.Import` throws as
+before, but that sibling has already run. `import defer` evaluates such a module up front, as it does any module with
+top-level await, rather than on first access to its namespace. A promise a dispose method returns is resolved as
+§4.177 describes, so a `constructor` getter that throws now rejects the module. For a host, such a module is now a
+top-level-await module: `ModuleRecord.Evaluate()` returns a pending promise that needs the event loop pumped, and a
+blocking `Engine.Modules.Import` of it from inside an event-loop job waits out `PromiseTimeout` and throws, where it
+used to complete. There is no switch back.
+
+### 4.183 A `for (await using … of …)` loop in an async generator suspends while it disposes, and a suspended body keeps its resource ([#4358](https://github.com/sebastienros/jint/issues/4358))
+
+A `for`-`of` or `for await` loop whose head declares `using` or `await using` disposes each iteration's resource
+when that iteration's body completes, and awaits each `await using` result. In an async function that await
+suspended the function, but in an async generator Jint waited for the result on the spot. It ran the host's job
+queue inside the `next()` call, so the rest of the body ran before the caller's next statement. A dispose whose
+promise settled a microtask later could not settle there, and the request was rejected once
+`Options.Constraints.PromiseTimeout` had passed:
+
+```js
+var log = [];
+async function* g() {
+    for (await using x of [{ [Symbol.asyncDispose]() { log.push("dispose"); } }]) { log.push("body"); }
+    log.push("after");
+}
+var p = g().next();
+log.push("called");
+await p;
+// 4.16.x / earlier 5.0: ["body", "dispose", "after", "called"]    5.x: ["body", "dispose", "called", "after"]
+```
+
+Now each of those awaits suspends the generator the way an `await` expression does, as a block's `await using`
+does since §4.174. The request settles a microtask later for each await, and a request made meanwhile queues behind
+it. A dispose that throws or rejects is thrown from the loop, or wrapped in a `SuppressedError` over the body's own
+throw, as before. A `return()` request whose iteration then has an `await using` dispose reject no longer completes
+the generator with the return value: the rejection replaces it, and a `catch` around the loop sees it. Since §4.185
+the same holds for a dispose that throws without being awaited
+([#4360](https://github.com/sebastienros/jint/issues/4360)).
+
+Four neighbours changed with it:
+
+- In every kind of function, a body that suspended at an `await` or a `yield` had its iteration's resource disposed
+  at the suspension, while the body went on to use it. Now the resource is disposed once the body completes, whether
+  it runs to its end or a `return()` or `throw()` resumption ends it. In
+  `function* g() { for (using x of xs) { yield x; use(x); } }`, `x` is no longer disposed before `use(x)` runs.
+- In an async function, once an `await using` dispose had made the loop wait, a `continue` naming an enclosing loop's
+  label went on with the inner loop's next iteration. Now it continues the labelled loop.
+- In the same position, a `break`, a `return` or a labelled jump closed the iterator and swallowed whatever its
+  `return()` threw, and a `return()` answering something other than an object. Now the throw, or a `TypeError`,
+  replaces the loop's completion, as it does when no dispose had to wait.
+- With an `Interop.ExceptionHandler` that catches it, a CLR exception that escaped untranslated from the rest of an
+  async function's body, once a block's or a `for` header's dispose await had resumed it, was dropped, and the
+  function's promise never settled. Now it reaches the host, as one escaping after an `await` does.
+
+A brace-less body, such as `for (using x of xs) yield x;`, that a `return()` or `throw()` resumption ends at its
+`yield` used to have its resource disposed at that `yield`. Since §4.185 it is disposed once the resumption has ended
+the body, as a braced body's is ([#4393](https://github.com/sebastienros/jint/issues/4393)).
+
+A script that relied on the rest of the body having run by the time `next()` returned must await the request instead.
+There is no switch back.
+
+### 4.184 A class whose `extends` clause or computed key suspends resumes where it suspended ([#4395](https://github.com/sebastienros/jint/issues/4395))
+
+A class's `extends` clause and its computed keys run in the frame around the class. An `await` or a `yield` in them
+suspends that frame, and the resume should continue inside the class. In 4.16, it did not. In an async function, an
+`await` in the `extends` clause made the whole function body run again from its first statement. In a generator, a
+`yield` there made `next()` throw `TypeError: super class is not a constructor`:
+
+```js
+const log = [];
+async function f() {
+  log.push("start");
+  class C extends (await Promise.resolve(Object)) {}
+  log.push("end");
+}
+f();
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: ["start", "start", "end"]    5.x: ["start", "end"]
+```
+
+A suspended computed key stopped the class, but the resume rebuilt the class from the start. The `extends` clause and
+the keys before the suspended one ran again. The class's name was bound to `undefined` while the frame was suspended,
+where reading it should throw a `ReferenceError`. In an async function, what ran after the class still ran in strict
+mode, and a closure created before the class could see a different binding from the one the class was assigned to.
+`V = class V extends (await b) {}` threw a `ReferenceError`. Now the class resumes where it suspended, and its name is
+bound once it is defined. Each part runs once, in async functions, generators and async generators.
+
+A decorator's expression runs in that frame too, before anything of the class exists. In 4.16, an `await` in one made
+an async function run again from its first statement, as above. Now the class stops at the decorator and continues
+there once its value is in, so the class is defined once and each decorator is evaluated and applied once. §4.187 says
+what that took, and when a module whose only `await` is in a decorator is asynchronous.
+
+A module has top-level await when its body has an `await` outside every function. An `await` in a class's `extends`
+clause or in one of its computed keys counts, but one in a method, a field initializer or a static block does not. In
+4.16, Jint did not look inside classes at all. A module whose only `await` was there was evaluated as a synchronous
+module, so a module importing it ran straight after its body:
+
+```js
+// module "m"
+globalThis.log = [];
+Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
+export class C extends (await Object) {}
+log.push("m");
+
+// module "main"
+import "m";
+log.push("main");
+// 4.16.x / earlier 5.0: ["m", "main", "t1", "t2"]    5.x: ["t1", "m", "t2", "main"]
+```
+
+Now such a module is evaluated asynchronously, as §4.182 describes for `await using`. For a host it is a
+top-level-await module, with the same consequences.
+
+Two neighbours changed with it. When the `extends` clause throws, the class's own scope is left before a `catch` runs.
+So a `catch` that reads a name the class also uses gets the outer binding, not a `ReferenceError`. And a getter, a
+setter or a generator method in an object literal whose computed key awaits no longer adds a property named
+`"undefined"` next to its own. There is no switch back.
+
+### 4.185 A brace-less `for (using … of …)` body that throws disposes its resource ([#4393](https://github.com/sebastienros/jint/issues/4393))
+
+A `for`-`of` or `for await` loop whose head declares `using` or `await using` disposes each iteration's resource
+once that iteration's body completes, however it completes, and only then closes the iterator. A body without braces
+that threw from inside an expression skipped that dispose: a call that throws, a `TypeError` such as `undefined.p`, an
+`if` whose test throws, a nested loop whose head throws. So did a generator's `return()` or `throw()` resumption at a
+`yield` in such a body, which since §4.183 left the resource undisposed, where 4.16 disposed it at the `yield` before
+the resumption arrived:
+
+```js
+var log = [];
+var res = { [Symbol.dispose]() { log.push("disposed"); } };
+function f() { throw new Error("E"); }
+try { for (using x of [res]) f(); } catch (e) { log.push("caught"); }
+// 4.16.x / earlier 5.0: ["caught"]    5.x: ["disposed", "caught"]
+```
+
+Now such a body is disposed for exactly as the same statement in braces is. The dispose runs with the body's throw
+or return completion. A dispose that throws over a throw is wrapped in a `SuppressedError`, and one that throws over a
+`return()` replaces it, so a `catch` around the loop sees it. An `await using` result is awaited, suspending the
+async function or async generator, before the iterator is closed and the throw moves on. A `throw` statement as the
+body was always disposed for and is unchanged. A constraint, a cancellation or a host exception still leaves the loop
+without disposing, as it leaves a block.
+
+With it, a `return()` resumption whose iteration's dispose then throws without being awaited no longer completes the
+generator with the return value, braces or not: the dispose's throw replaces it, as a rejected `await using` dispose's
+already did ([#4360](https://github.com/sebastienros/jint/issues/4360)):
+
+```js
+var log = [];
+function* g() {
+    try { for (using x of [{ [Symbol.dispose]() { throw "D"; } }]) { yield 1; } } catch (e) { log.push("caught " + e); }
+}
+var it = g(); it.next();
+it.return(5);
+// 4.16.x / earlier 5.0: [] and {value: 5, done: true}    5.x: ["caught D"] and {value: undefined, done: true}
+```
+
+There is no switch back.
+
+### 4.186 A `for await` loop left by an async generator's `return()` awaits its iterator's `return()` ([#4391](https://github.com/sebastienros/jint/issues/4391))
+
+When an async generator's `return(value)` resumes it at a `yield` inside a `for await` loop, the loop ends with that
+return. It calls its iterator's `return()` and awaits what that answers, as §4.181 describes for a throw. In 4.16 and
+earlier 5.0 builds, this loop skipped the await, with or without braces around its body. The generator finished and
+`return(value)` settled a microtask early, or two early when `return()` answered a thenable. A rejected promise from
+`return()` was dropped. So was a promise of a non-object, which is a `TypeError`. Either way, the request resolved
+with `{ value, done: true }`:
+
+```js
+var log = [];
+var src = { [Symbol.asyncIterator]() { return {
+  next() { return Promise.resolve({ value: 1, done: false }); },
+  return() { log.push("return"); return Promise.reject("R"); } }; } };
+async function* g() { for await (var x of src) { yield x; } }
+var it = g();
+it.next().then(() => it.return(5)).then(r => log.push("resolved " + r.value), e => log.push("rejected " + e));
+// 4.16.x / earlier 5.0: ["return", "resolved 5"]    5.x: ["return", "rejected R"]
+```
+
+Now the return waits for that await, as a `return` statement in the loop's body always did. A rejection, a throw
+from `return()` or a non-object it settles with replaces the return, so a `catch` around the loop sees it, and
+otherwise rejects the request. An enclosing `finally` runs after the await. This applies to every loop head, including
+`using` and `await using`, where the iteration's resource is disposed before the close. It applies to a sync iterable
+under `for await` too: its close goes through `%AsyncFromSyncIteratorPrototype%.return`, which always answers a
+promise, so even a loop over an array is one microtask later. A rejected promise is now handled, so
+`engine.Tasks.PromiseRejectionTracker` no longer reports it. Nothing changes when there is no `return()`, when reading
+or calling it throws, or for a sync generator's `for`-`of`. There is no switch back.
+
+### 4.187 A suspended decorator resumes at itself, and an `await` in a class's own decorator is top-level ([#4399](https://github.com/sebastienros/jint/issues/4399))
+
+A class's decorators run in the frame around the class, before anything of the class exists. Since §4.184, an `await`
+or a `yield` in one stops the class until its value is in. Earlier 5.0 builds then evaluated the decorators again from
+the first one. The decorators before the one that suspended ran twice, and so did the part of it before its `await`:
+
+```js
+const log = [];
+async function f() {
+  @(log.push("a"), (c) => c) @(log.push("b"), await ((c) => c)) class C {}
+  log.push("end");
+}
+f();
+// once the job queue has drained:
+// earlier 5.0: ["a", "b", "a", "b", "end"]    5.x: ["a", "b", "end"]
+```
+
+A `yield*` in an earlier decorator started its delegation over. A generator that evaluated such a class in a loop also
+kept a little more memory on every iteration until it finished. Now the class continues at the decorator that
+suspended, and each decorator expression is evaluated once, in async functions, generators and async generators.
+
+A module has top-level await when its body has an `await` outside every function (§4.182). The decorators proposal puts
+a class's own decorators outside the class body, where that search finds an `await` as it finds one in the `extends`
+clause. In 4.16 and earlier 5.0, such a module was evaluated synchronously:
+
+```js
+// module "m"
+globalThis.log = [];
+Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
+export default @(await ((c) => c)) class {}
+log.push("m");
+
+// module "main"
+import "m";
+log.push("main");
+// 4.16.x / earlier 5.0: ["m", "main", "t1", "t2"]    5.x: ["t1", "m", "t2", "main"]
+```
+
+Now it is evaluated asynchronously, with the consequences §4.182 describes. An `await` in the decorator of a method, a
+field or an accessor still does not make a module asynchronous, because the proposal leaves those decorators out of the
+search; such an `await` is then settled on the spot, blocking until its promise settles, as before. There is no switch
+back.
+
+### 4.188 A `for await` loop over a built-in iterator awaits each value, and a replaced `next` is called on every built-in iterator ([#4392](https://github.com/sebastienros/jint/issues/4392))
+
+A `for await` loop over an object with no `Symbol.asyncIterator` wraps the object's sync iterator in an async one.
+That wrapper awaits each value before the body sees it, and the loop awaits the wrapper's `return()` when it ends
+early. A plain array, a string or a generator always went through it. In 4.16 and earlier 5.0 builds, a built-in
+iterator object did not: `arr.values()`, `arr.keys()`, `arr.entries()`, a typed array's iterators, `map.entries()` and
+the other Map and Set iterators, a string's `[Symbol.iterator]()`, `str.matchAll(re)`, a segments iterator, and the
+`entries()`, `keys()` and `values()` of `Headers`, `FormData` and `URLSearchParams`. Jint stepped such an
+iterator directly, so a promise it held reached the body unawaited, and each step and the close ran a microtask early:
+
+```js
+var log = [];
+(async () => { for await (var x of [Promise.resolve(1)].values()) log.push(typeof x); })();
+Promise.resolve().then(() => log.push("t1")).then(() => log.push("t2"));
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: ["object", "t1", "t2"]    5.x: ["t1", "number", "t2"]
+```
+
+Now these iterators go through the wrapper too, as they do in other engines. Each step costs two microtasks and an
+early close one, as for the array itself. A rejected promise among the values is thrown from the loop. A `return`
+method the script gave the iterator object is called when the loop ends by `break`, `return` or a throw from the
+body, and its answer is awaited, so a rejection or a non-object answer replaces a `break`. It is still not called when
+the loop ends because an iterated promise rejected, where other engines call it. A `Symbol.asyncIterator` or
+`Symbol.iterator` method the script gave the object is called, where Jint used to ignore both.
+
+A `next` method the script replaced is now called too. Jint steps a built-in iterator natively only while reading its
+`next` would find the built-in one, but in 4.16 only the array and typed-array iterators checked. The Map, Set, string,
+`matchAll`, segments and web-API iterators, and the iterator of a wrapped CLR collection, were stepped natively whatever
+their `next` was, whether the script set one on the iterator or replaced the one on its prototype:
+
+```js
+var s = new Set([1, 2]);
+Object.getPrototypeOf(s.values()).next = function () { return { value: undefined, done: true }; };
+[...s]
+// 4.16.x / earlier 5.0: [1, 2]    5.x: []
+```
+
+This applies wherever an iterator is taken from such an object: spread, `Array.from`, destructuring, `new Map()` and
+`new Set()`, `Promise.all`, a `for`-`of` over the collection, and the `for await` above. Destructuring a CLR list
+(`const [a] = list`) still reads it by index and calls no `next`. A `for`-`of` whose operand is the iterator object
+itself, and spread and `for`-`of` over a string primitive, ignored a replaced `next` too until §4.195. There is no
+switch back.
+
+### 4.189 A replaced `next` is read once, and a `for await` loop left early disposes a CLR enumerator ([#4408](https://github.com/sebastienros/jint/issues/4408))
+
+Taking an iterator from an object reads the iterator's `next` method once, and every step then calls what was read. In
+4.16 and earlier 5.0 builds, Jint read `next` a second time when the first read found a replacement. That happened for
+the array and typed-array iterators and, once §4.188 made the other built-in iterators check their `next`, for any of
+them that had a property of its own. A getter or a `Proxy` trap on `next` ran twice:
+
+```js
+var reads = 0;
+var it = [1, 2].values();
+var next = it.next.bind(it);
+Object.defineProperty(it, "next", { get() { reads++; return next; } });
+[...it];
+reads
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+Now `next` is read once wherever §4.188 says a replacement is called.
+
+A `for await` loop over a wrapped CLR collection now disposes the collection's `IEnumerator` when it ends early, by
+`break`, `return` or a throw from the body, as a `for`-`of` loop does. In 4.16 and earlier 5.0 the `for await` loop left
+it undisposed, so a `finally` block in a C# iterator method never ran. The same now holds for an async generator's
+`return()` while it is suspended in such a loop, for `yield*` over the collection in an async generator, and for
+`Array.fromAsync` when its mapping function throws. There is no switch back.
+
+### 4.190 A decorator is evaluated where the decorators spec text puts it, and called with its receiver ([#4403](https://github.com/sebastienros/jint/issues/4403))
+
+Jint now follows the decorators spec text ([tc39/ecma262#2417](https://github.com/tc39/ecma262/pull/2417)) in four
+places where 4.16 and earlier 5.0 builds did not.
+
+**Order.** A class's own decorators are still evaluated first. The decorators of a method, a field or an accessor were
+evaluated with them, before the `extends` clause. Now each element's decorators are evaluated after the `extends`
+clause and the elements before it, just before the element's key:
+
+```js
+const log = [];
+const d = (name) => (log.push(name), () => {});
+@(d("class")) class C extends (log.push("extends"), Object) {
+  @(d("m")) static [(log.push("key m"), "m")]() {}
+}
+// 4.16.x / earlier 5.0: ["class", "m", "extends", "key m"]    5.x: ["class", "extends", "m", "key m"]
+```
+
+**Scope.** An element's decorators are evaluated in the class's own scope, as its computed keys are. Reading the
+class's name there throws a `ReferenceError`. It used to read whatever the name meant around the class. A private name
+used there is the class's own. It used to resolve against the scope around the class: to the private name of an
+enclosing class with the same name, or, with no enclosing class, to a `NullReferenceException` out of `Execute`.
+
+**Strictness.** A class's own decorators run as the code around the class does, so they are sloppy in a sloppy script.
+They used to run as strict code. So did an arrow function created in one:
+
+```js
+// a sloppy script
+@(registered = (c) => c) class C {}
+typeof registered
+// 4.16.x / earlier 5.0: ReferenceError: registered is not defined    5.x: "function"
+```
+
+The rest of the class is strict, as before: the `extends` clause, the elements' decorators and the body. The spec text
+calls every part of a class strict mode code, but test262 and Jint's parser treat the class's own decorator list as
+part of the code around it, and Jint follows test262.
+
+**Receiver.** A decorator is called with the `this` a call through the same expression would get. `@obj.dec` and
+`@(obj.dec)` call `dec` with `obj`, and an identifier found through a `with` object is called with that object. All
+of these used to get `undefined`. `@dec`, `@make()` and `@(0, obj.dec)` still get `undefined`:
+
+```js
+const registry = { classes: [], add(c) { this.classes.push(c); } };
+@registry.add class C {}
+registry.classes.length
+// 4.16.x / earlier 5.0: TypeError    5.x: 1
+```
+
+§4.184 and §4.187 describe a decorator as running before anything of the class exists; that now holds for the
+class's own decorators only. When a decorator is applied is §4.194. There is no switch back.
+
+### 4.191 `DataView.prototype.byteLength` and `byteOffset` answer 0 for an out-of-bounds view instead of throwing ([#4411](https://github.com/sebastienros/jint/pull/4411))
+
+A `DataView` is out of bounds when its buffer is detached, or when a resizable buffer shrinks below the view. In 4.16
+and earlier 5.0 builds, reading `byteLength` or `byteOffset` of such a view threw a `TypeError`, as ECMAScript 2024
+specified. [tc39/ecma262#3972](https://github.com/tc39/ecma262/pull/3972) changed both getters to answer `+0`
+instead, and test262 now asserts it:
+
+```js
+var buffer = new ArrayBuffer(8);
+var view = new DataView(buffer, 4, 2);
+buffer.transfer();
+[view.byteLength, view.byteOffset]
+// 4.16.x / earlier 5.0: TypeError    5.x: [0, 0]
+```
+
+Every read and write through the view still throws a `TypeError`. Once a resizable buffer grows back, both getters
+report the view's real size and offset again. A script that put a `try` around `view.byteLength` to find out whether
+the buffer was detached should read `view.buffer.detached` instead. There is no switch back.
+
+### 4.192 `Intl.Locale.prototype.getTextInfo().direction` is the script's direction, and can be `undefined` ([#4411](https://github.com/sebastienros/jint/pull/4411))
+
+In 4.16 and earlier 5.0 builds, `direction` was the .NET culture's `TextInfo.IsRightToLeft`, so it depended on the
+machine's globalization data. It ignored a script subtag that disagreed with the language and answered `"ltr"` for any
+tag the culture data did not know. ECMA-402's
+[TextDirectionOfLocale](https://tc39.es/ecma402/#sec-textdirectionoflocale) takes the locale's script subtag, or its
+likely script when it has none, and reads that script's direction from CLDR's script metadata. A script whose
+direction is unknown or unlisted, or a language with no likely script, answers `undefined`:
+
+```js
+["en-Arab", "tlh", "und-Zyyy", "ar-Zxxx"].map(t => String(new Intl.Locale(t).getTextInfo().direction))
+// 4.16.x / earlier 5.0: ["ltr", "ltr", "ltr", "ltr"]    5.x: ["rtl", "undefined", "undefined", "undefined"]
+```
+
+The answer no longer depends on the machine, and `"ar"`, `"he"`, `"fa"` or `"en"` answer as they did. The result
+still has its own `direction` property when its value is `undefined`. There is no switch back.
+
+### 4.193 A `finally` block runs when the `catch` parameter's binding throws ([#4336](https://github.com/sebastienros/jint/issues/4336))
+
+When a `catch` clause's parameter cannot be bound, for example because it destructures `null` or a default
+initializer throws, the `finally` block of the same `try` statement now runs before the error leaves it. In 4.16 and
+earlier 5.0 builds, the error escaped the `try` statement straight away and the `finally` block was skipped:
+
+```js
+const log = [];
+try {
+  try { throw null; }
+  catch ({ x }) { log.push("catch"); }
+  finally { log.push("finally"); }
+} catch (e) {
+  log.push(e.constructor.name);
+}
+log.join(",")
+// 4.16.x / earlier 5.0: "TypeError"    5.x: "finally,TypeError"
+```
+
+The `catch` block itself still does not run, and the error that leaves the `try` statement is the same one, unless
+the `finally` block replaces it with its own `return`, `throw`, `break` or `continue`. The same holds in a generator
+or an async function, including when the parameter's pattern suspends on a `yield` or an `await` before it throws.
+There is no switch back.
+
+### 4.194 Decorators are applied when the decorators spec text applies them, and a decorator's context has `access` ([#4413](https://github.com/sebastienros/jint/issues/4413))
+
+§4.190 moved where a decorator is *evaluated*. This moves when it is *applied*, and what the context object a
+decorator gets holds, to the decorators spec text ([tc39/ecma262#2417](https://github.com/tc39/ecma262/pull/2417)).
+
+**Element decorators run after every element is evaluated.** Each element's decorators used to run as soon as that
+element was defined, between the keys of the elements around it. Now every key and every decorator expression is
+evaluated first. Then the decorators are applied in four groups: static methods, getters, setters and accessors; the
+instance ones; static fields; instance fields. Each group runs in source order:
+
+```js
+const log = [];
+const d = (name) => () => { log.push(name); };
+class C {
+  @(d("field")) x;
+  @(d("method")) m() {}
+  @(d("static method")) static s() {}
+}
+// 4.16.x / earlier 5.0: ["field", "method", "static method"]    5.x: ["static method", "method", "field"]
+```
+
+The initializers that the decorators of a field or an accessor return now run outermost first. With
+`@a @b x = 1`, `a`'s initializer gets `1` and `b`'s gets what `a`'s returned. It used to be the other way round.
+This is what the spec text intends rather than what its steps say. Read literally, they run the field's own
+initializer after the decorators', so its value always wins: `@add1 @times2 x = 3` would give `3`.
+[tc39/proposal-decorators#569](https://github.com/tc39/proposal-decorators/issues/569) reports that as a bug in the
+text. Jint gives the intended `8`, as Babel and the test262 tests proposed for decorators do.
+
+**Class decorators run before the static fields and blocks.** They used to run last, so a static field or a static
+block saw the undecorated class, both as `this` and through the class's own name. Methods saw it through the name too.
+Now the class binding holds the class that the decorators returned, and the static fields and blocks run against
+that class. A static field is defined on the decorated class, not on the class it replaced:
+
+```js
+let inside;
+const replace = (c) => class extends c {};
+@replace class C {
+  static { inside = this; }
+}
+inside === C
+// 4.16.x / earlier 5.0: false    5.x: true
+```
+
+The `addInitializer` callbacks of a class's static half now run where the spec text puts them. A static method's run
+before the static fields, a static field's right after that field, and the class's own after the last static block.
+They used to run together after the static blocks. The instance-side callbacks are §4.197.
+
+**The context object.** An element's context now has an `access` object. It has `get` for a field, method, getter
+or accessor, and `set` for a field, setter or accessor. It always has `has`. Each takes the object to read, write or
+check, through the element's key or its private name. The context's members come in the spec text's order: `kind`,
+`access`, `static`, `private`, `name`, `addInitializer`. A class's context has only `kind`, `name` and
+`addInitializer`; it used to have `static` and `private` as well. A private element's `name` now includes the `#`
+(`"#x"`, not `"x"`). Calling `addInitializer` after its decorator has returned throws a `TypeError`. So does an
+accessor decorator that returns a `get` or a `set` that is not a function, where Jint used to keep the value. A
+non-function `init`, and a return value that is neither an object nor `undefined`, already threw.
+
+There is no switch back.
+
+### 4.195 A `for`-`of` over an iterator object calls its `Symbol.iterator` and `next`, and iterating a string calls a replaced `next` ([#4405](https://github.com/sebastienros/jint/issues/4405))
+
+Taking an iterator from an object calls the object's `Symbol.iterator` method and reads `next` off what it returns. A
+built-in iterator object inherits its `Symbol.iterator` from `Iterator.prototype`, and that method returns the iterator
+itself. In 4.16 and earlier 5.0 builds, a `for`-`of` loop whose operand was a built-in iterator object (`arr.values()`,
+`map.entries()`, `str.matchAll(re)` and the others §4.188 lists) used the object as its iterator without reading
+either. A `Symbol.iterator` method the script gave the object or one of its prototypes was never called, and neither was
+a `next` the script set on the iterator or on its prototype:
+
+```js
+var a = [1, 2].values();
+a[Symbol.iterator] = () => [9].values();
+var log = [];
+for (var x of a) log.push(x);
+log
+// 4.16.x / earlier 5.0: [1, 2]    5.x: [9]
+```
+
+Now the loop calls whatever `Symbol.iterator` resolves to, as spread, `Array.from` and destructuring of the iterator
+object already did. It throws a `TypeError` when that method is missing, is not callable or returns a non-object, where
+the loop used to iterate the object anyway.
+
+Spread, `for`-`of`, `Array.from`, destructuring, `new Set()` and `yield*` over a string primitive iterate its
+characters without creating a string iterator object. In 4.16 and earlier 5.0 builds they did so even when the script
+had replaced `next` on the string iterator prototype. Now that `next` is called:
+
+```js
+Object.getPrototypeOf(""[Symbol.iterator]()).next = () => ({ done: true });
+[..."ab"]
+// 4.16.x / earlier 5.0: ["a", "b"]    5.x: []
+```
+
+An iterator object or a string whose `Symbol.iterator` and `next` are the built-in ones is still stepped natively.
+There is no switch back.
+
+### 4.196 A `for await` loop and `Array.fromAsync` call the `next` they read once, and a CLR enumerator that runs out is disposed ([#4410](https://github.com/sebastienros/jint/issues/4410))
+
+A `for await` loop and `Array.fromAsync` read the iterator's `next` method once, when they take the iterator, and
+every step calls what was read. In 4.16 and earlier 5.0 builds, both read `next` again on every step. A getter on
+`next` ran once more per step, and a `next` replaced during the loop was called from the following step on:
+
+```js
+var reads = 0, i = 0;
+var source = { [Symbol.asyncIterator]() {
+  return { get next() { reads++; return () => Promise.resolve({ value: ++i, done: i > 3 }); } };
+} };
+(async () => { for await (var x of source); })();
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: reads === 5    5.x: reads === 1
+```
+
+This applies to whatever a `Symbol.asyncIterator` method answers, an async generator object and a built-in iterator
+among them. An object with only a `Symbol.iterator` already had its `next` read once. A `next` that was not a function
+when it was read now fails the first step with a `TypeError`, even if the object has a callable `next` by then.
+
+A wrapped CLR collection's `IEnumerator` is now disposed when the iteration runs out, as a C# `foreach` disposes it.
+In 4.16 and earlier 5.0 builds only an iteration that ended early disposed it, so an enumerator that releases a
+reader, a connection or a lock in `Dispose` still held it after a `for`-`of`, a spread or `Array.from` had run to the
+end. A C# iterator method's `finally` was not affected, since it runs when the method runs out. A step after the end
+answers done without calling `MoveNext` on the disposed enumerator. A loop over a wrapped dictionary that ends early
+now disposes the enumerator over the dictionary's keys, which it never did: a `break`, a `return` or a throw from the
+body, or a destructuring that reads fewer entries than the dictionary has. So does `Array.fromAsync` whose mapping
+function throws, when a `Symbol.asyncIterator` method answered a CLR collection's iterator. A step that throws — the
+host's `MoveNext` or `Current`, or a dictionary's value read — now disposes the enumerator as well, and the iterator
+answers done from then on. A `Dispose` that throws while a destructuring or `Array.from` is already leaving by a throw
+no longer replaces that throw, as it already did not for a `for`-`of`. There is no switch back.
+
+### 4.197 A decorator's instance `addInitializer` callbacks run where the decorators spec text puts them, and leave no `"undefined"` property ([#4421](https://github.com/sebastienros/jint/issues/4421))
+
+The callbacks that an instance element's decorators pass to `context.addInitializer` now run where the decorators
+spec text ([tc39/ecma262#2417](https://github.com/tc39/ecma262/pull/2417)) runs them as an instance is initialized.
+Those of a method, a getter or a setter run before the instance fields are defined. Those of a field or an
+`accessor` run right after that field or accessor is initialized. In 4.16 and earlier 5.0 builds they all ran after
+the last instance field. Jint ran them through an extra field with no name, so every instance of such a class also
+got an own property named `"undefined"`:
+
+```js
+const log = [];
+const init = (name) => (value, context) => { context.addInitializer(() => log.push("init " + name)); };
+class C {
+  @init("m") m() {}
+  @init("x") x = log.push("x");
+  y = log.push("y");
+}
+const c = new C();
+[log.join(), Object.hasOwn(c, "undefined")]
+// 4.16.x / earlier 5.0: ["x,y,init m,init x", true]    5.x: ["init m,x,init x,y", false]
+```
+
+A base class runs them before its constructor body, and a derived class when `super()` returns, as it does its
+fields. A callback that throws now ends the construction before the fields after it are defined. A callback that
+freezes the instance once its last field is defined no longer makes the construction throw, as it did when the frozen
+instance was then given its `"undefined"` property. There is no switch back.
+
+### 4.198 Closing a built-in iterator calls a `return` the script added ([#4406](https://github.com/sebastienros/jint/issues/4406))
+
+A loop or a destructuring that stops before an iterator is done closes it: it reads `return` off the iterator and
+calls it. No built-in iterator has a `return`, but a script can add one, on the iterator itself, on its prototype, on
+`Iterator.prototype` or on `Object.prototype`. In 4.16 and earlier 5.0 builds Jint never looked for one when it closed
+a built-in iterator: one over an array, a typed array, a `Map`, a `Set` or a string, one from `matchAll`, from
+`Intl.Segmenter`, from a wrapped CLR collection, or from `Headers`, `FormData` or `URLSearchParams`:
+
+```js
+var log = [];
+Object.getPrototypeOf([].values()).return = function () { log.push("closed"); return {}; };
+for (var x of [1, 2]) break;
+var [a] = [1, 2];
+log
+// 4.16.x / earlier 5.0: []    5.x: ["closed", "closed"]
+```
+
+The `return` is now called by:
+
+- a `for`-`of` left by `break`, `return`, a throw or a `continue` to an outer loop, and a generator's `return()` while
+  it is suspended inside one;
+- a destructuring or a function parameter's array pattern that stops before the end, including an empty pattern;
+- `Array.from` whose mapping function throws, and the other built-ins that close an iterator on failure;
+- `yield*` handed a `throw()` its delegate has no `throw` for;
+- a `for await` over a sync iterable whose element is a rejected promise;
+- a `for await` whose `Symbol.asyncIterator` method answers a built-in iterator.
+
+A `return` that throws, that is not a function, or that answers something other than an object now makes such a
+close throw, unless the loop is already leaving by a throw, which wins. A `for`-`in` loop still closes nothing, and
+neither does an iteration that runs to its end. `Math.sumPrecise` and the `entryTypes` list of
+`PerformanceObserver.prototype.observe` used to close the iterator after it had run out. Now they close it only when
+they throw.
+
+To call the `return`, destructuring an array (`var [a] = arr`) and an array parameter (`function f([a])`) now create
+the array's iterator whenever a `return` is on its chain. Without one, they still read the array by index. The
+iterator for a string primitive inherits the string iterator prototype, as the specified one does, so it never finds
+a `return` set on `%ArrayIteratorPrototype%`. Neither does an `Intl.Segmenter` segments iterator, which inherits a
+prototype of its own since §4.204.
+
+A function parameter's array pattern now steps its iterator one element at a time. Each element's default is
+evaluated before the next step, and the iterator is closed only after every default has run, or with the throw of a
+default that throws. In 4.16 and earlier 5.0 builds it took every element before running any default, and closed the
+iterator before the defaults:
+
+```js
+var log = [];
+var iterable = { [Symbol.iterator]() { return {
+  next() { log.push("next"); return { value: undefined, done: false }; },
+  return() { log.push("return"); return {}; } }; } };
+(function ([a = log.push("default a"), b = log.push("default b")]) {})(iterable);
+log
+// 4.16.x / earlier 5.0: ["next", "next", "return", "default a", "default b"]
+// 5.x: ["next", "default a", "next", "default b", "return"]
+```
+
+Such a pattern that runs its iterator to the end no longer closes it. In 4.16 and earlier 5.0 builds it called
+`return` after the iterator had answered done, for any iterator that had a `return`. An empty pattern
+(`function f([])`) now closes the iterator, which it never did.
+
+A wrapped CLR collection's iterator still disposes its `IEnumerator` when it is closed. When the script has given it a
+`return`, the `return` is called first and the enumerator is disposed after it, also when the `return` throws or
+answers something other than an object. A `for await` disposes once the promise the `return` answered has settled. In
+4.16 and earlier 5.0 builds the enumerator was disposed and the `return` never called. The iterator answers done from
+then on, so a later loop over the same iterator object finds nothing to step.
+
+If `Dispose` throws while a throw is already leaving the close, the `Dispose` exception is discarded and that throw
+wins. The throw can be the loop's own, what the `return` threw, or the `TypeError` for its non-object answer. A
+`yield*` in an async generator that closes a CLR collection's iterator for want of a `throw` now disposes it too. A
+step that throws still disposes the enumerator and calls no `return`. There is no switch back.
+
+### 4.199 Spread and array destructuring call a replaced `next` on the array iterator prototype ([#4418](https://github.com/sebastienros/jint/issues/4418))
+
+Spreading or destructuring an array takes an iterator from it: `Array.prototype.values` answers an array iterator, and
+every step calls the `next` read off that iterator. In 4.16 and earlier 5.0 builds, spread in an array literal, a call
+or `new`, and array destructuring in a declaration, an assignment, a parameter, a `for`-`of` head or a `catch`
+parameter read the array by index whenever its `Symbol.iterator` was `Array.prototype.values`. A `next` the script had
+put on the array iterator prototype was never called:
+
+```js
+Object.getPrototypeOf([][Symbol.iterator]()).next = () => ({ done: true });
+var arr = [1, 2];
+var [x] = arr;
+[[...arr], x]
+// 4.16.x / earlier 5.0: [[1, 2], 1]    5.x: [[], undefined]
+```
+
+Now they call it, as `for`-`of`, `Array.from`, `new Set()` and `yield*` over an array already did, and a getter on
+`next` runs once per destructuring as it did once per spread. The same holds for destructuring a host
+`ArrayLikeObject` whose `Symbol.iterator` is `Array.prototype.values`, and a wrapped CLR list, whose iterator inherits
+that `next`. An array whose `Symbol.iterator` and `next` are both the built-in ones is still read by index. There is no
+switch back.
+
+### 4.200 `yield*` calls the `next` it read once ([#4424](https://github.com/sebastienros/jint/issues/4424))
+
+`yield*` reads its delegate's `next` once, when it takes the iterator, and every step calls what was read. Before,
+`yield*` read `next` a second time before the first step for some delegates Jint steps natively. In 4.16 those were
+the iterators of an array, a typed array and an `arguments` object. Earlier 5.0 builds added a built-in iterator object
+that has a property of its own, such as a `Set`, `Map`, string or CLR collection iterator, which 4.16 read once. A
+getter on `next` ran twice, and a `next` replaced while the first read ran was the one called:
+
+```js
+var P = Object.getPrototypeOf([][Symbol.iterator]());
+var d = Object.getOwnPropertyDescriptor(P, "next");
+var reads = 0;
+Object.defineProperty(P, "next", { get() { reads++; return d.value; }, configurable: true });
+for (var x of (function* () { yield* [1, 2]; })());
+reads
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+An async generator read it twice as well when a `Symbol.asyncIterator` method answered such an iterator. A `next` that
+was not a function when it was read now fails the first step with a `TypeError`, even if the delegate has a callable
+`next` by then. There is no switch back.
+
+### 4.201 Returning from a generator suspended in `yield*` disposes a CLR collection's enumerator ([#4429](https://github.com/sebastienros/jint/issues/4429))
+
+A generator suspended in `yield*` passes a `return()` on to the delegate: it calls the delegate's `return`, or finishes
+with the value it was given when there is none. In 4.16 and earlier 5.0 builds, a delegate that was a wrapped CLR
+collection, or an iterator it handed out, kept its `IEnumerator` undisposed after that, in a generator and in an async
+generator. The one exception was an async generator delegating to the collection itself with no `return` on its
+iterator:
+
+```js
+// host: engine.SetValue("list", list);   // an IEnumerable whose enumerator counts its Dispose calls
+function* g() { yield* list; }
+const it = g(); it.next(); it.return(1);
+// 4.16.x / earlier 5.0: not disposed    5.x: disposed once
+```
+
+Now the enumerator is disposed when the delegation ends: at once if there is no `return`, and otherwise after the
+`return` answers done, throws, or answers something other than an object. An async generator disposes it once that
+answer has settled. A `return` that answers not done keeps the delegation going, so the enumerator stays for the
+steps after it. If `Dispose` throws while the `return`'s throw or `TypeError` is leaving, that throw wins. There is no
+switch back.
+
+### 4.202 The async iterator helpers call the `next` they read once ([#4419](https://github.com/sebastienros/jint/issues/4419))
+
+The `AsyncIterator.prototype` helpers read the iterator's `next` method once, when they take the iterator, and every
+step calls what was read. That covers `map`, `filter`, `take`, `drop`, `flatMap`, `reduce`, `toArray`, `forEach`,
+`some`, `every` and `find`, and the wrapper `AsyncIterator.from` answers. In 4.16 and earlier 5.0 builds they read
+`next` again on every step. A getter on `next` ran once more per step, and a `next` replaced during the iteration was
+called from the following step on:
+
+```js
+var reads = 0, i = 0;
+var source = { get next() { reads++; return () => Promise.resolve({ value: ++i, done: i > 3 }); } };
+AsyncIterator.prototype.toArray.call(source);
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: reads === 5    5.x: reads === 1
+```
+
+A `next` that was not a function when it was read now fails the first step with a `TypeError`, even if the object has
+a callable `next` by then. `AsyncIterator.from` now reads `next` before it checks whether the iterator is already an
+`AsyncIterator`, and also when it then answers that iterator itself; it used to read `next` only to wrap one. The
+`Iterator.prototype` helpers and `Iterator.from` already read it once.
+
+`flatMap` steps each inner iterator through the `next` it read once too. A mapper answering an object with no `next`
+and no iterator method now rejects the step with a `TypeError` and closes the source iterator; in 4.16 and earlier 5.0
+builds that object was skipped. After an inner iterator's `next` throws, `return()` on the helper no longer calls that
+inner iterator's `return`. There is no switch back.
+
+### 4.204 `Iterator.prototype` has no `next`, and a segments iterator has a prototype of its own ([#4407](https://github.com/sebastienros/jint/issues/4407))
+
+Each built-in iterator prototype has a `next` of its own: the array iterator prototype, the `Map`, `Set`, string and
+`matchAll` iterator prototypes, and those of `Headers`, `FormData` and `URLSearchParams`. `Iterator.prototype`, which
+they all inherit, has none. In 4.16 and earlier 5.0 builds it had one too. Deleting a kind's `next` uncovered it, so the
+iterators of that kind went on iterating, and a class extending `Iterator` inherited it:
+
+```js
+delete Object.getPrototypeOf([].values()).next;
+[...[1, 2]]
+// 4.16.x / earlier 5.0: [1, 2]    5.x: TypeError
+Object.hasOwn(Iterator.prototype, "next")
+// 4.16.x / earlier 5.0: true    5.x: false
+```
+
+Now a deleted `next` leaves nothing to inherit. A loop, a spread, a destructuring, `Array.from` or `yield*` over such an
+iterator throws a `TypeError`, unless the script has put a `next` higher up the chain, which is then called.
+
+An `Intl.Segmenter` segments iterator now inherits a prototype of its own. Its `Symbol.toStringTag` is
+`"Segmenter String Iterator"`, and it inherits `Iterator.prototype`. In 4.16 and earlier 5.0 builds the iterator
+inherited the array iterator prototype:
+
+```js
+var it = new Intl.Segmenter().segment("ab")[Symbol.iterator]();
+Object.prototype.toString.call(it)
+// 4.16.x / earlier 5.0: "[object Array Iterator]"    5.x: "[object Segmenter String Iterator]"
+```
+
+So a `next` or a `return` set on the array iterator prototype no longer reaches a segments iterator, and one set on the
+segments iterator's prototype no longer reaches an array. The prototype is the one of the realm whose
+`Intl.Segmenter.prototype.segment` created the segments object. It used to be the array iterator prototype of whichever
+realm was running. There is no switch back.
+
+### 4.206 `Intl.ListFormat` iterates its argument as the spec says, and calls the `next` it read once ([#4438](https://github.com/sebastienros/jint/issues/4438))
+
+`Intl.ListFormat.prototype.format` and `formatToParts` take an iterator from their argument, read its `next` method
+once, and call what was read on every step. In 4.16 and earlier 5.0 builds they read `next` again on every step, so a
+getter on `next` ran once more per step and a `next` replaced during the iteration was called from the following step
+on:
+
+```js
+var reads = 0, it = ['a', 'b'].values(), next = it.next.bind(it);
+Object.defineProperty(it, 'next', { get() { reads++; return next; } });
+new Intl.ListFormat('en').format({ [Symbol.iterator]() { return it; } });
+reads
+// 4.16.x / earlier 5.0: 3    5.x: 1
+```
+
+Every argument but `undefined` now goes through its `Symbol.iterator`, which changes what some arguments produce:
+
+- A string is split by code point, not by UTF-16 code unit: `format('a😀')` is `'a and 😀'`, where it used to format
+  the two halves of the emoji as separate elements.
+- An array is read through its iterator, so a replaced `Symbol.iterator` or array iterator `next` is called, and
+  elements added during the iteration are included.
+- An object with no `Symbol.iterator`, such as `{ length: 2, 0: 'a', 1: 'b' }`, throws a `TypeError`. It used to be
+  formatted as an array-like.
+- A `Symbol.iterator` that answers a primitive, and a `next` that answers one, throw a `TypeError`. Both used to end the
+  list quietly.
+
+A non-string element still throws a `TypeError` and closes the iterator. The `TypeError` is now what is thrown even
+when the iterator's `return` throws, and a `return` added to the array iterator prototype is called for an array.
+There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -6762,7 +7742,7 @@ none of it changes an engine that does not.
 | Area | Enable with | Reference |
 | --- | --- | --- |
 | WHATWG web APIs — `console`, timers, `URL`, encoding, streams, `fetch`, storage, `WebSocket`, `EventSource`, crypto | `options.UseWebApis(...)` | [Web APIs](web-apis.md) |
-| Web Workers, on a thread you supply | `options.UseWebApis().UseWorkers(provider)` | [Workers](web-apis/workers.md) |
+| Web Workers, on a thread you supply; `WorkerType.Classic = 1` additionally identifies classic scripts supported by Browser's provider (`Module = 0` is unchanged) | `options.UseWebApis().UseWorkers(provider)`; Browser's default provider accepts classic and module dedicated workers and snapshots the browser's navigator languages | [Workers](web-apis/workers.md) |
 | Node compatibility — the `process` shim, `node:` builtin modules | `options.UseNodeProcess()`, `options.UseNodeBuiltinModules()` | [Node compatibility](node-compatibility.md) |
 | Script profiling — a sampling profiler writing [Firefox Profiler](https://profiler.firefox.com) profiles with script / built-in / host-interop frame categories, and an evented one writing speedscope profiles | `options.Profiling.Enabled = true` | [Profiling](profiling.md) |
 | Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage](code-coverage.md) |
@@ -6782,7 +7762,7 @@ none of it changes an engine that does not.
 | Reading the body of the response an observer is answering, against a memory allowance you own, without the caller losing a byte | override `OnInterceptedResponseAsync` instead of `OnResponseAsync` | [§5.34](#5-34-a-fetch-observer-can-read-the-body-of-the-response-it-is-answering-3828) |
 | When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#5-29-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Jint.DevTools](../packages/jint-devtools/index.md) |
-| A headless browser — the native DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
+| A headless browser — the native DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line; same-origin frame modules now use document-local maps, and same-page messages identify their source window | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
 | A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Jint.Browser.Mcp](../packages/jint-browser-mcp/index.md) |
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#5-27-a-host-can-list-the-global-lexical-bindings-3610) |
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#5-28-a-function-value-names-the-program-it-was-parsed-in-3666) |
@@ -7879,8 +8859,10 @@ What the read promises:
   socket again. A success is immutable and reused by every later read.
 - **A failure is thrown, never returned as a short body**, and the read is valid only while the callback is
   running — the context is sealed as soon as it returns.
-- **Nothing is read unless it is asked for.** `fetch`, a document or subresource load, `XMLHttpRequest` and
-  `EventSource` all stay streaming for an observer that does not call `TryReadBodyAsync`.
+- **The observer reads nothing unless it asks.** An observer that does not call `TryReadBodyAsync` leaves
+  the body streaming. After interception returns, `fetch` permits bounded read-ahead: up to a 64 KiB queue
+  plus at most one transport chunk. Small bodies can finish without a consumer; larger unread bodies
+  backpressure the transport. Read-ahead does not mark `bodyUsed` or discard bytes.
 
 A read waits for the whole body, so reading a response that never ends — a server-sent event stream — is
 bounded only by `Options.WebApi.Fetch.Timeout`. Decide per response whether to read.

@@ -54,8 +54,10 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     internal IteratorInstance? _delegatingIterator;
 
     /// <summary>
-    /// The cached [[NextMethod]] obtained once before the yield* delegation loop.
-    /// Per spec step 7.a.i, next must be fetched once, not per-iteration.
+    /// The [[NextMethod]] of <see cref="_delegatingIterator"/>, the record yield* delegates to, which every step of the
+    /// delegation calls and nothing reads again. <see langword="null"/> when the record holds no callable: one Jint steps
+    /// natively, whose step is <see cref="IteratorInstance.CallNextMethod"/>, or one whose <c>next</c> could not be
+    /// called, which that method rejects with a <c>TypeError</c> (sebastienros/jint#4424).
     /// </summary>
     internal ICallable? _delegatingNextMethod;
 

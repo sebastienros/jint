@@ -61,7 +61,7 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
           else
             PREFIX="$(dotnet msbuild Jint.Browser.Tool/Jint.Browser.Tool.csproj -getProperty:VersionPrefix | tr -d '\r')"
-            VERSION="$PREFIX-preview-$GITHUB_RUN_NUMBER"
+            VERSION="$PREFIX-preview.$GITHUB_RUN_NUMBER"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "numeric=${VERSION%%-*}" >> "$GITHUB_OUTPUT"

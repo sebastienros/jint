@@ -142,8 +142,36 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     internal sealed override bool IsSpecArray() => true;
 
+    // Both methods GetIterator reaches have to be the built-ins: `next` on the fresh array iterator this array's realm's
+    // %Array.prototype.values% creates, and @@iterator, one property read, which has to resolve to that values function
+    // (sebastienros/jint#4418). Until a script has touched an %ArrayIteratorPrototype% of this engine, `next` is one byte
+    // test (Engine._arrayIteratorNextMayBeReplaced); after that the realm's Array.prototype answers, out of line. `next`
+    // first: when it was replaced, the caller's GetIterator makes the only @@iterator read.
     internal sealed override bool HasOriginalIterator
-        => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _constructor?.PrototypeObject._originalIteratorFunction);
+    {
+        get
+        {
+            if (_engine._arrayIteratorNextMayBeReplaced && !ArrayIteratorsStepNatively())
+            {
+                return false;
+            }
+
+            return ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _constructor?.PrototypeObject._originalIteratorFunction);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool ArrayIteratorsStepNatively() => _constructor?.PrototypeObject.ArrayIteratorsStepNatively() == true;
+
+    /// <summary>
+    /// Whether the iterator the <c>%Array.prototype.values%</c> that <see cref="HasOriginalIterator"/> found would create
+    /// has no <c>return</c>. It inherits that function's realm's <c>%ArrayIteratorPrototype%</c>, which is this array's
+    /// constructor's realm. The destructuring lanes read the array by index in place of that iterator, and the pattern
+    /// closes it unless it ran out (https://tc39.es/ecma262/#sec-iteratorclose), so they may do so only while there is
+    /// no <c>return</c> to call (sebastienros/jint#4406).
+    /// </summary>
+    internal bool OriginalIteratorInheritsNoReturnMethod
+        => (_constructor?._realm ?? _engine.Realm).Intrinsics.ArrayIteratorPrototype.InstancesInheritNoReturnMethod();
 
     /// <summary>
     /// Checks whether there have been changes to object prototype chain which could render fast access patterns impossible.

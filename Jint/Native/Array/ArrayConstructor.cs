@@ -263,29 +263,41 @@ public sealed partial class ArrayConstructor : Constructor
 
         var target = ArrayOperations.For(instance, forWrite: true);
 
+        // The loop calls the record's [[NextMethod]], which GetIteratorFromMethod read once, and never reads `next`
+        // again (sebastienros/jint#4410).
         if (usingAsyncIterator is not null)
         {
             // Use async iterator directly - GetIterator with Async hint handles the wrapping
             var iterator = asyncItems.GetIterator(_realm, GeneratorKind.Async, usingAsyncIterator);
-            FromAsyncIteratorLoop(iterator.Instance, target, callable, thisArg, promiseCapability, 0);
+            FromAsyncIteratorLoop(iterator, target, callable, thisArg, promiseCapability, 0);
         }
         else if (usingSyncIterator is not null)
         {
-            // Wrap sync iterator in async wrapper
+            // CreateAsyncFromSyncIterator, https://tc39.es/ecma262/#sec-createasyncfromsynciterator: the record around
+            // the wrapper, whose [[NextMethod]] is the wrapper's own `next`.
             var syncIterator = asyncItems.GetIterator(_realm, GeneratorKind.Sync, usingSyncIterator);
-            var asyncIterator = new AsyncFromSyncIterator(_engine, syncIterator);
+            var asyncIterator = new IteratorInstance.ObjectIterator(new AsyncFromSyncIterator(_engine, syncIterator));
             FromAsyncIteratorLoop(asyncIterator, target, callable, thisArg, promiseCapability, 0);
         }
     }
 
-    private static void AsyncIteratorClose(Engine engine, ObjectInstance iterator)
+    private static void AsyncIteratorClose(Engine engine, IteratorInstance iteratorRecord)
     {
         try
         {
-            var returnMethod = iterator.GetMethod(CommonProperties.Return);
-            if (returnMethod is not null)
+            try
             {
-                returnMethod.Call(iterator, Arguments.Empty);
+                var iterator = iteratorRecord.Instance;
+                var returnMethod = iterator.GetMethod(CommonProperties.Return);
+                returnMethod?.Call(iterator, Arguments.Empty);
+            }
+            finally
+            {
+                // A CLR collection's iterator the record holds - itself, or behind the CreateAsyncFromSyncIterator wrapper
+                // - disposes its host enumerator in its native close, as a for await loop's close does: in place of a
+                // missing `return` (AsyncIteratorClose step 4.b, https://tc39.es/ecma262/#sec-asynciteratorclose;
+                // sebastienros/jint#4410), and after one, since nothing here awaits what it answered (sebastienros/jint#4406).
+                iteratorRecord.CloseNativeStateAfterReturn(CompletionType.Throw);
             }
         }
         catch (Exception)
@@ -295,7 +307,7 @@ public sealed partial class ArrayConstructor : Constructor
     }
 
     private void FromAsyncIteratorLoop(
-        ObjectInstance iterator,
+        IteratorInstance iterator,
         ArrayOperations target,
         ICallable? callable,
         JsValue thisArg,
@@ -304,15 +316,8 @@ public sealed partial class ArrayConstructor : Constructor
     {
         try
         {
-            // Get next method and call it
-            var nextMethod = iterator.Get(CommonProperties.Next);
-            if (nextMethod is not ICallable nextCallable)
-            {
-                promiseCapability.Reject(_realm.Intrinsics.TypeError.Construct("Iterator next is not a function"));
-                return;
-            }
-
-            var next = nextCallable.Call(iterator, Arguments.Empty);
+            // Call(iteratorRecord.[[NextMethod]], iteratorRecord.[[Iterator]])
+            var next = iterator.CallNextMethod();
 
             // The result should be a promise (or wrap it in one)
             var promiseResolve = _realm.Intrinsics.Promise.PromiseResolve(next);
@@ -370,7 +375,7 @@ public sealed partial class ArrayConstructor : Constructor
         JsValue thisArg,
         PromiseCapability promiseCapability,
         ulong k,
-        ObjectInstance iterator,
+        IteratorInstance iterator,
         Action continueLoop)
     {
         if (callable is not null)
@@ -401,7 +406,7 @@ public sealed partial class ArrayConstructor : Constructor
         PromiseCapability promiseCapability,
         ulong k,
         Action continueLoop,
-        ObjectInstance? iterator = null)
+        IteratorInstance? iterator = null)
     {
         try
         {

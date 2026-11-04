@@ -32,3 +32,9 @@ Important defaults:
 A turn is one posted page call, one event-loop drain, or one inline script. A host call exceeding its turn budget faults with `TimeoutException`; a runaway script or queued callback becomes a `PageErrorKind.BudgetExceeded`, and the page remains usable.
 
 `NavigationOptions.Timeout` separately bounds a whole navigation. `WaitForIdleAsync` and `WaitForNetworkIdleAsync` also take caller-supplied ceilings.
+
+Network idle counts live requests, not timers or animation callbacks. Fetch response streams permit
+bounded read-ahead with a 64 KiB high-water mark, so small finite responses can finish even when script
+only checks their status or headers. The bytes remain readable and `bodyUsed` stays false until consumption.
+Larger unread bodies backpressure the transport; incomplete streams remain active until EOF, cancellation
+or failure rather than being considered complete at headers.

@@ -85,25 +85,25 @@ jobs:
       run: python3 tools/check_html_parser_version.py
 
     - name: Pack with dotnet
-      run: dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
+      run: dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:VersionSuffix=preview.$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
     - name: Pack Jint.DevTools with dotnet
-      run: dotnet pack Jint.DevTools/Jint.DevTools.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
+      run: dotnet pack Jint.DevTools/Jint.DevTools.csproj --output artifacts --configuration Release -p:VersionSuffix=preview.$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
     - name: Pack Jint.HtmlParser with dotnet
-      run: dotnet pack Jint.HtmlParser/Jint.HtmlParser.csproj --output artifacts --configuration Release -p:VersionSuffix="preview-$GITHUB_RUN_NUMBER" -p:ContinuousIntegrationBuild=True
+      run: dotnet pack Jint.HtmlParser/Jint.HtmlParser.csproj --output artifacts --configuration Release -p:VersionSuffix="preview.$GITHUB_RUN_NUMBER" -p:ContinuousIntegrationBuild=True
 
     - name: Pack Jint.Browser with dotnet
-      run: dotnet pack Jint.Browser/Jint.Browser.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
+      run: dotnet pack Jint.Browser/Jint.Browser.csproj --output artifacts --configuration Release -p:VersionSuffix=preview.$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
     - name: Pack Jint.Browser.Mcp with dotnet
-      run: dotnet pack Jint.Browser.Mcp/Jint.Browser.Mcp.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
+      run: dotnet pack Jint.Browser.Mcp/Jint.Browser.Mcp.csproj --output artifacts --configuration Release -p:VersionSuffix=preview.$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
     # The preview tool is the managed, framework-dependent build (net10.0 and net11.0, run by `dotnet`), not the
     # release's manifest over six Native AOT RID packages: building those on every push to main is the cost this
     # workflow no longer pays. release.yml builds them; run browser-tool.yml by hand for a native build of a branch.
     - name: Pack Jint.Browser.Tool with dotnet
-      run: dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
+      run: dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj --output artifacts --configuration Release -p:VersionSuffix=preview.$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
     - name: Push with dotnet
       env:
@@ -111,6 +111,14 @@ jobs:
       run: |
         for package in artifacts/*.nupkg; do
           dotnet nuget push "$package" --api-key "$FEEDZ_IO_API_KEY" --skip-duplicate --source https://f.feedz.io/sebastienros/jint/nuget/index.json
+        done
+        # Previews used to be versioned <prefix>-preview-<run number>, which NuGet orders as text (preview-999 is
+        # newer than preview-1000) and above every <prefix>-preview.<run number>. Delete them so they don't shadow newer builds.
+        for package in artifacts/*.nupkg; do
+          id=$(basename "$package" | sed -E 's/\.[0-9]+\.[0-9]+\.[0-9]+-.*$//' | tr '[:upper:]' '[:lower:]')
+          for version in $(curl -fsS "https://f.feedz.io/sebastienros/jint/nuget/v3/packages/$id/index.json" | jq -r '.versions[] | select(test("-preview-[0-9]+$"))'); do
+            dotnet nuget delete "$id" "$version" --api-key "$FEEDZ_IO_API_KEY" --source https://f.feedz.io/sebastienros/jint/nuget/index.json --non-interactive
+          done
         done
 
   # The mirror of the PR workflow's "windows - packaged generator" job, and there for the same reason

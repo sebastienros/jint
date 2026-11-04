@@ -9,6 +9,8 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.WebApi.Events;
 using Jint.WebApi;
+using Jint.WebApi.DomException;
+using Jint.WebApi.Messaging;
 using Jint.WebApi.StructuredClone;
 
 namespace Jint.Browser.Runtime;
@@ -263,6 +265,13 @@ internal static class WindowInstaller
                 var dom = DomRealm.Of(engine, realm);
                 return new ClrFunction(engine, realm, "getComputedStyle", (_, arguments) =>
                     GetComputedStyle(RuntimeOf(engine, "getComputedStyle"), dom, arguments), 1);
+            }, enumerable: true)
+            .PerRealmSlot("postMessage", static prototype =>
+            {
+                var engine = prototype.Engine;
+                var realm = prototype.CreationRealm;
+                return new ClrFunction(engine, realm, "postMessage", (_, arguments) =>
+                    PostMessage(RuntimeOf(engine, "postMessage"), realm, arguments), 1);
             }, enumerable: true);
         foreach (var type in _eventHandlers)
         {
@@ -571,32 +580,70 @@ internal static class WindowInstaller
     }
 
     private static JsValue PostMessage(PageRuntime runtime, JsValue[] arguments)
+        => PostMessage(runtime, runtime.Engine._mainRealm, arguments);
+
+    // https://html.spec.whatwg.org/multipage/web-messaging.html#window-post-message-steps
+    private static JsValue PostMessage(PageRuntime runtime, Realm targetRealm, JsValue[] arguments)
     {
         var engine = runtime.Engine;
-        var realm = engine._mainRealm;
+        var sender = DomRealm.Of(engine, engine.Realm);
+        var source = engine.Realm.GlobalObject;
+        var sourceOrigin = DomDocumentMetadata.CreatorOrigin(sender);
+        var (expectedOrigin, transfers) = ReadMessageOptions(runtime, engine.Realm, sourceOrigin, arguments);
+        var target = DomRealm.Of(engine, targetRealm);
 
-        // https://html.spec.whatwg.org/multipage/web-messaging.html#window-post-message-steps step 8: the
-        // message is serialized now, in the caller's turn, and deserialized into the event later — so a
-        // mutation between the two is not observed by the listener.
-        var message = StructuredCloner.Clone(engine, realm, arguments.At(0), transferList: null);
-        var origin = JsString.Create(DomDocumentMetadata.CreatorOrigin(runtime.Dom).Serialized);
+        var record = new StructuredSerializer(engine, engine.Realm).Serialize(arguments[0], transfers);
 
         engine.Tasks.Post(() =>
         {
-            var target = engine._webApi?.GlobalEventTarget;
-            if (target is null)
+            if (target.Document is not { } document ||
+                !ReferenceEquals(DomBrowsingContext.Of(document)?.Active, document) ||
+                expectedOrigin is not null && !expectedOrigin.IsSameOrigin(DomDocumentMetadata.CreatorOrigin(target))) return;
+            using var scope = new RealmScope(engine, targetRealm);
+            var message = new StructuredDeserializer(engine, targetRealm).DeserializeWithTransfer(in record);
+            var constructor = targetRealm.Intrinsics.MessageEvent;
+            var ports = constructor.CreateTrustedMessageEvent(JsString.Create("message"), message.Value, message.Ports).Ports;
+            var ev = new JsMessageEvent(engine, JsString.Create("message"), default,
+                EventConstructor.TimeStampNow(engine), message.Value, JsString.Create(sourceOrigin.Serialized),
+                JsString.Empty, source, ports)
             {
-                return;
-            }
-
-            target.DispatchEvent(realm.Intrinsics.MessageEvent.CreateTrustedMessageEvent(
-                JsString.Create("message"),
-                message,
-                origin,
-                JsString.Empty));
+                IsTrusted = true,
+                _prototype = constructor.PrototypeObject,
+            };
+            PageEvents.Dispatch(runtime, engine._webApi!.GlobalEventTargetFor(targetRealm), ev);
         });
 
         return JsValue.Undefined;
+    }
+
+    internal static (DomDocumentOrigin? Origin, List<JsValue>? Transfers) ReadMessageOptions(
+        PageRuntime runtime, Realm realm, DomDocumentOrigin sourceOrigin, JsValue[] arguments)
+    {
+        if (arguments.Length == 0) Throw.TypeError(realm, "postMessage requires a message.");
+        var second = arguments.At(1);
+        string targetOrigin;
+        List<JsValue>? transfers;
+        if (arguments.Length < 3 && (second is ObjectInstance || second.IsNullOrUndefined()))
+        {
+            var origin = second is ObjectInstance options ? options.Get("targetOrigin") : JsValue.Undefined;
+            targetOrigin = origin.IsUndefined() ? "/" : TypeConverter.ToString(origin);
+            transfers = StructuredSerializeOptions.ReadTransferOption(realm, second, "postMessage");
+        }
+        else
+        {
+            targetOrigin = TypeConverter.ToString(second);
+            transfers = arguments.At(2).IsUndefined() ? null
+                : StructuredSerializeOptions.ReadTransferSequence(realm, arguments[2], "postMessage");
+        }
+        DomDocumentOrigin? expectedOrigin = null;
+        if (targetOrigin == "/") expectedOrigin = sourceOrigin;
+        else if (targetOrigin != "*")
+        {
+            var parsed = PageUrl.Parse(targetOrigin, null);
+            if (parsed is null) WindowOpen.ThrowDom(runtime, DomExceptionNames.Syntax, "Invalid target origin '" + targetOrigin + "'.");
+            expectedOrigin = DomDocumentOrigin.FromUrl(parsed!.Serialize());
+        }
+        return (expectedOrigin, transfers);
     }
 
     /// <summary>One <c>on<i>type</i></c> attribute pair, holding the event type and nothing engine-specific.</summary>
