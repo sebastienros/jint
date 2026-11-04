@@ -2237,6 +2237,13 @@ public sealed partial class Engine : IDisposable
     // ArrayPrototype.ArrayIteratorsStepNatively answers from what it validated. A host writing through the raw
     // SetProperty (DefineOwnPropertyUnchecked) or a fetched descriptor's Value bypasses it, as it bypasses
     // _builtinIteratorChainMayHaveReturn.
+    //
+    // The invariant three lanes that skip DefineOwnProperty rest on: an %ArrayIteratorPrototype% stays in built-in-shape
+    // mode until a DefineOwnProperty, a RemoveOwnProperty or a host's raw SetProperty takes it out. The first two set this
+    // field, and the third is the host caveat above; nothing in the engine writes to the prototype after initializing it.
+    // The dictionary-mode in-place stores of ObjectInstance.Set (its two-argument and three-argument fast paths) and the
+    // brand-new-key lane of ObjectInstance.CreateDataProperty all exclude a built-in-shape object, so by the time one of
+    // them can reach this prototype, this field is already set.
     internal bool _arrayIteratorNextMayBeReplaced;
 
     /// <summary>
