@@ -257,8 +257,7 @@ public sealed class WebIdlIteratorReadTests
     }
 
     /// <summary>
-    /// The <c>TypeError</c> a non-callable <c>@@iterator</c> raises is GetMethod's, and it comes from the realm the
-    /// conversion runs in.
+    /// A non-callable <c>@@iterator</c> raises GetMethod's <c>TypeError</c>; the message pinned here is Jint's own.
     /// </summary>
     [Test]
     public void ANonCallableIteratorIsGetMethodsTypeError()

@@ -194,8 +194,9 @@ internal sealed partial class WebSocketConstructor : Constructor
 
     /// <summary>
     /// The <c>(DOMString or sequence&lt;DOMString&gt;)</c> conversion, https://webidl.spec.whatwg.org/#es-union:
-    /// an object with an iterator is the sequence arm, and everything else — including an object without one —
-    /// is stringified into a one-element list. An omitted argument is the IDL default, the empty sequence.
+    /// an object whose <c>@@iterator</c> is a method is the sequence arm, a non-callable <c>@@iterator</c> that is
+    /// not null or undefined throws GetMethod's <c>TypeError</c>, and everything else, including an object without
+    /// one, is stringified into a one-element list. An omitted argument is the IDL default, the empty sequence.
     /// </summary>
     private List<string> ReadProtocols(JsValue protocols)
     {

@@ -7755,8 +7755,8 @@ There is no switch back.
 ### 4.210 The web APIs read `Symbol.iterator` once to tell a sequence from the alternative, and `Headers` refuses a non-callable one ([#4449](https://github.com/sebastienros/jint/issues/4449))
 
 Several web APIs take either a sequence or something else in the same argument. They read the argument's
-`Symbol.iterator` once to decide, and iterate with the method that read found. In 4.16 and earlier 5.0 builds they
-read it a second time to take the iterator, so a getter on `Symbol.iterator` ran twice:
+`Symbol.iterator` once to decide, and iterate with the method that read found. Earlier previews read it a second
+time to take the iterator, so a getter on `Symbol.iterator` ran twice:
 
 ```js
 let reads = 0;
@@ -7765,7 +7765,7 @@ const it = init[Symbol.iterator];
 Object.defineProperty(init, Symbol.iterator, { get() { reads++; return it; } });
 new Headers(init);
 reads
-// 4.16.x / earlier 5.0: 2    5.x: 1
+// earlier previews: 2    5.x: 1
 ```
 
 The arguments that changed are:
