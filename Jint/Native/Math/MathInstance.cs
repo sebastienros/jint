@@ -978,7 +978,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
     }
 
     /// <summary>
-    /// https://github.com/tc39/proposal-math-sum
+    /// https://tc39.es/ecma262/#sec-math.sumprecise
     /// </summary>
     [JsFunction(Length = 1, Name = "sumPrecise")]
     private JsValue SumPrecise(JsValue thisObject, JsCallArguments arguments)
@@ -996,9 +996,10 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         const double Finite = 1;
         try
         {
-            while (iteratorRecord.TryIteratorStep(out var next))
+            // IteratorStepValue: a step that throws, and the one that reports done, leave the record done, so neither is
+            // followed by an IteratorClose. Only this function's own RangeError and TypeError close the iterator.
+            while (iteratorRecord.TryIteratorStepValue(out var value))
             {
-                next.TryGetValue(CommonProperties.Value, out var value);
                 count++;
                 if (count > 9007199254740992)
                 {
@@ -1051,13 +1052,10 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         }
         catch
         {
-            iteratorRecord.Close(CompletionType.Throw);
-            iteratorRecord = null;
+            // "Return ? IteratorClose(iteratorRecord, error)". An iterator that ran out is not closed, which a script's
+            // `return` on %ArrayIteratorPrototype% would otherwise see (sebastienros/jint#4406).
+            iteratorRecord.CloseIfNotDone(CompletionType.Throw);
             throw;
-        }
-        finally
-        {
-            iteratorRecord?.Close(CompletionType.Normal);
         }
 
         if (state != Finite)

@@ -2,6 +2,7 @@ using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
+using Jint.Native.Object;
 using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -132,6 +133,23 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
         }
     }
 
+    /// <summary>
+    /// The array lane reads elements by index in place of the iterator <c>%Array.prototype.values%</c> would create,
+    /// and the pattern closes that iterator unless it ran out ("If iteratorRecord.[[Done]] is false, return ?
+    /// IteratorClose(iteratorRecord, result)", https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization).
+    /// Leaving the iterator out is unobservable only while it would have no <c>return</c> to call
+    /// (sebastienros/jint#4406). It inherits the <c>%ArrayIteratorPrototype%</c> of the realm whose function the lane's
+    /// check finds: an array's own, and the running realm's for an array-like object, whose check compares against that
+    /// realm's, and for a CLR collection, whose iterator is created in it. Asked before that check, which reads
+    /// <c>@@iterator</c>: with a <c>return</c> on the chain the pattern takes GetIterator, whose read is the one the
+    /// specification makes. Reached only once <see cref="Engine._builtinIteratorChainMayHaveReturn"/> is set; until
+    /// then the lane's one load of that field answers.
+    /// </summary>
+    private static bool IndexReadsCloseNothing(ObjectInstance obj, Realm realm)
+        => obj is JsArray array
+            ? array.OriginalIteratorInheritsNoReturnMethod
+            : realm.Intrinsics.ArrayIteratorPrototype.InstancesInheritNoReturnMethod();
+
     private static JsValue HandleArrayPattern(
         EvaluationContext context,
         ArrayPattern pattern,
@@ -146,9 +164,11 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
         ArrayOperations? arrayOperations = null;
         IteratorInstance? iterator = null;
 
-        // read by index while GetIterator would be unobservable: @@iterator and the `next` of the iterator it answers
-        // are both the built-ins (sebastienros/jint#4418)
-        if (obj.IsArrayLike && obj.HasOriginalIterator)
+        // read by index while GetIterator would be unobservable: no `return` for the pattern to call (sebastienros/jint#4406),
+        // and @@iterator and the `next` of the iterator it answers both the built-ins (sebastienros/jint#4418)
+        if (obj.IsArrayLike
+            && (!engine._builtinIteratorChainMayHaveReturn || IndexReadsCloseNothing(obj, realm))
+            && obj.HasOriginalIterator)
         {
             arrayOperations = ArrayOperations.For(obj, forWrite: false);
         }
@@ -279,11 +299,20 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
                     {
                         array = engine.Realm.Intrinsics.Array.ArrayCreate(0);
                         uint index = 0;
+                        var iterations = 0;
                         // AssignmentRestElement / BindingRestElement: "Repeat, while
                         // iteratorRecord.[[Done]] is false". An iterator a preceding element already
                         // drove to done contributes nothing and is not stepped at all.
                         while (!done)
                         {
+                            // A built-in iterator's steps cross no statement boundary, so the loop checks the
+                            // constraints itself, as IteratorProtocol.Execute does; the pattern's finally closes the
+                            // iterator if one throws.
+                            if (++iterations % Engine.ConstraintCheckInterval == 0)
+                            {
+                                engine.Constraints.Check();
+                            }
+
                             JsValue value;
                             try
                             {

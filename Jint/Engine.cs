@@ -2212,6 +2212,19 @@ public sealed partial class Engine : IDisposable
     // never bump: a fresh environment cannot appear in a previously pinned chain.
     internal int _envBindingInjectionEpoch;
 
+    // Set, and never cleared, once a `return` has been put on a built-in iterator prototype or on an Object.prototype of
+    // this engine, or a built-in iterator prototype's [[Prototype]] has been changed. Until then every built-in
+    // iterator's chain - its kind's prototype, %Iterator.prototype%, Object.prototype - has no `return` to find, so
+    // closing an untouched iterator, and reading an array by index in place of its iterator, need no lookup: one load of
+    // this field answers it (sebastienros/jint#4406). IteratorPrototype.SetOwnProperty and SetPrototypeOf and
+    // ObjectPrototype's TrackChanges set it; every script route to a new descriptor on those prototypes passes through
+    // SetOwnProperty (see ObjectInstance.CreateDataProperty). Once it is set, IteratorPrototype's version-checked
+    // lookup answers instead. A host's DefineOwnPropertyUnchecked / DefineOwnDataPropertyUnchecked stores through the
+    // raw SetProperty and bypasses it, exactly as it bypasses ObjectPrototype's ArrayIndex tracking: a `return` a host
+    // writes that way onto Object.prototype or a built-in iterator prototype is not one closing a built-in iterator is
+    // guaranteed to find, and a host must not rely on it.
+    internal bool _builtinIteratorChainMayHaveReturn;
+
     /// <summary>
     /// The block-level function declarations of the sloppy direct or indirect eval whose body is
     /// currently running - the Annex B B.3.2 candidates its EvalDeclarationInstantiation considered.

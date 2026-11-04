@@ -7500,6 +7500,77 @@ fields. A callback that throws now ends the construction before the fields after
 freezes the instance once its last field is defined no longer makes the construction throw, as it did when the frozen
 instance was then given its `"undefined"` property. There is no switch back.
 
+### 4.198 Closing a built-in iterator calls a `return` the script added ([#4406](https://github.com/sebastienros/jint/issues/4406))
+
+A loop or a destructuring that stops before an iterator is done closes it: it reads `return` off the iterator and
+calls it. No built-in iterator has a `return`, but a script can add one, on the iterator itself, on its prototype, on
+`Iterator.prototype` or on `Object.prototype`. In 4.16 and earlier 5.0 builds Jint never looked for one when it closed
+a built-in iterator: one over an array, a typed array, a `Map`, a `Set` or a string, one from `matchAll`, from
+`Intl.Segmenter`, from a wrapped CLR collection, or from `Headers`, `FormData` or `URLSearchParams`:
+
+```js
+var log = [];
+Object.getPrototypeOf([].values()).return = function () { log.push("closed"); return {}; };
+for (var x of [1, 2]) break;
+var [a] = [1, 2];
+log
+// 4.16.x / earlier 5.0: []    5.x: ["closed", "closed"]
+```
+
+The `return` is now called by:
+
+- a `for`-`of` left by `break`, `return`, a throw or a `continue` to an outer loop, and a generator's `return()` while
+  it is suspended inside one;
+- a destructuring or a function parameter's array pattern that stops before the end, including an empty pattern;
+- `Array.from` whose mapping function throws, and the other built-ins that close an iterator on failure;
+- `yield*` handed a `throw()` its delegate has no `throw` for;
+- a `for await` over a sync iterable whose element is a rejected promise;
+- a `for await` whose `Symbol.asyncIterator` method answers a built-in iterator.
+
+A `return` that throws, that is not a function, or that answers something other than an object now makes such a
+close throw, unless the loop is already leaving by a throw, which wins. A `for`-`in` loop still closes nothing, and
+neither does an iteration that runs to its end. `Math.sumPrecise` and the `entryTypes` list of
+`PerformanceObserver.prototype.observe` used to close the iterator after it had run out. Now they close it only when
+they throw.
+
+To call the `return`, destructuring an array (`var [a] = arr`) and an array parameter (`function f([a])`) now create
+the array's iterator whenever a `return` is on its chain. Without one, they still read the array by index. The
+iterator for a string primitive inherits the string iterator prototype, as the specified one does, so it never finds
+a `return` set on `%ArrayIteratorPrototype%`. An `Intl.Segmenter` segments iterator still inherits
+`%ArrayIteratorPrototype%`, which [#4407](https://github.com/sebastienros/jint/issues/4407) tracks, so until that is
+fixed it finds a `return` set there.
+
+A function parameter's array pattern now steps its iterator one element at a time. Each element's default is
+evaluated before the next step, and the iterator is closed only after every default has run, or with the throw of a
+default that throws. In 4.16 and earlier 5.0 builds it took every element before running any default, and closed the
+iterator before the defaults:
+
+```js
+var log = [];
+var iterable = { [Symbol.iterator]() { return {
+  next() { log.push("next"); return { value: undefined, done: false }; },
+  return() { log.push("return"); return {}; } }; } };
+(function ([a = log.push("default a"), b = log.push("default b")]) {})(iterable);
+log
+// 4.16.x / earlier 5.0: ["next", "next", "return", "default a", "default b"]
+// 5.x: ["next", "default a", "next", "default b", "return"]
+```
+
+Such a pattern that runs its iterator to the end no longer closes it. In 4.16 and earlier 5.0 builds it called
+`return` after the iterator had answered done, for any iterator that had a `return`. An empty pattern
+(`function f([])`) now closes the iterator, which it never did.
+
+A wrapped CLR collection's iterator still disposes its `IEnumerator` when it is closed. When the script has given it a
+`return`, the `return` is called first and the enumerator is disposed after it, also when the `return` throws or
+answers something other than an object. A `for await` disposes once the promise the `return` answered has settled. In
+4.16 and earlier 5.0 builds the enumerator was disposed and the `return` never called. The iterator answers done from
+then on, so a later loop over the same iterator object finds nothing to step.
+
+If `Dispose` throws while a throw is already leaving the close, the `Dispose` exception is discarded and that throw
+wins. The throw can be the loop's own, what the `return` threw, or the `TypeError` for its non-object answer. A
+`yield*` in an async generator that closes a CLR collection's iterator for want of a `throw` now disposes it too. A
+step that throws still disposes the enumerator and calls no `return`. There is no switch back.
+
 ### 4.199 Spread and array destructuring call a replaced `next` on the array iterator prototype ([#4418](https://github.com/sebastienros/jint/issues/4418))
 
 Spreading or destructuring an array takes an iterator from it: `Array.prototype.values` answers an array iterator, and
