@@ -7392,8 +7392,7 @@ inside === C
 
 The `addInitializer` callbacks of a class's static half now run where the spec text puts them. A static method's run
 before the static fields, a static field's right after that field, and the class's own after the last static block.
-They used to run together after the static blocks. The instance-side callbacks still run together after the instance
-fields, as before.
+They used to run together after the static blocks. The instance-side callbacks are §4.197.
 
 **The context object.** An element's context now has an `access` object. It has `get` for a field, method, getter
 or accessor, and `set` for a field, setter or accessor. It always has `has`. Each takes the object to read, write or
@@ -7405,6 +7404,33 @@ accessor decorator that returns a `get` or a `set` that is not a function, where
 non-function `init`, and a return value that is neither an object nor `undefined`, already threw.
 
 There is no switch back.
+
+### 4.197 A decorator's instance `addInitializer` callbacks run where the decorators spec text puts them, and leave no `"undefined"` property ([#4421](https://github.com/sebastienros/jint/issues/4421))
+
+The callbacks that an instance element's decorators pass to `context.addInitializer` now run where the decorators
+spec text ([tc39/ecma262#2417](https://github.com/tc39/ecma262/pull/2417)) runs them as an instance is initialized.
+Those of a method, a getter or a setter run before the instance fields are defined. Those of a field or an
+`accessor` run right after that field or accessor is initialized. In 4.16 and earlier 5.0 builds they all ran after
+the last instance field. Jint ran them through an extra field with no name, so every instance of such a class also
+got an own property named `"undefined"`:
+
+```js
+const log = [];
+const init = (name) => (value, context) => { context.addInitializer(() => log.push("init " + name)); };
+class C {
+  @init("m") m() {}
+  @init("x") x = log.push("x");
+  y = log.push("y");
+}
+const c = new C();
+[log.join(), Object.hasOwn(c, "undefined")]
+// 4.16.x / earlier 5.0: ["x,y,init m,init x", true]    5.x: ["init m,x,init x,y", false]
+```
+
+A base class runs them before its constructor body, and a derived class when `super()` returns, as it does its
+fields. A callback that throws now ends the construction before the fields after it are defined. A callback that
+freezes the instance once its last field is defined no longer makes the construction throw, as it did when the frozen
+instance was then given its `"undefined"` property. There is no switch back.
 
 ## 5. New in v5
 

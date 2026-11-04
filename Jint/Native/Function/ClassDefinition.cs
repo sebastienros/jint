@@ -1567,10 +1567,11 @@ internal sealed class ClassDefinition
     /// sebastienros/jint#4413 as well.
     /// </para>
     /// <para>
-    /// The instance initializers <c>addInitializer</c> collects all run after the instance fields, as they did before:
-    /// the spec text runs a method's before the fields and a field's right after it, which needs a hook in
-    /// <see cref="ObjectInstance.InitializeInstanceElements"/> that every class construction would pay for
-    /// (sebastienros/jint#4421).
+    /// The instance initializers <c>addInitializer</c> collects run where the spec text puts them. The methods',
+    /// getters' and setters' run before the instance fields, and a field's or an accessor's right after that element
+    /// is defined. <see cref="SetInstanceElements"/> keeps them in a <see cref="DecoratedInstanceElements"/> only
+    /// when there are any, a shape <see cref="ObjectInstance.InitializeInstanceElements"/> recognizes without a test
+    /// of its own, so no other class pays for them (sebastienros/jint#4421).
     /// </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1594,8 +1595,7 @@ internal sealed class ClassDefinition
         ApplyFieldDecorators(engine, elements, isStatic: true);
         ApplyFieldDecorators(engine, elements, isStatic: false);
 
-        constructor._privateMethods = InitializePrivateMethods(elements, isStatic: false);
-        constructor._fields = InstanceFields(engine, elements, instanceMethodExtraInitializers);
+        SetInstanceElements(engine, constructor, elements, instanceMethodExtraInitializers);
 
         var staticPrivateMethods = InitializePrivateMethods(elements, isStatic: true);
         if (staticPrivateMethods is not null)
@@ -1752,13 +1752,24 @@ internal sealed class ClassDefinition
     }
 
     /// <summary>
-    /// The instance fields and accessors' backing fields, in source order, then one entry running every instance
-    /// extra initializer: the methods', getters' and setters' first, then each field's and accessor's in source order.
+    /// Sets the constructor's [[Elements]] and [[Initializers]] (https://github.com/tc39/ecma262/pull/2417): its instance
+    /// private methods, its instance fields and accessors' backing fields in source order, and the extra initializers
+    /// of the methods, getters and setters and of each field and accessor.
     /// </summary>
-    private static List<ClassFieldDefinition> InstanceFields(Engine engine, List<DecoratedElement> elements, List<ICallable>? methodExtraInitializers)
+    /// <remarks>
+    /// With no extra initializer the constructor keeps the two lists an undecorated class keeps, and is constructed as
+    /// one is. Otherwise its private-methods list is a <see cref="DecoratedInstanceElements"/> holding the fields and
+    /// the initializers too, and it has no fields list, which is what sends its construction to
+    /// <see cref="ObjectInstance.InitializeInstanceElements"/>'s decorated branch. Either way it has a private-methods
+    /// list, which that method needs to find the fields.
+    /// </remarks>
+    private static void SetInstanceElements(Engine engine, ScriptFunction constructor, List<DecoratedElement> elements, List<ICallable>? methodExtraInitializers)
     {
-        var fields = new List<ClassFieldDefinition>();
-        var extraInitializers = methodExtraInitializers;
+        var privateMethods = InitializePrivateMethods(elements, isStatic: false);
+        var methodInitializers = methodExtraInitializers is { Count: > 0 } ? methodExtraInitializers.ToArray() : null;
+        var hasExtraInitializers = methodInitializers is not null;
+
+        var fields = new List<DecoratedInstanceField>();
         foreach (var element in elements)
         {
             if (element.IsStatic || element.Kind is not (DecoratedElementKind.Field or DecoratedElementKind.Accessor))
@@ -1766,26 +1777,26 @@ internal sealed class ClassDefinition
                 continue;
             }
 
-            fields.Add(FieldDefinition(engine, element));
-            if (element.ExtraInitializers is { Count: > 0 } own)
-            {
-                (extraInitializers ??= []).AddRange(own);
-            }
+            var own = element.ExtraInitializers is { Count: > 0 } list ? list.ToArray() : null;
+            hasExtraInitializers |= own is not null;
+            fields.Add(new DecoratedInstanceField(FieldDefinition(engine, element), own));
         }
 
-        if (extraInitializers is { Count: > 0 })
+        if (!hasExtraInitializers)
         {
-            var initializers = extraInitializers.ToArray();
-            var runner = new ClrFunction(engine, "", (thisObj, _) =>
+            var definitions = new List<ClassFieldDefinition>(fields.Count);
+            foreach (var field in fields)
             {
-                RunInitializers(engine, thisObj, initializers);
-                return JsValue.Undefined;
-            }, 0, PropertyFlag.Configurable);
+                definitions.Add(field.Definition);
+            }
 
-            fields.Add(new ClassFieldDefinition { Name = JsValue.Undefined, Initializer = runner });
+            constructor._privateMethods = privateMethods ?? [];
+            constructor._fields = definitions;
+            return;
         }
 
-        return fields;
+        constructor._privateMethods = new DecoratedInstanceElements(privateMethods, methodInitializers, fields.ToArray());
+        constructor._fields = null;
     }
 
     /// <summary>
@@ -2117,7 +2128,7 @@ internal sealed class ClassDefinition
     /// <summary>
     /// Calls each of <paramref name="initializers"/> with <paramref name="receiver"/> as its this, in order.
     /// </summary>
-    private static void RunInitializers(Engine engine, JsValue receiver, IReadOnlyList<ICallable>? initializers)
+    private static void RunInitializers(Engine engine, JsValue receiver, List<ICallable>? initializers)
     {
         if (initializers is null)
         {
