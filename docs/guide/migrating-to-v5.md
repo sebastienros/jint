@@ -7571,6 +7571,27 @@ wins. The throw can be the loop's own, what the `return` threw, or the `TypeErro
 `yield*` in an async generator that closes a CLR collection's iterator for want of a `throw` now disposes it too. A
 step that throws still disposes the enumerator and calls no `return`. There is no switch back.
 
+### 4.201 Returning from a generator suspended in `yield*` disposes a CLR collection's enumerator ([#4429](https://github.com/sebastienros/jint/issues/4429))
+
+A generator suspended in `yield*` passes a `return()` on to the delegate: it calls the delegate's `return`, or finishes
+with the value it was given when there is none. In 4.16 and earlier 5.0 builds, a delegate that was a wrapped CLR
+collection, or an iterator it handed out, kept its `IEnumerator` undisposed after that, in a generator and in an async
+generator. The one exception was an async generator delegating to the collection itself with no `return` on its
+iterator:
+
+```js
+// host: engine.SetValue("list", list);   // an IEnumerable whose enumerator counts its Dispose calls
+function* g() { yield* list; }
+const it = g(); it.next(); it.return(1);
+// 4.16.x / earlier 5.0: not disposed    5.x: disposed once
+```
+
+Now the enumerator is disposed when the delegation ends: at once if there is no `return`, and otherwise after the
+`return` answers done, throws, or answers something other than an object. An async generator disposes it once that
+answer has settled. A `return` that answers not done keeps the delegation going, so the enumerator stays for the
+steps after it. If `Dispose` throws while the `return`'s throw or `TypeError` is leaving, that throw wins. There is no
+switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
