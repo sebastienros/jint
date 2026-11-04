@@ -7593,6 +7593,32 @@ Now they call it, as `for`-`of`, `Array.from`, `new Set()` and `yield*` over an 
 that `next`. An array whose `Symbol.iterator` and `next` are both the built-in ones is still read by index. There is no
 switch back.
 
+### 4.202 The async iterator helpers call the `next` they read once ([#4419](https://github.com/sebastienros/jint/issues/4419))
+
+The `AsyncIterator.prototype` helpers read the iterator's `next` method once, when they take the iterator, and every
+step calls what was read. That covers `map`, `filter`, `take`, `drop`, `flatMap`, `reduce`, `toArray`, `forEach`,
+`some`, `every` and `find`, and the wrapper `AsyncIterator.from` answers. In 4.16 and earlier 5.0 builds they read
+`next` again on every step. A getter on `next` ran once more per step, and a `next` replaced during the iteration was
+called from the following step on:
+
+```js
+var reads = 0, i = 0;
+var source = { get next() { reads++; return () => Promise.resolve({ value: ++i, done: i > 3 }); } };
+AsyncIterator.prototype.toArray.call(source);
+// once the job queue has drained:
+// 4.16.x / earlier 5.0: reads === 5    5.x: reads === 1
+```
+
+A `next` that was not a function when it was read now fails the first step with a `TypeError`, even if the object has
+a callable `next` by then. `AsyncIterator.from` now reads `next` before it checks whether the iterator is already an
+`AsyncIterator`, and also when it then answers that iterator itself; it used to read `next` only to wrap one. The
+`Iterator.prototype` helpers and `Iterator.from` already read it once.
+
+`flatMap` steps each inner iterator through the `next` it read once too. A mapper answering an object with no `next`
+and no iterator method now rejects the step with a `TypeError` and closes the source iterator; in 4.16 and earlier 5.0
+builds that object was skipped. After an inner iterator's `next` throws, `return()` on the helper no longer calls that
+inner iterator's `return`. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
