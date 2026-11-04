@@ -295,11 +295,20 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
                     {
                         array = engine.Realm.Intrinsics.Array.ArrayCreate(0);
                         uint index = 0;
+                        var iterations = 0;
                         // AssignmentRestElement / BindingRestElement: "Repeat, while
                         // iteratorRecord.[[Done]] is false". An iterator a preceding element already
                         // drove to done contributes nothing and is not stepped at all.
                         while (!done)
                         {
+                            // A built-in iterator's steps cross no statement boundary, so the loop checks the
+                            // constraints itself, as IteratorProtocol.Execute does; the pattern's finally closes the
+                            // iterator if one throws.
+                            if (++iterations % Engine.ConstraintCheckInterval == 0)
+                            {
+                                engine.Constraints.Check();
+                            }
+
                             JsValue value;
                             try
                             {

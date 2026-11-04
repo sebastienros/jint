@@ -330,8 +330,21 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
                 {
                     var rest = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
                     uint count = 0;
-                    while (!iterator.Done && iterator.TryIteratorStepValue(out var next))
+                    var iterations = 0;
+                    while (!iterator.Done)
                     {
+                        // A built-in iterator's steps cross no statement boundary, so the loop checks the constraints
+                        // itself, as IteratorProtocol.Execute does; the catch below closes the iterator if one throws.
+                        if (++iterations % Engine.ConstraintCheckInterval == 0)
+                        {
+                            _engine.Constraints.Check();
+                        }
+
+                        if (!iterator.TryIteratorStepValue(out var next))
+                        {
+                            break;
+                        }
+
                         rest.SetIndexValue(count++, next, updateLength: false);
                     }
 

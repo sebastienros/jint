@@ -831,6 +831,12 @@ public class BuiltInIteratorReturnTests
     /// The <c>entryTypes</c> sequence conversion of <c>PerformanceObserver.prototype.observe</c> closes its iterator only
     /// when a conversion throws, as the other sequence conversions do, and not once it has run out - which a script
     /// <c>return</c> on <c>%ArrayIteratorPrototype%</c> would see for a plain array.
+    /// <para>
+    /// The <c>caught:S 1</c> row pins this repository's WebApi convention, which closes the iterator when a conversion
+    /// throws, and not literal WebIDL: <a href="https://webidl.spec.whatwg.org/#js-sequence">creating a sequence from an
+    /// iterable</a> closes nothing, so a literal reading would answer <c>caught:S 0</c>. Which of the two the WebApi
+    /// conversions should follow is a separate decision, outside sebastienros/jint#4406.
+    /// </para>
     /// </summary>
     [TestCase("new PerformanceObserver(function () { }).observe({ entryTypes: ['mark'] }); 'observed'", "observed 0")]
     [TestCase("try { new PerformanceObserver(function () { }).observe({ entryTypes: [{ toString() { throw 'S'; } }] }); 'observed'; } catch (e) { 'caught:' + e; }", "caught:S 1")]
