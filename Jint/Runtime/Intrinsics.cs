@@ -182,6 +182,12 @@ public sealed partial class Intrinsics
     internal ArrayIteratorPrototype ArrayIteratorPrototype =>
         _arrayIteratorPrototype ??= new ArrayIteratorPrototype(_engine, _realm, this.IteratorPrototype);
 
+    /// <summary>
+    /// <see cref="ArrayIteratorPrototype.NextIsBuiltIn"/> for this realm, without creating the prototype: one nothing
+    /// has created yet cannot have been written to.
+    /// </summary>
+    internal bool ArrayIteratorNextIsBuiltIn => _arrayIteratorPrototype is null || _arrayIteratorPrototype.NextIsBuiltIn;
+
     internal DataViewConstructor DataView =>
         _dataView ??= new DataViewConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 

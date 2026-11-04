@@ -28,6 +28,7 @@ ecma262 importentry-record
 ecma262 prod-ModuleExportName
 ecma262 prod-ModuleItem
 ecma262 sec-%arrayiteratorprototype%-object
+ecma262 sec-%arrayiteratorprototype%.next
 ecma262 sec-%asyncfromsynciteratorprototype%-object
 ecma262 sec-%asyncfromsynciteratorprototype%.next
 ecma262 sec-%asyncfromsynciteratorprototype%.return
@@ -426,6 +427,7 @@ ecma262 sec-iterator.zip
 ecma262 sec-iterator.zipkeyed
 ecma262 sec-iteratorclose
 ecma262 sec-iteratornext
+ecma262 sec-iteratorstep
 ecma262 sec-iteratorstepvalue
 ecma262 sec-iteratorzip
 ecma262 sec-jobcallback-records
@@ -656,6 +658,7 @@ ecma262 sec-resolveexport
 ecma262 sec-resolvethisbinding
 ecma262 sec-return-statement-runtime-semantics-evaluation
 ecma262 sec-runtime-semantics-argumentlistevaluation
+ecma262 sec-runtime-semantics-arrayaccumulation
 ecma262 sec-runtime-semantics-bindingclassdeclarationevaluation
 ecma262 sec-runtime-semantics-bindinginitialization
 ecma262 sec-runtime-semantics-canonicalize-ch

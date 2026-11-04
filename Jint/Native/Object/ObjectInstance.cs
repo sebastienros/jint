@@ -2768,7 +2768,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                                          && lengthValue.IsNumber()
                                          && ((JsNumber) lengthValue)._value >= 0;
 
-    // safe default
+    // Whether iterating this object is unobservable and yields what reading its elements by index yields, so that the
+    // spread and destructuring lanes may read by index instead. An override answers true only while @@iterator and the
+    // `next` of the iterator it answers are both still the built-ins (sebastienros/jint#4418); false is the safe default.
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     internal virtual bool HasOriginalIterator => false;
 

@@ -803,14 +803,17 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
 
     // Identity-compare the resolved @@iterator against the realm's captured %Array.prototype.values%, exactly as
     // ArrayInstance does: a host that wired the original array iterator gets the destructuring fast path, one
-    // that installed its own (or none) keeps the full iterator protocol.
+    // that installed its own (or none) keeps the full iterator protocol. So does one whose array iterators no
+    // longer step with the built-in %ArrayIteratorPrototype%.next (sebastienros/jint#4418).
     internal sealed override bool HasOriginalIterator
     {
         get
         {
             var iterator = Get(GlobalSymbolRegistry.Iterator);
+            var intrinsics = _engine.Realm.Intrinsics;
             return !iterator.IsUndefined()
-                   && ReferenceEquals(iterator, _engine.Realm.Intrinsics.Array.PrototypeObject._originalIteratorFunction);
+                   && ReferenceEquals(iterator, intrinsics.Array.PrototypeObject._originalIteratorFunction)
+                   && intrinsics.ArrayIteratorNextIsBuiltIn;
         }
     }
 

@@ -1,4 +1,5 @@
-﻿using Jint.Native.ArrayBuffer;
+﻿using System.Runtime.CompilerServices;
+using Jint.Native.ArrayBuffer;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;
@@ -32,6 +33,21 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
     // against.
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+
+    /// <summary>
+    /// Whether <c>next</c>, read off an array iterator created now, finds the built-in
+    /// %ArrayIteratorPrototype%.next (https://tc39.es/ecma262/#sec-%arrayiteratorprototype%.next). A fresh iterator has
+    /// no own property, so this prototype's own <c>next</c> decides, and <see cref="IteratorPrototype.HasOriginalNext"/>
+    /// answers that from a cached descriptor without a property read. A prototype that is not initialized yet has had
+    /// nothing written to it, so it still holds the built-in and is not initialized to find that out. The lanes that
+    /// walk an array by index instead of iterating it ask this through <see cref="ObjectInstance.HasOriginalIterator"/>
+    /// (sebastienros/jint#4418).
+    /// </summary>
+    internal bool NextIsBuiltIn
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => !_initialized || HasOriginalNext();
+    }
 
     /// <summary>
     /// CreateArrayIterator (https://tc39.es/ecma262/#sec-createarrayiterator). The object handed back

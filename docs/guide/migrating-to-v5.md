@@ -7500,6 +7500,28 @@ fields. A callback that throws now ends the construction before the fields after
 freezes the instance once its last field is defined no longer makes the construction throw, as it did when the frozen
 instance was then given its `"undefined"` property. There is no switch back.
 
+### 4.199 Spread and array destructuring call a replaced `next` on the array iterator prototype ([#4418](https://github.com/sebastienros/jint/issues/4418))
+
+Spreading or destructuring an array takes an iterator from it: `Array.prototype.values` answers an array iterator, and
+every step calls the `next` read off that iterator. In 4.16 and earlier 5.0 builds, spread in an array literal, a call
+or `new`, and array destructuring in a declaration, an assignment, a parameter, a `for`-`of` head or a `catch`
+parameter read the array by index whenever its `Symbol.iterator` was `Array.prototype.values`. A `next` the script had
+put on the array iterator prototype was never called:
+
+```js
+Object.getPrototypeOf([][Symbol.iterator]()).next = () => ({ done: true });
+var arr = [1, 2];
+var [x] = arr;
+[[...arr], x]
+// 4.16.x / earlier 5.0: [[1, 2], 1]    5.x: [[], undefined]
+```
+
+Now they call it, as `for`-`of`, `Array.from`, `new Set()` and `yield*` over an array already did, and a getter on
+`next` runs once per destructuring as it did once per spread. The same holds for destructuring a host
+`ArrayLikeObject` whose `Symbol.iterator` is `Array.prototype.values`, and a wrapped CLR list, whose iterator inherits
+that `next`. An array whose `Symbol.iterator` and `next` are both the built-in ones is still read by index. There is no
+switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

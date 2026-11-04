@@ -146,7 +146,8 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
         ArrayOperations? arrayOperations = null;
         IteratorInstance? iterator = null;
 
-        // optimize for array unless someone has touched the iterator
+        // read by index while GetIterator would be unobservable: @@iterator and the `next` of the iterator it answers
+        // are both the built-ins (sebastienros/jint#4418)
         if (obj.IsArrayLike && obj.HasOriginalIterator)
         {
             arrayOperations = ArrayOperations.For(obj, forWrite: false);
