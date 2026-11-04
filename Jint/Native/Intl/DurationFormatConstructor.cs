@@ -122,7 +122,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
         // minutes and seconds, and for the minutes and seconds after a numeric unit; otherwise "auto".
         // A numeric sub-second unit is "fractional" (step 4): it is folded into the unit above it, defaults
         // to "auto", and cannot be "always".
-        (string Style, string Display) GetUnitOptions(string unit, string[] stylesList, string defaultStyle, string? prevStyle)
+        (string Style, string Display) GetUnitOptions(string unit, string displayField, string[] stylesList, string defaultStyle, string? prevStyle)
         {
             var styleGiven = TryGetStringOption(optionsObj, unit, stylesList, out var unitStyle);
             if (!styleGiven)
@@ -156,10 +156,10 @@ internal sealed partial class DurationFormatConstructor : Constructor
                 displayDefault = "auto";
             }
 
-            var display = GetStringOption(optionsObj, unit + "Display", DisplayValues, displayDefault);
+            var display = GetStringOption(optionsObj, displayField, DisplayValues, displayDefault);
             if (isFractional && string.Equals(display, "always", StringComparison.Ordinal))
             {
-                Throw.RangeError(_realm, $"{unit}Display cannot be 'always' when {unit} uses the numeric style");
+                Throw.RangeError(_realm, $"{displayField} cannot be 'always' when {unit} uses the numeric style");
             }
 
             return (unitStyle, display);
@@ -167,24 +167,24 @@ internal sealed partial class DurationFormatConstructor : Constructor
 
         // Get unit style options with cascading defaults per spec (GetDurationUnitOptions)
         // Per Table 1: Years/months/weeks/days use baseStyle
-        var (yearsStyle, yearsDisplay) = GetUnitOptions("years", UnitStyleValues, baseStyle, prevStyle: null);
+        var (yearsStyle, yearsDisplay) = GetUnitOptions("years", "yearsDisplay", UnitStyleValues, baseStyle, prevStyle: null);
 
-        var (monthsStyle, monthsDisplay) = GetUnitOptions("months", UnitStyleValues, baseStyle, prevStyle: null);
+        var (monthsStyle, monthsDisplay) = GetUnitOptions("months", "monthsDisplay", UnitStyleValues, baseStyle, prevStyle: null);
 
-        var (weeksStyle, weeksDisplay) = GetUnitOptions("weeks", UnitStyleValues, baseStyle, prevStyle: null);
+        var (weeksStyle, weeksDisplay) = GetUnitOptions("weeks", "weeksDisplay", UnitStyleValues, baseStyle, prevStyle: null);
 
-        var (daysStyle, daysDisplay) = GetUnitOptions("days", UnitStyleValues, baseStyle, prevStyle: null);
+        var (daysStyle, daysDisplay) = GetUnitOptions("days", "daysDisplay", UnitStyleValues, baseStyle, prevStyle: null);
 
         // Per Table 1: Hours/minutes/seconds/sub-seconds use baseTimeStyle
         // Hours can use numeric/2-digit
         var hoursDefault = isDigital ? "numeric" : baseTimeStyle;
-        var (hoursStyle, hoursDisplay) = GetUnitOptions("hours", UnitStyleWithNumericValues, hoursDefault, prevStyle: null);
+        var (hoursStyle, hoursDisplay) = GetUnitOptions("hours", "hoursDisplay", UnitStyleWithNumericValues, hoursDefault, prevStyle: null);
         var prevStyle = hoursStyle;
 
         // Minutes/seconds: default to 2-digit if previous is numeric-like
         // Per spec: if previous is numeric/2-digit, current cannot be long/short/narrow
         var minutesDefault = IsNumericLike(prevStyle) ? "2-digit" : (isDigital ? "numeric" : baseTimeStyle);
-        var (minutesStyle, minutesDisplay) = GetUnitOptions("minutes", UnitStyleWithNumericValues, minutesDefault, prevStyle);
+        var (minutesStyle, minutesDisplay) = GetUnitOptions("minutes", "minutesDisplay", UnitStyleWithNumericValues, minutesDefault, prevStyle);
         if (IsNumericLike(prevStyle) && !IsNumericLike(minutesStyle))
         {
             Throw.RangeError(_realm, "minutes style must be numeric or 2-digit when hours uses numeric or 2-digit");
@@ -192,7 +192,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
         prevStyle = minutesStyle;
 
         var secondsDefault = IsNumericLike(prevStyle) ? "2-digit" : (isDigital ? "numeric" : baseTimeStyle);
-        var (secondsStyle, secondsDisplay) = GetUnitOptions("seconds", UnitStyleWithNumericValues, secondsDefault, prevStyle);
+        var (secondsStyle, secondsDisplay) = GetUnitOptions("seconds", "secondsDisplay", UnitStyleWithNumericValues, secondsDefault, prevStyle);
         if (IsNumericLike(prevStyle) && !IsNumericLike(secondsStyle))
         {
             Throw.RangeError(_realm, "seconds style must be numeric or 2-digit when minutes uses numeric or 2-digit");
@@ -201,7 +201,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
 
         // Sub-second units: default to numeric if previous is numeric-like
         var millisecondsDefault = IsNumericLike(prevStyle) ? "numeric" : (isDigital ? "numeric" : baseTimeStyle);
-        var (millisecondsStyle, millisecondsDisplay) = GetUnitOptions("milliseconds", SubSecondStyleValues, millisecondsDefault, prevStyle);
+        var (millisecondsStyle, millisecondsDisplay) = GetUnitOptions("milliseconds", "millisecondsDisplay", SubSecondStyleValues, millisecondsDefault, prevStyle);
         if (IsNumericLike(prevStyle) && !IsNumericLikeOrFractional(millisecondsStyle))
         {
             Throw.RangeError(_realm, "milliseconds style must be numeric when seconds uses numeric or 2-digit");
@@ -209,7 +209,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
         prevStyle = millisecondsStyle;
 
         var microsecondsDefault = IsNumericLike(prevStyle) ? "numeric" : (isDigital ? "numeric" : baseTimeStyle);
-        var (microsecondsStyle, microsecondsDisplay) = GetUnitOptions("microseconds", SubSecondStyleValues, microsecondsDefault, prevStyle);
+        var (microsecondsStyle, microsecondsDisplay) = GetUnitOptions("microseconds", "microsecondsDisplay", SubSecondStyleValues, microsecondsDefault, prevStyle);
         if (IsNumericLikeOrFractional(prevStyle) && !IsNumericLikeOrFractional(microsecondsStyle))
         {
             Throw.RangeError(_realm, "microseconds style must be numeric when milliseconds uses numeric");
@@ -217,7 +217,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
         prevStyle = microsecondsStyle;
 
         var nanosecondsDefault = IsNumericLike(prevStyle) ? "numeric" : (isDigital ? "numeric" : baseTimeStyle);
-        var (nanosecondsStyle, nanosecondsDisplay) = GetUnitOptions("nanoseconds", SubSecondStyleValues, nanosecondsDefault, prevStyle);
+        var (nanosecondsStyle, nanosecondsDisplay) = GetUnitOptions("nanoseconds", "nanosecondsDisplay", SubSecondStyleValues, nanosecondsDefault, prevStyle);
         if (IsNumericLikeOrFractional(prevStyle) && !IsNumericLikeOrFractional(nanosecondsStyle))
         {
             Throw.RangeError(_realm, "nanoseconds style must be numeric when microseconds uses numeric");
