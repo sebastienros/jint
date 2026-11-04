@@ -282,7 +282,16 @@ public class BuiltInIteratorReturnTests
             {
                 foreach (var consumer in Outcomes.Keys)
                 {
-                    rows.Add(kind, consumer, Expected(consumer, "kindPrototype", "it"));
+                    var expected = Expected(consumer, "kindPrototype", "it");
+                    if (string.Equals(consumer, "forOfContinueOuter", StringComparison.Ordinal)
+                        && (kind.StartsWith("list", StringComparison.Ordinal) || kind.StartsWith("dictionary", StringComparison.Ordinal)))
+                    {
+                        // A CLR collection's iterator disposes its enumerator when it is closed, after the `return`, and
+                        // answers done from then on: the outer loop's second pass finds nothing to step, and nothing to close.
+                        expected = "2 1 it 0 0";
+                    }
+
+                    rows.Add(kind, consumer, expected);
                 }
             }
 

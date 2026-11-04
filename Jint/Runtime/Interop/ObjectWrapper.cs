@@ -1624,15 +1624,24 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             _enumerator = target.EnumerateOwnPropertyKeys(Types.String).GetEnumerator();
         }
 
+        private bool _released;
+
         /// <summary>
-        /// The native close IteratorClose reaches when a loop over the dictionary is left early and finds no
-        /// <c>return</c> (https://tc39.es/ecma262/#sec-iteratorclose step 4.b): the key sequence is suspended inside its
+        /// The native close IteratorClose reaches when a loop over the dictionary is left early, after a <c>return</c>
+        /// or in place of one (https://tc39.es/ecma262/#sec-iteratorclose): the key sequence is suspended inside its
         /// <c>foreach</c> over the host's keys, and disposing it is what disposes the host's key enumerator
-        /// (sebastienros/jint#4410). One that runs to the end needs nothing more, since the sequence's own
-        /// <c>foreach</c> has disposed it by then.
+        /// (sebastienros/jint#4410, sebastienros/jint#4406). One that runs to the end needs nothing more, since the
+        /// sequence's own <c>foreach</c> has disposed it by then. Once only: a close through a CreateAsyncFromSyncIterator
+        /// wrapper can reach it from the wrapper's <c>return</c> and from the loop's close both.
         /// </summary>
         private protected override void CloseNativeState(CompletionType completion)
         {
+            if (_released)
+            {
+                return;
+            }
+
+            _released = true;
             try
             {
                 _enumerator.Dispose();
@@ -1682,7 +1691,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             _enumerator = target.GetEnumerator();
         }
 
-        // The native close IteratorClose reaches when the iterator is left early and has no `return` (step 4.b).
+        // The native close IteratorClose reaches when the iterator is left early, after a `return` or in place of one
+        // (sebastienros/jint#4406). Release disposes once, however often this is reached.
         private protected override void CloseNativeState(CompletionType completion)
         {
             try

@@ -285,18 +285,19 @@ public sealed partial class ArrayConstructor : Constructor
     {
         try
         {
-            var iterator = iteratorRecord.Instance;
-            var returnMethod = iterator.GetMethod(CommonProperties.Return);
-            if (returnMethod is not null)
+            try
             {
-                returnMethod.Call(iterator, Arguments.Empty);
+                var iterator = iteratorRecord.Instance;
+                var returnMethod = iterator.GetMethod(CommonProperties.Return);
+                returnMethod?.Call(iterator, Arguments.Empty);
             }
-            else
+            finally
             {
-                // AsyncIteratorClose step 4.b (https://tc39.es/ecma262/#sec-asynciteratorclose): nothing to call. A CLR
-                // collection's iterator the record holds still disposes its host enumerator in its native close, as a
-                // for await loop's close does (sebastienros/jint#4410).
-                iteratorRecord.CloseWithoutReturn(CompletionType.Throw);
+                // A CLR collection's iterator the record holds - itself, or behind the CreateAsyncFromSyncIterator wrapper
+                // - disposes its host enumerator in its native close, as a for await loop's close does: in place of a
+                // missing `return` (AsyncIteratorClose step 4.b, https://tc39.es/ecma262/#sec-asynciteratorclose;
+                // sebastienros/jint#4410), and after one, since nothing here awaits what it answered (sebastienros/jint#4406).
+                iteratorRecord.CloseNativeStateAfterReturn(CompletionType.Throw);
             }
         }
         catch (Exception)

@@ -216,8 +216,9 @@ internal abstract class IteratorInstance : ObjectInstance
     /// https://tc39.es/ecma262/#sec-iteratorclose
     /// IteratorClose for the record this built-in iterator is, which a consumer steps natively: GetMethod reads
     /// <c>return</c> off the iterator (step 3), and a <c>return</c> found is called (step 4.c). No built-in iterator
-    /// prototype has one, so a <c>return</c> is one a script added somewhere on the chain, and with none (step 4.b) the
-    /// close releases whatever native state the iterator holds (<see cref="CloseNativeState"/>).
+    /// prototype has one, so a <c>return</c> is one a script added somewhere on the chain. After it, or in its place
+    /// when there is none (step 4.b), the close releases whatever native state the iterator holds
+    /// (<see cref="CloseNativeState"/>).
     /// <para>
     /// The read is skipped while it cannot find anything: the iterator has no own property, and its prototype's cached
     /// lookup still finds no <c>return</c> on the chain (<see cref="IteratorPrototype.InstancesInheritNoReturnMethod"/>).
@@ -246,10 +247,13 @@ internal abstract class IteratorInstance : ObjectInstance
         => _properties is null && _prototype is IteratorPrototype prototype && prototype.InstancesInheritNoReturnMethod();
 
     /// <summary>
-    /// What IteratorClose step 4.b leaves to a built-in iterator: the iterator has no <c>return</c>, so nothing
-    /// script-visible happens, but it may hold native state only it can release. A wrapped CLR collection's iterator
-    /// disposes its host enumerator here; every other built-in iterator holds nothing. A <c>return</c> the script gave
-    /// the iterator replaces this, as it replaces the step: the script then answers for the close.
+    /// The native state a built-in iterator holds, released when the iterator is closed: a wrapped CLR collection's
+    /// iterator disposes its host enumerator here, and every other built-in iterator holds nothing. IteratorClose
+    /// reaches it whether or not it found a <c>return</c> to call. Without one there is nothing else to do (step 4.b);
+    /// with one it runs after the <c>return</c>, however that ended, since the consumer is done with the iterator either
+    /// way and a script's <c>return</c> has no means of releasing the host's enumerator itself. A host exception it
+    /// raises is swallowed only when <paramref name="completion"/>, the completion leaving the close, is a throw, which
+    /// then wins (IteratorClose step 5).
     /// </summary>
     private protected virtual void CloseNativeState(CompletionType completion)
     {
@@ -259,47 +263,59 @@ internal abstract class IteratorInstance : ObjectInstance
     /// https://tc39.es/ecma262/#sec-iteratorclose steps 3-7 for <paramref name="iterator"/>, with the
     /// <paramref name="completion"/> the consumer leaves with. Under a throw completion nothing the close raises
     /// replaces it (step 5); otherwise what <c>return</c> throws propagates, and an answer that is not an object is a
-    /// <c>TypeError</c> (step 7). Out of line: a natively stepped record reaches it only once a script has added a
-    /// <c>return</c> somewhere.
+    /// <c>TypeError</c> (step 7). A built-in iterator's native state is released last, whatever happened
+    /// (<see cref="CloseNativeState"/>), and is told a throw completion whenever a throw is leaving the close, so that a
+    /// host's <c>Dispose</c> cannot replace it. Out of line: a natively stepped record reaches it only once a script has
+    /// added a <c>return</c> somewhere.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void IteratorClose(ObjectInstance iterator, CompletionType completion)
     {
-        // Step 3: Let innerResult be Completion(GetMethod(iterator, "return")).
-        ICallable? callable;
+        // The completion leaving the close, as the native release is told it: a throw until the steps below are known
+        // to have completed.
+        var leaving = CompletionType.Throw;
         try
         {
-            callable = iterator.GetMethod(CommonProperties.Return);
-        }
-        catch when (completion == CompletionType.Throw)
-        {
-            // Step 5: If completion is a throw completion, return ? completion.
-            return;
-        }
+            // Step 3: Let innerResult be Completion(GetMethod(iterator, "return")).
+            ICallable? callable;
+            try
+            {
+                callable = iterator.GetMethod(CommonProperties.Return);
+            }
+            catch when (completion == CompletionType.Throw)
+            {
+                // Step 5: If completion is a throw completion, return ? completion.
+                return;
+            }
 
-        if (callable is null)
-        {
-            // Step 4.b: with no `return` there is nothing to call. A built-in iterator - the record itself, or the one an
-            // ObjectIterator wraps because its `next` was replaced or GetIteratorDirect took it for an iterator helper -
-            // may still hold native state that its own close releases, such as a host enumerator to dispose.
-            CloseNatively(iterator, completion);
-            return;
-        }
+            // Step 4.b: with no `return` there is nothing to call, and only the native release below is left.
+            if (callable is not null)
+            {
+                JsValue innerResult;
+                try
+                {
+                    innerResult = callable.Call(iterator, Arguments.Empty);
+                }
+                catch when (completion == CompletionType.Throw)
+                {
+                    // Step 5: If completion is a throw completion, return ? completion.
+                    return;
+                }
 
-        JsValue innerResult;
-        try
-        {
-            innerResult = callable.Call(iterator, Arguments.Empty);
-        }
-        catch when (completion == CompletionType.Throw)
-        {
-            // Step 5: If completion is a throw completion, return ? completion.
-            return;
-        }
+                if (completion != CompletionType.Throw && !innerResult.IsObject())
+                {
+                    Throw.TypeError(iterator.Engine.Realm, "Iterator returned non-object");
+                }
+            }
 
-        if (completion != CompletionType.Throw && !innerResult.IsObject())
+            leaving = completion;
+        }
+        finally
         {
-            Throw.TypeError(iterator.Engine.Realm, "Iterator returned non-object");
+            // A built-in iterator - the record itself, or the one an ObjectIterator wraps because its `next` was replaced
+            // or GetIteratorDirect took it for an iterator helper - releases its native state, such as a host enumerator
+            // to dispose, after the `return` or in its place (sebastienros/jint#4406).
+            CloseNatively(iterator, leaving);
         }
     }
 
@@ -315,8 +331,24 @@ internal abstract class IteratorInstance : ObjectInstance
     /// </summary>
     internal void CloseWithoutReturn(CompletionType completion) => CloseNatively(Instance, completion);
 
+    /// <summary>
+    /// The native release an asynchronous close owes once the <c>return</c> it called has settled
+    /// (https://tc39.es/ecma262/#sec-asynciteratorclose step 4.d): after the Await rather than at the call, so that a
+    /// <c>return</c> still using the iterator until its promise settles finds it whole. A consumer that awaits nothing
+    /// releases it as soon as the call returns. <paramref name="leaving"/> is the completion the close ends with: a
+    /// throw whenever steps 5-7 leave by one. A <c>for await</c> over a sync iterable holds the
+    /// CreateAsyncFromSyncIterator wrapper, and the release reaches the sync iterator behind it.
+    /// </summary>
+    internal void CloseNativeStateAfterReturn(CompletionType leaving) => CloseNatively(Instance, leaving);
+
     private static void CloseNatively(ObjectInstance iterator, CompletionType completion)
     {
+        // A CreateAsyncFromSyncIterator wrapper holds no native state of its own; its sync iterator may.
+        if (iterator is AsyncFromSyncIterator wrapper)
+        {
+            iterator = wrapper.SyncIterator.Instance;
+        }
+
         if (iterator is IteratorInstance native and not ObjectIterator)
         {
             native.CloseNativeState(completion);
@@ -343,8 +375,10 @@ internal abstract class IteratorInstance : ObjectInstance
     /// <para>
     /// This record is a built-in iterator stepped natively, the loop's record when a script's <c>@@asyncIterator</c>
     /// answered one. It reads <c>return</c> exactly as <see cref="Close"/> does, skipping the read on the same cached
-    /// answer, and with none releases its native state. Until sebastienros/jint#4406 it released that state without
-    /// reading <c>return</c>, so a script's <c>return</c> on the iterator was never called.
+    /// answer, and with none releases its native state. With one, the native state is released once what it answered
+    /// has settled (<see cref="CloseNativeStateAfterReturn"/>, which the caller owes), or at once if reading or calling
+    /// it throws. Until sebastienros/jint#4406 it released that state without reading <c>return</c>, so a script's
+    /// <c>return</c> on the iterator was never called.
     /// </para>
     /// </summary>
     internal virtual bool TryStartAsyncClose(out JsValue innerResult)
@@ -367,7 +401,17 @@ internal abstract class IteratorInstance : ObjectInstance
     private static bool TryStartAsyncClose(ObjectInstance iterator, out JsValue innerResult)
     {
         // Step 3: Let innerResult be Completion(GetMethod(iterator, "return")).
-        var callable = iterator.GetMethod(CommonProperties.Return);
+        ICallable? callable;
+        try
+        {
+            callable = iterator.GetMethod(CommonProperties.Return);
+        }
+        catch
+        {
+            ReleaseOnAbruptStart(iterator);
+            throw;
+        }
+
         if (callable is null)
         {
             // Step 4.b: If return is undefined, return ? completion. A built-in iterator still releases its native
@@ -377,10 +421,26 @@ internal abstract class IteratorInstance : ObjectInstance
             return false;
         }
 
-        // Step 4.c: Set innerResult to Completion(Call(return, iterator)).
-        innerResult = callable.Call(iterator, Arguments.Empty);
+        // Step 4.c: Set innerResult to Completion(Call(return, iterator)). The caller awaits it, and releases the native
+        // state once it has settled (CloseNativeStateAfterReturn).
+        try
+        {
+            innerResult = callable.Call(iterator, Arguments.Empty);
+        }
+        catch
+        {
+            ReleaseOnAbruptStart(iterator);
+            throw;
+        }
+
         return true;
     }
+
+    /// <summary>
+    /// Reading or calling <c>return</c> threw, so the close has nothing to await and that throw is what leaves it: the
+    /// native state is released at once, told a throw completion, so that a host's <c>Dispose</c> cannot replace it.
+    /// </summary>
+    private static void ReleaseOnAbruptStart(ObjectInstance iterator) => CloseNatively(iterator, CompletionType.Throw);
 
     /// <summary>
     /// Gets the underlying iterator object instance.
