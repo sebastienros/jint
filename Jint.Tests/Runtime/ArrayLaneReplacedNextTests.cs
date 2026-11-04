@@ -212,7 +212,8 @@ public class ArrayLaneReplacedNextTests
             foreach (var lane in Lanes)
             {
                 // yield* calls the replacement (the matrix above), but reads `next` a second time for a record it steps
-                // natively, whose NextMethod is null: a defect of its own, outside these lanes.
+                // natively, whose NextMethod is null: a defect of its own, outside these lanes. The fix for
+                // sebastienros/jint#4424 puts this row back.
                 if (lane.Key != "yieldStar")
                 {
                     rows.Add(lane.Key, lane.Value.Native + " 1");
