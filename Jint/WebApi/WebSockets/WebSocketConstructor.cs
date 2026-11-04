@@ -206,13 +206,14 @@ internal sealed partial class WebSocketConstructor : Constructor
             return result;
         }
 
-        if (protocols is not ObjectInstance candidate || candidate.GetMethod(GlobalSymbolRegistry.Iterator) is null)
+        // The one read of @@iterator the union conversion makes; the sequence is created from what it found.
+        if (protocols is not ObjectInstance candidate || candidate.GetMethod(GlobalSymbolRegistry.Iterator) is not { } iteratorMethod)
         {
             result.Add(TypeConverter.ToString(protocols));
             return result;
         }
 
-        var iterator = protocols.GetIterator(_realm);
+        var iterator = protocols.GetIterator(_realm, method: iteratorMethod);
         try
         {
             while (iterator.TryIteratorStepValue(out var value))
