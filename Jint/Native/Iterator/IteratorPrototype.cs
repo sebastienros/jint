@@ -105,6 +105,107 @@ internal partial class IteratorPrototype : Prototype
         return ReferenceEquals(descriptor.Value, _originalNextFunction);
     }
 
+    // The `return` lookup IteratorClose makes on an instance of this prototype that has no own property, as it stood
+    // when it was last made: this prototype's own-property version, the two links above it and their versions, and
+    // the answer - whether none of the three had an own `return`. _returnLookupGrandparent is null while nothing is
+    // cached, which is also every chain that is not exactly three links long, or that has a link whose version cannot
+    // witness a `return` joining it.
+    private ObjectInstance? _returnLookupParent;
+    private ObjectInstance? _returnLookupGrandparent;
+    private uint _returnLookupVersion;
+    private uint _returnLookupParentVersion;
+    private uint _returnLookupGrandparentVersion;
+    private bool _inheritsNoReturnMethod;
+
+    /// <summary>
+    /// IteratorClose step 3 (https://tc39.es/ecma262/#sec-iteratorclose), GetMethod(iterator, "return"), for an
+    /// instance of this prototype that has no own property: whether the read would answer <c>undefined</c> because
+    /// nothing on the chain above has a <c>return</c>. No built-in iterator prototype has one, so this is the answer
+    /// for every iterator nobody touched, and it is cached, so that closing one reads no property.
+    /// <para>
+    /// The cached answer holds while this prototype, its prototype and that one's prototype are the objects they were,
+    /// with the own-property versions they had, and the third has no prototype - the shape of every built-in
+    /// iterator's chain, which ends at <c>Object.prototype</c>. Adding, deleting or redefining <c>return</c> on any of
+    /// them as data or as an accessor moves its version; <c>setPrototypeOf</c> on either of the first two changes a
+    /// link. An answer of <see langword="false"/> is cached too, and only sends the caller to the specified read. The
+    /// array destructuring lanes ask it of <c>%ArrayIteratorPrototype%</c> before they read an array by index in place
+    /// of its iterator (sebastienros/jint#4406).
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool InstancesInheritNoReturnMethod()
+    {
+        var grandparent = _returnLookupGrandparent;
+        var parent = _prototype;
+        if (grandparent is not null
+            && _propertiesVersion == _returnLookupVersion
+            && ReferenceEquals(parent, _returnLookupParent)
+            && parent!._propertiesVersion == _returnLookupParentVersion
+            && ReferenceEquals(parent._prototype, grandparent)
+            && grandparent._propertiesVersion == _returnLookupGrandparentVersion
+            && grandparent._prototype is null)
+        {
+            return _inheritsNoReturnMethod;
+        }
+
+        return LookUpReturnMethod();
+    }
+
+    /// <summary>
+    /// Whether <see cref="InstancesInheritNoReturnMethod"/> has an answer cached; for tests that pin the cached lane.
+    /// </summary>
+    internal bool CachesReturnLookup => _returnLookupGrandparent is not null;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool LookUpReturnMethod()
+    {
+        _returnLookupGrandparent = null;
+
+        // GetOwnProperty first on each link: it initializes a lazily built prototype on first use, and the version
+        // recorded is the one after that. A link whose own reads are not ordinary - a Proxy, a host object - would see
+        // the probe, so the walk stops in front of it, and the caller makes the read.
+        var parent = _prototype;
+        if (!TryProbeForReturn(this, out var returnFound)
+            || parent is null
+            || !TryProbeForReturn(parent, out var returnOnParent))
+        {
+            return false;
+        }
+
+        var grandparent = parent._prototype;
+        if (grandparent is null
+            || !TryProbeForReturn(grandparent, out var returnOnGrandparent)
+            || grandparent._prototype is not null)
+        {
+            return false;
+        }
+
+        _inheritsNoReturnMethod = !returnFound && !returnOnParent && !returnOnGrandparent;
+        _returnLookupVersion = _propertiesVersion;
+        _returnLookupParent = parent;
+        _returnLookupParentVersion = parent._propertiesVersion;
+        _returnLookupGrandparentVersion = grandparent._propertiesVersion;
+        _returnLookupGrandparent = grandparent;
+        return _inheritsNoReturnMethod;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="link"/> has an own <c>return</c>, answered only when nothing observes the question and
+    /// the link's own-property version moves when a <c>return</c> joins or leaves it, so that a cached answer can be
+    /// checked against it (<see cref="ObjectInstance.VersionWitnessesOwnProperty"/>).
+    /// </summary>
+    private static bool TryProbeForReturn(ObjectInstance link, out bool found)
+    {
+        if ((link._type & (InternalTypes.ExoticGet | InternalTypes.OwnValueHook)) != InternalTypes.Empty)
+        {
+            found = false;
+            return false;
+        }
+
+        found = !ReferenceEquals(link.GetOwnProperty(CommonProperties.Return), PropertyDescriptor.Undefined);
+        return VersionWitnessesOwnProperty(link, CommonProperties.Return);
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private PropertyDescriptor ReadNextDescriptor()
     {

@@ -287,7 +287,9 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         }
 
         JsArray? array;
-        if (argument is JsArray { HasOriginalIterator: true } ai)
+        // Read by index in place of the array's iterator while that is unobservable: the iterator is the original one, and
+        // has no `return` for the pattern's IteratorClose to call (sebastienros/jint#4406).
+        if (argument is JsArray { HasOriginalIterator: true, OriginalIteratorInheritsNoReturnMethod: true } ai)
         {
             array = ai;
         }
@@ -453,8 +455,13 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             if (_index > 0)
             {
                 _instance.SetLength((uint) _index);
-                IteratorClose(CompletionType.Normal);
             }
+
+            // The binding pattern's "If iteratorRecord.[[Done]] is false, return ? IteratorClose(iteratorRecord, result)"
+            // (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization): an empty pattern closes as well, and
+            // an iterator the elements ran out is not closed, so neither calls a `return` it should not
+            // (sebastienros/jint#4406).
+            IteratorCloseIfNotDone(CompletionType.Normal);
         }
     }
 }

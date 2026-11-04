@@ -63,9 +63,13 @@ internal abstract class IteratorProtocol
         return done;
     }
 
-    protected void IteratorClose(CompletionType completionType)
+    /// <summary>
+    /// IteratorClose (https://tc39.es/ecma262/#sec-iteratorclose) guarded by the record's [[Done]], which the loop
+    /// maintains: an iterator that ran out, or whose step failed, is not closed.
+    /// </summary>
+    protected void IteratorCloseIfNotDone(CompletionType completionType)
     {
-        _iterator.Close(completionType);
+        _iterator.CloseIfNotDone(completionType);
     }
 
     protected virtual bool ShouldContinue => true;

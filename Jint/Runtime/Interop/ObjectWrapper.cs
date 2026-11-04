@@ -1625,12 +1625,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         /// <summary>
-        /// The native close IteratorClose reaches when a loop over the dictionary is left early
-        /// (https://tc39.es/ecma262/#sec-iteratorclose): the key sequence is suspended inside its <c>foreach</c> over
-        /// the host's keys, and disposing it is what disposes the host's key enumerator (sebastienros/jint#4410). One
-        /// that runs to the end needs nothing more, since the sequence's own <c>foreach</c> has disposed it by then.
+        /// The native close IteratorClose reaches when a loop over the dictionary is left early and finds no
+        /// <c>return</c> (https://tc39.es/ecma262/#sec-iteratorclose step 4.b): the key sequence is suspended inside its
+        /// <c>foreach</c> over the host's keys, and disposing it is what disposes the host's key enumerator
+        /// (sebastienros/jint#4410). One that runs to the end needs nothing more, since the sequence's own
+        /// <c>foreach</c> has disposed it by then.
         /// </summary>
-        public override void Close(CompletionType completion)
+        private protected override void CloseNativeState(CompletionType completion)
         {
             try
             {
@@ -1640,8 +1641,6 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             {
                 // IteratorClose step 5: the throw that is closing the iterator wins over the host's.
             }
-
-            base.Close(completion);
         }
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
@@ -1662,7 +1661,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 // A step that throws completes IteratorStepValue abruptly, which marks the record done, so no
                 // IteratorClose follows: dispose the key sequence here, as a foreach would (sebastienros/jint#4410).
                 // A failed key read has disposed it already; a failed value read leaves it suspended in its foreach.
-                Close(CompletionType.Throw);
+                // The native close, never IteratorClose: no `return` is read or called for a step that failed.
+                CloseNativeState(CompletionType.Throw);
                 throw;
             }
 
@@ -1682,7 +1682,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             _enumerator = target.GetEnumerator();
         }
 
-        public override void Close(CompletionType completion)
+        // The native close IteratorClose reaches when the iterator is left early and has no `return` (step 4.b).
+        private protected override void CloseNativeState(CompletionType completion)
         {
             try
             {
@@ -1693,8 +1694,6 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 // IteratorClose step 5 (https://tc39.es/ecma262/#sec-iteratorclose): the throw that is closing the
                 // iterator wins over one from the host's Dispose.
             }
-
-            base.Close(completion);
         }
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
@@ -1713,8 +1712,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             {
                 // A step that throws - the host's MoveNext or Current, the conversion, a constraint - completes
                 // IteratorStepValue abruptly, which marks the record done, so no IteratorClose follows: dispose the
-                // host's enumerator here, as a foreach does when MoveNext throws (sebastienros/jint#4410).
-                Close(CompletionType.Throw);
+                // host's enumerator here, as a foreach does when MoveNext throws (sebastienros/jint#4410). The native
+                // close, never IteratorClose: no `return` is read or called for a step that failed.
+                CloseNativeState(CompletionType.Throw);
                 throw;
             }
 

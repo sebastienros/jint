@@ -122,6 +122,80 @@ public class ClrEnumeratorDisposalTests
         items.Disposals.Should().Be(1);
     }
 
+    private const string ScriptReturnHarness = """
+        // Loops that leave the CLR iterator `it` early, the last two through a script @@asyncIterator that answers it.
+        const leaveEarly = {
+            forOfBreak: function () { for (const x of it) { break; } return 'done'; },
+            forOfThrow: function () { try { for (const x of it) { throw 'E'; } } catch (e) { return 'caught:' + e; } },
+            destructure: function () { const [a] = it; return String(a); },
+            asyncIteratorBreak: async function () { for await (const x of { [Symbol.asyncIterator]() { return it; } }) { break; } return 'done'; },
+            asyncIteratorThrow: async function () {
+                try { for await (const x of { [Symbol.asyncIterator]() { return it; } }) { throw 'E'; } } catch (e) { return 'caught:' + e; }
+            }
+        };
+        """;
+
+    /// <summary>
+    /// A <c>return</c> the script gives a CLR collection's iterator, as its own property or on
+    /// <c>%ArrayIteratorPrototype%</c>, is what <a href="https://tc39.es/ecma262/#sec-iteratorclose">IteratorClose</a>
+    /// and <a href="https://tc39.es/ecma262/#sec-asynciteratorclose">AsyncIteratorClose</a> call, and the native close
+    /// that disposes is only what stands in for a missing one (step 4.b), so the script's <c>return</c> answers for the
+    /// enumerator in its place (sebastienros/jint#4406). Jint used to dispose without reading <c>return</c> at all.
+    /// <c>null</c> is no method, and the native close disposes as before.
+    /// </summary>
+    [TestCase("forOfBreak", "own", "done", 1, 0)]
+    [TestCase("forOfThrow", "own", "caught:E", 1, 0)]
+    [TestCase("destructure", "own", "1", 1, 0)]
+    [TestCase("asyncIteratorBreak", "own", "done", 1, 0)]
+    [TestCase("asyncIteratorThrow", "own", "caught:E", 1, 0)]
+    [TestCase("forOfBreak", "prototype", "done", 1, 0)]
+    [TestCase("asyncIteratorBreak", "prototype", "done", 1, 0)]
+    [TestCase("asyncIteratorThrow", "prototype", "caught:E", 1, 0)]
+    [TestCase("forOfBreak", "null", "done", 0, 1)]
+    [TestCase("asyncIteratorBreak", "null", "done", 0, 1)]
+    public void AScriptReturnOnAClrIteratorIsCalledInPlaceOfTheNativeClose(string way, string where, string expected, int calls, int disposals)
+    {
+        var items = new CountingEnumerable();
+        var engine = new Engine();
+        engine.SetValue("items", items);
+
+        engine.Evaluate(ScriptReturnHarness + "\n" + $$"""
+            (async function () {
+                const proto = Object.getPrototypeOf([].values());
+                let calls = 0;
+                const method = function () { calls++; return {}; };
+                globalThis.it = items[Symbol.iterator]();
+                if ('{{where}}' === 'own') { it.return = method; }
+                else if ('{{where}}' === 'prototype') { proto.return = method; }
+                else { it.return = null; }
+                try { return (await leaveEarly.{{way}}()) + ' ' + calls; }
+                finally { delete proto.return; }
+            })()
+            """).UnwrapIfPromise().AsString().Should().Be(expected + " " + calls);
+        items.Disposals.Should().Be(disposals);
+    }
+
+    /// <summary>
+    /// A step that throws marks the record done, so no IteratorClose follows it and no script <c>return</c> is called
+    /// (https://tc39.es/ecma262/#sec-iteratorclose is reached only for the consumer's own abrupt completion): the CLR
+    /// iterator disposes its enumerator through its native close and nothing else.
+    /// </summary>
+    [TestCase("moveNext")]
+    [TestCase("current")]
+    public void AStepThatThrowsCallsNoScriptReturn(string fault)
+    {
+        var items = new FaultingEnumerable(fault);
+        var engine = new Engine();
+        engine.SetValue("items", items);
+        engine.Execute("var calls = 0; Object.getPrototypeOf([].values()).return = function () { calls++; return {}; };");
+
+        var thrown = Caught.Exception(() => engine.Evaluate("for (const x of items) { }"));
+
+        thrown.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("step failed");
+        engine.Evaluate("calls").AsNumber().Should().Be(0);
+        items.Disposals.Should().Be(1);
+    }
+
     private const string DictionaryHarness = """
         // The ways a loop over the wrapped dictionary `entries` can end, each answering how many entries it saw.
         const leave = {
