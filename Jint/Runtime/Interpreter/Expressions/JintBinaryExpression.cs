@@ -2901,7 +2901,7 @@ internal abstract class JintBinaryExpression : JintExpression
             var lnum = TypeConverter.ToNumeric(lval);
             var rnum = TypeConverter.ToNumeric(rval);
 
-            return EvaluateBitwiseOperation(context.Engine.Realm, _operator, lnum, rnum, _left._expression);
+            return EvaluateBitwiseOperation(context.Engine, _operator, lnum, rnum, _left._expression);
         }
     }
 
@@ -2944,24 +2944,30 @@ internal abstract class JintBinaryExpression : JintExpression
     /// <summary>
     /// https://tc39.es/ecma262/#sec-numeric-types-bigint-leftShift: <c>x × 2^y</c>, rounded toward −∞ for a
     /// negative <paramref name="y"/>. <see href="https://tc39.es/ecma262/#sec-numeric-types-bigint-signedRightShift">BigInt::signedRightShift</see>
-    /// is this with <c>-y</c>.
+    /// is this with <c>-y</c>. A result wider than <see cref="JsBigInt.MaxBitLength"/> bits is a RangeError, as
+    /// for <c>**</c>, and is refused before anything is allocated.
     /// </summary>
-    internal static BigInteger BigIntLeftShift(Realm realm, BigInteger x, BigInteger y)
+    internal static BigInteger BigIntLeftShift(Engine engine, BigInteger x, BigInteger y)
     {
-        if (y >= int.MinValue && y <= int.MaxValue)
+        if (x.IsZero || y.IsZero)
         {
-            return x << (int) y;
+            return x;
         }
 
-        // A count outside Int32: shifting right that far leaves only the sign, and a non-zero value shifted
-        // left that far cannot be represented.
-        if (y.Sign < 0 || x.IsZero)
+        if (y.Sign < 0)
         {
-            return x.Sign < 0 ? BigInteger.MinusOne : BigInteger.Zero;
+            // Shifting right never grows the value; a count past every bit it could have leaves only the sign.
+            return y >= -int.MaxValue
+                ? x >> (int) -y
+                : x.Sign < 0 ? BigInteger.MinusOne : BigInteger.Zero;
         }
 
-        Throw.RangeError(realm, "Maximum BigInt size exceeded");
-        return default;
+        if (y > JsBigInt.MaxBitLength || x.GetBitLength() + (long) y > JsBigInt.MaxBitLength)
+        {
+            Throw.RangeError(engine.Realm, "Maximum BigInt size exceeded");
+        }
+
+        return x << (int) y;
     }
 
     /// <summary>
@@ -2969,7 +2975,7 @@ internal abstract class JintBinaryExpression : JintExpression
     /// Operands must already be numeric (ToNumeric applied). Shared by the bitwise/shift
     /// binary operators and their compound assignment forms.
     /// </summary>
-    internal static JsValue EvaluateBitwiseOperation(Realm realm, Operator op, JsValue left, JsValue right, Node? location)
+    internal static JsValue EvaluateBitwiseOperation(Engine engine, Operator op, JsValue left, JsValue right, Node? location)
     {
         if (left.Type != right.Type)
         {
@@ -3017,7 +3023,7 @@ internal abstract class JintBinaryExpression : JintExpression
                     {
                         return JsNumber.Create(TypeConverter.ToInt32(left) << (int) (TypeConverter.ToUint32(right) & 0x1F));
                     }
-                    return JsBigInt.Create(BigIntLeftShift(realm, TypeConverter.ToBigInt(left), TypeConverter.ToBigInt(right)));
+                    return JsBigInt.Create(BigIntLeftShift(engine, TypeConverter.ToBigInt(left), TypeConverter.ToBigInt(right)));
                 }
 
             case Operator.RightShift:
@@ -3026,7 +3032,7 @@ internal abstract class JintBinaryExpression : JintExpression
                     {
                         return JsNumber.Create(TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
                     }
-                    return JsBigInt.Create(BigIntLeftShift(realm, TypeConverter.ToBigInt(left), -TypeConverter.ToBigInt(right)));
+                    return JsBigInt.Create(BigIntLeftShift(engine, TypeConverter.ToBigInt(left), -TypeConverter.ToBigInt(right)));
                 }
 
             case Operator.UnsignedRightShift:
