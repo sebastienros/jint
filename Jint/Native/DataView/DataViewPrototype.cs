@@ -52,6 +52,10 @@ internal sealed partial class DataViewPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-dataview.prototype.bytelength
     /// </summary>
+    /// <remarks>
+    /// An out-of-bounds view - a detached buffer, or a resizable one shrunk below the view - answers +0
+    /// rather than throwing, per tc39/ecma262#3972. Every read and write through the view still throws.
+    /// </remarks>
     [JsAccessor("byteLength")]
     private JsValue ByteLength(JsValue thisObject)
     {
@@ -64,11 +68,8 @@ internal sealed partial class DataViewPrototype : Prototype
         var viewRecord = MakeDataViewWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
         if (viewRecord.IsViewOutOfBounds)
         {
-            Throw.TypeError(_realm, "Offset is outside the bounds of the DataView");
+            return JsNumber.PositiveZero;
         }
-
-        var buffer = o._viewedArrayBuffer!;
-        buffer.AssertNotDetached();
 
         return JsNumber.Create(viewRecord.ViewByteLength);
     }
@@ -76,6 +77,9 @@ internal sealed partial class DataViewPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-dataview.prototype.byteoffset
     /// </summary>
+    /// <remarks>
+    /// An out-of-bounds view answers +0 rather than throwing, as <c>byteLength</c> does (tc39/ecma262#3972).
+    /// </remarks>
     [JsAccessor("byteOffset")]
     private JsValue ByteOffset(JsValue thisObject)
     {
@@ -88,11 +92,8 @@ internal sealed partial class DataViewPrototype : Prototype
         var viewRecord = MakeDataViewWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
         if (viewRecord.IsViewOutOfBounds)
         {
-            Throw.TypeError(_realm, "Offset is outside the bounds of the DataView");
+            return JsNumber.PositiveZero;
         }
-
-        var buffer = o._viewedArrayBuffer!;
-        buffer.AssertNotDetached();
 
         return JsNumber.Create(o._byteOffset);
     }

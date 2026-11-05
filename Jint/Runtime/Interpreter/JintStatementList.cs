@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
@@ -254,6 +255,42 @@ internal sealed class JintStatementList
     }
 
     /// <summary>
+    /// Runs a script's top-level list whose only statement is an expression statement, without the loop of
+    /// <see cref="Execute"/>: completion values observable, and an exception the statement raised handled
+    /// as the catch in <see cref="Execute"/> handles it. The statement always yields a value, so no empty
+    /// completion is left to update.
+    /// </summary>
+    internal Completion ExecuteOnlyStatement(EvaluationContext context)
+    {
+        Debug.Assert(_statement is null && _jintStatements!.Length == 1 && _jintStatements[0].Statement is JintExpressionStatement);
+
+        var statement = _jintStatements![0].Statement;
+        var oldCompletionValuesObservable = context.CompletionValuesObservable;
+        context.CompletionValuesObservable = true;
+        try
+        {
+            return statement.Execute(context);
+        }
+        // Keep in step with the catch in Execute above. A script's top level has no suspendable, so the
+        // filter is ShouldCatch alone: LeavingOnException would have no resume position to clear.
+        catch (Exception ex) when (ShouldCatch(ex))
+        {
+            if (ex is JintException)
+            {
+                return HandleException(context, ex, statement);
+            }
+
+            var locationNode = (Node?) context.Engine._lastSyntaxElement ?? statement._statement;
+            ExceptionDataHelper.TryAttachJavaScriptLocation(ex, context.Engine, locationNode.Location);
+            throw;
+        }
+        finally
+        {
+            context.CompletionValuesObservable = oldCompletionValuesObservable;
+        }
+    }
+
+    /// <summary>
     /// Exception filter for <see cref="Execute"/>. It does the bookkeeping every exception leaving this
     /// list owes — clearing the resume position, which the old catch-everything handler did — and then
     /// answers <see cref="ShouldCatch"/>, so that the exceptions this frame would only rethrow are never
@@ -305,12 +342,22 @@ internal sealed class JintStatementList
     /// alone, since the annotation is idempotent and the frames above it would only redo the same test.
     /// </para>
     /// </remarks>
-    internal static bool ShouldCatch(Exception exception) => exception switch
+    internal static bool ShouldCatch(Exception exception)
+        => exception is GeneratorReturnException
+           || BecomesThrowCompletion(exception)
+           || (exception is not JintException && !ExceptionDataHelper.HasJavaScriptLocation(exception));
+
+    /// <summary>
+    /// Whether <see cref="HandleException"/> turns <paramref name="exception"/> into a Throw completion — the
+    /// exceptions a script's <c>catch</c> can see. Asked from exception filters, so it neither allocates nor throws.
+    /// </summary>
+    internal static bool BecomesThrowCompletion(Exception exception) => exception switch
     {
         // Keep in lock-step with HandleException's switch below.
-        JavaScriptException or TypeErrorException or RangeErrorException or SyntaxErrorException or GeneratorReturnException => true,
-        JintException => false,
-        _ => !ExceptionDataHelper.HasJavaScriptLocation(exception),
+        JavaScriptException or TypeErrorException or RangeErrorException or SyntaxErrorException => true,
+        // A syntax tree too deep for the stack, built while script runs: see SyntaxNesting.
+        ScriptPreparationException tooDeep => SyntaxNesting.IsTooDeep(tooDeep),
+        _ => false,
     };
 
     internal static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
@@ -329,6 +376,7 @@ internal sealed class JintStatementList
             TypeErrorException typeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, typeErrorException.Node ?? s!._statement),
             RangeErrorException rangeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!._statement),
             SyntaxErrorException syntaxErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.SyntaxError, syntaxErrorException, s!._statement),
+            ScriptPreparationException tooDeep when SyntaxNesting.IsTooDeep(tooDeep) => new Completion(CompletionType.Throw, SyntaxNesting.CreateRangeError(context.Engine.Realm), s!._statement),
             // Unreachable through the callers, whose filters decline anything this switch cannot map;
             // kept so the switch stays total and so a future caller without a filter still behaves.
             _ => throw exception

@@ -170,6 +170,16 @@ because both tokens are constants. The `ValueTask` half of that site wants the s
 5. If what you added is an *annotation* rather than a lane, its subject goes in
    `Jint.AotExample.UnrootedHost`, not beside `Program.cs`. See below.
 
+**A new reflection-only lane also goes through `HostInterop`.** `Jint.Runtime.Interop.ReflectionEnabled=false`
+lets a fully trimmed host remove CLR reflection, and that holds only while
+`Jint/Runtime/Interop/HostInterop.cs` is the single place that chooses between `ReflectionHostInterop` and
+`NativeHostInterop`. Do not reach a reflection body from the engine directly and do not repeat the feature check
+at a call site: add a virtual to `HostInterop`, put the reflection body behind `ReflectionHostInterop`, and give
+`NativeHostInterop` a fail-closed answer whose message names the switch. Then cover the native answer in
+`Jint.Tests/Runtime/Interop/NativeHostInteropTests.cs`, and in `Jint.TrimmedExample` when a host can reach it.
+That example publishes with `TrimMode=full` and linker warnings as errors, so a lane that bypasses the boundary
+fails its publication before any test runs.
+
 The eight annotated members today are `OptionsExtensions.AllowClr` (two overloads),
 `OptionsExtensions.AddExtensionMethods`, `Engine.SetValue(string, object?)`,
 `ShadowRealm.SetValue(string, object?)`, `ObjectWrapper.Create`, and `ClrHelper.Unwrap` / `Wrap`. The two

@@ -36,8 +36,14 @@ internal abstract class JintBinaryExpression : JintExpression
     private JintBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
     {
         // TODO check https://tc39.es/ecma262/#sec-applystringornumericbinaryoperator
-        _left = Build(expression.Left);
-        _right = Build(expression.Right);
+        _left = JintStackProbeExpression.BuildOperand(expression.Left);
+        _right = JintStackProbeExpression.BuildOperand(expression.Right);
+    }
+
+    private JintBinaryExpression(NonLogicalBinaryExpression expression, JintExpression left, JintExpression right) : base(expression)
+    {
+        _left = left;
+        _right = right;
     }
 
     /// <summary>
@@ -772,7 +778,20 @@ internal abstract class JintBinaryExpression : JintExpression
     private readonly record struct MethodResolverState(JsCallArguments Arguments);
 
     /// <summary>
-    /// Calls the CLR operator this pair of operands selects, if there is one.
+    /// Calls the CLR operator this pair of operands selects, if there is one. A reflection-free publication
+    /// answers <see langword="false"/> through <see cref="HostInterop"/>; the selection rules are on
+    /// <see cref="TryOperatorOverloadingWithReflection"/>.
+    /// </summary>
+    internal static bool TryOperatorOverloading(
+        EvaluationContext context,
+        JsValue leftValue,
+        JsValue rightValue,
+        string? clrName,
+        [NotNullWhen(true)] out object? result) =>
+        HostInterop.Instance.TryBinaryOperator(context, leftValue, rightValue, clrName, out result);
+
+    /// <summary>
+    /// The reflection lane behind <see cref="TryOperatorOverloading"/>.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -801,7 +820,7 @@ internal abstract class JintBinaryExpression : JintExpression
     /// allocating a candidate list.
     /// </para>
     /// </remarks>
-    internal static bool TryOperatorOverloading(
+    internal static bool TryOperatorOverloadingWithReflection(
         EvaluationContext context,
         JsValue leftValue,
         JsValue rightValue,
@@ -1005,12 +1024,13 @@ internal abstract class JintBinaryExpression : JintExpression
     }
 
     /// <summary>
-    /// Build-time fusion for the guard idioms `x === undefined`, `x === null` and
-    /// `typeof x === "literal"` (plus the !== forms): the constant side is known statically, so
-    /// the fused node evaluates only the interesting operand and answers with one type test or
-    /// one reference compare — no evaluation of the constant side and no generic strict-equality
-    /// dispatch. Returns null when the expression is not one of these shapes (including when both
-    /// sides are constants, which keeps the existing literal-vs-literal constant fold).
+    /// Build-time fusion for the guard idioms `x === undefined`, `x === null`,
+    /// `typeof x === "literal"`, `x === true` and `x === "literal"` (plus the !== forms): the
+    /// constant side is known statically, so the fused node evaluates only the interesting operand
+    /// and answers with one type test, one reference compare or one Equals call — no evaluation
+    /// of the constant side and no generic strict-equality dispatch. Returns null when the
+    /// expression is not one of these shapes (including when both sides are constants, which keeps
+    /// the existing literal-vs-literal constant fold).
     /// </summary>
     private static JintBinaryExpression? TryBuildFusedStrictEquality(NonLogicalBinaryExpression expression, bool invert)
     {
@@ -1038,8 +1058,24 @@ internal abstract class JintBinaryExpression : JintExpression
             return new SingletonStrictEqualityExpression(expression, operandIsLeft: false, leftSingleton.Value, invert);
         }
 
+        // x === true / x === "literal" (either orientation)
+        if (expression.Right is Literal rightLiteral && expression.Left is not Literal && GetFusibleLiteralValue(rightLiteral) is { } rightValue)
+        {
+            return new LiteralStrictEqualityExpression(expression, operandIsLeft: true, rightValue, invert);
+        }
+
+        if (expression.Left is Literal leftLiteral && expression.Right is not Literal && GetFusibleLiteralValue(leftLiteral) is { } leftValue)
+        {
+            return new LiteralStrictEqualityExpression(expression, operandIsLeft: false, leftValue, invert);
+        }
+
         return null;
     }
+
+    // The same conversion the literal operand evaluates through, so the fused node compares against
+    // exactly the value the generic path would.
+    private static JsValue? GetFusibleLiteralValue(Literal literal)
+        => JintLiteralExpression.ConvertToJsValue(literal) is { } value && value is JsBoolean or JsString ? value : null;
 
     /// <summary>
     /// Build-time fusion for the guard idioms `x == null` and `x == undefined` (plus the != forms):
@@ -1132,6 +1168,17 @@ internal abstract class JintBinaryExpression : JintExpression
         }
 
         result = new AdditionChainExpression(expression, operands.ToArray());
+
+        // The flattened lane evaluates every operand from this node, past where the nested tree would have carried
+        // probes on its spine, and the hoisting walk counts an operand below such a place as just past one, even in
+        // a short chain that ends a longer one (`a + b + … || x || …`). So a chain whose nested form would have
+        // carried one carries a probe of its own, ahead of all its operands: one level per nested addition, and one
+        // for the deepest operand. Every chain over the interval does; a short one only at a depth near a multiple.
+        if (SyntaxNesting.SpansEvaluationProbeDepth(operands.Count - 1))
+        {
+            result = JintStackProbeExpression.Around(result);
+        }
+
         return true;
     }
 
@@ -1144,15 +1191,38 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private static void CollectAdditionOperands(Expression expression, List<Expression> operands)
     {
-        if (expression is NonLogicalBinaryExpression { Operator: Operator.Addition } binary)
+        // A loop down the left spine rather than a recursion: the chain is as deep as it has operands, and
+        // the parser builds one of any length.
+        var current = expression;
+        while (current is NonLogicalBinaryExpression { Operator: Operator.Addition } binary)
         {
-            CollectAdditionOperands(binary.Left, operands);
             operands.Add(binary.Right);
+            current = binary.Left;
         }
-        else
+
+        operands.Add(current);
+        operands.Reverse();
+    }
+
+    /// <summary>
+    /// The relational operators' lane for two evaluated number operands: their doubles compare
+    /// directly, with IEEE semantics giving false for NaN exactly as the generic path does. It
+    /// declines when operator overloading is allowed, like the other number lanes: overload
+    /// resolution sees a JS number as a CLR double, and its result goes through the object converters.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool TryGetNumberOperands(EvaluationContext context, JsValue left, JsValue right, out double leftNumber, out double rightNumber)
+    {
+        if (left.IsNumber() && right.IsNumber() && !context.OperatorOverloadingAllowed)
         {
-            operands.Add(expression);
+            leftNumber = Unsafe.As<JsNumber>(left)._value;
+            rightNumber = Unsafe.As<JsNumber>(right)._value;
+            return true;
         }
+
+        leftNumber = 0;
+        rightNumber = 0;
+        return false;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1226,6 +1296,53 @@ internal abstract class JintBinaryExpression : JintExpression
 
             return (value._type == _expectedType) != _invert;
         }
+    }
+
+    /// <summary>
+    /// Fused `x === true` / `x === "literal"` (and the !== forms): only the interesting operand
+    /// evaluates, and the literal is converted once, when the node is built. The comparison calls
+    /// Equals from the same side as the generic strict-equality path, so the result is identical
+    /// for every operand type.
+    /// </summary>
+    private sealed class LiteralStrictEqualityExpression : JintBinaryExpression
+    {
+        private readonly JintExpression _operand;
+        private readonly bool _operandIsLeft;
+        private readonly JsValue _literal;
+        private readonly bool _invert;
+
+        public LiteralStrictEqualityExpression(NonLogicalBinaryExpression expression, bool operandIsLeft, JsValue literal, bool invert) : base(expression)
+        {
+            _operand = operandIsLeft ? _left : _right;
+            _operandIsLeft = operandIsLeft;
+            _literal = literal;
+            _invert = invert;
+        }
+
+        protected override object EvaluateInternal(EvaluationContext context)
+        {
+            var value = _operand.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return JsValue.Undefined;
+            }
+
+            return IsEqual(value) != _invert ? JsBoolean.True : JsBoolean.False;
+        }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            var value = _operand.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return false;
+            }
+
+            return IsEqual(value) != _invert;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool IsEqual(JsValue value) => _operandIsLeft ? value.Equals(_literal) : _literal.Equals(value);
     }
 
     /// <summary>
@@ -1445,6 +1562,11 @@ internal abstract class JintBinaryExpression : JintExpression
                 return JsValue.Undefined;
             }
 
+            if (TryGetNumberOperands(context, left, right, out var leftNumber, out var rightNumber))
+            {
+                return leftNumber < rightNumber ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_LessThan", out var opResult))
             {
@@ -1466,6 +1588,11 @@ internal abstract class JintBinaryExpression : JintExpression
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return false;
+            }
+
+            if (TryGetNumberOperands(context, left, right, out var leftNumber, out var rightNumber))
+            {
+                return leftNumber < rightNumber;
             }
 
             if (context.OperatorOverloadingAllowed
@@ -1501,6 +1628,11 @@ internal abstract class JintBinaryExpression : JintExpression
                 return JsValue.Undefined;
             }
 
+            if (TryGetNumberOperands(context, left, right, out var leftNumber, out var rightNumber))
+            {
+                return leftNumber > rightNumber ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_GreaterThan", out var opResult))
             {
@@ -1524,6 +1656,11 @@ internal abstract class JintBinaryExpression : JintExpression
                 return false;
             }
 
+            if (TryGetNumberOperands(context, left, right, out var leftNumber, out var rightNumber))
+            {
+                return leftNumber > rightNumber;
+            }
+
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_GreaterThan", out var opResult))
             {
@@ -1545,9 +1682,37 @@ internal abstract class JintBinaryExpression : JintExpression
     {
         private readonly BoxedNumericOperandLane? _numericLane;
 
-        public PlusBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
+        public PlusBinaryExpression(NonLogicalBinaryExpression expression)
+            : base(expression, BuildLeftOperand(expression.Left), JintStackProbeExpression.BuildOperand(expression.Right))
         {
             _numericLane = BoxedNumericOperandLane.TryBuild(_left, _right);
+        }
+
+        /// <summary>
+        /// Builds the left operand of a <c>+</c> that is itself a chain of <c>+</c> as the nested node directly,
+        /// without asking <see cref="TryBuildAdditionChain"/> again. The chain was decided at its outermost
+        /// <c>+</c>: a sub-chain shares its opening pair, so a numeric chain declines at every level, and a
+        /// flattened chain only ever reaches its nested tree through the outermost node's pairwise lane. Asking
+        /// anyway re-walked the rest of the chain at every level, and gave each level a copy of its operands:
+        /// time and memory quadratic in a chain's length. The chain's opening pair still goes through
+        /// <c>JintExpression.Build</c>, which folds a pair of literals into a constant.
+        /// </summary>
+        private static JintExpression BuildLeftOperand(Expression left)
+        {
+            if (left is NonLogicalBinaryExpression { Operator: Operator.Addition, Left: NonLogicalBinaryExpression { Operator: Operator.Addition } } addition
+                && addition.UserData is not JintExpression)
+            {
+                // The recursion JintExpression.Build would have taken, so it probes as Build does.
+                JintExpression nested;
+                using (SyntaxNesting.Enter())
+                {
+                    nested = new PlusBinaryExpression(addition);
+                }
+
+                return JintStackProbeExpression.AtProbeDepth(addition, nested);
+            }
+
+            return JintStackProbeExpression.BuildOperand(left);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
@@ -1709,6 +1874,10 @@ internal abstract class JintBinaryExpression : JintExpression
         private readonly Expression[] _operandExpressions;
         private JintExpression[]? _operands;
 
+        // The depth, as probes are placed, this node was built at: its operands are built lazily, from the top of a
+        // fresh build, and are placed as the nested tree's copies of them were (see EnsureInitialized).
+        private readonly int _probeDepth;
+
         /// <summary>
         /// What the opening pair of this chain produced last time it ran. A performance hint, but
         /// only where nothing can suspend: it selects between two lanes whose suspend/resume
@@ -1727,6 +1896,7 @@ internal abstract class JintBinaryExpression : JintExpression
             : base(expression)
         {
             _operandExpressions = operandExpressions;
+            _probeDepth = SyntaxNesting.ProbeDepth;
         }
 
         private void EnsureInitialized()
@@ -1736,13 +1906,29 @@ internal abstract class JintBinaryExpression : JintExpression
                 return;
             }
 
-            var operands = new JintExpression[_operandExpressions.Length];
-            for (var i = 0; i < _operandExpressions.Length; i++)
+            _operands = BuildOperands();
+        }
+
+        /// <summary>
+        /// Builds the flattened lane's own copy of every operand, each as though at the depth the nested tree built
+        /// its copy: the last operand one level below this node, the first two one level below the deepest
+        /// <c>+</c>. The hoisting walk counted an operand that is itself an operator chain as more levels of the
+        /// chain it ends, and an operand built from the top of a fresh build would carry its probes elsewhere.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private JintExpression[] BuildOperands()
+        {
+            var count = _operandExpressions.Length;
+            var operands = new JintExpression[count];
+            for (var i = 0; i < count; i++)
             {
-                operands[i] = Build(_operandExpressions[i]);
+                using (SyntaxNesting.BuildAsIfAt(_probeDepth + count - Math.Max(i, 1)))
+                {
+                    operands[i] = Build(_operandExpressions[i]);
+                }
             }
 
-            _operands = operands;
+            return operands;
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
@@ -2386,6 +2572,12 @@ internal abstract class JintBinaryExpression : JintExpression
                 return JsValue.Undefined;
             }
 
+            if (TryGetNumberOperands(context, leftValue, rightValue, out var leftNumber, out var rightNumber))
+            {
+                var result = _leftFirst ? leftNumber >= rightNumber : leftNumber <= rightNumber;
+                return result ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, leftValue, rightValue, _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
             {
@@ -2410,6 +2602,11 @@ internal abstract class JintBinaryExpression : JintExpression
             if (!TryEvaluateOperands(context, out var leftValue, out var rightValue))
             {
                 return false;
+            }
+
+            if (TryGetNumberOperands(context, leftValue, rightValue, out var leftNumber, out var rightNumber))
+            {
+                return _leftFirst ? leftNumber >= rightNumber : leftNumber <= rightNumber;
             }
 
             if (context.OperatorOverloadingAllowed

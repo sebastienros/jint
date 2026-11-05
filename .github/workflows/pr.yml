@@ -150,6 +150,46 @@ jobs:
     - name: Test Jint.Tests.PublicInterface
       run: dotnet test --project Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
+  # Jint.Runtime.Interop.ReflectionEnabled=false is a different publication from every leg above, which all run
+  # the default reflection implementation: HostInterop reads the switch once per process, so no test host can
+  # exercise the native lane end to end. Jint.TrimmedExample is that publication — full managed trimming, linker
+  # warnings as errors, nothing rooted — and a reflection lane that bypasses HostInterop fails its publish. The
+  # run is the other half of the evidence: the probes pin what still works and what must fail closed. It is
+  # managed trimming rather than Native AOT, so it is cheap enough for every pull request, and one OS is enough.
+  trimmed-example:
+
+    name: 'linux - reflection-free trimmed example'
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Publish with the switch off, fully trimmed, linker warnings as errors
+      run: dotnet publish Jint.TrimmedExample/Jint.TrimmedExample.csproj --configuration Release --runtime linux-x64 --output "$RUNNER_TEMP/trimmed"
+
+    - name: Run the trimmed publication
+      shell: bash
+      run: |
+        set -o pipefail
+        "$RUNNER_TEMP/trimmed/Jint.TrimmedExample" | tee trimmed-run.log
+        grep -q '^Reflection-free managed trimming: 9 checks passed\.$' trimmed-run.log
+
+    - name: Without the switch, default CLR interop is unchanged
+      shell: bash
+      run: |
+        set -o pipefail
+        dotnet run --project Jint.TrimmedExample/Jint.TrimmedExample.csproj --configuration Release \
+          -p:PublishTrimmed=false -p:JintReflectionEnabled=default | tee default-run.log
+        grep -q '^Default reflection-enabled CLR interop: 2 checks passed\.$' default-run.log
+
   # Native AOT legs (Jint.AotExample, the packed parser's AOT publish, the six-RID browser tool) run only
   # in release.yml, where a published package depends on them: they are the slowest legs and the gaps they
   # find are ILC generic-instantiation gaps that rarely move PR to PR. Run aot.yml by hand to check a branch.

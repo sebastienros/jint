@@ -27,6 +27,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     private readonly ProbablyBlockStatement _body;
     private readonly JintExpression? _expr;
     private readonly DestructuringPattern? _assignmentPattern;
+
+    // Whether the head's pattern contains an await or a yield of the enclosing frame, so that it takes the
+    // destructuring's resumable lane and a suspension inside it parks the iteration it belongs to.
+    private readonly bool _patternMaySuspend;
     private readonly JintExpression _right;
     private readonly List<Key>? _tdzNames;
     private readonly bool _destructuring;
@@ -63,6 +67,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _forBody = statement.Body;
         _iterationKind = IterationKind.Enumerate;
         InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
+        _patternMaySuspend = _assignmentPattern is not null && MaySuspendVisitor.MaySuspend(_assignmentPattern);
         _body = new ProbablyBlockStatement(_forBody);
         _right = JintExpression.Build(_rightExpression);
 
@@ -84,7 +89,13 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _forBody = statement.Body;
         _iterationKind = statement.Await ? IterationKind.AsyncIterate : IterationKind.Iterate;
         InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
-        _body = new ProbablyBlockStatement(_forBody);
+        _patternMaySuspend = _assignmentPattern is not null && MaySuspendVisitor.MaySuspend(_assignmentPattern);
+
+        // Only a using or await using head registers resources, and only a body that is not a block can leave as an
+        // exception: see DisposingIterationBody. Every other loop runs its body as it always has.
+        _body = _disposeHint != DisposeHint.Normal && _forBody is not NestedBlockStatement
+            ? new ProbablyBlockStatement(new DisposingIterationBody(JintStatement.Build(_forBody)))
+            : new ProbablyBlockStatement(_forBody);
         _right = JintExpression.Build(_rightExpression);
 
         InitializeIterationEnvReuse(out _canReuseIterationEnv, out _iterationSlotNames, out _iterationSlotTemplates);
@@ -381,12 +392,19 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
         else if (_iterationKind == IterationKind.AsyncIterate)
         {
-            // For await-of uses async iteration
-            result = exprValue as IteratorInstance ?? exprValue.GetIterator(engine.Realm, Native.Generator.GeneratorKind.Async);
+            // GetIterator(obj, async), https://tc39.es/ecma262/#sec-getiterator: a built-in iterator object
+            // (arr.values(), map.entries(), ...) has no @@asyncIterator, so step 1.b wraps the sync iterator
+            // its @@iterator hands back in CreateAsyncFromSyncIterator, whose next() and return() each await.
+            // Adopting the built-in iterator as the record, as the sync kind below once did, skipped both awaits
+            // (sebastienros/jint#4392).
+            result = exprValue.GetIterator(engine.Realm, Native.Generator.GeneratorKind.Async);
         }
         else
         {
-            result = exprValue as IteratorInstance ?? exprValue.GetIterator(engine.Realm);
+            // GetIterator(obj, sync) for every operand. A built-in iterator object used to be adopted as the record
+            // directly, which ignored any @@iterator or `next` but the built-in ones (sebastienros/jint#4405); its
+            // TryGetIterator now answers that same record, without a property read, whenever both are built-in.
+            result = exprValue.GetIterator(engine.Realm);
         }
 
         return true;
@@ -462,6 +480,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
         var completionType = CompletionType.Normal;
         var close = false;
+        Exception? thrownOutOfAsyncLoop;
 
         try
         {
@@ -567,15 +586,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         }
                         else
                         {
-                            // Call next() on the iterator - for async iterators this returns a Promise
-                            var nextMethod = iteratorRecord.Instance.Get(CommonProperties.Next) as ICallable;
-                            if (nextMethod is null)
-                            {
-                                Throw.TypeError(engine.Realm, "Iterator does not have a next method");
-                                return default;
-                            }
-
-                            var nextPromise = nextMethod.Call(iteratorRecord.Instance, Arguments.Empty);
+                            // Call(iteratorRecord.[[NextMethod]], iteratorRecord.[[Iterator]]) - for async iterators
+                            // this returns a Promise. The method is the record's, never `next` read again
+                            // (sebastienros/jint#4410).
+                            var nextPromise = iteratorRecord.CallNextMethod();
 
                             // Per spec 13.7.5.13 step 5.b.c: Await(nextResult)
                             // Await step 2: PromiseResolve(%Promise%, nextResult)
@@ -664,7 +678,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         iterationEnv = reusableEnv;
                         engine.UpdateLexicalEnvironment(iterationEnv);
                     }
-                    else
+                    else if (iterationEnv is null)
                     {
                         iterationEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
                         if (_tdzNames != null)
@@ -680,6 +694,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             lhsRef = engine.ResolveBinding(lhsName);
                         }
                     }
+
+                    // Otherwise this is a resume inside the head's pattern, and the environment its first attempt
+                    // was initializing is current again (restored above). The pattern resumes at the element that
+                    // suspended and does not run the ones before it again, so their bindings have to be the ones
+                    // already initialized there; a fresh environment would leave them in their temporal dead zone.
 
                     if (context.DebugMode)
                     {
@@ -719,24 +738,51 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     }
                     else
                     {
-                        nextValue = DestructuringPatternAssignmentExpression.ProcessPatterns(
-                            context,
-                            _assignmentPattern!,
-                            valueForResume,
-                            iterationEnv,
-                            checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
+                        nextValue = _patternMaySuspend
+                            ? DestructuringPatternAssignmentExpression.ProcessResumablePattern(
+                                context,
+                                _assignmentPattern!,
+                                valueForResume,
+                                iterationEnv,
+                                checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding)
+                            : DestructuringPatternAssignmentExpression.ProcessPatterns(
+                                context,
+                                _assignmentPattern!,
+                                valueForResume,
+                                iterationEnv,
+                                checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
 
                         // Check for suspension after destructuring (yield inside pattern)
                         if (context.IsSuspended())
                         {
                             close = false; // Don't close iterator, we'll resume later
-                            // Save the ORIGINAL iterator value for replay when resuming
+
+                            // Park the iteration the pattern suspended in: the value this step produced and the
+                            // environment the pattern was initializing. The resume re-enters this iteration with
+                            // them rather than stepping the iterator again, and the pattern resumes at the element
+                            // that suspended (sebastienros/jint#4313). Every field is written, since an entry left
+                            // by an earlier iteration's body still holds that iteration's environment.
                             if (_iterationKind == IterationKind.AsyncIterate && suspendable is not null)
                             {
                                 var asyncSD = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this);
+                                asyncSD.Iterator = iteratorRecord;
                                 asyncSD.CurrentValue = valueForResume;
                                 asyncSD.AccumulatedValue = v;
+                                asyncSD.IterationEnv = iterationEnv;
+                                asyncSD.OuterEnv = oldEnv;
+                                asyncSD.LhsBindingComplete = false;
                             }
+                            else if (suspendable is not null)
+                            {
+                                var syncSD = suspendable.Data.GetOrCreate<ForOfSuspendData>(this, iteratorRecord);
+                                syncSD.Iterator = iteratorRecord;
+                                syncSD.CurrentValue = valueForResume;
+                                syncSD.AccumulatedValue = v;
+                                syncSD.IterationEnv = iterationEnv;
+                                syncSD.OuterEnv = oldEnv;
+                                syncSD.LhsBindingComplete = false;
+                            }
+
                             completionType = CompletionType.Return;
                             return new Completion(CompletionType.Return, suspendable?.SuspendedValue ?? nextValue, _statement!);
                         }
@@ -746,10 +792,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         {
                             completionType = CompletionType.Return;
                             close = false; // Prevent double-close in finally
-                            suspendable.Data.Clear(this);
-                            iteratorRecord.Close(completionType);
-                            var returnValue = suspendable.SuspendedValue ?? nextValue;
-                            return new Completion(CompletionType.Return, returnValue, _statement!);
+                            return LeaveOnReturnRequest(context, suspendable, iteratorRecord, iteratorKind, suspendable.SuspendedValue ?? nextValue);
                         }
 
                         if (lhsKind == LhsKind.Assignment)
@@ -858,41 +901,24 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     completedAwaitData.LhsBindingComplete = false;
                 }
 
-                // Dispose iteration env's resources. If the env has async-dispose
-                // resources and we're in an async function (and the body didn't
-                // suspend), drive the spec-mandated Await(...) suspensions via the
-                // state machine and suspend the async function on each pending
-                // promise — same pattern as JintBlockStatement. Sync/already-suspended
-                // contexts use the legacy drive (which sync-waits via UnwrapIfPromise).
-                if (iterationEnv?.HasDisposeResources == true
-                    && !context.IsSuspended()
-                    && engine.ExecutionContext.AsyncFunction is { } disposeAsyncFn)
+                // Step 8.k: DisposeResources(iterationEnv, result), once the body has completed. A body suspended at
+                // an await or a yield has not: its resources stay on the iteration environment the resume re-enters,
+                // and are disposed when that body completes (sebastienros/jint#4358). Each await DisposeResources owes
+                // suspends the async function or the async generator with this loop as the suspension point, and the
+                // replayed body re-enters it at ResumeFromDispose.
+                if (iterationEnv?.HasDisposeResources == true && !context.IsSuspended())
                 {
-                    var disposeStep = iterationEnv.BeginDisposeResources(result);
-                    var suspendedCompletion = DriveDispose(
-                        context,
-                        suspendable,
-                        disposeAsyncFn,
-                        iterationEnv,
-                        oldEnv,
-                        v,
-                        iteratorRecord,
-                        iteratorKind,
-                        disposeStep,
-                        out var disposeFinal);
-                    if (suspendedCompletion is { } suspended)
+                    if (DisposeIterationResources(engine, suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind, result, out var disposed))
                     {
-                        // Prevent the finally block from clearing the suspend data we
-                        // just stored and from closing the iterator — we'll resume.
+                        // Neither clear the suspend data stored there nor close the iterator on the way out: the loop
+                        // resumes.
                         close = false;
-                        return suspended;
+                        return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
                     }
-                    result = disposeFinal;
+
+                    result = disposed;
                 }
-                else
-                {
-                    result = iterationEnv?.DisposeResources(result) ?? result;
-                }
+
                 engine.UpdateLexicalEnvironment(oldEnv);
 
                 if (!result.Value.IsEmpty)
@@ -925,10 +951,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     // Close iterator with Return completion
                     completionType = CompletionType.Return;
                     close = false; // Prevent double-close in finally
-                    suspendable.Data.Clear(this);
-                    iteratorRecord.Close(completionType);
-                    var returnValue = suspendable.SuspendedValue ?? result.Value;
-                    return new Completion(CompletionType.Return, returnValue, _statement!);
+                    return LeaveOnReturnRequest(context, suspendable, iteratorRecord, iteratorKind, suspendable.SuspendedValue ?? result.Value);
                 }
 
                 if (result.Type == CompletionType.Break && (result.Target == null || string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
@@ -952,10 +975,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     completionType = result.Type;
                     if (result.IsAbrupt())
                     {
-                        // Same step, for a return or a jump naming an enclosing label. A throw
-                        // completion stays on the synchronous close below: step 5 returns it
-                        // whatever the close does.
-                        if (iteratorKind == IteratorKind.Async && result.Type != CompletionType.Throw)
+                        // Same step, for a throw, a return or a jump naming an enclosing label. A
+                        // throw completion awaits the close too, even though step 5 then returns it
+                        // whatever the close did (sebastienros/jint#4354).
+                        if (iteratorKind == IteratorKind.Async)
                         {
                             close = false;
                             return CloseAsyncIterator(context, iteratorRecord, result);
@@ -967,6 +990,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     }
                 }
             }
+        }
+        catch (Exception exception) when (iterationKind == IterationKind.AsyncIterate && close && LeavingAsyncLoopAbruptly(suspendable, exception))
+        {
+            // A throw, or a generator's return() resumption, that a for-await-of loop's AsyncIteratorClose has to await,
+            // which only a frame that has left the unwind can do. Taken below, once the finally has restored the
+            // environment the close suspends in. (iterationKind rather than the equivalent iteratorKind: the finally
+            // already reads it.)
+            close = false;
+            thrownOutOfAsyncLoop = exception;
         }
         catch (Exception exception) when (LeavingOnException(suspendable, exception, out completionType))
         {
@@ -1021,6 +1053,66 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
             engine.UpdateLexicalEnvironment(oldEnv);
         }
+
+        // Reached only from the first catch above: every other way out of the loop returns or rethrows.
+        return CloseAsyncIteratorOnException(context, iteratorRecord, thrownOutOfAsyncLoop);
+    }
+
+    /// <summary>
+    /// Filter for the catch in <see cref="BodyEvaluation"/> that hands a for-await-of loop's abrupt exit to
+    /// <see cref="CloseAsyncIteratorOnException"/>: an exception a script can catch — the ones a statement list would
+    /// turn into a throw completion — or a <see cref="GeneratorReturnException"/>, the return completion a <c>yield</c>
+    /// in the loop's binding pattern or brace-less body was resumed with, leaving a loop whose iterator is due a close.
+    /// Everything else declines into <see cref="LeavingOnException"/> as before, and so does an exception out of a frame
+    /// that has already suspended, which must not suspend a second time (the sentinel-leak gotcha in the interpreter's
+    /// AGENTS.md).
+    /// </summary>
+    private static bool LeavingAsyncLoopAbruptly(ISuspendable? suspendable, Exception exception)
+        => suspendable is { IsSuspended: false }
+           && (exception is GeneratorReturnException || JintStatementList.BecomesThrowCompletion(exception));
+
+    /// <summary>
+    /// The abrupt status of a for-await-of loop that arrived as an exception — from a body that is not a block, a
+    /// destructuring binding, an assignment target — handed to
+    /// <see href="https://tc39.es/ecma262/#sec-asynciteratorclose">AsyncIteratorClose</see> exactly as a completion
+    /// returned by the body is. The exception becomes that completion the way a statement list makes it one: a throw
+    /// completion, debugger report included, or the return completion a <see cref="GeneratorReturnException"/> carries.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private Completion CloseAsyncIteratorOnException(EvaluationContext context, IteratorInstance iteratorRecord, Exception exception)
+    {
+        var completion = JintStatementList.HandleException(context, exception, this);
+        return CloseAsyncIterator(context, iteratorRecord, completion);
+    }
+
+    /// <summary>
+    /// The way out of the loop for a generator's return() resumption that a <c>yield</c> in its body or binding pattern
+    /// handed back in-band, as <see cref="ISuspendable.ReturnRequested"/>: the return completion is the loop's abrupt
+    /// status, and the iterator is closed with it before it goes on (ForIn/OfBodyEvaluation steps 8.i and 8.m,
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset).
+    /// For a <c>for await</c> loop that close is
+    /// <see href="https://tc39.es/ecma262/#sec-asynciteratorclose">AsyncIteratorClose</see>, so the return completion
+    /// waits for what <c>return()</c> answers and loses to a rejection, a throw or a non-object (steps 4.d, 6 and 7);
+    /// Jint used to close it with the synchronous IteratorClose, which awaits nothing (sebastienros/jint#4391).
+    /// Kept out of <see cref="BodyEvaluation"/>: only a loop a return() resumption leaves reaches it.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private Completion LeaveOnReturnRequest(
+        EvaluationContext context,
+        ISuspendable suspendable,
+        IteratorInstance iteratorRecord,
+        IteratorKind iteratorKind,
+        JsValue returnValue)
+    {
+        var completion = new Completion(CompletionType.Return, returnValue, _statement!);
+        if (iteratorKind == IteratorKind.Async)
+        {
+            return CloseAsyncIterator(context, iteratorRecord, completion);
+        }
+
+        suspendable.Data.Clear(this);
+        iteratorRecord.Close(CompletionType.Return);
+        return completion;
     }
 
     /// <summary>
@@ -1061,8 +1153,19 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// the exception in flight, per step 5 of
     /// <see href="https://tc39.es/ecma262/#sec-iteratorclose">IteratorClose</see>. The one exception that is not a
     /// throw is a <see cref="GeneratorReturnException"/>: the return completion a <c>yield</c> in the loop's binding
-    /// pattern or brace-less body was resumed with. It closes the iterator with <see cref="CompletionType.Return"/>,
-    /// so a failing <c>return()</c> does replace it, as it replaces a <c>return</c> statement's.
+    /// pattern or brace-less body was resumed with. It closes a sync iterator with <see cref="CompletionType.Return"/>,
+    /// so a failing <c>return()</c> does replace it, as it replaces a <c>return</c> statement's. A loop whose head
+    /// declares <c>using</c> never sees one from its body: <see cref="DisposingIterationBody"/> hands the body's
+    /// exceptions on as completions, which the iteration's dispose needs.
+    /// </para>
+    /// <para>
+    /// One catch ahead of this filter does accept: a <c>for await</c> loop's throw that a script could catch, or its
+    /// generator's return() resumption, because
+    /// <see href="https://tc39.es/ecma262/#sec-asynciteratorclose">AsyncIteratorClose</see> awaits and only a frame that
+    /// has left the unwind can suspend (<see cref="LeavingAsyncLoopAbruptly"/>, sebastienros/jint#4354 and
+    /// sebastienros/jint#4391). That is not the shape above: its handler only parks the exception and returns, the close
+    /// runs after the <c>finally</c>, and nothing a statement list would decline is accepted, so a constraint exception
+    /// still unwinds through every loop untouched.
     /// </para>
     /// </remarks>
     private bool LeavingOnException(ISuspendable? suspendable, Exception exception, out CompletionType completionType)
@@ -1273,10 +1376,17 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asynciteratorclose
-    /// AsyncIteratorClose for a for-await-of leaving its loop with a completion that is <em>not</em>
-    /// a throw completion — a break, a return, or a jump naming an enclosing label. Steps 3 and
-    /// 4.a-4.c run here; step 4.d's Await suspends the async function or async generator, and
-    /// <see cref="ResumeFromAsyncClose"/> performs steps 5-8 once it settles.
+    /// AsyncIteratorClose for a for-await-of leaving its loop with an abrupt completion — a break, a
+    /// return, a jump naming an enclosing label, or a throw. Steps 3 and 4.a-4.c run here; step 4.d's
+    /// Await suspends the async function or async generator, and <see cref="ResumeFromAsyncClose"/>
+    /// performs steps 5-8 once it settles.
+    /// <para>
+    /// A generator's return() resumption at a <c>yield</c> in the loop is a return completion like a
+    /// <c>return</c> statement's, and closes here as well (<see cref="LeaveOnReturnRequest"/>,
+    /// <see cref="CloseAsyncIteratorOnException"/>); it used to take the synchronous close (#4391). The
+    /// generator's return request stays set across the Await, as it does across a sync close, and the
+    /// statement lists the replay passes through test it only after the loop has completed.
+    /// </para>
     /// <para>
     /// The suspension is the whole point. Jint used to perform the synchronous IteratorClose here,
     /// which calls <c>return()</c>, sees the promise it answers with, finds it <em>is</em> an object
@@ -1285,12 +1395,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// become the loop's completion (#3098).
     /// </para>
     /// <para>
-    /// A throw completion deliberately does not come here, and keeps taking the synchronous close in
-    /// <see cref="BodyEvaluation"/>'s <c>finally</c>. Step 5 returns that completion whatever the
-    /// close does, so the outcome is already the spec's; and the throw reaches that <c>finally</c> as
-    /// a CLR unwind, which could only be suspended by catching it — the very thing
-    /// <see cref="LeavingOnException"/> exists to avoid. What is given up is confined to the
-    /// microtask the discarded Await would have taken.
+    /// A throw completion suspends too. Step 5 returns it whatever the close did, but only after step
+    /// 4.d has awaited what <c>return()</c> answered, so the throw reaches the next <c>catch</c> a
+    /// microtask (a thenable: its two jobs) after the close — where the synchronous close it used to
+    /// take had it arrive at once and never called a thenable's <c>then</c> at all (#4354).
     /// </para>
     /// </summary>
     private Completion CloseAsyncIterator(EvaluationContext context, IteratorInstance iteratorRecord, Completion completion)
@@ -1301,19 +1409,18 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         // The loop is over either way: whatever happens from here, it never resumes iterating.
         suspendable?.Data.Clear(this);
 
-        // Step 5 folded forward for a throw completion, so that every caller may hand one over. The
-        // close still happens, but its abrupt completion, its awaited value and therefore the Await
-        // itself are all discarded — which is precisely the synchronous IteratorClose.
+        // Steps 3 and 4.a-4.c. An abrupt completion of either is innerResult: for a throw completion
+        // step 5 discards it, and there is no Await to perform; otherwise it propagates as the loop's
+        // own, which is step 6.
+        JsValue innerResult;
         if (completion.Type == CompletionType.Throw)
         {
-            TryCloseIterator(iteratorRecord, CompletionType.Throw);
-            return completion;
+            if (!TryStartAsyncCloseDiscardingAbrupt(iteratorRecord, out innerResult))
+            {
+                return completion;
+            }
         }
-
-        // Steps 3 and 4.a-4.c. An abrupt completion of either propagates as the loop's own, which
-        // is step 6 — step 5, the one that would swallow it, needs a throw completion and this
-        // method never sees one.
-        if (!iteratorRecord.TryStartAsyncClose(out var innerResult))
+        else if (!iteratorRecord.TryStartAsyncClose(out innerResult))
         {
             // Step 4.b: If return is undefined, return ? completion.
             return completion;
@@ -1332,11 +1439,30 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         try
         {
             var resolved = innerResult.UnwrapIfPromise(engine.Options.Constraints.PromiseTimeout);
-            return FinishAsyncIteratorClose(context, completion, resolved, rejected: false);
+            return FinishAsyncIteratorClose(context, iteratorRecord, completion, resolved, rejected: false);
         }
         catch (PromiseRejectedException e)
         {
-            return FinishAsyncIteratorClose(context, completion, e.RejectedValue, rejected: true);
+            return FinishAsyncIteratorClose(context, iteratorRecord, completion, e.RejectedValue, rejected: true);
+        }
+    }
+
+    /// <summary>
+    /// AsyncIteratorClose steps 3 and 4.a-4.c for a throw completion: <see langword="false"/> when there is nothing to
+    /// await, because <c>return</c> is undefined (step 4.b) or reading or calling it was abrupt — a throw completion
+    /// that step 5 then discards in favour of the loop's own. Everything is swallowed, as
+    /// <see cref="IteratorInstance.Close"/> swallows it for a throw completion.
+    /// </summary>
+    private static bool TryStartAsyncCloseDiscardingAbrupt(IteratorInstance iteratorRecord, out JsValue innerResult)
+    {
+        try
+        {
+            return iteratorRecord.TryStartAsyncClose(out innerResult);
+        }
+        catch
+        {
+            innerResult = JsValue.Undefined;
+            return false;
         }
     }
 
@@ -1371,7 +1497,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
         catch (JavaScriptException e)
         {
-            return FinishAsyncIteratorClose(context, completion, e.Error, rejected: true);
+            return FinishAsyncIteratorClose(context, iteratorRecord, completion, e.Error, rejected: true);
         }
 
         var data = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this, iteratorRecord);
@@ -1411,6 +1537,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         var completion = data.CloseCompletion;
         var settled = data.CloseSettledValue ?? JsValue.Undefined;
         var rejected = data.CloseSettledRejected;
+        var iteratorRecord = data.Iterator;
 
         suspendable.IsResuming = false;
         suspendable.Data.Clear(this);
@@ -1432,23 +1559,38 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             asyncGenerator._lastYieldNode = null;
         }
 
-        return FinishAsyncIteratorClose(context, completion, settled, rejected);
+        return FinishAsyncIteratorClose(context, iteratorRecord, completion, settled, rejected);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asynciteratorclose steps 5-8, applied once the Await of step 4.d
     /// has settled.
+    /// <para>
+    /// First the built-in iterator under the record releases its native state - a wrapped CLR collection's iterator
+    /// disposes its host enumerator - now that the <c>return</c> the close called has settled, and before the steps
+    /// below decide what leaves the loop (sebastienros/jint#4406). It is told a throw completion whenever one is what
+    /// leaves, so that a host's <c>Dispose</c> cannot replace it. Without a <c>return</c> it was released at step 4.b,
+    /// and this is never reached.
+    /// </para>
     /// </summary>
-    private Completion FinishAsyncIteratorClose(EvaluationContext context, Completion completion, JsValue settled, bool rejected)
+    private Completion FinishAsyncIteratorClose(
+        EvaluationContext context,
+        IteratorInstance? iteratorRecord,
+        Completion completion,
+        JsValue settled,
+        bool rejected)
     {
         var engine = context.Engine;
 
-        // Step 5: If completion is a throw completion, return ? completion. Kept whole even though
-        // CloseAsyncIterator now answers a throw completion before it can reach here, so this
-        // method reads as the algorithm's tail rather than as the half of it that happens to remain.
+        iteratorRecord?.CloseNativeStateAfterReturn(
+            completion.Type == CompletionType.Throw || rejected || !settled.IsObject() ? CompletionType.Throw : completion.Type);
+
+        // Step 5: If completion is a throw completion, return ? completion. Handed back as the completion
+        // it is rather than raised again: it has been reported to the debugger once already, and a fresh
+        // exception would report it a second time and lose the location it was thrown at.
         if (completion.Type == CompletionType.Throw)
         {
-            Throw.JavaScriptException(engine, completion.Value, _statement!.Location);
+            return completion;
         }
 
         // Step 6: If innerResult is a throw completion, return ? innerResult.
@@ -1535,67 +1677,54 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     }
 
     /// <summary>
-    /// Drives the iteration env's dispose state machine. If the next step is a
-    /// suspend (await), suspends the surrounding async function on the pending
-    /// promise — same machinery as a JS <c>await</c> — and returns a completion
-    /// indicating the for-of has handed control back to the async runtime. On
-    /// resume, <see cref="ResumeFromDispose"/> picks up where we left off.
-    /// Returns null when the state machine completes synchronously; the caller
-    /// then uses <paramref name="finalCompletion"/> as the post-dispose result.
+    /// Step 8.k for an iteration whose environment holds resources: runs DisposeResources over it with the body's
+    /// completion. When an await it owes suspends the frame, parks what <see cref="ResumeFromDispose"/> needs and
+    /// returns <see langword="true"/>; otherwise <paramref name="disposed"/> is the completion the iteration goes on
+    /// with. Kept out of <see cref="BodyEvaluation"/>, which every loop runs and only a <c>using</c> head reaches this.
     /// </summary>
-    private Completion? DriveDispose(
-        EvaluationContext context,
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private bool DisposeIterationResources(
+        Engine engine,
         ISuspendable? suspendable,
-        AsyncFunctionInstance asyncFn,
         DeclarativeEnvironment iterationEnv,
         Environment oldEnv,
         JsValue v,
         IteratorInstance iteratorRecord,
         IteratorKind iteratorKind,
-        DisposeStepResult step,
-        out Completion finalCompletion)
+        Completion result,
+        out Completion disposed)
     {
-        var engine = context.Engine;
-        while (!step.IsDone)
+        var step = iterationEnv.BeginDisposeResources(result);
+        if (StatementDisposal.Drive(engine, this, iterationEnv, ref step))
         {
-            if (SetupDisposeSuspension(engine, asyncFn, step.PendingPromise!, out var awaitError))
-            {
-                SaveDisposeSuspendState(suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind);
-                engine.UpdateLexicalEnvironment(oldEnv);
-                finalCompletion = default;
-                return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
-            }
-
-            // The await was abrupt before it could suspend: that throw completion is the dispose result's.
-            step = iterationEnv.ContinueDisposeResources(awaitError, awaitThrew: true);
+            SaveDisposeSuspendState(suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind);
+            disposed = default;
+            return true;
         }
 
-        finalCompletion = step.CompletedResult;
-        return null;
+        disposed = step.CompletedResult;
+        if (disposed.Type == CompletionType.Throw)
+        {
+            // A dispose that threw replaced the completion the body left with (DisposeResources step 4.e.iii.2), so a
+            // generator's return() request that completion stood for is no longer in force; left set, the test of it
+            // below turned the throw back into the return, and no catch saw it (sebastienros/jint#4360). The resume
+            // after a suspended dispose does the same (ResumeFromDispose), as a block does (JintBlockStatement.CompleteDispose).
+            JintStatementList.ClearReturnRequest(engine);
+        }
+
+        return false;
     }
 
     /// <summary>
-    /// Resume entry point when the async function was suspended mid-dispose.
-    /// Advances the iteration env's dispose state machine with the awaited result.
-    /// If the state machine suspends again, re-suspends the function. When the
-    /// state machine completes, applies the same post-dispose handling the main
-    /// loop applies (update accumulator, propagate abrupt completions) and either
-    /// continues with the next iteration via <see cref="BodyEvaluation"/>, or
-    /// returns the abrupt completion.
+    /// Resume entry point when the async function or the async generator was suspended mid-dispose (step 8.k).
+    /// Advances the iteration env's dispose state machine with the awaited result, and suspends again on the next
+    /// await it owes (<see cref="StatementDisposal"/>). When the state machine completes, applies the same
+    /// post-dispose handling the main loop applies (update accumulator, propagate abrupt completions) and either
+    /// continues with the next iteration via <see cref="BodyEvaluation"/>, or returns the abrupt completion.
     /// </summary>
     private Completion ResumeFromDispose(EvaluationContext context, ISuspendable suspendable, SuspendData data)
     {
         var engine = context.Engine;
-        var asyncFn = engine.ExecutionContext.AsyncFunction;
-        var resumeValue = asyncFn?._resumeValue ?? JsValue.Undefined;
-        var resumeThrew = asyncFn?._resumeWithThrow ?? false;
-        if (asyncFn is not null)
-        {
-            asyncFn._resumeValue = null;
-            asyncFn._resumeWithThrow = false;
-            asyncFn._lastAwaitNode = null;
-        }
-        suspendable.IsResuming = false;
 
         DeclarativeEnvironment iterationEnv;
         Environment oldEnv;
@@ -1627,39 +1756,12 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
 
         engine.UpdateLexicalEnvironment(iterationEnv);
-        var step = iterationEnv.ContinueDisposeResources(resumeValue, resumeThrew);
-
-        // The state machine may suspend again — handle that with the same Pattern A
-        // hand-off. We can only re-suspend on AsyncFunctionInstance; if for some
-        // reason it's gone, sync-wait via UnwrapIfPromise as a fallback.
-        while (!step.IsDone)
+        var step = StatementDisposal.Resume(engine, suspendable, iterationEnv);
+        if (StatementDisposal.Drive(engine, this, iterationEnv, ref step))
         {
-            if (asyncFn is not null)
-            {
-                if (!SetupDisposeSuspension(engine, asyncFn, step.PendingPromise!, out var awaitError))
-                {
-                    // The await was abrupt before it could suspend: that throw completion is the dispose result's.
-                    step = iterationEnv.ContinueDisposeResources(awaitError, awaitThrew: true);
-                    continue;
-                }
-
-                SaveDisposeSuspendState(suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind);
-                engine.UpdateLexicalEnvironment(oldEnv);
-                return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
-            }
-            try
-            {
-                var resolved = step.PendingPromise!.UnwrapIfPromise(engine.Options.Constraints.PromiseTimeout);
-                step = iterationEnv.ContinueDisposeResources(resolved, false);
-            }
-            catch (PromiseRejectedException e)
-            {
-                step = iterationEnv.ContinueDisposeResources(e.RejectedValue, true);
-            }
-            catch (JavaScriptException e)
-            {
-                step = iterationEnv.ContinueDisposeResources(e.Error, true);
-            }
+            SaveDisposeSuspendState(suspendable, iterationEnv, oldEnv, v, iteratorRecord, iteratorKind);
+            engine.UpdateLexicalEnvironment(oldEnv);
+            return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
         }
 
         var result = step.CompletedResult;
@@ -1669,13 +1771,27 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             v = result.Value;
         }
 
-        // Post-dispose abrupt handling — mirrors the inline code in BodyEvaluation.
+        // Post-dispose abrupt handling — mirrors the inline code in BodyEvaluation, closing the iterator with the
+        // completion the dispose left (step 8.m): https://tc39.es/ecma262/#sec-iteratorclose swallows what return()
+        // does only for a throw completion, and propagates it for every other.
         if (result.Type == CompletionType.Throw)
         {
             suspendable.Data.Clear(this);
+
+            // A dispose that threw or rejected replaced the completion the body left with (DisposeResources step
+            // 4.e.iii), so a generator's return() request that completion stood for is no longer in force; left set,
+            // the statement list around the loop would turn the throw back into the return
+            // (JintBlockStatement.CompleteDispose).
+            JintStatementList.ClearReturnRequest(engine);
+            if (iteratorKind == IteratorKind.Async)
+            {
+                return CloseAsyncIterator(context, iteratorRecord, result);
+            }
+
+            // Handed back as the completion it is rather than raised again, as BodyEvaluation hands back a throw
+            // completion: a body's throw has been reported to the debugger once already, where it was thrown.
             TryCloseIterator(iteratorRecord, CompletionType.Throw);
-            Throw.JavaScriptException(engine, result.Value, _statement!.Location);
-            return default;
+            return result;
         }
 
         if (result.Type == CompletionType.Break
@@ -1688,7 +1804,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 return CloseAsyncIterator(context, iteratorRecord, breakCompletion);
             }
 
-            TryCloseIterator(iteratorRecord, CompletionType.Normal);
+            iteratorRecord.Close(CompletionType.Normal);
             return breakCompletion;
         }
 
@@ -1700,11 +1816,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 return CloseAsyncIterator(context, iteratorRecord, result);
             }
 
-            TryCloseIterator(iteratorRecord, CompletionType.Return);
+            iteratorRecord.Close(CompletionType.Return);
             return result;
         }
 
-        if (result.IsAbrupt() && result.Type != CompletionType.Continue)
+        // Step 8.m: LoopContinues is false for a continue naming a label this loop does not carry as well, which
+        // continues an enclosing loop and so leaves this one, exactly as BodyEvaluation treats it.
+        if (result.IsAbrupt()
+            && (result.Type != CompletionType.Continue
+                || (result.Target is not null && !string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal))))
         {
             suspendable.Data.Clear(this);
             if (iteratorKind == IteratorKind.Async)
@@ -1712,7 +1832,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 return CloseAsyncIterator(context, iteratorRecord, result);
             }
 
-            TryCloseIterator(iteratorRecord, result.Type);
+            iteratorRecord.Close(result.Type);
             return result;
         }
 
@@ -1722,43 +1842,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         suspendable.Data.Clear(this);
         var carrier = new ForOfSuspendData { Iterator = iteratorRecord, AccumulatedValue = v };
         return BodyEvaluation(context, _expr, in _body, iteratorRecord, _iterationKind, _lhsKind, carrier, resuming: false, iteratorKind);
-    }
-
-    /// <summary>
-    /// Mirror of <see cref="JintAwaitExpression.SuspendForAwait"/> for the dispose
-    /// path: suspends the async function on the pending dispose promise so the
-    /// next event-loop tick resumes us via <see cref="ResumeFromDispose"/>.
-    /// </summary>
-    /// <returns>
-    /// <see langword="false"/> when the await is abrupt before it suspends: Await's PromiseResolve(%Promise%, value)
-    /// reads a promise's <c>constructor</c>, which may throw, and <paramref name="error"/> is that throw
-    /// (sebastienros/jint#4361).
-    /// </returns>
-    private bool SetupDisposeSuspension(
-        Engine engine,
-        AsyncFunctionInstance asyncFn,
-        JsValue pendingPromise,
-        [NotNullWhen(false)] out JsValue? error)
-    {
-        JsPromise promise;
-        try
-        {
-            promise = PromiseConstructor.ResolveForAwaitToPromise(engine, pendingPromise);
-        }
-        catch (JavaScriptException e)
-        {
-            error = e.Error;
-            return false;
-        }
-
-        asyncFn._lastAwaitNode = this;
-        asyncFn._state = AsyncFunctionState.SuspendedAwait;
-        asyncFn._savedContext = engine.ExecutionContext;
-
-        // The async instance is its own await continuation (same as a plain await).
-        PromiseOperations.PerformPromiseThen(engine, promise, asyncFn);
-        error = null;
-        return true;
     }
 
     private void SaveDisposeSuspendState(
@@ -1807,6 +1890,49 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         catch
         {
             // Best-effort close on abrupt — main path already has its own completion.
+        }
+    }
+
+    /// <summary>
+    /// The body of a loop whose head declares <c>using</c> or <c>await using</c>, when that body is not a block. Step 8.j
+    /// takes the body's completion, abrupt or not, and step 8.k disposes the iteration's resources with it before the
+    /// iterator is closed
+    /// (https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset).
+    /// A statement's abrupt completion reaches its caller as a completion or, from inside an expression, as an exception:
+    /// a call that throws, a <c>TypeError</c>, a generator's <c>return()</c> or <c>throw()</c> resumption at a
+    /// <c>yield</c> (<see cref="GeneratorReturnException"/>). This turns the exceptions a statement list turns into
+    /// completions into those completions, as a block body's own statements are, so that the dispose and everything after
+    /// it — awaiting an <c>await using</c> result, closing the iterator — runs on the path a block body takes
+    /// (sebastienros/jint#4393).
+    /// </summary>
+    /// <remarks>
+    /// Built only for such a loop, so every other loop runs its body exactly as before. It is transparent as
+    /// <see cref="JintStackProbeStatement"/> is: <see cref="JintStatement.Execute"/> runs the per-statement checks once, for
+    /// the node both handlers share, and the wrapped statement then runs without them. What it declines — a constraint,
+    /// a cancellation, a host exception — unwinds through the loop untouched and is not disposed for, as out of a block
+    /// body.
+    /// </remarks>
+    private sealed class DisposingIterationBody : JintStatement
+    {
+        private readonly JintStatement _body;
+
+        internal DisposingIterationBody(JintStatement body) : base(body._statement)
+        {
+            _body = body;
+        }
+
+        protected override Completion ExecuteInternal(EvaluationContext context)
+        {
+            try
+            {
+                return _body.ExecuteWithoutStatementChecks(context);
+            }
+            catch (Exception exception) when (exception is GeneratorReturnException || JintStatementList.BecomesThrowCompletion(exception))
+            {
+                // Reported to the debugger here, once, as a statement list reports it; the loop hands the throw on as the
+                // completion it now is.
+                return JintStatementList.HandleException(context, exception, _body);
+            }
         }
     }
 

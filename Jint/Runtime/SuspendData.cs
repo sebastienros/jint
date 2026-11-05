@@ -20,17 +20,74 @@ internal abstract class SuspendData
 }
 
 /// <summary>
-/// Stores the state of an array destructuring pattern when a generator yields inside it.
-/// When a generator yields during array destructuring (e.g., [x[yield]] = iterable),
-/// the iterator must be preserved so it can be properly closed when the generator
-/// completes or returns.
+/// Where a destructuring pattern was when its frame suspended inside it, so that the resume continues at the
+/// element or property that suspended instead of starting the pattern over (sebastienros/jint#4313).
 /// </summary>
+/// <remarks>
+/// <para>
+/// Keyed by the pattern's AST node, which is the only identity a nested pattern has: the patterns are walked by
+/// static code with no handler of their own. That is safe because the dictionary belongs to one suspendable, and
+/// one frame cannot be inside the same pattern twice at once. Only the resumable lane of
+/// <see cref="Interpreter.Expressions.DestructuringPatternAssignmentExpression"/> parks one, at the moment the
+/// pattern suspends, and it reads one back only while the frame is resuming. A resume that completes the pattern,
+/// or leaves it with an exception, removes the entry.
+/// </para>
+/// <para>
+/// <see cref="SuspendData.Iterator"/> is an array pattern's iterator record.
+/// </para>
+/// </remarks>
 internal sealed class DestructuringSuspendData : SuspendData
 {
     /// <summary>
-    /// Whether the iterator has been exhausted (done=true).
+    /// The value being destructured. The construct that evaluated it (an assignment, a declaration, a <c>catch</c>
+    /// clause) takes it from here on the resume instead of evaluating its right-hand side again.
+    /// </summary>
+    public JsValue Argument { get; set; } = JsValue.Undefined;
+
+    /// <summary>
+    /// Whether an array pattern's iterator has reported done, or failed, so it is neither stepped nor closed again.
     /// </summary>
     public bool Done { get; set; }
+
+    /// <summary>
+    /// An object pattern's <c>ToObject</c> of <see cref="Argument"/>.
+    /// </summary>
+    public ObjectInstance? Source { get; set; }
+
+    /// <summary>
+    /// The property keys an object pattern has read so far, which its rest element leaves out.
+    /// </summary>
+    public HashSet<JsValue>? ProcessedProperties { get; set; }
+
+    /// <summary>
+    /// The index of the element or property that suspended.
+    /// </summary>
+    public int Index { get; set; }
+
+    /// <summary>
+    /// The property key of an object pattern's suspended property, once it has been evaluated; null when the
+    /// computed key itself suspended.
+    /// </summary>
+    public JsValue? PendingKey { get; set; }
+
+    /// <summary>
+    /// The value already produced for the suspended element: the step of an array pattern's iterator, the read of
+    /// an object pattern's property, or a rest element's array. Null when the suspension came before it.
+    /// </summary>
+    public JsValue? PendingValue { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="PendingValue"/> already went through the element's default, so it is what the nested
+    /// pattern destructures; false while the default itself is what suspended.
+    /// </summary>
+    public bool PendingValueIsFinal { get; set; }
+
+    /// <summary>
+    /// The suspended element's target, when it was resolved before the suspension: a member expression evaluated
+    /// before the step or the read, or an object pattern's binding resolved before the read. The resume writes
+    /// through it, and it goes back to the reference pool only then.
+    /// </summary>
+    public Reference? PendingTarget { get; set; }
 }
 
 /// <summary>
@@ -606,6 +663,23 @@ internal sealed class CallSuspendData : SuspendData
     public bool DirectEval { get; set; }
 }
 
+/// <summary>
+/// Stores the specifier a dynamic <c>import()</c> had evaluated when its options suspended, so the resume goes back
+/// into the options instead of evaluating the specifier, and every call and getter inside it, a second time.
+/// </summary>
+/// <remarks>
+/// Parked and taken back as <see cref="CallSuspendData"/> is: keyed by the handler, read and removed by the resume
+/// that re-enters it, and parked only by a handler whose operands may suspend, which is decided at build time.
+/// </remarks>
+internal sealed class ImportCallSuspendData : SuspendData
+{
+    /// <summary>
+    /// The specifier's value, not yet converted: EvaluateImportCall calls <c>ToString</c> on it only once the
+    /// options are in hand.
+    /// </summary>
+    public JsValue Specifier { get; set; } = JsValue.Undefined;
+}
+
 internal sealed class SuspendDataDictionary
 {
     /// <summary>
@@ -717,4 +791,9 @@ internal sealed class SuspendDataDictionary
     {
         _suspendData?.Remove(key);
     }
+
+    /// <summary>
+    /// How many constructs have suspend data parked, for tests proving that an entry does not outlive its construct.
+    /// </summary>
+    internal int Count => _suspendData?.Count ?? 0;
 }

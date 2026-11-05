@@ -555,7 +555,8 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getiterator — the @@iterator lookup for a primitive string receiver,
-    /// with the fast lane that iterates the text directly instead of driving %StringIteratorPrototype%.
+    /// with the fast lane that iterates the text directly instead of driving %StringIteratorPrototype%, taken
+    /// while that prototype's <c>next</c> is still the built-in one (<c>StringIteratorPrototype.ToIteratorRecord</c>).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -592,7 +593,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
                 var iteratorMethod = stringPrototype.Get(GlobalSymbolRegistry.Iterator, this);
                 if (ReferenceEquals(iteratorMethod, stringPrototype._originalIteratorFunction))
                 {
-                    iterator = new IteratorInstance.StringIterator(stringPrototype.Engine, ToString());
+                    iterator = realm.Intrinsics.StringIteratorPrototype.ToIteratorRecord(ToString());
                     return true;
                 }
 
@@ -610,7 +611,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             }
             else if (ReferenceEquals(method, stringPrototype._originalIteratorFunction))
             {
-                iterator = new IteratorInstance.StringIterator(stringPrototype.Engine, ToString());
+                iterator = realm.Intrinsics.StringIteratorPrototype.ToIteratorRecord(ToString());
                 return true;
             }
         }

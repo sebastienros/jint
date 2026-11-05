@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -5,6 +6,7 @@ using Jint.Native.Symbol;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using FunctionInstance = Jint.Native.Function.Function;
 
 namespace Jint.Native.Iterator;
 
@@ -14,6 +16,331 @@ namespace Jint.Native.Iterator;
 [JsObject(UseShape = true)]
 internal partial class IteratorPrototype : Prototype
 {
+    // A built-in iterator prototype's own `next`, captured by its CreateProperties_Generated (CaptureField on
+    // its [JsFunction(Name = "next")]) before any script can replace it. Null on a prototype that captures
+    // nothing - %Iterator.prototype% itself, which has no `next` - for which both methods below answer an
+    // ObjectIterator and the iteration goes through the `next` it reads.
+    private protected FunctionInstance? _originalNextFunction;
+
+    // Stands in for an own `next` that is not a data property; its value is never a function.
+    private static readonly PropertyDescriptor NotADataProperty = new(Undefined, PropertyFlag.None);
+
+    // The own `next` data descriptor as it stood at _nextDescriptorVersion (NotADataProperty if it was not one), or
+    // null while it has not been read - PromisePrototype.HasIntrinsicConstructor's pattern. Replacing, deleting or
+    // redefining `next` as an accessor goes through SetOwnProperty, SetProperty or RemoveOwnProperty and moves
+    // _propertiesVersion; an assignment, or a redefinition that keeps it a data property, changes this descriptor's
+    // value in place, which is re-read every time.
+    private PropertyDescriptor? _nextDescriptor;
+    private uint _nextDescriptorVersion;
+
+    // %Iterator.prototype%'s own @@iterator, captured by its CreateSymbols_Generated (CaptureField on the
+    // [JsSymbolFunction("Iterator")] below). Null on every other prototype, which is what makes an @@iterator found on
+    // one of those answer the specified path.
+    private FunctionInstance? _originalIteratorFunction;
+
+    // The @@iterator lookup InheritsOriginalIteratorMethod caches: the data descriptor found (NotADataProperty if
+    // none), the object it was found on, both objects' own-property versions and this prototype's own prototype as
+    // they stood then. Null while it has not been looked up.
+    private PropertyDescriptor? _iteratorMethodDescriptor;
+    private IteratorPrototype? _iteratorMethodHolder;
+    private ObjectInstance? _iteratorMethodPrototype;
+    private uint _iteratorMethodVersion;
+    private uint _iteratorMethodHolderVersion;
+
+    /// <summary>
+    /// GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) step 3, GetIteratorDirect steps 1-2,
+    /// for <paramref name="iterator"/>, whose prototype this is: the one read of <c>next</c> off it, and the record.
+    /// One read covers both ways it can stop finding this prototype's built-in <c>next</c> — an own <c>next</c> on the
+    /// instance shadowing the prototype's, and the prototype's own <c>next</c> replaced — and answers
+    /// <paramref name="iterator"/> itself while it still does. Otherwise the record is an
+    /// <see cref="IteratorInstance.ObjectIterator"/> holding what was read, which never reads it again
+    /// (sebastienros/jint#4408). The array iterators ask it, and <see cref="ToIteratorRecord"/> falls back to it.
+    /// </summary>
+    private protected IteratorInstance ToIteratorRecordReadingNext(IteratorInstance iterator)
+    {
+        var next = iterator.Get(CommonProperties.Next);
+        return ReferenceEquals(next, _originalNextFunction)
+            ? iterator
+            : IteratorInstance.WrapReplacedNext(iterator, next);
+    }
+
+    /// <summary>
+    /// The record <see cref="ToIteratorRecordReadingNext"/> builds for <paramref name="iterator"/>, whose prototype
+    /// this is, without its property read when the answer can be had cheaper: an instance with no own property
+    /// cannot shadow <c>next</c>, so it steps natively exactly while this prototype's own <c>next</c> is still a data
+    /// property holding the built-in function, which a cached descriptor and this prototype's own-property version
+    /// answer. When it is not, nothing has been read and the <see cref="IteratorInstance.ObjectIterator"/> makes the
+    /// one read. An instance that has an own property takes the read here.
+    /// <see cref="IteratorInstance.ToIteratorRecord"/> asks it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal IteratorInstance ToIteratorRecord(IteratorInstance iterator)
+    {
+        if (iterator._properties is not null)
+        {
+            return ToIteratorRecordReadingNext(iterator);
+        }
+
+        return HasOriginalNext()
+            ? iterator
+            : IteratorInstance.WrapReadingNext(iterator);
+    }
+
+    /// <summary>
+    /// Whether <c>next</c>, read off an instance of this prototype that has no own property, finds this prototype's
+    /// built-in <c>next</c>: its own <c>next</c> is still a data property holding that function. A cached descriptor and
+    /// this prototype's own-property version answer it without a property read. <see cref="ToIteratorRecord"/> asks it,
+    /// as does the string primitive's lane, whose iterator is not yet an object anyone could have written to
+    /// (<c>StringIteratorPrototype.ToIteratorRecord</c>).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private protected bool HasOriginalNext()
+    {
+        var descriptor = _nextDescriptor;
+        if (descriptor is null || _propertiesVersion != _nextDescriptorVersion)
+        {
+            descriptor = ReadNextDescriptor();
+        }
+
+        return ReferenceEquals(descriptor.Value, _originalNextFunction);
+    }
+
+    // The `return` lookup IteratorClose makes on an instance of this prototype that has no own property, as it stood
+    // when it was last made: this prototype's own-property version, the two links above it and their versions, and
+    // the answer - whether none of the three had an own `return`. _returnLookupGrandparent is null while nothing is
+    // cached, which is also every chain that is not exactly three links long, or that has a link whose version cannot
+    // witness a `return` joining it.
+    private ObjectInstance? _returnLookupParent;
+    private ObjectInstance? _returnLookupGrandparent;
+    private uint _returnLookupVersion;
+    private uint _returnLookupParentVersion;
+    private uint _returnLookupGrandparentVersion;
+    private bool _inheritsNoReturnMethod;
+
+    /// <summary>
+    /// IteratorClose step 3 (https://tc39.es/ecma262/#sec-iteratorclose), GetMethod(iterator, "return"), for an
+    /// instance of this prototype that has no own property: whether the read would answer <c>undefined</c> because
+    /// nothing on the chain above has a <c>return</c>. No built-in iterator prototype has one, so this is the answer
+    /// for every iterator nobody touched, and it is cached, so that closing one reads no property.
+    /// <para>
+    /// The cached answer holds while this prototype, its prototype and that one's prototype are the objects they were,
+    /// with the own-property versions they had, and the third has no prototype - the shape of every built-in
+    /// iterator's chain, which ends at <c>Object.prototype</c>. Adding, deleting or redefining <c>return</c> on any of
+    /// them as data or as an accessor moves its version; <c>setPrototypeOf</c> on either of the first two changes a
+    /// link. An answer of <see langword="false"/> is cached too, and only sends the caller to the specified read. The
+    /// array destructuring lanes ask it of <c>%ArrayIteratorPrototype%</c> before they read an array by index in place
+    /// of its iterator (sebastienros/jint#4406).
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool InstancesInheritNoReturnMethod()
+    {
+        // Until a script has put a `return` on a built-in iterator prototype or on Object.prototype, or moved one of
+        // these prototypes' [[Prototype]], no built-in chain has one: Engine._builtinIteratorChainMayHaveReturn. That
+        // test is all a caller inlines; the version-checked answer is out of line.
+        return !_engine._builtinIteratorChainMayHaveReturn || InstancesInheritNoReturnMethodOnceTouched();
+    }
+
+    /// <summary>
+    /// <see cref="InstancesInheritNoReturnMethod"/> once <see cref="Engine._builtinIteratorChainMayHaveReturn"/> is set:
+    /// the cached answer while its version keys hold, otherwise a fresh lookup.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool InstancesInheritNoReturnMethodOnceTouched()
+    {
+        var grandparent = _returnLookupGrandparent;
+        var parent = _prototype;
+        if (grandparent is not null
+            && _propertiesVersion == _returnLookupVersion
+            && ReferenceEquals(parent, _returnLookupParent)
+            && parent!._propertiesVersion == _returnLookupParentVersion
+            && ReferenceEquals(parent._prototype, grandparent)
+            && grandparent._propertiesVersion == _returnLookupGrandparentVersion
+            && grandparent._prototype is null)
+        {
+            return _inheritsNoReturnMethod;
+        }
+
+        return LookUpReturnMethod();
+    }
+
+    /// <summary>
+    /// Whether <see cref="InstancesInheritNoReturnMethod"/> has an answer cached; for tests that pin the cached lane.
+    /// </summary>
+    internal bool CachesReturnLookup => _returnLookupGrandparent is not null;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool LookUpReturnMethod()
+    {
+        _returnLookupGrandparent = null;
+
+        // GetOwnProperty first on each link: it initializes a lazily built prototype on first use, and the version
+        // recorded is the one after that. A link whose own reads are not ordinary - a Proxy, a host object - would see
+        // the probe, so the walk stops in front of it, and the caller makes the read.
+        var parent = _prototype;
+        if (!TryProbeForReturn(this, out var returnFound)
+            || parent is null
+            || !TryProbeForReturn(parent, out var returnOnParent))
+        {
+            return false;
+        }
+
+        var grandparent = parent._prototype;
+        if (grandparent is null
+            || !TryProbeForReturn(grandparent, out var returnOnGrandparent)
+            || grandparent._prototype is not null)
+        {
+            return false;
+        }
+
+        _inheritsNoReturnMethod = !returnFound && !returnOnParent && !returnOnGrandparent;
+        _returnLookupVersion = _propertiesVersion;
+        _returnLookupParent = parent;
+        _returnLookupParentVersion = parent._propertiesVersion;
+        _returnLookupGrandparentVersion = grandparent._propertiesVersion;
+        _returnLookupGrandparent = grandparent;
+        return _inheritsNoReturnMethod;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="link"/> has an own <c>return</c>, answered only when nothing observes the question and
+    /// the link's own-property version moves when a <c>return</c> joins or leaves it, so that a cached answer can be
+    /// checked against it (<see cref="ObjectInstance.VersionWitnessesOwnProperty"/>). Both are read off the link's type
+    /// flags before anything is asked of it: any other link - a Proxy, a host object, which may count or fail the
+    /// question - is refused unprobed, and the caller's GetMethod is the only read it sees.
+    /// </summary>
+    private static bool TryProbeForReturn(ObjectInstance link, out bool found)
+    {
+        if ((link._type & (InternalTypes.ExoticGet | InternalTypes.OwnValueHook)) != InternalTypes.Empty
+            || !VersionWitnessesOwnProperty(link, CommonProperties.Return))
+        {
+            found = false;
+            return false;
+        }
+
+        found = !ReferenceEquals(link.GetOwnProperty(CommonProperties.Return), PropertyDescriptor.Undefined);
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private PropertyDescriptor ReadNextDescriptor()
+    {
+        // GetOwnProperty first: it initializes the prototype (capturing _originalNextFunction) on first use, and the
+        // version is the one after that.
+        var descriptor = GetOwnProperty(CommonProperties.Next);
+        if (!descriptor.IsDataDescriptor())
+        {
+            descriptor = NotADataProperty;
+        }
+
+        _nextDescriptorVersion = _propertiesVersion;
+        _nextDescriptor = descriptor;
+        return descriptor;
+    }
+
+    /// <summary>
+    /// GetIterator (https://tc39.es/ecma262/#sec-getiterator) step for an instance of this prototype that has no own
+    /// symbol-keyed property: whether the <c>@@iterator</c> it inherits is %Iterator.prototype%'s own built-in method
+    /// (https://tc39.es/ecma262/#sec-iterator.prototype-%symbol.iterator%), which answers its receiver. Then reading and
+    /// calling it is unobservable, and the instance is the object GetIteratorFromMethod reads <c>next</c> off.
+    /// <para>
+    /// The lookup goes one link up at most: this prototype's own <c>@@iterator</c>, else its prototype's when that is a
+    /// built-in iterator prototype. Anything else answers <see langword="false"/>, and the caller takes the specified
+    /// path. The descriptor found is cached with both objects' own-property versions, which a symbol-keyed change moves
+    /// here (<see cref="SetOwnProperty"/>), and with this prototype's own prototype, which <c>setPrototypeOf</c> moves.
+    /// An assignment or a data redefinition changes the cached descriptor's value in place, which is re-read every time.
+    /// <c>IteratorInstance.TryGetIterator</c> asks it (sebastienros/jint#4405).
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool InheritsOriginalIteratorMethod()
+    {
+        var descriptor = _iteratorMethodDescriptor;
+        var holder = _iteratorMethodHolder;
+        if (descriptor is null
+            || _propertiesVersion != _iteratorMethodVersion
+            || !ReferenceEquals(_prototype, _iteratorMethodPrototype)
+            || holder!._propertiesVersion != _iteratorMethodHolderVersion)
+        {
+            descriptor = LookUpIteratorMethod();
+            holder = _iteratorMethodHolder;
+        }
+
+        return ReferenceEquals(descriptor.Value, holder!._originalIteratorFunction);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private PropertyDescriptor LookUpIteratorMethod()
+    {
+        // GetOwnProperty first, on each object: it initializes the prototype (capturing %Iterator.prototype%'s
+        // _originalIteratorFunction) on first use, and the versions are the ones after that.
+        var holder = this;
+        var descriptor = GetOwnProperty(GlobalSymbolRegistry.Iterator);
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined) && _prototype is IteratorPrototype parent)
+        {
+            holder = parent;
+            descriptor = parent.GetOwnProperty(GlobalSymbolRegistry.Iterator);
+        }
+
+        if (!descriptor.IsDataDescriptor())
+        {
+            descriptor = NotADataProperty;
+        }
+
+        _iteratorMethodHolder = holder;
+        _iteratorMethodHolderVersion = holder._propertiesVersion;
+        _iteratorMethodPrototype = _prototype;
+        _iteratorMethodVersion = _propertiesVersion;
+        _iteratorMethodDescriptor = descriptor;
+        return descriptor;
+    }
+
+    /// <summary>
+    /// A symbol-keyed own property is stored apart from the string-keyed ones, and adding, replacing or removing one
+    /// does not move <see cref="ObjectInstance._propertiesVersion"/>. On a built-in iterator prototype it does, because
+    /// the cached <c>@@iterator</c> lookup is validated against it (<see cref="InheritsOriginalIteratorMethod"/>).
+    /// Every script route to a new descriptor comes through here or <see cref="RemoveOwnProperty"/>, which is also why a
+    /// <c>return</c> put here sets <see cref="Engine._builtinIteratorChainMayHaveReturn"/>, from which point
+    /// <see cref="InstancesInheritNoReturnMethod"/> answers from its version-checked lookup.
+    /// </summary>
+    protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+    {
+        if (CommonProperties.Return.Equals(property))
+        {
+            _engine._builtinIteratorChainMayHaveReturn = true;
+        }
+
+        base.SetOwnProperty(property, desc);
+        if (property.IsSymbol())
+        {
+            unchecked { _propertiesVersion++; }
+        }
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ordinarysetprototypeof. A built-in iterator prototype whose [[Prototype]] moves no
+    /// longer has the chain <see cref="Engine._builtinIteratorChainMayHaveReturn"/> vouches for, so a change sets it.
+    /// </summary>
+    internal override bool SetPrototypeOf(JsValue value)
+    {
+        if (!ReferenceEquals(value, _prototype ?? Null))
+        {
+            _engine._builtinIteratorChainMayHaveReturn = true;
+        }
+
+        return base.SetPrototypeOf(value);
+    }
+
+    /// <inheritdoc cref="SetOwnProperty"/>
+    public override void RemoveOwnProperty(JsValue property)
+    {
+        base.RemoveOwnProperty(property);
+        if (property.IsSymbol())
+        {
+            unchecked { _propertiesVersion++; }
+        }
+    }
+
     internal IteratorPrototype(
         Engine engine,
         Realm realm,
@@ -1023,7 +1350,10 @@ internal partial class IteratorPrototype : Prototype
         return sb.Length == 0 ? JsString.Empty : JsString.Create(sb.ToString());
     }
 
-    [JsSymbolFunction("Iterator", Length = 0, Flags = PropertyFlag.NonEnumerable)]
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iterator.prototype-%symbol.iterator%
+    /// </summary>
+    [JsSymbolFunction("Iterator", Length = 0, Flags = PropertyFlag.NonEnumerable, CaptureField = nameof(_originalIteratorFunction))]
     private static JsValue ToIterator(JsValue thisObject) => thisObject;
 
     [JsSymbolFunction("Dispose", Length = 0, Flags = PropertyFlag.NonEnumerable)]
@@ -1038,11 +1368,14 @@ internal partial class IteratorPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(Name = "next")]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
-
-    // Kept with the JsCallArguments signature so still-hand-written subclasses (Array/RegExpString/String
-    // IteratorPrototype) can pass it as a ClrFunction delegate from their Initialize bodies.
+    /// <summary>
+    /// The step every concrete prototype's own <c>next</c> takes: <c>%ArrayIteratorPrototype%.next</c>,
+    /// <c>%MapIteratorPrototype%.next</c>, <c>%IntlSegmentIteratorPrototype%.next</c> and their peers. %Iterator.prototype%
+    /// itself has no <c>next</c> (https://tc39.es/ecma262/#sec-%iteratorprototype%-object), so deleting a concrete
+    /// prototype's leaves nothing to inherit, and until sebastienros/jint#4407 it uncovered a built-in one here. The
+    /// receiver check is <see cref="IteratorInstance"/>, never the iterator's kind, which is what lets
+    /// <see cref="IteratorInstance.TryGetIterator"/> step natively whichever built-in prototype an iterator inherits.
+    /// </summary>
     internal JsValue Next(JsValue thisObject, JsCallArguments arguments)
     {
         var iterator = thisObject as IteratorInstance;

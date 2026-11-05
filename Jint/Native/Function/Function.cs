@@ -333,7 +333,9 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     private PropertyDescriptor MaterializeLengthDescriptor()
     {
-        return _length = new PropertyDescriptor(JsNumber.Create(_functionDefinition!.Initialize().Length), PropertyFlag.Configurable);
+        var definition = _functionDefinition!;
+        var state = definition.BuiltState ?? definition.InitializeOrThrowRangeError(_realm);
+        return _length = new PropertyDescriptor(JsNumber.Create(state.Length), PropertyFlag.Configurable);
     }
 
     private protected PropertyDescriptor MaterializePrototypeDescriptor()
@@ -695,7 +697,7 @@ public abstract partial class Function : ObjectInstance, ICallable
                 return s;
             }
 
-            if (_functionDefinition.GetSourceText() is { } sourceText)
+            if (_functionDefinition.GetSourceText(_realm) is { } sourceText)
             {
                 return sourceText;
             }
@@ -717,7 +719,7 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// </remarks>
     internal bool TryGetOwnSourceText([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? sourceText)
     {
-        sourceText = _functionDefinition?.GetSourceText();
+        sourceText = _functionDefinition?.GetSourceText(_realm);
         return sourceText is not null;
     }
 

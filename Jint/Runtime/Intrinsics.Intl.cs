@@ -26,6 +26,7 @@ public sealed partial class Intrinsics
     private PluralRulesConstructor? _pluralRules;
     private RelativeTimeFormatConstructor? _relativeTimeFormat;
     private SegmenterConstructor? _segmenter;
+    private SegmentIteratorPrototype? _segmentIteratorPrototype;
 
     internal IntlInstance Intl =>
         _intl ??= new IntlInstance(_engine, _realm, Object.PrototypeObject);
@@ -59,4 +60,10 @@ public sealed partial class Intrinsics
 
     internal SegmenterConstructor Segmenter =>
         _segmenter ??= new SegmenterConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// This realm's %IntlSegmentIteratorPrototype% (https://tc39.es/ecma402/#sec-%intlsegmentiteratorprototype%-object).
+    /// </summary>
+    internal SegmentIteratorPrototype SegmentIteratorPrototype =>
+        _segmentIteratorPrototype ??= new SegmentIteratorPrototype(_engine, _realm, IteratorPrototype);
 }

@@ -90,7 +90,7 @@ public class ArrayLikeObjectLaneTests
         // destructuring fast path consult
         host.IsArrayLike.Should().Be(true);
         host.GetLength().Should().Be(1u);
-        host.HasOriginalIterator.Should().Be(true);
+        host.HasOriginalIterator(out _).Should().Be(true);
         host.IsArray().Should().Be(false);
     }
 
