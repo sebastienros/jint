@@ -56,6 +56,7 @@ internal sealed class JintWithStatement : JintStatement<WithStatement>
 
             var obj = TypeConverter.ToObject(engine.Realm, jsValue);
             oldEnv = engine.ExecutionContext.LexicalEnvironment;
+            engine._hasWithEnvironment = true;
             newEnv = JintEnvironment.NewObjectEnvironment(engine, obj, oldEnv, provideThis: true, withEnvironment: true);
         }
 
