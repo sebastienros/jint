@@ -213,6 +213,39 @@ internal static class Polyfills
         return -1;
     }
 #endif
+
+#if NETFRAMEWORK || NETSTANDARD
+    extension(BigInteger value)
+    {
+        // BigInteger.GetBitLength arrived in .NET 5. Like it, this counts the shortest two's complement
+        // representation without the sign bit, so a negative value counts the bits of ~value: -1 is 0, -2 is 1.
+        public long GetBitLength()
+        {
+            var magnitude = value.Sign < 0 ? -(value + BigInteger.One) : value;
+            if (magnitude.IsZero)
+            {
+                return 0;
+            }
+
+            var bytes = magnitude.ToByteArray();
+            var index = bytes.Length - 1;
+            while (index > 0 && bytes[index] == 0)
+            {
+                index--;
+            }
+
+            var bits = (long) index * 8;
+            int top = bytes[index];
+            while (top != 0)
+            {
+                bits++;
+                top >>= 1;
+            }
+
+            return bits;
+        }
+    }
+#endif
 }
 
 internal static class MemoryMarshalPolyfills
