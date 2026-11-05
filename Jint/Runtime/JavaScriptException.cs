@@ -331,6 +331,15 @@ public class JavaScriptException : JintException
             // exception every time) reports the frames from where it was thrown, not only the outermost one.
             if (errObj is JsError jsError)
             {
+                // An error whose "stack" does not read as a string (Error.prototype.stack deleted, an own
+                // non-string "stack", a prototype without the accessor) still has the one recorded where it was
+                // thrown; rebuilding it at each later boundary would see fewer frames every time.
+                if (!overwriteExisting && jsError._stack is JsString recordedErrorStack)
+                {
+                    _callStack = recordedErrorStack.ToString();
+                    return;
+                }
+
                 _callStack = engine.CallStack.BuildCallStackString(engine, location);
                 jsError._stack = JsString.Create(_callStack);
                 jsError._stackCapture = null;

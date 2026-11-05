@@ -353,6 +353,50 @@ try { thrower(); } catch (err) { typeof err.stack; }").AsString().Should().Be("u
             """).AsString().Should().Be("string true message");
     }
 
+    /// <summary>
+    /// The case the engine's weak table exists for: a plain object thrown through two function bodies, each of
+    /// which raises a new exception on the way out, still reaches the host with the frames from where it was
+    /// thrown, not only the outermost one.
+    /// </summary>
+    [Test]
+    public void ThrownNonErrorObjectKeepsItsInnermostStackThroughTwoFunctions()
+    {
+        var engine = new Engine();
+        engine.Execute("""
+            function inner() { throw { a: 1 }; }
+            function outer() { inner(); }
+            """, "lib.js");
+
+        var e = Invoking(() => engine.Execute("outer();", "main.js")).Should().ThrowExactly<JavaScriptException>().Which;
+
+        EqualIgnoringNewLineDifferences(@"    at inner (lib.js:1:26)
+    at outer (lib.js:2:20)
+    at main.js:1:1", e.JavaScriptStackTrace);
+    }
+
+    /// <summary>
+    /// An Error whose <c>stack</c> does not read as a string keeps the stack recorded where it was thrown, rather
+    /// than rebuilding it at each function boundary with fewer frames each time.
+    /// </summary>
+    [TestCase("delete Error.prototype.stack; function make() { return new Error('boom'); }")]
+    [TestCase("function make() { var e = new Error('boom'); Object.defineProperty(e, 'stack', { value: 42 }); return e; }")]
+    [TestCase("function make() { return Object.setPrototypeOf(new Error('boom'), Object.prototype); }")]
+    public void ErrorWithoutAStringStackKeepsItsInnermostStackThroughTwoFunctions(string make)
+    {
+        var engine = new Engine();
+        engine.Execute(make, "make.js");
+        engine.Execute("""
+            function inner() { throw make(); }
+            function outer() { inner(); }
+            """, "lib.js");
+
+        var e = Invoking(() => engine.Execute("outer();", "main.js")).Should().ThrowExactly<JavaScriptException>().Which;
+
+        EqualIgnoringNewLineDifferences(@"    at inner (lib.js:1:26)
+    at outer (lib.js:2:20)
+    at main.js:1:1", e.JavaScriptStackTrace);
+    }
+
     private class Folder
     {
         public Folder Parent { get; set; }
