@@ -158,8 +158,10 @@ public class DateTests
 
         var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
 
-        engine.Evaluate("new Date(2022,1,1).toString()").Should().Be("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)");
-        engine.Evaluate("new Date(2022,1,1)").ToString().Should().Be("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)");
+        // The zone's own name, which Windows gives in the OS display language (issue #4442).
+        var expected = $"Tue Feb 01 2022 00:00:00 GMT+0800 ({timeZoneInfo.StandardName})";
+        engine.Evaluate("new Date(2022,1,1).toString()").Should().Be(expected);
+        engine.Evaluate("new Date(2022,1,1)").ToString().Should().Be(expected);
     }
 
     [Fact]
@@ -177,11 +179,16 @@ public class DateTests
 
         var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
 
+        // The zone's own names, which Windows gives in the OS display language ("Eastern Summer Time" on an
+        // English (Denmark) install), so the test checks which of the two is picked, not how one language spells
+        // them (issue #4442). They must differ, or the check below could not tell them apart.
+        timeZoneInfo.DaylightName.Should().NotBe(timeZoneInfo.StandardName);
+
         // July 4, 2022 is in summer (EDT = UTC-4, daylight saving time)
-        engine.Evaluate("new Date(2022, 6, 4).toString()").AsString().Should().Contain("(Eastern Daylight Time)");
+        engine.Evaluate("new Date(2022, 6, 4).toString()").AsString().Should().Contain($"({timeZoneInfo.DaylightName})");
 
         // January 4, 2022 is in winter (EST = UTC-5, standard time)
-        engine.Evaluate("new Date(2022, 0, 4).toString()").AsString().Should().Contain("(Eastern Standard Time)");
+        engine.Evaluate("new Date(2022, 0, 4).toString()").AsString().Should().Contain($"({timeZoneInfo.StandardName})");
     }
 
     [Fact]
