@@ -1,0 +1,36 @@
+#nullable enable
+
+namespace Jint.Tests.Runtime;
+
+/// <summary>
+/// A byte length the CLR cannot allocate is a <c>RangeError</c> in every path that creates a data block, from
+/// <c>Array.MaxLength</c> + 1 (2147483592) up, not only from <c>2 ** 31</c> (issue #4433).
+/// </summary>
+public class ArrayBufferAllocationLimitTests
+{
+    private readonly Engine _engine = new();
+
+    /// <summary>
+    /// The constructor name of whatever <paramref name="source"/> throws, or <c>did not throw</c>. Written in
+    /// script so that a CLR exception leaking out of the engine fails the test instead of being caught.
+    /// </summary>
+    private string ThrownErrorName(string source) => _engine
+        .Evaluate($"(function () {{ try {{ {source}; return 'did not throw'; }} catch (e) {{ return e.constructor.name; }} }})()")
+        .AsString();
+
+    [Theory]
+    [InlineData("new ArrayBuffer({0})")]
+    [InlineData("new SharedArrayBuffer({0})")]
+    [InlineData("new SharedArrayBuffer(0, {{ maxByteLength: {0} }})")]
+    [InlineData("new Uint8Array({0})")]
+    [InlineData("new ArrayBuffer(0, {{ maxByteLength: {0} }}).resize({0})")]
+    [InlineData("new ArrayBuffer(0).transfer({0})")]
+    [InlineData("new ArrayBuffer(0).transferToFixedLength({0})")]
+    public void ALengthTheClrCannotAllocateIsARangeError(string template)
+    {
+        foreach (var length in new[] { "2147483592", "2 ** 31 - 1", "2 ** 31" })
+        {
+            ThrownErrorName(string.Format(template, length)).Should().Be("RangeError", length);
+        }
+    }
+}
