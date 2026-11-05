@@ -23,6 +23,21 @@ internal sealed class JintCallExpression : JintExpression
     private readonly JintMemberExpression? _calleeMember;
     private readonly bool _isTailPosition;
 
+    /// <summary>
+    /// Whether <see cref="EvaluateInternal"/> hands the whole evaluation to another method at its first test:
+    /// a <c>super(…)</c> call, and a call whose arguments may suspend the frame
+    /// (<see cref="_argumentsMaySuspend"/>). Both are decided at build time, and the test is the one
+    /// <c>super(…)</c> always cost, so an ordinary call pays nothing for the second reason to leave.
+    /// </summary>
+    private readonly bool _delegatesEvaluation;
+
+    /// <summary>
+    /// Whether one of the arguments contains an <c>await</c> or a <c>yield</c> of the enclosing frame, which
+    /// sends the call, <c>super(…)</c> included, to <see cref="EvaluateSuspendable"/>. Read only once
+    /// <see cref="_delegatesEvaluation"/> has said the call is not an ordinary one.
+    /// </summary>
+    private readonly bool _argumentsMaySuspend;
+
     // Monomorphic fast-call cache: the callee seen by the last evaluation plus its verdict for this
     // site's arity. Identity is what makes the verdict safe to reuse — re-assigning the property
     // (`Math.abs = f`) swaps the value without bumping any version counter, so nothing weaker than a
@@ -106,6 +121,27 @@ internal sealed class JintCallExpression : JintExpression
         _argCount = expression.Arguments.Count;
         _fastArgsEligible = !_arguments.HasSpreads && _argCount <= 2;
         _regLaneEligible = !_arguments.HasSpreads && _argCount is >= 1 and <= MaxRegisterArguments;
+
+        _argumentsMaySuspend = ArgumentsMaySuspend(expression.Arguments.AsSpan());
+        _delegatesEvaluation = _calleeIsSuper || _argumentsMaySuspend;
+    }
+
+    /// <summary>
+    /// Whether one of <paramref name="arguments"/> contains an <c>await</c> or a <c>yield</c> of the enclosing
+    /// frame, which is what makes a call's handler keep its callee for the resume. Shared with
+    /// <see cref="JintNewExpression"/>.
+    /// </summary>
+    internal static bool ArgumentsMaySuspend(ReadOnlySpan<Expression> arguments)
+    {
+        foreach (var argument in arguments)
+        {
+            if (argument is not null && MaySuspendVisitor.MaySuspend(argument))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal override void EnableShortCircuitPropagation() => _propagatesShortCircuit = true;
@@ -124,9 +160,9 @@ internal sealed class JintCallExpression : JintExpression
             return context.Engine._stackGuard.RunOnEmptyStack(EvaluateInternal, context);
         }
 
-        if (_calleeIsSuper)
+        if (_delegatesEvaluation)
         {
-            return SuperCall(context);
+            return _argumentsMaySuspend ? EvaluateSuspendable(context) : SuperCall(context);
         }
 
         // https://tc39.es/ecma262/#sec-function-calls
@@ -431,6 +467,209 @@ internal sealed class JintCallExpression : JintExpression
         if (referenceRecord is not null)
         {
             engine._referencePool.Return(referenceRecord);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// A call one of whose arguments may suspend the frame. EvaluateCall resolves the function and its this
+    /// value once, before ArgumentListEvaluation
+    /// (https://tc39.es/ecma262/#sec-function-calls-runtime-semantics-evaluation,
+    /// https://tc39.es/ecma262/#sec-evaluatecall,
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-argumentlistevaluation), so a resume must go back into the
+    /// arguments with them rather than evaluate the callee again.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A resume replays the statement the frame suspended in. The argument list keeps the arguments that
+    /// completed, in its own resume buffer, but evaluating the callee again re-ran everything in it: the inner
+    /// call of <c>o.m(1).m(await x)</c>, a getter on the callee, a callee or receiver reassigned inside the
+    /// arguments, and in an async generator an <c>await</c> in the callee that a <c>yield</c> in the arguments had
+    /// already cleared from the memo (sebastienros/jint#4314). So when the arguments suspend, what the callee
+    /// resolved to is parked on the suspendable keyed by this handler (<see cref="CallSuspendData"/>; handler
+    /// trees are shared, so it cannot be a field), and the resume that re-enters the handler takes it back
+    /// instead of evaluating the callee. The argument buffer is keyed by <see cref="_arguments"/> here rather
+    /// than by this handler, since one key holds one entry. A direct <c>eval</c> stops at a suspended argument
+    /// list as well, rather than evaluating code with the placeholder standing in for the argument.
+    /// </para>
+    /// <para>
+    /// This is <see cref="EvaluateInternal"/>'s generic lane with that bookkeeping added, and none of its fast
+    /// lanes: the built-in and register lanes never serve a frame that can suspend, and the member-call lane
+    /// produces the same answer as the generic one. Only a site <see cref="MaySuspendVisitor"/> flags at build
+    /// time comes here, through the test <c>super(…)</c> always cost, so no other call pays for it. It keeps the
+    /// dispatch in sync with the generic lane, and records nothing in the lanes' callee caches.
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue EvaluateSuspendable(EvaluationContext context)
+    {
+        if (_calleeIsSuper)
+        {
+            return SuspendableSuperCall(context);
+        }
+
+        var engine = context.Engine;
+        var suspendable = engine.ExecutionContext.Suspendable;
+        var tailPosition = ScriptFunction.CanPrepareTailCall(context, _isTailPosition);
+
+        object reference;
+        JsValue func;
+        JsValue thisObject;
+        bool directEval;
+
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out CallSuspendData? parked))
+        {
+            // Taken back rather than read, so a throw out of the arguments below leaves nothing behind for the
+            // next evaluation of this site to mistake for its own. A second suspension parks it again.
+            suspendable.Data.Clear(this);
+            func = parked!.Function;
+            thisObject = parked.ThisValue;
+            reference = parked.Callee!;
+            directEval = parked.DirectEval;
+        }
+        else
+        {
+            var calleeReference = _calleeExpression.Evaluate(context);
+            var calleeRecord = calleeReference as Reference;
+
+            if (suspendable is not null && suspendable.IsSuspended)
+            {
+                // The callee itself suspended, and it resumes through its own handler, which rents a new
+                // reference; nothing has been resolved yet that the arguments would need kept.
+                engine._referencePool.Return(calleeRecord);
+                return calleeReference as JsValue ?? JsValue.Undefined;
+            }
+
+            if (ReferenceEquals(calleeReference, ShortCircuited))
+            {
+                return ShortCircuit();
+            }
+
+            func = engine.GetValue(calleeReference, false);
+
+            if (func.IsNullOrUndefined() && _expression.IsOptional())
+            {
+                engine._referencePool.Return(calleeRecord);
+                return ShortCircuit();
+            }
+
+            directEval = ReferenceEquals(func, engine.Realm.Intrinsics.Eval)
+                         && calleeRecord != null
+                         && !calleeRecord.IsPropertyReference
+                         && CommonProperties.Eval.Equals(calleeRecord.ReferencedName);
+
+            if (directEval || calleeRecord is null)
+            {
+                thisObject = JsValue.Undefined;
+            }
+            else if (calleeRecord.IsPropertyReference)
+            {
+                thisObject = calleeRecord.ThisValue;
+            }
+            else
+            {
+                // The same deviation as the generic lane, for the null-propagation helper.
+                var baseValue = calleeRecord.Base;
+                if (engine._resolverWatchesUnresolvable
+                    && (baseValue.IsNullOrUndefined() || calleeRecord.IsUnresolvableReference)
+                    && engine._referenceResolver.TryUnresolvableReference(engine, calleeRecord, out var value))
+                {
+                    thisObject = value;
+                }
+                else
+                {
+                    thisObject = ((Environment) baseValue).WithBaseObject();
+                }
+            }
+
+            reference = calleeReference;
+        }
+
+        var referenceRecord = reference as Reference;
+        var arguments = _arguments.ArgumentListEvaluation(context, _arguments, out var rented);
+
+        if (suspendable is not null && suspendable.IsSuspended)
+        {
+            // The argument list keeps its own buffer and returned rented=false. The reference stays rented: it is
+            // parked with the rest, and only the evaluation that completes the call hands it back.
+            var data = suspendable.Data.GetOrCreate<CallSuspendData>(this);
+            data.Function = func;
+            data.ThisValue = thisObject;
+            data.Callee = reference;
+            data.DirectEval = directEval;
+            return func;
+        }
+
+        if (directEval)
+        {
+            return PerformDirectEval(engine, func, referenceRecord!, arguments, rented);
+        }
+
+        var tailCall = tailPosition && func is ScriptFunction;
+
+        if (!func.IsObject()
+            && (!engine._resolverWatchesCallee || !engine._referenceResolver.TryGetCallable(engine, reference, out func)))
+        {
+            ThrowMemberIsNotFunction(referenceRecord, reference, engine);
+        }
+
+        if (!IsCallableFlagged(func))
+        {
+            ThrowReferenceNotFunction(referenceRecord, reference, engine);
+        }
+
+        if (referenceRecord is not null)
+        {
+            engine._referencePool.Return(referenceRecord);
+        }
+
+        if (tailCall)
+        {
+            return engine.RentTailCallRequest(
+                (ScriptFunction) func,
+                thisObject,
+                arguments,
+                rented,
+                _calleeExpression);
+        }
+
+        // The generic lane's dispatch; see the note there on keeping it in sync with Engine.Call.
+        JsValue result;
+        if (IsFunctionFlagged(func))
+        {
+            var functionInstance = Unsafe.As<Function>(func);
+            var callStack = engine.CallStack;
+            var recursionDepth = callStack.Push(functionInstance, _calleeExpression, engine.ExecutionContext);
+
+            if (recursionDepth > engine._maxRecursionDepth)
+            {
+                // automatically pops the current element as it was never reached
+                engine.AbandonImplicitMemoryOperation();
+                Throw.RecursionDepthOverflowException(callStack);
+            }
+
+            try
+            {
+                result = functionInstance is ScriptFunction scriptFunction
+                    ? scriptFunction.CallWithStackFrame(thisObject, arguments)
+                    : functionInstance.Call(thisObject, arguments);
+            }
+            finally
+            {
+                // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
+                callStack.TryPopAndDiscard();
+            }
+        }
+        else
+        {
+            result = Unsafe.As<ICallable>(func).Call(thisObject, arguments);
+        }
+
+        if (rented)
+        {
+            engine._jsValueArrayPool.ReturnArray(arguments);
         }
 
         return result;
@@ -795,10 +1034,21 @@ internal sealed class JintCallExpression : JintExpression
         return reference is JsValue value ? Throw.SafeToDisplayString(value) : "expression";
     }
 
+    // Kept out of line: inlined, it would grow EvaluateInternal for a path no fast lane takes.
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private JsValue HandleEval(EvaluationContext context, JsValue func, Engine engine, Reference referenceRecord)
     {
         var argList = _arguments.ArgumentListEvaluation(context, this, out var rented);
+        return PerformDirectEval(engine, func, referenceRecord, argList, rented);
+    }
 
+    /// <summary>
+    /// The direct-eval half of EvaluateCall once the arguments are in hand: evaluates the first one as code in the
+    /// caller's context. Hands <paramref name="referenceRecord"/> back to the pool, and <paramref name="argList"/>
+    /// when <paramref name="rented"/>.
+    /// </summary>
+    private JsValue PerformDirectEval(Engine engine, JsValue func, Reference referenceRecord, JsValue[] argList, bool rented)
+    {
         if (argList.Length == 0)
         {
             engine._referencePool.Return(referenceRecord);
@@ -847,6 +1097,66 @@ internal sealed class JintCallExpression : JintExpression
         var argList = defaultSuperCall
             ? _arguments.DefaultSuperCallArgumentListEvaluation(context)
             : _arguments.ArgumentListEvaluation(context, this, out rented);
+
+        if (func is null || !func.IsConstructor)
+        {
+            if (rented)
+            {
+                engine._jsValueArrayPool.ReturnArray(argList);
+            }
+            Throw.TypeError(engine.Realm, "Not a constructor");
+        }
+
+        var result = ((IConstructor) func).Construct(argList, newTarget);
+
+        var thisER = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
+        thisER.BindThisValue(result);
+        var F = thisER._functionObject;
+
+        result.InitializeInstanceElements((ScriptFunction) F);
+
+        if (rented)
+        {
+            engine._jsValueArrayPool.ReturnArray(argList);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// <see cref="SuperCall"/> for a <c>super(…)</c> whose arguments may suspend, which only an async arrow
+    /// function inside a derived constructor can hold. SuperCall looks the parent constructor up before
+    /// ArgumentListEvaluation (https://tc39.es/ecma262/#sec-super-keyword-runtime-semantics-evaluation), so it is
+    /// parked with the suspended arguments, and a suspended argument list stops the call: constructing then would
+    /// hand the parent the suspension placeholder and bind <c>this</c>, and the resume would call super a second
+    /// time. What follows the arguments is <see cref="SuperCall"/>'s, repeated rather than shared so that method
+    /// compiles as it did.
+    /// </summary>
+    private JsValue SuspendableSuperCall(EvaluationContext context)
+    {
+        var engine = context.Engine;
+        var suspendable = engine.ExecutionContext.Suspendable;
+        var thisEnvironment = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
+        var newTarget = engine.GetNewTarget(thisEnvironment);
+
+        ObjectInstance? func;
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out CallSuspendData? parked))
+        {
+            suspendable.Data.Clear(this);
+            func = parked!.Function as ObjectInstance;
+        }
+        else
+        {
+            func = GetSuperConstructor(thisEnvironment);
+        }
+
+        var argList = _arguments.ArgumentListEvaluation(context, _arguments, out var rented);
+        if (suspendable is not null && suspendable.IsSuspended)
+        {
+            suspendable.Data.GetOrCreate<CallSuspendData>(this).Function = (JsValue?) func ?? JsValue.Null;
+            return JsValue.Undefined;
+        }
 
         if (func is null || !func.IsConstructor)
         {

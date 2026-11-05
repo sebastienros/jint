@@ -156,34 +156,33 @@ public class WebApiFetchStreamTests
     });
 
     [Test]
-    public Task TheTransportIsOnlyReadWhenTheScriptAsks() => DedicatedThread.RunAsync(() =>
+    public Task ASmallBodyIsReadAheadWithoutBeingConsumed() => DedicatedThread.RunAsync(() =>
     {
-        // Backpressure, from the host's side: a script that takes the response and never reads its body
-        // leaves the transport untouched however hard the engine is pumped.
         var handler = new GatedHandler();
-        handler.Body.Emit("ignored");
+        handler.Body.Emit("retained");
         handler.Body.Complete();
 
-        var engine = WebEngine(handler);
+        using var engine = WebEngine(handler);
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
         engine.Tasks.ProcessTasks();
 
         engine.Evaluate("r.status").AsNumber().Should().Be(200);
 
-        for (var i = 0; i < 10; i++)
+        SpinWait.SpinUntil(() =>
         {
             engine.Tasks.ProcessTasks();
-        }
+            return handler.Body.ReadCount == 2;
+        }, TransportSignalCeiling).Should().BeTrue("the small body should reach EOF without a consumer");
 
-        // Deterministic against the shipped implementation rather than a race: with a high water mark of
-        // zero, no pull is ever issued until a consumer asks, so nothing can release the transport loop
-        // however long or hard the engine is pumped.
-        handler.Body.ReadStarted.IsSet.Should().BeFalse();
-        handler.Body.ReadCount.Should().Be(0);
+        engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeFalse();
+        engine.Evaluate("r.body.locked").AsBoolean().Should().BeFalse();
+        engine.Execute("var reader = r.body.getReader();");
+        engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeFalse();
 
-        // The first read is what reaches the socket.
-        engine.Evaluate("r.body.getReader().read().then(x => dec(x.value))").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("ignored");
-        handler.Body.ReadCount.Should().Be(1);
+        engine.Evaluate("reader.read().then(x => dec(x.value))").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("retained");
+        engine.Evaluate("reader.read().then(x => x.done)").UnwrapIfPromise(TransportSignalCeiling).AsBoolean().Should().BeTrue();
+        handler.Body.ReadCount.Should().Be(2, "consuming the queued bytes must not read the transport again");
+        engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();
     });
 
     [Test]

@@ -6630,6 +6630,33 @@ Now each declarator runs once, as in every other engine: the resume continues at
 suspended. A script that split such lists into one statement per declarator to work around this can stop.
 There is no switch back.
 
+### 4.170 A call whose argument suspends resumes with the function it resolved, so its callee runs once ([#4314](https://github.com/sebastienros/jint/issues/4314))
+
+A call works out its function and its `this` value before it evaluates its arguments. In 4.16, when an argument
+suspended on an `await` or a `yield`, the resume evaluated the callee again. The arguments that had already run
+were kept, but everything in the callee ran once more for every suspension: the inner call of a chain, a getter
+on the method, and a computed key.
+
+```js
+var log = [];
+var o = { m(x) { log.push("m(" + x + ")"); return o; } };
+var it = (function* () { o.m(1).m(yield 0).m(3); })();
+it.next();
+it.next(2);   // 4.16.x / earlier 5.0: log is m(1),m(1),m(2),m(3)    5.x: m(1),m(2),m(3)
+```
+
+So `t.m((t = other, await x))` called `other.m` with `this` set to `other`, where every other engine calls the
+original method on the original `t`. `new (factory().C)(await x)` ran `factory()` twice. The same happened with
+an optional call (`o?.m(1).m(await x)`) and with spread arguments. In an async generator a chain that awaits in
+one call and yields in a later one (`o.m(await a).m(yield b)`) never finished, because each replay of the callee
+awaited again. A direct `eval` whose argument suspended ran its code once at the suspension and once more on the
+resume. A `super(…)` call in an async arrow function inside a constructor built the parent at the suspension,
+with the suspended argument missing, and the resume then threw `ReferenceError`.
+
+Now each call resolves its callee once and resumes in its arguments. A `throw()` or `return()` resumption, or a
+rejected `await`, leaves the call without running the callee again. A script that read the callee a second time
+to see a change made while it was suspended must now read it itself after the call. There is no switch back.
+
 ### 4.171 An async generator's `return(value)` awaits `value` at the `yield`, before the `finally` blocks run ([#4315](https://github.com/sebastienros/jint/issues/4315))
 
 `return(value)` on an async generator suspended at a `yield` resumes it at that `yield`, and the first thing the
@@ -6812,7 +6839,7 @@ none of it changes an engine that does not.
 | Area | Enable with | Reference |
 | --- | --- | --- |
 | WHATWG web APIs — `console`, timers, `URL`, encoding, streams, `fetch`, storage, `WebSocket`, `EventSource`, crypto | `options.UseWebApis(...)` | [Web APIs](web-apis.md) |
-| Web Workers, on a thread you supply | `options.UseWebApis().UseWorkers(provider)` | [Workers](web-apis/workers.md) |
+| Web Workers, on a thread you supply; `WorkerType.Classic = 1` additionally identifies classic scripts supported by Browser's provider (`Module = 0` is unchanged) | `options.UseWebApis().UseWorkers(provider)`; Browser's default provider accepts classic and module dedicated workers and snapshots the browser's navigator languages | [Workers](web-apis/workers.md) |
 | Node compatibility — the `process` shim, `node:` builtin modules | `options.UseNodeProcess()`, `options.UseNodeBuiltinModules()` | [Node compatibility](node-compatibility.md) |
 | Script profiling — a sampling profiler writing [Firefox Profiler](https://profiler.firefox.com) profiles with script / built-in / host-interop frame categories, and an evented one writing speedscope profiles | `options.Profiling.Enabled = true` | [Profiling](profiling.md) |
 | Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage](code-coverage.md) |
@@ -6832,7 +6859,7 @@ none of it changes an engine that does not.
 | Reading the body of the response an observer is answering, against a memory allowance you own, without the caller losing a byte | override `OnInterceptedResponseAsync` instead of `OnResponseAsync` | [§5.34](#5-34-a-fetch-observer-can-read-the-body-of-the-response-it-is-answering-3828) |
 | When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#5-29-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Jint.DevTools](../packages/jint-devtools/index.md) |
-| A headless browser — the native DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
+| A headless browser — the native DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line; same-origin frame modules now use document-local maps, and same-page messages identify their source window | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
 | A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Jint.Browser.Mcp](../packages/jint-browser-mcp/index.md) |
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#5-27-a-host-can-list-the-global-lexical-bindings-3610) |
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#5-28-a-function-value-names-the-program-it-was-parsed-in-3666) |
@@ -7929,8 +7956,10 @@ What the read promises:
   socket again. A success is immutable and reused by every later read.
 - **A failure is thrown, never returned as a short body**, and the read is valid only while the callback is
   running — the context is sealed as soon as it returns.
-- **Nothing is read unless it is asked for.** `fetch`, a document or subresource load, `XMLHttpRequest` and
-  `EventSource` all stay streaming for an observer that does not call `TryReadBodyAsync`.
+- **The observer reads nothing unless it asks.** An observer that does not call `TryReadBodyAsync` leaves
+  the body streaming. After interception returns, `fetch` permits bounded read-ahead: up to a 64 KiB queue
+  plus at most one transport chunk. Small bodies can finish without a consumer; larger unread bodies
+  backpressure the transport. Read-ahead does not mark `bodyUsed` or discard bytes.
 
 A read waits for the whole body, so reading a response that never ends — a server-sent event stream — is
 bounded only by `Options.WebApi.Fetch.Timeout`. Decide per response whether to read.

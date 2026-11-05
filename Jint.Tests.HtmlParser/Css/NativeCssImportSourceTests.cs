@@ -95,24 +95,30 @@ public sealed class NativeCssImportSourceTests
             .Href.Should().Be("new.css");
     }
 
-    [Test]
-    public void ADisabledTransitionAtAnyColdCheckpointIsPublishedFromTheCurrentAuthority()
+    [TestCase(false)]
+    [TestCase(true)]
+    [NonParallelizable]
+    public void ADisabledTransitionAtAnyColdCheckpointIsPublishedFromTheCurrentAuthority(bool warmSyntax)
     {
+        var text = $"@import '{Guid.NewGuid():N}.css';";
+        if (warmSyntax) NativeCssParsing.CreateSheet(text, _work);
         var (baselineDocument, baselineOwner) = Owner("link");
-        NativeCssStyleSheets.Install(baselineDocument, baselineOwner, "@import 'b.css';", "", "", _work);
+        NativeCssStyleSheets.Install(baselineDocument, baselineOwner, text, "", "", _work);
         var checkpoints = 0;
         NativeCssStyleSheets.EnsureSheet(NativeCssStyleSheets.CaptureImportSource(baselineDocument, baselineOwner, _work)!,
             new CssValueWork(default, () => checkpoints++));
         for (var transition = 1; transition <= checkpoints; transition++)
         {
             var (document, owner) = Owner("link");
-            NativeCssStyleSheets.Install(document, owner, "@import 'b.css';", "", "", _work);
+            var sourceText = warmSyntax ? text : $"@import '{Guid.NewGuid():N}.css';";
+            NativeCssStyleSheets.Install(document, owner, sourceText, "", "", _work);
             var source = NativeCssStyleSheets.CaptureImportSource(document, owner, _work)!;
             var checks = 0;
             var sheet = NativeCssStyleSheets.EnsureSheet(source, new CssValueWork(default, () =>
             {
                 if (++checks == transition) owner.SetAttribute("disabled", "");
             }));
+            checks.Should().BeGreaterThanOrEqualTo(transition);
             NativeCssStyleSheets.IsCurrent(source).Should().BeTrue();
             sheet.Disabled.Should().BeTrue("a cold checkpoint must not publish the old disabled flag");
             source.Resource.Sheet.Should().BeSameAs(sheet);

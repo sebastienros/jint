@@ -26,6 +26,56 @@ public class FlatLayoutTests
     private const int Row = 16;
 
     [Test]
+    public async Task NearestScrollOfAVisibleTargetDoesNotPrepareUnrelatedHitTestBoxes()
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 64) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>#unrelated{display:block}</style><button id='target'>Save</button>"
+            + "<main id='unrelated'>" + string.Concat(Enumerable.Repeat("<div>row</div>", 100)) + "</main>");
+        var used = await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var document = runtime.Document!;
+            var tracker = new CssRuleUsageTracker();
+            tracker.Rebind(document);
+            CssRuleUsage.Arm(tracker);
+            try
+            {
+                runtime.Layout.ScrollIntoView(DomDocumentReads.ById(runtime.Dom, document, "target")!, "nearest");
+                return tracker.TakeDelta().Select(rule => rule.SelectorText).ToArray();
+            }
+            finally { CssRuleUsage.Disarm(tracker); }
+        });
+        used.Should().NotContain("#unrelated");
+        (await page.EvaluateAsync<double>("scrollY")).Should().Be(0);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task TargetScrollClampsAfterDocumentShrinkAndHandlesNonfiniteOffsets()
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 64) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(Rows(20));
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const out=[];
+              scrollTo(0, Infinity); out.push(scrollY);
+              scrollTo(0, NaN); out.push(scrollY);
+              scrollTo(0, -Infinity); out.push(scrollY);
+              scrollTo(0, 1000); out.push(scrollY);
+              document.body.innerHTML='<button id="short">Save</button>';
+              document.getElementById('short').scrollIntoView({block:'nearest'});
+              out.push(scrollY);
+              return out.join(',');
+            })()
+            """)).Should().Be("288,0,0,288,0");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task AnUnscrolledRectangleDoesNotMatchUnrelatedDocumentBranches()
     {
         await using var browser = new global::Jint.Browser.Browser();

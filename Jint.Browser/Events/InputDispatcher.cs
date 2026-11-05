@@ -76,6 +76,8 @@ internal static partial class InputDispatcher
     /// </summary>
     /// <param name="runtime">The page, which owns the document, the layout and the focus.</param>
     /// <param name="input">Where, which button, and how many clicks.</param>
+    /// <param name="expectedClickTarget">When supplied, restricts a successful result to clicks within this element.</param>
+    /// <returns>Whether a primary click was dispatched within the expected target, if supplied.</returns>
     /// <remarks>
     /// <para>
     /// <b>The four sequences.</b> A move is <c>pointermove</c> then <c>mousemove</c>. A press is
@@ -105,21 +107,21 @@ internal static partial class InputDispatcher
     /// on every move without the matching <c>mouseout</c> would be worse than firing neither.
     /// </para>
     /// </remarks>
-    internal static void DispatchMouse(PageRuntime runtime, in MouseInput input)
+    internal static bool DispatchMouse(PageRuntime runtime, in MouseInput input, Element? expectedClickTarget = null)
     {
         if (runtime.Document is not { } document)
         {
-            return;
+            return false;
         }
 
         var dom = runtime.Dom;
         var events = BrowserEventRealm.Of(dom.Engine);
-        var layout = runtime.Layout.Current();
+        var layout = runtime.Layout.ReadPoint();
 
         var hit = layout.ElementFromPoint(input.X, input.Y) ?? document.DocumentElement;
         if (hit is null)
         {
-            return;
+            return false;
         }
 
         var target = dom.WrapNode(hit);
@@ -130,7 +132,7 @@ internal static partial class InputDispatcher
             case MouseInputKind.Moved:
                 Pointer(target, "pointermove", options, cancelable: true, layout);
                 Mouse(target, "mousemove", options, cancelable: true);
-                return;
+                return false;
 
             case MouseInputKind.Pressed:
                 Pointer(target, "pointerdown", options, cancelable: true, layout);
@@ -142,7 +144,7 @@ internal static partial class InputDispatcher
                 }
 
                 events.MousePressTarget = hit;
-                return;
+                return false;
 
             case MouseInputKind.Released:
                 // https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — an
@@ -150,18 +152,16 @@ internal static partial class InputDispatcher
                 // every listener, because the activation behaviour that reads it runs after all three of
                 // them and any one of them may move, adopt or detach the input first. Nothing is selected
                 // by measuring: the activation behaviour promotes it, or nothing does.
-                events.PendingImagePoint = ImagePointOf(hit, input.X, input.Y, layout);
+                events.PendingImagePoint = ImagePointOf(hit, input.X, input.Y, layout.ClientBoxOf);
 
                 try
                 {
-                    Release(dom, events, target, hit, options, input, layout);
+                    return Release(dom, events, target, hit, options, input, layout, expectedClickTarget);
                 }
                 finally
                 {
                     events.PendingImagePoint = null;
                 }
-
-                return;
 
             case MouseInputKind.Wheel:
                 if (Wheel(target, options, input.DeltaX, input.DeltaY, layout))
@@ -169,10 +169,10 @@ internal static partial class InputDispatcher
                     runtime.Layout.ScrollBy(input.DeltaY);
                 }
 
-                return;
+                return false;
 
             default:
-                return;
+                return false;
         }
     }
 
@@ -180,14 +180,15 @@ internal static partial class InputDispatcher
     /// The release half of <see cref="DispatchMouse"/>: <c>pointerup</c>, <c>mouseup</c>, and then either the
     /// context menu the secondary button opens or the click the press and the release share.
     /// </summary>
-    private static void Release(
+    private static bool Release(
         DomRealm dom,
         BrowserEventRealm events,
         DomNodeObject target,
         Element hit,
         in ClickOptions options,
         in MouseInput input,
-        FlatLayout layout)
+        FlatLayout.PointQuery layout,
+        Element? expectedClickTarget)
     {
         Pointer(target, "pointerup", options, cancelable: true, layout);
         Mouse(target, "mouseup", options, cancelable: true);
@@ -200,20 +201,32 @@ internal static partial class InputDispatcher
         if (input.Button == SecondaryButton)
         {
             Mouse(clicked, "contextmenu", options, cancelable: true);
-            return;
+            return false;
         }
 
         if (input.Button != PrimaryButton)
         {
-            return;
+            return false;
         }
 
+        var matches = expectedClickTarget is null || IsWithin(dom.Engine, clicked.Node, expectedClickTarget);
         DispatchClickEvent(clicked, options, trusted: true);
 
         if (input.ClickCount == 2)
         {
             Mouse(clicked, "dblclick", options, cancelable: true);
         }
+        return matches;
+    }
+
+    internal static bool IsWithin(Engine engine, Node? node, Element expected)
+    {
+        while (node is not null && !ReferenceEquals(node, expected))
+        {
+            engine.Constraints.Check();
+            node = node.ParentNode ?? (node is ShadowRoot shadow ? shadow.Host : null);
+        }
+        return node is not null;
     }
 
     /// <summary>
@@ -235,7 +248,7 @@ internal static partial class InputDispatcher
     /// mouse events are dispatched at.
     /// </para>
     /// </remarks>
-    private static (Element Image, int X, int Y)? ImagePointOf(Element hit, double x, double y, FlatLayout layout)
+    private static (Element Image, int X, int Y)? ImagePointOf(Element hit, double x, double y, Func<Element, FlatBox?> clientBox)
     {
         for (var element = hit; element is not null; element = (element.ParentNode as Element))
         {
@@ -244,7 +257,7 @@ internal static partial class InputDispatcher
                 continue;
             }
 
-            if (layout.ClientBoxOf(image) is not { } box)
+            if (clientBox(image) is not { } box)
             {
                 return null;
             }
@@ -274,7 +287,7 @@ internal static partial class InputDispatcher
     }
 
     /// <summary>Dispatches one <c>PointerEvent</c>, answering whether nothing cancelled it.</summary>
-    private static bool Pointer(DomNodeObject target, string type, in ClickOptions options, bool cancelable, FlatLayout layout)
+    private static bool Pointer(DomNodeObject target, string type, in ClickOptions options, bool cancelable, FlatLayout.PointQuery layout)
     {
         var ev = PointerEvent(target, type, options, cancelable);
         PrepareOffsets(ev, target, layout);
@@ -301,7 +314,7 @@ internal static partial class InputDispatcher
     }
 
     /// <summary>Dispatches one <c>WheelEvent</c>, answering whether nothing cancelled it.</summary>
-    private static bool Wheel(DomNodeObject target, in ClickOptions options, double deltaX, double deltaY, FlatLayout layout)
+    private static bool Wheel(DomNodeObject target, in ClickOptions options, double deltaX, double deltaY, FlatLayout.PointQuery layout)
     {
         var realm = BrowserEventRealm.Of(target.DomRealm.Engine);
         var ev = new JsWheelEvent(
@@ -326,7 +339,7 @@ internal static partial class InputDispatcher
         return target.DispatchEvent(ev);
     }
 
-    private static void PrepareOffsets(JsMouseEvent ev, DomNodeObject target, FlatLayout layout)
+    private static void PrepareOffsets(JsMouseEvent ev, DomNodeObject target, FlatLayout.PointQuery layout)
     {
         // The hit-test query precedes every listener. Reuse it only for the first event: a pointer
         // listener can move the target before the following mouse/click event begins. Keeping just
@@ -508,12 +521,24 @@ internal static partial class InputDispatcher
 
         if (focused is null)
         {
+            realm.SpacePressTarget = null;
             return;
         }
 
         if (kind == KeyInputKind.KeyUp)
         {
-            dom.WrapNode(focused).DispatchEvent(KeyEvent(dom, realm, "keyup", options, cancelable: true));
+            var allowed = dom.WrapNode(focused).DispatchEvent(KeyEvent(dom, realm, "keyup", options, cancelable: true));
+            if (options.Key == " ")
+            {
+                var pressed = realm.SpacePressTarget;
+                realm.SpacePressTarget = null;
+                if (allowed && ReferenceEquals(pressed, focused) && IsKeyboardButton(dom, focused)
+                    && ReferenceEquals(FocusController.InteractionTarget(realm, document), focused))
+                {
+                    DispatchClickEvent(dom.WrapNode(focused),
+                        ClickOptions.Synthetic with { Detail = 0, Modifiers = options.Modifiers }, trusted: true);
+                }
+            }
             return;
         }
 
@@ -527,6 +552,8 @@ internal static partial class InputDispatcher
             return;
         }
 
+        if (options.Key == " ") realm.SpacePressTarget = null;
+
         if (!dom.WrapNode(focused).DispatchEvent(KeyEvent(dom, realm, "keydown", options, cancelable: true)))
         {
             return;
@@ -539,8 +566,26 @@ internal static partial class InputDispatcher
             return;
         }
 
+        // https://w3c.github.io/uievents/#event-type-keydown — keyboard activation uses the same click
+        // default action as a pointer, without hit testing. Enter activates on down; Space waits for up.
+        if (options.Key is "Enter" or " " && IsKeyboardButton(dom, focused)
+            && ReferenceEquals(FocusController.InteractionTarget(realm, document), focused))
+        {
+            if (options.Key == "Enter")
+                DispatchClickEvent(dom.WrapNode(focused),
+                    ClickOptions.Synthetic with { Detail = 0, Modifiers = options.Modifiers }, trusted: true);
+            else
+                realm.SpacePressTarget = focused;
+            return;
+        }
+
         RunDefaultAction(dom, document, focused, options, allowInsertion: kind == KeyInputKind.KeyDown);
     }
+
+    private static bool IsKeyboardButton(DomRealm dom, Element element)
+        => (EventDom.IsHtml(element, "button")
+            || EventDom.IsHtml(element, "input") && EventDom.InputType(element) is "button" or "submit" or "reset" or "image")
+            && !EventDom.Disabled(dom, element);
 
     /// <summary>Dispatches <c>keypress</c>, answering whether nothing cancelled it.</summary>
     private static bool Keypress(DomRealm dom, BrowserEventRealm realm, Element focused, in KeyOptions options)
@@ -851,6 +896,9 @@ internal readonly record struct KeyOptions(
     /// <summary>One key with no modifiers, which is what a test and a plain <c>Input.dispatchKeyEvent</c> send.</summary>
     internal static KeyOptions For(string key) => new(key, "", "", 0, false, EventModifiers.None, null);
 
+    /// <summary>A printable key can occupy two UTF-16 code units for one supplementary scalar.</summary>
+    internal bool IsCharacter => Key.Length == 1 || (Key.Length == 2 && char.IsSurrogatePair(Key, 0));
+
     /// <summary>
     /// The text this key produces: what the client said, or the <c>key</c> itself when it is one character,
     /// which is how a key that produces a character is told from a named one.
@@ -870,7 +918,7 @@ internal readonly record struct KeyOptions(
             }
 
             var shortcut = (Modifiers & (EventModifiers.Control | EventModifiers.Meta)) != EventModifiers.None;
-            return Key.Length == 1 && !shortcut ? Key : "";
+            return IsCharacter && !shortcut ? Key : "";
         }
     }
 

@@ -15,6 +15,39 @@ using Browser = global::Jint.Browser.Browser;
 public sealed class NativeCssConsumerTests
 {
     [Test]
+    public async Task RepeatedSourceKeepsCssomOwnersAndMutationsIsolatedAcrossPagesAndDocuments()
+    {
+        const string html = "<style>p{color:red} @media screen{p{display:block}}</style><p id=target>text</p>";
+        await using var browser = new Browser();
+        var first = await browser.NewPageAsync();
+        var second = await browser.NewPageAsync();
+        await first.SetContentAsync(html);
+        await second.SetContentAsync(html);
+        const string inspect = """
+            (() => {
+                const sheet = document.styleSheets[0];
+                const rule = sheet.cssRules[0];
+                const nested = sheet.cssRules[1].cssRules[0];
+                return [rule.parentStyleSheet === sheet, nested.parentStyleSheet === sheet,
+                    nested.parentRule === sheet.cssRules[1], rule.style.color,
+                    getComputedStyle(document.getElementById('target')).color].join('|');
+            })()
+            """;
+        (await first.EvaluateAsync<string>(inspect)).Should().Be("true|true|true|red|rgb(255, 0, 0)");
+        (await second.EvaluateAsync<string>(inspect)).Should().Be("true|true|true|red|rgb(255, 0, 0)");
+        await first.EvaluateAsync("""
+            document.styleSheets[0].cssRules[0].style.color='blue';
+            document.styleSheets[0].cssRules[0].selectorText='section';
+            document.styleSheets[0].cssRules[1].cssRules[0].style.display='none';
+            """);
+        (await second.EvaluateAsync<string>(inspect)).Should().Be("true|true|true|red|rgb(255, 0, 0)");
+        await first.SetContentAsync(html);
+        (await first.EvaluateAsync<string>(inspect)).Should().Be("true|true|true|red|rgb(255, 0, 0)");
+        first.Errors.Should().BeEmpty();
+        second.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task BackgroundHexColorsResolveToTheRgbSerializationUsedByColorFields()
     {
         await using var browser = new Browser();

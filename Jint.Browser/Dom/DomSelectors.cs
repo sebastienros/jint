@@ -17,8 +17,10 @@ internal static class DomSelectors
     }
 
     internal static Element[] QuerySelectorAll(DomRealm realm, Node root, string text)
+        => QuerySelectorAll(realm, root, Compile(realm, text));
+
+    internal static Element[] QuerySelectorAll(DomRealm realm, Node root, CompiledSelector program)
     {
-        var program = Compile(realm, text);
         var work = Work(realm, root);
         var environment = Environment(realm, root);
         return SelectorMatcher.QuerySelectorAllSnapshot(program, root, environment, ref work);
@@ -40,7 +42,7 @@ internal static class DomSelectors
         return SelectorMatcher.Closest(program, element, environment, ref work);
     }
 
-    private static CompiledSelector Compile(DomRealm realm, string text)
+    internal static CompiledSelector Compile(DomRealm realm, string text)
     {
         realm.Engine.Constraints.Check();
         try
