@@ -1890,14 +1890,16 @@ var prep = function (fn) { fn(); };
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
+                // The zone's own daylight name, which Windows gives in the OS display language (issue #4442).
+                .SetValue("daylightName", PDT.DaylightName)
             ;
 
         engine.Evaluate(@"
                     var d = new Date(1433160000000);
 
-                    equal('Mon Jun 01 2015 05:00:00 GMT-0700 (Pacific Daylight Time)', d.toString());
+                    equal('Mon Jun 01 2015 05:00:00 GMT-0700 (' + daylightName + ')', d.toString());
                     equal('Mon Jun 01 2015', d.toDateString());
-                    equal('05:00:00 GMT-0700 (Pacific Daylight Time)', d.toTimeString());
+                    equal('05:00:00 GMT-0700 (' + daylightName + ')', d.toTimeString());
                     // ECMA-402 compliant: numeric defaults used when no options specified
                     equal('1/6/2015, 05:00:00', d.toLocaleString());
                     equal('1/6/2015', d.toLocaleDateString());
