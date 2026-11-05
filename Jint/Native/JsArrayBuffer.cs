@@ -26,9 +26,12 @@ public class JsArrayBuffer : ObjectInstance
         byte[] data,
         uint? arrayBufferMaxByteLength = null) : base(engine)
     {
-        if (arrayBufferMaxByteLength is > int.MaxValue)
+        // https://tc39.es/ecma262/#sec-allocatearraybuffer step 9.a: a resizable buffer whose maxByteLength is
+        // larger than the biggest byte[] the CLR can allocate is a RangeError here, at construction, rather than
+        // at the first resize that reaches it.
+        if (arrayBufferMaxByteLength > ClrLimits.MaxArrayLength)
         {
-            Throw.RangeError(engine.Realm, "arrayBufferMaxByteLength cannot be larger than int32.MaxValue");
+            Throw.RangeError(engine.Realm, "Invalid array buffer max length");
         }
 
         _prototype = engine.Intrinsics.ArrayBuffer.PrototypeObject;
