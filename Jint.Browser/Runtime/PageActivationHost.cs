@@ -34,7 +34,9 @@ internal sealed class PageActivationHost : BrowserActivationHost
     /// https://html.spec.whatwg.org/multipage/links.html#following-hyperlinks-2. A same-document fragment
     /// navigation goes through the same seam as any other: the page's navigation queue is what decides that a
     /// URL differing only in its fragment is a fragment navigation, fires <c>hashchange</c> and pushes a
-    /// history entry without a fetch.
+    /// history entry without a fetch. A <c>download</c> attribute is
+    /// https://html.spec.whatwg.org/multipage/links.html#downloading-hyperlinks instead: the source's document
+    /// stays and no target is chosen, and <see cref="Page.RequestNavigation"/> ends after the <c>navigate</c> event.
     /// </summary>
     internal override void FollowHyperlink(BrowserEventRealm realm, Element source, string url, string target)
     {
@@ -43,9 +45,14 @@ internal sealed class PageActivationHost : BrowserActivationHost
             return;
         }
 
-        target = WindowOpen.Target(_runtime, source, source.GetAttribute("target"));
-        var (noopener, noreferrer) = WindowOpen.Relationship(source, target);
-        if (WindowOpen.NavigateTarget(_runtime, target, noopener, WindowOpen.Navigation(_runtime, url, noreferrer))) return;
+        var download = source.GetAttribute("download");
+        var noreferrer = false;
+        if (download is null)
+        {
+            target = WindowOpen.Target(_runtime, source, source.GetAttribute("target"));
+            (var noopener, noreferrer) = WindowOpen.Relationship(source, target);
+            if (WindowOpen.NavigateTarget(_runtime, target, noopener, WindowOpen.Navigation(_runtime, url, noreferrer))) return;
+        }
 
         _runtime.Page.RequestNavigation(
             url,
@@ -53,7 +60,7 @@ internal sealed class PageActivationHost : BrowserActivationHost
             engine: _runtime.Engine,
             reason: PageNavigationReason.AnchorClick,
             sourceElement: _runtime.Dom.ExistingNavigation is null ? null : _runtime.Dom.WrapNode(source),
-            downloadRequest: source.GetAttribute("download"),
+            downloadRequest: download,
             userInitiated: realm.ActivationIsUserInitiated,
             referrer: noreferrer ? "" : null);
     }

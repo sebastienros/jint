@@ -248,6 +248,23 @@ public sealed partial class Page
             navigationCancellation = navigation.NavigationCancellation;
         }
 
+        if (downloadRequest is not null)
+        {
+            // https://html.spec.whatwg.org/multipage/links.html#downloading-hyperlinks: the navigate event has
+            // had its say, the document stays, and there is nothing here to save the response to.
+            if (engine is not null && PageRuntime.Find(engine) is { } runtime)
+            {
+                runtime.Dom.ExistingNavigation?.AbortOngoing();
+                runtime.Recorder.Add(
+                    PageErrorKind.ReportedError,
+                    "A download was requested by clicking a link, and this version has nowhere to save it; the page "
+                    + "stays where it is.",
+                    url);
+            }
+
+            return;
+        }
+
         if (engine is not null && !reload && TryFragmentNavigation(engine, url, replace))
         {
             return;

@@ -447,6 +447,39 @@ public sealed class ActivationBehaviorTests
     }
 
     /// <summary>
+    /// https://html.spec.whatwg.org/multipage/links.html#downloading-hyperlinks. A <c>download</c> attribute
+    /// makes activation a download rather than a navigation, so the document and its script state stay, the
+    /// <c>navigate</c> event still fires, and a target opens nothing. A headless page saves nothing, so the
+    /// request is recorded as one nobody answered.
+    /// </summary>
+    [Test]
+    public async Task AnAnchorWithADownloadAttributeLeavesThePageInPlace()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/start.html",
+                "<title>start</title><a id='go' href='/file.html' download='file.txt'>File</a>"
+                + "<a id='tab' href='/file.html' download target='_blank'>Tab</a>")
+            .MapHtml("/file.html", "<title>file</title>"));
+        var browser = fixture.Page.Context;
+
+        await fixture.Page.NavigateAsync(fixture.Url("/start.html"));
+        await fixture.Page.EvaluateAsync(
+            """
+            var log = [];
+            navigation.onnavigate = e => log.push('navigate:' + e.downloadRequest);
+            navigation.onnavigateerror = e => log.push(e.error.name);
+            document.getElementById('go').click();
+            document.getElementById('tab').click();
+            """);
+        await fixture.Page.WaitForIdleAsync(TimeSpan.FromSeconds(5));
+
+        (await fixture.Page.TitleAsync()).Should().Be("start");
+        (await fixture.Page.EvaluateAsync<string>("log.join()")).Should().Be("navigate:file.txt,AbortError,navigate:,AbortError");
+        browser.Pages.Should().ContainSingle();
+        fixture.Page.Errors.Should().HaveCount(2).And.OnlyContain(error => error.Message.Contains("download"));
+    }
+
+    /// <summary>
     /// A top-level <c>_top</c> target navigates the same page without a fallback diagnostic.
     /// </summary>
     [Test]
