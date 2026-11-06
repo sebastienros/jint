@@ -681,6 +681,34 @@ internal static class AstExtensions
         }
     }
 
+    /// <summary>
+    /// The location node of a Throw completion made from a thrown primitive's exception, carrying the call stack
+    /// that exception was given (see <see cref="Throw.JavaScriptException(Engine, JsValue, in Completion)"/>).
+    /// </summary>
+    internal static Node CreateThrowLocationNode(in SourceLocation location, string callStack)
+    {
+        return new ThrowLocation(in location, callStack);
+    }
+
+    /// <summary>
+    /// The call stack a Throw completion's location node carries, or null when it carries none.
+    /// </summary>
+    internal static string? CarriedCallStack(this Node node) => (node as ThrowLocation)?.CallStack;
+
+    private sealed class ThrowLocation : Node
+    {
+        public ThrowLocation(in SourceLocation location, string callStack) : base(NodeType.Unknown)
+        {
+            Location = location;
+            CallStack = callStack;
+        }
+
+        public string CallStack { get; }
+
+        protected override IEnumerator<Node>? GetChildNodes() => throw new NotImplementedException();
+        protected override object? Accept(AstVisitor visitor) => throw new NotImplementedException();
+    }
+
     private sealed class MinimalSyntaxElement : Node
     {
         public MinimalSyntaxElement(in SourceLocation location) : base(NodeType.Unknown)

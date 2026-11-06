@@ -8,6 +8,11 @@ namespace Jint.Benchmark;
 /// a throw (read against the LoopDispatch CounterAdd floor), throw+catch round-trips, Error
 /// construction with and without touching <c>.stack</c>, and unwinding through a deep call chain.
 ///
+/// <para><see cref="DeepStackThrowPrimitive"/> is <see cref="DeepStackThrow"/> with a string thrown instead of an
+/// <c>Error</c>. A primitive has nowhere to carry its stack trace, and it used to be built again at every function
+/// body the throw left, which made d frames cost O(d^2) (issue #4461); an <c>Error</c> carries its own, so
+/// <see cref="DeepStackThrow"/> is the pairing, and <see cref="TryNoThrow"/>, which never throws, the control.</para>
+///
 /// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and nothing
 /// else (see <see cref="IsolatedScript"/>). It used to be one engine warmed with all six scripts, so a row
 /// was measured on an engine carrying the other five rows' globals (every script declares
@@ -28,6 +33,7 @@ public class ErrorHandlingBenchmark
     private IsolatedScript _errorConstructOnly;
     private IsolatedScript _errorStackAccess;
     private IsolatedScript _deepStackThrow;
+    private IsolatedScript _deepStackThrowPrimitive;
 
     internal const string TryNoThrowSource = """
         function f() {
@@ -119,6 +125,22 @@ public class ErrorHandlingBenchmark
             }
             f();
             """), CreateEngine);
+
+        // the same, throwing a primitive
+        _deepStackThrowPrimitive = IsolatedScript.Warm(Engine.PrepareScript("""
+            function d(n) {
+                if (n === 0) { throw 'deep'; }
+                return d(n - 1);
+            }
+            function f() {
+                var s = 0;
+                for (var i = 0; i < 2000; i++) {
+                    try { d(50); } catch (e) { s++; }
+                }
+                return s;
+            }
+            f();
+            """), CreateEngine);
     }
 
     [Benchmark]
@@ -138,4 +160,7 @@ public class ErrorHandlingBenchmark
 
     [Benchmark]
     public JsValue DeepStackThrow() => _deepStackThrow.Run();
+
+    [Benchmark]
+    public JsValue DeepStackThrowPrimitive() => _deepStackThrowPrimitive.Run();
 }
