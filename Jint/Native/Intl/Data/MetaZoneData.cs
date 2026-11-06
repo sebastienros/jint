@@ -718,7 +718,9 @@ internal static class MetaZoneData
     /// <returns>The display name, or null if not found in CLDR data</returns>
     internal static string? GetDisplayName(string ianaId, bool isDaylightSaving, bool longName, bool generic)
     {
-        if (!IanaToMetaZone.TryGetValue(ianaId, out var metaZone))
+        // A Link name has the metazone of the zone it points to: US/Eastern is America/New_York's "EST", not "Eastern".
+        if (!IanaToMetaZone.TryGetValue(ianaId, out var metaZone)
+            && !(TimeZoneData.TryGetLinkTarget(ianaId, out var zone) && IanaToMetaZone.TryGetValue(zone, out metaZone)))
         {
             return null;
         }
