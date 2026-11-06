@@ -17,6 +17,12 @@ namespace Jint.Benchmark;
 /// rows still measure warm template building, and engine construction and warm-up stay in
 /// <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not comparable to any
 /// published before the harness changed.</b></para>
+///
+/// <para>The Accumulate* rows build a 64 KB string with a template that takes its own previous value
+/// (<c>s = `${s}${chunk}`</c>), which used to copy the accumulator on every evaluation and so cost O(n^2)
+/// (issue #4460); they pair with <c>StringConcatLargeBenchmark.AssignAppendSmallChunks</c>, the same 4,096 x 16
+/// characters through <c>+</c>. The four rows above them never substitute a string long enough to be joined
+/// without copying, so they are the control for the short path.</para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
@@ -26,6 +32,8 @@ public class TemplateLiteralBenchmark
     private IsolatedScript _nestedTemplate;
     private IsolatedScript _numberInterpolation;
     private IsolatedScript _taggedTemplate;
+    private IsolatedScript _accumulateAppend;
+    private IsolatedScript _accumulatePrepend;
 
     internal const string ManyInterpolationsSource = """
         function f() {
@@ -86,6 +94,30 @@ public class TemplateLiteralBenchmark
             """);
 
         _taggedTemplate = IsolatedScript.Warm(TaggedTemplateSource);
+
+        _accumulateAppend = IsolatedScript.Warm("""
+            function f() {
+                var chunk = 'abcdefghijklmnop';
+                var s = '';
+                for (var i = 0; i < 4096; i++) {
+                    s = `${s}${chunk}`;
+                }
+                return s.length;
+            }
+            f();
+            """);
+
+        _accumulatePrepend = IsolatedScript.Warm("""
+            function f() {
+                var chunk = 'abcdefghijklmnop';
+                var s = '';
+                for (var i = 0; i < 4096; i++) {
+                    s = `${chunk}${s}`;
+                }
+                return s.length;
+            }
+            f();
+            """);
     }
 
     [Benchmark]
@@ -99,4 +131,10 @@ public class TemplateLiteralBenchmark
 
     [Benchmark]
     public JsValue TaggedTemplate() => _taggedTemplate.Run();
+
+    [Benchmark]
+    public JsValue AccumulateAppend() => _accumulateAppend.Run();
+
+    [Benchmark]
+    public JsValue AccumulatePrepend() => _accumulatePrepend.Run();
 }
