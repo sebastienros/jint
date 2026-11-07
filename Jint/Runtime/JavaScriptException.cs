@@ -266,6 +266,21 @@ public class JavaScriptException : JintException
         return this;
     }
 
+    /// <summary>
+    /// The call stack recorded for this exception, without falling back to the thrown object's
+    /// <c>stack</c> property as <see cref="JavaScriptStackTrace"/> does.
+    /// </summary>
+    internal string? RecordedCallStack => _jsErrorException.RecordedCallStack;
+
+    /// <summary>
+    /// Gives this exception a call stack recorded earlier for the same throw, rather than building one.
+    /// </summary>
+    internal JavaScriptException SetRecordedCallstack(in SourceLocation location, string callStack)
+    {
+        _jsErrorException.SetRecordedCallstack(in location, callStack);
+        return this;
+    }
+
     public JavaScriptException SetJavaScriptLocation(in SourceLocation location)
     {
         _jsErrorException.SetLocation(in location);
@@ -295,6 +310,14 @@ public class JavaScriptException : JintException
         internal void SetLocation(in SourceLocation location)
         {
             _location = location;
+        }
+
+        internal string? RecordedCallStack => _callStack;
+
+        internal void SetRecordedCallstack(in SourceLocation location, string callStack)
+        {
+            _location = location;
+            _callStack = callStack;
         }
 
         internal void SetCallstack(Engine engine, in SourceLocation location, bool overwriteExisting)

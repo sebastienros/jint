@@ -2954,7 +2954,7 @@ public sealed partial class Engine : IDisposable
 
             if (result.Type == CompletionType.Throw)
             {
-                var ex = new JavaScriptException(result.GetValueOrDefault()).SetJavaScriptCallstack(this, result.Location);
+                var ex = Throw.ThrowCompletionException(this, result.GetValueOrDefault(), in result);
                 CallStack.TrimTo(callStackDepthOnEntry);
                 throw ex;
             }

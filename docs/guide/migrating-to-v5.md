@@ -7804,6 +7804,40 @@ nor `undefined` or `null`, such as `42`, now throws a `TypeError` (a rejection f
 read as a record of its own properties. `undefined` and `null` still select the record. Node's `Headers` reads such an
 argument as a record too; WebIDL's union conversion says it is a `TypeError`. There is no switch back.
 
+### 4.211 A thrown primitive's stack trace has every frame it was thrown through ([#4461](https://github.com/sebastienros/jint/issues/4461))
+
+A throw leaves each function body it passes through as a new exception, and each of those used to build the
+stack trace again when the thrown value was a primitive. An object or an error carries the trace built where it
+was thrown; a primitive had nowhere to keep one. By the time the throw reached the host, the frames it had left
+were gone:
+
+```js
+// app.js
+function parse(text) {
+    throw 'bad input';
+}
+function load() {
+    return parse('');
+}
+// main.js
+load();
+// earlier previews: "    at app.js:2:11"
+// 5.x:              "    at parse (app.js:2:11)
+    at load (app.js:5:12)
+    at main.js:1:1"
+```
+
+The trace is now built once, where the throw first leaves a function body, and the throw carries it from there,
+so a primitive reports the same frames an object or an error thrown at the same place reports. Building it at
+every body also rendered every frame still on the stack each time, so a primitive thrown through d frames cost
+O(d²): at a depth of 4,000 a single throw took over a second, even when a script caught it.
+
+**What could break:** a test comparing `JavaScriptException.JavaScriptStackTrace` against a hard-coded string
+for a thrown primitive, which now has the frames between the throw and the host. A thrown object, a thrown error
+and a primitive thrown again with `throw e` are unchanged: the last is a new throw, and its trace starts where it
+was thrown again. `Options.Interop.BuildCallStackHandler` is asked for the frames of one trace per throw, instead
+of one trace for every body the throw leaves.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
