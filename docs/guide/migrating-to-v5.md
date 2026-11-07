@@ -7661,6 +7661,28 @@ and no iterator method now rejects the step with a `TypeError` and closes the so
 builds that object was skipped. After an inner iterator's `next` throws, `return()` on the helper no longer calls that
 inner iterator's `return`. There is no switch back.
 
+### 4.203 `Intl.DurationFormat` shows a unit by default where the spec says `"always"` ([#4434](https://github.com/sebastienros/jint/pull/4434))
+
+`Intl.DurationFormat` now resolves each unit's `*Display` option the way
+[GetDurationUnitOptions](https://tc39.es/ecma402/#sec-getdurationunitoptions) does. A unit's default display is `"always"`
+in three cases: when its own style option was given (`{ hours: 'long' }`), when it is hours, minutes or seconds under
+`style: 'digital'`, and when it is minutes or seconds after a numeric unit (`{ hours: 'numeric' }`). In 4.16 and earlier
+5.0 builds every `*Display` option defaulted to `"auto"`, so a zero unit in those positions was left out, and
+`resolvedOptions()` reported `"auto"`:
+
+```js
+new Intl.DurationFormat('en', { style: 'digital' }).format({ seconds: 1 });
+// 4.16.x / earlier 5.0: "00:01"         5.x: "0:00:01"
+new Intl.DurationFormat('en', { hours: 'numeric' }).format({ hours: 1 });
+// 4.16.x / earlier 5.0: "1"             5.x: "1:00:00"
+new Intl.DurationFormat('en', { hours: 'long' }).format({ minutes: 1 });
+// 4.16.x / earlier 5.0: "1 min"         5.x: "0 hours, 1 min"
+```
+
+A fractional sub-second unit set to `"always"`, such as `{ milliseconds: 'numeric', millisecondsDisplay: 'always' }` or
+`{ style: 'digital', millisecondsDisplay: 'always' }`, now throws a `RangeError` from the constructor, as the spec and
+V8 do; it used to be accepted. There is no switch back.
+
 ### 4.204 `Iterator.prototype` has no `next`, and a segments iterator has a prototype of its own ([#4407](https://github.com/sebastienros/jint/issues/4407))
 
 Each built-in iterator prototype has a `next` of its own: the array iterator prototype, the `Map`, `Set`, string and
