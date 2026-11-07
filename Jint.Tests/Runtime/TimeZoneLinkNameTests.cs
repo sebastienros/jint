@@ -1,6 +1,9 @@
 #nullable enable
 
+using System.Numerics;
+
 using Jint.Native.Intl.Data;
+using Jint.Native.Temporal;
 
 namespace Jint.Tests.Runtime;
 
@@ -12,8 +15,8 @@ namespace Jint.Tests.Runtime;
 public class TimeZoneLinkNameTests
 {
     /// <summary>
-    /// Names that are not canonical in <see cref="TimeZoneData"/> but are Zones, not Links, in the tz database, so
-    /// the system has them without the backward links.
+    /// Supported non-canonical IDs skipped by the Link-target check: UTC aliases, legacy POSIX Zones, and Vostok.
+    /// The four POSIX Zones are in tzdb's backward file but may be absent without the tzdata-legacy package.
     /// </summary>
     private static readonly HashSet<string> NonCanonicalZones =
         ["Etc/GMT", "Etc/UTC", "CST6CDT", "EST5EDT", "MST7MDT", "PST8PDT", "Antarctica/Vostok"];
@@ -59,6 +62,47 @@ public class TimeZoneLinkNameTests
         var formattedForZone = engine.Evaluate(Format).AsString();
 
         formattedForLink.Should().Be(formattedForZone);
+    }
+
+    [TestCase("Indian/Reunion", "Réunion Time")]
+    [TestCase("Indian/Mahe", "Seychelles Time")]
+    [TestCase("Indian/Christmas", "Christmas Island Time")]
+    [TestCase("Indian/Cocos", "Cocos Islands Time")]
+    [TestCase("Antarctica/Syowa", "Syowa Time")]
+    public void CrossCountryLinkUsesItsOwnMetazoneName(string link, string expectedName)
+    {
+        var engine = new Engine();
+        engine.SetValue("tz", link);
+
+        var name = engine.Evaluate("""
+            new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'long' })
+                .formatToParts(0)
+                .find(part => part.type === 'timeZoneName')
+                .value
+            """).AsString();
+
+        name.Should().Be(expectedName);
+    }
+
+    [TestCase("CST6CDT", "America/Chicago")]
+    [TestCase("EST5EDT", "America/New_York")]
+    [TestCase("MST7MDT", "America/Denver")]
+    [TestCase("PST8PDT", "America/Los_Angeles")]
+    public void LegacyPosixZoneUsesItsApproximateUsZone(string legacyZone, string targetZone)
+    {
+        var provider = new DefaultTimeZoneProvider();
+        var dates = new[]
+        {
+            new DateTimeOffset(2026, 1, 15, 12, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 7, 15, 12, 0, 0, TimeSpan.Zero),
+        };
+
+        foreach (var date in dates)
+        {
+            var epochNanoseconds = new BigInteger(date.ToUnixTimeMilliseconds()) * 1_000_000;
+            provider.GetOffsetNanosecondsFor(legacyZone, epochNanoseconds)
+                .Should().Be(provider.GetOffsetNanosecondsFor(targetZone, epochNanoseconds));
+        }
     }
 
     [TestCase("Europe/Kiev", "Europe/Kyiv")]
