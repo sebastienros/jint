@@ -33,4 +33,33 @@ public class ArrayBufferAllocationLimitTests
             ThrownErrorName(string.Format(template, length)).Should().Be("RangeError", length);
         }
     }
+
+    /// <summary>
+    /// AllocateArrayBuffer step 9.a: a resizable buffer whose <c>maxByteLength</c> could never be allocated is a
+    /// RangeError when it is constructed, not first at the <c>resize</c> that reaches it.
+    /// </summary>
+    [Theory]
+    [InlineData("2147483592")]
+    [InlineData("2 ** 31 - 1")]
+    [InlineData("2 ** 31")]
+    [InlineData("2 ** 53 - 1")]
+    public void AResizableBufferWhoseMaxByteLengthTheClrCannotAllocateIsARangeErrorAtConstruction(string maxByteLength)
+    {
+        ThrownErrorName($"new ArrayBuffer(0, {{ maxByteLength: {maxByteLength} }})").Should().Be("RangeError");
+        ThrownErrorName($"new ArrayBuffer(8, {{ maxByteLength: {maxByteLength} }})").Should().Be("RangeError");
+    }
+
+    /// <summary>
+    /// The largest <c>maxByteLength</c> the CLR can allocate is still accepted, and it is only a limit: nothing
+    /// that large is allocated until a resize asks for it.
+    /// </summary>
+    [Fact]
+    public void TheLargestAllocatableMaxByteLengthIsStillAccepted()
+    {
+        _engine.Evaluate("""
+            var b = new ArrayBuffer(8, { maxByteLength: 2147483591 });
+            b.resize(16);
+            [b.maxByteLength, b.byteLength, b.resizable].join()
+            """).AsString().Should().Be("2147483591,16,true");
+    }
 }
