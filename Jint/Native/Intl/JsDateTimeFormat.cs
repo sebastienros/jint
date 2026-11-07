@@ -290,7 +290,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         try
         {
-            var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            var timeZone = Data.TimeZoneData.FindSystemTimeZone(timeZoneId);
             if (dateTime.Kind == DateTimeKind.Local)
             {
                 dateTime = dateTime.ToUniversalTime();
@@ -1231,7 +1231,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             var isDst = false;
             try
             {
-                var tzInfo = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
+                var tzInfo = Data.TimeZoneData.FindSystemTimeZone(TimeZone);
                 isDst = tzInfo.IsDaylightSavingTime(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc));
             }
             catch
@@ -1248,7 +1248,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             // Fallback to .NET TimeZoneInfo names
             try
             {
-                var tzInfo = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
+                var tzInfo = Data.TimeZoneData.FindSystemTimeZone(TimeZone);
                 if (longName)
                 {
                     return isDst ? tzInfo.DaylightName : tzInfo.StandardName;
