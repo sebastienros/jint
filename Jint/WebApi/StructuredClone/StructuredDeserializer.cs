@@ -391,11 +391,11 @@ internal sealed class StructuredDeserializer
         var result = new JsRegExp(_engine)
         {
             _prototype = _realm.Intrinsics.RegExp.PrototypeObject,
-            Value = record.Matcher,
+            Matcher = record.Matcher,
+            HostRegex = record.HostRegex,
+            ConversionOptions = record.ConversionOptions,
             Source = record.Source,
             Flags = record.Flags,
-            ParseResult = record.ParseResult,
-            IsHostRegex = record.IsHostRegex,
         };
 
         result.SetOwnProperty(JsRegExp.PropertyLastIndex, new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.OnlyWritable));

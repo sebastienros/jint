@@ -12,7 +12,7 @@
 #
 # The names are ISO documentation comment ids, which is what the compiler writes into Jint.xml.
 #
-undocumented: 620
+undocumented: 616
 F:Jint.ModuleParsingOptions.Default
 F:Jint.ModulePreparationOptions.Default
 F:Jint.Native.Function.Function._length
@@ -249,7 +249,6 @@ M:Jint.Native.Object.ObjectInstance.SetOwnProperty(Jint.Native.JsValue,Jint.Runt
 M:Jint.Native.Object.ObjectInstance.TryGetProperty(Jint.Native.JsValue,Jint.Runtime.Descriptors.PropertyDescriptor@)
 M:Jint.Native.Object.ObjectInstance.TryGetValue(Jint.Native.JsValue,Jint.Native.JsValue@)
 M:Jint.Native.RegExp.RegExpConstructor.Construct(Jint.Native.JsValue[])
-M:Jint.Native.RegExp.RegExpConstructor.Construct(System.Text.RegularExpressions.Regex,System.String,System.String)
 M:Jint.Native.Set.SetConstructor.Construct
 M:Jint.Native.ShadowRealm.ShadowRealm.Evaluate(Jint.Prepared{Acornima.Ast.Script}@)
 M:Jint.Native.ShadowRealm.ShadowRealm.Evaluate(System.String,Jint.ScriptParsingOptions)
@@ -412,11 +411,8 @@ P:Jint.Native.JsRegExp.Global
 P:Jint.Native.JsRegExp.IgnoreCase
 P:Jint.Native.JsRegExp.Indices
 P:Jint.Native.JsRegExp.Multiline
-P:Jint.Native.JsRegExp.ParseResult
-P:Jint.Native.JsRegExp.Source
 P:Jint.Native.JsRegExp.Sticky
 P:Jint.Native.JsRegExp.UnicodeSets
-P:Jint.Native.JsRegExp.Value
 P:Jint.Native.JsSet.Size
 P:Jint.Native.JsString.Item(System.Int32)
 P:Jint.Native.JsString.Length

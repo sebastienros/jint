@@ -914,7 +914,6 @@ public class ParsingLimitTests
 
     private sealed class ExternalParsingOptions : IParsingOptions
     {
-        public bool? CompileRegex { get; init; }
         public TimeSpan? RegexTimeout { get; init; }
         public bool Tolerant { get; init; }
         public bool RetainFunctionSourceText { get; init; }

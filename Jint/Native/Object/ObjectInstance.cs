@@ -2516,7 +2516,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             case ObjectClass.RegExp:
                 if (this is JsRegExp regeExpInstance)
                 {
-                    converted = regeExpInstance.Value;
+                    // A host-supplied Regex round-trips as itself; a pattern written in script has no .NET
+                    // equivalent, so it stays the JsRegExp (see ResultConverter, which follows the same rule).
+                    converted = regeExpInstance.HostRegex ?? (object) regeExpInstance;
                 }
                 break;
 

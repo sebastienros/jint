@@ -14,6 +14,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.Runtime.RegExp;
+using Jint.Runtime.RegExp.GregsEx;
 
 namespace Jint.Native.RegExp;
 
@@ -261,7 +262,7 @@ internal sealed partial class RegExpPrototype : Prototype
             && !mayHaveNamedCaptures
             && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } customRei)
         {
-            var customEngine = customRei.CustomEngine!;
+            var customEngine = customRei.Matcher!;
             var replStr = TypeConverter.ToString(replaceValue);
             var sb = new ValueStringBuilder(stackalloc char[256]);
 
@@ -269,6 +270,8 @@ internal sealed partial class RegExpPrototype : Prototype
             int searchStart = 0;
             int maxCount = global ? int.MaxValue : 1;
             int count = 0;
+            using var batch = JintRegExpEngine.BeginBatch();
+            var loopTimeout = GetCustomEngineTimeout(customRei);
 
             while (count < maxCount && searchStart <= s.Length)
             {
@@ -277,24 +280,41 @@ internal sealed partial class RegExpPrototype : Prototype
                     _engine.Constraints.Check();
                 }
 
-                var result = ExecuteWithTimeout(customRei, customEngine, s, searchStart);
-                if (!result.Success)
+                if (!TryMatchRangeWithTimeout(customRei, customEngine, s, searchStart, out var matchIndex, out var matchLength, loopTimeout))
                 {
                     break;
                 }
 
-                sb.Append(s.AsSpan(lastPos, result.Index - lastPos));
+                sb.Append(s.AsSpan(lastPos, matchIndex - lastPos));
                 sb.Append(replStr);
 
-                lastPos = result.Index + result.Length;
-                searchStart = result.Length == 0
-                    ? (int) AdvanceStringIndex(s, (ulong) result.Index, fullUnicode)
+                lastPos = matchIndex + matchLength;
+                searchStart = matchLength == 0
+                    ? (int) AdvanceStringIndex(s, (ulong) matchIndex, fullUnicode)
                     : lastPos;
                 count++;
             }
 
+            if (count == 0)
+            {
+                // Nothing matched: the result is the subject, which needs no copy.
+                sb.Dispose();
+                return s;
+            }
+
             sb.Append(s.AsSpan(lastPos));
             return sb.ToString();
+        }
+
+        // Fused lane for a replacer function or a $-template on the ECMAScript matcher. It keeps the
+        // specification's order - every match is found (steps 11-12) before any replacement is computed
+        // (step 14), so a replacer observes the same RegExp and legacy statics it would on the generic path -
+        // but reads capture spans straight off the matcher instead of building and re-reading a result
+        // array per match, and accumulates the output in one builder rather than one concatenation per match.
+        if (canFuseExecLoop
+            && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } fusedRei)
+        {
+            return FusedReplace(fusedRei, s, global, fullUnicode, functionalReplace, replaceValue);
         }
 
         // check if we can access fast path (only for .NET Regex engine)
@@ -302,7 +322,7 @@ internal sealed partial class RegExpPrototype : Prototype
             && !fullUnicode
             && !mayHaveNamedCaptures
             && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: true } rei
-            && !rei.NeedsCaseFoldingFallback(s))
+)
         {
             var count = global ? int.MaxValue : 1;
 
@@ -356,11 +376,11 @@ internal sealed partial class RegExpPrototype : Prototype
                     return CallFunctionalReplace(replaceValue, replacerArgs);
                 }
 
-                result = rei.Value.Replace(s, Evaluator, count);
+                result = rei.HostRegex!.Replace(s, Evaluator, count);
             }
             else
             {
-                result = rei.Value.Replace(s, TypeConverter.ToString(replaceValue), count);
+                result = rei.HostRegex!.Replace(s, TypeConverter.ToString(replaceValue), count);
             }
 
             return result;
@@ -400,7 +420,9 @@ internal sealed partial class RegExpPrototype : Prototype
         var accumulatedResult = "";
         var nextSourcePosition = 0;
 
-        var captures = new List<string>();
+        // Step 14.k: a capture keeps undefined rather than becoming "", which a replacer function observes;
+        // GetSubstitution reads an undefined capture as the empty string itself.
+        var captures = new List<JsValue>();
         for (var i = 0; i < results.Count; i++)
         {
             if (i > 0 && i % ConstraintCheckInterval == 0)
@@ -426,8 +448,7 @@ internal sealed partial class RegExpPrototype : Prototype
             while (n <= nCaptures)
             {
                 var capN = result.Get(n);
-                var value = !capN.IsUndefined() ? TypeConverter.ToString(capN) : "";
-                captures.Add(value);
+                captures.Add(!capN.IsUndefined() ? TypeConverter.ToString(capN) : Undefined);
                 n++;
             }
 
@@ -462,7 +483,13 @@ internal sealed partial class RegExpPrototype : Prototype
                     namedCaptures = TypeConverter.ToObject(_realm, namedCaptures);
                 }
 
-                replacement = GetSubstitution(_realm, matched, s, position, captures.ToArray(), namedCaptures, TypeConverter.ToString(replaceValue));
+                var captureStrings = new string[captures.Count];
+                for (var c = 0; c < captureStrings.Length; c++)
+                {
+                    captureStrings[c] = captures[c].IsUndefined() ? "" : ((JsString) captures[c]).ToString();
+                }
+
+                replacement = GetSubstitution(_realm, matched, s, position, captureStrings, namedCaptures, TypeConverter.ToString(replaceValue));
             }
 
             if (position >= nextSourcePosition)
@@ -494,6 +521,181 @@ internal sealed partial class RegExpPrototype : Prototype
 #pragma warning disable CA1845
         return accumulatedResult + s.Substring(nextSourcePosition);
 #pragma warning restore CA1845
+    }
+
+    private string FusedReplace(JsRegExp rei, string s, bool global, bool fullUnicode, bool functionalReplace, JsValue replaceValue)
+    {
+        var matcher = rei.Matcher!;
+        var groupCount = matcher.CaptureCount;
+        var groups = new RegexCapture[groupCount];
+
+        // Steps 11-12: collect every match as flat (index, length) pairs per group; -1 marks a group that did
+        // not participate.
+        var spans = new List<int>();
+        var searchStart = 0;
+        var matchCount = 0;
+        // No script runs while matches are collected (the replacer is called afterwards), so the searches may share
+        // clock readings; the scope ends before the first replacer runs.
+        using (JintRegExpEngine.BeginBatch())
+        {
+            var loopTimeout = GetCustomEngineTimeout(rei);
+            while (searchStart <= s.Length)
+            {
+                if (++matchCount % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
+                if (!TryMatchWithTimeout(rei, matcher, s, searchStart, groups, loopTimeout))
+                {
+                    break;
+                }
+
+                foreach (var group in groups)
+                {
+                    spans.Add(group.Participated ? group.Index : -1);
+                    spans.Add(group.Length);
+                }
+
+                if (!global)
+                {
+                    break;
+                }
+
+                searchStart = groups[0].Length == 0
+                    ? (int) AdvanceStringIndex(s, (ulong) groups[0].Index, fullUnicode)
+                    : groups[0].Index + groups[0].Length;
+            }
+        }
+
+        var stride = 2 * groupCount;
+        var matches = spans.Count / stride;
+        if (matches == 0)
+        {
+            return s;
+        }
+
+        UpdateLegacyStaticProperties(_engine, matcher, s, spans, (matches - 1) * stride);
+
+        var template = functionalReplace ? null : TypeConverter.ToString(replaceValue);
+        var sb = new ValueStringBuilder(stackalloc char[256]);
+        var nextSourcePosition = 0;
+        var captureValues = new JsValue[groupCount - 1];
+        var captureStrings = functionalReplace ? null : new string[groupCount - 1];
+        for (var m = 0; m < matches; m++)
+        {
+            if (m > 0 && m % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
+            var offset = m * stride;
+            var position = spans[offset];
+            var matchLength = spans[offset + 1];
+            var matched = s.Substring(position, matchLength);
+            for (var g = 1; g < groupCount; g++)
+            {
+                var index = spans[offset + 2 * g];
+                var value = index < 0 ? null : s.Substring(index, spans[offset + 2 * g + 1]);
+                captureValues[g - 1] = value is null ? Undefined : value;
+                if (captureStrings is not null)
+                {
+                    captureStrings[g - 1] = value ?? "";
+                }
+            }
+
+            var namedCaptures = matcher.HasGroupNames ? CreateGroupsObject(_engine, matcher, captureValues) : null;
+
+            string replacement;
+            if (functionalReplace)
+            {
+                var replacerArgs = new JsValue[groupCount + 2 + (namedCaptures is not null ? 1 : 0)];
+                var argIndex = 0;
+                Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, matched);
+                foreach (var capture in captureValues)
+                {
+                    Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, capture);
+                }
+
+                Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, position);
+                Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, s);
+                if (namedCaptures is not null)
+                {
+                    Arguments.WriteNoTypeCheck(replacerArgs, argIndex, namedCaptures);
+                }
+
+                replacement = CallFunctionalReplace(replaceValue, replacerArgs);
+            }
+            else
+            {
+                replacement = GetSubstitution(_realm, matched, s, position, captureStrings!, (JsValue?) namedCaptures ?? Undefined, template!);
+            }
+
+            // Checked before appending, as the generic path does, so an over-long result is refused rather than built.
+            JsString.ThrowIfLengthExceeded(_realm, (long) sb.Length + (position - nextSourcePosition) + replacement.Length);
+            sb.Append(s.AsSpan(nextSourcePosition, position - nextSourcePosition));
+            sb.Append(replacement);
+            nextSourcePosition = position + matchLength;
+        }
+
+        JsString.ThrowIfLengthExceeded(_realm, (long) sb.Length + (s.Length - nextSourcePosition));
+        sb.Append(s.AsSpan(nextSourcePosition));
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// The <c>groups</c> object of one match: every name once, in source order, holding the value of whichever
+    /// group of that name participated (duplicate names are disjoint, so at most one did), or undefined.
+    /// https://tc39.es/ecma262/#sec-regexpbuiltinexec steps 33-34
+    /// </summary>
+    private static ObjectInstance CreateGroupsObject(Engine engine, JintRegExpEngine matcher, JsValue[] captureValues)
+    {
+        var groups = OrdinaryObjectCreate(engine, null);
+        for (var g = 1; g <= captureValues.Length; g++)
+        {
+            var name = matcher.GetGroupName(g);
+            if (name is null)
+            {
+                continue;
+            }
+
+            var value = captureValues[g - 1];
+            if (!groups.HasOwnProperty(name))
+            {
+                groups.CreateDataPropertyOrThrow(name, value);
+            }
+            else if (!value.IsUndefined())
+            {
+                groups.CreateDataPropertyOrThrow(name, value);
+            }
+        }
+
+        return groups;
+    }
+
+    private static void UpdateLegacyStaticProperties(Engine engine, JintRegExpEngine matcher, string s, List<int> spans, int offset)
+    {
+        var constructor = engine.Realm.Intrinsics.RegExp;
+        constructor._legacyInput = s;
+        constructor.SetLegacyContext(s, spans[offset], spans[offset + 1]);
+
+        var lastParen = "";
+        for (var i = 0; i < 9; i++)
+        {
+            var group = i + 1;
+            if (group < matcher.CaptureCount && spans[offset + 2 * group] >= 0)
+            {
+                var value = s.Substring(spans[offset + 2 * group], spans[offset + 2 * group + 1]);
+                constructor._legacyParens[i] = value;
+                lastParen = value;
+            }
+            else
+            {
+                constructor._legacyParens[i] = "";
+            }
+        }
+
+        constructor._legacyLastParen = lastParen;
     }
 
     private static string CallFunctionalReplace(JsValue replacer, JsCallArguments replacerArgs)
@@ -772,8 +974,21 @@ internal sealed partial class RegExpPrototype : Prototype
             return a;
         }
 
-        if (!unicodeMatching && splitter is JsRegExp R && R.HasDefaultRegExpExec && R.UsesDotNetEngine
-            && !R.NeedsCaseFoldingFallback(s))
+        if (splitter is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } fused)
+        {
+            if (string.Equals(fused.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
+            {
+                // The empty pattern matches between every pair of code units (or code points under u/v), which is
+                // a split into single characters; there is nothing for a matcher to search for.
+                return unicodeMatching
+                    ? SplitFused(fused, s, unicodeMatching, lim)
+                    : StringPrototype.SplitWithStringSeparator(_engine, _realm, "", s, (uint) System.Math.Min(s.Length, lim));
+            }
+
+            return SplitFused(fused, s, unicodeMatching, lim);
+        }
+
+        if (!unicodeMatching && splitter is JsRegExp R && R.HasDefaultRegExpExec && R.UsesDotNetEngine)
         {
             // we can take faster path
 
@@ -800,7 +1015,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 }
 #endif
 
-                for (var match = R.Value.Match(s, 0); match.Success; match = match.NextMatch())
+                for (var match = R.HostRegex!.Match(s, 0); match.Success; match = match.NextMatch())
                 {
                     if (++matchCount % ConstraintCheckInterval == 0)
                     {
@@ -867,7 +1082,7 @@ internal sealed partial class RegExpPrototype : Prototype
         var lastIndex = 0;
         var matchCount = 0;
 
-        foreach (var match in r.Value.EnumerateMatches(s))
+        foreach (var match in r.HostRegex!.EnumerateMatches(s))
         {
             if (++matchCount % ConstraintCheckInterval == 0)
             {
@@ -894,6 +1109,171 @@ internal sealed partial class RegExpPrototype : Prototype
         return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
     }
 #endif
+
+    /// <summary>
+    /// Steps 19-25 of https://tc39.es/ecma262/#sec-regexp.prototype-%symbol.split% on the ECMAScript matcher. The
+    /// specification retries a sticky match at every position q; a forward search from q finds the same leftmost
+    /// match without the per-position calls, and the splitter is a fresh internal instance whose lastIndex nothing
+    /// else can observe, so leaving it untouched is unobservable.
+    /// </summary>
+    private JsArray SplitFused(JsRegExp splitter, string s, bool unicodeMatching, long lim)
+    {
+        var matcher = splitter.Matcher!;
+        if (matcher.CaptureCount == 1)
+        {
+            return SplitFusedWithoutCaptures(splitter, matcher, s, unicodeMatching, lim);
+        }
+
+        var groups = new RegexCapture[matcher.CaptureCount];
+        var builder = new JsValueListBuilder(16);
+        try
+        {
+            var size = s.Length;
+            var p = 0;
+            var q = 0;
+            var matchCount = 0;
+            using var batch = JintRegExpEngine.BeginBatch();
+            var loopTimeout = GetCustomEngineTimeout(splitter);
+            while (q < size)
+            {
+                if (++matchCount % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
+                if (!TryFindWithTimeout(splitter, matcher, s, q, groups, loopTimeout))
+                {
+                    break;
+                }
+
+                var matchStart = groups[0].Index;
+                if (matchStart >= size)
+                {
+                    break;
+                }
+
+                var e = System.Math.Min(matchStart + groups[0].Length, size);
+                if (e == p)
+                {
+                    q = (int) AdvanceStringIndex(s, (ulong) matchStart, unicodeMatching);
+                    continue;
+                }
+
+                builder.Add(s.Substring(p, matchStart - p));
+                if (builder.Length >= lim)
+                {
+                    return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+                }
+
+                p = e;
+                for (var i = 1; i < groups.Length; i++)
+                {
+                    var group = groups[i];
+                    builder.Add(group.Participated ? s.Substring(group.Index, group.Length) : Undefined);
+                    if (builder.Length >= lim)
+                    {
+                        return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+                    }
+                }
+
+                q = p;
+            }
+
+            builder.Add(s.Substring(p));
+            return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+        }
+        finally
+        {
+            builder.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// <see cref="SplitFused"/> for a pattern without capture groups, which reads only match ranges and so takes them
+    /// from the matcher a batch at a time. A batch's searches each start where the previous match ended, which is
+    /// where this loop would search next after a non-empty match; a batch ends after an empty match, whose resume
+    /// point is the loop's own rule.
+    /// </summary>
+    private JsArray SplitFusedWithoutCaptures(JsRegExp splitter, JintRegExpEngine matcher, string s, bool unicodeMatching, long lim)
+    {
+        Span<RegexMatchRange> ranges = stackalloc RegexMatchRange[32];
+        var builder = new JsValueListBuilder(16);
+        try
+        {
+            var size = s.Length;
+            var p = 0;
+            var q = 0;
+            var matchCount = 0;
+            using var batch = JintRegExpEngine.BeginBatch();
+            var loopTimeout = GetCustomEngineTimeout(splitter);
+            while (q < size)
+            {
+                var found = FindRangesWithTimeout(splitter, matcher, s, q, ranges, loopTimeout);
+                if (found == 0)
+                {
+                    break;
+                }
+
+                for (var i = 0; i < found; i++)
+                {
+                    if (++matchCount % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    var matchStart = ranges[i].Index;
+                    if (matchStart >= size)
+                    {
+                        q = size;
+                        break;
+                    }
+
+                    var e = System.Math.Min(matchStart + ranges[i].Length, size);
+                    if (e == p)
+                    {
+                        // Only an empty match at p, which is the batch's last.
+                        q = (int) AdvanceStringIndex(s, (ulong) matchStart, unicodeMatching);
+                        break;
+                    }
+
+                    builder.Add(s.Substring(p, matchStart - p));
+                    if (builder.Length >= lim)
+                    {
+                        return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+                    }
+
+                    p = e;
+                    q = p;
+                }
+            }
+
+            builder.Add(s.Substring(p));
+            return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+        }
+        finally
+        {
+            builder.Dispose();
+        }
+    }
+
+    private static int FindRangesWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, Span<RegexMatchRange> ranges, TimeSpan resolvedTimeout)
+    {
+        var deadline = resolvedTimeout.TotalMilliseconds <= 0 || resolvedTimeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(resolvedTimeout);
+        try
+        {
+            return engine.FindRanges(s, startIndex, deadline, ranges);
+        }
+        catch (OperationCanceledException)
+        {
+            throw new RegexMatchTimeoutException(s, R.Source ?? "", resolvedTimeout);
+        }
+        catch (RegExpResourceException e)
+        {
+            // V8 throws a RangeError when its backtracking stack is exhausted.
+            Throw.RangeError(R.Engine.Realm, e.Message);
+            return 0;
+        }
+    }
 
     private JsArray SplitSlow(string s, ObjectInstance splitter, bool unicodeMatching, long lim)
     {
@@ -1005,7 +1385,7 @@ internal sealed partial class RegExpPrototype : Prototype
             // Fast path for custom engine (allocation-free IsMatch)
             if (!R.UsesDotNetEngine)
             {
-                var customEngine = R.CustomEngine!;
+                var customEngine = R.Matcher!;
                 if (!R.Sticky && !R.Global)
                 {
                     return IsMatchWithTimeout(R, customEngine, s, 0);
@@ -1017,25 +1397,25 @@ internal sealed partial class RegExpPrototype : Prototype
                 }
 
                 // For global/sticky, we need the match position to update lastIndex
-                var result = ExecuteWithTimeout(R, customEngine, s, lastIndex);
-                if (!result.Success || (R.Sticky && result.Index != lastIndex))
+                if (!TryMatchRangeWithTimeout(R, customEngine, s, lastIndex, out var matchIndex, out var matchLength)
+                    || (R.Sticky && matchIndex != lastIndex))
                 {
                     R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
                     return JsBoolean.False;
                 }
-                R.Set(JsRegExp.PropertyLastIndex, result.Index + result.Length, throwOnError: true);
+                R.Set(JsRegExp.PropertyLastIndex, matchIndex + matchLength, throwOnError: true);
                 return JsBoolean.True;
             }
 
             // Fast path for .NET Regex engine
-            if (!R.FullUnicode && !R.NeedsCaseFoldingFallback(s))
+            if (!R.FullUnicode)
             {
                 if (!R.Sticky && !R.Global)
                 {
                     // RegExpBuiltinExec step 10 zeroes the *local* lastIndex for a non-global,
                     // non-sticky regexp; the property itself is never written (which would raise a
                     // TypeError on a non-writable lastIndex, as exec does not).
-                    return R.Value.IsMatch(s);
+                    return R.HostRegex!.IsMatch(s);
                 }
 
                 if (!TryGetSearchStart(R, s, numericLastIndex, out var lastIndex))
@@ -1043,7 +1423,7 @@ internal sealed partial class RegExpPrototype : Prototype
                     return JsBoolean.False;
                 }
 
-                var m = R.Value.Match(s, lastIndex);
+                var m = R.HostRegex!.Match(s, lastIndex);
                 if (!m.Success || (R.Sticky && m.Index != lastIndex))
                 {
                     R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
@@ -1099,14 +1479,37 @@ internal sealed partial class RegExpPrototype : Prototype
         // when the property is non-writable.
         if (rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false, Global: false, Sticky: false } customR)
         {
-            var searchResult = ExecuteWithTimeout(customR, customR.CustomEngine!, s, 0);
+            // RegExpExec would update the legacy statics on a match, so this lane does too: with only the match's
+            // range when there are no groups, from its captures otherwise.
+            var matcher = customR.Matcher!;
+            bool found;
+            int searchIndex;
+            if (matcher.CaptureCount == 1)
+            {
+                found = TryMatchRangeWithTimeout(customR, matcher, s, 0, out searchIndex, out var searchLength);
+                if (found)
+                {
+                    UpdateLegacyStaticProperties(_engine, s, [new RegexCapture(true, searchIndex, searchLength)], 1);
+                }
+            }
+            else
+            {
+                var groups = new RegexCapture[matcher.CaptureCount];
+                found = TryMatchWithTimeout(customR, matcher, s, 0, groups);
+                searchIndex = groups[0].Index;
+                if (found)
+                {
+                    UpdateLegacyStaticProperties(_engine, s, groups, groups.Length);
+                }
+            }
+
             var currentLastIndex2 = rx.Get(JsRegExp.PropertyLastIndex);
             if (!SameValue(currentLastIndex2, previousLastIndex))
             {
                 rx.Set(JsRegExp.PropertyLastIndex, previousLastIndex, true);
             }
 
-            return searchResult.Success ? searchResult.Index : -1;
+            return found ? searchIndex : -1;
         }
 
         var result = RegExpExec(rx, s);
@@ -1147,11 +1550,13 @@ internal sealed partial class RegExpPrototype : Prototype
         {
             // fast path for custom engine: call Execute directly, skip building
             // full JS result arrays per match (saves 15-20 allocations per match)
-            var customEngine = rei.CustomEngine!;
+            var customEngine = rei.Matcher!;
             var builder = new JsValueListBuilder(16);
             try
             {
                 int lastIndex = 0;
+                using var batch = JintRegExpEngine.BeginBatch();
+                var loopTimeout = GetCustomEngineTimeout(rei);
                 while (lastIndex <= s.Length)
                 {
                     if (builder.Length > 0 && builder.Length % ConstraintCheckInterval == 0)
@@ -1159,21 +1564,20 @@ internal sealed partial class RegExpPrototype : Prototype
                         _engine.Constraints.Check();
                     }
 
-                    var result = ExecuteWithTimeout(rei, customEngine, s, lastIndex);
-                    if (!result.Success)
+                    if (!TryMatchRangeWithTimeout(rei, customEngine, s, lastIndex, out var matchIndex, out var matchLength, loopTimeout))
                     {
                         break;
                     }
 
-                    builder.Add(result.Value);
+                    builder.Add(s.Substring(matchIndex, matchLength));
 
-                    if (result.Length == 0)
+                    if (matchLength == 0)
                     {
-                        lastIndex = (int) AdvanceStringIndex(s, (ulong) result.Index, fullUnicode);
+                        lastIndex = (int) AdvanceStringIndex(s, (ulong) matchIndex, fullUnicode);
                     }
                     else
                     {
-                        lastIndex = result.Index + result.Length;
+                        lastIndex = matchIndex + matchLength;
                     }
                 }
 
@@ -1187,14 +1591,14 @@ internal sealed partial class RegExpPrototype : Prototype
 
         if (!fullUnicode
             && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: true } dotnetRei
-            && !dotnetRei.NeedsCaseFoldingFallback(s))
+)
         {
             // fast path (only for .NET Regex engine)
             var a = _realm.Intrinsics.Array.ArrayCreate(0);
 
             if (dotnetRei.Sticky)
             {
-                var match = dotnetRei.Value.Match(s);
+                var match = dotnetRei.HostRegex!.Match(s);
                 if (!match.Success || match.Index != 0)
                 {
                     return Null;
@@ -1226,7 +1630,7 @@ internal sealed partial class RegExpPrototype : Prototype
             }
             else
             {
-                var matches = dotnetRei.Value.Matches(s);
+                var matches = dotnetRei.HostRegex!.Matches(s);
                 if (matches.Count == 0)
                 {
                     return Null;
@@ -1410,20 +1814,13 @@ internal sealed partial class RegExpPrototype : Prototype
             return array;
         }
 
-        // Use custom engine when .NET Regex cannot handle the pattern
+        // Every pattern written in script runs on the ECMAScript matcher; only a host-supplied Regex reaches .NET.
         if (!R.UsesDotNetEngine)
         {
-            return CustomEngineBuiltinExec(R, R.CustomEngine!, s, lastIndex, global, sticky);
+            return CustomEngineBuiltinExec(R, R.Matcher!, s, lastIndex, global, sticky);
         }
 
-        // ... or when it can, but this particular subject is one of the rare ones on which its
-        // case-insensitive matching would disagree with Canonicalize. See JsRegExp.CaseFoldingTriggers.
-        if (R.NeedsCaseFoldingFallback(s))
-        {
-            return CustomEngineBuiltinExec(R, GetCaseFoldingFallbackEngine(R), s, lastIndex, global, sticky);
-        }
-
-        var matcher = R.Value;
+        var matcher = R.HostRegex!;
         var fullUnicode = R.FullUnicode;
         var hasIndices = R.Indices;
 
@@ -1457,7 +1854,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 R.Engine.Constraints.Check();
             }
 
-            match = R.Value.Match(s, startAt);
+            match = R.HostRegex!.Match(s, startAt);
 
             // The conversion of Unicode regex patterns to .NET Regex has some flaws:
             // when the pattern may match empty strings, the adapted Regex will return empty string matches
@@ -1514,8 +1911,9 @@ internal sealed partial class RegExpPrototype : Prototype
             return Null;
         }
 
-        var result = ExecuteWithTimeout(R, customEngine, s, (int) lastIndex);
-        var success = result.Success && (!sticky || result.Index == (int) lastIndex);
+        var groups = new RegexCapture[customEngine.CaptureCount];
+        var success = TryMatchWithTimeout(R, customEngine, s, (int) lastIndex, groups)
+                      && (!sticky || groups[0].Index == (int) lastIndex);
 
         if (!success)
         {
@@ -1527,84 +1925,128 @@ internal sealed partial class RegExpPrototype : Prototype
             return Null;
         }
 
-        var e = result.Index + result.Length;
+        var e = groups[0].Index + groups[0].Length;
         if (global || sticky)
         {
             R.Set(JsRegExp.PropertyLastIndex, e, true);
         }
 
-        return CreateReturnValueArrayFromCustom(R, in result, s, hasIndices);
+        return CreateReturnValueArrayFromCustom(R, customEngine, groups, s, hasIndices);
     }
 
     /// <summary>
-    /// The custom-engine compilation that stands in for the .NET one on a subject carrying a
-    /// <see cref="JsRegExp.CaseFoldingTriggers">fold trigger</see>. Compiled on first need, under the
-    /// same timeout the pattern would have been compiled with in the first place.
-    /// </summary>
-    private static JintRegExpEngine GetCaseFoldingFallbackEngine(JsRegExp R)
-        => R.GetCaseFoldingFallbackEngine(GetCustomEngineTimeout(R));
-
-    /// <summary>
-    /// Effective per-match timeout for a custom-engine regex: the value the pattern was compiled under,
-    /// carried via <see cref="RegExpParseResult.AdditionalData"/>, falling back to the engine's configured
+    /// Effective per-match timeout for a script regex: the value the pattern was compiled under,
+    /// carried via <see cref="JsRegExp.ConversionOptions"/>, falling back to the engine's configured
     /// constraint where no conversion options were in force or where they chose no timeout — which is what
     /// a prepared script or module carries, having had no engine to resolve one against.
     /// </summary>
     private static TimeSpan GetCustomEngineTimeout(JsRegExp R) =>
-        Options.ConstraintOptions.NormalizeRegexTimeout(
-            (R.ParseResult.AdditionalData as Engine.RegexConversionOptions)?.Timeout
-            ?? R.Engine.Options.Constraints.RegexTimeout);
+        Engine.RegexConversionOptions.ResolveTimeout(R.ConversionOptions, R.Engine);
 
     /// <summary>
-    /// Runs the custom regex engine under the configured timeout. The deadline is enforced by inline
-    /// elapsed-time checks inside <see cref="RegExpInterpreter"/> rather than a thread-pool
-    /// <see cref="CancellationTokenSource"/> timer, so the abort fires promptly
-    /// even when the pool is saturated — mirroring how <see cref="Regex.Match(string,int)"/> enforces
-    /// <see cref="Regex.MatchTimeout"/> on the .NET path. Throws <see cref="RegexMatchTimeoutException"/>
-    /// when the timeout elapses.
+    /// Runs the matcher under the configured timeout, reporting only the match range, for the lanes that read the
+    /// match position and nothing else: the matcher does no capture work and nothing is materialized. The deadline
+    /// is enforced by elapsed-time checks inside the matcher rather than a thread-pool
+    /// <see cref="CancellationTokenSource"/> timer, so the abort fires promptly even when the pool is saturated —
+    /// mirroring how <see cref="Regex.Match(string,int)"/> enforces <see cref="Regex.MatchTimeout"/>. Throws
+    /// <see cref="RegexMatchTimeoutException"/> when the timeout elapses.
     /// </summary>
-    private static RegExpMatchResult ExecuteWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex)
+    private static bool TryMatchRangeWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, out int index, out int length, TimeSpan? resolvedTimeout = null)
     {
-        var timeout = GetCustomEngineTimeout(R);
-        if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
-        {
-            return engine.Execute(s, startIndex);
-        }
-
+        // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
+        var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
+        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
         try
         {
-            return engine.Execute(s, startIndex, ComputeRegexDeadline(timeout));
+            return engine.TryMatchRange(s, startIndex, deadline, out index, out length);
         }
         catch (OperationCanceledException)
         {
             throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+        }
+        catch (RegExpResourceException e)
+        {
+            // V8 throws a RangeError when its backtracking stack is exhausted.
+            index = length = 0;
+            Throw.RangeError(R.Engine.Realm, e.Message);
+            return false;
         }
     }
 
     /// <summary>
-    /// IsMatch counterpart of <see cref="ExecuteWithTimeout"/>.
+    /// Capture-writing counterpart of <see cref="TryMatchRangeWithTimeout"/>: group spans, no strings.
     /// </summary>
-    private static bool IsMatchWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex)
+    private static bool TryMatchWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, RegexCapture[] groups, TimeSpan? resolvedTimeout = null)
     {
-        var timeout = GetCustomEngineTimeout(R);
-        if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
-        {
-            return engine.IsMatch(s, startIndex);
-        }
-
+        // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
+        var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
+        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
         try
         {
-            return engine.IsMatch(s, startIndex, ComputeRegexDeadline(timeout));
+            return engine.TryMatch(s, startIndex, deadline, groups);
         }
         catch (OperationCanceledException)
         {
             throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+        }
+        catch (RegExpResourceException e)
+        {
+            // V8 throws a RangeError when its backtracking stack is exhausted.
+            Throw.RangeError(R.Engine.Realm, e.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Non-sticky search counterpart of <see cref="TryMatchWithTimeout"/>.
+    /// </summary>
+    private static bool TryFindWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, RegexCapture[] groups, TimeSpan? resolvedTimeout = null)
+    {
+        // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
+        var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
+        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
+        try
+        {
+            return engine.TryFind(s, startIndex, deadline, groups);
+        }
+        catch (OperationCanceledException)
+        {
+            throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+        }
+        catch (RegExpResourceException e)
+        {
+            // V8 throws a RangeError when its backtracking stack is exhausted.
+            Throw.RangeError(R.Engine.Realm, e.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// IsMatch counterpart of <see cref="TryMatchRangeWithTimeout"/>.
+    /// </summary>
+    private static bool IsMatchWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex)
+    {
+        var timeout = GetCustomEngineTimeout(R);
+        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
+        try
+        {
+            return engine.IsMatch(s, startIndex, deadline);
+        }
+        catch (OperationCanceledException)
+        {
+            throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+        }
+        catch (RegExpResourceException e)
+        {
+            // V8 throws a RangeError when its backtracking stack is exhausted.
+            Throw.RangeError(R.Engine.Realm, e.Message);
+            return false;
         }
     }
 
     /// <summary>
     /// Convert a positive, finite regex timeout into an absolute <see cref="Stopwatch.GetTimestamp"/>
-    /// deadline for the custom engine's inline interrupt checks. Saturates to <see cref="RegExpInterpreter.NoDeadline"/>
+    /// deadline for the custom engine's inline interrupt checks. Saturates to <see cref="JintRegExpEngine.NoDeadline"/>
     /// (never fires) instead of overflowing for extreme timeout values.
     /// </summary>
     private static long ComputeRegexDeadline(TimeSpan timeout)
@@ -1614,45 +2056,47 @@ internal sealed partial class RegExpPrototype : Prototype
             // Untimed, which is what Regex.InfiniteMatchTimeout means and what a normalized timeout uses
             // to say it. Without this the negative interval would put the deadline in the past and every
             // match would report a timeout immediately.
-            return RegExpInterpreter.NoDeadline;
+            return JintRegExpEngine.NoDeadline;
         }
 
-        var now = Stopwatch.GetTimestamp();
+        var now = JintRegExpEngine.RecentTimestamp();
         var ticks = timeout.TotalSeconds * Stopwatch.Frequency;
-        return ticks >= long.MaxValue - now ? RegExpInterpreter.NoDeadline : now + (long) ticks;
+        return ticks >= long.MaxValue - now ? JintRegExpEngine.NoDeadline : now + (long) ticks;
     }
 
     /// <summary>
     /// Build the JS result array from a custom engine match result.
     /// </summary>
+    /// <summary>
+    /// Steps 20-36 of https://tc39.es/ecma262/#sec-regexpbuiltinexec over the matcher's capture spans.
+    /// </summary>
     private static JsArray CreateReturnValueArrayFromCustom(
         JsRegExp rei,
-        in RegExpMatchResult result,
+        JintRegExpEngine matcher,
+        RegexCapture[] groups,
         string s,
         bool hasIndices)
     {
         var engine = rei.Engine;
-        var groups = result.Groups;
-        var actualGroupCount = groups?.Length ?? 1;
+        var actualGroupCount = groups.Length;
         var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) actualGroupCount);
-        array.CreateDataProperty(PropertyIndex, result.Index);
+        array.CreateDataProperty(PropertyIndex, groups[0].Index);
         array.CreateDataProperty(PropertyInput, s);
 
         ObjectInstance? jsGroups = null;
         List<string?>? groupNames = null;
         var indices = hasIndices ? new List<JsNumber[]?>(actualGroupCount) : null;
 
-        var hasAnyGroupName = false;
-
-        // Pre-initialize groups object
-        if (groups is not null)
+        var hasAnyGroupName = matcher.HasGroupNames;
+        if (hasAnyGroupName || hasIndices)
         {
-            for (uint i = 1; i < actualGroupCount; i++)
+            // Pre-initialize the groups object, so every name is present (undefined when its group did not
+            // participate) in the order the names first appear.
+            for (var i = 1; i < actualGroupCount; i++)
             {
-                var groupName = groups[i].Name;
-                if (!string.IsNullOrWhiteSpace(groupName))
+                var groupName = matcher.GetGroupName(i);
+                if (groupName is not null)
                 {
-                    hasAnyGroupName = true;
                     jsGroups ??= OrdinaryObjectCreate(engine, null);
                     if (!jsGroups.HasOwnProperty(groupName))
                     {
@@ -1668,37 +2112,26 @@ internal sealed partial class RegExpPrototype : Prototype
             }
         }
 
-        for (uint i = 0; i < actualGroupCount; i++)
+        for (var i = 0; i < actualGroupCount; i++)
         {
-            var capture = groups?[(int) i];
-            JsValue capturedValue = Undefined;
-            if (capture?.Success == true)
-            {
-                capturedValue = capture.Value.Value;
-            }
+            var capture = groups[i];
+            // A slice of the subject rather than a copy, as the .NET lane does: a match spanning most of a large
+            // subject would otherwise copy the subject on every exec.
+            JsValue capturedValue = capture.Participated ? JsString.CreateSliced(s, capture.Index, capture.Length) : Undefined;
 
             if (hasIndices)
             {
-                if (capture?.Success == true)
-                {
-                    indices!.Add([JsNumber.Create(capture.Value.Index), JsNumber.Create(capture.Value.Index + capture.Value.Length)]);
-                }
-                else
-                {
-                    indices!.Add(null);
-                }
+                indices!.Add(capture.Participated
+                    ? [JsNumber.Create(capture.Index), JsNumber.Create(capture.Index + capture.Length)]
+                    : null);
             }
 
-            if (i > 0)
+            if (i > 0 && capture.Participated && matcher.GetGroupName(i) is { } name)
             {
-                var groupName = groups?[(int) i].Name;
-                if (!string.IsNullOrWhiteSpace(groupName) && capture?.Success == true)
-                {
-                    jsGroups!.CreateDataPropertyOrThrow(groupName, capturedValue);
-                }
+                jsGroups!.CreateDataPropertyOrThrow(name, capturedValue);
             }
 
-            array.SetIndexValue(i, capturedValue, updateLength: false);
+            array.SetIndexValue((uint) i, capturedValue, updateLength: false);
         }
 
         array.CreateDataProperty(PropertyGroups, jsGroups ?? Undefined);
@@ -1709,27 +2142,27 @@ internal sealed partial class RegExpPrototype : Prototype
             array.CreateDataPropertyOrThrow("indices", indicesArray);
         }
 
-        // Update the legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B)
-        UpdateLegacyStaticPropertiesFromCustom(engine, in result, s, actualGroupCount);
-
+        UpdateLegacyStaticProperties(engine, s, groups, actualGroupCount);
         return array;
     }
 
-    private static void UpdateLegacyStaticPropertiesFromCustom(Engine engine, in RegExpMatchResult result, string s, int actualGroupCount)
+    /// <summary>
+    /// The legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B) after a successful match:
+    /// <paramref name="groups"/>[0] is the match, the next <paramref name="groupCount"/> - 1 its captures.
+    /// </summary>
+    private static void UpdateLegacyStaticProperties(Engine engine, string s, ReadOnlySpan<RegexCapture> groups, int groupCount)
     {
         var constructor = engine.Realm.Intrinsics.RegExp;
         constructor._legacyInput = s;
         // lastMatch/leftContext/rightContext are all derived from this position on read.
-        constructor.SetLegacyContext(s, result.Index, result.Length);
-
-        var groups = result.Groups;
+        constructor.SetLegacyContext(s, groups[0].Index, groups[0].Length);
         var lastParen = "";
         for (var i = 0; i < 9; i++)
         {
-            var groupIndex = i + 1;
-            if (groups is not null && groupIndex < actualGroupCount && groups[groupIndex].Success)
+            var group = i + 1;
+            if (group < groupCount && groups[group].Participated)
             {
-                var groupValue = groups[groupIndex].Value;
+                var groupValue = s.Substring(groups[group].Index, groups[group].Length);
                 constructor._legacyParens[i] = groupValue;
                 lastParen = groupValue;
             }
@@ -1738,6 +2171,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 constructor._legacyParens[i] = "";
             }
         }
+
         constructor._legacyLastParen = lastParen;
     }
 
@@ -1921,35 +2355,15 @@ internal sealed partial class RegExpPrototype : Prototype
         return engine.Realm.Intrinsics.Array.CreateArrayFromList(match);
     }
 
-    /// <summary>
-    /// Whether capture-group metadata can be read off the parse result. A host-supplied Regex
-    /// (<see cref="JsRegExp.IsHostRegex"/>) was never adapted from a JavaScript pattern, so it has none
-    /// and its groups are described by the <see cref="Regex"/> itself.
-    /// </summary>
-    private static bool HasParseResultGroupInfo(JsRegExp rei) => rei.UsesDotNetEngine && !rei.IsHostRegex;
-
-    private static int GetActualRegexGroupCount(JsRegExp rei, Match match)
-    {
-#pragma warning disable CS0618 // Type or member is obsolete
-        return HasParseResultGroupInfo(rei) ? rei.ParseResult.ActualRegexGroupCount : match.Groups.Count;
-#pragma warning restore CS0618 // Type or member is obsolete
-    }
+    // The helpers below describe a host-supplied Regex (the only kind that reaches the .NET lanes), whose groups
+    // are described by the Regex itself.
+    private static int GetActualRegexGroupCount(JsRegExp rei, Match match) => match.Groups.Count;
 
     /// <summary>
     /// The group count of a .NET-engine regex, without needing a <see cref="Match"/> to ask. A result
     /// of 1 means group 0 (the whole match) only, i.e. the pattern has no capture groups.
     /// </summary>
-    private static int GetRegexGroupCount(JsRegExp rei)
-    {
-        if (!HasParseResultGroupInfo(rei))
-        {
-            return rei.Value.GetGroupNumbers().Length;
-        }
-
-#pragma warning disable CS0618 // Type or member is obsolete
-        return rei.ParseResult.ActualRegexGroupCount;
-#pragma warning restore CS0618 // Type or member is obsolete
-    }
+    private static int GetRegexGroupCount(JsRegExp rei) => rei.HostRegex!.GetGroupNumbers().Length;
 
     private static string? GetRegexGroupName(JsRegExp rei, int index)
     {
@@ -1958,14 +2372,7 @@ internal sealed partial class RegExpPrototype : Prototype
             return null;
         }
 
-        if (HasParseResultGroupInfo(rei))
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            return rei.ParseResult.GetRegexGroupName(index);
-#pragma warning restore CS0618 // Type or member is obsolete
-        }
-
-        var regex = rei.Value;
+        var regex = rei.HostRegex!;
         var groupNameFromNumber = regex.GroupNameFromNumber(index);
         if (string.Equals(groupNameFromNumber, index.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal))
         {

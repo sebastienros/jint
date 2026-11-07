@@ -16,19 +16,20 @@ public partial class ScriptModulePreparationTests
     }
 
     [Test]
-    public void CanPreCompileRegex()
+    public void PreparedRegexLiteralsLeaveTheTimeoutToTheExecutingEngine()
     {
         var script = Engine.PrepareScript("var x = /[cgt]/ig; var y = /[cgt]/ig; 'g'.match(x).length;");
         var declaration = script.Program.Body[0].Should().BeOfType<VariableDeclaration>().Which;
         var init = declaration.Declarations[0].Init.Should().BeOfType<RegExpLiteral>().Which;
 
-        // Regex is pre-compiled during preparation with Compiled flag
+        // Preparation validates the literal but resolves no timeout: there is no engine to resolve one against.
         var conversionOptions = init.ParseResult.AdditionalData as Engine.RegexConversionOptions;
         conversionOptions.Should().NotBeNull();
-        conversionOptions.Compilation.Should().Be(Jint.Native.RegExp.RegexCompilation.Compiled);
+        conversionOptions.Timeout.Should().BeNull();
 
-        // Prepared script executes correctly
+        // Prepared script executes correctly, and the compiled matcher is memoized on the node for reuse.
         new Engine().Evaluate(script).AsNumber().Should().Be(1);
+        init.UserData.Should().BeOfType<Jint.Runtime.RegExp.JintRegExpEngine>();
     }
 
     [Test]
