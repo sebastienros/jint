@@ -18,7 +18,7 @@ namespace Jint.Benchmark;
 /// <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not comparable to any
 /// published before the harness changed.</b></para>
 ///
-/// <para>The Accumulate* rows build a 64 KB string with a template that takes its own previous value
+/// <para>The Accumulate* rows build a 64 K-character string (128 KB) with a template that takes its own previous value
 /// (<c>s = `${s}${chunk}`</c>), which used to copy the accumulator on every evaluation and so cost O(n^2)
 /// (issue #4460); they pair with <c>StringConcatLargeBenchmark.AssignAppendSmallChunks</c>, the same 4,096 x 16
 /// characters through <c>+</c>. The four rows above them never substitute a string long enough to be joined

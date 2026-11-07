@@ -101,4 +101,52 @@ public class TemplateLiteralConcatenationTests
             .AsString().Should().Be("RangeError: Invalid string length");
         JsString.MaxLength.Should().BeLessThan(2 * 268_435_456);
     }
+
+    /// <summary>
+    /// The join defers rather than copies: a substitution already past the threshold is kept as a
+    /// <see cref="JsString.RopeString"/>, which is what makes an accumulating template linear. On a build that
+    /// copies, the result is a flat <see cref="JsString"/> and this fails.
+    /// </summary>
+    [Test]
+    public void ALongSubstitutionIsJoinedAsARopeString()
+    {
+        var engine = new Engine();
+        engine.Execute("var big = 'x'.repeat(600);");
+        engine.Evaluate("`${big}!`").Should().BeOfType<JsString.RopeString>();
+    }
+
+    /// <summary>
+    /// Joining a long substitution does not read its text: a <see cref="LazyJsString"/> is deferred by its
+    /// length alone, so reading the joined result's <c>length</c> never calls
+    /// <see cref="LazyJsString.Materialize"/> — only reading a character does. On a build that copies, the
+    /// substitution is materialized while the template is built and the first assertion fails.
+    /// </summary>
+    [Test]
+    public void JoiningALazySubstitutionDoesNotMaterializeIt()
+    {
+        var engine = new Engine();
+        var lazy = new CountingLazyString(600);
+        engine.SetValue("lazy", lazy);
+
+        engine.Evaluate("`${lazy}!`.length").AsNumber().Should().Be(601);
+        lazy.MaterializeCount.Should().Be(0, "the join defers by length and never reads the text");
+
+        engine.Evaluate("`${lazy}!`.charAt(0)").AsString().Should().Be("x");
+        lazy.MaterializeCount.Should().Be(1, "reading a character flattens the rope, which reads the text once");
+    }
+
+    private sealed class CountingLazyString : LazyJsString
+    {
+        public CountingLazyString(int length) : base(length)
+        {
+        }
+
+        public int MaterializeCount { get; private set; }
+
+        protected override string Materialize()
+        {
+            MaterializeCount++;
+            return new string('x', Length);
+        }
+    }
 }
