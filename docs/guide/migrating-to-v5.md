@@ -7721,6 +7721,28 @@ and no iterator method now rejects the step with a `TypeError` and closes the so
 builds that object was skipped. After an inner iterator's `next` throws, `return()` on the helper no longer calls that
 inner iterator's `return`. There is no switch back.
 
+### 4.203 `Intl.DurationFormat` shows a unit by default where the spec says `"always"` ([#4434](https://github.com/sebastienros/jint/pull/4434))
+
+`Intl.DurationFormat` now resolves each unit's `*Display` option the way
+[GetDurationUnitOptions](https://tc39.es/ecma402/#sec-getdurationunitoptions) does. A unit's default display is `"always"`
+in three cases: when its own style option was given (`{ hours: 'long' }`), when it is hours, minutes or seconds under
+`style: 'digital'`, and when it is minutes or seconds after a numeric unit (`{ hours: 'numeric' }`). In 4.16 and earlier
+5.0 builds every `*Display` option defaulted to `"auto"`, so a zero unit in those positions was left out, and
+`resolvedOptions()` reported `"auto"`:
+
+```js
+new Intl.DurationFormat('en', { style: 'digital' }).format({ seconds: 1 });
+// 4.16.x / earlier 5.0: "00:01"         5.x: "0:00:01"
+new Intl.DurationFormat('en', { hours: 'numeric' }).format({ hours: 1 });
+// 4.16.x / earlier 5.0: "1"             5.x: "1:00:00"
+new Intl.DurationFormat('en', { hours: 'long' }).format({ minutes: 1 });
+// 4.16.x / earlier 5.0: "1 min"         5.x: "0 hours, 1 min"
+```
+
+A fractional sub-second unit set to `"always"`, such as `{ milliseconds: 'numeric', millisecondsDisplay: 'always' }` or
+`{ style: 'digital', millisecondsDisplay: 'always' }`, now throws a `RangeError` from the constructor, as the spec and
+V8 do; it used to be accepted. There is no switch back.
+
 ### 4.204 `Iterator.prototype` has no `next`, and a segments iterator has a prototype of its own ([#4407](https://github.com/sebastienros/jint/issues/4407))
 
 Each built-in iterator prototype has a `next` of its own: the array iterator prototype, the `Map`, `Set`, string and
@@ -7863,6 +7885,40 @@ the second read found nothing and threw a `TypeError`.
 nor `undefined` or `null`, such as `42`, now throws a `TypeError` (a rejection from `fetch`). Before, the argument was
 read as a record of its own properties. `undefined` and `null` still select the record. Node's `Headers` reads such an
 argument as a record too; WebIDL's union conversion says it is a `TypeError`. There is no switch back.
+
+### 4.211 A thrown primitive's stack trace has every frame it was thrown through ([#4461](https://github.com/sebastienros/jint/issues/4461))
+
+A throw leaves each function body it passes through as a new exception, and each of those used to build the
+stack trace again when the thrown value was a primitive. An object or an error carries the trace built where it
+was thrown; a primitive had nowhere to keep one. By the time the throw reached the host, the frames it had left
+were gone:
+
+```js
+// app.js
+function parse(text) {
+    throw 'bad input';
+}
+function load() {
+    return parse('');
+}
+// main.js
+load();
+// earlier previews: "    at app.js:2:11"
+// 5.x:              "    at parse (app.js:2:11)
+    at load (app.js:5:12)
+    at main.js:1:1"
+```
+
+The trace is now built once, where the throw first leaves a function body, and the throw carries it from there,
+so a primitive reports the same frames an object or an error thrown at the same place reports. Building it at
+every body also rendered every frame still on the stack each time, so a primitive thrown through d frames cost
+O(d²): at a depth of 4,000 a single throw took over a second, even when a script caught it.
+
+**What could break:** a test comparing `JavaScriptException.JavaScriptStackTrace` against a hard-coded string
+for a thrown primitive, which now has the frames between the throw and the host. A thrown object, a thrown error
+and a primitive thrown again with `throw e` are unchanged: the last is a new throw, and its trace starts where it
+was thrown again. `Options.Interop.BuildCallStackHandler` is asked for the frames of one trace per throw, instead
+of one trace for every body the throw leaves.
 
 ## 5. New in v5
 

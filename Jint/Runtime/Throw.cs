@@ -318,13 +318,31 @@ internal static class Throw
     /// The throw has already happened and, with a debugger attached, has already been reported where it
     /// happened, so the exception is marked as a re-raise; see
     /// <see cref="Jint.Runtime.JavaScriptException._reRaisedAtBodyBoundary"/>.
+    /// <para>
+    /// A thrown primitive's call stack is built at the first boundary and carried from there by the completion
+    /// (<see cref="AstExtensions.CarriedCallStack"/>), as an object's or an error's is carried by the value
+    /// itself. Building it again at every boundary rendered every frame still on the stack each time, so a
+    /// primitive thrown through d frames cost O(d^2) (issue #4461).
+    /// </para>
     /// </remarks>
     [DoesNotReturn]
     public static void JavaScriptException(Engine engine, JsValue value, in Completion result)
     {
-        var exception = new JavaScriptException(value).SetJavaScriptCallstack(engine, result.Location);
+        var exception = ThrowCompletionException(engine, value, in result);
         exception._reRaisedAtBodyBoundary = true;
         throw exception;
+    }
+
+    /// <summary>
+    /// The exception a Throw completion leaves a body as, with the call stack the throw already has: the one its
+    /// completion carries for a primitive, the one an object or an error carries itself, and otherwise one built
+    /// here.
+    /// </summary>
+    internal static JavaScriptException ThrowCompletionException(Engine engine, JsValue value, in Completion result)
+    {
+        return !value.IsObject() && result._source.CarriedCallStack() is { } callStack
+            ? new JavaScriptException(value).SetRecordedCallstack(result.Location, callStack)
+            : new JavaScriptException(value).SetJavaScriptCallstack(engine, result.Location);
     }
 
     [DoesNotReturn]
