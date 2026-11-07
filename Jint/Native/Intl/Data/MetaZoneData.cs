@@ -12,11 +12,11 @@ internal static class MetaZoneData
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct MetaZoneNames(
         string LongStandard,
-        string LongDaylight,
-        string LongGeneric,
-        string ShortStandard,
-        string ShortDaylight,
-        string ShortGeneric);
+        string? LongDaylight,
+        string? LongGeneric,
+        string? ShortStandard,
+        string? ShortDaylight,
+        string? ShortGeneric);
 
     /// <summary>
     /// Maps IANA timezone IDs to their current CLDR metazone name.
@@ -320,6 +320,19 @@ internal static class MetaZoneData
         // New_Zealand
         ["Pacific/Auckland"] = "New_Zealand",
         ["Antarctica/McMurdo"] = "New_Zealand",
+        ["Antarctica/Syowa"] = "Syowa",
+
+        // Indian Ocean Links whose targets are in another country's metazone
+        ["Indian/Reunion"] = "Reunion",
+        ["Indian/Mahe"] = "Seychelles",
+        ["Indian/Christmas"] = "Christmas",
+        ["Indian/Cocos"] = "Cocos",
+
+        // Legacy US zone IDs use the corresponding US metazones
+        ["CST6CDT"] = "America_Central",
+        ["EST5EDT"] = "America_Eastern",
+        ["MST7MDT"] = "America_Mountain",
+        ["PST8PDT"] = "America_Pacific",
 
         // Africa_Central
         ["Africa/Maputo"] = "Africa_Central",
@@ -706,6 +719,11 @@ internal static class MetaZoneData
         ["Greenland_Western"] = new("West Greenland Standard Time", "West Greenland Summer Time", "West Greenland Time", "WGT", "WGST", "WGT"),
         ["Apia"] = new("Apia Standard Time", "Apia Daylight Time", "Apia Time", "WSST", "WSDT", "WST"),
         ["East_Timor"] = new("East Timor Time", "East Timor Time", "East Timor Time", "TLT", "TLT", "TLT"),
+        ["Reunion"] = new("Réunion Time", null, "Réunion Time", null, null, null),
+        ["Seychelles"] = new("Seychelles Time", null, "Seychelles Time", null, null, null),
+        ["Christmas"] = new("Christmas Island Time", null, "Christmas Island Time", null, null, null),
+        ["Cocos"] = new("Cocos Islands Time", null, "Cocos Islands Time", null, null, null),
+        ["Syowa"] = new("Syowa Time", null, "Syowa Time", null, null, null),
     };
 
     /// <summary>

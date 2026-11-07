@@ -7838,6 +7838,19 @@ and a primitive thrown again with `throw e` are unchanged: the last is a new thr
 was thrown again. `Options.Interop.BuildCallStackHandler` is asked for the frames of one trace per throw, instead
 of one trace for every body the throw leaves.
 
+### 4.212 IANA Link names resolve without system aliases and use their target's metazone ([#4479](https://github.com/sebastienros/jint/issues/4479))
+
+IANA Link names such as `US/Eastern`, `GB` and `Europe/Kiev` now resolve when the system's time-zone database
+does not install the Link itself. `Intl.DateTimeFormat` also gets its `timeZoneName` from CLDR metazone data,
+so output changes for about 100 Link names on every platform (`Eastern` becomes `EST`, `Kiev` becomes `EET`).
+Links that cross a country boundary keep their own names: `Indian/Reunion` formats as `Réunion Time`, not
+`Gulf Standard Time`.
+
+Temporal resolves the same Link names on .NET Framework, where these IDs previously raised a `RangeError`.
+The legacy POSIX IDs `CST6CDT`, `EST5EDT`, `MST7MDT` and `PST8PDT` also resolve on systems without
+`tzdata-legacy`, using the corresponding US zone as an approximation; their rules match from 1967 onward.
+There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

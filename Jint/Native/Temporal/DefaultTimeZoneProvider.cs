@@ -796,10 +796,9 @@ public class DefaultTimeZoneProvider : ITimeZoneProvider
         }
 #endif
 
-        // A Link name the system does not have -- Europe/Kiev where only Europe/Kyiv is installed, as on Ubuntu
-        // 26.04 without tzdata-legacy -- resolves to the zone it points to (issue #4474). The zone is never itself
-        // a Link name, so this recurses at most once.
-        return Intl.Data.TimeZoneData.TryGetLinkTarget(id, out var zone) ? CreateTimeZone(zone) : null;
+        // A missing Link name resolves to its target; four legacy POSIX IDs have documented US-zone
+        // approximations for systems that do not install tzdata-legacy.
+        return Intl.Data.TimeZoneData.TryGetFallbackTarget(id, out var zone) ? CreateTimeZone(zone) : null;
     }
 
 #if NET8_0_OR_GREATER
