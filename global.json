@@ -1,7 +1,9 @@
 {
   "sdk": {
-    "version": "10.0.100",
-    "rollForward": "latestMinor"
+    "version": "11.0.100-rc.3.26522.148",
+    "rollForward": "latestMinor",
+    "allowPrerelease": true,
+    "paths": [".dotnet", "$host$"]
   },
   "test": {
     "runner": "Microsoft.Testing.Platform"

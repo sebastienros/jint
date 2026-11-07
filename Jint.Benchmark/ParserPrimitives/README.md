@@ -2,8 +2,8 @@
 
 Dedicated decision benchmarks for the native HTML/XML parser work. These compare equivalent small
 operations, not Markdown against HTML or a scanner against a complete parser. They change no runtime
-parser behavior. The newest supported benchmark TFM is **net10.0**, selected by the existing project;
-do not add older runtime jobs or an installed preview runtime to these comparisons.
+parser behavior. These comparisons use **net10.0** explicitly; do not mix runtime jobs into a
+parser implementation comparison.
 
 ## What Markdig actually does
 

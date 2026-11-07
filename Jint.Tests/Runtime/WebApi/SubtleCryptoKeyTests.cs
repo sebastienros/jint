@@ -71,31 +71,58 @@ public class SubtleCryptoKeyTests
     [TestCase("SHA-512", "4a656665", "7768617420646f2079612077616e7420666f72206e6f7468696e673f", "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737")]
     [TestCase("SHA-512", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "fa73b0089d56a284efb0f0756c890be9b1b5dbdd8ee81a3655f83e33b2279d39bf3e848279a722c806b485a47e67c807b946a337bee8942674278859e13292fb")]
     [TestCase("SHA-512", "0102030405060708090a0b0c0d0e0f10111213141516171819", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd", "b0ba465637458c6990e5a8c5f61d4af7e576d97ff94b872de76f8050361ee3dba91ca5c11aa25eb4d679275cc5788063a5f19741120c4f2de2adebeb10a298dd")]
-    public void SignsThePublishedHmacVectors(string hash, string keyHex, string dataHex, string expected)
+    public void SignsAndVerifiesThePublishedHmacVectors(string hash, string keyHex, string dataHex, string expected)
     {
         Run($$"""
-            const key = await crypto.subtle.importKey('raw', bytes('{{keyHex}}'), { name: 'HMAC', hash: '{{hash}}' }, false, ['sign']);
+            const key = await crypto.subtle.importKey('raw', bytes('{{keyHex}}'), { name: 'HMAC', hash: '{{hash}}' }, false, ['sign', 'verify']);
+            if (!await crypto.subtle.verify('HMAC', key, bytes('{{expected}}'), bytes('{{dataHex}}'))) {
+                throw new Error('published HMAC did not verify');
+            }
             return hex(await crypto.subtle.sign('HMAC', key, bytes('{{dataHex}}')));
             """).AsString().Should().Be(expected);
     }
 
-    [Test]
-    public void VerifiesWhatItSignedAndRefusesAnythingElse()
+    [TestCase("SHA-1")]
+    [TestCase("SHA-256")]
+    [TestCase("SHA-384")]
+    [TestCase("SHA-512")]
+    public void VerifiesWhatItSignedAndRefusesAnythingElse(string hash)
     {
-        Run("""
-            const key = await crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+        Run($$"""
+            const key = await crypto.subtle.generateKey({ name: 'HMAC', hash: '{{hash}}' }, false, ['sign', 'verify']);
             const message = ascii('the message');
             const signature = await crypto.subtle.sign('HMAC', key, message);
+            const length = signature.byteLength;
 
             const results = [
                 await crypto.subtle.verify('HMAC', key, signature, message),
                 await crypto.subtle.verify('HMAC', key, signature, ascii('the messagf')),
-                await crypto.subtle.verify('HMAC', key, new Uint8Array(32), message),
+                await crypto.subtle.verify('HMAC', key, new Uint8Array(length), message),
                 await crypto.subtle.verify('HMAC', key, new Uint8Array(0), message),
-                await crypto.subtle.verify('HMAC', key, new Uint8Array(33), message),
+                await crypto.subtle.verify('HMAC', key, new Uint8Array(signature).slice(0, -1), message),
+                await crypto.subtle.verify('HMAC', key, new Uint8Array(length + 1), message),
             ];
             return results.join(',');
-            """).AsString().Should().Be("true,false,false,false,false");
+            """).AsString().Should().Be("true,false,false,false,false,false");
+    }
+
+    [TestCase("SHA-1")]
+    [TestCase("SHA-256")]
+    [TestCase("SHA-384")]
+    [TestCase("SHA-512")]
+    public void HmacVerificationAcceptsEmptyMessagesAndSlicedSignatures(string hash)
+    {
+        Run($$"""
+            const key = await crypto.subtle.importKey('raw', ascii('key'), {name: 'HMAC', hash: '{{hash}}'}, false, ['sign', 'verify']);
+            const message = new Uint8Array(0);
+            const signature = new Uint8Array(await crypto.subtle.sign('HMAC', key, message));
+            const storage = new Uint8Array(signature.length + 2);
+            storage.set(signature, 1);
+            const view = new DataView(storage.buffer, 1, signature.length);
+            const valid = await crypto.subtle.verify('HMAC', key, view, message);
+            storage[signature.length] ^= 1;
+            return valid + ',' + await crypto.subtle.verify('HMAC', key, view, message);
+            """).AsString().Should().Be("true,false");
     }
 
     [Test]

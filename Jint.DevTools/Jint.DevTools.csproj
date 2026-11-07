@@ -3,10 +3,10 @@
   <PropertyGroup>
     <NeutralLanguage>en-US</NeutralLanguage>
 
-    <!-- The whole package is net8.0+, the same floor Jint/WebApi/ sits on and for the same reason: this
+    <!-- The whole package is net10.0+: this
          is host surface built on the modern BCL (System.Text.Json source generation, ValueTask, spans),
          not engine surface a netstandard consumer resolves. -->
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
 
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>

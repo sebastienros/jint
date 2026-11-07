@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net472</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <OutputType>Exe</OutputType>
@@ -48,7 +48,7 @@
     can execute - netstandard2.0 and netstandard2.1 - get a baseline too.
 
     They run on exactly ONE leg, and that is a correctness requirement rather than a saving. The snapshot
-    is of five files on disk, so which runtime executes the reader changes nothing about what is read - a
+    is of all shipped assemblies on disk, so which runtime executes the reader changes nothing about what is read - a
     second leg is redundancy, not coverage. What a second leg does add is another process reading
     artifacts/bin/Jint/ while the other leg's build is still writing it, and a second copy of Jint.dll
     beside a test binary that the outer Jint build never refreshes. Both are exactly what
@@ -81,7 +81,7 @@
   <!--
     ...and reading them is only safe if they are all there and all current. A ProjectReference builds one
     target framework of Jint - the one this project consumes - so `dotnet test Jint.Tests.PublicInterface`
-    would otherwise verify four fresh baselines against a fifth assembly left over from whenever the
+    would otherwise verify fresh baselines alongside assemblies left over from whenever the
     solution was last built. Building the outer (cross-targeting) project puts every shipped target
     framework into artifacts/bin/Jint/, and costs nothing when Jint has not changed: MSBuild's up-to-date
     check skips each inner build, and a solution build has already produced them all anyway. RemoveProperties

@@ -27,7 +27,7 @@ A typical project enables AOT in its project file:
 
 ```xml
 <PropertyGroup>
-  <TargetFramework>net8.0</TargetFramework>
+  <TargetFramework>net10.0</TargetFramework>
   <PublishAot>true</PublishAot>
 </PropertyGroup>
 ```

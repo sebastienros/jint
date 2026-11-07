@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- .NET 8 or .NET 10
+- .NET 10 or .NET 11
 - A Jint engine created with `UseDevTools()`
 - A host loop that keeps servicing the engine, or a `LibraryOwned` target
 

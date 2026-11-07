@@ -2,12 +2,12 @@
 
 | Package | Frameworks | Depends on |
 | --- | --- | --- |
-| [`Jint`](https://www.nuget.org/packages/Jint) | net472, netstandard2.0, netstandard2.1, net8.0, net10.0 | Acornima |
-| [`Jint.HtmlParser`](../packages/jint-htmlparser/) | net8.0, net10.0 | System.IO.Hashing |
-| [`Jint.DevTools`](https://www.nuget.org/packages/Jint.DevTools) | net8.0, net10.0 | Jint |
-| [`Jint.Browser`](https://www.nuget.org/packages/Jint.Browser) | net8.0, net10.0 | Jint, Jint.DevTools, Jint.HtmlParser |
+| [`Jint`](https://www.nuget.org/packages/Jint) | net472, netstandard2.0, netstandard2.1, net10.0, net11.0 | Acornima |
+| [`Jint.HtmlParser`](../packages/jint-htmlparser/) | net10.0, net11.0 | System.IO.Hashing |
+| [`Jint.DevTools`](https://www.nuget.org/packages/Jint.DevTools) | net10.0, net11.0 | Jint |
+| [`Jint.Browser`](https://www.nuget.org/packages/Jint.Browser) | net10.0, net11.0 | Jint, Jint.DevTools, Jint.HtmlParser |
 | [`Jint.Browser.Tool`](https://www.nuget.org/packages/Jint.Browser.Tool) | Native AOT; .NET 10 SDK for installation | Jint.Browser, Jint.DevTools, Jint.Browser.Mcp (compiled into the executable) |
-| [`Jint.Browser.Mcp`](https://www.nuget.org/packages/Jint.Browser.Mcp) | net8.0, net10.0 | Jint.Browser, Model Context Protocol SDK |
+| [`Jint.Browser.Mcp`](https://www.nuget.org/packages/Jint.Browser.Mcp) | net10.0, net11.0 | Jint.Browser, Model Context Protocol SDK |
 
 `Jint.Browser.Tool` is installed as a .NET tool. The others are libraries consumed by an application.
 

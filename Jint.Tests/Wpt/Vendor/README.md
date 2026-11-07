@@ -427,7 +427,7 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `streams/readable-streams/owning-type*.tentative.any.js` | Upstream's `.tentative` marker again: owning-type readable streams are a proposal the Streams Standard has not adopted. |
 | `streams/*/crashtests/*` | A crashtest — a regression reproduction rather than an assertion. |
 | `compression/compression-output-length.any.js`, `compression/compression-stream.any.js` | Both fetch a binary fixture out of wpt's `/media/` directory — a 384 kB WebM, and for the second a WebVTT file as well — and read it back with `response.arrayBuffer()` / `response.bytes()`. The shim's `fetch` is a *text* reader over the vendored tree, so neither the transport nor the accessor exists here, and vendoring a third of a megabyte of video in order to compress it would be a strange thing for this corpus to carry. `compression-stream.any.js` additionally calls `fetch` at file scope, so its failure could not even be a per-test one. |
-| `compression/decompression-extra-input.any.js` | Writes a member plus one trailing byte and never closes the writer, so its second `reader.read()` settles only if the trailing byte errors the stream. It does not here — that is the second of `DecompressionCodec`'s two documented divergences — so the read waits for input that cannot arrive and the *file* stalls rather than any test failing, which is a harness error no per-test exclusion can name. The divergence is still asserted, by the four excluded rows of `decompression-corrupt-input.any.js`. |
+| `compression/decompression-extra-input.any.js` | Writes a member plus one trailing byte and never closes the writer. On targets before .NET 11 its second `reader.read()` stalls rather than failing a test, so this file remains outside the shared corpus. The divergence is asserted by six rows of `decompression-corrupt-input.any.js`, excluded only before .NET 11. `CompressionStreamTests.RejectsTrailingInputWithoutWaitingForTheWriterToClose` checks the non-stalling .NET 11 behavior for all four formats. |
 | `urlpattern/urlpattern.https.any.js` | Byte-identical to `urlpattern.any.js` (both are two `// META:` lines). Upstream ships both so a browser runs the corpus over http and over https; Jint has no scheme to be served over, so the second copy would run the same 370 cases again and assert nothing the first did not. |
 | `urlpattern/*.tentative.any.js`, `urlpattern/*.tentative.https.any.js` | Upstream's `.tentative` marker: `compare()` and `generate()` are proposals the URL Pattern Standard has not adopted. Covered by the two existing `*.tentative.*` rows. |
 | `FileAPI/file/send-file-formdata*.any.js` | All four POST a `FormData` to wptserve's `/fetch/api/resources/echo-content.py` and assert on the multipart body that comes back, so they need the fetch object model, an outbound request and the server's own Python handler. Serializing a `FormData` as `multipart/form-data` is a fetch body's job and arrives with that feature, which `WebApiFeatures.Default` never includes. |
@@ -675,7 +675,7 @@ runs them without `--expose-gc`.
 
 ## What the compression corpus says about this engine
 
-297 assertions across 15 files, of which **22 do not pass**.
+297 assertions across 15 files, of which **22 do not pass on .NET 10 and 16 on .NET 11**.
 
 **It was 84, and 68 of those were one word.** The Compression Standard's `CompressionFormat` enumeration
 lists `brotli` alongside `deflate`, `deflate-raw` and `gzip`, and the corpus's `resources/formats.js` loops
@@ -695,14 +695,15 @@ four formats, both files, both chunk types — eight rows per file, and now one 
 one entry per format, which is a shape the table could not have while brotli's row of each pair failed for a
 different reason.
 
-**The remaining 6 are the two lenient-decompression divergences, and they are the reason this corpus was
-worth running.** `DecompressionCodec` documents both on itself: the standard makes it an error for a stream
+**The remaining 6 on .NET 10 are the two lenient-decompression divergences.** On .NET 11 they pass with the
+incremental GZip/ZLib/Deflate decoders and `BrotliDecoder`, which report both completion and consumed input.
+The older `DecompressionCodec` documents both divergences on itself: the standard makes it an error for a stream
 to end before its member is complete and an error for anything to follow the member, and detecting either
 needs to know how many of the bytes handed over the decompressor actually *consumed* — which .NET's pull
 streams do not report, `BrotliStream` no more than the deflate family.
 `decompression-corrupt-input.any.js` is the only file in the corpus that asserts them, in six rows
 (`truncating the input` and `trailing junk`, for each of that file's three formats — `deflate`, `gzip` and
-`brotli`), and they are excluded under `NeedsIncrementalInflater` with that citation. Everything else that
+`brotli`), and they are excluded under `NeedsIncrementalInflater` only before .NET 11. Everything else that
 file checks passes: a bad CMF or gzip ID, a bad FCHECK, an FHCRC flag, a corrupted last data byte, a wrong
 ADLER32, CRC32 or ISIZE, a dictionary-compressed stream, every field the formats say may hold anything, and
 all three unchanged inputs. So the divergence is exactly "a corrupt member is still rejected; an *incomplete*
@@ -711,7 +712,9 @@ because a brotli stream that cannot be parsed is still an error and the two that
 these two.
 
 A fifth file, `decompression-extra-input.any.js`, asserts the trailing-byte half by *waiting* for the error
-rather than by comparing a result, and therefore stalls instead of failing — see the not-vendored table.
+rather than by comparing a result, and therefore stalls instead of failing on older targets — see the
+not-vendored table. The focused compression tests exercise that error without closing the writer on .NET 11,
+as well as every truncated prefix, later-chunk trailing input, and concatenated gzip members.
 
 ## What the URL Pattern corpus says about this engine
 
@@ -1524,6 +1527,10 @@ from the corpus and fails when the README disagrees — see [Taking the census](
 the two halves of that check, the command that rewrites the table, and why
 [four of the five columns are equalities and the fifth is a ceiling](#four-equalities-and-a-ceiling).
 
+The first table is the .NET 10 inventory; the .NET 11 inventory below has its own generated table and the same
+checks and no-increases rule. Their only expected difference is the six strict-decompression assertions.
+Run the census for the framework whose table needs updating.
+
 Measured at this pin, on Windows, with the driver's exclusion table in force. "Not passing" is every result
 the shim did not record `PASS`, which is exactly the set the table names. The last change to move a row is the
 one that fixed the server lane's three remaining defects at once —
@@ -1560,6 +1567,34 @@ their exclusions without revisiting this table.
 | XMLHttpRequest | `xhr/` | 44 | 289 | 8 |
 | Web Locks | `web-locks/` | 12 | 70 | 2 |
 | **total** | **45** | **398** | **41,677** | **2,926** |
+
+### .NET 11 inventory
+
+This starts from the Windows .NET 10 inventory with the six now-passing compression rows removed. The Windows
+census verifies it independently on .NET 11; the local compression run also checks that no passing row remains
+excluded.
+
+| Standard | Suites | Files | Assertions | Not passing |
+| --- | --- | --- | --- | --- |
+| URL | `url/` | 21 | 2,068 | 0 |
+| URL Pattern | `urlpattern/` | 3 | 373 | 0 |
+| Encoding | `encoding/` | 21 | 11,558 | 322 |
+| Web Cryptography | `WebCryptoAPI/` ×8 | 48 | 24,136 | 2,449 |
+| Streams | `streams/` ×7 | 66 | 1,170 | 4 |
+| Compression | `compression/` | 15 | 297 | 16 |
+| File API | `FileAPI/` ×5 | 31 | 430 | 0 |
+| High Resolution Time | `hr-time/` | 2 | 7 | 0 |
+| User Timing | `user-timing/` | 20 | 81 | 0 |
+| Performance Timeline | `performance-timeline/` | 15 | 28 | 0 |
+| HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
+| HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
+| DOM | `dom/` ×2 | 13 | 76 | 0 |
+| Fetch | `fetch/api/` ×7 | 64 | 916 | 108 |
+| XMLHttpRequest | `xhr/` | 44 | 289 | 8 |
+| Web Locks | `web-locks/` | 12 | 70 | 2 |
+| **total** | **45** | **398** | **41,677** | **2,920** |
+
+### Inventory history and platform differences
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were

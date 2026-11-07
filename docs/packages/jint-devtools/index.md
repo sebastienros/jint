@@ -5,7 +5,7 @@
 Chrome DevTools, Puppeteer, PuppeteerSharp, and other CDP clients can inspect, evaluate, debug, and profile
 scripts in an application that embeds Jint. No browser is required.
 
-The package targets .NET 8 and .NET 10 and supports Native AOT.
+The package targets .NET 10 and .NET 11 and supports Native AOT.
 
 ::: warning Unauthenticated endpoint
 The endpoint has no authentication. Any client that can reach it can evaluate JavaScript in your process.

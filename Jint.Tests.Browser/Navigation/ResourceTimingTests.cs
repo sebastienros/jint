@@ -121,6 +121,7 @@ public sealed class ResourceTimingTests
             """));
         await fixture.Page.NavigateAsync(fixture.Url("/page"));
         await fixture.Page.NavigateAsync(fixture.Url("/page#fragment"));
+        (await fixture.Page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
         (await fixture.Page.EvaluateAsync<bool>("""
             initialTiming && navigationAttributes && savedTiming === performance.getEntriesByType('navigation')[0]
                 && observed.length === 1 && observed[0].loadEventEnd > 0

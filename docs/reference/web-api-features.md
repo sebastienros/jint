@@ -1,6 +1,6 @@
 # Web API Features
 
-Web APIs are part of the core `Jint` package on .NET 8 and later. They are opt-in and install no globals unless
+Web APIs are part of the core `Jint` package on .NET 10 and later. They are opt-in and install no globals unless
 requested.
 
 ```csharp

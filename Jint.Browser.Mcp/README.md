@@ -44,7 +44,7 @@ alone. See *Sessions and HTTP* below.
 ## In your own server
 
 ```csharp
-// dotnet add package Jint.Browser.Mcp   (net8.0 and later)
+// dotnet add package Jint.Browser.Mcp   (net10.0 and later)
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 

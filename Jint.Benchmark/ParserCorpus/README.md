@@ -26,7 +26,7 @@ source string and parser instance are prepared in `GlobalSetup`; each measured o
 fresh result. The case label includes UTF-8 input bytes, and `[MemoryDiagnoser]` tracks managed
 allocation per operation.
 
-Run `dotnet run -c Release --project Jint.Benchmark/Jint.Benchmark.csproj --
+Run `dotnet run -c Release -f net10.0 --project Jint.Benchmark/Jint.Benchmark.csproj --
 --validate-html-parser-corpus` from the repository root to parse all inputs without timing them.
 It compares the resulting tree/rule counts with pinned AngleSharp shapes and checks HTML entities,
 rawtext, template content, namespaces, table repair, XML CDATA and values, and CSS property values
@@ -38,7 +38,7 @@ AngleSharp reference, not a standards oracle.
 `XmlSvgParserComparisonBenchmark` pairs the four standalone XML/SVG inputs with the public
 `MarkupParser.ParseXml` and `ParseSvg` APIs. Its AngleSharp row is the control. Both rows receive
 the same loaded string, keep parser configuration outside the timed method, and return a fresh,
-complete document. `dotnet run -c Release --project Jint.Benchmark/Jint.Benchmark.csproj --
+complete document. `dotnet run -c Release -f net10.0 --project Jint.Benchmark/Jint.Benchmark.csproj --
 --validate-xml-svg-parser-comparison` compares the trees without timing. The comparer checks node
 kinds, element and attribute names, prefixes, namespaces, values and order, text/CDATA, comments,
 processing instructions, doctypes, parent links and owner documents. It also rejects deliberate

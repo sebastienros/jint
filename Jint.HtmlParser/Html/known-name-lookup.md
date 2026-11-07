@@ -131,7 +131,7 @@ this fixed parser vocabulary.
 To repeat the isolated comparison:
 
 ```sh
-JINT_BENCH_MODE=stable dotnet run --project Jint.Benchmark -c Release -- \
+JINT_BENCH_MODE=stable dotnet run --project Jint.Benchmark -c Release -f net10.0 -- \
   --filter '*HtmlKnownNameLookupBenchmark*' --maxIterationCount 16
 ```
 

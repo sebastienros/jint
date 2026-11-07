@@ -383,38 +383,124 @@ public class CompressionStreamTests
         Log(engine).Should().Contain("not valid brotli data");
     }
 
-    [Test]
-    public void BrotliSharesTheLenientTruncationDivergence()
+    [TestCase("gzip", GzipVector)]
+    [TestCase("deflate", ZlibVector)]
+    [TestCase("deflate-raw", RawDeflateVector)]
+    [TestCase("brotli", BclBrotliVector)]
+    public void TruncationAndTrailingBytesFollowTheTargetDecoderContract(string format, string bytes)
     {
         var engine = StreamEngine();
 
-        // The divergence DecompressionCodec documents on itself, asserted rather than assumed: .NET exposes
-        // no decoder that reports how many bytes it consumed, so a stream that ends mid-member closes
-        // cleanly and bytes after a complete stream are ignored. BrotliStream is no different from the
-        // deflate family here, which is what puts brotli's two rows of
-        // compression/decompression-corrupt-input.any.js under WptDivergence.NeedsIncrementalInflater
-        // alongside them. https://compression.spec.whatwg.org/#decompressionstream calls both an error.
-        engine.Execute($"var full = vector('{BclBrotliVector}');");
+        engine.Execute($"var format = '{format}'; var full = vector('{bytes}');");
 
         var text = engine.Evaluate("""
             (async () => {
-              const truncated = await decompress('brotli', full.slice(0, -1));
-              const extended = await decompress('brotli', full.concat([0]));
+              const truncated = await decompress(format, full.slice(0, -1));
+              const extended = await decompress(format, full.concat([0]));
               return 'truncated:' + JSON.stringify(truncated) + ' trailing:' + JSON.stringify(extended);
             })()
             """).UnwrapIfPromise();
 
-        // Both are what the standard would have errored, and neither loses the payload that did decode.
+#if NET11_0_OR_GREATER
+        text.AsString().Should().Be("truncated:null trailing:null");
+        Log(engine).Should().Contain(format + ":error:TypeError:");
+#else
+        // The stream-based codecs cannot report completion or consumed input on older targets.
         text.AsString().Should().Be($"truncated:\"{Payload}\" trailing:\"{Payload}\"");
         Log(engine).Should().BeEmpty();
+#endif
 
         // The one truncation that is caught stays caught for brotli too: no compressed bytes at all.
         engine.Execute("""
-            var ds = new DecompressionStream('brotli');
+            log.length = 0;
+            var ds = new DecompressionStream(format);
             drain(ds.readable, 'nothing');
             ds.writable.getWriter().close().catch(e => log.push('close:' + e.name));
             """);
         Log(engine).Should().StartWith("nothing:error:TypeError:").And.Contain("close:TypeError");
+    }
+
+#if NET11_0_OR_GREATER
+    [TestCase("gzip", GzipVector)]
+    [TestCase("deflate", ZlibVector)]
+    [TestCase("deflate-raw", RawDeflateVector)]
+    [TestCase("brotli", ForeignBrotliVector)]
+    public void RejectsEveryTruncatedPrefix(string format, string bytes)
+    {
+        var engine = StreamEngine();
+        engine.Evaluate($$"""
+            (async () => {
+                const full = vector('{{bytes}}');
+                for (let length = 0; length < full.length; length++) {
+                    if (await decompress('{{format}}', full.slice(0, length), 1) !== null) {
+                        return false;
+                    }
+                }
+                return true;
+            })()
+            """).UnwrapIfPromise().AsBoolean().Should().BeTrue();
+    }
+
+    [TestCase("gzip", GzipVector)]
+    [TestCase("deflate", ZlibVector)]
+    [TestCase("deflate-raw", RawDeflateVector)]
+    [TestCase("brotli", ForeignBrotliVector)]
+    public void RejectsTrailingInputWithoutWaitingForTheWriterToClose(string format, string bytes)
+    {
+        var engine = StreamEngine();
+        engine.Evaluate($$"""
+            (async () => {
+                const ds = new DecompressionStream('{{format}}');
+                const output = drain(ds.readable, 'out');
+                const writer = ds.writable.getWriter();
+                await writer.write(new Uint8Array(vector('{{bytes}}')));
+                await writer.write(new Uint8Array(0));
+                try {
+                    await writer.write(new Uint8Array([0]));
+                    return 'accepted';
+                } catch (e) {
+                    await output;
+                    return e.name + ':' + await writer.closed.then(() => 'closed', e => e.name);
+                }
+            })()
+            """).UnwrapIfPromise().AsString().Should().Be("TypeError:TypeError");
+        Log(engine).Should().Contain("out:error:TypeError:");
+    }
+
+    [TestCase(1)]
+    [TestCase(32)]
+    [TestCase(64)]
+    public void RejectsConcatenatedGzipMembers(int chunkSize)
+    {
+        var engine = StreamEngine();
+        engine.Evaluate($"decompress('gzip', vector('{GzipVector}').concat(vector('{GzipVector}')), {chunkSize})")
+            .UnwrapIfPromise().IsNull().Should().BeTrue();
+        Log(engine).Should().Contain("gzip:error:TypeError:");
+    }
+#endif
+
+    [TestCase("gzip")]
+    [TestCase("deflate")]
+    [TestCase("deflate-raw")]
+    [TestCase("brotli")]
+    public void StreamsIncompressibleDataAcrossManyOutputBuffers(string format)
+    {
+        var engine = StreamEngine();
+        engine.Evaluate($$"""
+            (async () => {
+                let state = 123456789;
+                let input = '';
+                for (let i = 0; i < 40000; i++) {
+                    state ^= state << 13;
+                    state ^= state >>> 17;
+                    state ^= state << 5;
+                    input += String.fromCharCode(state & 0x7f);
+                }
+                const compressed = await compress('{{format}}', input);
+                return compressed.length > 8192 && await decompress('{{format}}', compressed, 997) === input;
+            })()
+            """).UnwrapIfPromise().AsBoolean().Should().BeTrue();
+        Log(engine).Should().BeEmpty();
     }
 
     [Test]

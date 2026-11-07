@@ -22,7 +22,7 @@ Console.WriteLine(await page.MarkdownAsync());
 ```
 <!-- endSnippet -->
 
-The package targets .NET 8 and later. The Browser library does not declare general trimming or AOT compatibility; the closed browser tool is verified separately.
+The package targets .NET 10 and later. The Browser library does not declare general trimming or AOT compatibility; the closed browser tool is verified separately.
 
 ## Choose a topic
 

@@ -7,17 +7,19 @@ The core package targets:
 - .NET Framework 4.7.2
 - .NET Standard 2.0
 - .NET Standard 2.1
-- .NET 8
 - .NET 10
+- .NET 11
 
 This lets the interpreter run on legacy .NET Framework applications as well as current .NET.
 
-Some APIs are available only on modern targets. The opt-in web API surface is compiled for .NET 8 and later.
+The .NET 11 target is compiled with runtime async enabled; older targets keep compiler-generated async state machines.
+
+Some APIs are available only on modern targets. The opt-in web API surface is compiled for .NET 10 and later.
 
 ## Optional packages
 
 `Jint.HtmlParser`, `Jint.DevTools`, `Jint.Browser`, and `Jint.Browser.Mcp` target
-.NET 8 and .NET 10.
+.NET 10 and .NET 11.
 
 `Jint.Browser.Tool` is distributed as a native executable for Linux (glibc), macOS and Windows, on x64
 and arm64. Installing its NuGet package requires the .NET 10 SDK; standalone release downloads require

@@ -163,7 +163,8 @@ internal static class JintBenchmarkConfig
         }
 
         Announce(mode, affinity, powerPlan, launchCount, concurrentGc);
-        return config.AddJob(job);
+        // Let CLI modifiers such as --inProcess refine this job instead of adding a second one.
+        return config.AddJob(job.AsDefault());
     }
 
     /// <summary>Whether the command line names a BenchmarkDotNet job, e.g. <c>--job short</c> or <c>-j dry</c>.</summary>
