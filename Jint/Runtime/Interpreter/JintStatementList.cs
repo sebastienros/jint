@@ -431,7 +431,11 @@ internal sealed class JintStatementList
         Node source = s!._statement;
         if (v.Location != default)
         {
-            source = AstExtensions.CreateLocationNode(v.Location);
+            // A thrown primitive has nowhere else to keep its call stack, so the completion carries it to the
+            // next function body boundary, which re-raises the same throw (issue #4461).
+            source = !v.Error.IsObject() && v.RecordedCallStack is { } callStack
+                ? AstExtensions.CreateThrowLocationNode(v.Location, callStack)
+                : AstExtensions.CreateLocationNode(v.Location);
         }
 
         return new Completion(CompletionType.Throw, v.Error, source);

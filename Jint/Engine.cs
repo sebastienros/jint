@@ -1795,9 +1795,7 @@ public sealed partial class Engine : IDisposable
     {
         var filter = TypeConverterTargetFilter.Create(converter, declaredTargetTypes);
         _typeConverterTargetFilter = filter;
-        _typeConverter = HostContractVerification.Enabled && filter is { IsRestricted: true }
-            ? new VerifyingClrTypeConverter(converter, filter, new DefaultTypeConverter(this))
-            : converter;
+        _typeConverter = HostInterop.Instance.WrapTypeConverter(this, converter, filter);
     }
 
     // cache of types used when resolving CLR type names
@@ -1820,6 +1818,11 @@ public sealed partial class Engine : IDisposable
     // WebIDL callback interfaces need the object's creation realm, including null-prototype objects and
     // revoked proxies. Keep secondary-realm records weakly, without another pointer on every JS object.
     internal ConditionalWeakTable<ObjectInstance, Realm>? _secondaryObjectRealms;
+
+    // The call stack a thrown object that is not an Error was given where it was thrown, carried to each later
+    // boundary it crosses (a new JavaScriptException per function body it leaves). Kept here, weakly keyed by the
+    // object, so the thrown object itself is never written to (issue #4430); an Error keeps it in [[ErrorData]].
+    internal ConditionalWeakTable<ObjectInstance, string>? _thrownObjectStacks;
 
     // bounded cache of most recently wrapped CLR objects, see Options.Interop.CacheRecentObjectWrappers
     internal RecentObjectWrapperCache? _recentObjectWrapperCache;
@@ -1904,7 +1907,7 @@ public sealed partial class Engine : IDisposable
     private Engine(Options? options, Action<Engine, Options>? configure)
     {
         Constraints = new ConstraintOperations(this);
-        TypeConverter = new DefaultTypeConverter(this);
+        TypeConverter = HostInterop.Instance.CreateTypeConverter(this);
 
         _executionContexts = new ExecutionContextStack(2);
 
@@ -2951,7 +2954,7 @@ public sealed partial class Engine : IDisposable
 
             if (result.Type == CompletionType.Throw)
             {
-                var ex = new JavaScriptException(result.GetValueOrDefault()).SetJavaScriptCallstack(this, result.Location);
+                var ex = Throw.ThrowCompletionException(this, result.GetValueOrDefault(), in result);
                 CallStack.TrimTo(callStackDepthOnEntry);
                 throw ex;
             }
@@ -5800,6 +5803,7 @@ public sealed partial class Engine : IDisposable
         _recentObjectWrapperCache?.Clear();
         _recentObjectWrapperCache = null;
         _secondaryObjectRealms = null;
+        _thrownObjectStacks = null;
 
 #if NET8_0_OR_GREATER
         // A host CancellationToken bridged to an AbortSignal holds a registration that reaches this engine, and

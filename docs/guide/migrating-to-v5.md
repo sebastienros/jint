@@ -7752,6 +7752,26 @@ A non-string element still throws a `TypeError` and closes the iterator. The `Ty
 when the iterator's `return` throws, and a `return` added to the array iterator prototype is called for an array.
 There is no switch back.
 
+### 4.209 Array destructuring calls a `Symbol.iterator` the script gave a wrapped CLR collection ([#4427](https://github.com/sebastienros/jint/issues/4427))
+
+Array destructuring takes an iterator from its value: it reads the value's `Symbol.iterator` and calls what it found.
+In 4.16 and earlier 5.0 builds, destructuring a wrapped CLR list, array or other indexed collection (in a
+declaration, an assignment, a `for`-`of` head or a `catch` parameter) read the collection by index, even after the
+script had given the wrapper a `Symbol.iterator` of its own. It could do that with `Object.defineProperty`, or by
+assignment when `Options.Interop.AllowWrite` is set. The script's method was never called:
+
+```js
+// host: engine.SetValue("list", new List<int> { 1, 2 });
+Object.defineProperty(list, Symbol.iterator, { value: function* () { yield 9; }, configurable: true });
+const [a] = list;
+[a, ...list]
+// 4.16.x / earlier 5.0: [1, 9]    5.x: [9, 9]
+```
+
+Now destructuring calls it, as spread, a function parameter, `for`-`of` and `Array.from` already did, and a getter
+there runs once. Once the property is deleted, the wrapper's own iterator, which enumerates the collection, comes
+back. A wrapper whose `Symbol.iterator` is still its own is still read by index. There is no switch back.
+
 ### 4.210 The web APIs read `Symbol.iterator` once to tell a sequence from the alternative, and `Headers` refuses a non-callable one ([#4449](https://github.com/sebastienros/jint/issues/4449))
 
 Several web APIs take either a sequence or something else in the same argument. They read the argument's
@@ -7783,6 +7803,40 @@ the second read found nothing and threw a `TypeError`.
 nor `undefined` or `null`, such as `42`, now throws a `TypeError` (a rejection from `fetch`). Before, the argument was
 read as a record of its own properties. `undefined` and `null` still select the record. Node's `Headers` reads such an
 argument as a record too; WebIDL's union conversion says it is a `TypeError`. There is no switch back.
+
+### 4.211 A thrown primitive's stack trace has every frame it was thrown through ([#4461](https://github.com/sebastienros/jint/issues/4461))
+
+A throw leaves each function body it passes through as a new exception, and each of those used to build the
+stack trace again when the thrown value was a primitive. An object or an error carries the trace built where it
+was thrown; a primitive had nowhere to keep one. By the time the throw reached the host, the frames it had left
+were gone:
+
+```js
+// app.js
+function parse(text) {
+    throw 'bad input';
+}
+function load() {
+    return parse('');
+}
+// main.js
+load();
+// earlier previews: "    at app.js:2:11"
+// 5.x:              "    at parse (app.js:2:11)
+    at load (app.js:5:12)
+    at main.js:1:1"
+```
+
+The trace is now built once, where the throw first leaves a function body, and the throw carries it from there,
+so a primitive reports the same frames an object or an error thrown at the same place reports. Building it at
+every body also rendered every frame still on the stack each time, so a primitive thrown through d frames cost
+O(d²): at a depth of 4,000 a single throw took over a second, even when a script caught it.
+
+**What could break:** a test comparing `JavaScriptException.JavaScriptStackTrace` against a hard-coded string
+for a thrown primitive, which now has the frames between the throw and the host. A thrown object, a thrown error
+and a primitive thrown again with `throw e` are unchanged: the last is a new throw, and its trace starts where it
+was thrown again. `Options.Interop.BuildCallStackHandler` is asked for the frames of one trace per throw, instead
+of one trace for every body the throw leaves.
 
 ## 5. New in v5
 
@@ -9373,6 +9427,50 @@ same way, and it is the way §6.4 already gives:
 If you cannot root the whole assembly, an explicit interface member is reachable again as soon as anything
 in your program names it with a constant token — `typeof(IYourInterface).GetProperties()` is enough,
 because that *is* a request to preserve them.
+
+### 6.8 Reflection-free managed trimming ([#4371](https://github.com/sebastienros/jint/pull/4371))
+
+**New public configuration:** the runtime configuration option `Jint.Runtime.Interop.ReflectionEnabled`. It is
+read once per process, defaults to `true`, and nothing changes for a host that never sets it. A host that talks
+to script only through `JsValue`, `ClrFunction` and explicit `ObjectConverter`s can set it to `false` with
+`Trim="true"`, and a fully trimmed publication then removes Jint's reflection-based CLR projection instead of
+reporting it:
+
+```xml
+<ItemGroup>
+  <RuntimeHostConfigurationOption Include="Jint.Runtime.Interop.ReflectionEnabled" Value="false" Trim="true" />
+</ItemGroup>
+```
+
+Script itself, `JsValue` values and callbacks, explicit `ObjectConverter`s, and booleans, numeric primitives,
+characters and strings through `JsValue.FromObject` keep working. Everything else that would have reflected throws
+`NotSupportedException` with a message naming the switch, and *when* it throws depends on what asked for it:
+
+| what | when it throws |
+| --- | --- |
+| `Interop.Enabled = true`, `AllowClr()`, `Interop.AllowOperatorOverloading = true` | at engine construction |
+| `AddExtensionMethods(...)` | at engine construction |
+| `JsValue.FromObject` over a CLR object no `ObjectConverter` handles | at that conversion |
+| `ObjectWrapper.Create`, including from a custom `WrapObjectHandler` | at that call |
+| an argument that needs coercion, or a return value that is not a scalar | at the call that converts it |
+
+Two registrations **half-work**, and they are the ones to check first:
+
+* **`SetValue(string, Delegate)`** registers, and a call works while every argument already is its parameter's
+  type: `JsValue`, `double`, `bool`, string and integer parameters and an `Action` are fine. An argument that needs
+  coercion — `1.5` for an `int` parameter, `'1'` for a number — throws at the call, and so does a return value that
+  is not a scalar. Register a `ClrFunction` when you need either.
+* **`TypeReference.CreateTypeReference<T>`** and `SetValue(string, Type)` resolve the type and its static members,
+  but `new T()` throws, because the constructed instance has no projection.
+
+Both still reach Jint's reflection lanes directly rather than through the switch, so a trimmed publication that
+uses either keeps the trim-analysis warnings the switch otherwise removes. A strict publication like
+`Jint.TrimmedExample` registers `ClrFunction`s instead.
+
+Operator overloading is not merely rejected at construction: with the switch off, no CLR operator is ever resolved.
+[`Jint.TrimmedExample`](https://github.com/sebastienros/jint/blob/main/Jint.TrimmedExample/README.md) is the
+strict, unrooted publication that checks all of this, and the PR CI leg publishes and runs it. This does not
+qualify Native AOT, and it does not qualify arbitrary or generated CLR wrappers.
 
 ## Keeping this document current
 

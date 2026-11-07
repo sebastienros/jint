@@ -156,8 +156,20 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <c>[DynamicallyAccessedMembers]</c> at all, and the optional <c>type</c> is a hint about which type
     /// to expose rather than a promise that its members survive.
     /// </remarks>
-    [RequiresUnreferencedCode("Members are resolved from target's runtime type by reflection and cannot be preserved by the trimmer from this signature; a removed one reads as undefined rather than as an error. Root the type, or project it through Engine.SetValue<T> / TypeReference.CreateTypeReference<T>, which annotate what they reflect over.")]
-    public static ObjectInstance Create(Engine engine, object target, Type? type = null)
+    [RequiresUnreferencedCode(CreateRequiresUnreferencedCodeMessage)]
+    public static ObjectInstance Create(Engine engine, object target, Type? type = null) =>
+        HostInterop.Instance.CreateObjectWrapper(engine, target, type);
+
+    // One message for the public entry point and every HostInterop member behind it, so the analyzer
+    // enforces the requirement along the whole chain instead of a suppression asserting it.
+    internal const string CreateRequiresUnreferencedCodeMessage = "Members are resolved from target's runtime type by reflection and cannot be preserved by the trimmer from this signature; a removed one reads as undefined rather than as an error. Root the type, or project it through Engine.SetValue<T> / TypeReference.CreateTypeReference<T>, which annotate what they reflect over.";
+
+    /// <summary>
+    /// The reflection body of <see cref="Create"/>, reached only through
+    /// <see cref="ReflectionHostInterop.CreateObjectWrapper"/>.
+    /// </summary>
+    [RequiresUnreferencedCode(CreateRequiresUnreferencedCodeMessage)]
+    internal static ObjectInstance CreateWithReflection(Engine engine, object target, Type? type)
     {
         if (target == null)
         {
@@ -455,14 +467,37 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     // iterator only where index reads reproduce what enumeration yields. For a countable but non-indexable
     // collection they do not: [...queue] yields the elements while every index reads undefined. Nor do they
     // once %ArrayIteratorPrototype%.next is replaced: the iterator inherits it, so every other lane over the
-    // wrapper calls the replacement (sebastienros/jint#4418). Until a script touches one, that is one byte test. It reads
+    // wrapper calls the replacement (sebastienros/jint#4418). Until a script touches one, that is one byte test. Nor
+    // once a script has given the wrapper a Symbol.iterator of its own, which GetIterator reads and calls
+    // (sebastienros/jint#4427); until anything has stored a symbol on the wrapper, that is one null test. It reads
     // no @@iterator, so it hands the caller's GetIterator nothing.
     internal override bool HasOriginalIterator(out JsValue? iteratorMethod)
     {
         iteratorMethod = null;
         return IsArrayLike
                && HasIndexedElements
+               && (_symbols is null || OwnIteratorIsMaterialized())
                && (!_engine._arrayIteratorNextMayBeReplaced || _engine.Realm.Intrinsics.Array.PrototypeObject.ArrayIteratorsStepNatively());
+    }
+
+    /// <summary>
+    /// Whether the <c>@@iterator</c> GetIterator (https://tc39.es/ecma262/#sec-getiterator) would read off this wrapper
+    /// is the one <see cref="GetOwnProperty(JsValue)"/> materializes: none is stored, so the read would materialize it,
+    /// or a data property holds a function over <see cref="Iterator"/>, which enumerates whatever wrapper it is called
+    /// on. An accessor answers false without being run, so its getter runs once, in the caller's GetIterator
+    /// (sebastienros/jint#4427).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool OwnIteratorIsMaterialized()
+    {
+        if (!_symbols!.TryGetValue(GlobalSymbolRegistry.Iterator, out var descriptor))
+        {
+            return true;
+        }
+
+        return !descriptor.IsAccessorDescriptor()
+               && descriptor.Value is ClrFunction function
+               && ReferenceEquals(function._func, _iteratorFunction);
     }
 
     internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexed;
@@ -1265,7 +1300,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 var iteratorFunction = new ClrFunction(
                     Engine,
                     "iterator",
-                    Iterator,
+                    _iteratorFunction,
                     1,
                     PropertyFlag.Configurable);
 
@@ -1535,6 +1570,12 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         return type;
     }
+
+    /// <summary>
+    /// The one delegate every wrapper's materialized <c>@@iterator</c> calls, which is how
+    /// <see cref="OwnIteratorIsMaterialized"/> recognizes that function.
+    /// </summary>
+    private static readonly JsCallDelegate _iteratorFunction = Iterator;
 
     private static JsValue Iterator(JsValue thisObject, JsCallArguments arguments)
     {
