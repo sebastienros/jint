@@ -751,6 +751,13 @@ internal sealed partial class MathInstance : BuiltinShapeObject
     [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Round(JsValue thisObject, [ToNumber] double x)
     {
+        // A finite Number with magnitude 2^52 or more has no fractional part, and x - 0.5 below
+        // would round back to x for even values. Return it as is (Infinity takes this path too).
+        if (System.Math.Abs(x) >= 4503599627370496d)
+        {
+            return x;
+        }
+
         var round = System.Math.Round(x);
         if (round.Equals(x - 0.5))
         {
