@@ -383,9 +383,10 @@ internal sealed class TaggedTemplateSuspendData : SuspendData
 internal sealed class ForAwaitSuspendData : SuspendData
 {
     /// <summary>
-    /// The resolved iterator result from awaiting the next() Promise.
+    /// What the Await of the loop's step fulfilled with, a primitive included; <c>null</c> only while no step is in
+    /// flight, so a primitive reaches step 8.c's <c>TypeError</c> rather than another step (sebastienros/jint#4489).
     /// </summary>
-    public ObjectInstance? ResolvedIteratorResult { get; set; }
+    public JsValue? SettledNextResult { get; set; }
 
     /// <summary>
     /// The rejected value if the iterator's next() Promise was rejected.
