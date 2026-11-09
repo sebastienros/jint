@@ -247,6 +247,62 @@ public class RegExpConstructionPathTests
         engine.Evaluate("r.exec('abcd')[1]").AsString().Should().Be("c");
     }
 
+    // RegExpInitialize can throw, or run script, before it assigns anything to the object, so a compile that fails
+    // has to leave a host Regex exactly as it was: still a .NET pattern, and still matching. Checked against Node
+    // with a script RegExp, which keeps its pattern through the same failures.
+    // https://tc39.es/ecma262/#sec-regexpinitialize
+    [TestCase("r.compile('(')")]
+    [TestCase("r.compile('b', 'gg')")]
+    [TestCase("r.compile('b', 'x')")]
+    [TestCase("r.compile({ toString() { throw 1; } })")]
+    [TestCase("r.compile('b', { toString() { throw 1; } })")]
+    public void AFailedCompileLeavesAHostSuppliedRegexMatching(string compile)
+    {
+        var engine = new Engine();
+        engine.SetValue("r", new Regex("a+"));
+
+        engine.Execute("try { " + compile + " } catch (e) { }");
+
+        var regExp = (JsRegExp) engine.Evaluate("r");
+        regExp.HostRegex.Should().NotBeNull();
+        regExp.UsesDotNetEngine.Should().BeTrue();
+        engine.Evaluate("r.source").AsString().Should().Be("?[native regex]");
+        engine.Evaluate("r.test('baab')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("r.exec('baab')[0]").AsString().Should().Be("aa");
+        engine.Evaluate("'baab'.replace(r, 'x')").AsString().Should().Be("bxb");
+        engine.Evaluate("'baab'.search(r)").AsNumber().Should().Be(1);
+    }
+
+    [TestCase("r.compile('(')")]
+    [TestCase("r.compile('b', 'gg')")]
+    [TestCase("r.compile({ toString() { throw 1; } })")]
+    public void AFailedCompileLeavesAScriptRegExpAsItWas(string compile)
+    {
+        var engine = new Engine();
+        engine.Execute("var r = /a+/; try { " + compile + " } catch (e) { }");
+
+        engine.Evaluate("r.source + '|' + r.test('baab') + '|' + r.exec('baab')[0] + '|' + 'baab'.replace(r, 'x')")
+            .AsString().Should().Be("a+|true|aa|bxb");
+    }
+
+    [Test]
+    public void ACompileWhosePatternConversionUsesTheHostSuppliedRegexSeesItIntact()
+    {
+        var engine = new Engine();
+        engine.SetValue("r", new Regex("a+"));
+
+        // The conversion runs before RegExpInitialize assigns anything, so the object is still the host's Regex.
+        engine.Execute("var seen; r.compile({ toString() { seen = r.test('baab') + '|' + r.source; return 'b'; } });");
+
+        engine.Evaluate("seen").AsString().Should().Be("true|?[native regex]");
+        var regExp = (JsRegExp) engine.Evaluate("r");
+        regExp.HostRegex.Should().BeNull();
+        regExp.Matcher.Should().NotBeNull();
+        engine.Evaluate("r.source").AsString().Should().Be("b");
+        engine.Evaluate("r.test('baab')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("r.exec('xaa')").IsNull().Should().BeTrue();
+    }
+
     [Test]
     public void AHostRegexReadAsEcmaScriptCarriesAMatcherForItsOwnPattern()
     {

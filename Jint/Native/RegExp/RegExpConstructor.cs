@@ -456,10 +456,6 @@ public sealed partial class RegExpConstructor : Constructor
         // This method is called when a RegExp object is created at run-time, e.g.,
         // `new RegExp("abc", "i")`, `RegExp("abc", "i")`, `/x/.compile("abc", "i")`, `"x".match("abc")`, etc.
 
-        // A previously host-supplied Regex is re-initialized from a JavaScript pattern here (compile),
-        // so it stops being a host regex and gets a compiled matcher below.
-        r.HostRegex = null;
-
         var p = pattern.IsUndefined() ? "" : TypeConverter.ToString(pattern);
         if (string.IsNullOrEmpty(p))
         {
@@ -479,6 +475,13 @@ public sealed partial class RegExpConstructor : Constructor
         // Compiling is also what validates: the flags and the pattern's early errors are both the matcher's
         // to report, so a pattern is parsed once rather than once by Acornima and again here.
         r.Matcher = RegExpParseCache.GetOrCompile(_realm, p, f, Engine.RegexConversionOptions.ResolveTimeout(conversionOptions, _engine));
+
+        // A previously host-supplied Regex is re-initialized from a JavaScript pattern here (compile), so it stops
+        // being a host regex only now. Everything above can throw or run script (ToString on the pattern or the
+        // flags, an invalid pattern, a compile that outran its budget), and RegExpInitialize assigns nothing to the
+        // object until the last of those has passed (https://tc39.es/ecma262/#sec-regexpinitialize), so an abrupt
+        // completion must leave a host Regex still matching, and script run above must still see it as one.
+        r.HostRegex = null;
         r.ConversionOptions = conversionOptions;
 
         // The pattern may contain characters that are not valid in a regexp literal ('/' and new line characters),
