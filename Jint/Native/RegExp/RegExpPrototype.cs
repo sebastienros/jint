@@ -1,10 +1,8 @@
 ﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
@@ -1938,7 +1936,7 @@ internal sealed partial class RegExpPrototype : Prototype
     /// Runs the matcher under the configured timeout, reporting only the match range, for the lanes that read the
     /// match position and nothing else: the matcher does no capture work and nothing is materialized. The deadline
     /// is enforced by elapsed-time checks inside the matcher rather than a thread-pool
-    /// <see cref="CancellationTokenSource"/> timer, so the abort fires promptly even when the pool is saturated —
+    /// <see cref="System.Threading.CancellationTokenSource"/> timer, so the abort fires promptly even when the pool is saturated —
     /// mirroring how <see cref="Regex.Match(string,int)"/> enforces <see cref="Regex.MatchTimeout"/>. Throws
     /// <see cref="RegexMatchTimeoutException"/> when the timeout elapses.
     /// </summary>

@@ -24,6 +24,12 @@ internal sealed class JintRegExpEngine
     // An absolute deadline that never fires (see AbsoluteDeadline).
     private const long NoDeadline = long.MaxValue;
 
+    // An interval longer than this is handed to the budget to start at its first stride read. GregsEx starts a shorter
+    // one at construction and checks it at every step, which is exact and costs two clock reads a search, and which
+    // would put a cold JIT or a pause inside a 1 ms budget; Jint keeps what it always did for those, an absolute
+    // deadline read at the start of the search and first checked at the first stride.
+    internal const long DeferredStartAbove = TimeSpan.TicksPerMillisecond;
+
     // JavaScript places no ceiling on a pattern's size; GregsEx's defaults are a library's bounded policy. What
     // bounds compiling a script-supplied pattern is the regex timeout, as a work budget (CompileWorkPerMillisecond),
     // since GregsEx's compiler charges work but reads no clock; matching is bounded by the timeout itself and by the
@@ -172,10 +178,12 @@ internal sealed class JintRegExpEngine
     /// <summary>
     /// Match like <see cref="TryMatch"/>, reporting only the whole match's range: no capture work at all.
     /// <paramref name="timeout"/> is how long the search may take (null for no limit), after which it is abandoned with
-    /// an <see cref="OperationCanceledException"/>. It is measured from the search's first clock read, which comes after
-    /// the first <see cref="RunBudget.ClockStride"/> units of work, so a search that ends sooner reads no clock at all;
-    /// the abort is therefore late by at most the time those units take, over and above the stride the executor already
-    /// allows past any deadline. A timeout of a millisecond or less starts at once and is checked at every step.
+    /// an <see cref="OperationCanceledException"/>. An interval longer than <see cref="DeferredStartAbove"/> is measured
+    /// from the search's first clock read, which comes on the first charge after the first
+    /// <see cref="RunBudget.ClockStride"/> units of work, so a search that ends sooner reads no clock at all; the abort is
+    /// therefore late by at most the time those units take plus one bulk charge, over and above the stride the executor
+    /// already allows past any deadline. A shorter interval is measured from a clock read at the start of the search and
+    /// first checked at the first stride, as an absolute deadline is.
     /// </summary>
     internal bool TryMatchRange(string input, int startIndex, TimeSpan? timeout, out int index, out int length)
     {
@@ -200,7 +208,7 @@ internal sealed class JintRegExpEngine
 
         var plan = _plan;
 
-        var state = new RunState(Rent(plan), long.MaxValue, default, timeout, deferStart: true);
+        var state = NewState(Rent(plan), timeout, out var started);
         var span = input.AsSpan();
         var count = 0;
         var position = startIndex;
@@ -223,8 +231,8 @@ internal sealed class JintRegExpEngine
             {
                 // Growth, a timeout or a resource failure: the slow path handles each, a timeout by giving up here
                 // instead of running the search again under a timeout of its own.
-                if (!SearchSlow(input, position, SearchOperation.Range, [], timeout, state.Budget.StartedAt, out match, sticky: false, status,
-                        state.Failure.Code, plan))
+                if (!SearchSlow(input, position, SearchOperation.Range, [], timeout, started != 0 ? started : state.Budget.StartedAt, out match,
+                        sticky: false, status, state.Failure.Code, plan))
                 {
                     return 0;
                 }
@@ -260,7 +268,7 @@ internal sealed class JintRegExpEngine
         // partitions only up to the planned frame count, so they may be longer than planned.
         // The timeout starts at the search's first clock read (see TryMatchRange), so a search that ends within its first
         // stride of work reads no clock.
-        var state = new RunState(Rent(plan), long.MaxValue, default, timeout, deferStart: true);
+        var state = NewState(Rent(plan), timeout, out var started);
         var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match, hostSized: true);
         if (status == RegexSearchStatus.Match)
         {
@@ -272,7 +280,8 @@ internal sealed class JintRegExpEngine
             return false;
         }
 
-        return SearchSlow(input, startIndex, operation, groups, timeout, state.Budget.StartedAt, out match, sticky, status, state.Failure.Code, plan);
+        return SearchSlow(input, startIndex, operation, groups, timeout, started != 0 ? started : state.Budget.StartedAt, out match, sticky, status,
+            state.Failure.Code, plan);
     }
 
     // The thread's storage when the plan fits what a thread may keep, otherwise storage of the search's own, collected
@@ -301,13 +310,29 @@ internal sealed class JintRegExpEngine
         return new WorkspaceBuffers(new int[capacity.StateSlots], new int[capacity.CaptureSlots], new int[capacity.ScratchSlots]);
     }
 
+    // The state a search runs under: the interval starts at the budget's first stride read, or, for a short interval, at a
+    // clock read made here. started is that read (0 when the budget has not read the clock yet), and what SearchSlow
+    // needs to keep its retries inside the same deadline.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static RunState NewState(WorkspaceBuffers buffers, TimeSpan? timeout, out long started)
+    {
+        if (timeout is { } interval && interval.Ticks <= DeferredStartAbove)
+        {
+            started = Stopwatch.GetTimestamp();
+            return new RunState(buffers, long.MaxValue, AbsoluteDeadline(timeout, started));
+        }
+
+        started = 0;
+        return new RunState(buffers, long.MaxValue, default, timeout, deferStart: true);
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private bool SearchSlow(string input, int startIndex, SearchOperation operation, Span<RegexCapture> groups, TimeSpan? timeout, long startedAt,
         out RegexMatchRange match, bool sticky, RegexSearchStatus status, RegexExecutionFailureCode failure, FramePlan plan)
     {
-        // The attempts run under a timeout that starts at the search's first clock read, so a retry given the same
-        // interval would restart it: each growth could then cost the whole timeout again. The retries share one absolute
-        // deadline instead, taken from where the first attempt's timeout began.
+        // The attempts run under a timeout that starts at a clock read of their own, so a retry given the same interval
+        // would restart it: each growth could then cost the whole timeout again. The retries share one absolute deadline
+        // instead, taken from where the first attempt's timeout began.
         var deadline = 0L;
         while (true)
         {
@@ -356,7 +381,7 @@ internal sealed class JintRegExpEngine
     // The Stopwatch.GetTimestamp value at which a search whose timeout began at startedAt is abandoned (0 when the first
     // attempt never read the clock, which an attempt cut short before its first stride has not; then now is as good as
     // the attempt's start). Saturates to NoDeadline instead of overflowing for extreme timeouts.
-    private static long AbsoluteDeadline(TimeSpan? timeout, long startedAt)
+    internal static long AbsoluteDeadline(TimeSpan? timeout, long startedAt)
     {
         if (timeout is not { } interval)
         {

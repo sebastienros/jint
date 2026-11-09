@@ -102,13 +102,6 @@ upstream as [sebastienros/gregsex#3](https://github.com/sebastienros/gregsex/pul
 | G16 | A `.` run searched its four line terminators with a four-value `IndexOfAny`. | Twice .NET's `IndexOf('\n')` over 64 KiB. | One `IndexOfAnyExceptInRange('\u000E', '\u2027')`, verified, with an exact fallback after 8 false hits. |
 | G17 | The inverse-fold cache behind the FIRST prefilters was per mode, not per Unicode version (introduced with G6). | After a Unicode 16 program built it, a Unicode 17 program missed the 17.0 case pairs: wrong `NoMatch`. Not reachable from Jint, which has the 17.0 tables only. | Keyed by its case-table instance. |
 
-A third pass, on the clock a timed search still read, went upstream as
-[sebastienros/gregsex#41](https://github.com/sebastienros/gregsex/pull/41):
-
-| # | Defect | Effect | Fix |
-| --- | --- | --- | --- |
-| G18 | A relative timeout reads the clock when its budget is built and again on the first charge; the absolute-deadline constructor moved the read to the host, which still paid one per search (shared across a batch of up to 64 by `RecentTimestamp`). | 25-50 ns of a 150-230 ns `re.test(s)` on a short subject (Jint always sets a timeout). | The timeout begins at the budget's first stride read, so a search that ends sooner reads no clock; Jint passes the interval and keeps no clock of its own. The deadline can be late by the time one stride of work takes; retries after storage growth share one absolute deadline so growth does not restart it. |
-
 A third pass answered the win-x64 gate on #4300 (SunSpider `tagcloud`, `unpack`, `validate-input`, Dromaeo
 `ObjectRegExp` and cold compiles) and went upstream as
 [sebastienros/gregsex#5](https://github.com/sebastienros/gregsex/pull/5):
@@ -120,6 +113,13 @@ A third pass answered the win-x64 gate on #4300 (SunSpider `tagcloud`, `unpack`,
 | G20 | `\b` around a literal, and `\b\w+\b`, ran the VM. | Word-boundary scans were several times .NET's. | A bounded-literal plan, and boundary checks folded into the single-set repeat plan. |
 | G21 | Every compile built its own ASCII-only fast sets, parser buffers and case-fold bitmaps. | Cold compiles allocated several times `main`. | Shared ASCII sets (a 4096-entry cache), pooled parser buffers, shared bitmaps and fold table. |
 | G22 | Patterns whose next unit decides every choice still ran the general VM. | One VM dispatch and one saved choice per unit. | A Glushkov position matcher: one-pass where the moves are disjoint, backtracking over the automaton where they overlap, with greedy single-unit runs measured once and given back per retry as in G4. Opt-in through the host-sized search (`hostSized: true`), so GregsEx's own frame-capacity contract is unchanged. |
+
+A fourth pass, on the clock a timed search still read, went upstream as
+[sebastienros/gregsex#41](https://github.com/sebastienros/gregsex/pull/41):
+
+| # | Defect | Effect | Fix |
+| --- | --- | --- | --- |
+| G23 | A relative timeout reads the clock when its budget is built and again on the first charge; the absolute-deadline constructor moved the read to the host, which still paid one per search (shared across a batch of up to 64 by `RecentTimestamp`). | 25-50 ns of a 150-230 ns `re.test(s)` on a short subject (Jint always sets a timeout). | The timeout begins at the budget's first stride read, so a search that ends sooner reads no clock; Jint passes the interval and keeps no clock of its own, except for an interval of a millisecond or less, which keeps an absolute deadline read at the search's start and first checked at the first stride, as before. The deadline can be late by one stride of work plus one bulk charge; retries after storage growth share one absolute deadline so growth does not restart it. |
 
 ### 4.2 In Jint
 

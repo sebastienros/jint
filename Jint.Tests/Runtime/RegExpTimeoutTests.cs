@@ -1,3 +1,6 @@
+#nullable enable
+
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Jint.Runtime.RegExp;
 using Jint.Runtime.RegExp.GregsEx;
@@ -5,10 +8,10 @@ using Jint.Runtime.RegExp.GregsEx;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// A search's regex timeout starts at the matcher's first clock read, after the first stride of work, instead of with a
-/// clock read for every search (GregsEx <c>RunBudget</c>'s deferred start). A search that ends sooner reads no clock;
-/// one that does not must still end in <see cref="RegexMatchTimeoutException"/> under the default timeout and under a
-/// small one, from every entry that searches, with the interval the engine was configured with.
+/// A search's regex timeout, when longer than a millisecond, starts at the matcher's first clock read, after the first
+/// stride of work, instead of with a clock read for every search (GregsEx <c>RunBudget</c>'s deferred start). A search
+/// that ends sooner reads no clock; one that does not must still end in <see cref="RegexMatchTimeoutException"/>, from
+/// every entry that searches, with the interval the engine was configured with.
 /// </summary>
 public class RegExpTimeoutTests
 {
@@ -17,6 +20,9 @@ public class RegExpTimeoutTests
 
     // The same without a capture group, so the split and global lanes that read only match ranges take it.
     private const string CatastrophicWithoutCaptures = "^(?:a|aa)+b$";
+
+    // A search that has to grow its backtracking storage, so it is retried: the lookahead keeps the pattern on the VM.
+    private const string NeedsFrames = "\"(?:[^\"\\\\]|\\\\.)*(?=\")\"";
 
     private static readonly string Subject = new string('a', 64) + "bb";
 
@@ -51,22 +57,25 @@ public class RegExpTimeoutTests
     }
 
     [Test]
-    public void ACatastrophicSearchEndsInTheDefaultTimeout()
+    public void TheDefaultEngineRunsEverySearchUnderTenSeconds()
     {
-        // The default is ten seconds, so this one waits them out: it is the only row that reads the default itself
-        // rather than a value the test chose.
+        // Pinned by value: waiting the interval out would put ten seconds in the suite on every target, and a wall-clock
+        // number is either the assertion or a wedge ceiling. What the interval does once it reaches the matcher is the
+        // rows above, with an interval short enough to wait for.
         var engine = new Engine();
-        engine.SetValue("S", Subject);
 
-        TimedOut(engine, "/" + Catastrophic + "/.test(S)").MatchTimeout.Should().Be(new ConstraintOptionsDefaults().RegexTimeout);
+        Engine.RegexConversionOptions.ResolveTimeout(null, engine).Should().Be(TimeSpan.FromSeconds(10));
+        engine.Evaluate("/^(a+)+b$/.test('aaab')").AsBoolean().Should().BeTrue();
     }
 
+    [TestCase(1)]
     [TestCase(10)]
     [TestCase(250)]
     public void ASearchShorterThanItsFirstStrideIsUnaffectedByTheTimeout(int milliseconds)
     {
-        // Such a search reads no clock, so whatever else it costs (the first call's JIT included) is no part of the
-        // timeout it runs under.
+        // Such a search checks no deadline, so whatever else it costs (the first call's JIT included) is no part of the
+        // timeout it runs under. At 1 ms that holds because the interval is not deferred: it is an absolute deadline
+        // read at the start of the search and first checked at the first stride.
         var engine = new Engine(o => o.Constraints.RegexTimeout = TimeSpan.FromMilliseconds(milliseconds));
 
         engine.Evaluate("/a(b+)c/.test('xabbbcx')").AsBoolean().Should().BeTrue();
@@ -77,9 +86,10 @@ public class RegExpTimeoutTests
 
     [TestCase(1)]
     [TestCase(0.01)]
-    public void ATimeoutOfAMillisecondOrLessIsArmedWithTheSearchAndStillEndsACatastrophicOne(double milliseconds)
+    public void ATimeoutOfAMillisecondOrLessIsMeasuredFromTheSearchStartAndStillEndsACatastrophicOne(double milliseconds)
     {
-        // GregsEx's short-deadline rule: such a timeout is not deferred, so it is exact rather than a stride late.
+        // Not deferred (see JintRegExpEngine.DeferredStartAbove): the deadline comes from a clock read at the start of the
+        // search and is first checked at the first stride, as it was before the budget could defer its start.
         var timeout = TimeSpan.FromMilliseconds(milliseconds);
         var engine = new Engine(o => o.Constraints.RegexTimeout = timeout);
         engine.SetValue("S", Subject);
@@ -105,18 +115,22 @@ public class RegExpTimeoutTests
         var splitter = JintRegExpEngine.Compile(CatastrophicWithoutCaptures, RegExpFlags.None);
         var groups = new RegexCapture[matcher.CaptureCount];
 
-        var actions = new Action[]
+        // Deferred (50 ms) and not (1 ms, the longest interval that is not).
+        foreach (var timeout in new[] { Small, TimeSpan.FromTicks(JintRegExpEngine.DeferredStartAbove) })
         {
-            () => matcher.TryMatch(Subject, 0, Small, groups),
-            () => matcher.TryFind(Subject, 0, Small, groups),
-            () => matcher.TryMatchRange(Subject, 0, Small, out _, out _),
-            () => matcher.IsMatch(Subject, 0, Small),
-            () => splitter.FindRanges(Subject, 0, Small, new RegexMatchRange[4]),
-        };
+            var actions = new Action[]
+            {
+                () => matcher.TryMatch(Subject, 0, timeout, groups),
+                () => matcher.TryFind(Subject, 0, timeout, groups),
+                () => matcher.TryMatchRange(Subject, 0, timeout, out _, out _),
+                () => matcher.IsMatch(Subject, 0, timeout),
+                () => splitter.FindRanges(Subject, 0, timeout, new RegexMatchRange[4]),
+            };
 
-        foreach (var action in actions)
-        {
-            action.Should().Throw<OperationCanceledException>();
+            foreach (var action in actions)
+            {
+                action.Should().Throw<OperationCanceledException>();
+            }
         }
     }
 
@@ -128,37 +142,62 @@ public class RegExpTimeoutTests
 
         matcher.IsMatch("xabbcx", 0, Small).Should().BeTrue();
         matcher.IsMatch("xabbcx", 0, null).Should().BeTrue();
-        matcher.TryMatch("xabbcx", 0, TimeSpan.FromSeconds(10), groups).Should().BeTrue();
+
+        // An interval too short for a clock to resolve is not deferred and checks nothing before the first stride.
+        matcher.TryMatch("xabbcx", 0, TimeSpan.FromTicks(1), groups).Should().BeTrue();
         groups[1].Index.Should().Be(2);
         groups[1].Length.Should().Be(2);
         matcher.TryMatch("none", 0, Small, groups).Should().BeFalse();
     }
 
-    [Test]
-    public void AGrowingSearchAnswersWithAndWithoutATimeout()
+    [TestCase(null)]
+    [TestCase(60_000)]
+    public void ASearchThatOutgrowsItsFramesIsRetriedAndAnswersTheSameUnderAnyTimeout(int? milliseconds)
     {
-        // Backtracking storage that outgrows the first plan retries the search; the retries share one absolute
-        // deadline (see JintRegExpEngine.SearchSlow), so growth neither loses an answer nor restarts the timeout.
-        var matcher = JintRegExpEngine.Compile("^(?:a|b)*c$", RegExpFlags.None);
+        // A search that exhausts the frames it started with is retried with more (see JintRegExpEngine.SearchSlow), which
+        // is where a timeout that began at the first attempt's clock read has to be carried over. A fresh matcher each
+        // time, so the plan an earlier call grew cannot spare this one the retry, and PlannedFrames says it grew.
+        TimeSpan? timeout = milliseconds is { } ms ? TimeSpan.FromMilliseconds(ms) : null;
+        var matcher = JintRegExpEngine.Compile(NeedsFrames, RegExpFlags.None);
         var groups = new RegexCapture[matcher.CaptureCount];
-        var subject = string.Concat(Enumerable.Repeat("ab", 30_000)) + "c";
+        var subject = "\"" + string.Concat(Enumerable.Repeat("a\\\"b", 20_000)) + "\"";
+        var before = matcher.PlannedFrames;
 
-        matcher.TryMatch(subject, 0, null, groups).Should().BeTrue();
-        matcher.TryMatch(subject, 0, TimeSpan.FromMinutes(1), groups).Should().BeTrue();
-        matcher.TryMatchRange(subject, 0, TimeSpan.FromMinutes(1), out var index, out var length).Should().BeTrue();
+        matcher.TryMatch(subject, 0, timeout, groups).Should().BeTrue();
+        groups[0].Length.Should().Be(subject.Length);
+        matcher.PlannedFrames.Should().BeGreaterThan(before);
+
+        var ranged = JintRegExpEngine.Compile(NeedsFrames, RegExpFlags.None);
+        var rangedBefore = ranged.PlannedFrames;
+        ranged.TryMatchRange(subject, 0, timeout, out var index, out var length).Should().BeTrue();
         index.Should().Be(0);
         length.Should().Be(subject.Length);
+        ranged.PlannedFrames.Should().BeGreaterThan(rangedBefore);
 
-        // ... and the same search, grown on its first batch, under a timeout that cannot be met.
+        // FindRanges hands a batch that outgrew its frames to the same slow path.
+        var batched = JintRegExpEngine.Compile(NeedsFrames, RegExpFlags.None);
+        var batchedBefore = batched.PlannedFrames;
         var ranges = new RegexMatchRange[4];
-        var found = matcher.FindRanges(subject, 0, TimeSpan.FromMinutes(1), ranges);
-        found.Should().Be(1);
+        batched.FindRanges(subject, 0, timeout, ranges).Should().Be(1);
         ranges[0].Length.Should().Be(subject.Length);
+        batched.PlannedFrames.Should().BeGreaterThan(batchedBefore);
     }
 
-    // Stands in for the engine default without restating it: the constraint's own initial value.
-    private sealed class ConstraintOptionsDefaults
+    [Test]
+    public void RetriesShareTheDeadlineTheFirstAttemptsTimeoutBeganAt()
     {
-        public TimeSpan RegexTimeout { get; } = new Options().Constraints.RegexTimeout;
+        // The conversion every retry goes through: from where the interval began, not from the retry, and never beyond
+        // the range of a timestamp.
+        var interval = TimeSpan.FromSeconds(3);
+        var ticks = (long) (interval.TotalSeconds * Stopwatch.Frequency);
+
+        JintRegExpEngine.AbsoluteDeadline(interval, 1_000).Should().Be(1_000 + ticks);
+        JintRegExpEngine.AbsoluteDeadline(null, 1_000).Should().Be(long.MaxValue);
+        JintRegExpEngine.AbsoluteDeadline(TimeSpan.MaxValue, 1_000).Should().Be(long.MaxValue);
+
+        // An attempt that never read the clock has no start to carry: now is as good as any.
+        var before = Stopwatch.GetTimestamp();
+        var deadline = JintRegExpEngine.AbsoluteDeadline(interval, 0);
+        deadline.Should().BeInRange(before + ticks, Stopwatch.GetTimestamp() + ticks);
     }
 }
