@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1323
+anchors: 1324
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -552,6 +552,7 @@ ecma262 sec-ordinary-object-internal-methods-and-internal-slots-hasproperty-p
 ecma262 sec-ordinarycallbindthis
 ecma262 sec-ordinarycallevaluatebody
 ecma262 sec-ordinarycreatefromconstructor
+ecma262 sec-ordinarydelete
 ecma262 sec-ordinaryfunctioncreate
 ecma262 sec-ordinaryget
 ecma262 sec-ordinaryhasinstance
