@@ -276,6 +276,8 @@ internal sealed class DisposeCapability
         var result = _disposeCompletion;
         _disposableResourceStack.Clear();
         _disposeResume = DisposeResumePoint.None;
+        // a long-lived stack must not keep the realm that disposed it alive
+        _disposeRealm = null!;
         return DisposeStepResult.Done(result);
     }
 

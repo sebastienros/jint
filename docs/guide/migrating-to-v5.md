@@ -8133,8 +8133,8 @@ of `""`, which only the constructor defines:
 ```js
 let e;
 try { using a = { [Symbol.dispose]() { throw 1; } }; throw 2; } catch (x) { e = x; }
-Object.hasOwn(e, 'message')   // earlier previews: true    5.x: false
-Object.getOwnPropertyNames(e) // earlier previews: ['message', 'error', 'suppressed']    5.x: ['error', 'suppressed']
+Object.hasOwn(e, 'message')   // 4.x / earlier previews: true    5.x: false
+Object.getOwnPropertyNames(e) // 4.x / earlier previews: ['message', 'error', 'suppressed']    5.x: ['error', 'suppressed']
 e.message                     // '' in both: it inherits `SuppressedError.prototype.message`
 ```
 
@@ -8142,7 +8142,7 @@ e.message                     // '' in both: it inherits `SuppressedError.protot
 copies an error's own properties sees the difference. `new SuppressedError(error, suppressed, "")` still defines
 its own `message`. Node gives the error a message of its own wording, which the specification does not.
 
-The error is also built in the realm of the code that is disposing. In a second realm (`ShadowRealm`, or `$262.createRealm()`)
+The error is also built in the realm of the code that is disposing. In a second realm (a `ShadowRealm`, or a child frame's window in `Jint.Browser`)
 it used to belong to whichever realm was running when the dispose settled, so an `await using` in a function of
 another realm resumed from a job, an async generator's `await using`, and a generator's `using` whose body had been
 left gave a main-realm `SuppressedError`, and a stack's `dispose` called another realm's built-in gave the caller's.
