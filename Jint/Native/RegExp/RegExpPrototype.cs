@@ -42,9 +42,9 @@ internal sealed partial class RegExpPrototype : Prototype
     private readonly RegExpConstructor _constructor;
 
     // exec is a per-realm instance slot (not a [JsFunction]): HasDefaultExec compares the current exec
-    // value's underlying delegate against _defaultExec to detect user replacement, so it must be a
-    // ClrFunction wrapping _defaultExec with a stable per-realm identity — which the shape's instance slot
-    // provides (a generated dispatcher would be a different Function subtype and break the check).
+    // value against this function to detect user replacement, so it must be a ClrFunction wrapping
+    // _defaultExec with a stable per-realm identity — which the shape's instance slot provides (a generated
+    // dispatcher would be a different Function subtype and break the check).
     [JsProperty(Name = "exec", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
     private readonly ClrFunction _execFunction;
 
@@ -1807,16 +1807,54 @@ internal sealed partial class RegExpPrototype : Prototype
     /// extra time — with <c>RegExp.prototype</c> itself as the receiver rather than the regexp being
     /// matched, which is observable and simply wrong.
     /// </para>
+    /// <para>
+    /// The answer is a comparison of two fields while nothing has changed: the descriptor found the last time
+    /// is kept with the own-property version it was found at, so only a change to the prototype's own
+    /// properties sends the call back to the lookup.
+    /// </para>
     /// </summary>
     internal bool HasDefaultExec
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            var descriptor = GetOwnProperty(PropertyExec);
-            return !descriptor.IsAccessorDescriptor()
-                   && UnwrapJsValue(descriptor) is ClrFunction functionInstance
-                   && functionInstance._func == _defaultExec;
+            // While the own-property version still matches the one the descriptor was confirmed against, it is
+            // still the descriptor exec resolves to: replacing it, turning it into an accessor and deleting it
+            // all go through SetOwnProperty, SetProperty or RemoveOwnProperty, which move the version. What
+            // none of them touch is the value inside it, since an assignment or a defineProperty with a value
+            // updates the descriptor in place, so the value is compared on every call.
+            var descriptor = _execDescriptor;
+            if (descriptor is not null
+                && _propertiesVersion == _execDescriptorVersion
+                && ReferenceEquals(descriptor._value, _execFunction))
+            {
+                return true;
+            }
+
+            return HasDefaultExecSlow();
         }
+    }
+
+    // The own descriptor of exec, and the own-property version at which it was last seen holding the built-in
+    // function. Left null until the first query, and never set for a descriptor that is not a plain data one.
+    private PropertyDescriptor? _execDescriptor;
+    private uint _execDescriptorVersion;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool HasDefaultExecSlow()
+    {
+        var descriptor = GetOwnProperty(PropertyExec);
+        var isDefault = !descriptor.IsAccessorDescriptor()
+                        && UnwrapJsValue(descriptor) is ClrFunction functionInstance
+                        && functionInstance._func == _defaultExec;
+
+        if (isDefault && (descriptor._flags & PropertyFlag.CustomJsValue) == PropertyFlag.None)
+        {
+            _execDescriptor = descriptor;
+            _execDescriptorVersion = _propertiesVersion;
+        }
+
+        return isDefault;
     }
 
     /// <summary>
