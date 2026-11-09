@@ -1958,10 +1958,11 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     /// <summary>
     /// The <c>MaxArraySize</c> check for a list whose length script chose and which is built without an array
-    /// constructor to make it: an argument list, or a list a web API hands out. One compare against the configured
-    /// limit, before the list is allocated, which an engine without a limit never fails.
+    /// constructor to make it: an argument list a run-time count lengthens, or a list a web API hands out. A call, not
+    /// an inlined compare, because every caller is either cold or has already found the limit set
+    /// (<see cref="Engine._hasMaxArraySize"/>).
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void ValidateListLength(Engine engine, ulong length)
     {
         if (length > engine.Options.Constraints.MaxArraySize)
@@ -1970,7 +1971,19 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         }
     }
 
+    internal static void ThrowMaximumArraySizeReachedException(Engine engine, uint capacity)
+    {
+        Throw.MemoryLimitExceededException(
+            $"The array size {capacity} is larger than maximum allowed ({engine.Options.Constraints.MaxArraySize})"
+        );
+    }
+
+    /// <summary>
+    /// <see cref="ThrowMaximumArraySizeReachedException(Engine, uint)"/> for a list whose count can pass
+    /// <see cref="uint.MaxValue"/>, such as a spread list's running total. Same message.
+    /// </summary>
     [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void ThrowMaximumArraySizeReachedException(Engine engine, ulong capacity)
     {
         Throw.MemoryLimitExceededException(

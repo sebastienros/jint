@@ -120,27 +120,16 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
     public abstract JsValue Get(ulong index);
 
-    /// <summary>
-    /// Reads every element into a new list. A caller whose list a script sized passes the engine's
-    /// <c>MaxArraySize</c> as <paramref name="maxLength"/>, which is checked after the one read of <c>"length"</c> and
-    /// before the list is allocated (sebastienros/jint#4505).
-    /// </summary>
     public virtual JsValue[] GetAll(
         Types elementTypes = Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.BigInt | Types.Object,
         bool skipHoles = false,
-        Realm? errorRealm = null,
-        ulong maxLength = ulong.MaxValue)
+        Realm? errorRealm = null)
     {
         uint writeIndex = 0;
         var length = GetLongLength();
         if (length > ClrLimits.MaxArrayLength)
         {
             Throw.RangeError(errorRealm ?? Target.Engine.Realm, "Invalid array-like length");
-        }
-
-        if (length > maxLength)
-        {
-            ArrayInstance.ThrowMaximumArraySizeReachedException(Target.Engine, length);
         }
 
         var n = (int) length;
@@ -161,6 +150,55 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             }
 
             jsValues[writeIndex++] = jsValue;
+        }
+
+        return jsValues;
+    }
+
+    /// <summary>
+    /// <see cref="GetAll"/> for a list a script sized, on an engine with a <c>MaxArraySize</c>: the one read of
+    /// <c>"length"</c>, then the limit, then the elements, so a refused list is never allocated and no element of it
+    /// is read (sebastienros/jint#4505). It is a twin rather than a parameter on <see cref="GetAll"/> because
+    /// <see cref="GetAll"/> is inlined into <c>JsProxy.ValidateOwnKeysTrapResult</c>, and any change to it, a
+    /// signature alone included, moved the inliner's other decisions there and slowed that path. The loop is
+    /// <see cref="GetAll"/>'s with <c>skipHoles</c> off; keep the two in step.
+    /// </summary>
+    internal JsValue[] GetAllWithinLimit(uint maxLength, Types elementTypes, Realm errorRealm)
+    {
+        var length = GetLongLength();
+        if (length > ClrLimits.MaxArrayLength)
+        {
+            Throw.RangeError(errorRealm, "Invalid array-like length");
+        }
+
+        if (length > maxLength)
+        {
+            ArrayInstance.ThrowMaximumArraySizeReachedException(Target.Engine, (uint) length);
+        }
+
+        // An array's "length" is an own data property, so reading it again observes nothing, and the array lane
+        // keeps its dense copy. Any other array-like is read here, once.
+        if (this is JsArrayOperations)
+        {
+            return GetAll(elementTypes, skipHoles: false, errorRealm);
+        }
+
+        var n = (int) length;
+        var jsValues = new JsValue[n];
+        for (uint i = 0; i < (uint) n; i++)
+        {
+            if (i > 0 && i % Engine.ConstraintCheckInterval == 0)
+            {
+                Target.Engine.Constraints.Check();
+            }
+
+            var jsValue = Get(i);
+            if ((jsValue.Type & elementTypes) == Types.Empty)
+            {
+                Throw.TypeErrorNoEngine("invalid type");
+            }
+
+            jsValues[i] = jsValue;
         }
 
         return jsValues;
@@ -331,8 +369,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         public override JsValue[] GetAll(
             Types elementTypes = Types.Empty | Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Number | Types.Symbol | Types.BigInt | Types.Object,
             bool skipHoles = false,
-            Realm? errorRealm = null,
-            ulong maxLength = ulong.MaxValue)
+            Realm? errorRealm = null)
         {
             var n = _target.GetLength();
             if (n > ClrLimits.MaxArrayLength)
@@ -340,15 +377,9 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
                 Throw.RangeError(errorRealm ?? _target.Engine.Realm, "Invalid array-like length");
             }
 
-            // A sparse array's length is not bounded by MaxArraySize, so the list it asks for is checked here too.
-            if (n > maxLength)
-            {
-                ArrayInstance.ThrowMaximumArraySizeReachedException(_target.Engine, n);
-            }
-
             if (_target._dense == null || _target._dense.Length < n)
             {
-                return base.GetAll(elementTypes, skipHoles, errorRealm, maxLength);
+                return base.GetAll(elementTypes, skipHoles, errorRealm);
             }
 
             // optimized

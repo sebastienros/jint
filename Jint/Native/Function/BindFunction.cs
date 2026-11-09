@@ -185,11 +185,11 @@ public sealed class BindFunction : Function, IConstructor
         var length = boundArguments.Length + arguments.Length;
 
         // The bound arguments and the call's were each bounded where they were built, but a chain of binds adds them
-        // up, so the list made of them is held to MaxArraySize too (sebastienros/jint#4505). A bind with no arguments
-        // of its own makes a list no longer than the call's, and does not read the limit.
-        if (boundArguments.Length != 0 && (ulong) length > _engine._maxListLength)
+        // up, so the list made of them is held to MaxArraySize too (sebastienros/jint#4505). A default engine pays one
+        // byte test; a bind with no arguments of its own makes a list no longer than the call's, and is not checked.
+        if (_engine._hasMaxArraySize && boundArguments.Length != 0)
         {
-            ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, (ulong) length);
+            ArrayInstance.ValidateListLength(_engine, (ulong) length);
         }
 
         var combined = _engine._jsValueArrayPool.RentArray(length);

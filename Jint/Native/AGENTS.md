@@ -55,12 +55,27 @@ for a finished list: one compare, then a single copy, where `CreateArrayFromList
 
 **An argument list is bounded where it is built, never where it lands.** The rest parameter
 (`FunctionEnvironment.HandleRestElementArray`) and the `arguments` object take the list unchecked, so a call without a
-spread pays nothing. What makes a list longer than its source is checked instead: the spread builder
-(`ExpressionCache.BuildArgumentsWithSpreads`, which array literals share), `CreateListFromArrayLike` before it
-allocates, and a bound function's `CreateArguments`. Each compares against `Engine._maxListLength`, where no limit is
-`ulong.MaxValue`, so a default engine's compare never fails
-([#4505](https://github.com/sebastienros/jint/issues/4505)). A new path that builds a list from a run-time count owes
-the same check, and a list a web API fills from what script stored takes `ArrayInstance.ValidateListLength` before
-allocating. A list the host already built is exempt, because the check would bound no memory. Two such lists are
-a host's own argument array and a CLR `ProxyHandler`'s `OwnKeys`, which `JsProxy` passes to
-`CreateListFromArrayLike` with no limit.
+spread pays nothing. What makes a list longer than its source is checked instead
+([#4505](https://github.com/sebastienros/jint/issues/4505)):
+- the spread builder, `ExpressionCache.BuildArgumentsWithSpreads`, which array literals share;
+- the array-like list behind `apply`, `Reflect.apply`, `Reflect.construct` and a script `ownKeys` trap;
+- a bound function's `CreateArguments`.
+
+Each tests `Engine._hasMaxArraySize`, so a default engine pays one byte test, and only an engine with a limit reaches
+the out-of-line `ArrayInstance.ValidateListLength` or `FunctionPrototype.CreateListFromArrayLikeWithinLimit`, which
+checks the length after its one read and before allocating. A new path that builds a list from a run-time count owes
+the same check, and a list a web API fills from what script stored takes `ValidateListLength` before allocating. A list
+the host already built is exempt, because the check would bound no memory: a host's own argument array, and a CLR
+`ProxyHandler`'s `OwnKeys`, which never reaches the bound.
+
+**Keep the bound off the inlined lane.** `CreateListFromArrayLike`, both `ArrayOperations.GetAll`s and
+`JsProxy.ValidateOwnKeysTrapResult` compile as they did before the bound, and the bound sits beside them. That shape
+was measured into place:
+- A first version snapshotted the limit as an 8-byte `Engine` field. That moved every primitive field after it by
+  8 bytes, the hot flags and counters among them; a `bool` declared after the other flags sits in padding.
+- It also passed the limit through `CreateListFromArrayLike` and `GetAll`, which `ValidateOwnKeysTrapResult` inlines.
+  Any change there, an unused parameter included, flipped the inliner's other decisions in that method:
+  `ArrayOperations.For` stopped being inlined, and a copy of `ObjectInstance.GetOwnPropertyKeys` was inlined instead.
+  `ProxyBenchmark.OwnKeysTrap` measured 6% slower.
+
+Check a change near there with `DOTNET_JitDisasm` against the method's inlinee counts before and after.

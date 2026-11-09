@@ -209,7 +209,7 @@ internal sealed class ExpressionCache
     internal int BuildArgumentsWithSpreads(EvaluationContext context, List<JsValue> target, int startIndex = 0)
     {
         var engine = context.Engine;
-        var maxListLength = engine._maxListLength;
+        var limited = engine._hasMaxArraySize;
         var expressions = _expressions;
         int i = startIndex;
         for (; (uint) i < (uint) expressions.Length; i++)
@@ -233,10 +233,9 @@ internal sealed class ExpressionCache
                 if (argument is JsArray ai && ai.HasOriginalIterator(out iteratorMethod))
                 {
                     var length = ai.GetLength();
-                    var total = (ulong) (uint) target.Count + length;
-                    if (total > maxListLength)
+                    if (limited)
                     {
-                        ArrayInstance.ThrowMaximumArraySizeReachedException(engine, total);
+                        ArrayInstance.ValidateListLength(engine, (ulong) (uint) target.Count + length);
                     }
 
                     for (uint j = 0; j < length; ++j)
@@ -248,9 +247,9 @@ internal sealed class ExpressionCache
                 else
                 {
                     var iterator = jse.GetIterator(engine.Realm, argument, iteratorMethod);
-                    IteratorProtocol protocol = maxListLength == ulong.MaxValue
-                        ? new ArraySpreadProtocol(engine, target, iterator)
-                        : new BoundedArraySpreadProtocol(engine, target, iterator, maxListLength);
+                    IteratorProtocol protocol = limited
+                        ? new BoundedArraySpreadProtocol(engine, target, iterator)
+                        : new ArraySpreadProtocol(engine, target, iterator);
                     protocol.Execute();
                 }
             }
@@ -270,9 +269,9 @@ internal sealed class ExpressionCache
         }
 
         // The spreads were checked as they went; this counts the arguments written beside them.
-        if ((ulong) target.Count > maxListLength)
+        if (limited)
         {
-            ArrayInstance.ThrowMaximumArraySizeReachedException(engine, (uint) target.Count);
+            ArrayInstance.ValidateListLength(engine, (uint) target.Count);
         }
 
         return i;
@@ -348,23 +347,22 @@ internal sealed class ExpressionCache
     {
         private readonly Engine _engine;
         private readonly List<JsValue> _instance;
-        private readonly ulong _maxListLength;
+        private readonly uint _maxArraySize;
 
         public BoundedArraySpreadProtocol(
             Engine engine,
             List<JsValue> instance,
-            IteratorInstance iterator,
-            ulong maxListLength) : base(engine, iterator, 0)
+            IteratorInstance iterator) : base(engine, iterator, 0)
         {
             _engine = engine;
             _instance = instance;
-            _maxListLength = maxListLength;
+            _maxArraySize = engine.Options.Constraints.MaxArraySize;
         }
 
         protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
         {
             var count = (ulong) _instance.Count;
-            if (count >= _maxListLength)
+            if (count >= _maxArraySize)
             {
                 ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, count + 1);
             }

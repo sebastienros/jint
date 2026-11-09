@@ -1736,13 +1736,6 @@ public sealed partial class Engine : IDisposable
     // track depth at all from the same value (see the JintCallStack construction below).
     internal readonly int _maxRecursionDepth;
 
-    // Options.Constraints.MaxArraySize for the argument lists a run-time count lengthens: a spread, an array-like
-    // handed to apply/Reflect.apply/Reflect.construct, a bound function's arguments (sebastienros/jint#4505). The
-    // default uint.MaxValue means no limit, so it is ulong.MaxValue here and a list's ulong count can never exceed it.
-    // Taken beside _maxRecursionDepth, after Options.Apply, for the same reason, and read only by code that runs script;
-    // array construction keeps reading the option, since it can run while the engine is still being built.
-    internal readonly ulong _maxListLength;
-
     internal Constraint[] ActiveConstraintsForSecurityDiagnostics => _constraints;
     internal readonly EngineSecurityConfigurationSnapshot _securityConfigurationSnapshot;
 
@@ -2024,7 +2017,7 @@ public sealed partial class Engine : IDisposable
             && ReferenceEquals(_referenceResolver, NullPropagatingReferenceResolver.Instance);
 
         _maxRecursionDepth = Options.Constraints.EffectiveMaxRecursionDepth;
-        _maxListLength = Options.Constraints.MaxArraySize == uint.MaxValue ? ulong.MaxValue : Options.Constraints.MaxArraySize;
+        _hasMaxArraySize = Options.Constraints.MaxArraySize != uint.MaxValue;
 
         _operatorOverloadingAllowed = Options.Interop.AllowOperatorOverloading;
 
@@ -2256,6 +2249,15 @@ public sealed partial class Engine : IDisposable
     // brand-new-key lane of ObjectInstance.CreateDataProperty all exclude a built-in-shape object, so by the time one of
     // them can reach this prototype, this field is already set.
     internal bool _arrayIteratorNextMayBeReplaced;
+
+    // Whether Options.Constraints.MaxArraySize is set (it is not uint.MaxValue), for the lists a run-time count lengthens:
+    // a spread, an array-like handed to apply/Reflect.apply/Reflect.construct, a script ownKeys trap's result, a bound
+    // function's arguments (sebastienros/jint#4505). Taken beside _maxRecursionDepth, after Options.Apply, and read only
+    // by code that runs script; the limit itself is read from the option behind it, on an engine that has one. A bool
+    // so that a default engine pays one byte test, and declared after the other flags so that it lands in the padding
+    // before the struct fields: an 8-byte snapshot moved every primitive field after it, the hot flags and counters
+    // among them, by 8 bytes.
+    internal readonly bool _hasMaxArraySize;
 
     /// <summary>
     /// The block-level function declarations of the sloppy direct or indirect eval whose body is

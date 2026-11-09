@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -266,10 +267,6 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var target = _target;
 
         JsValue result;
-        // A script trap's result is an array-like whose "length" the script chose, so its list is held to MaxArraySize;
-        // a CLR handler's keys are a list the host already built, which the check would bound no memory of
-        // (sebastienros/jint#4505).
-        ulong? maxLength = null;
         var clrHandler = _clrHandler;
         if (clrHandler is not null)
         {
@@ -280,7 +277,6 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             }
 
             result = CreateOwnKeysArray(clrResult);
-            maxLength = ulong.MaxValue;
         }
         else
         {
@@ -292,9 +288,39 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             }
 
             result = CallTrap(handler, trap, target);
+            if (_engine._hasMaxArraySize)
+            {
+                result = BoundOwnKeysTrapResult(result);
+            }
         }
 
-        return ValidateOwnKeysTrapResult(target, result, maxLength);
+        return ValidateOwnKeysTrapResult(target, result);
+    }
+
+    /// <summary>
+    /// A script trap's result is an array-like whose <c>"length"</c> the script chose, so on an engine with a
+    /// <c>MaxArraySize</c> it is held to the limit before <see cref="ValidateOwnKeysTrapResult"/> reads it
+    /// (sebastienros/jint#4505). An array's length is an own data property, so checking it observes nothing. Any other
+    /// array-like is read here, once and under the limit, and handed on as an array, whose second read observes
+    /// nothing either. <see cref="ValidateOwnKeysTrapResult"/> is left as it was: it inlines
+    /// <c>CreateListFromArrayLike</c>, and any change there moved the inliner's other decisions in it. A CLR handler's
+    /// keys are a list the host already built, which the limit would bound no memory of, and do not come here.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue BoundOwnKeysTrapResult(JsValue result)
+    {
+        if (result is JsArray array)
+        {
+            var length = array.GetLength();
+            if (length > _engine.Options.Constraints.MaxArraySize)
+            {
+                ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, length);
+            }
+
+            return result;
+        }
+
+        return new JsArray(_engine, FunctionPrototype.CreateListFromArrayLikeWithinLimit(_engine.Realm, result, Types.String | Types.Symbol));
     }
 
     private JsArray CreateOwnKeysArray(IReadOnlyList<JsValue> keys)
@@ -316,9 +342,9 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         return new JsArray(_engine, copy);
     }
 
-    private List<JsValue> ValidateOwnKeysTrapResult(ObjectInstance target, JsValue result, ulong? maxLength)
+    private List<JsValue> ValidateOwnKeysTrapResult(ObjectInstance target, JsValue result)
     {
-        var keys = FunctionPrototype.CreateListFromArrayLike(_engine.Realm, result, Types.String | Types.Symbol, maxLength);
+        var keys = FunctionPrototype.CreateListFromArrayLike(_engine.Realm, result, Types.String | Types.Symbol);
 
         // one set serves both duplicate detection and the spec's uncheckedResultKeys below
         var uncheckedResultKeys = new HashSet<JsValue>();
