@@ -8098,6 +8098,31 @@ WebIDL's text has no close ([whatwg/webidl#895](https://github.com/whatwg/webidl
 [whatwg/webidl#1662](https://github.com/whatwg/webidl/pull/1662), which proposes one, as Safari already behaves. There
 is no switch back.
 
+### 4.224 `yield*` in an async generator awaits the delegate's `return` before `throw()` fails ([#4498](https://github.com/sebastienros/jint/issues/4498))
+
+An async generator suspended in `yield*` and resumed with `throw()` closes a delegate that has no `throw` method, and
+then throws a `TypeError`. The close now awaits what the delegate's `return` answered, as a `for await` that leaves
+its loop early already did. In 4.x and earlier 5.0 builds Jint called `return` and threw the `TypeError` at once:
+
+```js
+const it = { next() { return { value: 1, done: false }; }, return() { return Promise.reject('R'); } };
+const g = (async function* () { yield* { [Symbol.asyncIterator]() { return it; } }; })();
+await g.next();
+await g.throw('T');
+// 4.x / earlier 5.0: rejects with TypeError    5.x: rejects with 'R'
+```
+
+What the `yield*` throws now depends on how that answer settles. A rejection is thrown as it is, and so is an error
+from reading the promise's `constructor`. An answer that settles to something other than an object throws a
+`TypeError` for that. Only an object lets the close complete, and then the `TypeError` for the missing `throw`
+follows. A thenable's `then` is called, where it used to be ignored. Except for an error from `constructor`, which is
+thrown inside the call, the error reaches a `catch` around the `yield*` one microtask after the `throw()` call (two for
+a thenable), as in V8, where it used to arrive inside the call. A `next()` made meanwhile waits for it.
+
+A wrapped CLR collection's iterator returned from a script's `Symbol.asyncIterator` is disposed once that answer has
+settled, not when `return` is called. A delegate with no `return` still throws the `TypeError` at once, and a
+generator's `yield*` is unchanged: its close awaits nothing. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

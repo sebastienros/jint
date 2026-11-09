@@ -186,6 +186,10 @@ public class ClrEnumeratorDisposalTests
     [TestCase("fromAsyncMapperThrows", "prototype", "ok", "threw:M", 1)]
     [TestCase("fromAsyncMapperThrows", "null", "ok", "threw:M", 0)]
     [TestCase("asyncYieldStarThrow", "own", "ok", "threw:TypeError", 1)]
+    [TestCase("asyncYieldStarThrow", "own", "throws", "threw:R", 1)]
+    [TestCase("asyncYieldStarThrow", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("asyncYieldStarThrow", "prototype", "ok", "threw:TypeError", 1)]
+    [TestCase("asyncYieldStarThrow", "null", "ok", "threw:TypeError", 0)]
     public void AScriptReturnOnAClrIteratorIsCalledAndTheEnumeratorStillDisposed(string way, string where, string kind, string expected, int calls)
     {
         var items = new CountingEnumerable();
@@ -234,6 +238,9 @@ public class ClrEnumeratorDisposalTests
     [TestCase("asyncIteratorBreak", "throws", "threw:R")]
     [TestCase("asyncIteratorBreak", "nonObject", "threw:TypeError")]
     [TestCase("asyncIteratorThrow", "ok", "caught:E")]
+    [TestCase("asyncYieldStarThrow", "ok", "threw:TypeError")]
+    [TestCase("asyncYieldStarThrow", "throws", "threw:R")]
+    [TestCase("asyncYieldStarThrow", "nonObject", "threw:TypeError")]
     public void AHostDisposeThatThrowsAfterAScriptReturnDoesNotReplaceAThrowThatIsLeaving(string way, string kind, string expected)
     {
         var items = new FaultingEnumerable("dispose");
@@ -323,6 +330,50 @@ public class ClrEnumeratorDisposalTests
             })()
             """).UnwrapIfPromise().AsString().Should().Be("TypeError");
         items.Disposals.Should().Be(1);
+    }
+
+    /// <summary>
+    /// An asynchronous close disposes the enumerator once what the script's <c>return</c> answered has settled
+    /// (<a href="https://tc39.es/ecma262/#sec-asynciteratorclose">AsyncIteratorClose</a> step 4.d), so a <c>return</c>
+    /// still using the iterator until its promise settles finds it whole. A <c>for await</c> left by <c>break</c> is the
+    /// control. <c>yield*</c> handed a <c>throw()</c> its delegate has no <c>throw</c> for awaited nothing and disposed at
+    /// the call (sebastienros/jint#4498).
+    /// </summary>
+    [TestCase("forAwaitBreak", "pending 0 done settled 1")]
+    [TestCase("asyncYieldStarThrow", "pending 0 TypeError settled 1")]
+    public void AnAsynchronousCloseDisposesTheEnumeratorOnceTheReturnHasSettled(string way, string expected)
+    {
+        var items = new CountingEnumerable();
+        var engine = new Engine();
+        engine.SetValue("items", items);
+        engine.SetValue("disposals", new Func<int>(() => items.Disposals));
+
+        engine.Evaluate($$"""
+            (async function () {
+                const it = items[Symbol.iterator]();
+                let settle;
+                it.return = function () { return new Promise(function (resolve) { settle = resolve; }); };
+                const operand = { [Symbol.asyncIterator]() { return it; } };
+                const leave = {
+                    forAwaitBreak: async function () { for await (const x of operand) { break; } return 'done'; },
+                    asyncYieldStarThrow: async function () {
+                        const g = (async function* () { yield* operand; })();
+                        await g.next();
+                        await g.throw('T');
+                        return 'no throw';
+                    }
+                };
+                const p = leave.{{way}}().catch(function (e) { return e.constructor.name; });
+                for (let i = 0; i < 10; i++) { await null; }
+                const out = [settle ? 'pending ' + disposals() : 'return not called'];
+                settle({});
+                out.push(await p);
+                out.push('settled ' + disposals());
+                return out.join(' ');
+            })()
+            """).UnwrapIfPromise().AsString().Should().Be(expected);
+        items.Disposals.Should().Be(1);
+        items.StepsAfterDisposal.Should().Be(0);
     }
 
     private const string YieldStarReturnHarness = """
