@@ -153,15 +153,16 @@ internal static class GeometryConversion
 
     /// <summary>
     /// https://drafts.fxtf.org/geometry/#dom-dommatrixreadonly-dommatrixreadonly — the
-    /// <c>(DOMString or sequence&lt;unrestricted double&gt;)</c> union: an object with an <c>@@iterator</c> is the
-    /// sequence, anything else the string (https://webidl.spec.whatwg.org/#es-union).
+    /// <c>(DOMString or sequence&lt;unrestricted double&gt;)</c> union: an object whose <c>@@iterator</c> is a method is
+    /// the sequence, anything else the string (https://webidl.spec.whatwg.org/#es-union). <c>@@iterator</c> is read
+    /// once, and the sequence is created from the method that read found.
     /// </summary>
     internal static (double[] Elements, bool Is2D) MatrixConstructorInit(DomRealm realm, JsValue value, string interfaceName)
     {
         var owning = realm.OwningRealm;
-        if (value is ObjectInstance instance && instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is not null)
+        if (value is ObjectInstance instance && instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is { } iteratorMethod)
         {
-            var iterator = value.GetIterator(owning);
+            var iterator = value.GetIterator(owning, method: iteratorMethod);
             var values = new List<double>(16);
             while (iterator.TryIteratorStepValue(out var item))
             {

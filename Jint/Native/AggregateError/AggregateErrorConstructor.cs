@@ -1,3 +1,4 @@
+using Jint.Native.Array;
 using Jint.Native.Error;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;
@@ -57,8 +58,33 @@ internal sealed class AggregateErrorConstructor : Constructor
         o.InstallErrorCause(options);
 
         var errorsList = TypedArrayConstructor.IterableToList(_realm, errors);
-        o.DefinePropertyOrThrow("errors", new PropertyDescriptor(_realm.Intrinsics.Array.CreateArrayFromList(errorsList), configurable: true, enumerable: false, writable: true));
+        DefineErrors(o, _realm.Intrinsics.Array.CreateArrayFromList(errorsList));
 
         return o;
+    }
+
+    /// <summary>
+    /// The "newly created AggregateError object" that <c>Promise.any</c> rejects with, built from the list of
+    /// rejection reasons it collected (https://tc39.es/ecma262/#sec-performpromiseany).
+    /// </summary>
+    /// <remarks>
+    /// This is not <see cref="Construct"/>: the specification creates the error and defines <c>errors</c> from
+    /// <c>CreateArrayFromList</c> itself, so nothing here iterates <paramref name="errors"/> through
+    /// <c>Array.prototype[Symbol.iterator]</c> or reads the <c>AggregateError</c> global, both of which a script
+    /// can replace. The prototype is this realm's %AggregateError.prototype%, and no <c>message</c> is set. The
+    /// array goes through <c>ArrayCreate</c> like any other, so <c>Constraints.MaxArraySize</c> still bounds it.
+    /// </remarks>
+    internal JsError CreateFromList(List<JsValue> errors)
+    {
+        var o = new JsError(_engine) { _prototype = PrototypeObject };
+        o._stackCapture = ErrorConstructor.BuildStackTraceCapture(_engine, this);
+
+        DefineErrors(o, _realm.Intrinsics.Array.CreateArrayFromList(errors));
+        return o;
+    }
+
+    private static void DefineErrors(JsError error, JsArray errors)
+    {
+        error.DefinePropertyOrThrow("errors", new PropertyDescriptor(errors, configurable: true, enumerable: false, writable: true));
     }
 }
