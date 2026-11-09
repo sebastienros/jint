@@ -7873,6 +7873,28 @@ The legacy POSIX IDs `CST6CDT`, `EST5EDT`, `MST7MDT` and `PST8PDT` also resolve 
 `tzdata-legacy`, using the corresponding US zone as an approximation; their rules match from 1967 onward.
 There is no switch back.
 
+### 4.218 `for await` throws when a step settles to something other than an object ([#4489](https://github.com/sebastienros/jint/issues/4489))
+
+A `for await` loop awaits what `next` answers, and fails with a `TypeError` when that settles to something other
+than an object. Before, Jint called `next` again instead, for as long as the step went on settling to a primitive,
+so the run never finished:
+
+```js
+const iterator = { next() { return Promise.resolve(5); } };   // or `return 5;`, `undefined`, `null`, a symbol
+for await (const x of { [Symbol.asyncIterator]() { return iterator; } }) { }
+// 4.x / earlier 5.0: calls next() without end    5.x: TypeError: Iterator result 5 is not an object
+```
+
+This happened on the first step and on any step after one that gave a value, in an async function, in an async
+generator and in a module's top-level `for await`. Each step was a promise job that the entry's own drain went on
+running, so `LimitStatements`, `LimitExecutionTime`, `LimitMemory`, `ObserveCancellation` and an `*Async` entry's
+token ended the run with their own exception. Nothing else did: a default engine spun at a flat working set, and
+neither `MaxRecursionDepth` nor `PromiseTimeout` ever fired.
+
+The loop now ends after one call to `next`, and the iterator is not closed: its `return` is not called, as for a
+`next` that throws. A sync iterable reaching `for await` through its `Symbol.iterator` already failed this way.
+There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
