@@ -729,7 +729,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         }
 
         // If x<0 and x is finite and y is finite and y is not an integer, the result is NaN.
-        if (x < 0 && !double.IsInfinity(x) && !double.IsInfinity(y) && !y.Equals((int) y))
+        if (x < 0 && !double.IsInfinity(x) && !double.IsInfinity(y) && !TypeConverter.IsIntegralNumber(y))
         {
             return JsNumber.DoubleNaN;
         }
