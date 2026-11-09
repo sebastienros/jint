@@ -966,7 +966,7 @@ public sealed partial class ArrayConstructor : Constructor
     /// the same helper and message every other array creation uses.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void ValidateElementCount(uint length)
+    internal void ValidateElementCount(uint length)
     {
         if (length > _engine.Options.Constraints.MaxArraySize)
         {
