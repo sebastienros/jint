@@ -1,5 +1,7 @@
 #nullable enable
 
+using Jint.Runtime;
+
 namespace Jint.Tests.Runtime;
 
 /// <summary>
@@ -153,6 +155,39 @@ public class PromiseAnyAggregateErrorTests
             Promise.any(emptyInput).catch(first =>
                 Promise.any(emptyInput).catch(second => (first !== second) + ',' + (first.errors !== second.errors)))
             """).Should().Be("true,true");
+    }
+
+    /// <summary>
+    /// The <c>errors</c> array is still bounded by <c>Constraints.MaxArraySize</c>: building it directly must not
+    /// open a way around the limit that going through the constructor (<c>ArrayCreate</c>) always enforced.
+    /// </summary>
+    [TestCase("Promise.any({ *[Symbol.iterator]() { yield Promise.reject(1); yield Promise.reject(2); yield Promise.reject(3); } })")]
+    [TestCase("Promise.any.call(SyncPromise, { *[Symbol.iterator]() { yield 'a'; yield 'b'; yield 'c'; } })")]
+    public void TheErrorsArrayHonoursMaxArraySize(string call)
+    {
+        var engine = new Engine(options => options.Constraints.MaxArraySize = 2);
+        engine.Execute("""
+            var SyncPromise = function (executor) { return new Promise(executor); };
+            SyncPromise.resolve = function (v) { return { then(onFulfilled, onRejected) { onRejected(v); } }; };
+            """);
+
+        var thrown = Caught.Exception(() => engine.Evaluate(call + ".catch(e => e.errors.length)").UnwrapIfPromise());
+
+        thrown.Should().BeOfType<MemoryLimitExceededException>();
+    }
+
+    /// <summary>
+    /// The limit is a ceiling, not a refusal: as many errors as it allows are still delivered.
+    /// </summary>
+    [Test]
+    public void TheErrorsArrayAtMaxArraySizeIsDelivered()
+    {
+        var engine = new Engine(options => options.Constraints.MaxArraySize = 2);
+
+        engine.Evaluate("""
+            Promise.any({ *[Symbol.iterator]() { yield Promise.reject(1); yield Promise.reject(2); } })
+                .catch(e => e.errors.length + ':' + Array.prototype.join.call(e.errors))
+            """).UnwrapIfPromise().AsString().Should().Be("2:1,2");
     }
 
     /// <summary>
