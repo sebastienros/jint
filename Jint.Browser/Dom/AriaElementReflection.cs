@@ -39,8 +39,15 @@ namespace Jint.Browser.Dom;
 /// <para>
 /// <b>The array members answer the same array until their value changes</b>, which WebIDL requires of a
 /// <c>FrozenArray</c> attribute and the corpus checks per member and per element. The cache holds its
-/// elements strongly for as long as it stands; it is dropped the moment the computed list differs, which is
-/// the same bargain a browser's FrozenArray cache makes.
+/// elements strongly for as long as it stands; it is replaced the moment the getter computes a list that
+/// differs, which is the same bargain a browser's FrozenArray cache makes.
+/// </para>
+/// <para>
+/// <b>Only the getter reads or writes that cache</b> (https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes).
+/// The setter converts its argument, records the elements and writes the content attribute, and nothing else:
+/// a setter that throws in its conversion has therefore not moved the cache, and one that succeeds with the same
+/// elements is the getter finding equal contents. Dropping the cache in the setter — before the conversion, as
+/// this once did — changed the identity of an array whose value had not changed (#4531).
 /// </para>
 /// </remarks>
 internal static class AriaElementReflection
@@ -165,12 +172,12 @@ internal static class AriaElementReflection
         {
             var self = DomBindings.Bind<Element>(thisObject, Member);
             using var mutation = self.Realm.MutateLayout();
-            var entry = self.Realm.AriaCacheFor(self.Target).At(_index);
             var value = arguments.Length > 0 ? arguments[0] : JsValue.Undefined;
 
-            entry.Array = null;
-            entry.From = null;
-
+            // The frozen-array cache is not touched here, on any path. HTML keeps it in the getter alone, which
+            // compares the recomputed elements with the cached list and answers the cached object when they are
+            // equal — so a set that changes nothing keeps the identity, a set that changes the elements builds a
+            // new array on the next read, and a set the conversion below refuses cannot have moved either.
             if (value.IsNullOrUndefined())
             {
                 AriaElementReferences.Set(self.Target, _index, null);
@@ -178,8 +185,8 @@ internal static class AriaElementReflection
                 return JsValue.Undefined;
             }
 
-            // The conversion happens before anything is written, so a value the IDL type refuses leaves both
-            // the content attribute and the stored reference exactly as they were.
+            // The conversion happens before anything is written, so a value the IDL type refuses leaves the
+            // content attribute, the stored reference and the cache exactly as they were.
             var references = _single
                 ? [new WeakReference<Element>(DomBindings.Argument<Element>(arguments, 0, Member))]
                 : Sequence(self.Realm, value);
