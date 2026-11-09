@@ -8035,6 +8035,38 @@ The loop now throws at the step that settled to something other than an object, 
 and the iterator is not closed: its `return` is not called, as for a `next` that throws. A sync iterable reaching
 `for await` through its `Symbol.iterator` already failed this way. There is no switch back.
 
+### 4.220 A web API that fails to convert an element of a sequence closes the iterator ([#4431](https://github.com/sebastienros/jint/issues/4431))
+
+When a web API converts an iterable argument to a sequence and an element fails to convert, it now calls the
+iterator's `return` once before the error propagates, so a generator's `finally` runs. A `next` that throws, and a
+sequence that runs out, still call nothing. Most conversions already worked this way. These did not:
+
+```js
+let closed = false;
+function* parts() { try { yield 'a'; yield Symbol(); } finally { closed = true; } }
+try { new Blob(parts()); } catch { }   // TypeError: a Symbol is not a BlobPart
+closed
+// earlier previews: false    5.x: true
+```
+
+- `new Blob` and `new File`'s parts.
+- The sequence form of the `Headers` constructor's argument, which `new Request`, `new Response` and `fetch` share for
+  their `headers`. It now closes when a header is not iterable, when the header's own `next` throws, when its name or
+  value is not a `ByteString`, and when the header is refused for an invalid name or value. A header's own iterator
+  now converts each element as it is stepped, and closes when one fails.
+- The sequence form of `new URLSearchParams`, and each pair in it, in the same cases.
+- In `Jint.Browser`: the `DOMMatrix` and `DOMMatrixReadOnly` constructors, `getHighEntropyValues`'s hints, a
+  `Notification`'s `vibrate`, `getHTML`'s `shadowRoots`, the lists in a `Sanitizer` configuration, and a keyframes
+  argument (`new KeyframeEffect`, `animate`, `setKeyframes`).
+
+Four conversions closed when they should not have: `IDBDatabase.prototype.transaction`'s store names, the key path of
+`createObjectStore` and `createIndex`, and in `Jint.Browser` `setLineDash` and `roundRect`'s radii. They called
+`return` after `next` had thrown, and no longer do.
+
+WebIDL's text has no close ([whatwg/webidl#895](https://github.com/whatwg/webidl/issues/895)); Jint follows
+[whatwg/webidl#1662](https://github.com/whatwg/webidl/pull/1662), which proposes one, as Safari already behaves. There
+is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

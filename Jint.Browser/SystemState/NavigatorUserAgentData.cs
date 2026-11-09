@@ -141,9 +141,19 @@ internal static class NavigatorUserAgentData
 
         var hints = new HashSet<string>(StringComparer.Ordinal);
         var iterator = value.GetIterator(realm, method: iteratorMethod);
-        while (iterator.TryIteratorStepValue(out var item))
+        try
         {
-            hints.Add(TypeConverter.ToString(item));
+            while (iterator.TryIteratorStepValue(out var item))
+            {
+                hints.Add(TypeConverter.ToString(item));
+            }
+        }
+        catch
+        {
+            // A hint whose conversion threw closes the iterator; a step that threw left the record done
+            // (sebastienros/jint#4431).
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return hints;

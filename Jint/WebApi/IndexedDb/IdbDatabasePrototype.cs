@@ -83,7 +83,12 @@ internal sealed partial class IdbDatabasePrototype : Prototype
                 names.Add(TypeConverter.ToString(item));
             }
         }
-        catch { iterator.Close(CompletionType.Throw); throw; }
+        catch
+        {
+            // A step that threw left the record done, and closes nothing (sebastienros/jint#4431).
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
+        }
         return names.ToArray();
     }
 

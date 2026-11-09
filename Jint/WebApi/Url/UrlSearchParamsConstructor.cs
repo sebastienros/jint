@@ -108,37 +108,60 @@ internal sealed partial class UrlSearchParamsConstructor : Constructor
     /// The <c>sequence&lt;sequence&lt;USVString&gt;&gt;</c> arm: step 1 of the initialize steps, plus the
     /// nested sequence conversion of https://webidl.spec.whatwg.org/#js-sequence.
     /// </summary>
+    /// <remarks>
+    /// The conversion runs pair by pair, fused with step 1. So whatever fails once a pair has been stepped (its
+    /// conversion, or its size) closes the iterator, and a step that threw left it done and closes nothing
+    /// (sebastienros/jint#4431).
+    /// </remarks>
     private void InitializeFromSequence(JsUrlSearchParams instance, ObjectInstance init, ICallable iteratorMethod)
     {
         var iterations = 0;
         var iterator = init.GetIteratorFromMethod(_realm, iteratorMethod);
-        while (iterator.TryIteratorStep(out var next))
+        try
         {
-            // A script-supplied iterator is unbounded, so the engine stays interruptible.
-            if (++iterations % Engine.ConstraintCheckInterval == 0)
+            while (iterator.TryIteratorStepValue(out var element))
             {
-                _engine.Constraints.Check();
+                // A script-supplied iterator is unbounded, so the engine stays interruptible.
+                if (++iterations % Engine.ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
+                instance.List.Add(ReadPair(element, ref iterations));
             }
+        }
+        catch
+        {
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
+        }
+    }
 
-            var element = next.Get(CommonProperties.Value);
+    /// <summary>
+    /// One pair's <c>sequence&lt;USVString&gt;</c> conversion, and step 1's refusal of a size that is not 2. An element
+    /// whose conversion throws closes the pair's own iterator; the caller closes the outer one.
+    /// </summary>
+    private FormUrlEncodedEntry ReadPair(JsValue element, ref int iterations)
+    {
+        // Converting to sequence<USVString> requires an object; a primitive — including a number, which is
+        // what WPT's `new URLSearchParams([[1]])` passes — is a TypeError before the size is ever counted.
+        if (element is not ObjectInstance)
+        {
+            Throw.TypeError(_realm, "URLSearchParams: each element must be a sequence of two strings");
+        }
 
-            // Converting to sequence<USVString> requires an object; a primitive — including a number, which is
-            // what WPT's `new URLSearchParams([[1]])` passes — is a TypeError before the size is ever counted.
-            if (element is not ObjectInstance)
+        var innerIterator = element.GetIterator(_realm);
+        string? name = null;
+        string? value = null;
+        var size = 0;
+
+        // The sequence conversion drains the inner iterator before the size is judged, so a three-element
+        // element still calls next() three times.
+        try
+        {
+            while (innerIterator.TryIteratorStepValue(out var innerValue))
             {
-                Throw.TypeError(_realm, "URLSearchParams: each element must be a sequence of two strings");
-            }
-
-            var innerIterator = element.GetIterator(_realm);
-            string? name = null;
-            string? value = null;
-            var size = 0;
-
-            // The sequence conversion drains the inner iterator before the size is judged, so a three-element
-            // element still calls next() three times.
-            while (innerIterator.TryIteratorStep(out var innerNext))
-            {
-                var item = UrlValues.ToUsvString(innerNext.Get(CommonProperties.Value));
+                var item = UrlValues.ToUsvString(innerValue);
                 if (size == 0)
                 {
                     name = item;
@@ -155,14 +178,19 @@ internal sealed partial class UrlSearchParamsConstructor : Constructor
                     _engine.Constraints.Check();
                 }
             }
-
-            if (size != 2)
-            {
-                Throw.TypeError(_realm, "URLSearchParams: each element must be a sequence of two strings");
-            }
-
-            instance.List.Add(new FormUrlEncodedEntry(name!, value!));
         }
+        catch
+        {
+            innerIterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
+        }
+
+        if (size != 2)
+        {
+            Throw.TypeError(_realm, "URLSearchParams: each element must be a sequence of two strings");
+        }
+
+        return new FormUrlEncodedEntry(name!, value!);
     }
 
     /// <summary>

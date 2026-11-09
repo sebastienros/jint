@@ -79,9 +79,19 @@ internal static class FileApi
 
         var writer = new ArrayBufferWriter<byte>();
         var iterator = parts.GetIterator(realm);
-        while (iterator.TryIteratorStepValue(out var element))
+        try
         {
-            AppendBlobPart(writer, element);
+            while (iterator.TryIteratorStepValue(out var element))
+            {
+                AppendBlobPart(writer, element);
+            }
+        }
+        catch
+        {
+            // A part whose conversion threw closes the iterator; a step that threw left the record done
+            // (sebastienros/jint#4431).
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return writer.WrittenSpan.ToArray();

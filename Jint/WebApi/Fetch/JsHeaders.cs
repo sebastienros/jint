@@ -1,6 +1,6 @@
 #if NET8_0_OR_GREATER
+using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
-using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -64,42 +64,78 @@ internal sealed class JsHeaders : ObjectInstance
     /// "If init is a sequence, then for each header of init: if header's size is not 2, then throw a
     /// TypeError; append (header[0], header[1])."
     /// </summary>
+    /// <remarks>
+    /// The <c>sequence&lt;sequence&lt;ByteString&gt;&gt;</c> conversion runs header by header, fused with the fill. So
+    /// whatever fails once a header has been stepped (its conversion, its size, or the append refusing it) closes
+    /// the iterator, and a step that threw left it done and closes nothing (sebastienros/jint#4431).
+    /// </remarks>
     private void FillFromSequence(Realm realm, ObjectInstance init, ICallable iteratorMethod)
     {
         var outer = init.GetIterator(realm, method: iteratorMethod);
-        while (outer.TryIteratorStepValue(out var header))
+        try
         {
-            var pair = ReadPair(realm, outer, header);
-            AppendChecked(realm, pair.Name, pair.Value);
+            while (outer.TryIteratorStepValue(out var header))
+            {
+                var (name, value) = ReadPair(realm, header);
+                AppendConverted(realm, name, value);
+            }
+        }
+        catch
+        {
+            outer.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
     }
 
-    private static (JsValue Name, JsValue Value) ReadPair(Realm realm, IteratorInstance outer, JsValue header)
+    /// <summary>
+    /// One header's <c>sequence&lt;ByteString&gt;</c> conversion, each element converted as it is stepped
+    /// (https://webidl.spec.whatwg.org/#create-sequence-from-iterable), and the fill's refusal of a size that is not 2.
+    /// An element whose conversion throws, and a third element, close the header's own iterator; the caller closes
+    /// the outer one.
+    /// </summary>
+    private static (string Name, string Value) ReadPair(Realm realm, JsValue header)
     {
         if (header is not ObjectInstance)
         {
-            outer.Close(CompletionType.Throw);
             Throw.TypeError(realm, "Failed to construct 'Headers': The provided value cannot be converted to a sequence");
         }
 
         var inner = header.GetIterator(realm);
-        if (!inner.TryIteratorStepValue(out var name) || !inner.TryIteratorStepValue(out var value))
+        string name;
+        string value;
+        try
         {
-            outer.Close(CompletionType.Throw);
-            Throw.TypeError(realm, "Failed to construct 'Headers': Invalid value — each header must be a name/value pair");
-            return default;
-        }
+            if (!inner.TryIteratorStepValue(out var first))
+            {
+                ThrowNotAPair(realm);
+            }
 
-        // A third element makes the sequence's size not 2, which the fill step refuses outright.
-        if (inner.TryIteratorStepValue(out _))
+            name = FetchValues.ToByteString(realm, first);
+            if (!inner.TryIteratorStepValue(out var second))
+            {
+                ThrowNotAPair(realm);
+            }
+
+            value = FetchValues.ToByteString(realm, second);
+
+            // A third element makes the sequence's size not 2, which the fill step refuses outright.
+            if (inner.TryIteratorStepValue(out _))
+            {
+                ThrowNotAPair(realm);
+            }
+        }
+        catch
         {
-            inner.Close(CompletionType.Throw);
-            outer.Close(CompletionType.Throw);
-            Throw.TypeError(realm, "Failed to construct 'Headers': Invalid value — each header must be a name/value pair");
+            inner.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return (name, value);
     }
+
+    [DoesNotReturn]
+    private static void ThrowNotAPair(Realm realm)
+        => Throw.TypeError(realm, "Failed to construct 'Headers': Invalid value — each header must be a name/value pair");
 
     /// <summary>
     /// "Otherwise, init is a record: for each key → value of init, append (key, value)."

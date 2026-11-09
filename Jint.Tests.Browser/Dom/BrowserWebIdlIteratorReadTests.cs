@@ -25,7 +25,7 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 /// <remarks>
 /// Whether a conversion closes the iterator when an element fails is not pinned here; that is
-/// sebastienros/jint#4431.
+/// <see cref="BrowserWebIdlSequenceCloseTests"/> (sebastienros/jint#4431).
 /// </remarks>
 public sealed class BrowserWebIdlIteratorReadTests
 {
