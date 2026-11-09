@@ -34,8 +34,9 @@ namespace Jint.Tests.PublicInterface;
 public class HostWrapperScriptDefinedKeysTests
 {
     /// <summary>
-    /// One shape per wrapper class: the array-like views, read-only and dictionary-shaped variants, the plain
-    /// wrappers over a countable collection, the dictionaries and an <see cref="ExpandoObject"/>, and a plain object.
+    /// One shape per wrapper kind: the array-like views and their read-only variants, a plain wrapper over a countable
+    /// collection (<c>HashSet</c>), the dictionaries (Newtonsoft's <c>JObject</c>, string- and int-keyed
+    /// <c>Dictionary</c>, an <see cref="ExpandoObject"/>), and a plain object.
     /// </summary>
     private static readonly string[] _shapes =
     [
@@ -56,8 +57,8 @@ public class HostWrapperScriptDefinedKeysTests
     /// <summary>
     /// The shapes whose own keys are all non-configurable when <c>AllowWrite</c> is off, so that a configurable
     /// property of the script's is the one thing standing between a non-extensible wrapper and
-    /// <c>Object.isSealed</c>. <c>HashSet</c> lists its methods, which are configurable; an
-    /// <c>ExpandoObject</c> stores what the script assigns.
+    /// <c>Object.isSealed</c>. Every shape but <c>HashSet</c>, which lists its methods, and a method's descriptor is
+    /// configurable.
     /// </summary>
     private static readonly string[] _sealableShapes =
     [
@@ -70,6 +71,7 @@ public class HostWrapperScriptDefinedKeysTests
         "JObject",
         "Dictionary",
         "IntDictionary",
+        "Expando",
         "Object",
     ];
 
