@@ -135,6 +135,18 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     }
 
     /// <summary>
+    /// Forgets the yield* delegation the generator was running, which has ended abruptly. Nothing may resume into it, and a
+    /// later evaluation of the same yield* calls GetIterator afresh
+    /// (https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation, sebastienros/jint#4440).
+    /// </summary>
+    internal void EndDelegation()
+    {
+        _delegatingIterator = null;
+        _delegatingNextMethod = null;
+        _delegatingYieldNode = null;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-generatorstart
     /// </summary>
     public JsValue GeneratorStart(JintStatementList generatorBody)

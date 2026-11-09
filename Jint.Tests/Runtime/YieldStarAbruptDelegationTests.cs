@@ -1,0 +1,373 @@
+#nullable enable
+
+using Jint.Native.AsyncGenerator;
+using Jint.Native.Generator;
+
+namespace Jint.Tests.Runtime;
+
+/// <summary>
+/// Every evaluation of <c>yield*</c> calls GetIterator on its operand afresh
+/// (<a href="https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation">YieldExpression : yield * AssignmentExpression</a>,
+/// step 3), so a delegation that ended abruptly is over and nothing resumes into it (sebastienros/jint#4440).
+/// <para>
+/// A generator parks the delegation it is suspended in, the delegate's record, its [[NextMethod]] and the
+/// <c>yield*</c> node, and a <c>yield*</c> that finds a record parked under its own node continues that delegation
+/// rather than starting one. A delegation that ended by a throw left all three behind, so the next evaluation of the
+/// same node, in a loop around a <c>try</c>/<c>catch</c>, resumed the delegate that had failed instead of delegating to
+/// its new operand. Every row runs in a generator and in an async generator. The async generator's delegate is an async
+/// iterable, so a method that throws reaches the <c>yield*</c> as a throw; over a sync iterable the
+/// CreateAsyncFromSyncIterator wrapper turns it into a rejection, and those rows are the controls. The expected values
+/// are Node 26's.
+/// </para>
+/// </summary>
+public class YieldStarAbruptDelegationTests
+{
+    private const string Harness = """
+        const yieldsX = function () { return { value: 'x', done: false }; };
+
+        // The iterator each first delegation steps, and the resumption that ends it: none when its first step does.
+        const ways = {
+            nextThrows: [function () { return { next() { throw 'N'; } }; }, 'none'],
+            nextNonObject: [function () { return { next() { return 1; } }; }, 'none'],
+            nextDoneThrows: [function () { return { next() { return { get done() { throw 'D'; } }; } }; }, 'none'],
+            nextValueThrows: [function () { return { next() { return { done: true, get value() { throw 'V'; } }; } }; }, 'none'],
+            throwThrows: [function () { return { next: yieldsX, throw() { throw 'T'; } }; }, 'throw'],
+            throwNonObject: [function () { return { next: yieldsX, throw() { return 1; } }; }, 'throw'],
+            throwReadThrows: [function () { return { next: yieldsX, get throw() { throw 'TG'; } }; }, 'throw'],
+            throwDoneThrows: [function () { return { next: yieldsX, throw() { return { get done() { throw 'TD'; } }; } }; }, 'throw'],
+            throwValueThrows: [function () { return { next: yieldsX, throw() { return { done: true, get value() { throw 'TV'; } }; } }; }, 'throw'],
+            noThrow: [function () { return { next: yieldsX }; }, 'throw'],
+            noThrowReturnThrows: [function () { return { next: yieldsX, return() { throw 'RT'; } }; }, 'throw'],
+            noThrowReturnReadThrows: [function () { return { next: yieldsX, get return() { throw 'RTG'; } }; }, 'throw'],
+            returnThrows: [function () { return { next: yieldsX, return() { throw 'R'; } }; }, 'return'],
+            returnNonObject: [function () { return { next: yieldsX, return() { return 1; } }; }, 'return'],
+            returnReadThrows: [function () { return { next: yieldsX, get return() { throw 'RG'; } }; }, 'return'],
+            returnDoneThrows: [function () { return { next: yieldsX, return() { return { get done() { throw 'RD'; } }; } }; }, 'return']
+        };
+
+        const name = function (e) { return typeof e === 'string' ? e : e.constructor.name; };
+
+        // A delegate for the first evaluation of a yield*: the way's iterator, behind an iterable of the given kind.
+        function delegateFor(kind, way) {
+            const it = ways[way][0]();
+            return kind === 'async' ? { [Symbol.asyncIterator]() { return it; } } : { [Symbol.iterator]() { return it; } };
+        }
+        """;
+
+    private const string DelegateTwiceHarness = Harness + """
+
+        // One yield* evaluated twice, in a loop around a try/catch: first over the way's delegate, whose delegation
+        // ends abruptly, then over [1, 2]. Answers every result the generator gave, until it is done.
+        async function delegateTwice(kind, way) {
+            const resumption = ways[way][1];
+            const operand = function (i) { return i === 0 ? delegateFor(kind, way) : [1, 2]; };
+            const g = kind === 'sync'
+                ? (function* () {
+                    for (let i = 0; i < 2; i++) { try { yield* operand(i); } catch (e) { yield 'caught:' + name(e); } }
+                    return 'end';
+                })()
+                : (async function* () {
+                    for (let i = 0; i < 2; i++) { try { yield* operand(i); } catch (e) { yield 'caught:' + name(e); } }
+                    return 'end';
+                })();
+            const out = [];
+            let r = await g.next();
+            out.push(r.value + ':' + r.done);
+            if (resumption !== 'none') { r = await g[resumption]('X'); out.push(r.value + ':' + r.done); }
+            for (let n = 0; n < 6 && !r.done; n++) { r = await g.next(); out.push(r.value + ':' + r.done); }
+            return out.join(' ');
+        }
+        """;
+
+    /// <summary>
+    /// The repro from sebastienros/jint#4440: the second iteration's <c>yield*</c> delegates to <c>[1, 2]</c>, where Jint
+    /// resumed the generator whose body had thrown, which answered done at once. In the async generator the throw comes
+    /// back through the CreateAsyncFromSyncIterator wrapper as a rejection, so that row is the control.
+    /// </summary>
+    [Theory]
+    [InlineData("sync", "1,2")]
+    [InlineData("async", "1,2")]
+    public void TheSecondEvaluationOfAYieldStarWhoseDelegateThrewDelegatesToItsNewOperand(string kind, string expected)
+    {
+        var engine = new Engine();
+        engine.Evaluate($$"""
+            (async function () {
+                const thrower = function* () { throw 'boom'; };
+                const out = [];
+                if ('{{kind}}' === 'sync') {
+                    const g = function* () { for (let i = 0; i < 2; i++) { try { yield* (i === 0 ? thrower() : [1, 2]); } catch {} } };
+                    for (const x of g()) { out.push(x); }
+                } else {
+                    const g = async function* () { for (let i = 0; i < 2; i++) { try { yield* (i === 0 ? thrower() : [1, 2]); } catch {} } };
+                    for await (const x of g()) { out.push(x); }
+                }
+                return out.join(',');
+            })()
+            """).UnwrapIfPromise().AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// Every way a delegation ends abruptly: a step of the delegate that throws, answers a non-object or has a
+    /// <c>done</c> or <c>value</c> getter that throws; a forwarded <c>throw()</c> whose <c>throw</c> read, call or answer
+    /// fails, or which closes a delegate with no <c>throw</c> (step 7.b.iii), whose <c>return</c> may fail too; and a
+    /// forwarded <c>return()</c> whose <c>return</c> read, call or answer fails. The body catches the throw, and the
+    /// next iteration's <c>yield*</c> delegates to <c>[1, 2]</c>. The rows whose ending already forgot the delegation are
+    /// controls: an answer that is done (whose <c>value</c> getter then throws), a delegate with no <c>throw</c>, and,
+    /// in an async generator, every way that fails once an answer has settled (a non-object, a throwing getter), a
+    /// forwarded <c>return()</c>, and every <c>asyncOverSync</c> row. The async <c>noThrowReturnThrows</c> row
+    /// is not here: AsyncIteratorClose (https://tc39.es/ecma262/#sec-asynciteratorclose, step 6) swallows what the
+    /// <c>return</c> threw on 4.x, and that is not part of this backport.
+    /// </summary>
+    [Theory]
+    [InlineData("sync", "nextThrows", "caught:N:false 1:false 2:false end:true")]
+    [InlineData("async", "nextThrows", "caught:N:false 1:false 2:false end:true")]
+    [InlineData("asyncOverSync", "nextThrows", "caught:N:false 1:false 2:false end:true")]
+    [InlineData("sync", "nextNonObject", "caught:TypeError:false 1:false 2:false end:true")]
+    [InlineData("async", "nextNonObject", "caught:TypeError:false 1:false 2:false end:true")]
+    [InlineData("sync", "nextDoneThrows", "caught:D:false 1:false 2:false end:true")]
+    [InlineData("async", "nextDoneThrows", "caught:D:false 1:false 2:false end:true")]
+    [InlineData("asyncOverSync", "nextDoneThrows", "caught:D:false 1:false 2:false end:true")]
+    [InlineData("sync", "nextValueThrows", "caught:V:false 1:false 2:false end:true")]
+    [InlineData("async", "nextValueThrows", "caught:V:false 1:false 2:false end:true")]
+    [InlineData("sync", "throwThrows", "x:false caught:T:false 1:false 2:false end:true")]
+    [InlineData("async", "throwThrows", "x:false caught:T:false 1:false 2:false end:true")]
+    [InlineData("asyncOverSync", "throwThrows", "x:false caught:T:false 1:false 2:false end:true")]
+    [InlineData("sync", "throwNonObject", "x:false caught:TypeError:false 1:false 2:false end:true")]
+    [InlineData("async", "throwNonObject", "x:false caught:TypeError:false 1:false 2:false end:true")]
+    [InlineData("asyncOverSync", "throwNonObject", "x:false caught:TypeError:false 1:false 2:false end:true")]
+    [InlineData("sync", "throwReadThrows", "x:false caught:TG:false 1:false 2:false end:true")]
+    [InlineData("async", "throwReadThrows", "x:false caught:TG:false 1:false 2:false end:true")]
+    [InlineData("sync", "throwDoneThrows", "x:false caught:TD:false 1:false 2:false end:true")]
+    [InlineData("async", "throwDoneThrows", "x:false caught:TD:false 1:false 2:false end:true")]
+    [InlineData("sync", "throwValueThrows", "x:false caught:TV:false 1:false 2:false end:true")]
+    [InlineData("async", "throwValueThrows", "x:false caught:TV:false 1:false 2:false end:true")]
+    [InlineData("sync", "noThrow", "x:false caught:TypeError:false 1:false 2:false end:true")]
+    [InlineData("async", "noThrow", "x:false caught:TypeError:false 1:false 2:false end:true")]
+    [InlineData("sync", "noThrowReturnThrows", "x:false caught:RT:false 1:false 2:false end:true")]
+    [InlineData("asyncOverSync", "noThrowReturnThrows", "x:false caught:RT:false 1:false 2:false end:true")]
+    [InlineData("sync", "noThrowReturnReadThrows", "x:false caught:RTG:false 1:false 2:false end:true")]
+    [InlineData("async", "noThrowReturnReadThrows", "x:false caught:RTG:false 1:false 2:false end:true")]
+    [InlineData("sync", "returnThrows", "x:false caught:R:false 1:false 2:false end:true")]
+    [InlineData("async", "returnThrows", "x:false caught:R:false 1:false 2:false end:true")]
+    [InlineData("asyncOverSync", "returnThrows", "x:false caught:R:false 1:false 2:false end:true")]
+    [InlineData("sync", "returnNonObject", "x:false caught:TypeError:false 1:false 2:false end:true")]
+    [InlineData("async", "returnNonObject", "x:false caught:TypeError:false 1:false 2:false end:true")]
+    [InlineData("sync", "returnReadThrows", "x:false caught:RG:false 1:false 2:false end:true")]
+    [InlineData("async", "returnReadThrows", "x:false caught:RG:false 1:false 2:false end:true")]
+    [InlineData("sync", "returnDoneThrows", "x:false caught:RD:false 1:false 2:false end:true")]
+    [InlineData("async", "returnDoneThrows", "x:false caught:RD:false 1:false 2:false end:true")]
+    public void AYieldStarEvaluatedAgainAfterItsDelegationEndedAbruptlyStartsANewOne(string kind, string way, string expected)
+    {
+        var engine = new Engine();
+        engine.Evaluate(DelegateTwiceHarness + "\n" + $"delegateTwice('{kind}', '{way}')")
+            .UnwrapIfPromise().AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A delegation that ended abruptly leaves nothing parked on the generator, even where the <c>yield*</c> never runs
+    /// again: the body catches the throw and goes on to a plain <c>yield</c>, and the generator holds on to neither the
+    /// delegate nor its <c>next</c>. Jint kept both for as long as the generator lived.
+    /// </summary>
+    [Theory]
+    [InlineData("sync", "nextThrows")]
+    [InlineData("async", "nextThrows")]
+    [InlineData("sync", "throwThrows")]
+    [InlineData("async", "throwThrows")]
+    [InlineData("sync", "noThrowReturnThrows")]
+    [InlineData("async", "noThrowReturnReadThrows")]
+    [InlineData("sync", "returnThrows")]
+    [InlineData("async", "returnReadThrows")]
+    public void ADelegationEndedByACaughtThrowLeavesNothingParkedOnTheGenerator(string kind, string way)
+    {
+        var engine = new Engine();
+        engine.Evaluate(Harness + "\n" + $$"""
+            (async function () {
+                const resumption = ways['{{way}}'][1];
+                globalThis.gen = '{{kind}}' === 'sync'
+                    ? (function* () { try { yield* delegateFor('{{kind}}', '{{way}}'); } catch (e) { yield 'caught:' + name(e); } yield 'after'; })()
+                    : (async function* () { try { yield* delegateFor('{{kind}}', '{{way}}'); } catch (e) { yield 'caught:' + name(e); } yield 'after'; })();
+                const out = [];
+                let r = await gen.next();
+                if (resumption !== 'none') { r = await gen[resumption]('X'); }
+                out.push(r.value);
+                out.push((await gen.next()).value);
+                return out.join(' ');
+            })()
+            """).UnwrapIfPromise().AsString().Should().StartWith("caught:").And.EndWith(" after");
+
+        ParkedDelegation(engine).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The delegate's <c>next</c>, <c>throw</c> or <c>return</c> fails with an exception no script can catch: the
+    /// statement limit trips inside it, or a host function it calls throws. That exception is what leaves
+    /// <c>Evaluate</c>, and the delegation it ended leaves nothing parked on the generator. The async generator's
+    /// <c>return</c> rows are the controls: a forwarded <c>return()</c> that threw already forgot the delegation.
+    /// </summary>
+    [Theory]
+    [InlineData("sync", "next", "statementLimit")]
+    [InlineData("sync", "next", "host")]
+    [InlineData("sync", "throw", "statementLimit")]
+    [InlineData("sync", "throw", "host")]
+    [InlineData("sync", "return", "statementLimit")]
+    [InlineData("sync", "return", "host")]
+    [InlineData("async", "next", "statementLimit")]
+    [InlineData("async", "next", "host")]
+    [InlineData("async", "throw", "statementLimit")]
+    [InlineData("async", "throw", "host")]
+    [InlineData("async", "return", "statementLimit")]
+    [InlineData("async", "return", "host")]
+    public void AnUncatchableExceptionThatEndsADelegationLeavesNothingParkedOnTheGenerator(string kind, string method, string failure)
+    {
+        var engine = new Engine(options => options.MaxStatements(100_000));
+        engine.SetValue("hostFail", new Action(() => throw new InvalidOperationException("host failed")));
+
+        // The first step yields, unless `next` itself is the method that fails; the resumption reaches the others.
+        engine.Evaluate($$"""
+            const fail = '{{failure}}' === 'host' ? function () { hostFail(); } : function () { let n = 0; for (;;) { n++; } };
+            let steps = 0;
+            const it = {
+                next() { if ('{{method}}' === 'next' && steps++ > 0) { fail(); } return { value: 'x', done: false }; },
+                throw() { fail(); },
+                return() { fail(); }
+            };
+            const operand = '{{kind}}' === 'sync' ? { [Symbol.iterator]() { return it; } } : { [Symbol.asyncIterator]() { return it; } };
+            globalThis.gen = '{{kind}}' === 'sync' ? (function* () { yield* operand; })() : (async function* () { yield* operand; })();
+            gen.next();
+            """);
+
+        var resumption = method == "next" ? "gen.next()" : $"gen.{method}('X')";
+        Exception? thrown = null;
+        try
+        {
+            engine.Evaluate(resumption);
+        }
+        catch (Exception ex)
+        {
+            thrown = ex;
+        }
+
+        if (failure == "host")
+        {
+            thrown.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("host failed");
+        }
+        else
+        {
+            thrown.Should().BeOfType<Jint.Runtime.StatementsCountOverflowException>();
+        }
+
+        ParkedDelegation(engine).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A host exception that escapes the consumer's promise resolve of a yielded value (here an <c>Object.prototype.then</c>
+    /// getter, read when the request's promise is resolved with the iterator result) does not end the delegation: the async
+    /// generator is still suspended in it, so the next <c>next()</c> continues the same delegate rather than calling
+    /// GetIterator on the operand again.
+    /// </summary>
+    [Fact]
+    public void AHostExceptionOutOfTheConsumersResolveLeavesALiveDelegationParked()
+    {
+        var engine = new Engine();
+        engine.SetValue("hostFail", new Action(() => throw new InvalidOperationException("host failed")));
+        engine.Evaluate("""
+            let calls = 0;
+            let armed = false;
+            const operand = {
+                [Symbol.asyncIterator]() {
+                    calls++;
+                    return {
+                        next() {
+                            // A settled promise, so the delegation's await reads nothing off the result; the getter is
+                            // armed for the consumer's resolve alone.
+                            const p = Promise.resolve({ value: 'x', done: false });
+                            armed = true;
+                            return p;
+                        }
+                    };
+                }
+            };
+            Object.defineProperty(Object.prototype, 'then', { configurable: true, get() { if (armed) { hostFail(); } } });
+            globalThis.gen = (async function* () { yield* operand; })();
+            """);
+
+        Exception? thrown = null;
+        try
+        {
+            engine.Evaluate("gen.next()");
+        }
+        catch (Exception ex)
+        {
+            thrown = ex;
+        }
+
+        thrown.Should().BeOfType<InvalidOperationException>();
+        ParkedDelegation(engine).Should().Be("iterator,next,node");
+
+        engine.Evaluate("armed = false; delete Object.prototype.then; gen.next().then(r => { globalThis.second = r.value; });");
+        engine.Evaluate("calls + ':' + second").AsString().Should().Be("1:x");
+    }
+
+    /// <summary>
+    /// A throw() or return() the delegate answers as not done is consumed by the delegation. Once it has completed, the
+    /// plain <c>yield</c> the body resumes at next receives the value of a <c>next(v)</c>, and the stale throw or return
+    /// completion is not read again. (main fixed this separately in sebastienros/jint#4317.) Outcomes are Node's.
+    /// </summary>
+    [Theory]
+    [InlineData("throw", "got:V")]
+    [InlineData("return", "got:V")]
+    public void AResumptionTheDelegationConsumedIsNotReadAgainByTheNextPlainYield(string method, string expected)
+    {
+        var engine = new Engine();
+        engine.Evaluate($$"""
+            let done = false;
+            const it = {
+                [Symbol.iterator]() { return this; },
+                next() { return done ? { value: 'end', done: true } : { value: 1, done: false }; },
+                throw() { done = true; return { value: 't', done: false }; },
+                return() { done = true; return { value: 'r', done: false }; }
+            };
+            function* g() { yield* it; const v = yield 'a'; return 'got:' + v; }
+            const gen = g();
+            const seen = [];
+            seen.push(gen.next().value);
+            seen.push(gen.{{method}}('X').value);
+            seen.push(gen.next().value);
+            let last;
+            try { last = gen.next('V'); } catch (e) { last = { value: 'threw:' + e, done: true }; }
+            globalThis.result = last.value;
+            """);
+        engine.Evaluate("result").AsString().Should().Be(expected);
+    }
+
+    // What the generator `gen` still holds of a delegation: the names of the parked fields that are set.
+    private static string ParkedDelegation(Engine engine)
+    {
+        var parked = new List<string>();
+        switch (engine.GetValue("gen"))
+        {
+            case GeneratorInstance generator:
+                Add(generator._delegatingIterator, "iterator");
+                Add(generator._delegatingNextMethod, "next");
+                Add(generator._delegatingYieldNode, "node");
+                break;
+            case AsyncGeneratorInstance asyncGenerator:
+                Add(asyncGenerator._delegatingIterator, "iterator");
+                Add(asyncGenerator._delegatingNextMethod, "next");
+                Add(asyncGenerator._delegatingYieldNode, "node");
+                break;
+            default:
+                throw new InvalidOperationException("gen is not a generator");
+        }
+
+        return string.Join(",", parked);
+
+        void Add(object? field, string name)
+        {
+            if (field is not null)
+            {
+                parked.Add(name);
+            }
+        }
+    }
+}
