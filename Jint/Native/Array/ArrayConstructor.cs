@@ -963,7 +963,8 @@ public sealed partial class ArrayConstructor : Constructor
     /// <summary>
     /// The <c>MaxArraySize</c> check of <c>ArrayCreate</c>, for the constructors that take ownership of (or copy) a
     /// finished element list and so never reach it. One compare against the configured limit; the throwing path is
-    /// the same helper and message every other array creation uses.
+    /// the same helper and message every other array creation uses. A built-in that fills a store of its own to hand to
+    /// the ownership-taking constructor calls it before allocating that store.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void ValidateElementCount(uint length)

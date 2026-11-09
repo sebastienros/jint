@@ -16,22 +16,24 @@ public class StringSplitEmptySeparatorTests
 {
     private static Engine NewEngine() => new();
 
-    [TestCase("", "[]")]
-    [TestCase("a", "[\"a\"]")]
-    [TestCase("hello", "[\"h\",\"e\",\"l\",\"l\",\"o\"]")]
-    [TestCase("a b\tc\n", "[\"a\",\" \",\"b\",\"\\t\",\"c\",\"\\n\"]")]
-    // The last cached single-character string, the first one that is not, and BMP letters.
-    [TestCase("\u007f\u0080ÿ", "[\"\u007f\",\"\u0080\",\"ÿ\"]")]
-    [TestCase("\u0000a", "[\"\\u0000\",\"a\"]")]
-    [TestCase("αβγ", "[\"α\",\"β\",\"γ\"]")]
-    [TestCase("日本語", "[\"日\",\"本\",\"語\"]")]
-    public void ASubjectSplitsIntoOneStringPerCodeUnit(string subject, string expected)
+    // The subject is a script literal and the expectation its code units in hex, so no control character is in a test's
+    // name or arguments. U+007E is the last single-character string the engine caches and U+007F the first it does not.
+    [TestCase("''", "")]
+    [TestCase("'a'", "61")]
+    [TestCase("'hello'", "68,65,6c,6c,6f")]
+    [TestCase("'a b\\tc\\n'", "61,20,62,9,63,a")]
+    [TestCase("'~\\u007f\\u0080\\u00ff'", "7e,7f,80,ff")]
+    [TestCase("'\\u0000a'", "0,61")]
+    [TestCase("'αβγ'", "3b1,3b2,3b3")]
+    [TestCase("'日本語'", "65e5,672c,8a9e")]
+    public void ASubjectSplitsIntoOneStringPerCodeUnit(string subject, string expectedCodeUnits)
     {
         var engine = NewEngine();
-        engine.SetValue("subject", subject);
+        engine.Execute("var subject = " + subject + "; var parts = subject.split('');");
 
-        engine.Evaluate("JSON.stringify(subject.split(''))").AsString().Should().Be(expected);
-        engine.Evaluate("subject.split('').length").AsNumber().Should().Be(subject.Length);
+        engine.Evaluate("parts.map(function (c) { return typeof c === 'string' && c.length === 1 ? c.charCodeAt(0).toString(16) : 'bad'; }).join(',')")
+            .AsString().Should().Be(expectedCodeUnits);
+        engine.Evaluate("parts.length === subject.length").AsBoolean().Should().BeTrue();
     }
 
     [Test]
@@ -87,18 +89,20 @@ public class StringSplitEmptySeparatorTests
     }
 
     [Test]
-    public void TheLimitIsConvertedBeforeTheSubjectIsSplit()
+    public void TheArgumentsAreConvertedInSpecificationOrder()
     {
         var engine = NewEngine();
 
-        // ToUint32(limit) runs after ToString(this), and a throwing valueOf is the only thing to see it.
+        // ToString(this), then ToUint32(limit), then ToString(separator): the log is the only thing to see the order.
+        // https://tc39.es/ecma262/#sec-string.prototype.split steps 4-6
         engine.Evaluate("""
             var log = [];
             var subject = { toString() { log.push('this'); return 'abc'; } };
             var limit = { valueOf() { log.push('limit'); return 2; } };
-            var r = String.prototype.split.call(subject, '', limit);
+            var separator = { toString() { log.push('separator'); return ''; } };
+            var r = String.prototype.split.call(subject, separator, limit);
             log.join(',') + '|' + r.join('')
-            """).AsString().Should().Be("this,limit|ab");
+            """).AsString().Should().Be("this,limit,separator|ab");
     }
 
     [Test]
@@ -259,16 +263,35 @@ public class StringSplitEmptySeparatorTests
     }
 
     [Test]
-    public void AnArrayPastTheLimitIsRefusedBeforeAnythingIsAllocatedForIt()
+    public void AnArrayPastBothTheArrayLimitAndTheDenseLimitIsRefused()
     {
         var engine = new Engine(options => options.Constraints.MaxArraySize = 10);
         engine.SetValue("big", new string('x', 12_000_000));
 
-        // 12M code units are past the dense-array limit and would be 96 MB of references: the refusal has to come from the count, not from the build.
+        // 12M code units are past the dense-array limit, the lane that keeps its sparse-backed loop.
         var thrown = Caught.Exception(() => engine.Evaluate("big.split('')"));
 
         thrown.Should().BeOfType<MemoryLimitExceededException>();
     }
+
+#if NET8_0_OR_GREATER
+    [Test]
+    public void AnArrayPastTheLimitIsRefusedBeforeItsStoreIsAllocated()
+    {
+        var engine = new Engine(options => options.Constraints.MaxArraySize = 10);
+        engine.SetValue("big", new string('x', 5_000_000));
+        Caught.Exception(() => engine.Evaluate("big.split('')")).Should().BeOfType<MemoryLimitExceededException>();
+
+        // 5M elements are under the dense limit, so this is the pre-sized lane, whose store would be 40 MB. Bytes are
+        // counted on this thread, whatever else is running, and the refusal costs a message and a stack.
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var thrown = Caught.Exception(() => engine.Evaluate("big.split('')"));
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        thrown.Should().BeOfType<MemoryLimitExceededException>();
+        allocated.Should().BeLessThan(4_000_000);
+    }
+#endif
 
     private sealed class CountingConstraint : Constraint
     {
