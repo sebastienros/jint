@@ -7873,6 +7873,36 @@ The legacy POSIX IDs `CST6CDT`, `EST5EDT`, `MST7MDT` and `PST8PDT` also resolve 
 `tzdata-legacy`, using the corresponding US zone as an approximation; their rules match from 1967 onward.
 There is no switch back.
 
+### 4.215 `AsyncIterator.prototype.flatMap` awaits a sync iterable's values, `AsyncIterator.from` takes a string, and a failed step leaves the source open ([#4439](https://github.com/sebastienros/jint/issues/4439))
+
+When a `flatMap` mapper returns a sync iterable, such as an array, a promise among its values is awaited. In 4.16 and
+earlier 5.0 builds the promise itself came out as the value. `AsyncIterator.from` now iterates a string by code points;
+it used to throw a `TypeError`. The iterator method a string uses is called on a `String` object, not on the primitive:
+
+```js
+await AsyncIterator.from([1, 2]).flatMap(x => [Promise.resolve(x), x * 10]).toArray();
+// 4.16.x / earlier 5.0: [Promise, 10, Promise, 20]    5.x: [1, 10, 2, 20]
+await AsyncIterator.from('ab').toArray();
+// 4.16.x / earlier 5.0: TypeError                     5.x: ['a', 'b']
+```
+
+`map`, `filter`, `take`, `drop` and `flatMap` no longer call the source iterator's `return` when the source's own step
+fails. That is, when its `next` throws, the promise it returns rejects or settles to something other than an object,
+or its result's `done` or `value` getter throws. The helper rejects with that error, and a `return()` on the helper
+afterwards does not close the source either. A mapper or predicate that throws, or a promise one of them returns that
+rejects, still closes the source. `reduce`, `toArray`, `forEach`, `some`, `every` and `find` already behaved this way.
+
+In `flatMap`, an inner async iterator whose step settles to something other than an object now rejects with a
+`TypeError` and closes the source iterator. It used to end the inner iterator, and `flatMap` went on to the source's
+next value. Calling `return()` on the helper while it is inside a sync iterable whose `return` throws now closes the
+source, as it already did for an async inner iterator whose `return` rejects. It used to leave the source open. There
+is no switch back.
+
+Whether that `return()` resolves or rejects is not settled yet. Jint resolves it for now, for either kind of inner
+iterator, only because it does not await the inner iterator's close. Expect that to change: the helpers' closes are
+tracked in [#4500](https://github.com/sebastienros/jint/issues/4500), and the proposal is heading towards awaiting
+that close and rejecting.
+
 ### 4.216 A wrapped CLR collection deletes a configurable property the script defined on it ([#4457](https://github.com/sebastienros/jint/issues/4457))
 
 A wrapped CLR list, array or other indexed collection refused `delete` for every property it had in three cases:
