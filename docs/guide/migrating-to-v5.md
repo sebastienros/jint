@@ -7961,6 +7961,39 @@ that implements `ICollection`; on any other collection, `length` then reads `Arr
 reflected property such as `Count` is non-configurable, so deleting it still returns `false`. There is no
 switch back.
 
+### 4.217 `Promise.all`, `Promise.allSettled` and other built-ins refuse an array past `MaxArraySize` ([#4493](https://github.com/sebastienros/jint/issues/4493))
+
+`Options.Constraints.MaxArraySize` bounds every array a script can build from a count, and ends the run with
+`MemoryLimitExceededException` past it. Several built-ins copied a finished list into their result array through
+`ArrayConstructor.ConstructFast` and skipped that check, so a script could be handed an array larger than the host
+allowed. With `MaxArraySize = 10_000`, a generator yielding 10,001 resolved promises passed to `Promise.all` used
+to resolve with a 10,001-element array:
+
+```js
+function* elements(n) { for (let i = 0; i < n; i++) yield Promise.resolve(i); }
+Promise.all(elements(10001));
+// earlier previews: resolves with an array of 10,001 elements
+// 5.x:              MemoryLimitExceededException out of Evaluate / Execute
+```
+
+`ConstructFast` now makes the same check and throws the same exception, with the same message, as `Array(n)` does.
+The built-ins that reach it are `Promise.all` and `Promise.allSettled`, `Iterator.prototype.chunks` and `windows`
+for a chunk or window larger than the limit, `Object.getOwnPropertyNames` and `Object.getOwnPropertySymbols` for an
+object with more keys than the limit, a call made with more arguments than the limit through a `Proxy` `apply` or
+`construct` trap, and the web APIs that hand a list to script: `FormData.getAll`, `performance.getEntries` and its
+siblings, the `ports` of a `MessageEvent`, and the lists the `Jint.Browser` package builds the same way (observer
+records, animations, cookies, navigation entries, client rects). The exception is thrown out of the call that builds
+the array. For `Promise.all` and `Promise.allSettled` that is the resolve function of the last element to settle, so
+it comes out of `Evaluate`, `Execute` or whatever else drains the event loop. `Promise.any`'s `errors` array was
+already bounded the same way, and still is.
+
+**What could break:** a host that set a finite `MaxArraySize`, or runs `Options.ForUntrustedCode`, and relied on one
+of these returning a larger array. A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged. A host
+calling the public `ArrayConstructor.ConstructFast(JsValue[])` with more elements than the limit now gets the exception
+instead of the array. An array of exactly `MaxArraySize` elements is still allowed. There is no switch back: a host
+that must hand script a larger array raises `MaxArraySize`, or builds the array with `new JsArray(engine, items)`,
+which takes the host's array as it is.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
