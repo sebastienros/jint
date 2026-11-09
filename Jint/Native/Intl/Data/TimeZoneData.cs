@@ -95,8 +95,9 @@ internal static class TimeZoneData
         "Australia/Darwin", "Australia/Eucla", "Australia/Hobart",
         "Australia/Lindeman", "Australia/Lord_Howe", "Australia/Melbourne",
         "Australia/Perth", "Australia/Sydney",
-        // Note: CET, CST6CDT, EET, EST, EST5EDT, HST, MET, MST, MST7MDT, PST8PDT, WET
-        // are Links in modern IANA TZDB (canonical-tz) - not included in supportedValuesOf
+        // These are non-canonical IDs, but not all are Links: the four *6* / *5* / *7* POSIX names
+        // are legacy Zones in tzdb's backward file, shipped separately in tzdata-legacy on some systems.
+        // CET, EET, EST, HST, MET, MST and WET are Links in modern IANA TZDB (canonical-tz).
         // Note: Etc/GMT and Etc/UTC are NOT canonical - they are valid identifiers
         // but canonicalize to UTC for supportedValuesOf purposes
         "Etc/GMT+1", "Etc/GMT+10", "Etc/GMT+11", "Etc/GMT+12",
@@ -240,8 +241,9 @@ internal static class TimeZoneData
         "Pacific/Tarawa", "Pacific/Tongatapu",
         "UTC",
 
-        // IANA TZDB Link names (aliases - must also be supported)
-        // POSIX-style zones (Links in canonical-tz IANA TZDB)
+        // Non-canonical IANA identifiers and legacy POSIX Zones (all valid identifiers).
+        // CET, EET, EST, HST, MET, MST and WET are Links in canonical-tz; the four *6* / *5* / *7* names
+        // are Zones in tzdb's backward file and may be shipped separately in tzdata-legacy.
         "CET", "CST6CDT", "EET", "EST", "EST5EDT", "HST",
         "MET", "MST", "MST7MDT", "PST8PDT", "WET",
         "Africa/Accra", "Africa/Addis_Ababa", "Africa/Asmara", "Africa/Asmera",
@@ -597,6 +599,15 @@ internal static class TimeZoneData
         ["Zulu"] = "Etc/UTC",
     };
 
+    // POSIX zone IDs retained in tzdata-legacy. Their rules match these US zones from 1967 onward.
+    private static readonly Dictionary<string, string> LegacyZoneFallbackTargets = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["CST6CDT"] = "America/Chicago",
+        ["EST5EDT"] = "America/New_York",
+        ["MST7MDT"] = "America/Denver",
+        ["PST8PDT"] = "America/Los_Angeles",
+    };
+
     /// <summary>
     /// Gets all supported IANA timezone identifiers (Zone names and Link names).
     /// Used for validation and case-insensitive lookup.
@@ -638,19 +649,41 @@ internal static class TimeZoneData
         => LinkTargets.TryGetValue(timeZone, out zone);
 
     /// <summary>
-    /// <see cref="TimeZoneInfo.FindSystemTimeZoneById"/>, retried under the zone a Link name points to when the
-    /// system does not know the Link name itself. Throws what the system throws for the name as given when
-    /// neither is found.
+    /// Gets the fallback zone for an IANA Link or an optional legacy POSIX zone name.
+    /// </summary>
+    internal static bool TryGetFallbackTarget(string timeZone, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? zone)
+        => TryGetLinkTarget(timeZone, out zone) || LegacyZoneFallbackTargets.TryGetValue(timeZone, out zone);
+
+    /// <summary>
+    /// <see cref="TimeZoneInfo.FindSystemTimeZoneById"/>, retried under a Link's target or a legacy zone's
+    /// approximate target when the system does not know the identifier itself. Throws what the system throws for
+    /// the name as given when neither is found.
     /// </summary>
     internal static TimeZoneInfo FindSystemTimeZone(string timeZone)
     {
-        if (TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out var found)
-            || (TryGetLinkTarget(timeZone, out var zone) && TimeZoneInfo.TryFindSystemTimeZoneById(zone, out found)))
+        if (TryFindSystemTimeZone(timeZone, out var found))
         {
             return found;
         }
 
         return TimeZoneInfo.FindSystemTimeZoneById(timeZone);
+    }
+
+    /// <summary>
+    /// Finds a system time zone by ID or by its Link or legacy fallback target without throwing when absent.
+    /// </summary>
+    internal static bool TryFindSystemTimeZone(
+        string timeZone,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TimeZoneInfo? found)
+    {
+        if (TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out found)
+            || (TryGetFallbackTarget(timeZone, out var zone) && TimeZoneInfo.TryFindSystemTimeZoneById(zone, out found)))
+        {
+            return true;
+        }
+
+        found = null;
+        return false;
     }
 
     private static void EnsureLookupInitialized()
