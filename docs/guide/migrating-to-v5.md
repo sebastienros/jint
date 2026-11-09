@@ -7894,6 +7894,36 @@ the value is the string it stands for for equality, `length`, every `String.prot
 
 See §4.27 for the details, which apply here unchanged.
 
+### 4.215 `AsyncIterator.prototype.flatMap` awaits a sync iterable's values, `AsyncIterator.from` takes a string, and a failed step leaves the source open ([#4439](https://github.com/sebastienros/jint/issues/4439))
+
+When a `flatMap` mapper returns a sync iterable, such as an array, a promise among its values is awaited. In 4.16 and
+earlier 5.0 builds the promise itself came out as the value. `AsyncIterator.from` now iterates a string by code points;
+it used to throw a `TypeError`. The iterator method a string uses is called on a `String` object, not on the primitive:
+
+```js
+await AsyncIterator.from([1, 2]).flatMap(x => [Promise.resolve(x), x * 10]).toArray();
+// 4.16.x / earlier 5.0: [Promise, 10, Promise, 20]    5.x: [1, 10, 2, 20]
+await AsyncIterator.from('ab').toArray();
+// 4.16.x / earlier 5.0: TypeError                     5.x: ['a', 'b']
+```
+
+`map`, `filter`, `take`, `drop` and `flatMap` no longer call the source iterator's `return` when the source's own step
+fails. That is, when its `next` throws, the promise it returns rejects or settles to something other than an object,
+or its result's `done` or `value` getter throws. The helper rejects with that error, and a `return()` on the helper
+afterwards does not close the source either. A mapper or predicate that throws, or a promise one of them returns that
+rejects, still closes the source. `reduce`, `toArray`, `forEach`, `some`, `every` and `find` already behaved this way.
+
+In `flatMap`, an inner async iterator whose step settles to something other than an object now rejects with a
+`TypeError` and closes the source iterator. It used to end the inner iterator, and `flatMap` went on to the source's
+next value. Calling `return()` on the helper while it is inside a sync iterable whose `return` throws now closes the
+source, as it already did for an async inner iterator whose `return` rejects. It used to leave the source open. There
+is no switch back.
+
+Whether that `return()` resolves or rejects is not settled yet. Jint resolves it for now, for either kind of inner
+iterator, only because it does not await the inner iterator's close. Expect that to change: the helpers' closes are
+tracked in [#4500](https://github.com/sebastienros/jint/issues/4500), and the proposal is heading towards awaiting
+that close and rejecting.
+
 ### 4.216 A wrapped CLR collection deletes a configurable property the script defined on it ([#4457](https://github.com/sebastienros/jint/issues/4457))
 
 A wrapped CLR list, array or other indexed collection refused `delete` for every property it had in three cases:
@@ -7921,6 +7951,61 @@ The same rules apply to what the wrapper itself puts on a collection. `delete li
 that implements `ICollection`; on any other collection, `length` then reads `Array.prototype.length`. A
 reflected property such as `Count` is non-configurable, so deleting it still returns `false`. There is no
 switch back.
+
+### 4.217 `Promise.all`, `Promise.allSettled` and other built-ins refuse an array past `MaxArraySize` ([#4493](https://github.com/sebastienros/jint/issues/4493))
+
+`Options.Constraints.MaxArraySize` bounds every array a script can build from a count, and ends the run with
+`MemoryLimitExceededException` past it. Several built-ins copied a finished list into their result array through
+`ArrayConstructor.ConstructFast` and skipped that check, so a script could be handed an array larger than the host
+allowed. With `MaxArraySize = 10_000`, a generator yielding 10,001 resolved promises passed to `Promise.all` used
+to resolve with a 10,001-element array:
+
+```js
+function* elements(n) { for (let i = 0; i < n; i++) yield Promise.resolve(i); }
+Promise.all(elements(10001));
+// earlier previews: resolves with an array of 10,001 elements
+// 5.x:              MemoryLimitExceededException out of Evaluate / Execute
+```
+
+`ConstructFast` now makes the same check and throws the same exception, with the same message, as `Array(n)` does.
+The built-ins that reach it are `Promise.all` and `Promise.allSettled`, `Iterator.prototype.chunks` and `windows`
+for a chunk or window larger than the limit, `Object.getOwnPropertyNames` and `Object.getOwnPropertySymbols` for an
+object with more keys than the limit, a call made with more arguments than the limit through a `Proxy` `apply` or
+`construct` trap, and the web APIs that hand a list to script: `FormData.getAll`, `performance.getEntries` and its
+siblings, the `ports` of a `MessageEvent`, and the lists the `Jint.Browser` package builds the same way (observer
+records, animations, cookies, navigation entries, client rects). The exception is thrown out of the call that builds
+the array. For `Promise.all` and `Promise.allSettled` that is the resolve function of the last element to settle, so
+it comes out of `Evaluate`, `Execute` or whatever else drains the event loop. `Promise.any`'s `errors` array was
+already bounded the same way, and still is.
+
+**What could break:** a host that set a finite `MaxArraySize`, or runs `Options.ForUntrustedCode`, and relied on one
+of these returning a larger array. A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged. A host
+calling the public `ArrayConstructor.ConstructFast(JsValue[])` with more elements than the limit now gets the exception
+instead of the array. An array of exactly `MaxArraySize` elements is still allowed. There is no switch back: a host
+that must hand script a larger array raises `MaxArraySize`, or builds the array with `new JsArray(engine, items)`,
+which takes the host's array as it is.
+
+### 4.218 `for await` throws when a step settles to something other than an object ([#4489](https://github.com/sebastienros/jint/issues/4489))
+
+A `for await` loop awaits what `next` answers, and fails with a `TypeError` when that settles to something other
+than an object. Before, Jint called `next` again instead, for as long as the step went on settling to a primitive,
+so the run never finished:
+
+```js
+const iterator = { next() { return Promise.resolve(5); } };   // or `return 5;`, `undefined`, `null`, a symbol
+for await (const x of { [Symbol.asyncIterator]() { return iterator; } }) { }
+// 4.x / earlier 5.0: calls next() without end    5.x: TypeError: Iterator result 5 is not an object
+```
+
+This happened on the first step and on any step after one that gave a value, in an async function, in an async
+generator and in a module's top-level `for await`. Each step was a promise job that the entry's own drain went on
+running, so `LimitStatements`, `LimitExecutionTime`, `LimitMemory`, `ObserveCancellation` and an `*Async` entry's
+token ended the run with their own exception. Nothing else did: a default engine spun at a flat working set, and
+neither `MaxRecursionDepth` nor `PromiseTimeout` ever fired.
+
+The loop now throws at the step that settled to something other than an object, without calling `next` again,
+and the iterator is not closed: its `return` is not called, as for a `next` that throws. A sync iterable reaching
+`for await` through its `Symbol.iterator` already failed this way. There is no switch back.
 
 ## 5. New in v5
 

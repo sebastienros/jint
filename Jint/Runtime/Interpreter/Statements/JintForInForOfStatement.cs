@@ -568,11 +568,20 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
                         var asyncSuspendData = suspendable?.Data.GetOrCreate<ForAwaitSuspendData>(this);
 
-                        // Check if we're resuming from awaiting next() with a successful result
-                        if (asyncSuspendData?.ResolvedIteratorResult is not null)
+                        // Resuming from the step's Await (step 8.b), which fulfilled with this value
+                        if (asyncSuspendData?.SettledNextResult is { } settledNextResult)
                         {
-                            nextResult = asyncSuspendData.ResolvedIteratorResult;
-                            asyncSuspendData.ResolvedIteratorResult = null;
+                            asyncSuspendData.SettledNextResult = null;
+
+                            // Step 8.c: "If nextResult is not an Object, throw a TypeError exception". A plain throw,
+                            // with `close` still false, so the iterator is not closed.
+                            if (!settledNextResult.IsObject())
+                            {
+                                ThrowNextResultNotAnObject(engine, settledNextResult);
+                                return default;
+                            }
+
+                            nextResult = settledNextResult.AsObjectNoTypeCheck();
                             v = asyncSuspendData.AccumulatedValue;
 
                             // Check if iterator is done
@@ -1298,8 +1307,21 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     }
 
     /// <summary>
+    /// Step 8.c of https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
+    /// for a <c>for await</c> step that settled to a primitive. Kept out of <see cref="BodyEvaluation"/>, whose frame
+    /// would otherwise carry the message's interpolation; <paramref name="settled"/> is never an object, so rendering it
+    /// runs no script.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    [DoesNotReturn]
+    private static void ThrowNextResultNotAnObject(Engine engine, JsValue settled)
+    {
+        Throw.TypeError(engine.Realm, $"Iterator result {settled} is not an object");
+    }
+
+    /// <summary>
     /// Await continuation for a for-await-of running inside an async function: stores the
-    /// resolved iterator result and resumes directly inside the reaction job.
+    /// settled step and resumes directly inside the reaction job.
     /// </summary>
     private sealed class ForAwaitFunctionContinuation : IPromiseContinuation
     {
@@ -1316,9 +1338,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             if (type == ReactionType.Fulfill)
             {
-                // Store the resolved iterator result for resume
+                // Store the settled value for the resume as it is, a primitive included (sebastienros/jint#4489)
                 var resumeSuspendData = _asyncInstance.Data.GetOrCreate<ForAwaitSuspendData>(_statement);
-                resumeSuspendData.ResolvedIteratorResult = value as ObjectInstance;
+                resumeSuspendData.SettledNextResult = value;
 
                 _asyncInstance._resumeValue = JsValue.Undefined;
                 _asyncInstance._resumeWithThrow = false;
@@ -1360,8 +1382,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             var resumeSuspendData = _asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(_statement);
             if (type == ReactionType.Fulfill)
             {
-                // Store the resolved iterator result so the for-await-of loop can use it
-                resumeSuspendData.ResolvedIteratorResult = value as ObjectInstance;
+                // Store the settled value for the resume as it is, a primitive included (sebastienros/jint#4489)
+                resumeSuspendData.SettledNextResult = value;
             }
             else
             {
