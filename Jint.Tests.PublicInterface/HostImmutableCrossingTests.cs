@@ -199,7 +199,7 @@ public class HostImmutableCrossingTests
         var undeclared = new Engine();
         undeclared.SetValue("record", System.Text.Json.Nodes.JsonNode.Parse(Source));
 
-        // JsonObject is an IDictionary<string, JsonNode>, and on .NET 9 and later also an
+        // JsonObject is an IDictionary<string, JsonNode>, and from System.Text.Json 9 on also an
         // IList<KeyValuePair<string, JsonNode>>; either way it is wrapped as a dictionary and resolves members
         // through the dictionary lane the memo serves (#4501)
         var declared = new Engine(options => options.AddImmutableCrossing(typeof(System.Text.Json.Nodes.JsonObject)));

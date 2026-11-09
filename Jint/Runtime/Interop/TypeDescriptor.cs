@@ -108,8 +108,8 @@ internal sealed class TypeDescriptor
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Newtonsoft's <c>JObject</c>, System.Text.Json's <c>JsonObject</c> on .NET 9 and later, and
-    /// <c>OrderedDictionary&lt;string, TValue&gt;</c> are string-keyed dictionaries that also implement
+    /// Newtonsoft's <c>JObject</c>, System.Text.Json's <c>JsonObject</c> from System.Text.Json 9 on (on any target
+    /// framework), and <c>OrderedDictionary&lt;string, TValue&gt;</c> are string-keyed dictionaries that also implement
     /// <see cref="IList{T}"/>, and what each list holds is an entry rather than a value: a <c>JProperty</c> node, a
     /// <see cref="KeyValuePair{TKey,TValue}"/>. Reading position 0 of that list hands script an entry, writing it is a
     /// CLR exception from the collection, and both contradict the key set every other lane reports. So such a type
@@ -119,6 +119,7 @@ internal sealed class TypeDescriptor
     /// <para>
     /// The test reads the type alone. The list holds something other than the dictionary's value type, or the type
     /// declares no integer indexer of its own (<c>JContainer</c> implements <c>IList&lt;JToken&gt;</c> explicitly).
+    /// A non-generic <see cref="IList"/> says nothing about what it holds, so for one the indexer alone decides.
     /// A type whose list holds its values and which declares an integer indexer keeps its positions, as before.
     /// </para>
     /// </remarks>
@@ -313,19 +314,26 @@ internal sealed class TypeDescriptor
         Type? valueType)
     {
         var elementType = ListElementType(type);
-        if (elementType is null)
+        if (elementType is not null)
         {
-            // not a list at all: an ordinary dictionary
-            return false;
+            return elementType != valueType || TypeResolver.DeclaredIntegerIndexer(type) is null;
         }
 
-        return elementType != valueType || TypeResolver.DeclaredIntegerIndexer(type) is null;
+        if (_listType.IsAssignableFrom(type))
+        {
+            // a non-generic IList says nothing about what it holds, so only the indexer can tell: one the type
+            // declares itself is a list of its values, as for a generic list
+            return TypeResolver.DeclaredIntegerIndexer(type) is null;
+        }
+
+        // not a list at all: an ordinary dictionary
+        return false;
     }
 
     /// <summary>
-    /// The element type of the list contract <paramref name="type"/> implements: <see cref="IList{T}"/> or
-    /// <see cref="IReadOnlyList{T}"/>, the exposed type ahead of its interfaces as the wrapper factory resolves them,
-    /// and <see cref="object"/> for a non-generic <see cref="IList"/>. <see langword="null"/> for no list.
+    /// The element type of the generic list contract <paramref name="type"/> implements, <see cref="IList{T}"/> or
+    /// <see cref="IReadOnlyList{T}"/>, the exposed type ahead of its interfaces as the wrapper factory resolves them.
+    /// <see langword="null"/> for none, which a non-generic <see cref="IList"/> may still be.
     /// </summary>
     private static Type? ListElementType(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
@@ -345,7 +353,7 @@ internal sealed class TypeDescriptor
             }
         }
 
-        return _listType.IsAssignableFrom(type) ? typeof(object) : null;
+        return null;
     }
 
     private static Type? GenericListElementType(Type contract)

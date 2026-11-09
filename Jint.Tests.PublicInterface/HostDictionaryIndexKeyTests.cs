@@ -10,8 +10,9 @@ namespace Jint.Tests.PublicInterface;
 
 /// <summary>
 /// An index-shaped key on a wrapped string-keyed dictionary whose list contract holds its entries is one more of
-/// its keys (#4501). Newtonsoft's <c>JObject</c> is the reported case; System.Text.Json's <c>JsonObject</c> on
-/// .NET 9 and later and <c>OrderedDictionary&lt;string, TValue&gt;</c> have the same shape.
+/// its keys (#4501). Newtonsoft's <c>JObject</c> is the reported case; System.Text.Json's <c>JsonObject</c> from
+/// System.Text.Json 9 on (the package this suite references on <c>net472</c>, the runtime's own on <c>net10.0</c>,
+/// so not on <c>net8.0</c>) and <c>OrderedDictionary&lt;string, TValue&gt;</c> have the same shape.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -286,12 +287,16 @@ public class HostDictionaryIndexKeyTests
     /// <summary>
     /// A type that is a dictionary and a list of its values, and that declares an integer indexer of its own,
     /// keeps its positions as before: only a list of entries, or one reachable through the interface alone, is
-    /// addressed by key.
+    /// addressed by key. That holds for a non-generic <see cref="IList"/> too, whose element type says nothing.
     /// </summary>
-    [Test]
-    public void AValueListWithAnIndexerOfItsOwnKeepsItsPositions()
+    [TestCase("IList<int>")]
+    [TestCase("IList")]
+    public void AValueListWithAnIndexerOfItsOwnKeepsItsPositions(string contract)
     {
-        var engine = new Engine().SetValue("x", new IndexedValueList { { "a", 1 }, { "b", 2 } });
+        object target = contract == "IList"
+            ? new NonGenericIndexedValueList { { "a", 1 }, { "b", 2 } }
+            : new IndexedValueList { { "a", 1 }, { "b", 2 } };
+        var engine = new Engine().SetValue("x", target);
 
         engine.Evaluate("[x[0], x['1'], 0 in x, Reflect.ownKeys(x).join('|'), x.a].join(',')").AsString()
             .Should().Be("1,2,true,a|b,1");
@@ -512,6 +517,31 @@ public class HostDictionaryIndexKeyTests
         IEnumerator<int> IEnumerable<int>.GetEnumerator() => Values.GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    /// <summary>
+    /// A string-keyed dictionary that is also a non-generic <see cref="IList"/> of its values and declares the integer
+    /// indexer itself.
+    /// </summary>
+    private sealed class NonGenericIndexedValueList : Dictionary<string, int>, IList
+    {
+        public object? this[int index] { get => Values.ElementAt(index); set => throw new NotSupportedException(); }
+
+        bool IList.IsFixedSize => true;
+
+        bool IList.IsReadOnly => true;
+
+        int IList.Add(object? value) => throw new NotSupportedException();
+
+        bool IList.Contains(object? value) => value is int item && ContainsValue(item);
+
+        int IList.IndexOf(object? value) => throw new NotSupportedException();
+
+        void IList.Insert(int index, object? value) => throw new NotSupportedException();
+
+        void IList.Remove(object? value) => throw new NotSupportedException();
+
+        void IList.RemoveAt(int index) => throw new NotSupportedException();
     }
 
     /// <summary>

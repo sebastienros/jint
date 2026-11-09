@@ -35,6 +35,8 @@ public class TypeDescriptorTests
         AssertAddressing(typeof(EntryList), addressedByKeyOnly: true);
         AssertAddressing(typeof(ExplicitValueList), addressedByKeyOnly: true);
         AssertAddressing(typeof(IndexedValueList), addressedByKeyOnly: false);
+        AssertAddressing(typeof(NonGenericExplicitValueList), addressedByKeyOnly: true);
+        AssertAddressing(typeof(NonGenericIndexedValueList), addressedByKeyOnly: false);
 #if NET9_0_OR_GREATER
         AssertAddressing(typeof(OrderedDictionary<string, int>), addressedByKeyOnly: true);
 #endif
@@ -46,6 +48,7 @@ public class TypeDescriptorTests
 
         TypeDescriptor.Get(typeof(ExplicitValueList)).IsIntegerIndexed.Should().BeFalse("a type addressed by key has no position to index");
         TypeDescriptor.Get(typeof(IndexedValueList)).IsIntegerIndexed.Should().BeTrue();
+        TypeDescriptor.Get(typeof(NonGenericIndexedValueList)).IsIntegerIndexed.Should().BeTrue();
     }
 
     private static void AssertAddressing(Type type, bool addressedByKeyOnly)
@@ -109,6 +112,53 @@ public class TypeDescriptorTests
         bool ICollection<int>.Remove(int item) => throw new NotSupportedException();
 
         IEnumerator<int> IEnumerable<int>.GetEnumerator() => Values.GetEnumerator();
+    }
+
+    /// <summary>
+    /// A dictionary that is also a non-generic <see cref="IList"/>, implemented explicitly: what it holds is unknown,
+    /// and it offers no integer indexer of its own.
+    /// </summary>
+    private sealed class NonGenericExplicitValueList : Dictionary<string, int>, IList
+    {
+        object IList.this[int index] { get => Values.ElementAt(index); set => throw new NotSupportedException(); }
+
+        bool IList.IsFixedSize => true;
+
+        bool IList.IsReadOnly => true;
+
+        int IList.Add(object value) => throw new NotSupportedException();
+
+        bool IList.Contains(object value) => value is int item && ContainsValue(item);
+
+        int IList.IndexOf(object value) => throw new NotSupportedException();
+
+        void IList.Insert(int index, object value) => throw new NotSupportedException();
+
+        void IList.Remove(object value) => throw new NotSupportedException();
+
+        void IList.RemoveAt(int index) => throw new NotSupportedException();
+    }
+
+    /// <summary>A dictionary that is also a non-generic <see cref="IList"/> of its values, with the indexer declared itself.</summary>
+    private sealed class NonGenericIndexedValueList : Dictionary<string, int>, IList
+    {
+        public object this[int index] { get => Values.ElementAt(index); set => throw new NotSupportedException(); }
+
+        bool IList.IsFixedSize => true;
+
+        bool IList.IsReadOnly => true;
+
+        int IList.Add(object value) => throw new NotSupportedException();
+
+        bool IList.Contains(object value) => value is int item && ContainsValue(item);
+
+        int IList.IndexOf(object value) => throw new NotSupportedException();
+
+        void IList.Insert(int index, object value) => throw new NotSupportedException();
+
+        void IList.Remove(object value) => throw new NotSupportedException();
+
+        void IList.RemoveAt(int index) => throw new NotSupportedException();
     }
 
     private static void AssertInformation(Type type, bool isArrayLike, bool iterable, bool isIntegerIndexedArray, bool shouldHaveLength)

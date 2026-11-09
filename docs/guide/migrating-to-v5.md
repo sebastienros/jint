@@ -7967,7 +7967,9 @@ delete list[Symbol.iterator]
 ```
 
 Now only the collection's contents are refused in those cases: an element, and an entry of a dictionary-shaped
-collection such as Newtonsoft's `JObject`. Deleting one still returns `false` (a `TypeError` in strict mode), and
+collection, such as a host type that is both a dictionary and a list of its values. (Newtonsoft's `JObject` is not
+one: it is wrapped as a dictionary, see [§4.222](#4-222-an-index-on-a-wrapped-jobject-is-one-more-of-its-keys-4501).)
+Deleting one still returns `false` (a `TypeError` in strict mode), and
 the collection does not change. Every other property follows the ordinary `delete` rules: removed if it is
 configurable, refused if it is not. Extensibility does not matter, so `Object.preventExtensions` no longer stops
 a configurable property from being deleted. Nor does `Object.freeze`, which does not reach a property the script
@@ -8116,9 +8118,11 @@ Array.prototype.slice.call(jobj)          // InvalidOperationException out of Ev
 
 A string such as `jobj["0"]` that the object did not hold reached the list the same way. Now `0` and `"0"` are one
 key, read, tested, written and deleted through the dictionary like any other, so `jobj[0]` reads a `"0"` key when
-the object has one. System.Text.Json's `JsonObject` on .NET 9 and later and `OrderedDictionary<string, TValue>`
-have the same shape (their lists hold `KeyValuePair` entries) and change the same way, so a `JsonObject` now
-behaves on .NET 9 and later as it already did on .NET 8. Such an object is wrapped the way a
+the object has one. `OrderedDictionary<string, TValue>` (.NET 9 and later) has the same shape, and so does
+System.Text.Json's `JsonObject` from System.Text.Json 9 on: the version .NET 9 and later ship, and the package on any
+target framework, .NET Framework and .NET 8 included. Their lists hold `KeyValuePair` entries, and they change the
+same way. So a `JsonObject` now behaves as it did with System.Text.Json 8 and earlier, which is what a .NET 8
+application that references no newer package still runs. Such an object is wrapped the way a
 `Dictionary<string, TValue>` is, which changes three more things:
 
 - its prototype is `Object.prototype` rather than `Array.prototype`, so `jobj.length` is `undefined` unless the
