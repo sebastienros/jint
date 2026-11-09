@@ -132,9 +132,7 @@ public class IteratorHelperSourceStepFailureTests
     ];
 
     /// <summary>
-    /// Every helper against every failure, bar two rows of the async generator control: <c>for await</c> calls
-    /// <c>next</c> again when a step settles to a primitive instead of throwing the <c>TypeError</c>, without end
-    /// (sebastienros/jint#4489).
+    /// Every helper against every failure.
     /// </summary>
     public static TestCases<string, string, string, string> HelperCases
     {
@@ -145,11 +143,6 @@ public class IteratorHelperSourceStepFailureTests
             {
                 foreach (var name in _helpers)
                 {
-                    if (name == "generator" && failure.Kind == "async" && failure.How.EndsWith("Primitive", StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
                     rows.Add(failure.Kind, name, failure.How, failure.Error);
                 }
             }
