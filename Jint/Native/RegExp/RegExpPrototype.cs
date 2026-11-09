@@ -38,6 +38,12 @@ internal sealed partial class RegExpPrototype : Prototype
     private static readonly JsString PropertyUnicode = new("unicode");
     private static readonly JsString PropertyUnicodeSets = new("unicodeSets");
 
+    // The names of the data properties RegExpBuiltinExec adds to its result, hashed once (see DefineResultProperty).
+    private static readonly Key KeyIndex = "index";
+    private static readonly Key KeyInput = "input";
+    private static readonly Key KeyGroups = "groups";
+    private static readonly Key KeyIndices = "indices";
+
     [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
     private readonly RegExpConstructor _constructor;
 
@@ -2065,6 +2071,34 @@ internal sealed partial class RegExpPrototype : Prototype
     }
 
     /// <summary>
+    /// Adds <c>index</c>, <c>input</c>, <c>groups</c> or <c>indices</c> to the result array of a match, as
+    /// <c>CreateDataPropertyOrThrow(A, name, value)</c> does in
+    /// https://tc39.es/ecma262/#sec-regexpbuiltinexec steps 22-36 and
+    /// https://tc39.es/ecma262/#sec-makematchindicesindexpairarray: a writable, enumerable, configurable data property.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <paramref name="array"/> was created a few lines earlier by the caller, so it is extensible, has never been
+    /// handed to script and holds none of these names - the checks <see cref="ObjectInstance.DefineOwnProperty"/> runs
+    /// can only answer "yes". Going through it cost two descriptors per property (the one
+    /// <c>CreateDataProperty</c> builds to describe the define and the one it stores) plus the lookup that proves the
+    /// name is absent; this stores the one descriptor that is kept. Do not use it for an array that has been seen by
+    /// script, or in order to overwrite a name: it replaces whatever is there without asking.
+    /// </para>
+    /// <para>
+    /// An array has no hidden-class shape to fall out of (<c>ShapeMode</c> belongs to <see cref="JsObject"/>), so the
+    /// raw store costs a result array nothing the define did not: its named members live in the same property
+    /// dictionary, as the same descriptors, in the same order, and <c>m.index</c> is read by the same lane as before.
+    /// The change flag the array's own <c>[[DefineOwnProperty]]</c> raises for a named property is one nothing reads.
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void DefineResultProperty(JsArray array, Key name, JsValue value)
+    {
+        array.SetProperty(name, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
+    }
+
+    /// <summary>
     /// Build the JS result array from a custom engine match result.
     /// </summary>
     /// <summary>
@@ -2080,8 +2114,8 @@ internal sealed partial class RegExpPrototype : Prototype
         var engine = rei.Engine;
         var actualGroupCount = groups.Length;
         var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) actualGroupCount);
-        array.CreateDataProperty(PropertyIndex, groups[0].Index);
-        array.CreateDataProperty(PropertyInput, s);
+        DefineResultProperty(array, KeyIndex, groups[0].Index);
+        DefineResultProperty(array, KeyInput, s);
 
         ObjectInstance? jsGroups = null;
         List<string?>? groupNames = null;
@@ -2134,12 +2168,12 @@ internal sealed partial class RegExpPrototype : Prototype
             array.SetIndexValue((uint) i, capturedValue, updateLength: false);
         }
 
-        array.CreateDataProperty(PropertyGroups, jsGroups ?? Undefined);
+        DefineResultProperty(array, KeyGroups, jsGroups ?? Undefined);
 
         if (hasIndices)
         {
             var indicesArray = MakeMatchIndicesIndexPairArray(engine, s, indices!, groupNames, hasAnyGroupName);
-            array.CreateDataPropertyOrThrow("indices", indicesArray);
+            DefineResultProperty(array, KeyIndices, indicesArray);
         }
 
         UpdateLegacyStaticProperties(engine, s, groups, actualGroupCount);
@@ -2185,8 +2219,8 @@ internal sealed partial class RegExpPrototype : Prototype
         var engine = rei.Engine;
         var actualGroupCount = GetActualRegexGroupCount(rei, match);
         var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) actualGroupCount);
-        array.CreateDataProperty(PropertyIndex, match.Index);
-        array.CreateDataProperty(PropertyInput, s);
+        DefineResultProperty(array, KeyIndex, match.Index);
+        DefineResultProperty(array, KeyInput, s);
 
         ObjectInstance? groups = null;
         List<string?>? groupNames = null;
@@ -2252,12 +2286,12 @@ internal sealed partial class RegExpPrototype : Prototype
             array.SetIndexValue(i, capturedValue, updateLength: false);
         }
 
-        array.CreateDataProperty(PropertyGroups, groups ?? Undefined);
+        DefineResultProperty(array, KeyGroups, groups ?? Undefined);
 
         if (hasIndices)
         {
             var indicesArray = MakeMatchIndicesIndexPairArray(engine, s, indices!, groupNames, hasAnyGroupName);
-            array.CreateDataPropertyOrThrow("indices", indicesArray);
+            DefineResultProperty(array, KeyIndices, indicesArray);
         }
 
         // Update the legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B)
@@ -2325,7 +2359,7 @@ internal sealed partial class RegExpPrototype : Prototype
             }
         }
 
-        a.CreateDataPropertyOrThrow("groups", groups ?? Undefined);
+        DefineResultProperty(a, KeyGroups, groups ?? Undefined);
         for (var i = 0; i < n; ++i)
         {
             var matchIndices = indices[i];
