@@ -14,7 +14,8 @@ namespace Jint.Tests.Runtime;
 /// (sebastienros/jint#4489). Both of the loop's Await continuations stored the settled value as an object, so a
 /// primitive arrived as <c>null</c>, which the resume read as "no step in flight". Every source here throws from
 /// <c>next</c> on its 21st call, so a loop that keeps stepping ends with that error instead of spinning. Every loop runs
-/// in an async function and, beside it, in an async generator that yields each value. Expected values are Node 26's.
+/// in an async function and, beside it, in an async generator that yields each value. Expected values are Node 26's, bar
+/// the <c>return</c> it calls in <see cref="ASyncIterablesNonObjectStepThrowsWithoutClosing"/>.
 /// </para>
 /// </summary>
 public class ForAwaitNonObjectStepTests
