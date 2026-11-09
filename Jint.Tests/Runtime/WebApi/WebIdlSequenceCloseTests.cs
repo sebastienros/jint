@@ -21,7 +21,11 @@ namespace Jint.Tests.Runtime.WebApi;
 /// The nested conversions, <c>sequence&lt;sequence&lt;ByteString&gt;&gt;</c> (Headers) and
 /// <c>sequence&lt;sequence&lt;USVString&gt;&gt;</c> (URLSearchParams), have a lane for each level: a pair whose own
 /// conversion fails is the outer sequence's failing element, and a pair element whose conversion fails is the inner
-/// one's, which closes the inner iterator and then the outer. <c>ReadableStream.from</c> is the one async sequence;
+/// one's, which closes the inner iterator and then the outer. Both convert in full before the fill or the initialize
+/// steps look at a pair, so their refusal rows (a pair of the wrong size, then pairs that would be accepted or one that
+/// fails to convert; a header name that is not a token; a pair of three) read every element and close nothing unless a
+/// conversion failed. Node 26's <c>Headers</c> reads in exactly that order, closing nothing in either case, as it
+/// never closes; its <c>URLSearchParams</c> refuses mid-iteration and closes. <c>ReadableStream.from</c> is the one async sequence;
 /// its <c>async_sequence&lt;any&gt;</c> elements cannot fail to convert, so its conversion row is a sync iterable's
 /// rejected value, which CreateAsyncFromSyncIterator closes, and an async generator's, which ends it.
 /// </para>
@@ -43,10 +47,33 @@ public sealed class WebIdlSequenceCloseTests
         }
 
         lanes.blob = () => ({ goods: ['a'], bad: throwsOnConversion, run: it => new Blob(it) });
-        lanes.headers = () => ({ goods: [plain('a', '1')], bad: plain(throwsOnConversion, '1'), run: it => new Headers(it) });
-        lanes.headersPair = () => ({ goods: ['a', '1'], bad: throwsOnConversion, run: it => new Headers(plain(it)) });
-        lanes.urlSearchParams = () => ({ goods: [plain('a', '1')], bad: plain(throwsOnConversion, '1'), run: it => new URLSearchParams(it) });
-        lanes.urlSearchParamsPair = () => ({ goods: ['a', '1'], bad: throwsOnConversion, run: it => new URLSearchParams(plain(it)) });
+        // The nested conversions. `refused` converts, and then the fill or the initialize steps refuse it: a pair of the
+        // wrong size first, then pairs that would be accepted, or a pair of three.
+        lanes.headers = () => ({
+            goods: [plain('a', '1')],
+            bad: plain(throwsOnConversion, '1'),
+            refused: [plain('a'), plain('b', '2'), plain('c', '3')],
+            run: it => new Headers(it),
+        });
+        lanes.headersInvalidName = () => ({
+            goods: [plain('a', '1')],
+            bad: plain(throwsOnConversion, '1'),
+            refused: [plain('a b', '1'), plain('c', '2'), plain('d', '3')],
+            run: it => new Headers(it),
+        });
+        lanes.headersPair = () => ({ goods: ['a', '1'], bad: throwsOnConversion, refused: ['a', '1', 'x'], run: it => new Headers(plain(it)) });
+        lanes.urlSearchParams = () => ({
+            goods: [plain('a', '1')],
+            bad: plain(throwsOnConversion, '1'),
+            refused: [plain('a'), plain('b', '2'), plain('c', '3')],
+            run: it => new URLSearchParams(it),
+        });
+        lanes.urlSearchParamsPair = () => ({
+            goods: ['a', '1'],
+            bad: throwsOnConversion,
+            refused: ['a', '1', 'x'],
+            run: it => new URLSearchParams(plain(it)),
+        });
         lanes.messageEventPorts = () => ({ goods: [new MessageChannel().port1], bad: {}, run: it => new MessageEvent('message', { ports: it }) });
         lanes.structuredCloneTransfer = () => ({ goods: [new ArrayBuffer(1)], bad: 1, run: it => structuredClone(null, { transfer: it }) });
         lanes.webSocketProtocols = () => ({ goods: ['chat'], bad: throwsOnConversion, run: it => new WebSocket('wss://example.org/', it) });
@@ -130,7 +157,19 @@ public sealed class WebIdlSequenceCloseTests
         ["readableStreamFrom"] = "ConversionError",
     };
 
-    public static TestCases<string, string, string, string> EveryLaneUnderEveryProbe => WebIdlSequenceCloseMatrix.Cases(SyncLanes, AsyncLanes);
+    // The nested conversions, whose fill or initialize steps refuse what the conversion produced: each named with the
+    // error the refusal throws and the one its bad element does.
+    private static readonly Dictionary<string, (string Refusal, string Error)> RefusalLanes = new()
+    {
+        ["headers"] = ("TypeError", "ConversionError"),
+        ["headersInvalidName"] = ("TypeError", "ConversionError"),
+        ["headersPair"] = ("TypeError", "ConversionError"),
+        ["urlSearchParams"] = ("TypeError", "ConversionError"),
+        ["urlSearchParamsPair"] = ("TypeError", "ConversionError"),
+    };
+
+    public static TestCases<string, string, string, string> EveryLaneUnderEveryProbe
+        => WebIdlSequenceCloseMatrix.Cases(SyncLanes, AsyncLanes, RefusalLanes);
 
     private static readonly Prepared<Script> PreparedHarness = Engine.PrepareScript(WebIdlSequenceCloseMatrix.Harness);
     private static readonly Prepared<Script> PreparedLanes = Engine.PrepareScript(Lanes);

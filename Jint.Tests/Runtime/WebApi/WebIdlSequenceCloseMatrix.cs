@@ -16,14 +16,21 @@ namespace Jint.Tests.Runtime.WebApi;
 /// adding it, for async sequences as well. It is the behaviour of ECMAScript's own consumers, and Safari's. Chrome and
 /// Firefox leave the iterator open.
 /// </para>
+/// <para>
+/// An algorithm that refuses what the conversion produced (a pair whose size is not 2, a header name) runs once the
+/// conversion has completed, so it finds the iterators done: every element was read and converted, and nothing is
+/// closed. The refusal rows pin that for the lanes whose algorithm can refuse; a conversion failing after a refused
+/// element still closes, and its error is the one that propagates.
+/// </para>
 /// </summary>
 /// <remarks>
 /// A suite evaluates <see cref="Harness"/>, registers its lanes on <c>lanes</c>, and runs
 /// <c>probe(lane, probe, row)</c> for every row <see cref="Cases"/> yields. A lane is
-/// <c>() =&gt; ({ goods, bad, run })</c>: <c>goods</c> a sequence the conversion accepts, <c>bad</c> an element whose
-/// conversion throws, and <c>run</c> the operation, which may answer a promise. A lane's own iterables (the outer
-/// sequence around an inner one under test, say) come from <c>plain</c>, whose iterator has no <c>return</c>, so the
-/// counts belong to the probe alone. The engine is the case's own: the probes patch the iterator prototypes.
+/// <c>() =&gt; ({ goods, bad, refused, run })</c>: <c>goods</c> a sequence the conversion accepts, <c>bad</c> an element
+/// whose conversion throws, <c>refused</c> (for a refusal lane) a sequence the conversion accepts and the algorithm
+/// then refuses, and <c>run</c> the operation, which may answer a promise. A lane's own iterables (the outer sequence
+/// around an inner one under test, say) come from <c>plain</c>, whose iterator has no <c>return</c>, so the counts
+/// belong to the probe alone. The engine is the case's own: the probes patch the iterator prototypes.
 /// </remarks>
 internal static class WebIdlSequenceCloseMatrix
 {
@@ -48,23 +55,30 @@ internal static class WebIdlSequenceCloseMatrix
         }
 
         const lanes = {};
-        const counts = { returns: 0, finallies: 0 };
+        const counts = { returns: 0, finallies: 0, reads: 0 };
         const ArrayIteratorPrototype = Object.getPrototypeOf([][Symbol.iterator]());
         const GeneratorPrototype = Object.getPrototypeOf(function* () {}).prototype;
         const AsyncGeneratorPrototype = Object.getPrototypeOf(async function* () {}).prototype;
 
         // The iterable a probe hands the lane: `values` in order, then (when `throwsInNext`) a step that throws.
+        // `counts.reads` counts the values the iterable produced.
         //   array           a real Array; %ArrayIteratorPrototype%.return, which no built-in has, counts closes, and a
-        //                   throwing step is an index getter that %ArrayIteratorPrototype%.next reads.
+        //                   throwing step is an index getter that %ArrayIteratorPrototype%.next reads. With
+        //                   `countReads` every element is an index getter, so its reads are counted too.
         //   generator       a generator object; its `finally` counts how it ended, a counting
         //                   %GeneratorPrototype%.return counts closes, and a throwing step is its body throwing.
         //   iterator        a hand-written iterator whose `next` throws and whose `return` counts.
         //   asyncGenerator  an async generator, for an async sequence alone.
-        function make(probe, values, throwsInNext) {
+        function make(probe, values, throwsInNext, countReads) {
             switch (probe) {
                 case 'array': {
                     ArrayIteratorPrototype.return = function () { counts.returns++; return { value: undefined, done: true }; };
                     const array = values.slice();
+                    if (countReads) {
+                        for (let i = 0; i < values.length; i++) {
+                            Object.defineProperty(array, i, { get() { counts.reads++; return values[i]; } });
+                        }
+                    }
                     if (throwsInNext) Object.defineProperty(array, array.length, { get() { throw marker('NextError'); } });
                     return array;
                 }
@@ -73,7 +87,7 @@ internal static class WebIdlSequenceCloseMatrix
                     GeneratorPrototype.return = function (value) { counts.returns++; return original.call(this, value); };
                     return (function* () {
                         try {
-                            for (let i = 0; i < values.length; i++) yield values[i];
+                            for (let i = 0; i < values.length; i++) { counts.reads++; yield values[i]; }
                             if (throwsInNext) throw marker('NextError');
                         } finally {
                             counts.finallies++;
@@ -87,7 +101,8 @@ internal static class WebIdlSequenceCloseMatrix
                             return {
                                 next() {
                                     if (i === values.length && throwsInNext) throw marker('NextError');
-                                    return i < values.length ? { value: values[i++], done: false } : { value: undefined, done: true };
+                                    if (i < values.length) { counts.reads++; return { value: values[i++], done: false }; }
+                                    return { value: undefined, done: true };
                                 },
                                 return() { counts.returns++; return {}; },
                             };
@@ -98,7 +113,7 @@ internal static class WebIdlSequenceCloseMatrix
                     AsyncGeneratorPrototype.return = function (value) { counts.returns++; return original.call(this, value); };
                     return (async function* () {
                         try {
-                            for (let i = 0; i < values.length; i++) yield values[i];
+                            for (let i = 0; i < values.length; i++) { counts.reads++; yield values[i]; }
                             if (throwsInNext) throw marker('NextError');
                         } finally {
                             counts.finallies++;
@@ -108,15 +123,24 @@ internal static class WebIdlSequenceCloseMatrix
             }
         }
 
-        // Runs one row of the matrix against a lane and answers "<outcome> return=<n>[ finally=<n>]", the outcome
-        // being 'ok' or the name of what the operation threw or rejected with.
-        //   conversion  the lane's first good element, then its bad one.
-        //   next        the lane's first good element, then a step that throws a NextError.
-        //   done        the lane's good elements, then the end of the sequence.
+        // Runs one row of the matrix against a lane and answers "<outcome> return=<n>[ read=<all|n of m>][ finally=<n>]",
+        // the outcome being 'ok' or the name of what the operation threw or rejected with.
+        //   conversion             the lane's first good element, then its bad one.
+        //   next                   the lane's first good element, then a step that throws a NextError.
+        //   done                   the lane's good elements, then the end of the sequence.
+        //   refusal                the lane's refused sequence, which the conversion accepts and the algorithm refuses.
+        //   refusalThenConversion  the refused sequence followed by the bad element.
         async function probe(laneName, probeName, row) {
             const lane = lanes[laneName]();
-            const values = row === 'conversion' ? [lane.goods[0], lane.bad] : row === 'next' ? [lane.goods[0]] : lane.goods;
-            const input = make(probeName, values, row === 'next');
+            const refusal = row === 'refusal' || row === 'refusalThenConversion';
+            const values = {
+                conversion: () => [lane.goods[0], lane.bad],
+                next: () => [lane.goods[0]],
+                done: () => lane.goods,
+                refusal: () => lane.refused,
+                refusalThenConversion: () => [...lane.refused, lane.bad],
+            }[row]();
+            const input = make(probeName, values, row === 'next', refusal);
             let outcome;
             try {
                 await lane.run(input);
@@ -126,7 +150,8 @@ internal static class WebIdlSequenceCloseMatrix
             }
 
             const generator = probeName === 'generator' || probeName === 'asyncGenerator';
-            return outcome + ' return=' + counts.returns + (generator ? ' finally=' + counts.finallies : '');
+            const read = counts.reads === values.length ? 'all' : counts.reads + ' of ' + values.length;
+            return outcome + ' return=' + counts.returns + (refusal ? ' read=' + read : '') + (generator ? ' finally=' + counts.finallies : '');
         }
         """;
 
@@ -137,6 +162,8 @@ internal static class WebIdlSequenceCloseMatrix
     internal static readonly string[] AsyncProbes = [.. SyncProbes, "asyncGenerator"];
 
     internal static readonly string[] Rows = ["conversion", "next", "done"];
+
+    internal static readonly string[] RefusalRows = ["refusal", "refusalThenConversion"];
 
     /// <summary>
     /// What a row answers. <paramref name="error"/> is the name of what the lane's bad element throws. A sync iterable
@@ -161,18 +188,46 @@ internal static class WebIdlSequenceCloseMatrix
     }
 
     /// <summary>
+    /// What a refusal row answers, in WebIDL's order: the conversion completes, reading every element, before the
+    /// algorithm refuses (<paramref name="refusal"/> is its error) with both iterators done, so nothing is closed and a
+    /// generator ran to its end. A bad element after the refused ones fails the conversion first, which closes the
+    /// iterator once and propagates <paramref name="error"/>.
+    /// </summary>
+    internal static string ExpectedRefusal(string probe, string row, string refusal, string error)
+    {
+        var converts = row == "refusalThenConversion";
+        return (converts ? error : refusal) + " return=" + (converts ? 1 : 0) + " read=all" + (probe == "generator" ? " finally=1" : "");
+    }
+
+    /// <summary>
     /// Every row of the matrix for <paramref name="lanes"/>, each lane named with the error its bad element throws;
-    /// <paramref name="asyncLanes"/> also run under <see cref="AsyncProbes"/>.
+    /// <paramref name="asyncLanes"/> also run under <see cref="AsyncProbes"/>, and <paramref name="refusalLanes"/>, each
+    /// named with the error its algorithm's refusal throws and the one its bad element does, run the refusal rows.
     /// </summary>
     internal static TestCases<string, string, string, string> Cases(
         IReadOnlyDictionary<string, string> lanes,
-        IReadOnlyDictionary<string, string>? asyncLanes = null)
+        IReadOnlyDictionary<string, string>? asyncLanes = null,
+        IReadOnlyDictionary<string, (string Refusal, string Error)>? refusalLanes = null)
     {
         var rows = new TestCases<string, string, string, string>();
         Add(rows, lanes, SyncProbes);
         if (asyncLanes is not null)
         {
             Add(rows, asyncLanes, AsyncProbes);
+        }
+
+        if (refusalLanes is not null)
+        {
+            foreach (var (lane, (refusal, error)) in refusalLanes)
+            {
+                foreach (var probe in SyncProbes)
+                {
+                    foreach (var row in RefusalRows)
+                    {
+                        rows.Add(lane, probe, row, ExpectedRefusal(probe, row, refusal, error));
+                    }
+                }
+            }
         }
 
         return rows;
