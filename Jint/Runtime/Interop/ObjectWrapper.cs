@@ -782,17 +782,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     public override void RemoveOwnProperty(JsValue property)
     {
-        if (property is JsString removedKey)
-        {
-            _crossingMemo?.Remove(removedKey.ToString());
-        }
-
-        if (_lengthPropertyPending && CommonProperties.Length.Equals(property))
-        {
-            // an explicit removal of the not-yet-materialized forwarder must behave like removing the
-            // eagerly-created one did: the property is gone and does not come back
-            _lengthPropertyPending = false;
-        }
+        ForgetResolvedProperty(property);
 
         if (_engine.Options.Interop.AllowWrite)
         {
@@ -813,6 +803,32 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         // also remove from _properties cache to avoid stale entries
         base.RemoveOwnProperty(property);
+    }
+
+    /// <summary>
+    /// Removes an own property from this wrapper alone, leaving the target untouched: what
+    /// <see cref="RemoveOwnProperty"/> does when <see cref="Options.InteropOptions.AllowWrite"/> is off. For a
+    /// lane that must not change the target whatever the options say.
+    /// </summary>
+    private protected void RemoveOwnPropertyFromWrapper(JsValue property)
+    {
+        ForgetResolvedProperty(property);
+        base.RemoveOwnProperty(property);
+    }
+
+    private void ForgetResolvedProperty(JsValue property)
+    {
+        if (property is JsString removedKey)
+        {
+            _crossingMemo?.Remove(removedKey.ToString());
+        }
+
+        if (_lengthPropertyPending && CommonProperties.Length.Equals(property))
+        {
+            // an explicit removal of the not-yet-materialized forwarder must behave like removing the
+            // eagerly-created one did: the property is gone and does not come back
+            _lengthPropertyPending = false;
+        }
     }
 
     public override bool HasProperty(JsValue property)
