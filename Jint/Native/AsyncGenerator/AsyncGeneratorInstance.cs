@@ -552,6 +552,17 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     }
 
     /// <summary>
+    /// Forgets the yield* delegation altogether, its node included, for a delegation that ended by a throw out of the
+    /// yield*: nothing replays into it, and a later evaluation of the same yield* calls GetIterator afresh
+    /// (https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation, sebastienros/jint#4440).
+    /// </summary>
+    internal void EndDelegation()
+    {
+        ClearDelegationIterator();
+        _delegatingYieldNode = null;
+    }
+
+    /// <summary>
     /// Resumes the body with <paramref name="error"/> thrown at the yield* expression, which ends the
     /// delegation: the twin of <see cref="ResumeAfterDelegation"/> for a step the spec marks <c>?</c>.
     /// </summary>

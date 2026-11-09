@@ -585,6 +585,257 @@ public class ClrEnumeratorDisposalTests
         items.Disposals.Should().Be(1);
     }
 
+    private const string YieldStarThrowHarness = YieldStarReturnHarness + """
+
+        // A generator of each kind suspended in yield* over `operand`, resumed with throw('T'): what that answered.
+        const throwInto = {
+            sync: async function (operand) {
+                const g = (function* () { return yield* operand; })();
+                g.next();
+                const r = g.throw('T');
+                return r.value + ',' + r.done;
+            },
+            async: async function (operand) {
+                const g = (async function* () { return yield* operand; })();
+                await g.next();
+                const r = await g.throw('T');
+                return r.value + ',' + r.done;
+            }
+        };
+        """;
+
+    /// <summary>
+    /// A generator suspended in <c>yield*</c> and resumed with <c>throw()</c> forwards the throw to the delegate's own
+    /// <c>throw</c> (https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation step 7.b).
+    /// An answer that is done ends the delegation with its value, and a throw or a non-object answer ends it by a throw;
+    /// either way a CLR collection's iterator disposes its enumerator, once (sebastienros/jint#4440), as it does when a
+    /// <c>return()</c> ends the delegation (sebastienros/jint#4429). Both kinds left it undisposed. With no <c>throw</c>
+    /// the delegate is closed before the <c>TypeError</c> (step 7.b.iii), which disposed already: those rows are the
+    /// controls. The outcomes are Node 26's for an array iterator given the same <c>throw</c>.
+    /// </summary>
+    [TestCase("sync", "items", "prototype", "ok", "t:T,true", 1)]
+    [TestCase("sync", "items", "prototype", "throws", "threw:X", 1)]
+    [TestCase("sync", "items", "prototype", "nonObject", "threw:TypeError", 1)]
+    [TestCase("sync", "items", "none", "ok", "threw:TypeError", 0)]
+    [TestCase("sync", "it", "own", "ok", "t:T,true", 1)]
+    [TestCase("sync", "it", "own", "throws", "threw:X", 1)]
+    [TestCase("sync", "it", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("sync", "it", "none", "ok", "threw:TypeError", 0)]
+    [TestCase("async", "items", "prototype", "ok", "t:T,true", 1)]
+    [TestCase("async", "items", "prototype", "throws", "threw:X", 1)]
+    [TestCase("async", "items", "prototype", "nonObject", "threw:TypeError", 1)]
+    [TestCase("async", "items", "none", "ok", "threw:TypeError", 0)]
+    [TestCase("async", "it", "own", "ok", "t:T,true", 1)]
+    [TestCase("async", "it", "own", "throws", "threw:X", 1)]
+    [TestCase("async", "it", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("async", "asyncIterable", "own", "ok", "t:T,true", 1)]
+    [TestCase("async", "asyncIterable", "own", "throws", "threw:X", 1)]
+    [TestCase("async", "asyncIterable", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("async", "asyncIterable", "none", "ok", "threw:TypeError", 0)]
+    [TestCase("async", "asyncIterable", "prototype", "ok", "t:T,true", 1)]
+    public void ThrowingIntoAGeneratorSuspendedInYieldStarDisposesTheEnumerator(
+        string kind, string operand, string where, string throwKind, string expected, int calls)
+    {
+        var items = new CountingEnumerable();
+        var engine = new Engine();
+        engine.SetValue("items", items);
+
+        engine.Evaluate(YieldStarThrowHarness + "\n" + $$"""
+            (async function () {
+                const proto = Object.getPrototypeOf([].values());
+                let calls = 0;
+                const throws = {
+                    ok: function (v) { calls++; return { value: 't:' + v, done: true }; },
+                    throws: function () { calls++; throw 'X'; },
+                    nonObject: function () { calls++; return 1; }
+                };
+                const delegate = operandFor('{{operand}}');
+                if ('{{where}}' === 'own') { delegate.it.throw = throws.{{throwKind}}; }
+                else if ('{{where}}' === 'prototype') { proto.throw = throws.{{throwKind}}; }
+                let outcome;
+                try { outcome = String(await throwInto.{{kind}}(delegate.operand)); }
+                catch (e) { outcome = 'threw:' + (typeof e === 'string' ? e : e.constructor.name); }
+                finally { delete proto.throw; }
+                return outcome + ' ' + calls;
+            })()
+            """).UnwrapIfPromise().AsString().Should().Be(expected + " " + calls);
+        items.Disposals.Should().Be(1);
+        items.StepsAfterDisposal.Should().Be(0);
+    }
+
+    /// <summary>
+    /// A delegate's <c>throw</c> that answers not done keeps the delegation going (step 7.b.ii.8): the generator yields
+    /// what it answered and its next <c>next()</c> steps the same iterator, as Node 26 shows for an array. So the
+    /// enumerator is not disposed then, only when the delegation runs it out.
+    /// </summary>
+    [TestCase("sync", "items")]
+    [TestCase("async", "items")]
+    [TestCase("async", "asyncIterable")]
+    public void ADelegateThrowThatAnswersNotDoneLeavesTheEnumeratorToTheDelegation(string kind, string operand)
+    {
+        var items = new CountingEnumerable();
+        var engine = new Engine();
+        engine.SetValue("items", items);
+        engine.SetValue("disposals", new Func<int>(() => items.Disposals));
+
+        engine.Evaluate(YieldStarReturnHarness + "\n" + $$"""
+            (async function () {
+                const proto = Object.getPrototypeOf([].values());
+                proto.throw = function (v) { return { value: 't:' + v, done: false }; };
+                try {
+                    const delegate = operandFor('{{operand}}').operand;
+                    const g = '{{kind}}' === 'sync'
+                        ? (function* () { yield* delegate; return 'end'; })()
+                        : (async function* () { yield* delegate; return 'end'; })();
+                    const out = [];
+                    const show = function (r) { out.push(r.value + ':' + r.done); };
+                    show(await g.next());
+                    show(await g.throw('T'));
+                    out.push('disposed ' + disposals());
+                    show(await g.next());
+                    show(await g.next());
+                    show(await g.next());
+                    return out.join(' ');
+                } finally {
+                    delete proto.throw;
+                }
+            })()
+            """).UnwrapIfPromise().AsString().Should().Be("1:false t:T:false disposed 0 2:false 3:false end:true");
+        items.Disposals.Should().Be(1);
+        items.StepsAfterDisposal.Should().Be(0);
+    }
+
+    /// <summary>
+    /// The delegate's <c>throw</c> throws into a <c>catch</c> around the <c>yield*</c>, inside a loop: the delegation is
+    /// over and its enumerator disposed, and the loop's next evaluation of the same <c>yield*</c> iterates the collection
+    /// again over an enumerator of its own (sebastienros/jint#4440). Jint resumed the first enumerator instead, from where
+    /// the delegation had stopped, and never disposed it. Node 26 gives the same for an array.
+    /// </summary>
+    [TestCase("sync")]
+    [TestCase("async")]
+    public void AThrowThatEndsTheDelegationLetsTheSameYieldStarIterateTheCollectionAgain(string kind)
+    {
+        var items = new CountingEnumerable();
+        var engine = new Engine();
+        engine.SetValue("items", items);
+
+        engine.Evaluate($$"""
+            (async function () {
+                const proto = Object.getPrototypeOf([].values());
+                let thrown = 0;
+                proto.throw = function () { thrown++; throw 'X'; };
+                try {
+                    const g = '{{kind}}' === 'sync'
+                        ? (function* () { for (let i = 0; i < 2; i++) { try { yield* items; } catch (e) { yield 'caught:' + e; } } })()
+                        : (async function* () {
+                            for (let i = 0; i < 2; i++) {
+                                try { yield* { [Symbol.asyncIterator]() { return items[Symbol.iterator](); } }; } catch (e) { yield 'caught:' + e; }
+                            }
+                        })();
+                    const out = [];
+                    const show = function (r) { out.push(r.value + ':' + r.done); };
+                    show(await g.next());
+                    show(await g.throw('T'));
+                    for (let n = 0; n < 5; n++) { const r = await g.next(); show(r); if (r.done) { break; } }
+                    return out.join(' ') + ' thrown ' + thrown;
+                } finally {
+                    delete proto.throw;
+                }
+            })()
+            """).UnwrapIfPromise().AsString().Should().Be("1:false caught:X:false 1:false 2:false 3:false undefined:true thrown 1");
+        items.Disposals.Should().Be(2);
+        items.StepsAfterDisposal.Should().Be(0);
+    }
+
+    /// <summary>
+    /// A host <c>Dispose</c> that throws as a forwarded <c>throw()</c> ends the delegation is swallowed exactly when a
+    /// throw is already leaving the <c>yield*</c>: what the delegate's <c>throw</c> threw, or the <c>TypeError</c> for its
+    /// non-object answer. A <c>throw</c> that answers done ends the delegation normally, and leaves the host's exception
+    /// as the result, as a <c>return</c> that answers done does.
+    /// </summary>
+    [TestCase("sync", "it", "ok", "dispose failed")]
+    [TestCase("sync", "it", "throws", "threw:X")]
+    [TestCase("sync", "it", "nonObject", "threw:TypeError")]
+    [TestCase("async", "asyncIterable", "ok", "dispose failed")]
+    [TestCase("async", "asyncIterable", "throws", "threw:X")]
+    [TestCase("async", "asyncIterable", "nonObject", "threw:TypeError")]
+    public void AHostDisposeThatThrowsAsAYieldStarThrowEndsDoesNotReplaceAThrowThatIsLeaving(
+        string kind, string operand, string throwKind, string expected)
+    {
+        var items = new FaultingEnumerable("dispose");
+        var engine = new Engine();
+        engine.SetValue("items", items);
+
+        AnswerOrHostFailure(engine, YieldStarThrowHarness + "\n" + $$"""
+            (async function () {
+                const throws = {
+                    ok: function (v) { return { value: 't:' + v, done: true }; },
+                    throws: function () { throw 'X'; },
+                    nonObject: function () { return 1; }
+                };
+                const delegate = operandFor('{{operand}}');
+                delegate.it.throw = throws.{{throwKind}};
+                try { return String(await throwInto.{{kind}}(delegate.operand)); }
+                catch (e) { return 'threw:' + (typeof e === 'string' ? e : e.constructor.name); }
+            })()
+            """).Should().Be(expected);
+        items.Disposals.Should().Be(1);
+    }
+
+    /// <summary>
+    /// The delegate's <c>throw</c>, or the <c>done</c> getter of the object it answers, fails with an exception no script
+    /// can catch: the statement limit trips inside it, or a host function it calls throws. That exception is what leaves
+    /// <c>Evaluate</c>, and the delegation it ends still disposes the enumerator once, as a <c>return</c> failing the same
+    /// way does. Over <c>items</c> in an async generator the CreateAsyncFromSyncIterator wrapper's <c>throw</c> calls the
+    /// script's and reads <c>done</c> inside the call.
+    /// </summary>
+    [TestCase("sync", "it", "own", "statementLimit")]
+    [TestCase("sync", "it", "own", "host")]
+    [TestCase("sync", "it", "own", "doneStatementLimit")]
+    [TestCase("sync", "it", "own", "doneHost")]
+    [TestCase("async", "asyncIterable", "own", "statementLimit")]
+    [TestCase("async", "asyncIterable", "own", "host")]
+    [TestCase("async", "asyncIterable", "own", "doneStatementLimit")]
+    [TestCase("async", "asyncIterable", "own", "doneHost")]
+    [TestCase("async", "items", "prototype", "statementLimit")]
+    [TestCase("async", "items", "prototype", "host")]
+    [TestCase("async", "items", "prototype", "doneStatementLimit")]
+    [TestCase("async", "items", "prototype", "doneHost")]
+    public void AThrowThatTripsAConstraintOrThrowsAHostExceptionStillDisposesTheEnumerator(
+        string kind, string operand, string where, string throwKind)
+    {
+        var items = new CountingEnumerable();
+        var engine = new Engine(options => options.LimitStatements(100_000));
+        engine.SetValue("items", items);
+        engine.SetValue("hostFail", new Action(() => throw new InvalidOperationException("host failed")));
+
+        var thrown = Caught.Exception(() => engine.Evaluate(YieldStarThrowHarness + "\n" + $$"""
+            (async function () {
+                const throws = {
+                    statementLimit: function () { let n = 0; for (;;) { n++; } },
+                    host: function () { hostFail(); },
+                    doneStatementLimit: function () { return { get done() { let n = 0; for (;;) { n++; } } }; },
+                    doneHost: function () { return { get done() { hostFail(); return true; } }; }
+                };
+                const delegate = operandFor('{{operand}}');
+                if ('{{where}}' === 'own') { delegate.it.throw = throws.{{throwKind}}; }
+                else { Object.getPrototypeOf([].values()).throw = throws.{{throwKind}}; }
+                return String(await throwInto.{{kind}}(delegate.operand));
+            })()
+            """).UnwrapIfPromise());
+
+        if (throwKind is "host" or "doneHost")
+        {
+            thrown.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("host failed");
+        }
+        else
+        {
+            thrown.Should().BeOfType<Jint.Runtime.StatementsCountOverflowException>();
+        }
+
+        items.Disposals.Should().Be(1);
+    }
+
     /// <summary>
     /// A step that throws marks the record done, so no IteratorClose follows it and no script <c>return</c> is called
     /// (https://tc39.es/ecma262/#sec-iteratorclose is reached only for the consumer's own abrupt completion): the CLR
