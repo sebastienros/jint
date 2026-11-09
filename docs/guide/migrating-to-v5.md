@@ -7873,6 +7873,34 @@ The legacy POSIX IDs `CST6CDT`, `EST5EDT`, `MST7MDT` and `PST8PDT` also resolve 
 `tzdata-legacy`, using the corresponding US zone as an approximation; their rules match from 1967 onward.
 There is no switch back.
 
+### 4.216 A wrapped CLR collection deletes a configurable property the script defined on it ([#4457](https://github.com/sebastienros/jint/issues/4457))
+
+A wrapped CLR list, array or other indexed collection refused `delete` for every property it had in three cases:
+when `Options.Interop.AllowWrite` was off (the 5.x default), when the collection was read-only (such as
+`ReadOnlyCollection<T>`, `ImmutableArray<T>` or a bare `IReadOnlyList<T>`), and after `Object.preventExtensions`
+or `Object.freeze`. That included properties the script had defined itself:
+
+```js
+// host: engine.SetValue("list", new List<int> { 1, 2 });   // default options
+Object.defineProperty(list, Symbol.iterator, { value: function* () { yield 9; }, configurable: true });
+delete list[Symbol.iterator]
+// earlier previews: false, and [...list] stays [9]    5.x: true, and [...list] is [1, 2] again
+```
+
+Now only the collection's contents are refused in those cases: an element, and an entry of a dictionary-shaped
+collection such as Newtonsoft's `JObject`. Deleting one still returns `false` (a `TypeError` in strict mode), and
+the collection does not change. Every other property follows the ordinary `delete` rules: removed if it is
+configurable, refused if it is not. Extensibility does not matter, so `Object.preventExtensions` no longer stops
+a configurable property from being deleted. Nor does `Object.freeze`, which does not reach a property the script
+defined on a wrapper: the wrapper lists only the collection's own keys, so that property stays configurable. A
+plain wrapped object, and a writable collection under `AllowWrite`, already behaved this way.
+
+The same rules apply to what the wrapper itself puts on a collection. `delete list.Contains` and
+`delete list.length` now return `true`. The method is back on the next read. So is the count for a collection
+that implements `ICollection`; on any other collection, `length` then reads `Array.prototype.length`. A
+reflected property such as `Count` is non-configurable, so deleting it still returns `false`. There is no
+switch back.
+
 ### 4.218 `for await` throws when a step settles to something other than an object ([#4489](https://github.com/sebastienros/jint/issues/4489))
 
 A `for await` loop awaits what `next` answers, and fails with a `TypeError` when that settles to something other
@@ -7891,9 +7919,9 @@ running, so `LimitStatements`, `LimitExecutionTime`, `LimitMemory`, `ObserveCanc
 token ended the run with their own exception. Nothing else did: a default engine spun at a flat working set, and
 neither `MaxRecursionDepth` nor `PromiseTimeout` ever fired.
 
-The loop now ends after one call to `next`, and the iterator is not closed: its `return` is not called, as for a
-`next` that throws. A sync iterable reaching `for await` through its `Symbol.iterator` already failed this way.
-There is no switch back.
+The loop now throws at the step that settled to something other than an object, without calling `next` again,
+and the iterator is not closed: its `return` is not called, as for a `next` that throws. A sync iterable reaching
+`for await` through its `Symbol.iterator` already failed this way. There is no switch back.
 
 ## 5. New in v5
 
