@@ -292,16 +292,16 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     }
 
     /// <summary>
-    /// <c>[[Delete]]</c> for a view that may not change its collection: writes are off, the collection is
-    /// read-only, or the view is non-extensible.
+    /// <c>[[Delete]]</c> for a view that may not change its collection: writes are off, or the collection is
+    /// read-only.
     /// </summary>
     /// <remarks>
     /// <para>
     /// What is refused here is the collection's contents: an element in range, and an entry a dictionary-shaped
     /// target (Newtonsoft's <c>JObject</c>) holds. An element's descriptor is non-configurable, so refusing it is
-    /// OrdinaryDelete's own answer. An entry is refused because writes are off or the target is read-only, or
-    /// because the view is non-extensible: the same deliberate divergence the element-write lane in
-    /// <see cref="Set"/> makes, so that a frozen view's contents stay fixed.
+    /// OrdinaryDelete's own answer. An entry is refused because writes are off or the target is read-only.
+    /// Unlike the element-write lane in <see cref="Set"/>, extensibility does not route a delete here: a
+    /// non-extensible view whose writes are on takes the writable lane in <see cref="Delete"/>.
     /// </para>
     /// <para>
     /// Every other key follows

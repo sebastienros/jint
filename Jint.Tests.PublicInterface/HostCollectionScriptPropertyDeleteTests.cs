@@ -13,8 +13,8 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A collection view refuses to change the collection when <c>Options.Interop.AllowWrite</c> is off, when
-/// the collection declares itself read-only, and when the view is non-extensible. That refusal is about the
+/// A collection view refuses to change the collection when <c>Options.Interop.AllowWrite</c> is off and when
+/// the collection declares itself read-only. That refusal is about the
 /// collection's elements and entries. A property the script put on the wrapper is an ordinary own property,
 /// so <see href="https://tc39.es/ecma262/#sec-ordinarydelete">OrdinaryDelete</see> decides: removed if it is
 /// configurable, kept (and a strict-mode <c>TypeError</c>) if it is not. Extensibility does not enter into it.
@@ -232,7 +232,8 @@ public class HostCollectionScriptPropertyDeleteTests
     }
 
     /// <summary>
-    /// A non-extensible or frozen view keeps refusing to delete its elements under every setting. An element's
+    /// A non-extensible or frozen view keeps refusing to delete its elements wherever 4.x refuses an element
+    /// delete: with writes off, or on a read-only or fixed-size collection. An element's
     /// descriptor is non-configurable, so this is OrdinaryDelete's own answer, and it keeps a frozen view's
     /// contents fixed the way the element-write lane does.
     /// </summary>
@@ -293,6 +294,29 @@ public class HostCollectionScriptPropertyDeleteTests
             """)).AsString();
 
         outcome.Should().Be("true,false,false", "the dictionary's own entry is still refused on a non-extensible view");
+        host.RemoveCalls.Should().Be(0);
+        host.GetRange(0, host.Count).Should().Equal(1, 2);
+    }
+
+    /// <summary>
+    /// A read-only dictionary-shaped view refuses to change its collection even with writes on, and the script's
+    /// own property is still removed without calling the target's <c>Remove</c>. With writes on, the wrapper's
+    /// ordinary removal would call it, so this is the row that pins the lane's wrapper-only removal.
+    /// </summary>
+    [Fact]
+    public void AReadOnlyDictionaryShapedViewDeletesTheScriptsPropertyWithoutCallingTheTarget()
+    {
+        var host = new KeyedList { DeclaresReadOnly = true };
+        host.AddRange([1, 2]);
+        var engine = CreateEngine(host, allowWrite: true);
+
+        var outcome = engine.Evaluate(Run(strict: false,
+            """
+            Object.defineProperty(host, 'tag', { value: 1, configurable: true });
+            return [delete host.tag, 'tag' in host, delete host.entry].join();
+            """)).AsString();
+
+        outcome.Should().Be("true,false,false", "the dictionary's own entry is refused on a read-only view");
         host.RemoveCalls.Should().Be(0);
         host.GetRange(0, host.Count).Should().Equal(1, 2);
     }
@@ -429,9 +453,14 @@ public class HostCollectionScriptPropertyDeleteTests
     /// A list that is also a string-keyed dictionary, like Newtonsoft's <c>JObject</c>, with one entry and a
     /// <c>Remove</c> that counts its calls.
     /// </summary>
-    private sealed class KeyedList : List<int>, IDictionary<string, int>
+    private sealed class KeyedList : List<int>, IDictionary<string, int>, ICollection<int>
     {
         public int RemoveCalls { get; private set; }
+
+        /// <summary>What the list answers for <see cref="ICollection{T}.IsReadOnly"/>.</summary>
+        public bool DeclaresReadOnly { get; init; }
+
+        bool ICollection<int>.IsReadOnly => DeclaresReadOnly;
 
         int IDictionary<string, int>.this[string key]
         {
