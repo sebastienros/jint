@@ -290,7 +290,9 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
 
     /// <summary>
     /// Chains on a promise result from a callback (predicate/reducer/procedure), then invokes
-    /// the handler with the resolved value. Rejects and closes the iterator on failure.
+    /// the handler with the resolved value. A rejection is IfAbruptCloseAsyncIterator
+    /// (https://tc39.es/proposal-async-iterator-helpers/#sec-ifabruptcloseasynciterator): the iterator is closed with the
+    /// throw completion, and the capability rejects once what <c>return</c> answered has settled.
     /// </summary>
     private void ChainCallbackResult(
         IteratorInstance.ObjectIterator iterated,
@@ -308,8 +310,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
 
         var onRejected = new ClrFunction(_engine, "", (_, innerArgs) =>
         {
-            try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
-            promiseCapability.Reject(innerArgs.At(0));
+            iterated.AsyncIteratorClose(CompletionType.Throw, innerArgs.At(0), promiseCapability);
             return Undefined;
         }, 1, PropertyFlag.Configurable);
 
@@ -470,8 +471,8 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
                 }
                 catch (JavaScriptException ex)
                 {
-                    try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
-                    cap.Reject(ex.Error);
+                    // IfAbruptCloseAsyncIterator(result, iterated).
+                    iterated.AsyncIteratorClose(CompletionType.Throw, ex.Error, cap);
                     return;
                 }
 
@@ -532,6 +533,12 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         return promiseCapability.PromiseInstance;
     }
 
+    /// <summary>
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.some: finishing early is
+    /// <c>return ? AsyncIteratorClose(iterated, NormalCompletion(true))</c>, so the promise settles with true only once
+    /// what <c>return</c> answered has settled, and rejects if it threw, rejected or answered something other than an
+    /// object (sebastienros/jint#4500).
+    /// </summary>
     [JsFunction]
     private JsValue Some(JsValue thisObject, JsValue predicateArg)
     {
@@ -544,14 +551,19 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             shouldStop: (resolved, value, cap) =>
             {
                 if (!TypeConverter.ToBoolean(resolved)) return false;
-                try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
-                cap.Resolve(JsBoolean.True);
+                iterated.AsyncIteratorClose(CompletionType.Normal, JsBoolean.True, cap);
                 return true;
             });
 
         return promiseCapability.PromiseInstance;
     }
 
+    /// <summary>
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.every: finishing early is
+    /// <c>return ? AsyncIteratorClose(iterated, NormalCompletion(false))</c>, so the promise settles with false only once
+    /// what <c>return</c> answered has settled, and rejects if it threw, rejected or answered something other than an
+    /// object (sebastienros/jint#4500).
+    /// </summary>
     [JsFunction]
     private JsValue Every(JsValue thisObject, JsValue predicateArg)
     {
@@ -564,14 +576,19 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             shouldStop: (resolved, value, cap) =>
             {
                 if (TypeConverter.ToBoolean(resolved)) return false;
-                try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
-                cap.Resolve(JsBoolean.False);
+                iterated.AsyncIteratorClose(CompletionType.Normal, JsBoolean.False, cap);
                 return true;
             });
 
         return promiseCapability.PromiseInstance;
     }
 
+    /// <summary>
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.find: finishing early is
+    /// <c>return ? AsyncIteratorClose(iterated, NormalCompletion(value))</c>, so the promise settles with the value only once
+    /// what <c>return</c> answered has settled, and rejects if it threw, rejected or answered something other than an
+    /// object (sebastienros/jint#4500).
+    /// </summary>
     [JsFunction]
     private JsValue Find(JsValue thisObject, JsValue predicateArg)
     {
@@ -584,8 +601,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             shouldStop: (resolved, value, cap) =>
             {
                 if (!TypeConverter.ToBoolean(resolved)) return false;
-                try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
-                cap.Resolve(value);
+                iterated.AsyncIteratorClose(CompletionType.Normal, value, cap);
                 return true;
             });
 
@@ -616,8 +632,8 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
                 }
                 catch (JavaScriptException ex)
                 {
-                    try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
-                    cap.Reject(ex.Error);
+                    // IfAbruptCloseAsyncIterator(result, iterated).
+                    iterated.AsyncIteratorClose(CompletionType.Throw, ex.Error, cap);
                     return;
                 }
 

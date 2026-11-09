@@ -125,7 +125,9 @@ public class ClrEnumeratorDisposalTests
     private const string ScriptReturnHarness = """
         // Ways of leaving the CLR iterator `it` (or one `items` hands out) early: the sync closes, yield* handed a throw()
         // it has no `throw` for, a for await whose @@asyncIterator answers `it`, a for await over `items` itself, which
-        // goes through the CreateAsyncFromSyncIterator wrapper, and Array.fromAsync whose mapping function throws.
+        // goes through the CreateAsyncFromSyncIterator wrapper, Array.fromAsync whose mapping function throws, and the
+        // async iterator helpers over `it`: take at its limit, some finishing early, a mapper that throws, and a
+        // helper's return().
         const leaveEarly = {
             forOfBreak: function () { for (const x of it) { break; } return 'done'; },
             forOfThrow: function () { try { for (const x of it) { throw 'E'; } } catch (e) { if (e !== 'E') { throw e; } return 'caught:E'; } },
@@ -141,7 +143,11 @@ public class ClrEnumeratorDisposalTests
                 const g = (async function* () { yield* { [Symbol.asyncIterator]() { return it; } }; })();
                 await g.next();
                 await g.throw('T');
-            }
+            },
+            helperTakeAtLimit: async function () { await AsyncIterator.prototype.take.call(it, 0).next(); return 'done'; },
+            helperSomeStops: async function () { return String(await AsyncIterator.prototype.some.call(it, () => true)); },
+            helperMapperThrows: async function () { await AsyncIterator.prototype.map.call(it, () => { throw 'M'; }).next(); },
+            helperReturn: async function () { const h = AsyncIterator.prototype.map.call(it, x => x); await h.next(); await h.return(); return 'done'; }
         };
         """;
 
@@ -152,7 +158,8 @@ public class ClrEnumeratorDisposalTests
     /// still disposed, once, after it - whatever the <c>return</c> does, a throw and a non-object answer included
     /// (sebastienros/jint#4406). Jint used to dispose without reading <c>return</c> at all. An asynchronous close
     /// disposes once what the <c>return</c> answered has settled. <c>null</c> is no method, and the native close
-    /// disposes in its place, as before. The outcomes are Node 26's for an array iterator given the same
+    /// disposes in its place, as before. The async iterator helpers close through the same AsyncIteratorClose
+    /// (sebastienros/jint#4500); a helper's <c>return()</c> did not dispose at all before it. The outcomes are Node 26's for an array iterator given the same
     /// <c>return</c>: a loop left by <c>break</c> propagates what <c>return</c> throws, and a <c>TypeError</c> for a
     /// non-object answer, while a loop left by a throw keeps its own throw.
     /// </summary>
@@ -190,6 +197,26 @@ public class ClrEnumeratorDisposalTests
     [TestCase("asyncYieldStarThrow", "own", "nonObject", "threw:TypeError", 1)]
     [TestCase("asyncYieldStarThrow", "prototype", "ok", "threw:TypeError", 1)]
     [TestCase("asyncYieldStarThrow", "null", "ok", "threw:TypeError", 0)]
+    [TestCase("helperTakeAtLimit", "own", "ok", "done", 1)]
+    [TestCase("helperTakeAtLimit", "own", "throws", "threw:R", 1)]
+    [TestCase("helperTakeAtLimit", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("helperTakeAtLimit", "prototype", "ok", "done", 1)]
+    [TestCase("helperTakeAtLimit", "null", "ok", "done", 0)]
+    [TestCase("helperSomeStops", "own", "ok", "true", 1)]
+    [TestCase("helperSomeStops", "own", "throws", "threw:R", 1)]
+    [TestCase("helperSomeStops", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("helperSomeStops", "prototype", "ok", "true", 1)]
+    [TestCase("helperSomeStops", "null", "ok", "true", 0)]
+    [TestCase("helperMapperThrows", "own", "ok", "threw:M", 1)]
+    [TestCase("helperMapperThrows", "own", "throws", "threw:M", 1)]
+    [TestCase("helperMapperThrows", "own", "nonObject", "threw:M", 1)]
+    [TestCase("helperMapperThrows", "prototype", "ok", "threw:M", 1)]
+    [TestCase("helperMapperThrows", "null", "ok", "threw:M", 0)]
+    [TestCase("helperReturn", "own", "ok", "done", 1)]
+    [TestCase("helperReturn", "own", "throws", "threw:R", 1)]
+    [TestCase("helperReturn", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("helperReturn", "prototype", "ok", "done", 1)]
+    [TestCase("helperReturn", "null", "ok", "done", 0)]
     public void AScriptReturnOnAClrIteratorIsCalledAndTheEnumeratorStillDisposed(string way, string where, string kind, string expected, int calls)
     {
         var items = new CountingEnumerable();
@@ -241,6 +268,10 @@ public class ClrEnumeratorDisposalTests
     [TestCase("asyncYieldStarThrow", "ok", "threw:TypeError")]
     [TestCase("asyncYieldStarThrow", "throws", "threw:R")]
     [TestCase("asyncYieldStarThrow", "nonObject", "threw:TypeError")]
+    [TestCase("helperTakeAtLimit", "ok", "dispose failed")]
+    [TestCase("helperTakeAtLimit", "throws", "threw:R")]
+    [TestCase("helperTakeAtLimit", "nonObject", "threw:TypeError")]
+    [TestCase("helperMapperThrows", "ok", "threw:M")]
     public void AHostDisposeThatThrowsAfterAScriptReturnDoesNotReplaceAThrowThatIsLeaving(string way, string kind, string expected)
     {
         var items = new FaultingEnumerable("dispose");

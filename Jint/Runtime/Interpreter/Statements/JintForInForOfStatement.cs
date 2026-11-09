@@ -1631,32 +1631,23 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     {
         var engine = context.Engine;
 
-        iteratorRecord?.CloseNativeStateAfterReturn(
-            completion.Type == CompletionType.Throw || rejected || !settled.IsObject() ? CompletionType.Throw : completion.Type);
+        // Steps 5 to 8 decide, in the helper every AsyncIteratorClose shares: what the close raises in place of the
+        // loop's own completion, a rejection (step 6) or the TypeError for an answer that is not an object (step 7), or
+        // nothing, when the completion stands (steps 5 and 8).
+        var error = IteratorInstance.AsyncIteratorCloseError(engine.Realm, completion.Type, settled, rejected);
 
-        // Step 5: If completion is a throw completion, return ? completion. Handed back as the completion
-        // it is rather than raised again: it has been reported to the debugger once already, and a fresh
-        // exception would report it a second time and lose the location it was thrown at.
-        if (completion.Type == CompletionType.Throw)
+        iteratorRecord?.CloseNativeStateAfterReturn(
+            completion.Type == CompletionType.Throw || error is not null ? CompletionType.Throw : completion.Type);
+
+        // A throw completion is handed back as the completion it is rather than raised again: it has been reported to
+        // the debugger once already, and a fresh exception would report it a second time and lose the location it was
+        // thrown at.
+        if (error is null)
         {
             return completion;
         }
 
-        // Step 6: If innerResult is a throw completion, return ? innerResult.
-        if (rejected)
-        {
-            Throw.JavaScriptException(engine, settled, _statement!.Location);
-        }
-
-        // Step 7: If innerResult.[[Value]] is not an Object, throw a TypeError exception. The Await
-        // is what makes this bite for an async iterator: the check is against the *settled* value,
-        // so a return() answering Promise.resolve(42) fails it exactly as a sync one answering 42.
-        if (!settled.IsObject())
-        {
-            Throw.TypeError(engine.Realm, "Iterator returned non-object");
-        }
-
-        // Step 8: Return ? completion.
+        Throw.JavaScriptException(engine, error, _statement!.Location);
         return completion;
     }
 

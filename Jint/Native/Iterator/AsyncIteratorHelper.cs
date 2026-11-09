@@ -54,67 +54,58 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
         }
         catch (JavaScriptException ex)
         {
-            // A step that fails synchronously is one IfAbruptCloseAsyncIterator guards, flatMap's inner IteratorNext: the
-            // source's own step rejects through CallIteratorNext without throwing, and leaves the source open.
+            // A step that fails synchronously is one IfAbruptCloseAsyncIterator guards, flatMap's inner IteratorNext and
+            // the Await of what it answered: the source's own step rejects through CallIteratorNext without throwing, and
+            // leaves the source open.
             State = GeneratorState.Completed;
-            if (!Exhausted)
-            {
-                Exhausted = true;
-                try { Iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
-            }
-            promiseCapability.Reject(ex.Error);
+            CloseSource(promiseCapability, CompletionType.Throw, ex.Error);
         }
 
         return promiseCapability.PromiseInstance;
     }
 
     /// <summary>
-    /// Called by AsyncIteratorHelperPrototype.return() to close the helper.
+    /// Called by AsyncIteratorHelperPrototype.return() to close the helper: the body's
+    /// IfAbruptCloseAsyncIterator(completion, iterated) on the return completion its Yield received
+    /// (https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.map), an AsyncIteratorClose that
+    /// awaits what <c>return</c> answered, so a rejection or an answer that is not an object fails the
+    /// <c>return()</c>. A source already done, failed or closed is not closed again.
     /// </summary>
     public virtual JsValue Return()
     {
         State = GeneratorState.Completed;
 
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
+        CloseSource(promiseCapability, CompletionType.Return, CreateIteratorResult(Undefined, done: true));
+        return promiseCapability.PromiseInstance;
+    }
 
-        if (!Exhausted)
+    /// <summary>
+    /// AsyncIteratorClose(iterated, <paramref name="completion"/>) (https://tc39.es/ecma262/#sec-asynciteratorclose),
+    /// which awaits what <c>return</c> answered before <paramref name="promiseCapability"/> settles: rejected with what
+    /// the close raises, or else with <paramref name="value"/>, rejected for a throw completion and resolved for any other.
+    /// A source that is already <see cref="Exhausted"/> is not closed again, and the capability settles at once. It used to
+    /// be a synchronous IteratorClose inside a <c>try</c> that swallowed everything, so the helper settled before the
+    /// close had and a <c>return</c> that threw, rejected or answered a primitive went unnoticed (sebastienros/jint#4500).
+    /// </summary>
+    protected void CloseSource(PromiseCapability promiseCapability, CompletionType completion, JsValue value)
+    {
+        if (Exhausted)
         {
-            Exhausted = true;
-            try
+            if (completion == CompletionType.Throw)
             {
-                var iterator = Iterated.Instance;
-                var returnMethod = iterator.GetMethod(CommonProperties.Return);
-                if (returnMethod is not null)
-                {
-                    var returnResult = returnMethod.Call(iterator, Arguments.Empty);
-                    var returnPromise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(returnResult);
-
-                    var onFulfilled = new ClrFunction(_engine, "", (_, _) =>
-                    {
-                        promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
-                        return Undefined;
-                    }, 1, PropertyFlag.Configurable);
-
-                    var onRejected = new ClrFunction(_engine, "", (_, args) =>
-                    {
-                        promiseCapability.Reject(args.At(0));
-                        return Undefined;
-                    }, 1, PropertyFlag.Configurable);
-
-                    PromiseOperations.PerformPromiseThen(_engine, returnPromise, onFulfilled, onRejected, null!);
-                    return promiseCapability.PromiseInstance;
-                }
+                promiseCapability.Reject(value);
             }
-            catch (JavaScriptException ex)
+            else
             {
-                promiseCapability.Reject(ex.Error);
-                return promiseCapability.PromiseInstance;
+                promiseCapability.Resolve(value);
             }
+
+            return;
         }
 
-        var doneResult = CreateIteratorResult(Undefined, done: true);
-        promiseCapability.Resolve(doneResult);
-        return promiseCapability.PromiseInstance;
+        Exhausted = true;
+        Iterated.AsyncIteratorClose(completion, value, promiseCapability);
     }
 
     protected abstract void ExecuteStep(PromiseCapability promiseCapability);
@@ -196,11 +187,6 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
         }
     }
 
-    protected void CloseIterator(CompletionType completionType)
-    {
-        Iterated.Close(completionType);
-    }
-
     protected ObjectInstance CreateIteratorResult(JsValue value, bool done)
     {
         return IteratorResult.CreateValueIteratorPosition(_engine, value, JsBoolean.Create(done));
@@ -239,14 +225,13 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
     /// IfAbruptCloseAsyncIterator(value, iterated)
     /// (https://tc39.es/proposal-async-iterator-helpers/#sec-ifabruptcloseasynciterator), for a failure of what the
     /// helper calls with a value — the mapper or predicate, the await of what it answered, flatMap's inner iterator:
-    /// closes the source and rejects with the error, completing the helper.
+    /// closes the source with the throw completion and, once what <c>return</c> answered has settled, rejects with the
+    /// error, which nothing the close does replaces. The helper is completed.
     /// </summary>
     protected void RejectWithError(PromiseCapability promiseCapability, JsValue error)
     {
         State = GeneratorState.Completed;
-        Exhausted = true;
-        try { Iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
-        promiseCapability.Reject(error);
+        CloseSource(promiseCapability, CompletionType.Throw, error);
     }
 
     /// <summary>
@@ -456,10 +441,11 @@ internal sealed class AsyncTakeIterator : AsyncIteratorHelper
     {
         if (_taken >= _limit)
         {
+            // https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.take step 6.b.i: Return
+            // ? AsyncIteratorClose(iterated, NormalCompletion(undefined)). The step finishes once what `return` answered
+            // has settled, and fails if it threw, rejected or answered something other than an object.
             State = GeneratorState.Completed;
-            Exhausted = true;
-            try { Iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
-            promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
+            CloseSource(promiseCapability, CompletionType.Normal, CreateIteratorResult(Undefined, done: true));
             return;
         }
 
@@ -561,55 +547,44 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
         _mapper = mapper;
     }
 
+    /// <summary>
+    /// return() with an inner iterator open closes that one first, with the return completion, and awaits what its
+    /// <c>return</c> answered; only then is the source closed. When the inner close completes, the source is closed with
+    /// the return completion as the base <see cref="AsyncIteratorHelper.Return"/> does; when it raises an error, the
+    /// source is closed with that throw completion, and the error is what return() rejects with. That is the order
+    /// tc39/proposal-async-iterator-helpers#30 settled on, and what a nested <c>for await</c> does, since the proposal's
+    /// own text for this step is stale (it calls the sync IteratorClose with its arguments swapped). The inner iterator
+    /// used to be closed synchronously, so a rejection or an answer that is not an object from its <c>return</c> was
+    /// lost, and the source was closed before the inner close had settled (sebastienros/jint#4500).
+    /// </summary>
     public override JsValue Return()
     {
         State = GeneratorState.Completed;
 
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
+        var doneResult = CreateIteratorResult(Undefined, done: true);
 
-        try
+        var inner = _innerIterator;
+        if (inner is null)
         {
-            if (_innerIterator is not null)
-            {
-                var inner = _innerIterator;
-                _innerIterator = null;
-                inner.Close(CompletionType.Return);
-            }
-
-            if (!Exhausted)
-            {
-                Exhausted = true;
-                var iterator = Iterated.Instance;
-                var returnMethod = iterator.GetMethod(CommonProperties.Return);
-                if (returnMethod is not null)
-                {
-                    var returnResult = returnMethod.Call(iterator, Arguments.Empty);
-                    var returnPromise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(returnResult);
-
-                    var onFulfilled = new ClrFunction(_engine, "", (_, _) =>
-                    {
-                        promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
-                        return Undefined;
-                    }, 1, PropertyFlag.Configurable);
-
-                    var onRejected = new ClrFunction(_engine, "", (_, args) =>
-                    {
-                        promiseCapability.Reject(args.At(0));
-                        return Undefined;
-                    }, 1, PropertyFlag.Configurable);
-
-                    PromiseOperations.PerformPromiseThen(_engine, returnPromise, onFulfilled, onRejected, null!);
-                    return promiseCapability.PromiseInstance;
-                }
-            }
-        }
-        catch (JavaScriptException ex)
-        {
-            promiseCapability.Reject(ex.Error);
+            CloseSource(promiseCapability, CompletionType.Return, doneResult);
             return promiseCapability.PromiseInstance;
         }
 
-        promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
+        _innerIterator = null;
+        var self = this;
+        inner.AsyncIteratorClose(CompletionType.Return, innerError =>
+        {
+            if (innerError is null)
+            {
+                self.CloseSource(promiseCapability, CompletionType.Return, doneResult);
+            }
+            else
+            {
+                self.CloseSource(promiseCapability, CompletionType.Throw, innerError);
+            }
+        });
+
         return promiseCapability.PromiseInstance;
     }
 
@@ -626,20 +601,22 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
             // IteratorNext(innerIterator) (https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.flatmap)
             // calls the [[NextMethod]] GetIteratorFlattenable read once, never `next` read again; one that was not
             // callable fails the step with a TypeError (sebastienros/jint#4419).
-            JsValue innerResult;
+            JsPromise innerPromise;
             try
             {
-                innerResult = _innerIterator.CallNextMethod();
+                var innerResult = _innerIterator.CallNextMethod();
+                innerPromise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(innerResult);
             }
             catch (JavaScriptException)
             {
-                // IfAbruptCloseAsyncIterator(innerNextPromise, iterated): whoever catches this closes the outer iterator
-                // and completes the helper. The inner iterator is not closed, then or by a later return().
+                // IfAbruptCloseAsyncIterator(innerNextPromise, iterated), and the same for innerNext, whose Await reads a
+                // promise's constructor in PromiseResolve: whoever catches this closes the outer iterator and completes
+                // the helper. The inner iterator is not closed, then or by a later return(); a throwing PromiseResolve
+                // used to leave it set, so a return() afterwards called its `return` (sebastienros/jint#4500).
                 _innerIterator = null;
                 throw;
             }
 
-            var innerPromise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(innerResult);
             var self = this;
 
             var onInnerFulfilled = new ClrFunction(_engine, "", (_, args) =>

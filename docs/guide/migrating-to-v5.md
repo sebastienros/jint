@@ -7947,10 +7947,9 @@ next value. Calling `return()` on the helper while it is inside a sync iterable 
 source, as it already did for an async inner iterator whose `return` rejects. It used to leave the source open. There
 is no switch back.
 
-Whether that `return()` resolves or rejects is not settled yet. Jint resolves it for now, for either kind of inner
-iterator, only because it does not await the inner iterator's close. Expect that to change: the helpers' closes are
-tracked in [#4500](https://github.com/sebastienros/jint/issues/4500), and the proposal is heading towards awaiting
-that close and rejecting.
+Whether that `return()` resolves or rejects was left open here. It now rejects, for either kind of inner iterator,
+because the inner iterator's close is awaited:
+[§4.226](#4-226-the-async-iterator-helpers-await-what-the-source-s-return-answers-when-they-close-it-4500).
 
 ### 4.216 A wrapped CLR collection deletes a configurable property the script defined on it ([#4457](https://github.com/sebastienros/jint/issues/4457))
 
@@ -8165,6 +8164,43 @@ Every answer above is what Chromium gives (Microsoft Edge 156). The messages for
 object with no `Symbol.iterator` and a non-finite threshold are Chromium's too. One behavioural difference remains, the close rule
 in §4.220: when an element of `attributeFilter` or `threshold` fails to convert, Jint calls the iterator's `return`,
 which Chromium does not. There is no switch back.
+
+### 4.226 The async iterator helpers await what the source's `return` answers when they close it ([#4500](https://github.com/sebastienros/jint/issues/4500))
+
+When `take` reaches its limit, or `some`, `every` or `find` finishes early, the helper closes the source iterator
+and waits for what its `return` answers before it settles. If `return` throws, the promise it answers rejects, or that
+promise settles to something other than an object, the helper rejects with that error. A `TypeError` is used for a
+non-object answer. Before, Jint called `return`, ignored whatever happened, and resolved at once. The sync
+`Iterator.prototype` helpers already behaved this way:
+
+```js
+const source = { next() { return Promise.resolve({ value: 1, done: false }); }, return() { throw new RangeError('r'); } };
+await AsyncIterator.prototype.take.call(source, 0).next();
+// 4.x / earlier 5.0: { value: undefined, done: true }    5.x: rejects with the RangeError
+await AsyncIterator.prototype.some.call(source, () => true);
+// 4.x / earlier 5.0: true                                5.x: rejects with the RangeError
+// the same for return() { return Promise.reject(new RangeError('r')); }, and for return() { return 5; } (a TypeError)
+```
+
+A mapper, predicate or reducer that throws or rejects still makes the helper, or the consuming method, reject with
+that error, whatever `return` does. It now rejects only once what `return` answered has settled. If `return` answers
+a thenable, its `then` is now called. A helper's `return()` now also rejects with a `TypeError` when the source's
+`return` answers something that is not an object.
+
+`flatMap`'s `return()`, called while an inner iterator is open, closes that inner iterator first and waits for it.
+Only then does it close the source. If the inner iterator's `return` throws, rejects or answers something other than
+an object, the source is still closed, and `return()` rejects with the inner error. This follows
+[tc39/proposal-async-iterator-helpers#30](https://github.com/tc39/proposal-async-iterator-helpers/issues/30), which
+is the order a nested `for await` closes in. It replaces the stale proposal text, which [§4.215](#4-215-asynciterator-prototype-flatmap-awaits-a-sync-iterable-s-values-asynciterator-from-takes-a-string-and-a-failed-step-leaves-the-source-open-4439)
+left open. Before, the inner iterator was closed synchronously and `return()` resolved. Also, a `flatMap` whose inner
+step failed because the promise it answered has a throwing `constructor` no longer calls that inner iterator's
+`return` from a later `return()`.
+
+The source is now closed through the same steps a `for await` loop uses. **What could break:** a host that hands a
+wrapped CLR collection's iterator straight to one of these helpers sees its enumerator disposed once `return`'s answer
+has settled, instead of when `return` is called. A helper's `return()` now disposes it too, which it did not do
+before. A constraint that trips inside the source's `return` while a callback's error is closing it now ends the run.
+Before, it was swallowed. There is no switch back.
 
 ## 5. New in v5
 
