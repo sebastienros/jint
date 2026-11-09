@@ -437,5 +437,5 @@ internal sealed partial class HtmlInputValueState
     }
     private void RequireSupportedType() { if (!IsSupportedType(Type)) throw Unavailable(); }
     private NotSupportedException Unavailable() => new($"Native input value state for current type '{HtmlInputTypes.Info(Type).Keyword}' is unavailable because the '{HtmlInputTypes.Info(_unavailableFamily ?? Type).Keyword}' family has not supplied its required value transition.");
-    private void MarkChanged() => Element.OwnerDocument!.MarkMutation();
+    private void MarkChanged() => Element.OwnerDocument!.MarkMutation(Element, NativeMutationKind.ControlState);
 }

@@ -9,6 +9,8 @@ internal sealed partial class NativeCssQuery
 {
     private RuleIndex? _index;
     private List<int>? _candidateBuffer;
+    private int[]? _seenCandidates;
+    private int _candidateGeneration;
 
     /// <summary>
     /// Style rules bucketed by the id, class or type name their selector's subject must carry, as in
@@ -23,13 +25,10 @@ internal sealed partial class NativeCssQuery
         // Keyed by an ASCII-case-folded hash so a class token is looked up as a span, without a substring.
         private readonly Dictionary<int, ClassBucket> _classes = new();
         private readonly Dictionary<string, List<int>> _types = new(StringComparer.OrdinalIgnoreCase);
-        private readonly int[] _seen;
-        private int _generation;
 
         internal RuleIndex(List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri, NativeCssLayer Layer)> rules,
             CssValueWork work)
         {
-            _seen = new int[rules.Count];
             var keys = new List<SelectorSubjectKey>();
             for (var i = 0; i < rules.Count; i++)
             {
@@ -57,17 +56,17 @@ internal sealed partial class NativeCssQuery
         }
 
         /// <summary>Fills <paramref name="candidates"/> with rule positions that may match <paramref name="element"/>, ascending.</summary>
-        internal void Collect(Element element, List<int> candidates, CssValueWork work)
+        internal void Collect(Element element, List<int> candidates, int[] seen, ref int generation, CssValueWork work)
         {
             candidates.Clear();
-            if (++_generation == int.MaxValue)
+            if (++generation == int.MaxValue)
             {
-                Array.Clear(_seen);
-                _generation = 1;
+                Array.Clear(seen);
+                generation = 1;
             }
             var sorted = true;
-            Add(candidates, _universal, ref sorted, work);
-            if (_types.Count != 0 && _types.TryGetValue(element.LocalName, out var typed)) Add(candidates, typed, ref sorted, work);
+            Add(candidates, _universal, seen, generation, ref sorted, work);
+            if (_types.Count != 0 && _types.TryGetValue(element.LocalName, out var typed)) Add(candidates, typed, seen, generation, ref sorted, work);
             if (_ids.Count != 0 || _classes.Count != 0)
                 for (uint i = 0; i < (uint) element.AttributeCount; i++)
                 {
@@ -76,16 +75,16 @@ internal sealed partial class NativeCssQuery
                     if (attribute.NamespaceUri is not null) continue;
                     if (attribute.LocalName == "id")
                     {
-                        if (_ids.TryGetValue(attribute.Value, out var identified)) Add(candidates, identified, ref sorted, work);
+                        if (_ids.TryGetValue(attribute.Value, out var identified)) Add(candidates, identified, seen, generation, ref sorted, work);
                     }
                     else if (attribute.LocalName == "class" && _classes.Count != 0)
-                        AddClasses(candidates, attribute.Value, ref sorted, work);
+                        AddClasses(candidates, attribute.Value, seen, generation, ref sorted, work);
                 }
             if (!sorted) candidates.Sort();
         }
 
         // DOM §2.3 ordered set parser: class names are separated by ASCII whitespace.
-        private void AddClasses(List<int> candidates, string value, ref bool sorted, CssValueWork work)
+        private void AddClasses(List<int> candidates, string value, int[] seen, int generation, ref bool sorted, CssValueWork work)
         {
             var span = value.AsSpan();
             var start = 0;
@@ -102,7 +101,7 @@ internal sealed partial class NativeCssQuery
                         for (; entry is not null; entry = entry.Next)
                             if (EqualsIgnoringAsciiCase(token, entry.Name))
                             {
-                                Add(candidates, entry.Rules, ref sorted, work);
+                                Add(candidates, entry.Rules, seen, generation, ref sorted, work);
                                 break;
                             }
                 }
@@ -110,12 +109,12 @@ internal sealed partial class NativeCssQuery
             }
         }
 
-        private void Add(List<int> candidates, List<int> bucket, ref bool sorted, CssValueWork work)
+        private static void Add(List<int> candidates, List<int> bucket, int[] seen, int generation, ref bool sorted, CssValueWork work)
         {
             foreach (var index in bucket)
             {
-                if (_seen[index] == _generation) continue;
-                _seen[index] = _generation;
+                if (seen[index] == generation) continue;
+                seen[index] = generation;
                 if (candidates.Count != 0 && candidates[^1] > index) sorted = false;
                 candidates.Add(index);
             }

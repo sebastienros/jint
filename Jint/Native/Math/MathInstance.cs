@@ -729,7 +729,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         }
 
         // If x<0 and x is finite and y is finite and y is not an integer, the result is NaN.
-        if (x < 0 && !double.IsInfinity(x) && !double.IsInfinity(y) && !y.Equals((int) y))
+        if (x < 0 && !double.IsInfinity(x) && !double.IsInfinity(y) && !TypeConverter.IsIntegralNumber(y))
         {
             return JsNumber.DoubleNaN;
         }
@@ -751,6 +751,13 @@ internal sealed partial class MathInstance : BuiltinShapeObject
     [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Round(JsValue thisObject, [ToNumber] double x)
     {
+        // A finite Number with magnitude 2^52 or more has no fractional part, and x - 0.5 below
+        // would round back to x for even values. Return it as is (Infinity takes this path too).
+        if (System.Math.Abs(x) >= 4503599627370496d)
+        {
+            return x;
+        }
+
         var round = System.Math.Round(x);
         if (round.Equals(x - 0.5))
         {
@@ -978,7 +985,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
     }
 
     /// <summary>
-    /// https://github.com/tc39/proposal-math-sum
+    /// https://tc39.es/ecma262/#sec-math.sumprecise
     /// </summary>
     [JsFunction(Length = 1, Name = "sumPrecise")]
     private JsValue SumPrecise(JsValue thisObject, JsCallArguments arguments)
@@ -996,9 +1003,10 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         const double Finite = 1;
         try
         {
-            while (iteratorRecord.TryIteratorStep(out var next))
+            // IteratorStepValue: a step that throws, and the one that reports done, leave the record done, so neither is
+            // followed by an IteratorClose. Only this function's own RangeError and TypeError close the iterator.
+            while (iteratorRecord.TryIteratorStepValue(out var value))
             {
-                next.TryGetValue(CommonProperties.Value, out var value);
                 count++;
                 if (count > 9007199254740992)
                 {
@@ -1051,13 +1059,10 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         }
         catch
         {
-            iteratorRecord.Close(CompletionType.Throw);
-            iteratorRecord = null;
+            // "Return ? IteratorClose(iteratorRecord, error)". An iterator that ran out is not closed, which a script's
+            // `return` on %ArrayIteratorPrototype% would otherwise see (sebastienros/jint#4406).
+            iteratorRecord.CloseIfNotDone(CompletionType.Throw);
             throw;
-        }
-        finally
-        {
-            iteratorRecord?.Close(CompletionType.Normal);
         }
 
         if (state != Finite)

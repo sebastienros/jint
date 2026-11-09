@@ -35,8 +35,10 @@ internal sealed class JsHeaders : ObjectInstance
     /// union's two arms.
     /// </summary>
     /// <remarks>
-    /// The union is resolved the way https://webidl.spec.whatwg.org/#es-union says: an object with a callable
-    /// <c>@@iterator</c> is the sequence arm, anything else the record arm. So a <c>Map</c> and a
+    /// The union is resolved the way https://webidl.spec.whatwg.org/#es-union says: <c>? GetMethod(V,
+    /// @@iterator)</c> (https://tc39.es/ecma262/#sec-getmethod), read once. A method is the sequence arm, created from
+    /// that method rather than from a second read (https://webidl.spec.whatwg.org/#create-sequence-from-iterable);
+    /// undefined or null is the record arm; anything else is GetMethod's TypeError. So a <c>Map</c> and a
     /// <c>Headers</c> both fill pairwise, while a plain object fills from its own enumerable string-keyed
     /// properties.
     /// </remarks>
@@ -48,10 +50,10 @@ internal sealed class JsHeaders : ObjectInstance
             return;
         }
 
-        var iteratorMethod = initObject.Get(GlobalSymbolRegistry.Iterator);
-        if (iteratorMethod is ICallable)
+        var iteratorMethod = GetMethod(realm, initObject, initObject, GlobalSymbolRegistry.Iterator);
+        if (iteratorMethod is not null)
         {
-            FillFromSequence(realm, initObject);
+            FillFromSequence(realm, initObject, iteratorMethod);
             return;
         }
 
@@ -62,9 +64,9 @@ internal sealed class JsHeaders : ObjectInstance
     /// "If init is a sequence, then for each header of init: if header's size is not 2, then throw a
     /// TypeError; append (header[0], header[1])."
     /// </summary>
-    private void FillFromSequence(Realm realm, ObjectInstance init)
+    private void FillFromSequence(Realm realm, ObjectInstance init, ICallable iteratorMethod)
     {
-        var outer = init.GetIterator(realm);
+        var outer = init.GetIterator(realm, method: iteratorMethod);
         while (outer.TryIteratorStepValue(out var header))
         {
             var pair = ReadPair(realm, outer, header);

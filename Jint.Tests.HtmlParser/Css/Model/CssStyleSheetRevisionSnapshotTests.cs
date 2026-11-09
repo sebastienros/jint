@@ -70,6 +70,22 @@ public sealed class CssStyleSheetRevisionSnapshotTests
     }
 
     [Test]
+    public void WarmEpochStillChecksCallbacksAndIndependentSheetMutations()
+    {
+        var root = CssStyleSheet.Parse("@import 'child';");
+        var child = CssStyleSheet.Parse("a {display:none}");
+        Import(root).SetStyleSheet(child, null, null, Work());
+        var snapshot = CssStyleSheetRevisionSnapshot.Capture(root, Work());
+        snapshot.IsCurrent(Work()).Should().BeTrue();
+        // A write in an unrelated graph must not invalidate this one.
+        var unrelated = CssStyleSheet.Parse("a{}");
+        unrelated.Disabled = true;
+        snapshot.IsCurrent(Work()).Should().BeTrue();
+        snapshot.IsCurrent(new CssValueWork(default,
+            () => ((CssStyleRule) child.Rules[0]).Style.SetProperty("display", "flex"))).Should().BeFalse();
+    }
+
+    [Test]
     public void InactiveDescendantsAndRepeatedRootsAreCapturedWithoutFlatteningTheRootSet()
     {
         var root = CssStyleSheet.Parse("@import 'child' print; root { border-color:red; }");

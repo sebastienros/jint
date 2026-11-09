@@ -26,7 +26,7 @@ internal sealed partial class RegExpStringIteratorPrototype : IteratorPrototype
         CreateSymbols_Generated();
     }
 
-    [JsFunction(Name = "next")]
+    [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
     internal IteratorInstance Construct(ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode)

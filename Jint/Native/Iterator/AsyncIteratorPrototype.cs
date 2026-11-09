@@ -212,22 +212,15 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     // ---- Shared async iteration infrastructure ----
 
     /// <summary>
-    /// Calls the underlying iterator's next() and normalizes the result as a promise.
-    /// Returns null and rejects the capability on failure.
+    /// A consuming method's <c>Await(? IteratorNext(iterated))</c>: calls the [[NextMethod]] that GetIteratorDirect read
+    /// once (https://tc39.es/ecma262/#sec-getiteratordirect), never <c>next</c> read again (sebastienros/jint#4419), and
+    /// normalizes the result as a promise. Returns null and rejects the capability on failure.
     /// </summary>
     private JsPromise? CallIteratorNext(IteratorInstance.ObjectIterator iterated, PromiseCapability promiseCapability)
     {
         try
         {
-            var target = iterated.Instance;
-            var nextMethod = target.Get(CommonProperties.Next);
-            if (nextMethod is not ICallable callable)
-            {
-                Throw.TypeError(_realm, "Iterator does not have a next method");
-                return null;
-            }
-
-            var result = callable.Call(target, Arguments.Empty);
+            var result = iterated.CallNextMethod();
             return (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(result);
         }
         catch (JavaScriptException ex)

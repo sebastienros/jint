@@ -23,6 +23,12 @@ engine.Modules.Add("lib", builder => builder.ExportType<MyClass>().ExportValue("
 
 ### Asynchronous module loading
 
+Browser child documents can install an internal `Realm.ModuleLoader`. Its resolved-module cache, pending
+loads and non-module referrer keys are partitioned by that realm, while graph limits and cumulative module
+count/source-byte accounting remain engine-wide. Realms without an override retain the engine's default
+loader and map. Deferred completions must re-enter the captured realm before loading dependencies or
+recording a referrer's answer.
+
 `IModuleLoader.LoadModule` has to hand back a parsed `ModuleRecord` there and then, so a host fetching module source over I/O — HTTP, a Vite dev server, an asset pipeline — could only satisfy it by blocking the calling thread, which is not viable on a game loop or a UI thread. The spec has always allowed better: `HostLoadImportedModule` may complete whenever it likes and call `FinishLoadingImportedModule` later. Jint used the spec's names for those hooks but not their shape — there was no load phase at all, and modules were loaded lazily and synchronously from inside `InnerModuleLinking`.
 
 The **load phase** now exists as the spec writes it (`Jint/Runtime/Modules/CyclicModuleRecord.cs`, `ModuleLoadPayload.cs`): `ModuleRecord.LoadRequestedModules` (public, the spec's `LoadRequestedModules`) returns a promise that settles when the transitive graph is present, driven by `InnerModuleLoading` / `GraphLoadingState` / `ContinueModuleLoading`. `ModuleStatus.New` is the state a cyclic module starts in, and every module a single load visited leaves it *together*, when the last pending request settles — not one at a time as each arrives. Three consequences to keep in mind when touching this code:

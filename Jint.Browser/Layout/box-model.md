@@ -42,6 +42,14 @@ layout remain unmodeled. A row shares vertical space instead of stacking full-wi
 button no longer owns its parent's centre. DOM rectangles, hit testing, offsets and resize measurements
 use the same boxes. Documents without these rows keep the existing ordinal hit-test path.
 
+Mouse input uses `PageLayout.ReadPoint` over the same `SizeQuery.Place` rectangles instead of
+constructing every document box. It visits intersecting vertical branches in reverse tree order;
+horizontal bounds never prune a subtree because nonshrinking flex children can overflow.
+The query clamps scroll by the same document extent and is read before the first listener only.
+Each mouse phase and the native click's initial target guard start a current read, so focus, press,
+CSSOM and handler mutations keep their normal invalidation. Full layout remains the reference for
+DOM/protocol box enumeration. This changes neither the rendered set nor pointer/event dispatch.
+
 The native cascade indexes candidate rules by required subject ID, class or type while retaining rule
 order. Unkeyed rules remain candidates for every element. The native selector matcher still checks
 attributes, ancestors and pseudo-class state for each candidate; the index is only a filter.
@@ -109,6 +117,46 @@ Individual style queries and traversal reads use the native renderless text casc
 only the values required by its finite geometry policy; it does not restore a typed typography grammar.
 Same-turn CSSOM writes, `classList`, control state and media changes invalidate retained layout work
 before the next read.
+
+`checkVisibility` is a read, not a layout mutation. `scrollIntoView` changes only the virtual scroll
+projection and queues the existing scroll event; it does not discard unchanged document-space boxes.
+Their option getters may still execute script, whose actual mutations invalidate the next read.
+Scroll alignment measures the target and establishes only enough document height to prove its clamp.
+It does not construct unrelated hit-test boxes; actual pointer hit testing still uses the complete
+current layout. `offsetTop` and `offsetLeft` place the element and its synthetic offset parent through the
+shared size query, without constructing unrelated hit-test boxes. None of these shortcuts bypasses
+native input, activation or pointer-target validation.
+
+**Native measurement data can outlive a query, not its witnesses.** The first eligible geometry read
+demand-installs a synchronous native dirty sink; parsing alone installs nothing and creates no layout
+observer records. Typed attribute, character, child-list and text-control-state transitions accumulate at most 64 dirty
+entries. Unknown writes and overflow discard all retained measurements. Detached attribute values have
+no element dependency. The next geometry read processes dirty subtrees under its current budget/token,
+following both cached children and current links to evict removed/moved nodes, and invalidating ancestor
+row totals. Ordinary ancestor selectors and inherited values propagate down the changed subtree.
+For a proven-local child-list edit, only membership, the changed subtree and ancestor totals are
+invalidated; existing siblings keep their rendered flags and exact rows. Detached fragment operations
+still evict changed subtrees without invalidating unrelated document measurements.
+
+The immutable rule plan classifies selector dependencies. Sibling, positional, `:has` and `:empty`
+dependencies fall back globally for structural/text changes and the attributes their matching observes;
+semantic state has conservative global fallbacks, and unrecognized programs always fall back. A style-only
+write cannot change a relational selector that never observes the style attribute, but still invalidates
+the target subtree's geometry. Native text-control edits invalidate their subtree, with global fallback
+for semantic selectors; moving a focused descendant also invalidates `:focus-within` dependencies.
+Focus, Browser-owned semantic revisions, CSSOM, media, sheet membership/order, URL and
+document changes retain independent global invalidation. Custom engine configuration and arbitrary
+native callbacks remain unretained.
+
+Native text editing brackets the atomic value/caret commit, not the completed `beforeinput`/`input`
+listener dispatch. Reentrant reads during a native write stay fresh; listeners after the commit can
+reuse proven-unaffected measurements. Event order, trust and cancellation are unchanged.
+
+Only child snapshots, rendered flags and exact row counts cross query boundaries. Widths, stretched
+heights, sizes and placement remain query-owned: flex siblings and following-sibling positions are
+recomputed. Every new query has a fresh cascade, verification callback and budget/token; the retained
+data contains none of those. This is dependency-aware reuse of the flat model, not incremental CSS or
+pixel layout.
 
 **The scroll is virtual, and it is the only state.** `Layout/PageLayout` holds a `scrollY` clamped to the
 document, and every viewport-relative answer subtracts it; `scrollX` stays zero because horizontal overflow

@@ -97,7 +97,7 @@ internal static class LayoutMembers
         return IsCheckVisible(realm, element, checkOpacity, checkVisibility) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private static bool IsCheckVisible(DomRealm realm, Element element, bool checkOpacity, bool checkVisibility)
+    internal static bool IsCheckVisible(DomRealm realm, Element element, bool checkOpacity, bool checkVisibility)
     {
         if (PageOf(realm, element) is not { } page || element.OwnerDocument is not { } document)
         {
@@ -251,13 +251,14 @@ internal static class LayoutMembers
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetleft.</summary>
     internal static JsValue OffsetLeft(DomRealm realm, Element element)
     {
-        if (Layout(realm, element) is not { } layout || layout.DocumentBoxOf(element) is not { } box)
+        if (PageOf(realm, element)?.Layout.MeasureSizes() is not { } sizes || !sizes.HasBox(element))
         {
             return JsNumber.PositiveZero;
         }
 
         var parent = OffsetParentOf(element);
-        var origin = parent is not null && layout.DocumentBoxOf(parent) is { } parentBox ? parentBox.X : 0;
+        var box = sizes.Place(element);
+        var origin = parent is not null ? sizes.Place(parent).X : 0;
         return JsNumber.Create(Round(box.X - origin));
     }
 
@@ -267,13 +268,14 @@ internal static class LayoutMembers
     /// </summary>
     internal static JsValue OffsetTop(DomRealm realm, Element element)
     {
-        if (Layout(realm, element) is not { } layout || layout.DocumentBoxOf(element) is not { } box)
+        if (PageOf(realm, element)?.Layout.MeasureSizes() is not { } sizes || !sizes.HasBox(element))
         {
             return JsNumber.PositiveZero;
         }
 
         var parent = OffsetParentOf(element);
-        var origin = parent is not null && layout.DocumentBoxOf(parent) is { } parentBox ? parentBox.Y : 0;
+        var box = sizes.Place(element);
+        var origin = parent is not null ? sizes.Place(parent).Y : 0;
         return JsNumber.Create(Round(box.Y - origin));
     }
 

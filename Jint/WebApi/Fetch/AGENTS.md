@@ -93,8 +93,10 @@ the socket said. What `Continue` may not rewrite is the body — it has not been
 that is the whole difference from `Fulfill`, which discards the socket's bytes unread. Two ordering facts matter before mapping it
 onto a protocol: **a refusal before the transport** (a `UrlFilter` denial, the concurrency cap, an
 already-aborted signal on a URL that is not `blob:` or `data:`) reports `OnFailed` with no `OnRequest` before it, because `fetch`'s synchronous half
-cannot await one; and **a body nobody reads never completes**, because it is only pulled when script consumes
-it. **An authentication challenge is asked about and only `Basic` can be answered, and the second half is a
+cannot await one; and **response bodies have bounded read-ahead**, so a small finite body can complete
+without script consuming it. The byte stream queues up to its 64 KiB high-water mark plus at most one
+transport chunk; larger unread bodies backpressure the transport and remain active until EOF, cancellation
+or failure. Reading ahead never marks `bodyUsed`. **An authentication challenge is asked about and only `Basic` can be answered, and the second half is a
 *stated* behaviour rather than a shortfall.** A `401` carrying a `WWW-Authenticate` reaches
 `OnAuthRequiredAsync` whatever scheme it names, because being asked is the only way an observer tells "this
 engine does not do `Digest`" from "the server never challenged" — and `ObservedFetchAuthChallenge`

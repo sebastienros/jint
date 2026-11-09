@@ -31,7 +31,7 @@ namespace Jint.Tests.Runtime.WebApi;
 /// for one while itself occupying a pool worker is the resource inversion described on
 /// <see cref="DedicatedThread.RunAsync"/>: a saturated pool injects workers at roughly one per 500 ms, so a
 /// ten-second budget stops being a check and becomes a race. That is what
-/// <see cref="TheBodyIsReadOneChunkPerReadAndNotBefore"/> lost on the windows leg of a PR that touches
+/// this suite lost on the windows leg of a PR that touches
 /// neither this class nor the engine (sebastienros/jint#3213), and it is the same mechanism
 /// sebastienros/jint#3201 was diagnosed as. Off the pool, the wait costs the pool nothing.
 /// </para>
@@ -233,7 +233,7 @@ public class FetchStreamTests
     }
 
     [Test]
-    public Task TheBodyIsReadOneChunkPerReadAndNotBefore() => DedicatedThread.RunAsync(() =>
+    public Task SmallBodiesFinishWithoutBeingConsumedAndRetainTheirBytes() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
         handler.Body.Emit("he");
@@ -246,27 +246,44 @@ public class FetchStreamTests
 
         engine.Evaluate("r.status").AsNumber().Should().Be(200);
 
-        // Backpressure: the stream's high water mark is zero, so the promise resolving with the response has
-        // touched the socket for its headers and for nothing else. Pumping cannot change that — only a
-        // consumer can.
-        engine.Tasks.ProcessTasks();
-        handler.Body.ReadCount.Should().Be(0);
-
-        // Nor does taking a reader, which locks the stream without asking it for anything.
+        PumpUntil(engine, () => handler.Body.ReadCount == 3, "the small response to reach EOF without a reader");
+        engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeFalse();
         engine.Execute("var reader = r.body.getReader();");
-        handler.Body.ReadCount.Should().Be(0);
 
         engine.Evaluate("reader.read().then(x => x.done + ':' + dec(x.value))").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("false:he");
-        handler.Body.ReadCount.Should().Be(1);
-
         engine.Evaluate("reader.read().then(x => x.done + ':' + dec(x.value))").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("false:llo");
-        handler.Body.ReadCount.Should().Be(2);
 
-        // The read that sees the end of the body closes the stream.
         engine.Evaluate("reader.read().then(x => x.done + ':' + (x.value === undefined))").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("true:true");
         handler.Body.ReadCount.Should().Be(3);
 
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();
+    });
+
+    [Test]
+    public Task ReadAheadStopsAtTheByteQueueBoundUntilAConsumerDrainsIt() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = new GatedHandler();
+        handler.Body.Emit(new string('x', 64 * 1024));
+        handler.Body.Emit("tail");
+        handler.Body.Complete();
+        var engine = WebEngine(handler);
+        engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
+        engine.Tasks.ProcessTasks();
+        var stream = (JsReadableStream) engine.Evaluate("r.body");
+
+        PumpUntil(engine, () => stream.ByteController.Queue.TotalSize == 64 * 1024, "the bounded read-ahead queue");
+        engine.Tasks.ProcessTasks();
+        handler.Body.ReadCount.Should().Be(1);
+        engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeFalse();
+
+        engine.Execute("var reader=r.body.getReader();");
+        engine.Evaluate("reader.read().then(x=>x.value.byteLength)").UnwrapIfPromise(TransportSignalCeiling)
+            .AsNumber().Should().Be(64 * 1024);
+        engine.Evaluate("reader.read().then(x=>dec(x.value))").UnwrapIfPromise(TransportSignalCeiling)
+            .AsString().Should().Be("tail");
+        engine.Evaluate("reader.read().then(x=>x.done)").UnwrapIfPromise(TransportSignalCeiling)
+            .AsBoolean().Should().BeTrue();
+        handler.Body.ReadCount.Should().Be(3);
     });
 
     [Test]
@@ -381,14 +398,8 @@ public class FetchStreamTests
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();
     });
 
-    /// <remarks>
-    /// One of the two tests in this class that stays on the runner's worker, because nothing here waits for the
-    /// transport: no consumer ever pulls, so the read loop never leaves its demand wait, and every assertion
-    /// below — including the two negative ones — is decided on the engine thread by the time
-    /// <c>RestoreGlobalSnapshot</c> returns.
-    /// </remarks>
     [Test]
-    public void ARestoreErrorsALiveBodyStreamAndCancelsTheTransport()
+    public Task ARestoreErrorsALiveBodyStreamAndCancelsTheTransport() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
         var engine = WebEngine(handler);
@@ -401,6 +412,7 @@ public class FetchStreamTests
         var body = engine.Evaluate("r.body");
         var stream = (JsReadableStream) body;
         stream.State.Should().Be(ReadableStreamState.Readable);
+        handler.Body.ReadStarted.Wait(TransportSignalCeiling).Should().BeTrue("read-ahead starts without a consumer");
 
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
@@ -409,12 +421,12 @@ public class FetchStreamTests
         stream.StoredError.AsObject().Get("message").AsString().Should().Contain("globals were restored");
 
         // ... and the connection is let go at once.
-        handler.Body.ReadStarted.IsSet.Should().BeFalse("nothing ever asked the transport for bytes");
+        handler.Body.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("restore cancels unread response read-ahead");
         engine.Evaluate("typeof r").AsString().Should().Be("undefined");
 
         // The engine is perfectly usable afterwards.
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
-    }
+    });
 
     [Test]
     public Task ARestoreCancelsATransportThatWasAlreadyReading() => DedicatedThread.RunAsync(() =>
@@ -542,8 +554,7 @@ public class FetchStreamTests
 
     /// <summary>
     /// A network response body is a byte stream — https://fetch.spec.whatwg.org/#concept-body — so it can be
-    /// read BYOB straight off the socket, into a buffer the consumer recycles. The chunk boundary stays the
-    /// transport's: one BYOB read takes one transport read, however much room the caller offered.
+    /// read BYOB into a buffer the consumer recycles, drawing from the bounded read-ahead queue.
     /// </summary>
     [Test]
     public Task ANetworkResponseBodyCanBeReadByob() => DedicatedThread.RunAsync(() =>
@@ -557,17 +568,14 @@ public class FetchStreamTests
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
         engine.Tasks.ProcessTasks();
 
-        // Taking a BYOB reader is as free as taking a default one: nothing is read until read() asks.
+        PumpUntil(engine, () => handler.Body.ReadCount == 3, "BYOB read-ahead to reach EOF");
         engine.Execute("var reader = r.body.getReader({ mode: 'byob' });");
-        handler.Body.ReadCount.Should().Be(0);
 
-        engine.Evaluate("reader.read(new Uint8Array(8)).then(x => x.done + ':' + dec(x.value))")
+        engine.Evaluate("reader.read(new Uint8Array(2)).then(x => x.done + ':' + dec(x.value))")
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("false:he");
-        handler.Body.ReadCount.Should().Be(1);
 
-        engine.Evaluate("reader.read(new Uint8Array(8)).then(x => x.done + ':' + dec(x.value))")
+        engine.Evaluate("reader.read(new Uint8Array(3)).then(x => x.done + ':' + dec(x.value))")
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("false:llo");
-        handler.Body.ReadCount.Should().Be(2);
 
         engine.Evaluate("reader.read(new Uint8Array(8)).then(x => x.done + ':' + x.value.byteLength)")
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("true:0");

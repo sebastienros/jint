@@ -92,7 +92,7 @@ internal sealed class WorkerGlobalScope
     /// Called on the parent's thread, with that engine owned and quiescent.
     /// </summary>
     internal static void Install(WorkerLink link, string name)
-        => InstallCore(link.Worker, name, link, link.CloseFromWorker, importScripts: null);
+        => InstallCore(link.Worker, name, link, link.CloseFromWorker, link.ImportScripts);
 
     /// <summary>Installs the shared worker global without a dedicated worker's hidden message port.</summary>
     /// <remarks>https://html.spec.whatwg.org/multipage/workers.html#shared-workers-and-the-sharedworkerglobalscope-interface</remarks>
@@ -212,8 +212,8 @@ internal sealed class WorkerGlobalScope
         const string Operation = "postMessage' on 'DedicatedWorkerGlobalScope";
         var argument = arguments.At(1);
 
-        var transferList = argument is ObjectInstance && JsValue.GetMethod(_realm, argument, GlobalSymbolRegistry.Iterator) is not null
-            ? StructuredSerializeOptions.ReadTransferSequence(_realm, argument, Operation)
+        var transferList = argument is ObjectInstance && JsValue.GetMethod(_realm, argument, GlobalSymbolRegistry.Iterator) is { } iteratorMethod
+            ? StructuredSerializeOptions.ReadTransferSequence(_realm, argument, Operation, iteratorMethod)
             : StructuredSerializeOptions.ReadTransferOption(_realm, argument, Operation);
 
         _link!.PostFromWorker(_realm, arguments[0], transferList);

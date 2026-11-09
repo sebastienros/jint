@@ -1,5 +1,6 @@
 using System.Globalization;
 using Jint.Native.Object;
+using Jint.Runtime;
 
 namespace Jint.Native.Intl;
 
@@ -38,10 +39,11 @@ internal sealed class JsSegmenter : ObjectInstance
     internal CultureInfo CultureInfo { get; }
 
     /// <summary>
-    /// Segments the input string and returns a Segments object.
+    /// Segments the input string and returns a Segments object created in <paramref name="realm"/>, the realm of the
+    /// <c>Intl.Segmenter.prototype.segment</c> that was called.
     /// </summary>
-    internal JsSegments Segment(Engine engine, string input)
+    internal JsSegments Segment(Realm realm, string input)
     {
-        return new JsSegments(engine, this, input);
+        return new JsSegments(_engine, realm, this, input);
     }
 }

@@ -1,4 +1,5 @@
 using System.Threading;
+using Jint.WebApi;
 
 namespace Jint.Browser;
 
@@ -179,6 +180,14 @@ public sealed class BrowserOptions
 
     /// <summary>Whether a page records what its scripts printed into <see cref="Page.ConsoleMessages"/>.</summary>
     public bool RecordConsoleMessages { get; set; } = true;
+
+    /// <summary>Wraps each document's console sink without configuring its engine; null keeps the original sink.</summary>
+    /// <remarks>
+    /// Runs on the page thread before <see cref="ConfigureEngine"/> callbacks. Return a non-null sink,
+    /// forwarding to the supplied sink to preserve <see cref="Page.ConsoleMessages"/>. Unlike a general
+    /// engine callback, this hook does not disable native layout and collection reuse.
+    /// </remarks>
+    public Func<ConsoleSink, ConsoleSink>? ConsoleSinkDecorator { get; set; }
 
     /// <summary>How many errors and how many console messages one page keeps; 1000 each.</summary>
     /// <remarks>

@@ -4,20 +4,20 @@ using Jint.Native.AsyncFunction;
 using Jint.Native.AsyncGenerator;
 using Jint.Native.Disposable;
 using Jint.Native.Promise;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
-using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements;
 
 /// <summary>
 /// Runs https://tc39.es/ecma262/#sec-disposeresources for a statement that disposes resources as it ends: a block
-/// (https://tc39.es/ecma262/#sec-block-runtime-semantics-evaluation step 6) or a <c>for</c> statement with a
-/// <c>using</c> header (https://tc39.es/ecma262/#sec-runtime-semantics-forloopevaluation steps 8 and 13). Each await it
-/// owes suspends the surrounding async function or async generator as an <c>await</c> expression does, with the
-/// statement as the suspension point, and the replayed body re-enters that statement, which calls
-/// <see cref="Resume"/>.
+/// (https://tc39.es/ecma262/#sec-block-runtime-semantics-evaluation step 6), a <c>for</c> statement with a
+/// <c>using</c> header (https://tc39.es/ecma262/#sec-runtime-semantics-forloopevaluation steps 8 and 13), or an
+/// iteration of a <c>for</c>-<c>of</c> or <c>for await</c> loop whose head declares one
+/// (https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
+/// step 8.k). Each await it owes suspends the surrounding async function or async generator as an <c>await</c>
+/// expression does, with the statement as the suspension point, and the replayed body re-enters that statement, which
+/// calls <see cref="Resume"/>.
 /// </summary>
 internal static class StatementDisposal
 {
@@ -114,7 +114,7 @@ internal static class StatementDisposal
 
     /// <summary>
     /// Mirror of <see cref="JintAwaitExpression.SuspendForAwait"/> for the dispose path: suspends the async function on
-    /// the pending dispose promise, with handlers that resume the function.
+    /// the pending dispose promise, with the function as its own await continuation.
     /// </summary>
     /// <returns>
     /// <see langword="false"/> when the await is abrupt before it suspends: Await's PromiseResolve(%Promise%, value)
@@ -143,23 +143,10 @@ internal static class StatementDisposal
         asyncFn._state = AsyncFunctionState.SuspendedAwait;
         asyncFn._savedContext = engine.ExecutionContext;
 
-        var onFulfilled = new ClrFunction(engine, "", (_, args) =>
-        {
-            asyncFn._resumeValue = args.At(0);
-            asyncFn._resumeWithThrow = false;
-            JintAwaitExpression.AsyncFunctionResume(engine, asyncFn);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        var onRejected = new ClrFunction(engine, "", (_, args) =>
-        {
-            asyncFn._resumeValue = args.At(0);
-            asyncFn._resumeWithThrow = true;
-            JintAwaitExpression.AsyncFunctionResume(engine, asyncFn);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
+        // Await step 3's PerformPromiseThen, with the function's own reaction continuation as an await expression has
+        // it: it stores the settled value and resumes the function, which is all a pair of script-invisible handler
+        // functions did, without allocating them.
+        PromiseOperations.PerformPromiseThen(engine, promise, asyncFn);
         error = null;
         return true;
     }

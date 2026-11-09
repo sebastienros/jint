@@ -72,6 +72,7 @@ internal sealed class BrowserEventRealm
         get => _focusedElement;
         set
         {
+            if (!ReferenceEquals(_focusedElement, value)) SpacePressTarget = null;
             if (_focusDocument is { } previous && FocusStores.TryGetValue(previous, out var slot)
                 && slot.TryGetTarget(out var store) && ReferenceEquals(store, this)) FocusStores.Remove(previous);
             _focusedElement = value;
@@ -109,6 +110,9 @@ internal sealed class BrowserEventRealm
     /// navigation between a press and a release leaves the new document with no press outstanding.
     /// </remarks>
     internal Element? MousePressTarget { get; set; }
+
+    /// <summary>The button awaiting Space's keyup activation; changing focus abandons the press.</summary>
+    internal Element? SpacePressTarget { get; set; }
 
     /// <summary>
     /// The touch points currently on the surface, and what the sequence they belong to has already decided.

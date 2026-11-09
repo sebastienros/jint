@@ -78,6 +78,33 @@ public class AsyncIteratorCloseTests
             try { return 'ok:' + (await fn()); }
             catch (e) { return 'threw:' + (e && e.name ? e.name : '?') + ':' + (e && e.message !== undefined ? e.message : e); }
         }
+
+        // An iterable that never runs out and logs each return() call, the shape of the report in issue
+        // #4354. next() answers a plain object, which the loop's own Await wraps; `sync` hands the iterator
+        // out through Symbol.iterator instead, so for-await drives it through CreateAsyncFromSyncIterator.
+        function closingIterable(log, returnImpl, value, sync) {
+            const iterator = { next() { return { value: value === undefined ? 1 : value, done: false }; } };
+            if (returnImpl !== undefined) {
+                iterator.return = function () { log.push('return'); return returnImpl(); };
+            }
+            return sync
+                ? { [Symbol.iterator]() { return iterator; } }
+                : { [Symbol.asyncIterator]() { return iterator; } };
+        }
+
+        // Starts `start(log)` and, beside it, a chain of four microtasks logging t1..t4, then answers the
+        // interleaving once both are over. Where an entry lands among the ticks is how many microtasks it
+        // took, which is what the Await of AsyncIteratorClose step 4.d costs and the synchronous close did not.
+        function interleave(start) {
+            const log = [];
+            const done = start(log);
+            let p = Promise.resolve();
+            for (let i = 1; i <= 4; i++) { const n = i; p = p.then(function () { log.push('t' + n); }); }
+            return Promise.all([done, p]).then(function () { return log.join(','); });
+        }
+
+        function thrower() { throw 'E'; }
+        const OBJECT = function () { return {}; };
         """;
 
     private static string Run(string script) =>
@@ -381,5 +408,251 @@ public class AsyncIteratorCloseTests
                 return log.join(',') + '|' + result;
             })()
             """).Should().Be("disposed,return|threw:Error:cleanup failed");
+    }
+
+    /// <summary>
+    /// The report from issue #4354, verbatim in shape. Step 5 returns a throw completion whatever the close
+    /// did, but only <em>after</em> step 4.d has awaited what <c>return()</c> answered — so the throw reaches
+    /// the <c>catch</c> one microtask after <c>return</c>, behind <c>t1</c>. Jint closed such a loop with the
+    /// synchronous IteratorClose, which skips that Await, and the <c>catch</c> ran ahead of <c>t1</c>.
+    /// Expected values are V8's (Node 26).
+    /// </summary>
+    [Test]
+    public void ALoopLeftByAThrowAwaitsWhatReturnAnsweredBeforeTheThrowPropagates()
+    {
+        Run("""
+            interleave(function (log) {
+                const src = closingIterable(log, OBJECT);
+                return (async function () {
+                    try { for await (var x of src) throw 'E'; } catch (e) { log.push('caught ' + e); }
+                })();
+            })
+            """).Should().Be("return,t1,caught E,t2,t3,t4");
+    }
+
+    /// <summary>
+    /// Every way a throw leaves the loop owes the same Await, and they reach the loop two different ways: a
+    /// <c>throw</c> statement, or a call inside a block, arrives as a throw completion, while a call that is the
+    /// whole body, a destructuring binding that fails and an assignment target whose setter throws arrive as an
+    /// exception unwinding through the loop. All of them are an abrupt status that
+    /// <a href="https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset">ForIn/OfBodyEvaluation</a>
+    /// hands to AsyncIteratorClose, and each row is one microtask later than the synchronous close made it.
+    /// </summary>
+    [Test]
+    public void EveryWayAThrowLeavesTheLoopPaysTheAwait()
+    {
+        Run("""
+            (async function () {
+                const shapes = {
+                    statement: async function (src) { for await (var x of src) throw 'E'; },
+                    block: async function (src) { for await (var x of src) { throw 'E'; } },
+                    call: async function (src) { for await (var x of src) thrower(); },
+                    blockCall: async function (src) { for await (var x of src) { thrower(); } },
+                    binding: async function (src) { for await (const [a] of src) { } },
+                    target: async function (src) { const o = { set x(v) { throw 'E'; } }; for await (o.x of src) { } },
+                };
+                const rows = [];
+                for (const name of Object.keys(shapes)) {
+                    rows.push(name + '=' + await interleave(function (log) {
+                        return shapes[name](closingIterable(log, OBJECT))
+                            .catch(function (e) { log.push('caught ' + (typeof e === 'string' ? e : e.name)); });
+                    }));
+                }
+                return rows.join('|');
+            })()
+            """).Should().Be(
+            "statement=return,t1,t2,caught E,t3,t4"
+            + "|block=return,t1,t2,caught E,t3,t4"
+            + "|call=return,t1,t2,caught E,t3,t4"
+            + "|blockCall=return,t1,t2,caught E,t3,t4"
+            + "|binding=return,t1,t2,caught TypeError,t3,t4"
+            + "|target=return,t1,t2,caught E,t3,t4");
+    }
+
+    /// <summary>
+    /// The same shapes in an async <em>generator</em> body, which suspends on the close's Await through its own
+    /// resume path, plus a <c>catch</c> inside the generator that sees the throw once the Await is over.
+    /// </summary>
+    [Test]
+    public void AnAsyncGeneratorBodyPaysTheSameAwait()
+    {
+        Run("""
+            (async function () {
+                const shapes = {
+                    statement: async function* (src) { for await (var x of src) throw 'E'; },
+                    block: async function* (src) { for await (var x of src) { throw 'E'; } },
+                    call: async function* (src) { for await (var x of src) thrower(); },
+                    binding: async function* (src) { for await (const [a] of src) { } },
+                    caughtInside: async function* (src, log) {
+                        try { for await (var x of src) throw 'E'; } catch (e) { log.push('caught ' + e); }
+                    },
+                };
+                const rows = [];
+                for (const name of Object.keys(shapes)) {
+                    rows.push(name + '=' + await interleave(function (log) {
+                        return shapes[name](closingIterable(log, OBJECT), log).next()
+                            .catch(function (e) { log.push('caught ' + (typeof e === 'string' ? e : e.name)); });
+                    }));
+                }
+                return rows.join('|');
+            })()
+            """).Should().Be(
+            "statement=return,t1,t2,caught E,t3,t4"
+            + "|block=return,t1,t2,caught E,t3,t4"
+            + "|call=return,t1,t2,caught E,t3,t4"
+            + "|binding=return,t1,t2,caught TypeError,t3,t4"
+            + "|caughtInside=return,t1,caught E,t2,t3,t4");
+    }
+
+    /// <summary>
+    /// What <c>return()</c> answers decides how long the throw waits, and never what it is. Whatever it answers
+    /// normally is awaited — a non-object too, since step 7's check comes after step 5 has already returned — and
+    /// a thenable costs its own two jobs and has its <c>then</c> called, which the synchronous close never did.
+    /// A rejection is awaited and then discarded. Where step 3 or 4.c is abrupt (a <c>return()</c> that throws, a
+    /// throwing getter) or there is no <c>return</c> at all, there is no Await and nothing changes; and a promise
+    /// whose <c>constructor</c> getter throws makes the Await itself abrupt before it suspends (Await step 2,
+    /// <a href="https://tc39.es/ecma262/#sec-promise-resolve">PromiseResolve</a>), so that one does not wait either.
+    /// </summary>
+    [Test]
+    public void WhatReturnAnsweredDecidesHowLongTheThrowWaits()
+    {
+        Run("""
+            (async function () {
+                const answers = {
+                    object: OBJECT,
+                    nonObject: function () { return 42; },
+                    fulfilled: function () { return Promise.resolve({}); },
+                    rejected: function () { return Promise.reject('R'); },
+                    thenable: 'thenable',
+                    throws: function () { throw 'R'; },
+                    absent: undefined,
+                    constructorThrows: function () {
+                        const p = Promise.resolve({});
+                        Object.defineProperty(p, 'constructor', { get() { throw 'C'; } });
+                        return p;
+                    },
+                };
+                const rows = [];
+                for (const name of Object.keys(answers)) {
+                    rows.push(name + '=' + await interleave(function (log) {
+                        const impl = answers[name] === 'thenable'
+                            ? function () { return { then(resolve) { log.push('then'); resolve({}); } }; }
+                            : answers[name];
+                        const src = closingIterable(log, impl);
+                        return (async function () { for await (var x of src) throw 'E'; })()
+                            .catch(function (e) { log.push('caught ' + e); });
+                    }));
+                }
+                rows.push('getterThrows=' + await interleave(function (log) {
+                    const src = { [Symbol.asyncIterator]() {
+                        return { next() { return { value: 1, done: false }; }, get return() { log.push('get'); throw 'R'; } };
+                    } };
+                    return (async function () { for await (var x of src) throw 'E'; })()
+                        .catch(function (e) { log.push('caught ' + e); });
+                }));
+                return rows.join('|');
+            })()
+            """).Should().Be(
+            "object=return,t1,t2,caught E,t3,t4"
+            + "|nonObject=return,t1,t2,caught E,t3,t4"
+            + "|fulfilled=return,t1,t2,caught E,t3,t4"
+            + "|rejected=return,t1,t2,caught E,t3,t4"
+            + "|thenable=return,t1,then,t2,t3,caught E,t4"
+            + "|throws=return,t1,caught E,t2,t3,t4"
+            + "|absent=t1,caught E,t2,t3,t4"
+            + "|constructorThrows=return,t1,caught E,t2,t3,t4"
+            + "|getterThrows=get,t1,caught E,t2,t3,t4");
+    }
+
+    /// <summary>
+    /// A sync iterable under <c>for await</c> is closed through
+    /// <a href="https://tc39.es/ecma262/#sec-%asyncfromsynciteratorprototype%.return">%AsyncFromSyncIteratorPrototype%.return</a>,
+    /// whose promise settles a job after the sync <c>return()</c> answers; the loop awaits that promise too.
+    /// </summary>
+    [Test]
+    public void ASyncIterableUnderForAwaitAwaitsItsWrappedReturn()
+    {
+        Run("""
+            interleave(function (log) {
+                const src = closingIterable(log, OBJECT, 1, true);
+                return (async function () { for await (var x of src) throw 'E'; })()
+                    .catch(function (e) { log.push('caught ' + e); });
+            })
+            """).Should().Be("t1,return,t2,t3,t4,caught E");
+    }
+
+    /// <summary>
+    /// A loop head declaring <c>using</c> or <c>await using</c> disposes its binding before it closes, and the
+    /// throw then still waits on the close. The <c>await using</c> loop leaves through the resume after its
+    /// disposal's Await, a second code path from the one the inline <c>using</c> disposal takes.
+    /// </summary>
+    [Test]
+    public void ALoopThatDisposesBeforeItClosesStillAwaitsTheClose()
+    {
+        Run("""
+            (async function () {
+                const usingRow = await interleave(function (log) {
+                    const src = closingIterable(log, OBJECT, { [Symbol.dispose]() { log.push('disposed'); } });
+                    return (async function () { for await (using x of src) { throw 'E'; } })()
+                        .catch(function (e) { log.push('caught ' + e); });
+                });
+                const awaitUsingRow = await interleave(function (log) {
+                    const src = closingIterable(log, OBJECT, { async [Symbol.asyncDispose]() { log.push('disposed'); } });
+                    return (async function () { for await (await using x of src) { throw 'E'; } })()
+                        .catch(function (e) { log.push('caught ' + e); });
+                });
+                return 'using=' + usingRow + '|awaitUsing=' + awaitUsingRow;
+            })()
+            """).Should().Be(
+            "using=disposed,return,t1,t2,caught E,t3,t4"
+            + "|awaitUsing=disposed,t1,return,t2,t3,caught E,t4");
+    }
+
+    /// <summary>
+    /// A rejected promise that <c>return()</c> answers under a throw is awaited before step 5 discards it, and an
+    /// awaited rejection is a handled one, so the host's rejection tracker reports nothing for it. The synchronous
+    /// close never looked at the promise, which left it an unhandled rejection the tracker reported. The second
+    /// rejection, which nothing handles, is the control proving the tracker is listening.
+    /// </summary>
+    [Test]
+    public void ARejectedReturnUnderAThrowIsAwaitedAndSoHandled()
+    {
+        var engine = new Engine();
+        var reported = new List<string>();
+        engine.Tasks.PromiseRejectionTracker += (_, args) => reported.Add(args.Operation + ":" + args.Value);
+
+        engine.Evaluate(Harness + """
+
+            (async function () {
+                try { for await (var x of closingIterable([], function () { return Promise.reject('R'); })) throw 'E'; }
+                catch (e) { }
+                Promise.reject('unhandled');
+            })();
+            """);
+        engine.Tasks.ProcessTasks();
+
+        reported.Should().Equal("Reject:unhandled");
+    }
+
+    /// <summary>
+    /// The throw that waited on the close is the one that left the loop: the same object, whether it arrived as a
+    /// completion or as an exception unwinding through the loop.
+    /// </summary>
+    [Test]
+    public void TheThrowThatWaitedIsTheOneThatLeftTheLoop()
+    {
+        Run("""
+            (async function () {
+                const thrown = new Error('body');
+                const seen = [];
+                try {
+                    for await (var x of closingIterable([], OBJECT)) (function () { throw thrown; })();
+                } catch (e) { seen.push(e === thrown); }
+                try {
+                    for await (var x of closingIterable([], OBJECT)) { throw thrown; }
+                } catch (e) { seen.push(e === thrown); }
+                return seen.join(',');
+            })()
+            """).Should().Be("true,true");
     }
 }

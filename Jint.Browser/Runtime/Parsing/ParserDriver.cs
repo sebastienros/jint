@@ -4,7 +4,9 @@ using Jint.Browser.Dom;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Html;
 using Jint.Native;
+using Jint.Native.Promise;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Jint.WebApi.Events;
 using Jint.WebApi.Fetch;
 using Jint.Runtime.Modules;
@@ -32,14 +34,13 @@ internal sealed partial class ParserDriver : IDisposable
     private readonly TimeSpan _timeout;
     private readonly CancellationToken _cancellationToken;
 
-    private bool _importMapRead;
-    private Element? _importMapElement;
     private DomBrowsingContext? _context;
     private int _frameDocuments;
     private bool _tokenizing;
     private int _pendingResourceEvents;
     private TaskCompletionSource? _resourceEventsCompleted;
     private Queue<(Element Element, string Type, bool AfterParse, Func<bool>? IsCurrent)>? _deferredResourceEvents;
+    private readonly HashSet<CancellationTokenSource> _pendingModuleWaits = new();
 
     // A supplied position can have an opaque (null) origin; omitted position uses the page default.
     private readonly record struct FetchSource(UrlRecord? Referrer, UrlRecord? Origin);
@@ -96,6 +97,8 @@ internal sealed partial class ParserDriver : IDisposable
         foreach (var weak in _scriptSubscriptions) if (weak.TryGetTarget(out var subscription)) subscription.Dispose();
         _scriptSubscriptions.Clear();
         _changedScripts.Clear();
+        foreach (var wait in _pendingModuleWaits) { wait.Cancel(); wait.Dispose(); }
+        _pendingModuleWaits.Clear();
         _resourceWatches.Clear();
         _resourceWatchReferences.Clear();
         _pendingStyleCompletions.Clear();
@@ -960,37 +963,52 @@ internal sealed partial class ParserDriver : IDisposable
     /// here because legacy frame documents are unavailable.
     /// </para>
     /// </remarks>
-    private void FireFrameLoads(Document document)
+    private bool FireFrameLoads(Document document)
     {
+        var completed = true;
         foreach (var element in NativeElements(document))
         {
-            if (IsHtml(element, "iframe") && DomBrowsingContext.OfFrame(element)?.Active is not null)
+            if (IsHtml(element, "iframe") && DomBrowsingContext.OfFrame(element)?.Active is { } child)
+            {
                 FinishFrame(element);
+                completed &= FrameWindows.DocumentRealm(_runtime, child).LoadCompleted;
+            }
         }
+        return completed;
     }
 
     private void FinishFrame(Element frame)
     {
         if (!ShadowTree.IsConnected(frame, _cancellationToken) || DomBrowsingContext.OfFrame(frame)?.Active is not { } document) return;
         var dom = FrameWindows.DocumentRealm(_runtime, document);
-        if (dom.LoadCompleted) return;
-        dom.LoadCompleted = true;
+        if (dom.LoadCompleted || ModulesFor(document)?.PendingScripts > 0) return;
         if (CanRunFrame(document))
         {
             FrameWindows.ForDocument(_runtime, document);
             using var scope = new RealmScope(_runtime.Engine, dom.OwningRealm);
-            if (_runtime.ScriptingEnabled) Events.EventHandlerContentAttributes.InstallBodyHandlers(dom, document);
-            SetFrameReadyState(dom, "interactive");
-            PageEvents.Fire(_runtime, dom.WrapNode(document), "DOMContentLoaded", bubbles: true);
-            FireFrameLoads(document);
+            if (!dom.DomContentLoaded)
+            {
+                dom.DomContentLoaded = true;
+                if (_runtime.ScriptingEnabled) Events.EventHandlerContentAttributes.InstallBodyHandlers(dom, document);
+                SetFrameReadyState(dom, "interactive");
+                PageEvents.Fire(_runtime, dom.WrapNode(document), "DOMContentLoaded", bubbles: true);
+            }
+            if (!FireFrameLoads(document) || dom.LoadCompleted) return;
+            dom.LoadCompleted = true;
             SetFrameReadyState(dom, "complete");
             PageEvents.Fire(_runtime, dom.WindowTarget!, "load");
             var shown = dom.OwningRealm.Intrinsics.Event.CreateTrustedEvent(JsString.Create("pageshow"), default);
             PageEvents.Member(shown, "persisted", JsBoolean.False);
             PageEvents.Dispatch(_runtime, dom.WindowTarget!, shown);
         }
-        else FireFrameLoads(document);
+        else
+        {
+            if (!FireFrameLoads(document) || dom.LoadCompleted) return;
+            dom.LoadCompleted = true;
+        }
         FireAt(frame, "load");
+        if (frame.OwnerDocument is { } parent && FrameWindows.ElementOf(parent) is { } parentFrame)
+            FinishFrame(parentFrame);
     }
 
     private void SetFrameReadyState(DomRealm dom, string state)
@@ -1030,7 +1048,7 @@ internal sealed partial class ParserDriver : IDisposable
     /// </summary>
     private void RunModules(Document document)
     {
-        var loader = _runtime.Modules;
+        var loader = ModulesFor(document);
         if (loader is null)
         {
             return;
@@ -1039,7 +1057,7 @@ internal sealed partial class ParserDriver : IDisposable
         loader.BaseUrl = BaseUrlOf(document);
 
         var modules = new List<Element>();
-        var mapSeen = _importMapRead;
+        var mapSeen = loader.ImportMapElement is not null;
 
         foreach (var element in NativeElements(document))
         {
@@ -1057,7 +1075,7 @@ internal sealed partial class ParserDriver : IDisposable
             {
                 if (mapSeen)
                 {
-                    if (!ReferenceEquals(script, _importMapElement))
+                    if (!ReferenceEquals(script, loader.ImportMapElement))
                     {
                         Report(
                             PageErrorKind.ReportedError,
@@ -1069,8 +1087,7 @@ internal sealed partial class ParserDriver : IDisposable
                 }
 
                 mapSeen = true;
-                _importMapRead = true;
-                _importMapElement = script;
+                loader.ImportMapElement = script;
                 loader.Map = ReadImportMap(script, loader.BaseUrl);
                 continue;
             }
@@ -1081,9 +1098,19 @@ internal sealed partial class ParserDriver : IDisposable
             }
         }
 
+        if (_runtime.Engine.Tasks.IsRunningJob)
+        {
+            RunNext(0);
+            return;
+        }
         foreach (var script in modules)
         {
             RunModule(loader, script);
+        }
+
+        void RunNext(int index)
+        {
+            if (index < modules.Count) RunModule(loader, modules[index], () => RunNext(index + 1));
         }
     }
 
@@ -1099,7 +1126,7 @@ internal sealed partial class ParserDriver : IDisposable
     /// </remarks>
     private void ReadImportMapEarly(Document document)
     {
-        if (_importMapRead || _runtime.Modules is not { } loader)
+        if (ModulesFor(document) is not { } loader || loader.ImportMapElement is not null)
         {
             return;
         }
@@ -1110,10 +1137,15 @@ internal sealed partial class ParserDriver : IDisposable
             return;
         }
 
-        _importMapRead = true;
-        _importMapElement = script;
+        loader.BaseUrl = BaseUrlOf(document);
+        loader.ImportMapElement = script;
         loader.Map = ReadImportMap(script, loader.BaseUrl);
     }
+
+    private PageModuleScriptLoader? ModulesFor(Document document)
+        => IsFrameDocument(document)
+            ? FrameWindows.DocumentRealm(_runtime, document).OwningRealm.ModuleLoader as PageModuleScriptLoader
+            : _runtime.Modules;
 
     private ImportMap? ReadImportMap(Element script, string baseUrl)
     {
@@ -1136,10 +1168,18 @@ internal sealed partial class ParserDriver : IDisposable
         return map;
     }
 
-    private void RunModule(PageModuleScriptLoader loader, Element script)
+    private void RunModule(PageModuleScriptLoader loader, Element script, Action? completed = null)
     {
+        var document = script.OwnerDocument!;
+        if (IsFrameDocument(document))
+        {
+            if (!CanRunFrame(document)) { completed?.Invoke(); return; }
+            FrameWindows.ForDocument(_runtime, document);
+        }
+        using var realm = new RealmScope(_runtime.Engine, _runtime.Dom.RealmOfDocument(document).OwningRealm);
+        loader.BaseUrl = BaseUrlOf(document);
         var state = _resourceSources.GetValue(script, static _ => new ResourceSource());
-        if (state.ModuleStarted) return;
+        if (state.ModuleStarted) { completed?.Invoke(); return; }
         state.ModuleStarted = true;
         string specifier;
 
@@ -1150,6 +1190,7 @@ internal sealed partial class ParserDriver : IDisposable
             if (resolved is null)
             {
                 FailSubresource(script, source, "The module script '" + source + "' is not a URL a page can load.");
+                completed?.Invoke();
                 return;
             }
 
@@ -1161,6 +1202,7 @@ internal sealed partial class ParserDriver : IDisposable
 
             if (string.IsNullOrWhiteSpace(text))
             {
+                completed?.Invoke();
                 return;
             }
 
@@ -1187,12 +1229,22 @@ internal sealed partial class ParserDriver : IDisposable
         {
             Report(PageErrorKind.BudgetExceeded, exception.Message, specifier);
             FireAt(script, "error");
+            completed?.Invoke();
             return;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Report(PageErrorKind.ScriptError, "The module script '" + specifier + "' failed: " + exception.Message, specifier);
             FireAt(script, "error");
+            completed?.Invoke();
+            return;
+        }
+
+        // A frame navigation or dynamic insertion can itself be a job. Its load must return before
+        // queued module completions can run; recursively pumping that job would strand the graph.
+        if (_runtime.Engine.Tasks.IsRunningJob)
+        {
+            AwaitModule(loader, script, specifier, operation, completed);
             return;
         }
 
@@ -1207,9 +1259,16 @@ internal sealed partial class ParserDriver : IDisposable
                 + _timeout.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " seconds.",
                 specifier);
             FireAt(script, "error");
+            completed?.Invoke();
             return;
         }
 
+        CompleteModule(script, specifier, operation);
+        completed?.Invoke();
+    }
+
+    private void CompleteModule(Element script, string specifier, ModuleImportOperation operation)
+    {
         if (operation.IsFaulted)
         {
             var message = operation.Error is { } error ? SafeDescribe(error) : "the module failed to load";
@@ -1219,6 +1278,62 @@ internal sealed partial class ParserDriver : IDisposable
         }
 
         FireAt(script, "load");
+    }
+
+    private void AwaitModule(PageModuleScriptLoader loader, Element script, string specifier,
+        ModuleImportOperation operation, Action? completed)
+    {
+        var engine = _runtime.Engine;
+        var document = script.OwnerDocument!;
+        var realm = engine.Realm;
+        var settled = false;
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
+        _pendingModuleWaits.Add(cancellation);
+        loader.PendingScripts++;
+        BeginResourceDelay();
+        var finish = new ClrFunction(engine, realm, "", (_, _) =>
+        {
+            Finish(timedOut: false);
+            return JsValue.Undefined;
+        }, 0);
+        PromiseOperations.PerformPromiseThen(engine, (JsPromise) operation.Promise, finish, finish, resultCapability: null!);
+        _ = Task.Delay(_timeout, cancellation.Token).ContinueWith(task =>
+        {
+            if (!task.IsCompletedSuccessfully) return;
+            try { engine.Tasks.Post(() => Finish(timedOut: true)); }
+            catch (ObjectDisposedException) { }
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+        void Finish(bool timedOut)
+        {
+            if (settled || _disposed) return;
+            settled = true;
+            _pendingModuleWaits.Remove(cancellation);
+            cancellation.Cancel();
+            cancellation.Dispose();
+            try
+            {
+                if (_disposed || _cancellationToken.IsCancellationRequested) return;
+                using var scope = new RealmScope(engine, realm);
+                if (IsFrameDocument(document) &&
+                    !ReferenceEquals(DomBrowsingContext.Of(document)?.Active, document)) return;
+                if (timedOut)
+                {
+                    Report(PageErrorKind.ScriptError, "The module script '" + specifier + "' did not finish loading within "
+                        + _timeout.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " seconds.", specifier);
+                    FireAt(script, "error");
+                }
+                else CompleteModule(script, specifier, operation);
+                completed?.Invoke();
+            }
+            finally
+            {
+                loader.PendingScripts--;
+                EndResourceDelay();
+            }
+            if (!_disposed && IsFrameDocument(document) && FrameWindows.ElementOf(document) is { } frame)
+                FinishFrame(frame);
+        }
     }
 
     private static string SafeDescribe(JsValue error)

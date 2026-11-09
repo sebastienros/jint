@@ -23,6 +23,21 @@ IReadOnlyList<PageError> errors = page.Errors;
 IReadOnlyList<string> messages = page.ConsoleMessages;
 ```
 
+For console-only customization, set `BrowserOptions.ConsoleSinkDecorator` rather than registering a
+general `ConfigureEngine` callback:
+
+```csharp
+var options = new BrowserOptions
+{
+    ConsoleSinkDecorator = sink => new LoggingConsoleSink(sink),
+};
+```
+
+The decorator runs for each document before general engine configuration. It must return a non-null
+`Jint.WebApi.ConsoleSink`; forward messages to the supplied sink to retain `Page.ConsoleMessages`.
+Console-only decoration preserves native layout and collection caching. General engine callbacks
+disable that reuse because they can install native writers that bypass browser invalidation.
+
 ## Observers and workers
 
 `MutationObserver` delivers at the microtask checkpoint. `IntersectionObserver` and `ResizeObserver` deliver initial entries using the synthetic box model. With no real layout, an observed target is reported once as fully intersecting or at its current synthetic size.

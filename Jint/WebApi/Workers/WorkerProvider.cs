@@ -5,6 +5,12 @@
 // a feature is built from take the per-feature namespace (Jint.WebApi.Messaging, Jint.WebApi.Timers, …).
 namespace Jint.WebApi;
 
+internal interface IClassicWorkerProvider
+{
+    Prepared<Script> LoadClassicScript(Engine worker);
+    Native.JsValue ImportScripts(Engine worker, Native.JsValue[] arguments);
+}
+
 /// <summary>
 /// The host's answer to <c>new Worker(...)</c>: it decides whether a worker may exist at all, builds the
 /// <see cref="Engine"/> that runs it, and — because Jint never starts a thread — decides which thread pumps

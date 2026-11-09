@@ -51,7 +51,7 @@ internal sealed partial class FormDataIteratorPrototype : IteratorPrototype
     /// a class string is <c>{ [[Writable]]: false, [[Enumerable]]: false, [[Configurable]]: true }</c> in
     /// WebIDL too.
     /// </remarks>
-    [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
+    [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable, CaptureField = nameof(_originalNextFunction))]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
     internal FormDataIterator ConstructEntryIterator(JsFormData formData)

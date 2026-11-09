@@ -50,7 +50,7 @@ internal sealed partial class SegmenterPrototype : Prototype
     {
         var segmenter = ValidateSegmenter(thisObject);
         var stringInput = TypeConverter.ToString(input);
-        return segmenter.Segment(_engine, stringInput);
+        return segmenter.Segment(_realm, stringInput);
     }
 
     /// <summary>

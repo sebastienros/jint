@@ -44,13 +44,13 @@ internal sealed class NativeCssReadContext
         _token.ThrowIfCancellationRequested();
     }
 
-    internal FlatLayout.SizeQuery MeasureSizes()
+    internal FlatLayout.SizeQuery MeasureSizes(SizeMeasurements? measurements = null, PageLayoutDiagnostics? diagnostics = null)
     {
         try
         {
             Verify();
             // No Visibility.CreateTraversal here: metric callbacks enter the SAME cascade/query.
-            return _sizes ??= new(_document, _visibility, _viewportWidth, Traversal, Verify, _token);
+            return _sizes ??= new(_document, _visibility, _viewportWidth, Traversal, measurements, diagnostics, Verify, _token);
         }
         catch { Discard(); throw; }
     }

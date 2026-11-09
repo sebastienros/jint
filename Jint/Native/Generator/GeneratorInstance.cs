@@ -54,8 +54,10 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     internal IteratorInstance? _delegatingIterator;
 
     /// <summary>
-    /// The cached [[NextMethod]] obtained once before the yield* delegation loop.
-    /// Per spec step 7.a.i, next must be fetched once, not per-iteration.
+    /// The [[NextMethod]] of <see cref="_delegatingIterator"/>, the record yield* delegates to, which every step of the
+    /// delegation calls and nothing reads again. <see langword="null"/> when the record holds no callable: one Jint steps
+    /// natively, whose step is <see cref="IteratorInstance.CallNextMethod"/>, or one whose <c>next</c> could not be
+    /// called, which that method rejects with a <c>TypeError</c> (sebastienros/jint#4424).
     /// </summary>
     internal ICallable? _delegatingNextMethod;
 
@@ -132,6 +134,18 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
 
     public GeneratorInstance(Engine engine) : base(engine)
     {
+    }
+
+    /// <summary>
+    /// Forgets the yield* delegation the generator was running, which has ended: the delegate is done, or the delegation
+    /// ended abruptly. Nothing may resume into it, and a later evaluation of the same yield* calls GetIterator afresh
+    /// (https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation, sebastienros/jint#4440).
+    /// </summary>
+    internal void EndDelegation()
+    {
+        _delegatingIterator = null;
+        _delegatingNextMethod = null;
+        _delegatingYieldNode = null;
     }
 
     /// <summary>

@@ -573,25 +573,33 @@ public class WebApiFetchResponseBodyTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void AResponseNobodyReadsIsNotTouchedBeforeItsConsumerAsks(bool read)
+    public void AResponseObserverOnlyReadsTheBodyWhenItAsks(bool read)
     {
-        // "Still streaming" stated as something a third party can see: with the headers in hand and nobody
-        // having asked for the body, not one byte has come off the socket unless the observer read it.
         var bytes = Pattern(8_000);
         var stream = new ScriptedStream(bytes, chunk: 500);
         var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(stream) };
 
-        var observer = new Reader { Budget = read ? new Allowance(1 << 20) : null };
+        var observer = new Reader
+        {
+            Budget = read ? new Allowance(1 << 20) : null,
+            Answer = _ =>
+            {
+                // Read-ahead can start after interception returns, so check the observer's own reads here.
+                (stream.Reads == 0).Should().Be(!read, "only an explicit observer read takes bytes during interception");
+                return null;
+            },
+        };
 
         using var handler = new StubHandler(() => response);
-        var engine = WebEngine(handler, observer);
+        using var engine = WebEngine(handler, observer);
 
         engine.Evaluate("globalThis.held = null; fetch('https://example.org/a').then(r => { globalThis.held = r; return r.status; })")
             .UnwrapIfPromise(TransportSignalCeiling)
             .AsNumber().Should().Be(200);
 
         observer.Context.Should().NotBeNull("the context is handed over whether or not it is used");
-        (stream.Reads == 0).Should().Be(!read, "only a body read takes bytes before the consumer asks for them");
+        observer.Bodies.Should().HaveCount(read ? 1 : 0);
+        engine.Evaluate("held.bodyUsed").AsBoolean().Should().BeFalse();
 
         engine.Evaluate("held.arrayBuffer().then(b => b.byteLength)")
             .UnwrapIfPromise(TransportSignalCeiling)

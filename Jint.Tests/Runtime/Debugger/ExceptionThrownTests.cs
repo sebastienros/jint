@@ -191,6 +191,33 @@ public class ExceptionThrownTests
     }
 
     [Test]
+    public void AThrowWaitingOnAForAwaitLoopsCloseFiresTheEventOnce()
+    {
+        var engine = new Engine(options => options.Debugger.Enabled = true);
+
+        var thrown = new List<string>();
+        engine.Debugger.ExceptionThrown += (sender, args) => thrown.Add(args.ThrownValue is ObjectInstance o ? o.Get("name").ToString() : args.ThrownValue.ToString());
+
+        // AsyncIteratorClose awaits what return() answers before the throw leaves the loop (sebastienros/jint#4354):
+        // the loop catches a throw that arrives as an exception, suspends, and hands it on as a completion once the
+        // Await settles. Neither the catch nor the hand-on is a throw, so each throw is still reported once - a thrown
+        // value re-raised by a call, a throw statement's completion, and an implicit TypeError raised in the loop.
+        engine.Execute("""
+            const src = { [Symbol.asyncIterator]() {
+                return { next() { return { value: 1, done: false }; }, return() { return {}; } };
+            } };
+            function thrower() { throw 'call'; }
+            (async function () {
+                try { for await (const x of src) thrower(); } catch (e) {}
+                try { for await (const x of src) { throw 'statement'; } } catch (e) {}
+                try { for await (const x of src) undefined.foo; } catch (e) {}
+            })();
+            """);
+
+        thrown.Should().Equal("call", "statement", "TypeError");
+    }
+
+    [Test]
     public void AThrowLeavingAnEvalBodyFiresTheEventOnce()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);

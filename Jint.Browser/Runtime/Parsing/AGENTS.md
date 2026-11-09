@@ -82,7 +82,9 @@ The current scheduling is deliberately simpler than a rendering browser's:
   deferred list after tokenization, in encounter order. Downloads do not overlap parsing; `async` does not
   mean execute at the instant its response arrives.
 - Deferred classic scripts run before the principal document's module pass. `PageModuleScriptLoader` and
-  `ImportMap` implement that pass and dynamic imports; child modules/import maps are not supported.
+  `ImportMap` implement that pass and dynamic imports, with separate loaders/maps for same-origin child
+  documents. A load started inside an engine job uses promise completion rather than recursively pumping
+  that job; pending modules delay frame readiness and their subresource timeout remains bounded.
 - The first prepared import map is retained. It can be read mid-parse for a classic script's `import()`;
   module scripts run after parsing and see the retained map. Additional maps are reported and ignored.
 
@@ -138,7 +140,7 @@ child document and parses it with the same driver. Missing/empty `src` produces 
 produces `about:srcdoc`, and network sources use the page's resource limits. `MaxFrameDocuments` is checked
 before all these creation paths, including `srcdoc`; zero declines them.
 
-Same-origin classic scripts with no sandbox-blocked scripting run in the child's `RealmScope`.
+Same-origin classic and module scripts with no sandbox-blocked scripting run in the child's `RealmScope`.
 `FrameWindows` gives each document its own global, intrinsics, DOM/event constructors, current script,
 readiness and window event target. A replaced document keeps its old creation brands. Creator origin/base
 URL and sandbox-origin facts are captured before a fetch can pump; do not recompute them from a later
@@ -148,9 +150,10 @@ owner state.
 `pageshow`. Initial child completion is before principal window `load`; source mutations use the deferred
 resource-event lane. Native callbacks do not enter the engine directly.
 
-Cross-origin WindowProxy access, full sandbox policy, child module loading and independent child browser
-services remain limited. Child Web APIs use page network configuration. Child location writes refuse
-rather than navigating the wrong document or silently succeeding; legacy `<frame>` is not the iframe lane.
+Cross-origin WindowProxy access, full sandbox policy and independent child browser services remain limited.
+Child Web APIs use page network configuration. `Location.href`, `assign`, `replace` and `reload` queue child
+loads; component setters still refuse rather than navigating the wrong document. Legacy `<frame>` is not
+the iframe lane.
 
 ### Dynamic markup insertion
 

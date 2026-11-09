@@ -628,7 +628,7 @@ public abstract partial class Node
         node.PreviousSibling = null;
         node.NextSibling = null;
         removalCapture?.CommittedRemoval(node);
-        (parent as Document ?? parent._ownerDocument!).MarkMutation();
+        (parent as Document ?? parent._ownerDocument!).MarkMutation(parent, NativeMutationKind.ChildList, changedChild: node);
         SlotAssignment.AfterRemoval(parent, node);
         HtmlFormAssociation.Removed(node, formRemoval);
         HtmlSelectMutations.Removed(node, parent);
@@ -690,7 +690,9 @@ public abstract partial class Node
             if (!suppressLiveInsertion) LiveTraversalTracking.Insert(this, referenceChild, 1);
             LinkBefore(node, referenceChild);
             capture?.Committed(node);
-            (this as Document ?? _ownerDocument!).MarkMutation(preserveUnobservedAncestry);
+            (this as Document ?? _ownerDocument!).MarkMutation(this, NativeMutationKind.ChildList,
+                changedChild: node,
+                preserveUnobservedAncestry: preserveUnobservedAncestry);
             if (capture is not null && suppressSemantic)
                 HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
             SlotAssignment.AfterInsertion(this, node, referenceChild);

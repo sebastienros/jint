@@ -109,6 +109,28 @@ public sealed class PageContentTests
     }
 
     [Test]
+    public async Task NetworkIdleCanFinishAnUnreadFiniteResponseWithoutConsumingItsBody()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/discovery", _ => LoopbackResponse.NotFound("/discovery"))
+            .MapHtml("/", """
+                <!doctype html><script>
+                window.response=null;window.rejected=false;
+                fetch('/discovery').then(r=>{
+                    response=r;
+                    if(r.status===404 && r.headers.get('Content-Type').startsWith('text/html'))
+                        throw Error('Not JSON');
+                }).catch(()=>rejected=true);
+                </script>
+                """));
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        (await fixture.Page.WaitForNetworkIdleAsync(TimeSpan.FromSeconds(30))).Should().BeTrue();
+        (await fixture.Page.EvaluateAsync<bool>("rejected && !response.bodyUsed")).Should().BeTrue();
+        (await fixture.Page.EvaluateAndAwaitAsync<string>("response.text()")).Should().Contain("404");
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task WaitForNetworkIdleGivesUpRatherThanHangs()
     {
         await using var fixture = await LoopbackPage.CreateAsync(server =>

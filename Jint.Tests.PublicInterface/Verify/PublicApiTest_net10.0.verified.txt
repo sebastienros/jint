@@ -3088,6 +3088,7 @@ namespace Jint.WebApi
     public enum WorkerType
     {
         Module = 0,
+        Classic = 1,
     }
 }
 namespace Jint.WebApi.Fetch

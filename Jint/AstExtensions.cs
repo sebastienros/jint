@@ -159,6 +159,73 @@ internal static class AstExtensions
         return false;
     }
 
+    /// <summary>
+    /// Whether <paramref name="test"/> holds for a part of the class evaluated in the frame around it: the class's own
+    /// decorators, the heritage and each computed key, and with <paramref name="elementDecorators"/> also the decorators
+    /// of its elements. Method bodies, field initializers and static blocks are functions of their own and are never
+    /// tested.
+    /// </summary>
+    /// <remarks>
+    /// Without <paramref name="elementDecorators"/> this is what Contains searches
+    /// (https://tc39.es/ecma262/#sec-static-semantics-contains). Its ClassTail rule looks into the heritage and, through
+    /// ComputedPropertyContains, into each computed key. The decorators proposal puts a class's decorator list beside
+    /// its ClassTail, where the default rule reaches it, and gives ComputedPropertyContains a rule for a decorated
+    /// element that skips the element's decorators (tc39/ecma262#2417).
+    /// </remarks>
+    internal static bool AnyPartEvaluatedInEnclosingFrame(this IClass @class, bool elementDecorators, Func<Node, bool> test)
+    {
+        if (AnyDecorator(@class.Decorators, test))
+        {
+            return true;
+        }
+
+        if (@class.SuperClass is not null && test(@class.SuperClass))
+        {
+            return true;
+        }
+
+        ref readonly var elements = ref @class.Body.Body;
+        for (var i = 0; i < elements.Count; i++)
+        {
+            var element = elements[i];
+            if (elementDecorators)
+            {
+                var decoratorList = element switch
+                {
+                    MethodDefinition method => method.Decorators,
+                    PropertyDefinition field => field.Decorators,
+                    AccessorProperty accessor => accessor.Decorators,
+                    _ => default,
+                };
+
+                if (AnyDecorator(in decoratorList, test))
+                {
+                    return true;
+                }
+            }
+
+            if (element is IProperty { Computed: true } property && test(property.Key))
+            {
+                return true;
+            }
+        }
+
+        return false;
+
+        static bool AnyDecorator(in NodeList<Decorator> list, Func<Node, bool> test)
+        {
+            for (var i = 0; i < list.Count; i++)
+            {
+                if (test(list[i].Expression))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsAnonymousFunctionDefinition<T>(this T node) where T : Node
     {
@@ -351,6 +418,10 @@ internal static class AstExtensions
         }
     }
 
+    /// <summary>
+    /// BindingInitialization of a <c>catch</c> parameter that cannot suspend. A pattern with an <c>await</c> or a
+    /// <c>yield</c> in it takes the destructuring's resumable lane instead, from <c>JintTryStatement</c>.
+    /// </summary>
     internal static void BindingInitialization(
         this Node? expression,
         EvaluationContext context,
@@ -608,6 +679,34 @@ internal static class AstExtensions
             tokenizer.Reset(string.Empty);
             Volatile.Write(ref s_cachedTokenizer, tokenizer);
         }
+    }
+
+    /// <summary>
+    /// The location node of a Throw completion made from a thrown primitive's exception, carrying the call stack
+    /// that exception was given (see <see cref="Throw.JavaScriptException(Engine, JsValue, in Completion)"/>).
+    /// </summary>
+    internal static Node CreateThrowLocationNode(in SourceLocation location, string callStack)
+    {
+        return new ThrowLocation(in location, callStack);
+    }
+
+    /// <summary>
+    /// The call stack a Throw completion's location node carries, or null when it carries none.
+    /// </summary>
+    internal static string? CarriedCallStack(this Node node) => (node as ThrowLocation)?.CallStack;
+
+    private sealed class ThrowLocation : Node
+    {
+        public ThrowLocation(in SourceLocation location, string callStack) : base(NodeType.Unknown)
+        {
+            Location = location;
+            CallStack = callStack;
+        }
+
+        public string CallStack { get; }
+
+        protected override IEnumerator<Node>? GetChildNodes() => throw new NotImplementedException();
+        protected override object? Accept(AstVisitor visitor) => throw new NotImplementedException();
     }
 
     private sealed class MinimalSyntaxElement : Node

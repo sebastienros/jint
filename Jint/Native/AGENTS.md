@@ -41,3 +41,14 @@ both are `internal sealed` classes that do not derive from `ErrorConstructor`, s
 promotion to argue on its own, not a modifier to flip.
 
 **That rule stops at the language.** The WHATWG web APIs under `Jint/WebApi/` are host APIs, not language features, and are deliberately **opt-in**: nothing is installed unless `Options.WebApi.Features` names it, and a default engine is byte-for-byte the engine it was before they existed. Do not "fix" that gating by registering them unconditionally — see [Web APIs](../WebApi/AGENTS.md#web-apis) for how it works and why.
+
+## Handing an array to script: `MaxArraySize` is checked by the way you build it
+
+An array a built-in returns must respect `Options.Constraints.MaxArraySize`, and the check lives in the constructor
+path, not in the caller. `ArrayCreate`, `CreateArrayFromList`, `ConstructFromBuilder` and both `ConstructFast`
+overloads all make it (`ArrayConstructor.ValidateElementCount` or the `ArrayInstance` constructor), and throw
+`MemoryLimitExceededException`. `new JsArray(engine, items)` and the `ArrayInstance(engine, items)` constructor under
+it take ownership of a finished array and do **not**, so a built-in that reaches for them with a list whose length the
+script chose hands out an array the host forbade. `Promise.all` did exactly that through `ConstructFast` until it
+checked ([#4493](https://github.com/sebastienros/jint/issues/4493)). Prefer `ConstructFast` or `ConstructFromBuilder`
+for a finished list: one compare, then a single copy, where `CreateArrayFromList` writes element by element.

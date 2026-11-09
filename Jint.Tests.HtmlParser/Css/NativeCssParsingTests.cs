@@ -148,17 +148,27 @@ public sealed class NativeCssParsingTests
         list.Count.Should().Be(2);
     }
 
-    [Test]
-    public void EveryRuleParsingCheckpointCanBeCanceledAndRetriedWithoutPublishingPartialLists()
+    [TestCase(false)]
+    [TestCase(true)]
+    [NonParallelizable]
+    public void EveryRuleParsingCheckpointCanBeCanceledAndRetriedWithoutPublishingPartialLists(bool warm)
     {
-        const string text = "@media screen { a {} b {} @supports (color:red) { c {} } }";
+        static string Source()
+        {
+            var name = Guid.NewGuid().ToString("N");
+            return $"@media screen {{ .a{name} {{}} .b{name} {{}} @supports (color:red) {{ c {{}} }} }}";
+        }
+        var text = Source();
+        if (warm) NativeCssParsing.ReadTree(Parse(text).Rules, Work());
         var baseline = (CssMediaRule) Read(Parse(text))[0];
         var calls = 0;
         NativeCssParsing.ReadRules(baseline.Rules, new CssValueWork(default, () => calls++));
         calls.Should().BeGreaterThan(0);
         for (var target = 1; target <= calls; target++)
         {
-            var sheet = Parse(text);
+            // Cold parses need distinct, same-shaped rules; warmed parses exercise every actual
+            // cache-hit checkpoint rather than assuming compilation and copying cost the same.
+            var sheet = Parse(warm ? text : Source());
             var root = (CssMediaRule) Read(sheet)[0];
             var stamp = sheet.Stamp;
             using var cancellation = new CancellationTokenSource();

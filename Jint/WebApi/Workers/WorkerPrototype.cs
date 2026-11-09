@@ -170,9 +170,9 @@ internal sealed partial class WorkerPrototype : Prototype
     {
         const string Operation = "postMessage' on 'Worker";
 
-        if (argument is ObjectInstance && JsValue.GetMethod(_realm, argument, GlobalSymbolRegistry.Iterator) is not null)
+        if (argument is ObjectInstance && JsValue.GetMethod(_realm, argument, GlobalSymbolRegistry.Iterator) is { } iteratorMethod)
         {
-            return StructuredSerializeOptions.ReadTransferSequence(_realm, argument, Operation);
+            return StructuredSerializeOptions.ReadTransferSequence(_realm, argument, Operation, iteratorMethod);
         }
 
         return StructuredSerializeOptions.ReadTransferOption(_realm, argument, Operation);

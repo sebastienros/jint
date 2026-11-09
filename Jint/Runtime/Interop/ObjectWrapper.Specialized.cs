@@ -265,38 +265,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
         if (!CanWrite || !Extensible)
         {
-            if (property is JsString dictionaryKey
-                && _typeDescriptor.IsStringKeyedGenericDictionary
-                && _typeDescriptor.CanTestDictionaryKey)
-            {
-                var contains = _typeDescriptor.ContainsDictionaryKey(Target, dictionaryKey.ToString());
-                _engine.CheckAmortizedConstraintsAtHostBoundary();
-                if (contains)
-                {
-                    return false;
-                }
-
-                if (ArrayInstance.ParseArrayIndex(dictionaryKey.ToString()) != uint.MaxValue)
-                {
-                    return true;
-                }
-            }
-
-            if (!_typeDescriptor.IsDictionary)
-            {
-                var frozenKey = ClassifyElementKey(property, out var frozenIndex);
-                if (frozenKey == ElementKey.Position)
-                {
-                    return (uint) frozenIndex >= (uint) Length;
-                }
-
-                if (frozenKey == ElementKey.OutOfBand)
-                {
-                    return true;
-                }
-            }
-
-            return ProbeOwnPropertyChecked(property) == OwnPropertyProbe.Missing;
+            return DeleteWithoutChangingTheCollection(property);
         }
 
         var key = ClassifyElementKey(property, out var index);
@@ -334,6 +303,87 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         }
 
         return base.Delete(property);
+    }
+
+    /// <summary>
+    /// <c>[[Delete]]</c> for a view that may not change its collection: writes are off, the collection is
+    /// read-only, or the view is non-extensible.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// What is refused here is the collection's contents: an element in range, and an entry a dictionary-shaped
+    /// target (Newtonsoft's <c>JObject</c>) holds. An element's descriptor is non-configurable, so refusing it is
+    /// OrdinaryDelete's own answer. An entry is refused because writes are off or the target is read-only, or
+    /// because the view is non-extensible: the same deliberate divergence the element-write lane in
+    /// <see cref="Set"/> makes, so that a frozen view's contents stay fixed.
+    /// </para>
+    /// <para>
+    /// Every other key follows
+    /// <see href="https://tc39.es/ecma262/#sec-ordinarydelete">OrdinaryDelete</see>, as it does on a plain
+    /// <see cref="ObjectWrapper"/> and on a writable view: a property the script defined, a method's descriptor,
+    /// the <c>length</c> forwarder. OrdinaryDelete does not read extensibility, so a configurable one is removed
+    /// and a non-configurable one is refused (#4457). The removal goes through
+    /// <see cref="ObjectWrapper.RemoveOwnPropertyFromWrapper"/>, so this lane never calls the target's
+    /// <c>Remove</c>, even for a key the dictionary does not hold.
+    /// </para>
+    /// </remarks>
+    private bool DeleteWithoutChangingTheCollection(JsValue property)
+    {
+        if (!property.IsSymbol())
+        {
+            if (_typeDescriptor.IsDictionary)
+            {
+                if (property is not JsString dictionaryKey
+                    || !_typeDescriptor.IsStringKeyedGenericDictionary
+                    || !_typeDescriptor.CanTestDictionaryKey)
+                {
+                    // a key this view cannot test against the dictionary may be an entry: refuse whatever exists
+                    return ProbeOwnPropertyChecked(property) == OwnPropertyProbe.Missing;
+                }
+
+                var name = dictionaryKey.ToString();
+                var contains = _typeDescriptor.ContainsDictionaryKey(Target, name);
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (contains)
+                {
+                    return false;
+                }
+
+                if (ArrayInstance.ParseArrayIndex(name) != uint.MaxValue)
+                {
+                    // the reflected indexer reports a descriptor for any index-shaped key, entry or not
+                    return true;
+                }
+            }
+            else
+            {
+                var key = ClassifyElementKey(property, out var index);
+                if (key == ElementKey.Position)
+                {
+                    return (uint) index >= (uint) Length;
+                }
+
+                if (key == ElementKey.OutOfBand)
+                {
+                    return true;
+                }
+            }
+        }
+
+        // https://tc39.es/ecma262/#sec-ordinarydelete
+        var descriptor = GetOwnProperty(property);
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            return true;
+        }
+
+        if (!descriptor.Configurable)
+        {
+            return false;
+        }
+
+        RemoveOwnPropertyFromWrapper(property);
+        return true;
     }
 
     public abstract object? GetAt(int index);

@@ -7,6 +7,23 @@ namespace Jint.Tests.Browser.Dom;
 
 public sealed class NativeCssDeferredWorkTests
 {
+    [Test]
+    public void WarmPreparedRulesStillUseTheCurrentEngineBudgetWithoutPartialPublication()
+    {
+        var source = string.Concat(Enumerable.Repeat(".warm-budget { color:red }", 1000));
+        var warm = NativeCssParsing.CreateSheet(source, new(default));
+        NativeCssParsing.ReadTree(warm.Rules, new(default));
+        var sheet = NativeCssParsing.CreateSheet(source, new(default));
+        var probe = new ReadProbe();
+        using var engine = new Engine(options => options.AddConstraint(probe));
+        engine.SetValue("rules", DomRealm.Of(engine).Wrap(sheet.Rules));
+        probe.Arm();
+        Caught.Exception(() => engine.Evaluate("rules.length")).Should().BeSameAs(probe.Failure);
+        sheet.Rules.Should().BeEmpty();
+        probe.Disarm();
+        engine.Evaluate("rules.length").AsNumber().Should().Be(1000);
+    }
+
     [TestCase("rules.length")]
     [TestCase("rules[0]")]
     [TestCase("rules.item(0)")]

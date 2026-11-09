@@ -51,9 +51,11 @@ internal static class CanvasPathOperations
     private static void RoundRect(CanvasRealm owner, double[] coordinates, JsValue value)
     {
         var radii = new List<(double X, double Y)>(4);
-        if (value is ObjectInstance obj && obj.GetMethod(GlobalSymbolRegistry.Iterator) is not null)
+        // (unrestricted double or DOMPointInit or sequence<...>): one read of @@iterator (https://webidl.spec.whatwg.org/#es-union),
+        // and the sequence is created from the method that read found.
+        if (value is ObjectInstance obj && obj.GetMethod(GlobalSymbolRegistry.Iterator) is { } iteratorMethod)
         {
-            var iterator = value.GetIterator(owner.Realm);
+            var iterator = value.GetIterator(owner.Realm, method: iteratorMethod);
             try
             {
                 while (iterator.TryIteratorStepValue(out var entry))

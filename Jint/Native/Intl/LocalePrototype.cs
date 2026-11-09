@@ -379,16 +379,83 @@ internal sealed partial class LocalePrototype : Prototype
     private JsObject GetTextInfo(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
-        var culture = locale.CultureInfo;
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        // Determine text direction
-        // RTL languages include Arabic, Hebrew, Persian, Urdu, etc.
-        var isRtl = culture.TextInfo.IsRightToLeft;
-        result.CreateDataPropertyOrThrow("direction", isRtl ? "rtl" : "ltr");
+        var direction = TextDirectionOfLocale(locale);
+        result.CreateDataPropertyOrThrow("direction", direction is null ? Undefined : JsString.Create(direction));
 
         return result;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-textdirectionoflocale - <c>"rtl"</c>, <c>"ltr"</c>, or null for undefined.
+    /// </summary>
+    /// <remarks>
+    /// The direction is the script's, read from CLDR's script metadata (<see cref="ScriptMetadata"/>), never the
+    /// .NET culture's: a script whose direction the metadata records as unknown, or does not list at all, is
+    /// undefined, as is a language with no likely script.
+    /// </remarks>
+    private static string? TextDirectionOfLocale(JsLocale loc)
+    {
+        // 1. Let locale be loc.[[Locale]].
+        var locale = loc.Locale;
+
+        // 2. Let script be GetLocaleScript(locale).
+        var script = GetLocaleScript(locale);
+
+        // 3. If script is undefined, then
+        if (script is null)
+        {
+            // a. Let maximal be the result of the Add Likely Subtags algorithm applied to locale. If an error is
+            //    signaled, return undefined.
+            //    AddLikelySubtags answers a tag it has no likely subtags for unchanged, and that tag has no script,
+            //    so step c returns undefined for it as this step would.
+            // b. Set script to GetLocaleScript(maximal).
+            script = GetLocaleScript(LikelySubtags.AddLikelySubtags(locale));
+
+            // c. If script is undefined, return undefined.
+            if (script is null)
+            {
+                return null;
+            }
+        }
+
+        // 4. If the default general ordering of characters within a line in script is right-to-left, return "rtl".
+        // 5. If the default general ordering of characters within a line in script is left-to-right, return "ltr".
+        // 6. Return undefined.
+        return ScriptMetadata.GetDirection(script);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-getlocalescript - the script subtag of the tag's base name, or null.
+    /// </summary>
+    /// <remarks>
+    /// A script subtag can only be the second subtag, and there it is the only one of four letters: a variant of
+    /// four characters starts with a digit, and a region is two letters or three digits.
+    /// </remarks>
+    private static string? GetLocaleScript(string locale)
+    {
+        var start = locale.IndexOf('-') + 1;
+        if (start == 0 || locale.Length - start < 4)
+        {
+            return null;
+        }
+
+        if (locale.Length - start > 4 && locale[start + 4] != '-')
+        {
+            return null;
+        }
+
+        for (var i = start; i < start + 4; i++)
+        {
+            if (!char.IsAsciiLetter(locale[i]))
+            {
+                return null;
+            }
+        }
+
+        return locale.Substring(start, 4);
     }
 
     /// <summary>

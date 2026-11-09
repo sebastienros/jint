@@ -164,7 +164,24 @@ public sealed partial class Document : Node
         _mayHaveMutationRegistrations = true;
         _unobservedMutationAncestor?.SetTarget(null!);
     }
+    // Demand-installed, trusted cache invalidation only: no script or native reads at this sink.
+    // Unknown writes invalidate globally. A null attributes target changes only a detached Attr.
+    internal Action<Node?, NativeMutationKind, string?, Node?>? MutationSignal { get; set; }
+
     internal void MarkMutation(bool preserveUnobservedAncestry = false)
+    {
+        AdvanceMutation(preserveUnobservedAncestry);
+        MutationSignal?.Invoke(null, NativeMutationKind.Unknown, null, null);
+    }
+
+    internal void MarkMutation(Node? target, NativeMutationKind kind, string? attributeName = null, Node? changedChild = null,
+        bool preserveUnobservedAncestry = false)
+    {
+        AdvanceMutation(preserveUnobservedAncestry);
+        MutationSignal?.Invoke(target, kind, attributeName, changedChild);
+    }
+
+    private void AdvanceMutation(bool preserveUnobservedAncestry)
     {
         if (!preserveUnobservedAncestry) _unobservedMutationAncestor?.SetTarget(null!);
         if (_mutationStamp != ulong.MaxValue)

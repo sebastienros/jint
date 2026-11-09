@@ -1,4 +1,5 @@
 using Jint.Native.Function;
+using Jint.Native.Generator;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Native.Symbol;
@@ -52,69 +53,81 @@ internal sealed partial class AsyncIteratorConstructor : Constructor
     [JsFunction]
     private JsValue From(JsValue thisObject, JsValue o)
     {
-        // 1. If O is not an Object, throw a TypeError exception.
-        if (o is not ObjectInstance obj)
+        // 1. If O is a String, set O to ! ToObject(O). The String object is then the receiver of the iterator method,
+        //    where Iterator.from calls it on the primitive (sebastienros/jint#4439).
+        if (o.IsString())
         {
-            Throw.TypeError(_realm, "AsyncIterator.from called on non-object");
-            return Undefined;
+            o = TypeConverter.ToObject(_realm, o);
         }
 
-        ObjectInstance iterator;
+        // 2. Let iteratorRecord be ? GetIteratorFlattenable(O, async).
+        var iteratorRecord = GetIteratorFlattenable(_engine, _realm, o, "AsyncIterator.from called on non-object");
+        var iterator = iteratorRecord.Instance;
 
-        // 2. Let asyncIteratorMethod be ? GetMethod(O, @@asyncIterator).
-        var asyncIteratorMethod = obj.GetMethod(GlobalSymbolRegistry.AsyncIterator);
-
-        if (asyncIteratorMethod is not null)
-        {
-            // 3. If asyncIteratorMethod is not undefined, then
-            //    a. Let asyncIterator be ? Call(asyncIteratorMethod, O).
-            var result = asyncIteratorMethod.Call(obj);
-            if (result is not ObjectInstance asyncIter)
-            {
-                Throw.TypeError(_realm, "Async iterator result is not an object");
-                return Undefined;
-            }
-            iterator = asyncIter;
-        }
-        else
-        {
-            // 4. Else,
-            //    a. Let syncIteratorMethod be ? GetMethod(O, @@iterator).
-            var syncIteratorMethod = obj.GetMethod(GlobalSymbolRegistry.Iterator);
-
-            if (syncIteratorMethod is not null)
-            {
-                // b. If syncIteratorMethod is not undefined, then
-                //    i. Let syncIterator be ? Call(syncIteratorMethod, O).
-                var syncResult = syncIteratorMethod.Call(obj);
-                if (syncResult is not ObjectInstance syncIter)
-                {
-                    Throw.TypeError(_realm, "Iterator result is not an object");
-                    return Undefined;
-                }
-
-                // ii. Return ! CreateAsyncFromSyncIterator(syncIterator).
-                var syncIteratorInstance = new IteratorInstance.ObjectIterator(syncIter);
-                return new AsyncFromSyncIterator(_engine, syncIteratorInstance);
-            }
-
-            // c. Let iteratorRecord be GetIteratorDirect(O) - use object directly.
-            iterator = obj;
-        }
-
-        // 5. Let hasInstance be ? OrdinaryHasInstance(%AsyncIterator%, iterator).
+        // 3. Let hasInstance be ? OrdinaryHasInstance(%AsyncIterator%, iteratorRecord.[[Iterator]]).
         var hasInstance = _engine.Intrinsics.AsyncIterator.OrdinaryHasInstance(iterator);
 
-        // 6. If hasInstance is true, return iterator.
+        // 4. If hasInstance is true, return iteratorRecord.[[Iterator]]. A CreateAsyncFromSyncIterator wrapper is one,
+        //    through %AsyncFromSyncIteratorPrototype%.
         if (TypeConverter.ToBoolean(hasInstance))
         {
             return iterator;
         }
 
-        // 7. Let wrapper be WrapForValidAsyncIterator
-        var iteratorRecord = new IteratorInstance.ObjectIterator(iterator);
-        var wrapper = new WrapForValidAsyncIterator(_engine, iteratorRecord);
-        return wrapper;
+        // 5-7. Let wrapper be OrdinaryObjectCreate(%WrapForValidAsyncIteratorPrototype%, « [[AsyncIterated]] »), set
+        //      wrapper.[[AsyncIterated]] to iteratorRecord, and return wrapper.
+        return new WrapForValidAsyncIterator(_engine, iteratorRecord);
+    }
+
+    /// <summary>
+    /// GetIteratorFlattenable(obj, async), the operation <c>AsyncIterator.from</c> and the inner iterator of
+    /// <c>AsyncIterator.prototype.flatMap</c> build their record with. Neither the proposal nor the page its link reaches
+    /// defines this form any more: that page and ECMA-262 both render the sync-only GetIteratorFlattenable(obj,
+    /// stringHandling). The calls were written against the pre-split operation that took a <c>sync</c>/<c>async</c> hint
+    /// (tc39/proposal-async-iterator-helpers#19), and this follows that text, as of tc39/proposal-iterator-helpers
+    /// ef4471f (https://github.com/tc39/proposal-iterator-helpers/blob/ef4471f0709f37e8f02045b9d5f2d7f3d5e8fc18/spec.html).
+    /// An object with no <c>@@asyncIterator</c> but an <c>@@iterator</c> is wrapped by CreateAsyncFromSyncIterator
+    /// (https://tc39.es/ecma262/#sec-createasyncfromsynciterator), so each value it answers is awaited; one with
+    /// neither is the iterator itself (sebastienros/jint#4439).
+    /// </summary>
+    /// <remarks>
+    /// <c>next</c> is read once, for the record, before the caller's OrdinaryHasInstance (sebastienros/jint#4419). A
+    /// <c>next</c> that is not callable is not rejected here, although that version says so: like GetIteratorDirect
+    /// (tc39/ecma262#274) and core-js, the TypeError comes from the first step's call. The iterator methods are read
+    /// with GetMethod, as core-js does, so one that is neither callable nor undefined throws.
+    /// </remarks>
+    internal static IteratorInstance.ObjectIterator GetIteratorFlattenable(Engine engine, Realm realm, JsValue value, string notAnObjectMessage)
+    {
+        // If obj is not an Object, throw a TypeError exception.
+        if (value is not ObjectInstance obj)
+        {
+            Throw.TypeError(realm, notAnObjectMessage);
+            return null!;
+        }
+
+        var asyncIteratorMethod = obj.GetMethod(GlobalSymbolRegistry.AsyncIterator);
+        if (asyncIteratorMethod is not null)
+        {
+            if (asyncIteratorMethod.Call(obj) is not ObjectInstance asyncIterator)
+            {
+                Throw.TypeError(realm, "Result of the Symbol.asyncIterator method is not an object");
+                return null!;
+            }
+
+            return new IteratorInstance.ObjectIterator(asyncIterator);
+        }
+
+        var syncIteratorMethod = obj.GetMethod(GlobalSymbolRegistry.Iterator);
+        if (syncIteratorMethod is not null)
+        {
+            // The sync record is GetIteratorFromMethod's, which reads `next` once and adopts a built-in iterator so that
+            // the wrapper's return can release its native state. The wrapper's own record reads its `next`, as
+            // CreateAsyncFromSyncIterator's ! Get does.
+            var syncIteratorRecord = obj.GetIterator(realm, GeneratorKind.Sync, syncIteratorMethod);
+            return new IteratorInstance.ObjectIterator(new AsyncFromSyncIterator(engine, syncIteratorRecord));
+        }
+
+        return new IteratorInstance.ObjectIterator(obj);
     }
 }
 
@@ -149,8 +162,9 @@ internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
     protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
-    /// %WrapForValidAsyncIteratorPrototype%.next()
-    /// Delegates to the underlying iterator's next() and wraps in a promise.
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-wrapforvalidasynciteratorprototype.next
+    /// IteratorNext on the wrapped record, wrapped in a promise: the call is to the [[NextMethod]] that AsyncIterator.from
+    /// read once, never <c>next</c> read again (sebastienros/jint#4419).
     /// </summary>
     [JsFunction]
     private JsValue Next(JsValue thisObject)
@@ -165,16 +179,8 @@ internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
 
         try
         {
-            // Call the underlying iterator's next method
-            var target = wrapper.Iterated.Instance;
-            var nextMethod = target.Get(CommonProperties.Next);
-            if (nextMethod is not ICallable callable)
-            {
-                Throw.TypeError(_realm, "Iterator does not have a next method");
-                return Undefined;
-            }
-
-            var result = callable.Call(target, Arguments.Empty);
+            // Call(iteratorRecord.[[NextMethod]], iteratorRecord.[[Iterator]])
+            var result = wrapper.Iterated.CallNextMethod();
 
             // Normalize the result to a promise
             var resultPromise = (JsPromise) _realm.Intrinsics.Promise.PromiseResolve(result);

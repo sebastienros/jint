@@ -68,12 +68,13 @@ internal sealed partial class IdbDatabasePrototype : Prototype
 
     private string[] ReadNames(JsValue thisObject)
     {
-        if (thisObject is not ObjectInstance obj || obj.GetMethod(GlobalSymbolRegistry.Iterator) is null)
+        // (DOMString or sequence<DOMString>): one read of @@iterator, and the sequence is created from what it found.
+        if (thisObject is not ObjectInstance obj || obj.GetMethod(GlobalSymbolRegistry.Iterator) is not { } iteratorMethod)
         {
             return [TypeConverter.ToString(thisObject)];
         }
         var names = new List<string>();
-        var iterator = thisObject.GetIterator(_realm);
+        var iterator = thisObject.GetIterator(_realm, method: iteratorMethod);
         try
         {
             while (iterator.TryIteratorStepValue(out var item))

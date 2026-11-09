@@ -11,7 +11,7 @@ public static partial class State
 {
     // Canonical SHA-256 over every /harness and /test path and per-file SHA-256 at GitHubSha.
     // A Test262 pin bump must update this digest from the reviewed corpus too.
-    private const string CorpusContentSha256 = "3a5186f786877400125b6ab4a73e4528821faa911527bd8e6ba69c92c000a23d";
+    private const string CorpusContentSha256 = "6c14679d3bd87a4b7f5b8bdd517b116343e6f8bf8cd0476fdb30e2950ef6163a";
 
     private static readonly Lazy<Task<Test262Stream>> _test262Stream = new(LoadTest262Stream);
 

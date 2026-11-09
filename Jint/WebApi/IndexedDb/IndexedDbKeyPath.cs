@@ -20,11 +20,13 @@ internal sealed class IndexedDbKeyPath(string[] paths, bool sequence)
 
     internal static IndexedDbKeyPath Read(Engine engine, Realm realm, JsValue value)
     {
-        var sequence = value is ObjectInstance obj && obj.GetMethod(GlobalSymbolRegistry.Iterator) is not null;
+        // (DOMString or sequence<DOMString>): one read of @@iterator, and the sequence is created from what it found.
+        var iteratorMethod = value is ObjectInstance obj ? obj.GetMethod(GlobalSymbolRegistry.Iterator) : null;
+        var sequence = iteratorMethod is not null;
         var paths = new List<string>();
-        if (sequence)
+        if (iteratorMethod is not null)
         {
-            var iterator = value.GetIterator(realm);
+            var iterator = value.GetIterator(realm, method: iteratorMethod);
             try
             {
                 while (iterator.TryIteratorStepValue(out var item))

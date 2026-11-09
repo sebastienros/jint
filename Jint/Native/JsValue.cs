@@ -164,20 +164,56 @@ public abstract partial class JsValue : IEquatable<JsValue>
             Throw.TypeError(realm, "Result of the Symbol.iterator method is not an object");
         }
 
-        // GetIterator step 3 reads `next` off what @@iterator returned. A built-in iterator instance
-        // is adopted as the record directly — its native stepping *is* that function's behaviour — but
-        // only while the read would still resolve to it; otherwise the replacement has to drive the
-        // iteration, which is what ObjectIterator does (it performs the read once, as the spec does).
-        if (iteratorResult is IteratorInstance i && i.HasNativeNext)
-        {
-            iterator = i;
-        }
-        else
-        {
-            iterator = new IteratorInstance.ObjectIterator(iteratorResult);
-        }
+        // GetIteratorFromMethod step 3 (GetIteratorDirect steps 1-2) reads `next` off what @@iterator returned, once,
+        // and builds the record around it. A built-in iterator instance is adopted as the record directly — its native
+        // stepping *is* that function's behaviour — but only while the read would still resolve to it; otherwise the
+        // replacement has to drive the iteration, which is what ObjectIterator does. ToIteratorRecord answers either,
+        // and hands the ObjectIterator whatever it read itself so that the read stays one.
+        iterator = iteratorResult is IteratorInstance i
+            ? i.ToIteratorRecord()
+            : new IteratorInstance.ObjectIterator(iteratorResult);
 
         return true;
+    }
+
+    /// <summary>
+    /// GetIterator(value, sync) (https://tc39.es/ecma262/#sec-getiterator) for a lane whose check,
+    /// <see cref="ObjectInstance.HasOriginalIterator"/>, may already have made the one read of <c>@@iterator</c> that
+    /// GetIterator makes: <paramref name="iteratorMethod"/> is what that read found, or null when the check read nothing,
+    /// in which case this is <see cref="TryGetIterator"/>. What was read goes through the rest of GetMethod
+    /// (https://tc39.es/ecma262/#sec-getmethod), and GetIteratorFromMethod
+    /// (https://tc39.es/ecma262/#sec-getiteratorfrommethod) calls it, without a second read (sebastienros/jint#4426).
+    /// Answers false where <see cref="TryGetIterator"/> does, for undefined or null.
+    /// </summary>
+    [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryGetIteratorFromRead(Realm realm, JsValue? iteratorMethod, [NotNullWhen(true)] out IteratorInstance? iterator)
+    {
+        if (iteratorMethod is null)
+        {
+            return TryGetIterator(realm, out iterator);
+        }
+
+        return TryGetIteratorFromMethodRead(realm, iteratorMethod, out iterator);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool TryGetIteratorFromMethodRead(Realm realm, JsValue iteratorMethod, [NotNullWhen(true)] out IteratorInstance? iterator)
+    {
+        if (iteratorMethod.IsNullOrUndefined())
+        {
+            iterator = null;
+            return false;
+        }
+
+        if (iteratorMethod is not ICallable method)
+        {
+            Throw.TypeError(realm, $"Value returned for property '{GlobalSymbolRegistry.Iterator}' of object is not a function");
+            iterator = null;
+            return false;
+        }
+
+        return TryGetIterator(realm, out iterator, GeneratorKind.Sync, method);
     }
 
     /// <summary>
@@ -418,6 +454,11 @@ public abstract partial class JsValue : IEquatable<JsValue>
             }
         }
 
+        return HostInterop.Instance.FromObject(engine, value, type);
+    }
+
+    internal static JsValue FromObjectWithReflection(Engine engine, object value, Type? type)
+    {
         if (DefaultObjectConverter.TryConvert(engine, value, type, out var defaultConversion))
         {
             return defaultConversion;

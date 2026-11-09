@@ -3896,9 +3896,9 @@
         {
           "DomName": "insertRule",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, \"CSSStyleSheet.insertRule\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSStyleSheet.insertRule\"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, \"CSSStyleSheet.insertRule\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, \"CSSStyleSheet.insertRule\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSStyleSheet.insertRule\"), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 0)));",
           "SetterBody": null,
-          "Length": 2,
+          "Length": 1,
           "Origin": "ICssStyleSheet.Insert"
         },
         {

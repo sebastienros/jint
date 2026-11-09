@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
@@ -44,6 +45,9 @@ public sealed class ScriptFunction : Function, IConstructor
     // no engine references and stay shared on State._cachedSlots.
     internal object? _envReuse;
 
+    // [[PrivateMethods]] and [[Fields]] of a class constructor, both lists even when empty; an ordinary function has
+    // neither. A class whose decorators added instance initializers keeps its fields in its private-methods list, a
+    // DecoratedInstanceElements, and has no fields list: ObjectInstance.InitializeInstanceElements relies on all three.
     internal List<PrivateElement>? _privateMethods;
     internal List<ClassFieldDefinition>? _fields;
 
@@ -188,9 +192,73 @@ public sealed class ScriptFunction : Function, IConstructor
         return result is TailCallRequest ? ContinueTailCalls(result, ownsFrame: true) : result;
     }
 
+    /// <summary>
+    /// Builds the function's State on its first call. Analysing the body is part of the call, so a body too deep for
+    /// the stack fails as a <c>RangeError</c> the caller can catch, and an async function rejects its promise with it,
+    /// as it does with any throw from its body. Returns the State, or that rejected promise: one object rather than an
+    /// out parameter, so that <see cref="CallOnce"/>'s frame gains no address-taken local to clear on every call.
+    /// See <see cref="SyntaxNesting"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private object InitializeDefinitionForCall()
+    {
+        var definition = _functionDefinition!;
+        if (definition.Function is not { Async: true, Generator: false })
+        {
+            return definition.InitializeOrThrowRangeError(_realm);
+        }
+
+        try
+        {
+            return definition.Initialize();
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            // Nothing runs in here: a catch block runs on top of the frames of the walk that threw, and only
+            // leaving it gives their stack back.
+        }
+
+        var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
+        promiseCapability.Reject(SyntaxNesting.CreateRangeError(_realm));
+        return promiseCapability.PromiseInstance;
+    }
+
+    /// <summary>
+    /// The State, built if need be, for a call site that only wants it to choose a faster lane; <see langword="null"/>
+    /// when the body is too deep for the stack to analyse, which the call itself then reports.
+    /// </summary>
+    internal JintFunctionDefinition.State? TryInitializeDefinition()
+    {
+        var state = _functionDefinition!.BuiltState;
+        if (state is not null)
+        {
+            return state;
+        }
+
+        try
+        {
+            return _functionDefinition.Initialize();
+        }
+        catch (ScriptPreparationException exception) when (SyntaxNesting.IsTooDeep(exception))
+        {
+            return null;
+        }
+    }
+
     private JsValue CallOnce(JsValue thisObject, JsCallArguments arguments)
     {
-        var state = _functionDefinition!.Initialize();
+        var state = _functionDefinition!.BuiltState;
+        if (state is null)
+        {
+            var initialized = InitializeDefinitionForCall();
+            if (initialized is not JintFunctionDefinition.State built)
+            {
+                return (JsValue) initialized;
+            }
+
+            state = built;
+        }
+
         var strict = _strict;
         _functionDefinition.EnsureTailCallMarkers(state, strict);
 
@@ -683,7 +751,7 @@ public sealed class ScriptFunction : Function, IConstructor
         // CallExpression, so [[Construct]] carries the probe as [[Call]] does.
         _engine._stackGuard.EnsureStackHeadroom();
 
-        var state = _functionDefinition!.Initialize();
+        var state = _functionDefinition!.BuiltState ?? _functionDefinition.InitializeOrThrowRangeError(_realm);
         _functionDefinition.EnsureTailCallMarkers(state, _strict);
         var callerContext = _engine.ExecutionContext;
         var kind = _constructorKind;
@@ -870,10 +938,11 @@ public sealed class ScriptFunction : Function, IConstructor
     /// Combines the shared AST-level body verdict (cached on the cross-engine State) with this function's
     /// class-field names: every field must be a plain string key that cannot be an array index — a
     /// digit-leading key would force the ordered-enumeration deopt on first keys read. Private names are
-    /// fine (PrivateFieldAdd bypasses property storage), while symbol names and decorator
-    /// extra-initializer runners (Name == Undefined; they invoke arbitrary callables against `this`)
-    /// reject. Field initializer bodies are deliberately not scanned: post-threshold hot constructors
-    /// already run them under shape building today, and TryShapeAdd's MaxFanout bounds any dynamism.
+    /// fine (PrivateFieldAdd bypasses property storage), while symbol names reject, and so does a
+    /// class whose decorators added instance initializers (its fields are in a
+    /// <see cref="DecoratedInstanceElements"/>; they invoke arbitrary callables against `this`). Field
+    /// initializer bodies are deliberately not scanned: post-threshold hot constructors already run
+    /// them under shape building today, and TryShapeAdd's MaxFanout bounds any dynamism.
     /// </summary>
     private byte ComputeCtorStaticEligibility(JintFunctionDefinition.State state)
     {
@@ -885,6 +954,11 @@ public sealed class ScriptFunction : Function, IConstructor
         }
 
         if (bodyEligibility != 1)
+        {
+            return 2;
+        }
+
+        if (_privateMethods is DecoratedInstanceElements)
         {
             return 2;
         }

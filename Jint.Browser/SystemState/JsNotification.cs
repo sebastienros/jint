@@ -266,13 +266,15 @@ internal sealed class JsNotification : JsEventTarget
 
     /// <summary>
     /// https://w3c.github.io/vibration/#dfn-validate-and-normalize — <c>(unsigned long or
-    /// sequence&lt;unsigned long&gt;)</c>, where a single number is a one-entry pattern.
+    /// sequence&lt;unsigned long&gt;)</c>, where a single number is a one-entry pattern. The union reads
+    /// <c>@@iterator</c> once (https://webidl.spec.whatwg.org/#es-union) and creates the sequence from the method that
+    /// read found.
     /// </summary>
     private static uint[] VibratePattern(Realm realm, JsValue value)
     {
-        if (value is ObjectInstance instance && instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is not null)
+        if (value is ObjectInstance instance && instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is { } iteratorMethod)
         {
-            var iterator = value.GetIterator(realm);
+            var iterator = value.GetIterator(realm, method: iteratorMethod);
             var pattern = new List<uint>();
             while (iterator.TryIteratorStepValue(out var item))
             {
@@ -285,10 +287,13 @@ internal sealed class JsNotification : JsEventTarget
         return [TypeConverter.ToUint32(value)];
     }
 
-    /// <summary>How many entries an <c>actions</c> sequence has, which is all the constructor asks of it.</summary>
+    /// <summary>
+    /// How many entries an <c>actions</c> sequence has, which is all the constructor asks of it. <c>@@iterator</c> is
+    /// read once (https://webidl.spec.whatwg.org/#es-sequence) and the sequence is created from what that read found.
+    /// </summary>
     private static int Count(Realm realm, JsValue value)
     {
-        if (value is not ObjectInstance instance || instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is null)
+        if (value is not ObjectInstance instance || instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is not { } iteratorMethod)
         {
             Throw.TypeError(
                 realm,
@@ -296,7 +301,7 @@ internal sealed class JsNotification : JsEventTarget
             return 0;
         }
 
-        var iterator = value.GetIterator(realm);
+        var iterator = value.GetIterator(realm, method: iteratorMethod);
         var count = 0;
         while (iterator.TryIteratorStepValue(out _))
         {

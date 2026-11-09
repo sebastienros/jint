@@ -3787,9 +3787,9 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleSheet.insertRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "CSSStyleSheet.insertRule");
-                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleSheet.insertRule"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "CSSStyleSheet.insertRule")));
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleSheet.insertRule"), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 0)));
                 }),
-                length: 2)
+                length: 1)
             .Accessor("ownerRule",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleSheet.ownerRule", static (thisObj, args) =>
                 {

@@ -63,11 +63,6 @@ internal abstract class IteratorProtocol
         return done;
     }
 
-    protected void IteratorClose(CompletionType completionType)
-    {
-        _iterator.Close(completionType);
-    }
-
     protected virtual bool ShouldContinue => true;
 
     protected virtual void IterationEnd()

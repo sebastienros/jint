@@ -87,6 +87,10 @@ public class AwaitPromiseResolveTests
         // AsyncIteratorClose awaits what the iterator's return() answers (step 5.c).
         ["AnAwaitInAForAwaitIteratorClose"] =
             "const src = { [Symbol.asyncIterator]() { return { next() { return { value: 1, done: false }; }, return() { log.push('return'); return MAKE(log, {}); } }; } }; try { for await (const x of src) { log.push('body ' + x); break; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
+        // ... and does so for a loop left by a throw as well, which step 5 then hands on whatever the await settled with
+        // (sebastienros/jint#4354).
+        ["AnAwaitInAForAwaitIteratorCloseOnAThrow"] =
+            "const src = { [Symbol.asyncIterator]() { return { next() { return { value: 1, done: false }; }, return() { log.push('return'); return MAKE(log, {}); } }; } }; try { for await (const x of src) { log.push('body ' + x); throw 'E'; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
         ["AnAwaitOfAForAwaitNextResult"] =
             "const src = { [Symbol.asyncIterator]() { let i = 0; return { next() { return MAKE(log, { value: i, done: i++ > 0 }); } }; } }; try { for await (const x of src) { log.push('body ' + x); } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
         // DisposeResources awaits an async dispose method's result (step 4.e.ii.1) as a block ends ...
@@ -101,8 +105,8 @@ public class AwaitPromiseResolveTests
         // ... and as a for loop with an `await using` header ends.
         ["AForAwaitUsingHeader"] =
             "try { for (await using r = { [Symbol.asyncDispose]() { log.push('dispose'); return MAKE(log, 1); } }; ;) { log.push('body'); break; } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
-        // An iterator with no return(), so that the close the throw completion takes owes no await of its own: Jint
-        // closes an async iterator on a throw without awaiting what return() answers (sebastienros/jint#4354).
+        // An iterator with no return(), so that the log is the disposal's alone: the close the throw completion takes
+        // would otherwise await what return() answers, which AnAwaitInAForAwaitIteratorCloseOnAThrow is about.
         ["AForAwaitOfAwaitUsing"] =
             "const src = { [Symbol.asyncIterator]() { let i = 0; return { next() { return { value: { [Symbol.asyncDispose]() { log.push('dispose'); return MAKE(log, 1); } }, done: i++ > 0 }; } }; } }; try { for await (await using r of src) { log.push('body'); } } catch (e) { log.push('caught ' + show(e)); } log.push('after');",
     };
@@ -158,6 +162,10 @@ public class AwaitPromiseResolveTests
         { "AnAwaitInAForAwaitIteratorClose/observed", "called, t1, body 1, return, get constructor, t2, after, t3, resolved undefined, t4, t5, t6, t7, t8, t9", "called, t1, body 1, return, get constructor, t2, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9" },
         { "AnAwaitInAForAwaitIteratorClose/subclassed", "called, t1, body 1, return, t2, then, t3, t4, after, t5, resolved undefined, t6, t7, t8, t9", "called, t1, body 1, return, t2, then, t3, t4, after, t5, resolved {undefined,true}, t6, t7, t8, t9" },
         { "AnAwaitInAForAwaitIteratorClose/native", "called, t1, body 1, return, t2, after, t3, resolved undefined, t4, t5, t6, t7, t8, t9", "called, t1, body 1, return, t2, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9" },
+        { "AnAwaitInAForAwaitIteratorCloseOnAThrow/poisoned", "called, t1, body 1, return, get constructor, caught E, after, t2, resolved undefined, t3, t4, t5, t6, t7, t8, t9", "called, t1, body 1, return, get constructor, caught E, after, t2, resolved {undefined,true}, t3, t4, t5, t6, t7, t8, t9" },
+        { "AnAwaitInAForAwaitIteratorCloseOnAThrow/observed", "called, t1, body 1, return, get constructor, t2, caught E, after, t3, resolved undefined, t4, t5, t6, t7, t8, t9", "called, t1, body 1, return, get constructor, t2, caught E, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9" },
+        { "AnAwaitInAForAwaitIteratorCloseOnAThrow/subclassed", "called, t1, body 1, return, t2, then, t3, t4, caught E, after, t5, resolved undefined, t6, t7, t8, t9", "called, t1, body 1, return, t2, then, t3, t4, caught E, after, t5, resolved {undefined,true}, t6, t7, t8, t9" },
+        { "AnAwaitInAForAwaitIteratorCloseOnAThrow/native", "called, t1, body 1, return, t2, caught E, after, t3, resolved undefined, t4, t5, t6, t7, t8, t9", "called, t1, body 1, return, t2, caught E, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9" },
         { "AnAwaitOfAForAwaitNextResult/poisoned", "get constructor, caught C, after, called, t1, resolved undefined, t2, t3, t4, t5, t6, t7, t8, t9", "get constructor, caught C, after, called, t1, resolved {undefined,true}, t2, t3, t4, t5, t6, t7, t8, t9" },
         { "AnAwaitOfAForAwaitNextResult/observed", "get constructor, called, t1, body 0, get constructor, t2, after, t3, resolved undefined, t4, t5, t6, t7, t8, t9", "get constructor, called, t1, body 0, get constructor, t2, after, t3, resolved {undefined,true}, t4, t5, t6, t7, t8, t9" },
         { "AnAwaitOfAForAwaitNextResult/subclassed", "called, t1, then, t2, t3, body 0, t4, then, t5, t6, after, t7, resolved undefined, t8, t9", "called, t1, then, t2, t3, body 0, t4, then, t5, t6, after, t7, resolved {undefined,true}, t8, t9" },
@@ -244,16 +252,24 @@ public class AwaitPromiseResolveTests
         { "AModulesAwaitUsing/observed", "t1, awaited, body, dispose, get constructor, t2, t3, t4, t5, t6", "resolved" },
         { "AModulesAwaitUsing/subclassed", "t1, awaited, body, dispose, t2, then, t3, t4, t5, t6", "resolved" },
         { "AModulesAwaitUsing/native", "t1, awaited, body, dispose, t2, t3, t4, t5, t6", "resolved" },
+        // A module whose only await is its `await using` is asynchronous too (sebastienros/jint#4367). Node reads the
+        // constructor twice here as well.
+        { "AModulesOnlyAwaitUsing/poisoned", "body, dispose, get constructor, t1, t2, t3, t4, t5, t6", "rejected C" },
+        { "AModulesOnlyAwaitUsing/observed", "body, dispose, get constructor, t1, t2, t3, t4, t5, t6", "resolved" },
+        { "AModulesOnlyAwaitUsing/subclassed", "body, dispose, t1, then, t2, t3, t4, t5, t6", "resolved" },
+        { "AModulesOnlyAwaitUsing/native", "body, dispose, t1, t2, t3, t4, t5, t6", "resolved" },
     };
 
     private static readonly Dictionary<string, string> ModuleSites = new()
     {
         ["ATopLevelAwait"] =
             "const log = globalThis.moduleLog = []; const done = ladder(log, 6); try { log.push('got ' + await MAKE(log, 1)); } catch (e) { log.push('caught ' + show(e)); } log.push('after'); await done;",
-        // The `await null` keeps Jint on the asynchronous module evaluation: a module whose only await is an `await
-        // using` is evaluated synchronously, which is sebastienros/jint#4367.
+        // The disposal awaited after the module body has already suspended once ...
         ["AModulesAwaitUsing"] =
             "const log = globalThis.moduleLog = []; ladder(log, 6); await null; log.push('awaited'); await using r = { [Symbol.asyncDispose]() { log.push('dispose'); return MAKE(log, 1); } }; log.push('body');",
+        // ... and as the module's first and only await.
+        ["AModulesOnlyAwaitUsing"] =
+            "const log = globalThis.moduleLog = []; ladder(log, 6); await using r = { [Symbol.asyncDispose]() { log.push('dispose'); return MAKE(log, 1); } }; log.push('body');",
     };
 
     [TestCaseSource(nameof(InBothKinds)), CancelAfter(10000)]

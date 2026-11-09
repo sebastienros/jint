@@ -1448,9 +1448,10 @@ internal sealed class JintMemberExpression : JintExpression
 
                 // Re-read the flags live every store: Object.defineProperty flips Writable in place on the same
                 // descriptor without bumping the version, so the writability decision must never be cached. The mask
-                // must equal exactly Writable — i.e. writable, not an accessor (NonData), not custom-valued.
+                // must equal exactly Writable — i.e. writable, not an accessor (NonData), not custom-valued, and not one
+                // whose owner must see the write (WritesThroughDefineOwnProperty, sebastienros/jint#4418).
                 if (descriptor is not null
-                    && (descriptor._flags & (PropertyFlag.NonData | PropertyFlag.CustomJsValue | PropertyFlag.Writable)) == PropertyFlag.Writable)
+                    && (descriptor._flags & (PropertyFlag.NonData | PropertyFlag.CustomJsValue | PropertyFlag.Writable | PropertyDescriptor.WritesThroughDefineOwnProperty)) == PropertyFlag.Writable)
                 {
                     descriptor._value = rval;
                     result = rval;

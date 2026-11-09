@@ -4,7 +4,6 @@ using Jint.Native.Object;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using FunctionInstance = Jint.Native.Function.Function;
 
 namespace Jint.Native.Array;
 
@@ -15,10 +14,6 @@ namespace Jint.Native.Array;
 internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 {
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString ArrayIteratorToStringTag = new("Array Iterator");
-
-    // Captured by CreateProperties_Generated (via CaptureField below) before any user code can
-    // replace `next`; StepsNatively identity-compares against this snapshot to detect overrides.
-    private FunctionInstance _originalNextFunction = null!;
 
     internal ArrayIteratorPrototype(
         Engine engine,
@@ -31,17 +26,50 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
+
+        // An assignment to `next` changes its value in place. Through [[Set]] that ends in DefineOwnProperty below, but the
+        // member-write cache would store into the descriptor directly; this keeps it on [[Set]] (sebastienros/jint#4418).
+        GetOwnProperty(CommonProperties.Next)._flags |= PropertyDescriptor.WritesThroughDefineOwnProperty;
     }
 
+    /// <summary>
+    /// Every script route to a changed own property ends here or in <see cref="RemoveOwnProperty"/>: a new or redefined
+    /// property, and an assignment to an existing one, whose [[Set]] defines it in place
+    /// (https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor step 2.d.iv). Either sets
+    /// <see cref="Engine._arrayIteratorNextMayBeReplaced"/>, whatever the key, from which point the lanes that read an
+    /// array by index ask what the realm's Array.prototype validated instead (sebastienros/jint#4418).
+    /// </summary>
+    public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
+    {
+        _engine._arrayIteratorNextMayBeReplaced = true;
+        return base.DefineOwnProperty(property, desc);
+    }
+
+    /// <inheritdoc cref="DefineOwnProperty"/>
+    public override void RemoveOwnProperty(JsValue property)
+    {
+        _engine._arrayIteratorNextMayBeReplaced = true;
+        base.RemoveOwnProperty(property);
+    }
+
+    // Captured into IteratorPrototype._originalNextFunction, which ToIteratorRecordReadingNext compares a read of `next`
+    // against.
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+
+    /// <summary>
+    /// The built-in %ArrayIteratorPrototype%.next (https://tc39.es/ecma262/#sec-%arrayiteratorprototype%.next), captured
+    /// when this prototype was initialized; null before that. <see cref="ArrayPrototype.ArrayIteratorsStepNatively"/>
+    /// compares this prototype's own <c>next</c> against it (sebastienros/jint#4418).
+    /// </summary>
+    internal JsValue? BuiltInNext => _originalNextFunction;
 
     /// <summary>
     /// CreateArrayIterator (https://tc39.es/ecma262/#sec-createarrayiterator). The object handed back
     /// is script-visible — it is what <c>[][Symbol.iterator]()</c> evaluates to — so it always
     /// iterates <paramref name="array"/> with <paramref name="kind"/>, whatever <c>next</c> currently
     /// resolves to. Whether a *consumer* may then step it natively instead of calling <c>next</c> is
-    /// decided where the iterator record is built, by <see cref="IteratorInstance.HasNativeNext"/>.
+    /// decided where the iterator record is built, by <see cref="IteratorInstance.ToIteratorRecord"/>.
     /// </summary>
     internal IteratorInstance Construct(ObjectInstance array, ArrayIteratorType kind)
     {
@@ -51,15 +79,6 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 
         return instance;
     }
-
-    /// <summary>
-    /// One read covers both ways an array iterator's <c>next</c> can stop being the built-in one: an
-    /// own <c>next</c> on the instance shadowing the prototype's, and the prototype's own <c>next</c>
-    /// having been replaced. A prototype swapped out from under the instance fails the type test and
-    /// is treated as replaced too.
-    /// </summary>
-    private bool StepsNatively(ObjectInstance iterator)
-        => ReferenceEquals(iterator.Get(CommonProperties.Next), _originalNextFunction);
 
     private sealed class ArrayIterator : IteratorInstance
     {
@@ -75,8 +94,13 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
             _position = 0;
         }
 
-        internal override bool HasNativeNext
-            => _prototype is ArrayIteratorPrototype prototype && prototype.StepsNatively(this);
+        // The sealed type test keeps the hot lane every for-of over an array takes as cheap as it was; a prototype
+        // swapped out from under the instance fails it and is treated as a replaced `next`, which the ObjectIterator
+        // reads. Either way `next` is read once (sebastienros/jint#4408).
+        internal override IteratorInstance ToIteratorRecord()
+            => _prototype is ArrayIteratorPrototype prototype
+                ? prototype.ToIteratorRecordReadingNext(this)
+                : WrapReadingNext(this);
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
@@ -148,8 +172,13 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
             _position = 0;
         }
 
-        internal override bool HasNativeNext
-            => _prototype is ArrayIteratorPrototype prototype && prototype.StepsNatively(this);
+        // The sealed type test keeps the hot lane every for-of over an array takes as cheap as it was; a prototype
+        // swapped out from under the instance fails it and is treated as a replaced `next`, which the ObjectIterator
+        // reads. Either way `next` is read once (sebastienros/jint#4408).
+        internal override IteratorInstance ToIteratorRecord()
+            => _prototype is ArrayIteratorPrototype prototype
+                ? prototype.ToIteratorRecordReadingNext(this)
+                : WrapReadingNext(this);
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {

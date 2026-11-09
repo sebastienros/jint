@@ -2,6 +2,7 @@
 #nullable enable
 #pragma warning disable JINT0002 // the fetch observer is a preview surface; this suite is what pins its shape
 
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -495,12 +496,55 @@ public class WebApiFetchDocumentTests
 
     // ---- Fetch.Observer ----
 
+    /// <summary>
+    /// An observer that writes down what it was told, in the order it was told.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every callback arrives on a transport thread, and the transport is not finished when the script is.</b>
+    /// A fetch promise resolves when the headers are in; the read loop goes on to append <c>data</c> and
+    /// <c>completed</c> for a body nobody has asked for yet, so a test reading the log while the loop runs
+    /// meets an append part-way through whatever it is doing with it (#4387). Two rules follow, and a test
+    /// uses both. <see cref="Events"/> and <see cref="Timings"/> are <b>copies</b> taken under the lock the
+    /// appends take, so nothing a test enumerates can change underneath it. And a test that asserts on an
+    /// entry first <b>waits for that entry</b> (<see cref="WaitFor"/>), or for the request to end
+    /// (<see cref="WaitForEnd"/>), rather than assuming the hand-over has happened.
+    /// </para>
+    /// <para>
+    /// The waits are released by the append itself, not by a poll, and are bounded by the same two-minute
+    /// ceiling every other transport wait in this file uses: they assert an outcome (this entry arrived) and
+    /// never a duration, so a healthy run spends none of it.
+    /// </para>
+    /// </remarks>
     private sealed class RecordingObserver : FetchObserver
     {
-        internal List<string> Events { get; } = new();
+        private readonly object _gate = new();
+        private readonly List<string> _events = new();
+        private readonly List<FetchTiming?> _timings = new();
 
-        /// <summary>Every response's <see cref="ObservedFetchResponse.Timing"/>, in the order they arrived.</summary>
-        internal List<FetchTiming?> Timings { get; } = new();
+        /// <summary>A copy of what the observer has been told so far, in order. Each read is a new copy.</summary>
+        internal List<string> Events
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return new List<string>(_events);
+                }
+            }
+        }
+
+        /// <summary>A copy of every response's <see cref="ObservedFetchResponse.Timing"/>, in the order they arrived.</summary>
+        internal List<FetchTiming?> Timings
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return new List<FetchTiming?>(_timings);
+                }
+            }
+        }
 
         internal Func<ObservedFetchRequest, FetchInterception?>? OnRequestHandler { get; init; }
 
@@ -510,67 +554,94 @@ public class WebApiFetchDocumentTests
 
         public override int RequestBodyPreviewBytes => 16;
 
+        /// <summary>
+        /// Waits until at least <paramref name="count"/> entries satisfying <paramref name="match"/> have been
+        /// recorded, and answers a copy of the log as it stood when they had.
+        /// </summary>
+        /// <param name="match">Which entries count.</param>
+        /// <param name="expected">What the test is waiting for, named in the failure if it never arrives.</param>
+        /// <param name="count">How many matching entries are wanted.</param>
+        internal List<string> WaitFor(Func<string, bool> match, string expected, int count = 1)
+        {
+            var clock = Stopwatch.StartNew();
+
+            lock (_gate)
+            {
+                while (_events.Count(match) < count)
+                {
+                    var remaining = TransportSignalCeiling - clock.Elapsed;
+                    if (remaining <= TimeSpan.Zero)
+                    {
+                        Assert.Fail($"the observer should have been told {expected}; it was told: {string.Join(" | ", _events)}");
+                    }
+
+                    Monitor.Wait(_gate, remaining);
+                }
+
+                return new List<string>(_events);
+            }
+        }
+
+        /// <summary>
+        /// Waits until <paramref name="requests"/> requests have ended (<c>OnCompleted</c> or <c>OnFailed</c>,
+        /// either of which is the last thing the observer hears of a request) and answers a copy of the log,
+        /// which nothing can append to for those requests any more.
+        /// </summary>
+        internal List<string> WaitForEnd(int requests = 1)
+            => WaitFor(
+                static entry => entry.StartsWith("completed ", StringComparison.Ordinal) || entry.StartsWith("failed ", StringComparison.Ordinal),
+                $"{requests} request(s) to end",
+                requests);
+
         public override ValueTask<FetchInterception?> OnRequestAsync(ObservedFetchRequest request, CancellationToken cancellationToken)
         {
-            lock (Events)
-            {
-                Events.Add($"request {request.Id} {request.Method} {request.Url} redirects={request.RedirectCount} after={request.RedirectResponse?.Status.ToString() ?? "-"} initiator={request.Initiator}");
-            }
+            Record($"request {request.Id} {request.Method} {request.Url} redirects={request.RedirectCount} after={request.RedirectResponse?.Status.ToString() ?? "-"} initiator={request.Initiator}");
 
             return new ValueTask<FetchInterception?>(OnRequestHandler?.Invoke(request));
         }
 
         public override ValueTask<FetchResponseInterception?> OnResponseAsync(ObservedFetchResponse response, CancellationToken cancellationToken)
         {
-            lock (Events)
-            {
-                Events.Add($"asked {response.Id} {response.Status} redirect={response.IsRedirect}");
-            }
+            Record($"asked {response.Id} {response.Status} redirect={response.IsRedirect}");
 
             return new ValueTask<FetchResponseInterception?>(OnResponseHandler?.Invoke(response));
         }
 
         public override ValueTask<FetchAuthDecision?> OnAuthRequiredAsync(ObservedFetchAuthChallenge challenge, CancellationToken cancellationToken)
         {
-            lock (Events)
-            {
-                Events.Add($"auth {challenge.Id} {challenge.Status} {challenge.Source} {challenge.Scheme} realm={challenge.Realm} answerable={challenge.CanProvideCredentials}");
-            }
+            Record($"auth {challenge.Id} {challenge.Status} {challenge.Source} {challenge.Scheme} realm={challenge.Realm} answerable={challenge.CanProvideCredentials}");
 
             return new ValueTask<FetchAuthDecision?>(OnAuthHandler?.Invoke(challenge));
         }
 
         public override void OnResponse(ObservedFetchResponse response)
-        {
-            lock (Events)
-            {
-                Events.Add($"response {response.Id} {response.Status} redirect={response.IsRedirect} intercepted={response.FromInterception}");
-                Timings.Add(response.Timing);
-            }
-        }
+            => Record($"response {response.Id} {response.Status} redirect={response.IsRedirect} intercepted={response.FromInterception}", response.Timing, timed: true);
 
         public override void OnData(FetchRequestId id, ReadOnlySpan<byte> chunk)
-        {
-            var length = chunk.Length;
-            lock (Events)
-            {
-                Events.Add($"data {id} {length}");
-            }
-        }
+            => Record($"data {id} {chunk.Length}");
 
         public override void OnCompleted(FetchRequestId id, long bodyLength)
-        {
-            lock (Events)
-            {
-                Events.Add($"completed {id} {bodyLength}");
-            }
-        }
+            => Record($"completed {id} {bodyLength}");
 
         public override void OnFailed(FetchRequestId id, string reason, Exception? exception)
+            => Record($"failed {id} {reason}");
+
+        /// <summary>
+        /// Appends <paramref name="entry"/> (and <paramref name="timing"/>, for the one callback that carries
+        /// one, in the same step so the two lists cannot disagree) and wakes whoever is waiting for it.
+        /// </summary>
+        private void Record(string entry, FetchTiming? timing = null, bool timed = false)
         {
-            lock (Events)
+            lock (_gate)
             {
-                Events.Add($"failed {id} {reason}");
+                _events.Add(entry);
+
+                if (timed)
+                {
+                    _timings.Add(timing);
+                }
+
+                Monitor.PulseAll(_gate);
             }
         }
     }
@@ -585,6 +656,64 @@ public class WebApiFetchDocumentTests
         }
     }
 
+    /// <summary>
+    /// What <c>ADeclinedChallengeDeliversTheFourHundredAndOne</c> did to the recorder (#4387). The transport's
+    /// read loop appends <c>data</c> and <c>completed</c> after the fetch promise has resolved, so a test
+    /// enumerating the recorder meets an append part-way through. In CI that is a one-in-a-few-hundred
+    /// <c>Collection was modified</c>; here the append is made to land inside the enumeration, so the
+    /// interleaving is the test rather than the luck of a run.
+    /// </summary>
+    [Test]
+    public void TheRecorderCanBeReadWhileTheTransportAppendsToIt()
+    {
+        var observer = new RecordingObserver();
+        var id = new FetchRequestId(1);
+        var chunk = new byte[4];
+        observer.OnData(id, chunk);
+        observer.OnData(id, chunk);
+
+        var seen = 0;
+        foreach (var entry in observer.Events)
+        {
+            seen++;
+            if (seen == 1)
+            {
+                // A thread of its own, as the transport's is. The reader must not be holding the recorder's
+                // lock here, or the append never lands and this wait is what reports it.
+                DedicatedThread.RunAsync(() => observer.OnCompleted(id, 8))
+                    .Wait(TransportSignalCeiling).Should().BeTrue("a reader must not hold up the transport");
+            }
+        }
+
+        seen.Should().Be(2, "a read is of what had arrived when it began");
+        observer.Events.Should().HaveCount(3).And.EndWith("completed 1 8");
+    }
+
+    /// <summary>
+    /// The other half of the same repair: a test that wants an entry the transport has not appended yet is
+    /// released by the append, whichever side gets there first.
+    /// </summary>
+    [Test]
+    public void TheRecorderWaitsForTheEntriesItIsAskedFor()
+    {
+        var observer = new RecordingObserver();
+        var id = new FetchRequestId(7);
+
+        var transport = DedicatedThread.RunAsync(() =>
+        {
+            observer.OnData(id, new byte[3]);
+            observer.OnData(id, new byte[5]);
+            observer.OnCompleted(id, 8);
+        });
+
+        observer.WaitFor(entry => entry.StartsWith("data ", StringComparison.Ordinal), "both chunks", count: 2)
+            .Should().StartWith(["data 7 3", "data 7 5"]);
+
+        observer.WaitForEnd().Should().Equal("data 7 3", "data 7 5", "completed 7 8");
+
+        transport.Wait(TransportSignalCeiling).Should().BeTrue();
+    }
+
     [Test]
     public void RetiringAnInFlightFetchReportsRetirementToItsObserver()
     {
@@ -594,11 +723,10 @@ public class WebApiFetchDocumentTests
 
         engine.Advanced.Retire();
 
-        lock (observer.Events)
-        {
-            observer.Events.Should().Contain(entry => entry.Contains(
-                "The engine was retired while the request was in flight.", StringComparison.Ordinal));
-        }
+        // Not a wait: Retire abandons the operation and reports it on this thread before it returns, and a
+        // wait here would pass for a report that arrived late.
+        observer.Events.Should().Contain(entry => entry.Contains(
+            "The engine was retired while the request was in flight.", StringComparison.Ordinal));
     }
 
     [Test]
@@ -617,8 +745,9 @@ public class WebApiFetchDocumentTests
         engine.Evaluate("fetch('https://a.test/start').then(r => r.text())")
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("hello");
 
-        var id = observer.Events[0].Split(' ')[1];
-        observer.Events.Should().Equal(
+        var events = observer.WaitForEnd();
+        var id = events[0].Split(' ')[1];
+        events.Should().Equal(
             $"request {id} GET https://a.test/start redirects=0 after=- initiator=Script",
             $"response {id} 302 redirect=True intercepted=False",
             $"request {id} GET https://a.test/landing redirects=1 after=302 initiator=Script",
@@ -653,7 +782,7 @@ public class WebApiFetchDocumentTests
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("brewed");
 
         handler.Requests.Should().BeEmpty();
-        observer.Events.Should().Contain(e => e.Contains("intercepted=True", StringComparison.Ordinal));
+        observer.WaitFor(e => e.Contains("intercepted=True", StringComparison.Ordinal), "a response reported as intercepted");
     });
 
     [Test]
@@ -667,7 +796,7 @@ public class WebApiFetchDocumentTests
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TypeError: Failed to fetch");
 
         handler.Requests.Should().BeEmpty();
-        observer.Events.Should().Contain(e => e.EndsWith("blocked by policy", StringComparison.Ordinal));
+        observer.WaitFor(e => e.EndsWith("blocked by policy", StringComparison.Ordinal), "the failure the observer asked for");
     }
 
     [Test]
@@ -726,7 +855,7 @@ public class WebApiFetchDocumentTests
         engine.Evaluate("fetch('https://a.test/x').then(() => 'resolved', e => e.message)")
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("Failed to fetch");
 
-        observer.Events.Should().ContainSingle().Which.Should().StartWith("failed ");
+        observer.WaitForEnd().Should().ContainSingle().Which.Should().StartWith("failed ");
     }
 
     [Test]
@@ -748,9 +877,11 @@ public class WebApiFetchDocumentTests
         var after = DateTimeOffset.UtcNow;
 
         // Both hops are timed on their own: the redirect the loop walked past and the answer at the end.
-        observer.Timings.Should().HaveCount(2);
+        observer.WaitFor(e => e.StartsWith("response ", StringComparison.Ordinal), "a response for each of the two hops", count: 2);
+        var timings = observer.Timings;
+        timings.Should().HaveCount(2);
 
-        foreach (var reported in observer.Timings)
+        foreach (var reported in timings)
         {
             reported.Should().NotBeNull("a response the network produced is timed");
             var timing = reported!.Value;
@@ -788,9 +919,11 @@ public class WebApiFetchDocumentTests
 
         handler.Requests.Should().ContainSingle().Which.Url.Should().Be("https://a.test/sent");
 
-        observer.Timings.Should().HaveCount(2);
-        observer.Timings[0].HasValue.Should().BeTrue("the network answered this one, so there is a send to time");
-        observer.Timings[1].HasValue.Should().BeFalse(
+        observer.WaitFor(e => e.StartsWith("response ", StringComparison.Ordinal), "a response for each of the two fetches", count: 2);
+        var timings = observer.Timings;
+        timings.Should().HaveCount(2);
+        timings[0].HasValue.Should().BeTrue("the network answered this one, so there is a send to time");
+        timings[1].HasValue.Should().BeFalse(
             "nothing went on the wire, and a zero-length timing would report a socket that was never opened as an instant round trip");
     });
 
@@ -834,8 +967,8 @@ public class WebApiFetchDocumentTests
             .Should().Be("203|Substituted|observer|from the observer");
 
         // The notification that follows the ask reports what the answer produced, not what the socket said.
-        observer.Events.Should().Contain(entry => entry.Contains("response ", StringComparison.Ordinal) && entry.Contains(" 203 ", StringComparison.Ordinal));
-        observer.Events.Should().Contain(entry => entry.Contains("intercepted=True", StringComparison.Ordinal));
+        observer.WaitFor(entry => entry.Contains("response ", StringComparison.Ordinal) && entry.Contains(" 203 ", StringComparison.Ordinal), "the 203 the observer substituted");
+        observer.WaitFor(entry => entry.Contains("intercepted=True", StringComparison.Ordinal), "a response reported as intercepted");
     });
 
     /// <summary>
@@ -921,7 +1054,7 @@ public class WebApiFetchDocumentTests
         handler.HeaderOf(0, "Authorization").Should().BeNull("the first hop is what provokes the challenge");
         handler.HeaderOf(1, "Authorization").Should().Be(expected);
 
-        observer.Events.Should().Contain(entry => entry.Contains("Basic realm=the vault answerable=True", StringComparison.Ordinal));
+        observer.WaitFor(entry => entry.Contains("Basic realm=the vault answerable=True", StringComparison.Ordinal), "the Basic challenge it answered");
     });
 
     [TestCase("Basic realm=\"east, west\"", "east, west")]
@@ -990,7 +1123,7 @@ public class WebApiFetchDocumentTests
                 .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("401|false");
 
             handler.Requests.Should().HaveCount(1, "a declined challenge sends nothing again");
-            observer.Events.Should().Contain(entry => entry.StartsWith("auth ", StringComparison.Ordinal));
+            observer.WaitFor(entry => entry.StartsWith("auth ", StringComparison.Ordinal), "the challenge it declined");
         }
     });
 
@@ -1021,7 +1154,7 @@ public class WebApiFetchDocumentTests
 
         handler.Requests.Should().HaveCount(1);
         handler.HeaderOf(0, "Authorization").Should().BeNull();
-        observer.Events.Should().Contain(entry => entry.Contains("Digest realm=the vault answerable=False", StringComparison.Ordinal));
+        observer.WaitFor(entry => entry.Contains("Digest realm=the vault answerable=False", StringComparison.Ordinal), "the Digest challenge it could not answer");
     });
 
     /// <summary>
@@ -1086,7 +1219,7 @@ public class WebApiFetchDocumentTests
         engine.Evaluate("fetch('https://a.test/thing').then(() => 'resolved', e => e.constructor.name)")
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TypeError");
 
-        observer.Events.Should().Contain(entry => entry.StartsWith("failed ", StringComparison.Ordinal) && entry.Contains("the observer refused it", StringComparison.Ordinal));
+        observer.WaitFor(entry => entry.StartsWith("failed ", StringComparison.Ordinal) && entry.Contains("the observer refused it", StringComparison.Ordinal), "the failure the observer asked for");
     });
 
     /// <summary>
@@ -1109,13 +1242,14 @@ public class WebApiFetchDocumentTests
         engine.Evaluate("fetch('https://a.test/start').then(r => r.text())")
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("hello");
 
-        observer.Events.Count(entry => entry.StartsWith("asked ", StringComparison.Ordinal))
+        var events = observer.WaitForEnd();
+        events.Count(entry => entry.StartsWith("asked ", StringComparison.Ordinal))
             .Should().Be(1, "the redirect is reported, not asked about");
-        observer.Events.Should().Contain(entry => entry.StartsWith("asked ", StringComparison.Ordinal) && entry.Contains(" 200 ", StringComparison.Ordinal));
+        events.Should().Contain(entry => entry.StartsWith("asked ", StringComparison.Ordinal) && entry.Contains(" 200 ", StringComparison.Ordinal));
 
         // And the ask comes before the notification of the same response.
-        var asked = observer.Events.FindIndex(entry => entry.StartsWith("asked ", StringComparison.Ordinal));
-        var reported = observer.Events.FindIndex(entry => entry.StartsWith("response ", StringComparison.Ordinal) && entry.Contains(" 200 ", StringComparison.Ordinal));
+        var asked = events.FindIndex(entry => entry.StartsWith("asked ", StringComparison.Ordinal));
+        var reported = events.FindIndex(entry => entry.StartsWith("response ", StringComparison.Ordinal) && entry.Contains(" 200 ", StringComparison.Ordinal));
         asked.Should().BeLessThan(reported);
     });
 

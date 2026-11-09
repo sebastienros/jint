@@ -265,6 +265,22 @@ internal sealed class FlatLayout
         return row >= 0 && row < _elements.Count ? _elements[(int) row] : null;
     }
 
+    // A point read owns the same measurements as a complete layout, but only places branches
+    // crossing its vertical coordinate. It must not be consulted again after dispatching a listener.
+    internal readonly struct PointQuery(SizeQuery sizes, double width, double height, double scrollY)
+    {
+        internal FlatBox? ClientBoxOf(Element element)
+        {
+            if (!sizes.HasBox(element)) return null;
+            var box = sizes.Place(element);
+            return box with { Y = box.Y - scrollY };
+        }
+
+        internal Element? ElementFromPoint(double x, double y)
+            => double.IsNaN(x) || double.IsNaN(y) || x < 0 || y < 0 || x >= width || y >= height
+                ? null : sizes.ElementFromPoint(x, y + scrollY);
+    }
+
     private void Arrange(SizeQuery sizes)
     {
         _boxes = new List<FlatBox>(_elements.Count);
@@ -316,17 +332,25 @@ internal sealed class FlatLayout
     /// <summary>
     /// A synchronous size-only query: ancestors decide visibility and width; flex siblings also determine
     /// distributed widths and stretched heights. Unrelated document branches need no rows.
-    /// PageLayout may retain measurements and the cascade while its complete invalidation identity is valid.
+    /// PageLayout may retain native measurement data across classified writes, never its old cascade or guards.
     /// Native mutation scopes, parsing and unclassified callbacks always get independent queries.
     /// </summary>
     internal sealed class SizeQuery(
         Document? document,
         ElementVisibility visibility,
         double viewportWidth,
-        CssCascade.Traversal? cascade, Action? checkpoint = null, CancellationToken token = default)
+        CssCascade.Traversal? cascade, SizeMeasurements? measurements, PageLayoutDiagnostics? diagnostics,
+        Action? checkpoint = null, CancellationToken token = default)
     {
+        internal SizeQuery(Document? document, ElementVisibility visibility, double viewportWidth,
+            CssCascade.Traversal? cascade, Action? checkpoint = null, CancellationToken token = default)
+            : this(document, visibility, viewportWidth, cascade, null, null, checkpoint, token) { }
+
         private int _work;
-        private readonly Dictionary<Element, IReadOnlyList<Element>> _children = new(ReferenceEqualityComparer.Instance);
+        internal SizeMeasurements Measurements { get; } = measurements ?? new();
+        private Dictionary<Element, IReadOnlyList<Element>> _children => Measurements.Children;
+        private readonly HashSet<Element>? _retainedRows = diagnostics is null || measurements is null
+            ? null : new(measurements.Rows.Keys, ReferenceEqualityComparer.Instance);
         private IReadOnlyList<Element> Children(Element element)
         {
             if (!_children.TryGetValue(element, out var children))
@@ -342,14 +366,59 @@ internal sealed class FlatLayout
         }
         internal CssCascade.Traversal? Cascade => cascade;
 
-        private readonly Dictionary<Element, bool> _rendered = new(ReferenceEqualityComparer.Instance);
-        private readonly Dictionary<Element, int> _rows = new(ReferenceEqualityComparer.Instance);
+        private Dictionary<Element, bool> _rendered => Measurements.Rendered;
+        private Dictionary<Element, int> _rows => Measurements.Rows;
         private readonly Dictionary<Element, double> _widths = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<Element, double> _heights = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<Element, FlatBox> _sizes = new(ReferenceEqualityComparer.Instance);
 
         private readonly Dictionary<Element, FlatBox> _positions = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<Element, (int Next, double Offset)> _childrenPlaced = new(ReferenceEqualityComparer.Instance);
+
+        private bool TryRows(Element element, out int rows)
+        {
+            if (!_rows.TryGetValue(element, out rows)) return false;
+            if (_retainedRows?.Remove(element) == true) diagnostics!.RetainedRowUsed();
+            return true;
+        }
+
+        /// <summary>CSSOM View's topmost box, with the complete layout's reverse tree-order precedence.</summary>
+        internal Element? ElementFromPoint(double x, double y)
+        {
+            token.ThrowIfCancellationRequested();
+            checkpoint?.Invoke();
+            if (document?.DocumentElement is not { } root) return null;
+            var pending = new Stack<(Element Element, bool Visited)>();
+            pending.Push((root, false));
+            while (pending.TryPop(out var frame))
+            {
+                Step();
+                if (!HasBox(frame.Element)) continue;
+                var box = Place(frame.Element);
+                // Every descendant fits vertically inside its ancestor in the flat model.
+                // Horizontal overflow is possible for nonshrinking flex items: never prune on X.
+                if (y < box.Y || y >= box.Bottom) continue;
+                if (frame.Visited)
+                {
+                    if (x >= box.X && x < box.Right)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        checkpoint?.Invoke();
+                        return frame.Element;
+                    }
+                    continue;
+                }
+                pending.Push((frame.Element, true));
+                foreach (var child in Children(frame.Element))
+                {
+                    Step();
+                    pending.Push((child, false));
+                }
+            }
+            token.ThrowIfCancellationRequested();
+            checkpoint?.Invoke();
+            return null;
+        }
 
         // The same placement serves a whole layout and a single rectangle. A rectangle needs its
         // ancestors and preceding siblings, but never the positions of unrelated descendants.
@@ -588,7 +657,7 @@ internal sealed class FlatLayout
             while (true)
             {
                 Step();
-                if (_rows.TryGetValue(element, out var known))
+                if (TryRows(element, out var known))
                 {
                     result = Math.Min(known, bound);
                 }
@@ -637,7 +706,7 @@ internal sealed class FlatLayout
             {
                 Step();
                 var (element, visited) = item;
-                if (_rows.ContainsKey(element))
+                if (TryRows(element, out _))
                 {
                     continue;
                 }

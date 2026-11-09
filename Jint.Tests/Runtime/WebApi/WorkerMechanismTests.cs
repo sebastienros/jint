@@ -411,6 +411,71 @@ public class WorkerMechanismTests
         host.Log.Should().Be("bytes:7-8-9");
     }
 
+    /// <summary>
+    /// Posts <c>a</c> with a second argument whose <c>Symbol.iterator</c> is an accessor on its prototype that counts its
+    /// reads and answers per <c>answers</c>; its iterator yields <c>a</c> and its own <c>transfer</c> member is
+    /// <c>[b]</c>. Answers which of the two buffers were detached, or the name of what was thrown, and the read count.
+    /// </summary>
+    private const string TransferReads = """
+        function transferReads(post, answers) {
+            const a = new ArrayBuffer(1), b = new ArrayBuffer(1);
+            const method = function* () { yield a; };
+            let count = 0;
+            const answer = {
+                method: () => method,
+                methodThenUndefined: () => count === 1 ? method : undefined,
+                undefinedThenMethod: () => count === 1 ? undefined : method,
+                null: () => null,
+                number: () => 42,
+            }[answers];
+            const proto = {};
+            Object.defineProperty(proto, Symbol.iterator, { get() { count++; return answer(); } });
+            const init = Object.assign(Object.create(proto), { transfer: [b] });
+            let result;
+            try { post(null, init); result = (a.byteLength === 0 ? 'a' : '') + (b.byteLength === 0 ? 'b' : ''); }
+            catch (e) { result = e.name; }
+            return result + ' ' + count;
+        }
+        """;
+
+    /// <summary>
+    /// Overload resolution (https://webidl.spec.whatwg.org/#es-overloads) reads the second argument's
+    /// <c>@@iterator</c> once with GetMethod, and the <c>sequence&lt;object&gt;</c> overload creates the transfer list
+    /// from the method that read found; undefined and null select the <c>StructuredSerializeOptions</c> overload
+    /// (sebastienros/jint#4449).
+    /// </summary>
+    [TestCase("method", "a 1")]
+    [TestCase("methodThenUndefined", "a 1")]
+    [TestCase("undefinedThenMethod", "b 1")]
+    [TestCase("null", "b 1")]
+    [TestCase("number", "TypeError 1")]
+    public void TheParentsPostMessageReadsTheTransferIteratorOnce(string answers, string expected)
+    {
+        var host = new TestWorkerHost(Module(""));
+        var parent = Parent(host);
+        parent.Execute(TransferReads);
+
+        parent.Evaluate($"var w = new Worker('./worker.js', {{ type: 'module' }}); transferReads((m, t) => w.postMessage(m, t), '{answers}')")
+            .AsString().Should().Be(expected);
+    }
+
+    /// <inheritdoc cref="TheParentsPostMessageReadsTheTransferIteratorOnce" />
+    [TestCase("method", "a 1")]
+    [TestCase("methodThenUndefined", "a 1")]
+    [TestCase("undefinedThenMethod", "b 1")]
+    [TestCase("null", "b 1")]
+    [TestCase("number", "TypeError 1")]
+    public void TheWorkersPostMessageReadsTheTransferIteratorOnce(string answers, string expected)
+    {
+        var host = new TestWorkerHost(Module(TransferReads + $"record(transferReads((m, t) => postMessage(m, t), '{answers}'));"));
+        var parent = Parent(host);
+
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' });");
+        DrainWorker(host.Connection);
+
+        host.Log.Should().Be(expected);
+    }
+
     [Test]
     public void ASharedArrayBufferIsADataCloneError()
     {

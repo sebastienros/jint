@@ -153,6 +153,12 @@ internal static class BrowserEngineFactory
                 o.WebApi.Console.Sink = new PageRecorder.Console(recorder);
             }
 
+            if (options.ConsoleSinkDecorator is { } decorateConsole)
+            {
+                o.WebApi.Console.Sink = decorateConsole(o.WebApi.Console.Sink)
+                    ?? throw new InvalidOperationException("The console sink decorator must return a non-null sink.");
+            }
+
             ConfigureFetch(o, request, origin);
 
             o.WebApi.Workers.Provider = request.Workers;
