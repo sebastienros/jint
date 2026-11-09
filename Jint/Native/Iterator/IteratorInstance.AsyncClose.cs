@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Jint.Native.Promise;
 using Jint.Runtime;
 
@@ -55,7 +56,9 @@ internal abstract partial class IteratorInstance
     /// A <see cref="JavaScriptException"/> from starting the close is innerResult's throw completion. Under a throw
     /// completion a host exception is discarded with it, as <see cref="Close"/> discards one then, but never one that
     /// ends the run (<see cref="Throw.MustPropagateHostException"/>): a constraint that trips inside <c>return</c> still
-    /// stops the engine. Under any other completion only the <see cref="JavaScriptException"/> is caught.
+    /// stops the engine. Under any other completion a host exception, such as a host's <c>Dispose</c> throwing in the
+    /// native release, is what the close raises when the engine's interop exception handler converts it
+    /// (<see cref="TryConvertHostException"/>), and otherwise propagates as it is.
     /// </para>
     /// <para>
     /// A built-in iterator's native state goes as the other asynchronous closes release it: at once without a
@@ -75,9 +78,14 @@ internal abstract partial class IteratorInstance
         {
             hasReturn = TryStartAsyncClose(out innerResult);
         }
-        catch (Exception e) when (e is JavaScriptException || (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e)))
+        catch (Exception e) when (e is JavaScriptException || !Throw.MustPropagateHostException(e))
         {
-            onClosed(AsyncIteratorCloseError(realm, completion, (e as JavaScriptException)?.Error ?? Undefined, rejected: true));
+            if (!TryGetCloseError(engine, completion, e, out var error))
+            {
+                throw;
+            }
+
+            onClosed(AsyncIteratorCloseError(realm, completion, error, rejected: true));
             return;
         }
 
@@ -95,14 +103,82 @@ internal abstract partial class IteratorInstance
         {
             promise = PromiseConstructor.ResolveForAwaitToPromise(engine, innerResult);
         }
-        catch (Exception e) when (e is JavaScriptException || (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e)))
+        catch (Exception e) when (e is JavaScriptException || !Throw.MustPropagateHostException(e))
         {
             CloseNativeStateAfterReturn(CompletionType.Throw);
-            onClosed(AsyncIteratorCloseError(realm, completion, (e as JavaScriptException)?.Error ?? Undefined, rejected: true));
+            if (!TryGetCloseError(engine, completion, e, out var error))
+            {
+                throw;
+            }
+
+            onClosed(AsyncIteratorCloseError(realm, completion, error, rejected: true));
             return;
         }
 
         PromiseOperations.PerformPromiseThen(engine, promise, new AsyncCloseContinuation(this, completion, realm, onClosed));
+    }
+
+    /// <summary>
+    /// The value an exception out of one of the close's own steps stands for, as innerResult's throw completion: a
+    /// <see cref="JavaScriptException"/>'s error; nothing that matters under a throw completion, which wins anyway; and
+    /// otherwise a host exception's conversion (<see cref="TryConvertHostException"/>). False when the engine's interop
+    /// exception handler declines it, and the caller lets it propagate.
+    /// </summary>
+    private static bool TryGetCloseError(Engine engine, CompletionType completion, Exception exception, out JsValue error)
+    {
+        if (exception is JavaScriptException javaScriptException)
+        {
+            error = javaScriptException.Error;
+            return true;
+        }
+
+        if (completion == CompletionType.Throw)
+        {
+            error = Undefined;
+            return true;
+        }
+
+        if (TryConvertHostException(engine, exception, out var converted))
+        {
+            error = converted;
+            return true;
+        }
+
+        error = Undefined;
+        return false;
+    }
+
+    /// <summary>
+    /// A host exception as the JavaScript error it becomes when the engine's interop exception handler converts it
+    /// (<see cref="Options.InteropOptions.ExceptionHandler"/>, which <c>CatchClrExceptions</c> installs): what a
+    /// <see cref="Runtime.Interop.ClrFunction"/> does with one on its way out. A built-in that runs in a promise reaction
+    /// with no capability to reject has to convert it itself and reject its own promise, or the conversion reaches no
+    /// one and that promise stays pending. False, and the caller lets the exception propagate, when the handler declines
+    /// it or it ends the run (<see cref="Throw.MustPropagateHostException"/>). Call it from a <c>catch</c> block, never a
+    /// filter: the conversion runs engine code, which must see the stack already unwound.
+    /// </summary>
+    internal static bool TryConvertHostException(Engine engine, Exception exception, [NotNullWhen(true)] out JsValue? error)
+    {
+        if (exception is JavaScriptException
+            || Throw.MustPropagateHostException(exception)
+            || !engine.Options.Interop.ExceptionHandler(exception))
+        {
+            error = null;
+            return false;
+        }
+
+        try
+        {
+            Throw.FromClrException(engine, exception);
+        }
+        catch (JavaScriptException converted)
+        {
+            error = converted.Error;
+            return true;
+        }
+
+        error = null;
+        return false;
     }
 
     /// <summary>
@@ -132,7 +208,10 @@ internal abstract partial class IteratorInstance
     /// <summary>
     /// The reaction to the Await of <see cref="AsyncIteratorClose(CompletionType, Action{JsValue})"/>: releases the native
     /// state now that the answer has settled, then takes steps 5 to 8. The <c>TypeError</c> of step 7 is created in the
-    /// realm that was running when the close started.
+    /// realm that was running when the close started. A host's <c>Dispose</c> can throw out of the release only when no
+    /// throw is leaving the close, and its exception is then what the close raises, converted as
+    /// <see cref="TryConvertHostException"/> converts one; this reaction has no capability that would take it otherwise.
+    /// Declined by the engine's interop exception handler, it propagates as it is.
     /// </summary>
     private sealed class AsyncCloseContinuation : IPromiseContinuation
     {
@@ -152,7 +231,20 @@ internal abstract partial class IteratorInstance
         public void Invoke(Engine engine, JsValue value, ReactionType type)
         {
             var error = AsyncIteratorCloseError(_realm, _completion, value, type == ReactionType.Reject);
-            _record.CloseNativeStateAfterReturn(_completion == CompletionType.Throw || error is not null ? CompletionType.Throw : _completion);
+            try
+            {
+                _record.CloseNativeStateAfterReturn(_completion == CompletionType.Throw || error is not null ? CompletionType.Throw : _completion);
+            }
+            catch (Exception e) when (e is not JavaScriptException && !Throw.MustPropagateHostException(e))
+            {
+                if (!TryConvertHostException(engine, e, out var converted))
+                {
+                    throw;
+                }
+
+                error = converted;
+            }
+
             _onClosed(error);
         }
     }

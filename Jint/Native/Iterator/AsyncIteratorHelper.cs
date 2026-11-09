@@ -117,6 +117,12 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
     /// promise. It never reads <c>next</c> again, so a getter on it runs once and a <c>next</c> replaced mid-iteration is
     /// not called (sebastienros/jint#4419). Answers null when the call threw, having rejected the capability through
     /// <see cref="RejectSourceStep"/>.
+    /// <para>
+    /// A host exception from the step, such as a CLR collection's <c>MoveNext</c>, is a failed step too when the engine's
+    /// interop exception handler converts it (<see cref="IteratorInstance.TryConvertHostException"/>). A step taken
+    /// inside a promise reaction would otherwise hand the conversion to a reaction with no capability, and the helper's
+    /// promise would stay pending (sebastienros/jint#4500). Declined by the handler, it propagates as it is.
+    /// </para>
     /// </summary>
     protected JsPromise? CallIteratorNext(PromiseCapability promiseCapability)
     {
@@ -128,6 +134,16 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
         catch (JavaScriptException ex)
         {
             RejectSourceStep(promiseCapability, ex.Error);
+            return null;
+        }
+        catch (Exception e) when (!Throw.MustPropagateHostException(e))
+        {
+            if (!IteratorInstance.TryConvertHostException(_engine, e, out var error))
+            {
+                throw;
+            }
+
+            RejectSourceStep(promiseCapability, error);
             return null;
         }
     }
@@ -202,11 +218,18 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
 
     /// <summary>
     /// Helper to resolve promiseCapability with an iterator result {value, done: false},
-    /// setting state to SuspendedYield.
+    /// setting state to SuspendedYield. A helper that is already completed stays completed: a <c>return()</c> that came
+    /// in while the step was in flight has closed the source, so the step still answers its value, and a later
+    /// <c>next()</c> answers done rather than stepping the closed source again. The state used to go back to
+    /// SuspendedYield (sebastienros/jint#4500).
     /// </summary>
     protected void ResolveYield(PromiseCapability promiseCapability, JsValue value)
     {
-        State = GeneratorState.SuspendedYield;
+        if (State != GeneratorState.Completed)
+        {
+            State = GeneratorState.SuspendedYield;
+        }
+
         promiseCapability.Resolve(CreateIteratorResult(value, done: false));
     }
 
@@ -571,17 +594,20 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
             return promiseCapability.PromiseInstance;
         }
 
+        // The source is spoken for from here: a second return() while the inner close is in flight finds it Exhausted
+        // and resolves at once, as a completed helper does, rather than closing the source ahead of this one.
         _innerIterator = null;
+        Exhausted = true;
         var self = this;
         inner.AsyncIteratorClose(CompletionType.Return, innerError =>
         {
             if (innerError is null)
             {
-                self.CloseSource(promiseCapability, CompletionType.Return, doneResult);
+                self.Iterated.AsyncIteratorClose(CompletionType.Return, doneResult, promiseCapability);
             }
             else
             {
-                self.CloseSource(promiseCapability, CompletionType.Throw, innerError);
+                self.Iterated.AsyncIteratorClose(CompletionType.Throw, innerError, promiseCapability);
             }
         });
 

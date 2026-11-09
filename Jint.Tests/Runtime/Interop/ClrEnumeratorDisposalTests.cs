@@ -294,6 +294,87 @@ public class ClrEnumeratorDisposalTests
         items.Disposals.Should().Be(1);
     }
 
+    private const string HostFailureHarness = """
+        // Ways an async iterator helper or a consuming method meets a host exception from the enumerator behind
+        // `items`. Its Dispose: take at its limit, and some, every and find stopping early, with no `return` and after
+        // a script one. Its MoveNext on the second step: filter, drop, toArray and some take that step inside a promise
+        // reaction, and map's is a next() the script calls, which must answer a rejected promise.
+        const meet = {
+            takeAtLimit: () => AsyncIterator.prototype.take.call(items[Symbol.iterator](), 0).next(),
+            someStops: () => AsyncIterator.prototype.some.call(items[Symbol.iterator](), () => true),
+            everyStops: () => AsyncIterator.prototype.every.call(items[Symbol.iterator](), () => false),
+            findStops: () => AsyncIterator.prototype.find.call(items[Symbol.iterator](), () => true),
+            someStopsAfterAReturn: () => {
+                const it = items[Symbol.iterator]();
+                it.return = function () { return {}; };
+                return AsyncIterator.prototype.some.call(it, () => true);
+            },
+            filterSecondStep: () => AsyncIterator.prototype.filter.call(items[Symbol.iterator](), () => false).next(),
+            dropSecondStep: () => AsyncIterator.prototype.drop.call(items[Symbol.iterator](), 1).next(),
+            toArraySecondStep: () => AsyncIterator.prototype.toArray.call(items[Symbol.iterator]()),
+            someSecondStep: () => AsyncIterator.prototype.some.call(items[Symbol.iterator](), () => false),
+            mapSecondNext: async () => {
+                const h = AsyncIterator.prototype.map.call(items[Symbol.iterator](), x => x);
+                await h.next();
+                let p;
+                try { p = h.next(); } catch (e) { return 'next() threw:' + e.name; }
+                return p;
+            }
+        };
+        """;
+
+    /// <summary>
+    /// A host exception from the enumerator a helper or a consuming method is using: its <c>Dispose</c> when the close
+    /// releases it, and its <c>MoveNext</c> on a later step. Under <c>CatchClrExceptions</c> it is converted and rejects
+    /// the promise the helper or the method answered, as a JavaScript throw at the same point does. Most of those steps
+    /// run in a promise reaction with no capability to reject, so the conversion used to reach no one and the promise
+    /// stayed pending. The rest, <c>take</c> at its limit, a close after a script <c>return</c> and <c>map</c>'s
+    /// <c>next()</c>, let the exception reach the host unconverted. Without the handler it propagates to
+    /// the host as it is, as a <c>for</c>-<c>of</c> left by <c>break</c> propagates a throwing <c>Dispose</c>
+    /// (sebastienros/jint#4500). The enumerator is disposed once either way.
+    /// </summary>
+    [TestCase("dispose", "takeAtLimit", true, "rejected:Error")]
+    [TestCase("dispose", "someStops", true, "rejected:Error")]
+    [TestCase("dispose", "everyStops", true, "rejected:Error")]
+    [TestCase("dispose", "findStops", true, "rejected:Error")]
+    [TestCase("dispose", "someStopsAfterAReturn", true, "rejected:Error")]
+    [TestCase("moveNext", "filterSecondStep", true, "rejected:Error")]
+    [TestCase("moveNext", "dropSecondStep", true, "rejected:Error")]
+    [TestCase("moveNext", "toArraySecondStep", true, "rejected:Error")]
+    [TestCase("moveNext", "someSecondStep", true, "rejected:Error")]
+    [TestCase("moveNext", "mapSecondNext", true, "rejected:Error")]
+    [TestCase("dispose", "takeAtLimit", false, "dispose failed")]
+    [TestCase("dispose", "someStops", false, "dispose failed")]
+    [TestCase("dispose", "everyStops", false, "dispose failed")]
+    [TestCase("dispose", "findStops", false, "dispose failed")]
+    [TestCase("dispose", "someStopsAfterAReturn", false, "dispose failed")]
+    [TestCase("moveNext", "filterSecondStep", false, "step failed")]
+    [TestCase("moveNext", "dropSecondStep", false, "step failed")]
+    [TestCase("moveNext", "toArraySecondStep", false, "step failed")]
+    [TestCase("moveNext", "someSecondStep", false, "step failed")]
+    [TestCase("moveNext", "mapSecondNext", false, "step failed")]
+    public void AHostExceptionFromTheEnumeratorReachesTheHelpersPromise(string fault, string way, bool catchClrExceptions, string expected)
+    {
+        var items = new FaultingEnumerable(fault);
+        var engine = new Engine(options =>
+        {
+            if (catchClrExceptions)
+            {
+                options.CatchClrExceptions();
+            }
+        });
+        engine.SetValue("items", items);
+
+        AnswerOrHostFailure(engine, HostFailureHarness + "\n" + $$"""
+            (async function () {
+                try { return 'resolved:' + JSON.stringify(await meet.{{way}}()); }
+                catch (e) { return 'rejected:' + (e instanceof Error ? e.name : String(e)); }
+            })()
+            """).Should().Be(expected);
+        items.Disposals.Should().Be(1);
+        items.StepsAfterDisposal.Should().Be(0);
+    }
+
     /// <summary>
     /// A host link on the iterator's chain whose own read of <c>return</c> throws: GetMethod's throw is IteratorClose's
     /// step 3, so a close under a throw completion keeps the loop's own throw (step 5), one under <c>break</c>

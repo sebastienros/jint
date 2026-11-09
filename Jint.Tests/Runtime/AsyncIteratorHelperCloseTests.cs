@@ -215,6 +215,57 @@ public class AsyncIteratorHelperCloseTests
                 return log.join(',');
             })();
         }
+
+        // Two return() calls while flatMap's inner iterator is open, the inner `return` answering a promise that settles a
+        // few jobs later: the second return() finds the helper completed and resolves at once, and the source is closed
+        // only once the inner close has settled, after which the first resolves.
+        function flatMapReturnTwice() {
+            const log = [];
+            const inner = {
+                [Symbol.asyncIterator]() { return this; },
+                next() { return Promise.resolve({ value: 'i', done: false }); },
+                return() {
+                    log.push('inner.return');
+                    return Promise.resolve().then(() => { }).then(() => { log.push('inner.settled'); return {}; });
+                }
+            };
+            const outer = {
+                next() { return Promise.resolve({ value: 1, done: false }); },
+                return() { log.push('outer.return'); return {}; }
+            };
+            const h = AsyncIterator.prototype.flatMap.call(outer, () => inner);
+            return h.next().then(() => {
+                const a = h.return().then(() => log.push('a'));
+                const b = h.return().then(() => log.push('b'));
+                return Promise.all([a, b]).then(() => log.join(','));
+            });
+        }
+
+        // A return() while a step is in flight: the step still answers its value, the source is closed once, and a later
+        // next() answers done without stepping the closed source again. The async generator doing the same with
+        // for await is the control.
+        function returnDuringStep(name) {
+            const log = [];
+            let n = 0;
+            const src = {
+                next() { n++; log.push('next' + n); return Promise.resolve({ value: 1, done: false }); },
+                return() { log.push('return'); return {}; }
+            };
+            const P = AsyncIterator.prototype;
+            let h;
+            switch (name) {
+                case 'map': h = P.map.call(src, x => x); break;
+                case 'filter': h = P.filter.call(src, () => true); break;
+                case 'take': h = P.take.call(src, 5); break;
+                case 'drop': h = P.drop.call(src, 0); break;
+                case 'flatMap': h = P.flatMap.call(src, x => [x]); break;
+                case 'generator': h = (async function* () { for await (const x of { [Symbol.asyncIterator]() { return src; } }) yield x; })(); break;
+            }
+            const p1 = h.next();
+            const p2 = h.return();
+            return Promise.all([p1, p2]).then(([r1, r2]) => h.next().then(r3 =>
+                'p1:' + JSON.stringify(r1) + '|p2:' + JSON.stringify(r2) + '|p3:' + JSON.stringify(r3) + '|' + log.join(',')));
+        }
         """;
 
     private static string Run(string script) =>
@@ -484,54 +535,103 @@ public class AsyncIteratorHelperCloseTests
     }
 
     /// <summary>
+    /// What flatMap's <c>return()</c> answers, and the order things happen in, for each way the inner and the outer
+    /// iterator's <c>return</c> can behave. core-js 3.51's answers, which are also what #30's nested <c>for await</c>
+    /// gives natively in Node 26.
+    /// </summary>
+    public static TestCases<string, string, string> FlatMapReturnRows => new()
+    {
+        { "object", "object", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,outer.return:0:true,second:{\"done\":true}" },
+        { "object", "rejects", "rejected:RangeError:outer.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "object", "number", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "object", "missing", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,second:{\"done\":true}" },
+        { "promiseOfObject", "object", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,outer.return:0:true,second:{\"done\":true}" },
+        { "promiseOfObject", "rejects", "rejected:RangeError:outer.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "promiseOfObject", "number", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "promiseOfObject", "missing", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,second:{\"done\":true}" },
+        { "thenable", "object", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true,second:{\"done\":true}" },
+        { "thenable", "rejects", "rejected:RangeError:outer.r|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true" },
+        { "thenable", "number", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true" },
+        { "thenable", "missing", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,inner.then,second:{\"done\":true}" },
+        { "throws", "object", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "throws", "rejects", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "throws", "number", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "throws", "missing", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true" },
+        { "rejects", "object", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "rejects", "rejects", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "rejects", "number", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "rejects", "missing", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true" },
+        { "thenableRejects", "object", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true" },
+        { "thenableRejects", "rejects", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true" },
+        { "thenableRejects", "number", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true" },
+        { "thenableRejects", "missing", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,inner.then" },
+        { "number", "object", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "number", "rejects", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "number", "number", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "number", "missing", "rejected:TypeError|outer.next,inner.next,inner.return:0:true" },
+        { "undefined", "object", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "undefined", "rejects", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "undefined", "number", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true" },
+        { "undefined", "missing", "rejected:TypeError|outer.next,inner.next,inner.return:0:true" },
+        { "missing", "object", "fulfilled:{\"done\":true}|outer.next,inner.next,outer.return:0:true,second:{\"done\":true}" },
+        { "missing", "rejects", "rejected:RangeError:outer.r|outer.next,inner.next,outer.return:0:true" },
+        { "missing", "number", "rejected:TypeError|outer.next,inner.next,outer.return:0:true" },
+        { "missing", "missing", "fulfilled:{\"done\":true}|outer.next,inner.next,second:{\"done\":true}" },
+        { "getterThrows", "object", "rejected:RangeError:inner.g|outer.next,inner.next,inner.get,outer.return:0:true" },
+        { "getterThrows", "rejects", "rejected:RangeError:inner.g|outer.next,inner.next,inner.get,outer.return:0:true" },
+        { "getterThrows", "number", "rejected:RangeError:inner.g|outer.next,inner.next,inner.get,outer.return:0:true" },
+        { "getterThrows", "missing", "rejected:RangeError:inner.g|outer.next,inner.next,inner.get" },
+    };
+
+    /// <summary>
     /// flatMap's <c>return()</c> with an inner iterator open closes the inner one first and awaits it; only then is the
     /// outer one closed: with the return completion when the inner close completed, and with the inner close's error,
-    /// which then wins, when it did not. Each row is also what #30's nested <c>for await</c> does natively. Jint closed
-    /// the inner iterator synchronously, so a rejection or a non-object answer from its <c>return</c> was lost.
+    /// which then wins, when it did not. Jint closed the inner iterator synchronously, so a rejection or a non-object
+    /// answer from its <c>return</c> was lost.
     /// </summary>
-    [TestCase("object", "object", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,outer.return:0:true,second:{\"done\":true}")]
-    [TestCase("object", "rejects", "rejected:RangeError:outer.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("object", "number", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("object", "missing", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,second:{\"done\":true}")]
-    [TestCase("promiseOfObject", "object", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,outer.return:0:true,second:{\"done\":true}")]
-    [TestCase("promiseOfObject", "rejects", "rejected:RangeError:outer.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("promiseOfObject", "number", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("promiseOfObject", "missing", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,second:{\"done\":true}")]
-    [TestCase("thenable", "object", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true,second:{\"done\":true}")]
-    [TestCase("thenable", "rejects", "rejected:RangeError:outer.r|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true")]
-    [TestCase("thenable", "number", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true")]
-    [TestCase("thenable", "missing", "fulfilled:{\"done\":true}|outer.next,inner.next,inner.return:0:true,inner.then,second:{\"done\":true}")]
-    [TestCase("throws", "object", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("throws", "rejects", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("throws", "number", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("throws", "missing", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true")]
-    [TestCase("rejects", "object", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("rejects", "rejects", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("rejects", "number", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("rejects", "missing", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true")]
-    [TestCase("thenableRejects", "object", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true")]
-    [TestCase("thenableRejects", "rejects", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true")]
-    [TestCase("thenableRejects", "number", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,inner.then,outer.return:0:true")]
-    [TestCase("thenableRejects", "missing", "rejected:RangeError:inner.r|outer.next,inner.next,inner.return:0:true,inner.then")]
-    [TestCase("number", "object", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("number", "rejects", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("number", "number", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("number", "missing", "rejected:TypeError|outer.next,inner.next,inner.return:0:true")]
-    [TestCase("undefined", "object", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("undefined", "rejects", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("undefined", "number", "rejected:TypeError|outer.next,inner.next,inner.return:0:true,outer.return:0:true")]
-    [TestCase("undefined", "missing", "rejected:TypeError|outer.next,inner.next,inner.return:0:true")]
-    [TestCase("missing", "object", "fulfilled:{\"done\":true}|outer.next,inner.next,outer.return:0:true,second:{\"done\":true}")]
-    [TestCase("missing", "rejects", "rejected:RangeError:outer.r|outer.next,inner.next,outer.return:0:true")]
-    [TestCase("missing", "number", "rejected:TypeError|outer.next,inner.next,outer.return:0:true")]
-    [TestCase("missing", "missing", "fulfilled:{\"done\":true}|outer.next,inner.next,second:{\"done\":true}")]
-    [TestCase("getterThrows", "object", "rejected:RangeError:inner.g|outer.next,inner.next,inner.get,outer.return:0:true")]
-    [TestCase("getterThrows", "rejects", "rejected:RangeError:inner.g|outer.next,inner.next,inner.get,outer.return:0:true")]
-    [TestCase("getterThrows", "number", "rejected:RangeError:inner.g|outer.next,inner.next,inner.get,outer.return:0:true")]
-    [TestCase("getterThrows", "missing", "rejected:RangeError:inner.g|outer.next,inner.next,inner.get")]
+    [TestCaseSource(nameof(FlatMapReturnRows))]
     public void FlatMapsReturnClosesTheInnerIteratorFirstAndAwaitsIt(string innerHow, string outerHow, string expected)
     {
         Run($"flatMapReturn('{innerHow}', '{outerHow}', false)").Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The control: tc39/proposal-async-iterator-helpers#30's nested <c>for await</c>, run through Jint's own
+    /// <c>for await</c> and async generator, answers every row the same way.
+    /// </summary>
+    [TestCaseSource(nameof(FlatMapReturnRows))]
+    public void ANestedForAwaitClosesInTheSameOrder(string innerHow, string outerHow, string expected)
+    {
+        Run($"flatMapReturn('{innerHow}', '{outerHow}', true)").Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A second <c>return()</c> while the first is still awaiting the inner iterator's close resolves at once, as one on
+    /// a completed helper does, and the source is closed only after the inner close has settled. The first used to leave
+    /// the source open for the second, which closed it before the inner close had settled and resolved ahead of it.
+    /// core-js 3.51's order.
+    /// </summary>
+    [Test]
+    public void ASecondReturnDoesNotCloseTheSourceAheadOfTheInnerClose()
+    {
+        Run("flatMapReturnTwice()").Should().Be("inner.return,b,inner.settled,outer.return,a");
+    }
+
+    /// <summary>
+    /// A <c>return()</c> that comes in while a step is in flight completes the helper for good: the step still answers
+    /// its value, the source is closed once, and a later <c>next()</c> answers done. The step used to put the helper
+    /// back into its suspended state, so that <c>next()</c> stepped the closed source again. core-js 3.51's answers; the
+    /// async generator is the native control.
+    /// </summary>
+    [TestCase("map")]
+    [TestCase("filter")]
+    [TestCase("take")]
+    [TestCase("drop")]
+    [TestCase("flatMap")]
+    [TestCase("generator")]
+    public void AReturnDuringAStepCompletesTheHelperForGood(string name)
+    {
+        Run($"returnDuringStep('{name}')").Should().Be("p1:{\"value\":1,\"done\":false}|p2:{\"done\":true}|p3:{\"done\":true}|next1,return");
     }
 
     /// <summary>

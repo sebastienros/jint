@@ -214,7 +214,11 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     /// <summary>
     /// A consuming method's <c>Await(? IteratorNext(iterated))</c>: calls the [[NextMethod]] that GetIteratorDirect read
     /// once (https://tc39.es/ecma262/#sec-getiteratordirect), never <c>next</c> read again (sebastienros/jint#4419), and
-    /// normalizes the result as a promise. Returns null and rejects the capability on failure.
+    /// normalizes the result as a promise. Returns null and rejects the capability on failure: a host exception from the
+    /// step, such as a CLR collection's <c>MoveNext</c>, included, when the engine's interop exception handler converts
+    /// it (<see cref="IteratorInstance.TryConvertHostException"/>). A later step runs inside a promise reaction, whose
+    /// conversion would reach no one and leave the promise pending (sebastienros/jint#4500). Declined by the handler, it
+    /// propagates as it is.
     /// </summary>
     private JsPromise? CallIteratorNext(IteratorInstance.ObjectIterator iterated, PromiseCapability promiseCapability)
     {
@@ -226,6 +230,16 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         catch (JavaScriptException ex)
         {
             promiseCapability.Reject(ex.Error);
+            return null;
+        }
+        catch (Exception e) when (!Throw.MustPropagateHostException(e))
+        {
+            if (!IteratorInstance.TryConvertHostException(_engine, e, out var error))
+            {
+                throw;
+            }
+
+            promiseCapability.Reject(error);
             return null;
         }
     }

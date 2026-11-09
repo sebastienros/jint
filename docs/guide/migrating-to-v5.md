@@ -8196,11 +8196,25 @@ left open. Before, the inner iterator was closed synchronously and `return()` re
 step failed because the promise it answered has a throwing `constructor` no longer calls that inner iterator's
 `return` from a later `return()`.
 
-The source is now closed through the same steps a `for await` loop uses. **What could break:** a host that hands a
-wrapped CLR collection's iterator straight to one of these helpers sees its enumerator disposed once `return`'s answer
-has settled, instead of when `return` is called. A helper's `return()` now disposes it too, which it did not do
-before. A constraint that trips inside the source's `return` while a callback's error is closing it now ends the run.
-Before, it was swallowed. There is no switch back.
+A `return()` that comes in while one of a helper's steps is still in flight now completes the helper for good. The
+step still answers its value, and a later `next()` answers `{ done: true }`. Before, the step put the helper back in
+its suspended state, so that `next()` called the closed source's `next` again.
+
+The source is now closed through the same steps a `for await` loop uses. **What could break:**
+
+- A host that hands a wrapped CLR collection's iterator straight to one of these helpers sees its enumerator disposed
+  once `return`'s answer has settled, instead of when `return` is called. A helper's `return()` now disposes it too,
+  which it did not do before.
+- A host `Dispose` that throws now propagates, as it does when a `for … of` loop is left by `break`. That includes a
+  source with no `return` at all, when `take` reaches its limit or `some`, `every` or `find` stops early. Before, it was
+  swallowed.
+- Under `CatchClrExceptions`, that exception rejects the promise the helper or method answered, with the converted
+  error. So does one from the enumerator's `MoveNext`. Before, a step taken inside a promise reaction left the promise
+  pending. A step taken directly by a `next()` call let the exception reach the host unconverted.
+- A constraint that trips inside the source's `return` while a callback's error is closing it now ends the run.
+  Before, it was swallowed.
+
+There is no switch back.
 
 ## 5. New in v5
 
