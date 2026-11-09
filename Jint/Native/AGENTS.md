@@ -61,4 +61,6 @@ allocates, and a bound function's `CreateArguments`. Each compares against `Engi
 `ulong.MaxValue`, so a default engine's compare never fails
 ([#4505](https://github.com/sebastienros/jint/issues/4505)). A new path that builds a list from a run-time count owes
 the same check, and a list a web API fills from what script stored takes `ArrayInstance.ValidateListLength` before
-allocating.
+allocating. A list the host already built is exempt, because the check would bound no memory. Two such lists are
+a host's own argument array and a CLR `ProxyHandler`'s `OwnKeys`, which `JsProxy` passes to
+`CreateListFromArrayLike` with no limit.

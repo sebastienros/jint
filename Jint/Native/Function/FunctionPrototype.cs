@@ -189,9 +189,11 @@ internal sealed partial class FunctionPrototype : Function
     /// <remarks>
     /// The list is as long as the array-like's <c>"length"</c> says, which a script can make anything, so it is held
     /// to <c>MaxArraySize</c> like an array built from a count, before it is allocated (sebastienros/jint#4505). That
-    /// bounds <c>apply</c>, <c>Reflect.apply</c>, <c>Reflect.construct</c> and a Proxy's <c>ownKeys</c> result.
+    /// bounds <c>apply</c>, <c>Reflect.apply</c>, <c>Reflect.construct</c> and a script <c>ownKeys</c> trap's result.
+    /// A caller whose list a host already built passes <see cref="ulong.MaxValue"/> as <paramref name="maxLength"/>,
+    /// since the check would bound no memory there; <see langword="null"/> takes the engine's limit.
     /// </remarks>
-    internal static JsValue[] CreateListFromArrayLike(Realm realm, JsValue argArray, Types? elementTypes = null)
+    internal static JsValue[] CreateListFromArrayLike(Realm realm, JsValue argArray, Types? elementTypes = null, ulong? maxLength = null)
     {
         var argArrayObj = argArray as ObjectInstance;
         if (argArrayObj is null)
@@ -199,10 +201,10 @@ internal sealed partial class FunctionPrototype : Function
             Throw.TypeError(realm, "CreateListFromArrayLike called on non-object");
         }
         var operations = ArrayOperations.For(argArrayObj, forWrite: false);
-        var maxLength = argArrayObj.Engine._maxListLength;
+        var limit = maxLength ?? argArrayObj.Engine._maxListLength;
         var argList = elementTypes is null
-            ? operations.GetAll(errorRealm: realm, maxLength: maxLength)
-            : operations.GetAll(elementTypes.Value, errorRealm: realm, maxLength: maxLength);
+            ? operations.GetAll(errorRealm: realm, maxLength: limit)
+            : operations.GetAll(elementTypes.Value, errorRealm: realm, maxLength: limit);
         return argList;
     }
 

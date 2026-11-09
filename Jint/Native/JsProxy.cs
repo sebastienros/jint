@@ -266,6 +266,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var target = _target;
 
         JsValue result;
+        // A script trap's result is an array-like whose "length" the script chose, so its list is held to MaxArraySize;
+        // a CLR handler's keys are a list the host already built, which the check would bound no memory of
+        // (sebastienros/jint#4505).
+        ulong? maxLength = null;
         var clrHandler = _clrHandler;
         if (clrHandler is not null)
         {
@@ -276,6 +280,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             }
 
             result = CreateOwnKeysArray(clrResult);
+            maxLength = ulong.MaxValue;
         }
         else
         {
@@ -289,7 +294,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             result = CallTrap(handler, trap, target);
         }
 
-        return ValidateOwnKeysTrapResult(target, result);
+        return ValidateOwnKeysTrapResult(target, result, maxLength);
     }
 
     private JsArray CreateOwnKeysArray(IReadOnlyList<JsValue> keys)
@@ -311,9 +316,9 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         return new JsArray(_engine, copy);
     }
 
-    private List<JsValue> ValidateOwnKeysTrapResult(ObjectInstance target, JsValue result)
+    private List<JsValue> ValidateOwnKeysTrapResult(ObjectInstance target, JsValue result, ulong? maxLength)
     {
-        var keys = FunctionPrototype.CreateListFromArrayLike(_engine.Realm, result, Types.String | Types.Symbol);
+        var keys = FunctionPrototype.CreateListFromArrayLike(_engine.Realm, result, Types.String | Types.Symbol, maxLength);
 
         // one set serves both duplicate detection and the spec's uncheckedResultKeys below
         var uncheckedResultKeys = new HashSet<JsValue>();

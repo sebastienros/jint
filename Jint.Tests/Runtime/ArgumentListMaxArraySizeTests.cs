@@ -1,6 +1,9 @@
 #nullable enable
 
+using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
 
@@ -90,6 +93,39 @@ public class ArgumentListMaxArraySizeTests
 
         thrown.Should().BeOfType<MemoryLimitExceededException>();
         thrown!.Message.Should().Be($"The array size 5 is larger than maximum allowed ({Limit})");
+    }
+
+    /// <summary>
+    /// A host <see cref="ProxyHandler"/>'s keys are a list the host already built, so holding them to the limit would
+    /// bound no memory and only break enumeration: <c>for…in</c>, <c>Object.assign</c> and object spread read past the
+    /// limit, and so does the host. A script <c>ownKeys</c> trap over the same target, whose array-like's
+    /// <c>length</c> the script chose, is still refused.
+    /// </summary>
+    [Test]
+    public void AHostProxyHandlersKeysAreNotCountedButAScriptTrapsAre()
+    {
+        var engine = EngineWith(Limit);
+        var target = engine.Evaluate("({ a: 1, b: 2, c: 3, d: 4, e: 5 })").AsObject();
+        var proxy = engine.Advanced.CreateProxy(target, new HostKeys(["a", "b", "c", "d", "e"]));
+        engine.SetValue("hostProxy", proxy);
+        engine.SetValue("target", target);
+
+        engine.Evaluate("(() => { let n = 0; for (const k in hostProxy) n++; return n; })()").AsNumber().Should().Be(5);
+        engine.Evaluate("Object.assign({}, hostProxy).e").AsNumber().Should().Be(5);
+        engine.Evaluate("({ ...hostProxy }).e").AsNumber().Should().Be(5);
+        proxy.GetOwnPropertyKeys().Should().HaveCount(5);
+
+        var thrown = Caught.Exception(() => engine.Evaluate("""
+            (() => { let n = 0; for (const k in new Proxy(target, { ownKeys: () => ['a', 'b', 'c', 'd', 'e'] })) n++; return n; })()
+            """));
+        thrown.Should().BeOfType<MemoryLimitExceededException>();
+        thrown!.Message.Should().Be($"The array size 5 is larger than maximum allowed ({Limit})");
+    }
+
+    private sealed class HostKeys(string[] keys) : ProxyHandler
+    {
+        public override IReadOnlyList<JsValue>? OwnKeys(ObjectInstance target)
+            => keys.Select(static key => (JsValue) JsString.Create(key)).ToList();
     }
 
     [Test]

@@ -31,10 +31,14 @@ A long `a + b` defers its copy, so it is charged when it is built, for the chara
 whose result alone would exceed the limit fails at once: no single string a script builds costs more than the
 budget to read.
 
-`MaxArraySize` bounds every array a script builds from a count, and every argument list a count chosen at run time
-makes longer: a spread, an array-like handed to `apply`, `Reflect.apply` or `Reflect.construct`, the bound arguments
-a chain of `bind` calls adds up. Past it the run ends with `MemoryLimitExceededException`. A list written out in the
-source, such as `f(1, 2, 3)` or `[1, 2, 3]`, is no longer than the script, so it is not counted.
+`MaxArraySize` bounds the arrays a script builds from a count: `Array(n)`, the element writes that grow an array,
+and the built-ins and web APIs that hand script a list of what it stored. It also bounds the argument lists a count
+chosen at run time makes longer: a spread, an array-like handed to `apply`, `Reflect.apply` or `Reflect.construct`,
+and the bound arguments a chain of `bind` calls adds up. Past it the run ends with `MemoryLimitExceededException`.
+A list written out in the source, such as `f(1, 2, 3)` or `[1, 2, 3]`, is no longer than the script, so it is not
+counted, and neither is a list the host builds itself. Not every built-in is bounded yet:
+`AsyncIterator.prototype.toArray` and `Array.prototype.toSorted` on an array-like are tracked in
+[#4520](https://github.com/sebastienros/jint/issues/4520).
 
 The native stack-overflow guard is enabled by default. It converts exhausted recursion headroom into a
 catchable JavaScript `RangeError` while the engine can still unwind. `MaxRecursionDepth` is an additional,

@@ -1,6 +1,7 @@
 using Jint.Browser.Geometry;
 using Jint.HtmlParser;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -81,6 +82,8 @@ internal sealed class JsCanvasContext : ObjectInstance
             case "setTransform":
                 Transform(name, args); break;
             case "getLineDash":
+                // As long as the sequence setLineDash was given, twice that for an odd count (sebastienros/jint#4505).
+                ArrayInstance.ValidateListLength(Engine, (uint) State.LineDash.Length);
                 return new JsArray(Engine, State.LineDash.Select(JsNumber.Create).Cast<JsValue>().ToArray());
             case "setLineDash": SetLineDash(args); break;
             case "createLinearGradient":

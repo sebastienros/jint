@@ -8120,14 +8120,17 @@ These lists are now held to the limit, and refused with the same exception and m
   the list past the limit, and the iterator is closed there instead of being stepped to its end.
 - **An array literal with a spread**, `[...a, ...b]`, which builds its elements the same way.
 - **`Function.prototype.apply`, `Reflect.apply` and `Reflect.construct`:** the list made from an array-like is
-  refused when its `length` is read, before the list is allocated and before any element is read. A `Proxy`'s
-  `ownKeys` trap result is read the same way.
+  refused when its `length` is read, before the list is allocated and before any element is read. A script `Proxy`
+  `ownKeys` trap's result is read the same way. A host `ProxyHandler`'s `OwnKeys` list is not counted: the host has
+  already built it.
 - **A bound function:** the list made from its bound arguments and the call's own, which a chain of `bind` calls
   adds up.
 - **The web APIs that list what script stored:**
-  - `Headers.prototype.getSetCookie` and `caches.keys()`;
+  - `Headers.prototype.getSetCookie` and `URLSearchParams.prototype.getAll`;
+  - `caches.keys()`, and `keys()` / `matchAll()` on a `Cache`;
   - `indexedDB.databases()`, and `getAll` / `getAllKeys` on an object store or an index;
-  - an array key, and an object store's or index's array `keyPath`.
+  - an array key, and an object store's or index's array `keyPath`;
+  - in the `Jint.Browser` package, a canvas context's `getLineDash()` and the lists in a `Sanitizer`'s `get()`.
 
   An array key or a key path is as long as the array the writing engine was given. Several engines can share an
   origin's store (the `Jint.Browser` package does), so the limit that applies is the reading engine's.
@@ -8144,7 +8147,7 @@ call without a spread pays nothing for the bound. A host passing its own argumen
 - **A finite limit:** a host that set a finite `MaxArraySize`, or runs `Options.ForUntrustedCode` (whose limit is
   10,000), and a script that spreads or applies more elements than that. The arguments beside a spread count, so
   under a limit of 10,000, `console.log('values', ...a)` is refused for a 10,000-element `a`.
-- **A `Proxy`'s `ownKeys` trap** returning an array-like longer than the limit now throws
+- **A script `Proxy`'s `ownKeys` trap** returning an array-like longer than the limit now throws
   `MemoryLimitExceededException`. Before, it threw a `TypeError` for an element that is not a key, or went on.
 
 A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged, and a list of exactly `MaxArraySize`

@@ -201,8 +201,9 @@ internal sealed class ExpressionCache
     /// spreads included, is held to <c>Options.Constraints.MaxArraySize</c> like an array built from a count
     /// (sebastienros/jint#4505): an array's spread before any of it is copied, an iterator's at the element that would
     /// take the list past the limit (only on an engine that has one), and the finished list once. The rest parameter
-    /// and the <c>arguments</c> object are made from this list, so bounding it bounds them, and a call without a
-    /// spread, whose list is as long as its source, never comes here.
+    /// and the <c>arguments</c> object are made from this list, so bounding it bounds them. A call with no spread of its
+    /// own comes here only when an argument is an array literal with one (<c>f([...a])</c>, which <see cref="HasSpreads"/>
+    /// counts): that list is as long as its source, so only the finished-list compare runs, and the literal bounds itself.
     /// </para>
     /// </summary>
     internal int BuildArgumentsWithSpreads(EvaluationContext context, List<JsValue> target, int startIndex = 0)

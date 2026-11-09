@@ -94,6 +94,56 @@ public class WebApiListMaxArraySizeTests
         }
     }
 
+    [TestCase("keys", 5)]
+    [TestCase("matchAll", 5)]
+    [TestCase("keys", 4)]
+    [TestCase("matchAll", 4)]
+    public void CacheKeysAndMatchAllAreBoundedByTheLimit(string operation, int entries)
+    {
+        using var engine = CacheEngine();
+        Run(engine, $$"""
+            globalThis.cache = await caches.open('c');
+            for (let i = 0; i < {{entries}}; i++) await cache.put('https://example.org/' + i, new Response('r' + i));
+            """);
+        var read = $"return (await cache.{operation}()).length;";
+
+        if (entries > Limit)
+        {
+            ShouldBeRefused(() => Run(engine, read), entries);
+        }
+        else
+        {
+            Run(engine, read).AsNumber().Should().Be(entries);
+        }
+
+        // match() answers with one response, not a list, however many entries there are.
+        Run(engine, "return (await cache.match('https://example.org/0')) instanceof Response;").AsBoolean().Should().BeTrue();
+    }
+
+    [TestCase(5)]
+    [TestCase(4)]
+    public void UrlSearchParamsGetAllIsBoundedByTheLimit(int values)
+    {
+        using var engine = new Engine(options =>
+        {
+            options.UseWebApis(WebApiFeatures.Url);
+            options.Constraints.MaxArraySize = Limit;
+        });
+        engine.Execute($"var p = new URLSearchParams(); for (let i = 0; i < {values}; i++) p.append('a', String(i)); p.append('b', 'x');");
+
+        if (values > Limit)
+        {
+            ShouldBeRefused(() => engine.Evaluate("p.getAll('a')"), values);
+        }
+        else
+        {
+            engine.Evaluate("p.getAll('a').length").AsNumber().Should().Be(values);
+        }
+
+        // The entries are in the parameters, not in the array: another name fits.
+        engine.Evaluate("p.getAll('b').length").AsNumber().Should().Be(1);
+    }
+
     private static Engine IndexedDbEngine(uint maxArraySize = Limit, IndexedDbStore? store = null)
     {
         var engine = new Engine(options =>
