@@ -109,7 +109,7 @@ internal static class AriaElementReflection
     }
 
     /// <summary>
-    /// One element-reflecting attribute's get/set pair. It captures two strings, an index and a flag and
+    /// One element-reflecting attribute's get/set pair. It captures strings, an index and a flag and
     /// nothing else, so it is engine-independent — the requirement a shape member body carries, because one
     /// shape is instantiated for every engine.
     /// </summary>
@@ -120,6 +120,9 @@ internal static class AriaElementReflection
         private readonly bool _single = single;
 
         internal string Member { get; } = "Element." + member;
+
+        // Chromium's prefix for a value the setter's conversion refuses.
+        private readonly string _setFailure = "Failed to set the '" + member + "' property on 'Element'";
 
         internal JsValue Get(JsValue thisObject, JsValue[] arguments)
         {
@@ -232,15 +235,16 @@ internal static class AriaElementReflection
         }
 
         /// <summary>
-        /// WebIDL's <c>sequence&lt;Element&gt;</c> conversion: anything that is not iterable, and any member
-        /// of it that is not an <c>Element</c>, is a <c>TypeError</c> — which is what makes
-        /// <c>el.ariaControlsElements = otherElement</c> and <c>= "a string"</c> refusals rather than silent
-        /// nonsense.
+        /// WebIDL's <c>sequence&lt;Element&gt;</c> conversion (https://webidl.spec.whatwg.org/#es-sequence), which a
+        /// <c>FrozenArray&lt;Element&gt;</c> starts with: a value that is not an Object, anything that is not
+        /// iterable, and any member of it that is not an <c>Element</c>, is a <c>TypeError</c> — which is what makes
+        /// <c>el.ariaControlsElements = otherElement</c>, <c>= "a string"</c> and <c>= ""</c> refusals rather than
+        /// silent nonsense.
         /// </summary>
         private WeakReference<Element>[] Sequence(DomRealm realm, JsValue value)
         {
             var references = new List<WeakReference<Element>>();
-            var iterator = value.GetIterator(realm.OwningRealm);
+            var iterator = DomConvert.SequenceIterator(realm.OwningRealm, value, _setFailure);
 
             try
             {

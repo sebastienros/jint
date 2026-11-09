@@ -338,8 +338,9 @@ internal static class EventInitReader
 
     /// <summary>
     /// A <c>sequence&lt;Touch&gt;</c> member — https://webidl.spec.whatwg.org/#es-sequence, which is the
-    /// iterable protocol rather than an array test, so a page may hand over any iterable. An element that is
-    /// not a <c>Touch</c> is a <c>TypeError</c>, and the iterator is closed first as the conversion requires.
+    /// iterable protocol rather than an array test, so a page may hand over any iterable, and a value that is not
+    /// an Object, a string included, is a <c>TypeError</c>. An element that is not a <c>Touch</c> is a
+    /// <c>TypeError</c> that closes the iterator (sebastienros/jint#4431).
     /// </summary>
     internal static JsTouchList TouchSequence(BrowserEventRealm realm, ObjectInstance? init, JsString name)
     {
@@ -350,19 +351,26 @@ internal static class EventInitReader
         }
 
         var principal = realm.OwningRealm;
-        var iterator = value.GetIterator(principal);
+        var iterator = Dom.DomConvert.SequenceIterator(principal, value, "Failed to construct 'TouchEvent'", name.ToString(), "TouchEventInit");
         var touches = new List<JsTouch>();
 
-        while (iterator.TryIteratorStepValue(out var item))
+        try
         {
-            if (item is not JsTouch touch)
+            while (iterator.TryIteratorStepValue(out var item))
             {
-                iterator.Close(CompletionType.Throw);
-                Throw.TypeError(principal, "Failed to construct 'TouchEvent': member " + name + " is not of type 'Touch'.");
-                return null!;
-            }
+                if (item is not JsTouch touch)
+                {
+                    Throw.TypeError(principal, "Failed to construct 'TouchEvent': member " + name + " is not of type 'Touch'.");
+                    return null!;
+                }
 
-            touches.Add(touch);
+                touches.Add(touch);
+            }
+        }
+        catch
+        {
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return realm.NewTouchList([.. touches]);
