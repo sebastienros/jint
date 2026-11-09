@@ -641,11 +641,18 @@ AppendEscapedNewLine:
         return RegExpInitialize(r, pattern, flags);
     }
 
-    private JsRegExp RegExpAlloc(JsValue newTarget)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-regexpalloc
+    /// The object is not reachable from script until the <c>RegExpInitialize</c> that follows it, and the only
+    /// script that can run in between (reading <c>newTarget.prototype</c>) runs before the object exists. So
+    /// <paramref name="matcher"/> is the one the caller already holds, or <see langword="null"/> when the
+    /// initialization compiles it; no matcher is made up for an object nothing can match against yet.
+    /// </summary>
+    private JsRegExp RegExpAlloc(JsValue newTarget, JintRegExpEngine? matcher = null)
     {
         if (ReferenceEquals(newTarget, this))
         {
-            return new JsRegExp(_engine)
+            return new JsRegExp(_engine, matcher)
             {
                 _prototype = PrototypeObject
             };
@@ -654,7 +661,8 @@ AppendEscapedNewLine:
         var r = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.RegExp.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new JsRegExp(engine));
+            static (Engine engine, Realm _, JintRegExpEngine? initial) => new JsRegExp(engine, initial),
+            matcher);
         return r;
     }
 
@@ -662,8 +670,7 @@ AppendEscapedNewLine:
     {
         // This method is called to create a JsRegExp object from a regexp literal, e.g., `/abc/i`.
 
-        var r = RegExpAlloc(this);
-        r.Matcher = matcher;
+        var r = RegExpAlloc(this, matcher);
         r.ConversionOptions = conversionOptions;
 
         // Source is already a valid, properly escaped JS regexp pattern.
