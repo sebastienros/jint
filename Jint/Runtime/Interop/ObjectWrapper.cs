@@ -44,6 +44,29 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// </summary>
     private PropertyDictionary? _crossingMemo;
 
+    /// <summary>
+    /// Whether the script has created a property on this wrapper that is still there: a key that no CLR member,
+    /// element, entry or wrapper projection answered for when it was defined. The keys themselves, in creation
+    /// order, are in <see cref="Engine._wrapperScriptDefinedKeys"/>; a wrapper the script never extends pays this
+    /// one test in <see cref="GetOwnPropertyKeys"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A record of its own because <c>_properties</c> cannot tell the two kinds of entry apart. It also caches the
+    /// descriptor of every CLR member <see cref="GetOwnProperty(JsValue)"/> resolves, under whatever name the script
+    /// spelled, and holds the wrapper's own projections (the <c>length</c> forwarder, <c>toJSON</c>,
+    /// <c>@@iterator</c>, <c>@@dispose</c>). Listing those would make the key list depend on which members happened
+    /// to be read, and the descriptor types overlap: a method and a script property are both plain
+    /// <see cref="PropertyDescriptor"/>s.
+    /// </para>
+    /// <para>
+    /// A flag here and the list in an engine side table, because every CLR object that crosses into script gets a
+    /// wrapper: a reference field would add 8 bytes to each of them, while this flag sits in padding the two flags
+    /// above already leave. Recording and forgetting a key are the cold paths that pay the table lookup.
+    /// </para>
+    /// </remarks>
+    private bool _hasScriptDefinedKeys;
+
     internal ObjectWrapper(
         Engine engine,
         object obj,
@@ -887,7 +910,29 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         // same reason as DefineOwnProperty: a descriptor in _properties outranks the memo from now on
         DropCrossingMemo();
+
+        // ValidateAndApplyPropertyDescriptor stores through here for two things: a property GetOwnProperty did not
+        // answer, which it is creating, and one it did, which a data/accessor redefinition replaces. Only the first
+        // is a key of the script's own. What it replaces is already stored, and stays the CLR member, element, entry
+        // or projection it was: GetOwnProperty caches a member it resolves, DefineOwnProperty stores a dictionary
+        // entry first, and a projection is stored when it is made. A key the target reports anyway is listed once,
+        // in the target's place (AddScriptDefinedKeys).
+        if (!TryGetProperty(property, out _))
+        {
+            RecordScriptDefinedKey(property);
+        }
+
         base.SetOwnProperty(property, desc);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void RecordScriptDefinedKey(JsValue property)
+    {
+        // keyed by reference, so ObjectWrapper's Equals (by Target) does not merge two wrappers over one object,
+        // each of which keeps properties of its own
+        var table = _engine._wrapperScriptDefinedKeys ??= new ConditionalWeakTable<ObjectWrapper, List<JsValue>>();
+        table.GetOrCreateValue(this).Add(TypeConverter.ToPropertyKey(property));
+        _hasScriptDefinedKeys = true;
     }
 
     public override void RemoveOwnProperty(JsValue property)
@@ -933,11 +978,39 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             _crossingMemo?.Remove(removedKey.ToString());
         }
 
+        if (_hasScriptDefinedKeys)
+        {
+            ForgetScriptDefinedKey(property);
+        }
+
         if (_lengthPropertyPending && CommonProperties.Length.Equals(property))
         {
             // an explicit removal of the not-yet-materialized forwarder must behave like removing the
             // eagerly-created one did: the property is gone and does not come back
             _lengthPropertyPending = false;
+        }
+    }
+
+    /// <summary>
+    /// Drops a deleted key from this wrapper's script-defined keys. A key the script creates again afterwards is
+    /// recorded again, after every key it then follows in creation order. Once the last one is gone the entry and
+    /// the flag go too, so enumeration is back to a single flag test.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ForgetScriptDefinedKey(JsValue property)
+    {
+        var table = _engine._wrapperScriptDefinedKeys;
+        if (table is null || !table.TryGetValue(this, out var keys))
+        {
+            _hasScriptDefinedKeys = false;
+            return;
+        }
+
+        keys.Remove(TypeConverter.ToPropertyKey(property));
+        if (keys.Count == 0)
+        {
+            table.Remove(this);
+            _hasScriptDefinedKeys = false;
         }
     }
 
@@ -1120,9 +1193,174 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return protoResult;
     }
 
+    /// <summary>
+    /// The target's keys (its members, a collection's positions or a dictionary's entries), then the keys of the
+    /// properties the script created on the wrapper itself.
+    /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
     {
-        return [.. EnumerateOwnPropertyKeys(types)];
+        List<JsValue> keys = [.. EnumerateOwnPropertyKeys(types)];
+
+        // nearly every wrapper never gets a property of the script's own, and pays this test and nothing more
+        if (_hasScriptDefinedKeys)
+        {
+            keys = AddScriptDefinedKeys(keys, types);
+        }
+
+        return keys;
+    }
+
+    /// <summary>
+    /// Adds the keys the script created on this wrapper to <paramref name="targetKeys"/>, in
+    /// <see href="https://tc39.es/ecma262/#sec-ordinaryownpropertykeys">OrdinaryOwnPropertyKeys</see> order over
+    /// both lists, with the target's keys taken as the older ones.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The target's own keys are never reordered. When they are already in that order the result is exactly that
+    /// order: an array-like view's positions, a plain wrapper's member names (never an array index), and a
+    /// dictionary that enumerates its numeric keys first and ascending. The script's array indices join the
+    /// target's leading run of ascending indices, and lead the list when it has none. Its other strings follow the
+    /// target's keys, and its symbols come last, each in creation order. A dictionary that enumerates its keys in
+    /// some other order keeps it.
+    /// </para>
+    /// <para>
+    /// A view never contributes an index of the script's: its positions are its elements, and
+    /// <see cref="ArrayLikeWrapper.DefineOwnProperty"/> refuses every other index. No key is listed twice: one the
+    /// target reports as well, such as an entry a host added to a dictionary after the script defined that key,
+    /// keeps the target's place. Every key listed is one <see cref="GetOwnProperty(JsValue)"/> answers, which is
+    /// what lets <c>Object.seal</c> and <c>Object.freeze</c> redefine each of them.
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private List<JsValue> AddScriptDefinedKeys(List<JsValue> targetKeys, Types types)
+    {
+        var table = _engine._wrapperScriptDefinedKeys;
+        if (table is null || !table.TryGetValue(this, out var scriptDefinedKeys))
+        {
+            return targetKeys;
+        }
+
+        var includeStrings = (types & Types.String) != Types.Empty;
+        var includeSymbols = (types & Types.Symbol) != Types.Empty;
+
+        // A view reports the positions 0..n-1 and nothing else, unless the host replaced its key set, so a key of the
+        // script's can repeat one only by being such a position, and the view needs no set of its keys to tell.
+        var targetReportsOnlyPositions = this is ArrayLikeWrapper
+                                         && !_typeDescriptor.IsDictionary
+                                         && ReferenceEquals(_engine.Options.Interop.ObjectWrapperReportedPropertyKeys, Options.InteropOptions._defaultReportedPropertyKeys);
+        HashSet<JsValue>? reported = null;
+
+        List<uint>? indices = null;
+        List<JsValue>? names = null;
+        List<JsValue>? symbols = null;
+
+        foreach (var key in scriptDefinedKeys)
+        {
+            var isSymbol = key.IsSymbol();
+            if (isSymbol ? !includeSymbols : !includeStrings)
+            {
+                continue;
+            }
+
+            var index = isSymbol ? uint.MaxValue : ArrayInstance.ParseArrayIndex(key.ToString());
+            if (targetReportsOnlyPositions)
+            {
+                if (index < (uint) targetKeys.Count)
+                {
+                    continue;
+                }
+            }
+            else if ((reported ??= [.. targetKeys]).Contains(key))
+            {
+                continue;
+            }
+
+            if (ReferenceEquals(GetOwnProperty(key), PropertyDescriptor.Undefined))
+            {
+                // a position of the script's on a view that has since shrunk below it
+                continue;
+            }
+
+            if (isSymbol)
+            {
+                (symbols ??= []).Add(key);
+            }
+            else if (index != uint.MaxValue)
+            {
+                (indices ??= []).Add(index);
+            }
+            else
+            {
+                (names ??= []).Add(key);
+            }
+        }
+
+        var keys = targetKeys;
+        if (indices is not null)
+        {
+            keys = MergeScriptDefinedIndices(targetKeys, indices);
+        }
+
+        if (names is not null)
+        {
+            keys.AddRange(names);
+        }
+
+        if (symbols is not null)
+        {
+            keys.AddRange(symbols);
+        }
+
+        return keys;
+    }
+
+    /// <summary>
+    /// Merges the script's array <paramref name="indices"/> into the leading run of ascending indices
+    /// <paramref name="targetKeys"/> starts with, leaving every target key where the target put it.
+    /// </summary>
+    private static List<JsValue> MergeScriptDefinedIndices(List<JsValue> targetKeys, List<uint> indices)
+    {
+        indices.Sort();
+
+        var run = 0;
+        var previous = -1L;
+        while (run < targetKeys.Count)
+        {
+            var index = targetKeys[run] is JsString key ? ArrayInstance.ParseArrayIndex(key.ToString()) : uint.MaxValue;
+            if (index == uint.MaxValue || index <= previous)
+            {
+                break;
+            }
+
+            previous = index;
+            run++;
+        }
+
+        var merged = new List<JsValue>(targetKeys.Count + indices.Count);
+        var next = 0;
+        for (var i = 0; i < run; i++)
+        {
+            var targetIndex = ArrayInstance.ParseArrayIndex(targetKeys[i].ToString());
+            while (next < indices.Count && indices[next] < targetIndex)
+            {
+                merged.Add(JsString.Create(indices[next++]));
+            }
+
+            merged.Add(targetKeys[i]);
+        }
+
+        while (next < indices.Count)
+        {
+            merged.Add(JsString.Create(indices[next++]));
+        }
+
+        for (var i = run; i < targetKeys.Count; i++)
+        {
+            merged.Add(targetKeys[i]);
+        }
+
+        return merged;
     }
 
     private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types)

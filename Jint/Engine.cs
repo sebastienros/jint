@@ -1824,6 +1824,11 @@ public sealed partial class Engine : IDisposable
     // object, so the thrown object itself is never written to (issue #4430); an Error keeps it in [[ErrorData]].
     internal ConditionalWeakTable<ObjectInstance, string>? _thrownObjectStacks;
 
+    // The keys of the properties a script created on a CLR object's wrapper, in creation order (#4503). Off the
+    // wrapper, weakly keyed by it, so no wrapper grows by a reference: only one the script extends ever has an
+    // entry, and its ObjectWrapper._hasScriptDefinedKeys flag says so.
+    internal ConditionalWeakTable<ObjectWrapper, List<JsValue>>? _wrapperScriptDefinedKeys;
+
     // bounded cache of most recently wrapped CLR objects, see Options.Interop.CacheRecentObjectWrappers
     internal RecentObjectWrapperCache? _recentObjectWrapperCache;
 
