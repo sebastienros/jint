@@ -7893,10 +7893,11 @@ The built-ins that reach it are `Promise.all` and `Promise.allSettled`, `Iterato
 for a chunk or window larger than the limit, `Object.getOwnPropertyNames` and `Object.getOwnPropertySymbols` for an
 object with more keys than the limit, a call made with more arguments than the limit through a `Proxy` `apply` or
 `construct` trap, and the web APIs that hand a list to script: `FormData.getAll`, `performance.getEntries` and its
-siblings, and the `ports` of a `MessageEvent`. The exception is thrown out of the call that builds the array. For
-`Promise.all` and `Promise.allSettled` that is the resolve function of the last element to settle, so it comes out of
-`Evaluate`, `Execute` or whatever else drains the event loop. `Promise.any`'s `errors` array already ended the run the
-same way, through the `AggregateError` constructor, and still does.
+siblings, the `ports` of a `MessageEvent`, and the lists the `Jint.Browser` package builds the same way (observer
+records, animations, cookies, navigation entries, client rects). The exception is thrown out of the call that builds
+the array. For `Promise.all` and `Promise.allSettled` that is the resolve function of the last element to settle, so
+it comes out of `Evaluate`, `Execute` or whatever else drains the event loop. `Promise.any`'s `errors` array already
+ended the run the same way, through the `AggregateError` constructor, and still does.
 
 **What could break:** a host that set a finite `MaxArraySize`, or runs `Options.ForUntrustedCode`, and relied on one
 of these returning a larger array. A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged. A host
