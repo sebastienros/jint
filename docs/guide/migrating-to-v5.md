@@ -8098,6 +8098,45 @@ WebIDL's text has no close ([whatwg/webidl#895](https://github.com/whatwg/webidl
 [whatwg/webidl#1662](https://github.com/whatwg/webidl/pull/1662), which proposes one, as Safari already behaves. There
 is no switch back.
 
+### 4.222 An index on a wrapped `JObject` is one more of its keys ([#4501](https://github.com/sebastienros/jint/issues/4501))
+
+Newtonsoft's `JObject` is a string-keyed dictionary and also an `IList<JToken>`, and its list holds `JProperty`
+nodes, not values. Jint wrapped it as a view of that list, so a number key read the list while every key
+enumeration listed the dictionary's keys. Writes and deletes reached the list too, and the `JObject` threw:
+
+```js
+// host: engine.SetValue("jobj", JObject.Parse("{ \"a\": 1 }"));
+jobj[0]                                   // earlier previews: the "a": 1 JProperty      5.x: undefined
+0 in jobj                                 // earlier previews: true                      5.x: false
+Object.getOwnPropertyDescriptor(jobj, 0)  // earlier previews: a getter returning it     5.x: undefined
+delete jobj[0]                            // AllowWrite: ArgumentException out of Evaluate   5.x: true
+jobj[0] = 5                               // AllowWrite: ArgumentException out of Evaluate   5.x: adds the key "0"
+Array.prototype.slice.call(jobj)          // InvalidOperationException out of Evaluate       5.x: []
+```
+
+A string such as `jobj["0"]` that the object did not hold reached the list the same way. Now `0` and `"0"` are one
+key, read, tested, written and deleted through the dictionary like any other, so `jobj[0]` reads a `"0"` key when
+the object has one. System.Text.Json's `JsonObject` on .NET 9 and later and `OrderedDictionary<string, TValue>`
+have the same shape (their lists hold `KeyValuePair` entries) and change the same way, so a `JsonObject` now
+behaves on .NET 9 and later as it already did on .NET 8. Such an object is wrapped the way a
+`Dictionary<string, TValue>` is, which changes three more things:
+
+- its prototype is `Object.prototype` rather than `Array.prototype`, so `jobj.length` is `undefined` unless the
+  object has a `length` key, and `jobj.forEach` and the other array methods are gone. They used to run over the
+  `JProperty` nodes; use `Object.entries(jobj)`, `for…in` or `for…of` (which yields `[key, value]` pairs) instead;
+- under `AllowWrite`, `jobj.length = 0` writes the key `length`. It used to remove every property;
+- under `AllowWrite`, `Object.preventExtensions(jobj)` no longer stops `delete jobj.a`, as it does not for a plain
+  dictionary. `Object.freeze` and `Object.seal` still do, and with `AllowWrite` off every key is still refused.
+  This is the one place [§4.216](#4-216-a-wrapped-clr-collection-deletes-a-configurable-property-the-script-defined-on-it-4457)
+  no longer describes a `JObject`.
+
+**What could break:** script that read a `JObject`'s `JProperty` nodes by position or through `Array.prototype`
+methods, script that relied on its `Array.prototype`, and a host `catch` written for the CLR exceptions above.
+A `JArray` is unchanged. So is a host type that is a dictionary and a list of its own values and declares an
+integer indexer itself; one whose list is reachable only through the interface, as `JObject`'s is, now behaves like
+`JObject`. There is no switch back. A host that needs the entries by position can hand script
+`jobj.Properties().ToList()`.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

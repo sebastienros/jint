@@ -24,6 +24,93 @@ public class TypeDescriptorTests
         AssertInformation(typeof(ISet<string>), isArrayLike: true, iterable: true, isIntegerIndexedArray: false, shouldHaveLength: true);
     }
 
+    /// <summary>
+    /// A string-keyed dictionary that is also a list is addressed by its keys alone when the list holds something
+    /// other than its values, or when the type declares no integer indexer of its own (#4501). Such a type then has
+    /// no integer indexer at all.
+    /// </summary>
+    [Test]
+    public void ADictionaryThatIsAlsoAListIsAddressedByKeyUnlessItListsItsValuesByAnIndexerOfItsOwn()
+    {
+        AssertAddressing(typeof(EntryList), addressedByKeyOnly: true);
+        AssertAddressing(typeof(ExplicitValueList), addressedByKeyOnly: true);
+        AssertAddressing(typeof(IndexedValueList), addressedByKeyOnly: false);
+#if NET9_0_OR_GREATER
+        AssertAddressing(typeof(OrderedDictionary<string, int>), addressedByKeyOnly: true);
+#endif
+
+        AssertAddressing(typeof(Dictionary<string, int>), addressedByKeyOnly: false);
+        AssertAddressing(typeof(System.Dynamic.ExpandoObject), addressedByKeyOnly: false);
+        AssertAddressing(typeof(List<int>), addressedByKeyOnly: false);
+        AssertAddressing(typeof(int[]), addressedByKeyOnly: false);
+
+        TypeDescriptor.Get(typeof(ExplicitValueList)).IsIntegerIndexed.Should().BeFalse("a type addressed by key has no position to index");
+        TypeDescriptor.Get(typeof(IndexedValueList)).IsIntegerIndexed.Should().BeTrue();
+    }
+
+    private static void AssertAddressing(Type type, bool addressedByKeyOnly)
+        => TypeDescriptor.Get(type).IsAddressedByKeyOnly.Should().Be(addressedByKeyOnly, "{0}", type);
+
+    /// <summary>A dictionary whose list holds its entries, the way <c>OrderedDictionary&lt;,&gt;</c>'s does.</summary>
+    private sealed class EntryList : Dictionary<string, int>, IList<KeyValuePair<string, int>>
+    {
+        public KeyValuePair<string, int> this[int index] { get => this.ElementAt(index); set => throw new NotSupportedException(); }
+
+        public int IndexOf(KeyValuePair<string, int> item) => throw new NotSupportedException();
+
+        public void Insert(int index, KeyValuePair<string, int> item) => throw new NotSupportedException();
+
+        public void RemoveAt(int index) => throw new NotSupportedException();
+    }
+
+    /// <summary>A dictionary that lists its values through the interface alone, the way <c>JObject</c> lists its nodes.</summary>
+    private sealed class ExplicitValueList : Dictionary<string, int>, IList<int>
+    {
+        int IList<int>.this[int index] { get => Values.ElementAt(index); set => throw new NotSupportedException(); }
+
+        bool ICollection<int>.IsReadOnly => true;
+
+        int IList<int>.IndexOf(int item) => throw new NotSupportedException();
+
+        void IList<int>.Insert(int index, int item) => throw new NotSupportedException();
+
+        void IList<int>.RemoveAt(int index) => throw new NotSupportedException();
+
+        void ICollection<int>.Add(int item) => throw new NotSupportedException();
+
+        bool ICollection<int>.Contains(int item) => ContainsValue(item);
+
+        void ICollection<int>.CopyTo(int[] array, int arrayIndex) => Values.CopyTo(array, arrayIndex);
+
+        bool ICollection<int>.Remove(int item) => throw new NotSupportedException();
+
+        IEnumerator<int> IEnumerable<int>.GetEnumerator() => Values.GetEnumerator();
+    }
+
+    /// <summary>A dictionary that lists its values and declares the integer indexer itself.</summary>
+    private sealed class IndexedValueList : Dictionary<string, int>, IList<int>
+    {
+        public int this[int index] { get => Values.ElementAt(index); set => throw new NotSupportedException(); }
+
+        bool ICollection<int>.IsReadOnly => true;
+
+        public int IndexOf(int item) => throw new NotSupportedException();
+
+        public void Insert(int index, int item) => throw new NotSupportedException();
+
+        public void RemoveAt(int index) => throw new NotSupportedException();
+
+        void ICollection<int>.Add(int item) => throw new NotSupportedException();
+
+        bool ICollection<int>.Contains(int item) => ContainsValue(item);
+
+        void ICollection<int>.CopyTo(int[] array, int arrayIndex) => Values.CopyTo(array, arrayIndex);
+
+        bool ICollection<int>.Remove(int item) => throw new NotSupportedException();
+
+        IEnumerator<int> IEnumerable<int>.GetEnumerator() => Values.GetEnumerator();
+    }
+
     private static void AssertInformation(Type type, bool isArrayLike, bool iterable, bool isIntegerIndexedArray, bool shouldHaveLength)
     {
         var descriptor = TypeDescriptor.Get(type);
