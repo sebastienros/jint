@@ -7873,6 +7873,34 @@ The legacy POSIX IDs `CST6CDT`, `EST5EDT`, `MST7MDT` and `PST8PDT` also resolve 
 `tzdata-legacy`, using the corresponding US zone as an approximation; their rules match from 1967 onward.
 There is no switch back.
 
+### 4.214 A `yield*` whose delegation ended by a throw starts again, and `throw()` disposes a CLR collection's enumerator ([#4440](https://github.com/sebastienros/jint/issues/4440))
+
+Every evaluation of `yield*` gets a fresh iterator from its operand. In 4.16 and earlier 5.0 builds, a delegation that
+ended with a throw stayed attached to the generator. That happened when the delegate's `next`, `throw` or `return`
+threw, or answered something other than an object. The next time the same `yield*` ran, in a loop around a
+`try`/`catch`, it resumed the delegate that had failed and never read its new operand:
+
+```js
+function* thrower() { throw 'boom'; }
+function* g() { for (let i = 0; i < 2; i++) { try { yield* (i === 0 ? thrower() : [1, 2]); } catch {} } }
+[...g()];
+// 4.16.x / earlier 5.0: []    5.x: [1, 2]
+```
+
+The same holds in an async generator whose delegate's methods throw. A delegation that a constraint or a host
+exception ends no longer keeps the delegate alive either.
+
+A generator suspended in `yield*` passes a `throw()` on to the delegate's `throw`. When the delegate is a wrapped CLR
+collection, or an iterator it handed out, and a script `throw` on it (or on `%ArrayIteratorPrototype%`) ends the
+delegation, the `IEnumerator` is now disposed. The delegation ends when that `throw` answers done, throws, or answers
+something other than an object. This is the same rule as for `return()` in [§4.201](#4-201-returning-from-a-generator-suspended-in-yield-disposes-a-clr-collection-s-enumerator-4429).
+A `throw` that answers not done keeps the delegation going, and the enumerator stays for the steps after it. If
+`Dispose` throws while the `throw`'s own throw or `TypeError` is leaving, that throw wins.
+
+In an async generator, a delegate with no `throw` is closed before `yield*` throws its `TypeError`. If its `return`
+throws during that close, the `return`'s error now propagates instead of the `TypeError`, as it already did in a
+generator. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
