@@ -1,6 +1,7 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of constructor methods return JsValue
 
 using System.Collections;
+using System.Runtime.CompilerServices;
 using Jint.Native.Function;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
@@ -938,11 +939,38 @@ public sealed partial class ArrayConstructor : Constructor
         return new JsArray(this, array);
     }
 
+    /// <summary>
+    /// Same copy as <see cref="ConstructFast(JsValue[])"/>, but throws <see cref="MemoryLimitExceededException"/> past
+    /// <c>MaxArraySize</c>. For built-ins whose element count a script chooses; the public overload stays unchecked.
+    /// </summary>
+    internal JsArray ConstructFastChecked(JsValue[] contents)
+    {
+        // The ownership-taking array constructor does not validate its length (see ConstructFromBuilder).
+        ValidateElementCount((uint) contents.Length);
+        return ConstructFast(contents);
+    }
+
     internal JsArray ConstructFast(List<JsValue> contents)
     {
+        // The ownership-taking array constructor does not validate its length (see ConstructFromBuilder).
+        ValidateElementCount((uint) contents.Count);
+
         var array = new JsValue[contents.Count];
         contents.CopyTo(array);
         return new JsArray(this, array);
+    }
+
+    /// <summary>
+    /// The <c>MaxArraySize</c> check of <c>ArrayCreate</c>, for the constructors that take ownership of (or copy) a
+    /// finished element list and so never reach it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ValidateElementCount(uint length)
+    {
+        if (length > _engine.Options.Constraints.MaxArraySize)
+        {
+            ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, length);
+        }
     }
 
     /// <summary>
@@ -956,10 +984,7 @@ public sealed partial class ArrayConstructor : Constructor
 
         // The ownership-taking constructor skips capacity validation; the incremental
         // write path enforced MaxArraySize through EnsureCapacity, so keep parity here.
-        if (length > _engine.Options.Constraints.MaxArraySize)
-        {
-            ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, length);
-        }
+        ValidateElementCount(length);
 
         if (length < ArrayInstance.MaxDenseArrayLengthInternal)
         {
