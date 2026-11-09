@@ -66,7 +66,8 @@ internal static class CanvasPathOperations
             }
             catch
             {
-                // A step that threw left the record done, and closes nothing (sebastienros/jint#4431).
+                // A failed conversion closes the iterator. A step that threw left the record done, so
+                // CloseIfNotDone closes nothing then (sebastienros/jint#4431).
                 iterator.CloseIfNotDone(Jint.Runtime.CompletionType.Throw);
                 throw;
             }

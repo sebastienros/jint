@@ -117,6 +117,9 @@ members are explicit binding-contract bodies. The htmx fixture exercises both XP
 The checked-in contract, conversion rules, wrapper identity and shape discipline are
 [`Dom/AGENTS.md`](Dom/AGENTS.md). The rule to carry across: **never hand-edit `Dom/Generated/`**; regenerate
 from the contract, and record supported behavior and remaining divergences against the native implementation.
+A hand-written sequence conversion anywhere in the package (Animations, Geometry and SystemState as well as `Dom/`)
+closes its iterator only when an element fails to convert:
+[the rule](../Jint/WebApi/AGENTS.md#when-a-sequence-conversion-closes-its-iterator).
 
 ### The events bridge has a file of its own
 
