@@ -7896,13 +7896,15 @@ object with more keys than the limit, a call made with more arguments than the l
 siblings, the `ports` of a `MessageEvent`, and the lists the `Jint.Browser` package builds the same way (observer
 records, animations, cookies, navigation entries, client rects). The exception is thrown out of the call that builds
 the array. For `Promise.all` and `Promise.allSettled` that is the resolve function of the last element to settle, so
-it comes out of `Evaluate`, `Execute` or whatever else drains the event loop. `Promise.any`'s `errors` array already
-ended the run the same way, through the `AggregateError` constructor, and still does.
+it comes out of `Evaluate`, `Execute` or whatever else drains the event loop. `Promise.any`'s `errors` array was
+already bounded the same way, and still is.
 
 **What could break:** a host that set a finite `MaxArraySize`, or runs `Options.ForUntrustedCode`, and relied on one
 of these returning a larger array. A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged. A host
 calling the public `ArrayConstructor.ConstructFast(JsValue[])` with more elements than the limit now gets the exception
-instead of the array. An array of exactly `MaxArraySize` elements is still allowed. There is no switch back.
+instead of the array. An array of exactly `MaxArraySize` elements is still allowed. There is no switch back: a host
+that must hand script a larger array raises `MaxArraySize`, or builds the array with `new JsArray(engine, items)`,
+which takes the host's array as it is.
 
 ## 5. New in v5
 
