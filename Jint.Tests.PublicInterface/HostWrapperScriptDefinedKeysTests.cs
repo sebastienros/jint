@@ -401,6 +401,93 @@ public class HostWrapperScriptDefinedKeysTests
     }
 
     /// <summary>
+    /// A JS class extending a CLR type: every instance is a wrapper its constructor gives fields, which are the
+    /// script's properties and are listed after the CLR type's members.
+    /// </summary>
+    [Test]
+    public void AClassExtendingAClrTypeListsTheFieldsItsConstructorSets()
+    {
+        var engine = new Engine();
+        engine.SetValue("Rec", TypeReference.CreateTypeReference<HostRecord>(engine));
+
+        engine.Evaluate(
+            """
+            class X extends Rec { constructor() { super(); this.a = 1; this.b = 2; } }
+            const x = new X();
+            const keys = Reflect.ownKeys(x).join();
+            const json = JSON.stringify(x);
+            Object.freeze(x);
+            [keys, json, Object.keys(x).join(), Object.isFrozen(x), Object.getOwnPropertyDescriptor(x, 'a').configurable, delete x.b].join(';')
+            """).AsString().Should().Be("Value,a,b;{\"Value\":1,\"a\":1,\"b\":2};Value,a,b;true;false;false");
+    }
+
+    /// <summary>
+    /// Redefining a property the script created keeps it the script's, whichever way the definition is replaced:
+    /// a data property turned accessor, or an accessor given a new getter, which replaces the descriptor with a copy.
+    /// </summary>
+    [TestCase("List")]
+    [TestCase("Object")]
+    [TestCase("Dictionary")]
+    public void ARedefinedScriptPropertyIsStillListed(string shape)
+    {
+        var (host, _) = CreateShape(shape);
+        var engine = CreateEngine(host, allowWrite: false);
+
+        engine.Evaluate(
+            """
+            const target = Reflect.ownKeys(host).length;
+            const symbol = Symbol('s');
+            Object.defineProperty(host, 'p', { value: 0, configurable: true });
+            Object.defineProperty(host, 'p', { get() { return 1; }, configurable: true });
+            Object.defineProperty(host, 'p', { get() { return 2; } });
+            Object.defineProperty(host, symbol, { get() { return 3; }, configurable: true });
+            Object.defineProperty(host, symbol, { set(v) { } });
+            Object.defineProperty(host, 'q', { get() { return 4; }, configurable: true });
+            Object.defineProperty(host, 'q', { value: 5 });
+            [Reflect.ownKeys(host).slice(target).map(String).join(), host.p, host.q].join(';')
+            """).AsString().Should().Be("p,q,Symbol(s);2;5");
+    }
+
+    /// <summary>
+    /// A projection the script deletes and then defines again is the script's own property from then on: listed,
+    /// and reached by <c>Object.freeze</c>.
+    /// </summary>
+    [Test]
+    public void AProjectionTheScriptDeletesAndDefinesAgainIsTheScripts()
+    {
+        var engine = CreateEngine(new DisposableRecord(), allowWrite: false);
+
+        engine.Evaluate(
+            """
+            const before = Object.getOwnPropertySymbols(host).length;
+            const deleted = delete host[Symbol.dispose];
+            Object.defineProperty(host, Symbol.dispose, { value() { }, configurable: true });
+            const listed = Object.getOwnPropertySymbols(host).map(String).join();
+            Object.freeze(host);
+            [before, deleted, listed, Object.getOwnPropertyDescriptor(host, Symbol.dispose).configurable].join(';')
+            """).AsString().Should().Be("0;true;Symbol(Symbol.dispose);false");
+    }
+
+    /// <summary>
+    /// Symbols follow creation order too, with a deleted one defined again after the rest.
+    /// </summary>
+    [Test]
+    public void ADeletedSymbolDefinedAgainMovesToTheEnd()
+    {
+        var (host, _) = CreateShape("Object");
+        var engine = CreateEngine(host, allowWrite: false);
+
+        engine.Evaluate(
+            """
+            const a = Symbol('a'), b = Symbol('b'), c = Symbol('c');
+            for (const s of [a, b, c]) Object.defineProperty(host, s, { value: 0, configurable: true });
+            delete host[a];
+            Object.defineProperty(host, a, { value: 0, configurable: true });
+            Object.getOwnPropertySymbols(host).map(String).join()
+            """).AsString().Should().Be("Symbol(b),Symbol(c),Symbol(a)");
+    }
+
+    /// <summary>
     /// A property deleted and defined again is the newest one.
     /// </summary>
     [TestCase("List")]
@@ -649,6 +736,18 @@ public class HostWrapperScriptDefinedKeysTests
     public sealed class HostRecord
     {
         public int Value { get; set; } = 1;
+    }
+
+    /// <summary>
+    /// A disposable host object, which its wrapper gives a <c>Symbol.dispose</c> projection.
+    /// </summary>
+    public sealed class DisposableRecord : IDisposable
+    {
+        public int Value { get; set; } = 1;
+
+        public void Dispose()
+        {
+        }
     }
 
     /// <summary>

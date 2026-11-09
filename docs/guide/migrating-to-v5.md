@@ -8143,8 +8143,8 @@ What the wrapper projects itself and the target does not report is not listed, a
 `Symbol.iterator`, `toJSON`, `Symbol.dispose`, and a reflected member such as `ToString`. That stays true after the
 script redefines one: it is still the wrapper's projection, so `Object.freeze` and `Object.seal` do not reach it, it
 stays configurable, and `delete` still removes it ([#4528](https://github.com/sebastienros/jint/issues/4528)).
-Properties a host stores with `DefineOwnPropertyUnchecked`, which bypasses `[[DefineOwnProperty]]`, are not listed
-either.
+A property the script defines after deleting a projection is the script's own, and is listed. Properties a host
+stores with `DefineOwnPropertyUnchecked`, which bypasses `[[DefineOwnProperty]]`, are not listed either.
 
 **What could break:** `JSON.stringify`, `Object.keys`, `Object.assign`, spread and `for..in` over a wrapped object
 or dictionary now include an enumerable property the script defined on it, and `Object.getOwnPropertyNames` and

@@ -45,24 +45,29 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     private PropertyDictionary? _crossingMemo;
 
     /// <summary>
-    /// Whether the script has created a property on this wrapper that is still there: a key that no CLR member,
-    /// element, entry or wrapper projection answered for when it was defined. The keys themselves, in creation
-    /// order, are in <see cref="Engine._wrapperScriptDefinedKeys"/>; a wrapper the script never extends pays this
-    /// one test in <see cref="GetOwnPropertyKeys"/>.
+    /// Whether the script has ever created a property on this wrapper: a key that no CLR member, element, entry or
+    /// wrapper projection answered for when it was defined. Each such property's descriptor carries
+    /// <see cref="PropertyDescriptor.ScriptDefinedOnWrapper"/>, and a wrapper the script never extends pays this one
+    /// test in <see cref="GetOwnPropertyKeys"/>. Never cleared: a deleted property takes its descriptor, and so its
+    /// mark, with it.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A record of its own because <c>_properties</c> cannot tell the two kinds of entry apart. It also caches the
-    /// descriptor of every CLR member <see cref="GetOwnProperty(JsValue)"/> resolves, under whatever name the script
-    /// spelled, and holds the wrapper's own projections (the <c>length</c> forwarder, <c>toJSON</c>,
-    /// <c>@@iterator</c>, <c>@@dispose</c>). Listing those would make the key list depend on which members happened
-    /// to be read, and the descriptor types overlap: a method and a script property are both plain
-    /// <see cref="PropertyDescriptor"/>s.
+    /// The mark is needed because <c>_properties</c> holds the script's properties beside entries the wrapper stores
+    /// itself: the descriptor of every CLR member <see cref="GetOwnProperty(JsValue)"/> resolves, cached under
+    /// whatever name the script spelled, and the wrapper's projections (the <c>length</c> forwarder, <c>toJSON</c>,
+    /// <c>@@iterator</c>, <c>@@dispose</c>, <c>@@asyncDispose</c>). Listing those would make the key list depend on
+    /// which members happened to be read. Nothing else tells the two apart: a method and a script property are both
+    /// plain <see cref="PropertyDescriptor"/>s. Asking the CLR side again at enumeration time would answer a
+    /// different question, about now rather than about the moment of creation, and would get three cases wrong: a
+    /// projection the script deleted and then defined again is the script's, a host's
+    /// <c>DefineOwnPropertyUnchecked</c> store is not, and under <c>PreferJsPrototypeMethods</c> telling a callable
+    /// from a getter on the prototype would mean running the getter.
     /// </para>
     /// <para>
-    /// A flag here and the list in an engine side table, because every CLR object that crosses into script gets a
-    /// wrapper: a reference field would add 8 bytes to each of them, while this flag sits in padding the two flags
-    /// above already leave. Recording and forgetting a key are the cold paths that pay the table lookup.
+    /// A flag in padding and a bit on the descriptor, rather than a list, because every CLR object that crosses into
+    /// script gets a wrapper. A reference field would add 8 bytes to each, and a side table would cost each extended
+    /// wrapper a dependent handle and a list, which every instance of a JS class extending a CLR type is.
     /// </para>
     /// </remarks>
     private bool _hasScriptDefinedKeys;
@@ -912,27 +917,24 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         DropCrossingMemo();
 
         // ValidateAndApplyPropertyDescriptor stores through here for two things: a property GetOwnProperty did not
-        // answer, which it is creating, and one it did, which a data/accessor redefinition replaces. Only the first
-        // is a key of the script's own. What it replaces is already stored, and stays the CLR member, element, entry
-        // or projection it was: GetOwnProperty caches a member it resolves, DefineOwnProperty stores a dictionary
-        // entry first, and a projection is stored when it is made. A key the target reports anyway is listed once,
-        // in the target's place (AddScriptDefinedKeys).
-        if (!TryGetProperty(property, out _))
+        // answer, which it is creating, and one it did, which a redefinition replaces (data to accessor and back, or an
+        // accessor given a new get or set, which arrives as a copy). Only the first is a key of the script's own, so
+        // only a creation is marked. A replacement keeps whatever the entry it replaces was: the script's stays the
+        // script's, because the copy constructors carry the attributes and nothing else; and a CLR member, element,
+        // entry or projection stays the wrapper's. Each of those is stored before anything can redefine it:
+        // GetOwnProperty caches a member it resolves, DefineOwnProperty stores a dictionary entry first, and a
+        // projection is stored when it is made, all through SetProperty, which never reaches here.
+        if (TryGetProperty(property, out var current))
         {
-            RecordScriptDefinedKey(property);
+            desc._flags |= current._flags & PropertyDescriptor.ScriptDefinedOnWrapper;
+        }
+        else
+        {
+            desc._flags |= PropertyDescriptor.ScriptDefinedOnWrapper;
+            _hasScriptDefinedKeys = true;
         }
 
         base.SetOwnProperty(property, desc);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private void RecordScriptDefinedKey(JsValue property)
-    {
-        // keyed by reference, so ObjectWrapper's Equals (by Target) does not merge two wrappers over one object,
-        // each of which keeps properties of its own
-        var table = _engine._wrapperScriptDefinedKeys ??= new ConditionalWeakTable<ObjectWrapper, List<JsValue>>();
-        table.GetOrCreateValue(this).Add(TypeConverter.ToPropertyKey(property));
-        _hasScriptDefinedKeys = true;
     }
 
     public override void RemoveOwnProperty(JsValue property)
@@ -978,39 +980,11 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             _crossingMemo?.Remove(removedKey.ToString());
         }
 
-        if (_hasScriptDefinedKeys)
-        {
-            ForgetScriptDefinedKey(property);
-        }
-
         if (_lengthPropertyPending && CommonProperties.Length.Equals(property))
         {
             // an explicit removal of the not-yet-materialized forwarder must behave like removing the
             // eagerly-created one did: the property is gone and does not come back
             _lengthPropertyPending = false;
-        }
-    }
-
-    /// <summary>
-    /// Drops a deleted key from this wrapper's script-defined keys. A key the script creates again afterwards is
-    /// recorded again, after every key it then follows in creation order. Once the last one is gone the entry and
-    /// the flag go too, so enumeration is back to a single flag test.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private void ForgetScriptDefinedKey(JsValue property)
-    {
-        var table = _engine._wrapperScriptDefinedKeys;
-        if (table is null || !table.TryGetValue(this, out var keys))
-        {
-            _hasScriptDefinedKeys = false;
-            return;
-        }
-
-        keys.Remove(TypeConverter.ToPropertyKey(property));
-        if (keys.Count == 0)
-        {
-            table.Remove(this);
-            _hasScriptDefinedKeys = false;
         }
     }
 
@@ -1235,14 +1209,40 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     [MethodImpl(MethodImplOptions.NoInlining)]
     private List<JsValue> AddScriptDefinedKeys(List<JsValue> targetKeys, Types types)
     {
-        var table = _engine._wrapperScriptDefinedKeys;
-        if (table is null || !table.TryGetValue(this, out var scriptDefinedKeys))
-        {
-            return targetKeys;
-        }
-
         var includeStrings = (types & Types.String) != Types.Empty;
         var includeSymbols = (types & Types.Symbol) != Types.Empty;
+
+        // The marked entries, strings then symbols, each store in its insertion order, which is creation order: a
+        // deleted entry leaves no slot an add would reuse, so a property defined again comes after every one it now
+        // follows. Collected before anything below asks GetOwnProperty, so no store is walked while it is read.
+        List<JsValue>? scriptDefinedKeys = null;
+        if (includeStrings && _properties is not null)
+        {
+            foreach (var pair in _properties)
+            {
+                if ((pair.Value._flags & PropertyDescriptor.ScriptDefinedOnWrapper) != PropertyFlag.None)
+                {
+                    (scriptDefinedKeys ??= []).Add(JsString.Create(pair.Key.Name));
+                }
+            }
+        }
+
+        if (includeSymbols && _symbols is not null)
+        {
+            foreach (var pair in _symbols)
+            {
+                if ((pair.Value._flags & PropertyDescriptor.ScriptDefinedOnWrapper) != PropertyFlag.None)
+                {
+                    (scriptDefinedKeys ??= []).Add(pair.Key);
+                }
+            }
+        }
+
+        if (scriptDefinedKeys is null)
+        {
+            // every property the script created has been deleted again
+            return targetKeys;
+        }
 
         // A view reports the positions 0..n-1 and nothing else, unless the host replaced its key set, so a key of the
         // script's can repeat one only by being such a position, and the view needs no set of its keys to tell.
