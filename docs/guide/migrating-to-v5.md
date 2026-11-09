@@ -7873,6 +7873,55 @@ The legacy POSIX IDs `CST6CDT`, `EST5EDT`, `MST7MDT` and `PST8PDT` also resolve 
 `tzdata-legacy`, using the corresponding US zone as an approximation; their rules match from 1967 onward.
 There is no switch back.
 
+### 4.213 A template literal with a long substitution returns a deferred string ([#4460](https://github.com/sebastienros/jint/issues/4460))
+
+A template literal now joins a substitution that is already a long string the way `+` does (§4.27): once the
+result reaches 512 characters it is kept as a deferred two-operand node rather than copied into the growing
+text, so an accumulating template (`` s = `${s}x` ``) is linear rather than quadratic, and prepending
+(`` s = `x${s}` ``) stops copying the whole left operand on every iteration.
+
+**What could break:** the same three host-visible effects §4.27 lists for `+`, and nothing a script can see —
+the value is the string it stands for for equality, `length`, every `String.prototype` method and
+`JSON.stringify`:
+
+- `` engine.Evaluate("`${big}`") `` may hand back a `JsString` **subclass** (a `RopeString`). `is JsString`,
+  `AsString()`, `ToString()` and `ToObject()` are unaffected, but an exact-type test
+  (`result.GetType() == typeof(JsString)`) now fails for one more shape.
+- The result keeps its substitutions alive until something reads its text; reading it once
+  (`AsString()` is enough) drops those references.
+- Under `LimitMemory` the deferred node is charged when it is built, for its shorter operand, rather than for
+  the full copy.
+
+See §4.27 for the details, which apply here unchanged.
+
+### 4.214 A `yield*` whose delegation ended by a throw starts again, and `throw()` disposes a CLR collection's enumerator ([#4440](https://github.com/sebastienros/jint/issues/4440))
+
+Every evaluation of `yield*` gets a fresh iterator from its operand. In 4.16 and earlier 5.0 builds, a delegation that
+ended with a throw stayed attached to the generator. That happened when the delegate's `next`, `throw` or `return`
+threw, or answered something other than an object. The next time the same `yield*` ran, in a loop around a
+`try`/`catch`, it resumed the delegate that had failed and never read its new operand:
+
+```js
+function* thrower() { throw 'boom'; }
+function* g() { for (let i = 0; i < 2; i++) { try { yield* (i === 0 ? thrower() : [1, 2]); } catch {} } }
+[...g()];
+// 4.16.x / earlier 5.0: []    5.x: [1, 2]
+```
+
+The same holds in an async generator whose delegate's methods throw. A delegation that a constraint or a host
+exception ends no longer keeps the delegate alive either.
+
+A generator suspended in `yield*` passes a `throw()` on to the delegate's `throw`. When the delegate is a wrapped CLR
+collection, or an iterator it handed out, and a script `throw` on it (or on `%ArrayIteratorPrototype%`) ends the
+delegation, the `IEnumerator` is now disposed. The delegation ends when that `throw` answers done, throws, or answers
+something other than an object. This is the same rule as for `return()` in [§4.201](#4-201-returning-from-a-generator-suspended-in-yield-disposes-a-clr-collection-s-enumerator-4429).
+A `throw` that answers not done keeps the delegation going, and the enumerator stays for the steps after it. If
+`Dispose` throws while the `throw`'s own throw or `TypeError` is leaving, that throw wins.
+
+In an async generator, a delegate with no `throw` is closed before `yield*` throws its `TypeError`. If its `return`
+throws during that close, the `return`'s error now propagates instead of the `TypeError`, as it already did in a
+generator. There is no switch back.
+
 ### 4.215 `AsyncIterator.prototype.flatMap` awaits a sync iterable's values, `AsyncIterator.from` takes a string, and a failed step leaves the source open ([#4439](https://github.com/sebastienros/jint/issues/4439))
 
 When a `flatMap` mapper returns a sync iterable, such as an array, a promise among its values is awaited. In 4.16 and
