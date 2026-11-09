@@ -8216,6 +8216,31 @@ The source is now closed through the same steps a `for await` loop uses. **What 
 
 There is no switch back.
 
+### 4.227 The `SuppressedError` that disposal builds has no own `message`, and belongs to the realm of the code disposing ([#4494](https://github.com/sebastienros/jint/issues/4494))
+
+When a dispose method throws over an earlier throw, `using`, `await using`, `DisposableStack.prototype.dispose` and
+`AsyncDisposableStack.prototype.disposeAsync` throw a `SuppressedError` with `error` and `suppressed` and nothing
+else, as [DisposeResources](https://tc39.es/ecma262/#sec-disposeresources) says. It used to carry an own `message`
+of `""`, which only the constructor defines:
+
+```js
+let e;
+try { using a = { [Symbol.dispose]() { throw 1; } }; throw 2; } catch (x) { e = x; }
+Object.hasOwn(e, 'message')   // 4.x / earlier previews: true    5.x: false
+Object.getOwnPropertyNames(e) // 4.x / earlier previews: ['message', 'error', 'suppressed']    5.x: ['error', 'suppressed']
+e.message                     // '' in both: it inherits `SuppressedError.prototype.message`
+```
+
+`e.message`, `String(e)` and `JavaScriptException.Message` read the same as before; only code that lists or
+copies an error's own properties sees the difference. `new SuppressedError(error, suppressed, "")` still defines
+its own `message`. Node gives the error a message of its own wording, which the specification does not.
+
+The error is also built in the realm of the code that is disposing. In a second realm (a `ShadowRealm`, or a child frame's window in `Jint.Browser`)
+it used to belong to whichever realm was running when the dispose settled, so an `await using` in a function of
+another realm resumed from a job, an async generator's `await using`, and a generator's `using` whose body had been
+left gave a main-realm `SuppressedError`, and a stack's `dispose` called another realm's built-in gave the caller's.
+Those now answer `instanceof` with the realm of the function, generator or built-in. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

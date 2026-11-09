@@ -123,6 +123,12 @@ internal abstract class Environment : JsValue
     internal virtual Completion DisposeResources(Completion c) => c;
 
     /// <summary>
+    /// <see cref="DisposeResources(Completion)"/> for a caller that has already left the execution context whose
+    /// resources these are, so the running realm is not the one a <c>SuppressedError</c> belongs to.
+    /// </summary>
+    internal virtual Completion DisposeResources(Completion c, Realm realm) => c;
+
+    /// <summary>
     /// Fast bool check for whether this environment has any disposable resources to
     /// process. Lets callers skip allocating a continueWith closure when there's no
     /// dispose work to do — the dispose hot path on every async function/generator exit.
@@ -134,6 +140,12 @@ internal abstract class Environment : JsValue
     /// environments that don't track disposable resources.
     /// </summary>
     internal virtual DisposeStepResult BeginDisposeResources(Completion c) => DisposeStepResult.Done(c);
+
+    /// <summary>
+    /// <see cref="BeginDisposeResources(Completion)"/> for a caller whose running realm is not the one that is
+    /// disposing: the realm of the function, generator or module whose body has finished.
+    /// </summary>
+    internal virtual DisposeStepResult BeginDisposeResources(Completion c, Realm realm) => DisposeStepResult.Done(c);
 
     /// <summary>
     /// Continue dispose after an awaited promise settled. Must not be called on
