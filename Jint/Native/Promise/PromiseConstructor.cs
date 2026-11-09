@@ -476,15 +476,18 @@ internal sealed partial class PromiseConstructor : Constructor
             return capability.PromiseInstance;
 
         var results = new List<JsValue>();
-        bool doneIterating = false;
+
+        // The spec's remainingElementsCount: 1 for the iteration itself, plus one per element whose "then" has
+        // been called, minus one each time an element settles or the iteration finishes. It reaches 0 exactly
+        // once, when every element has settled and iteration is done, so a synchronous "then" settling an
+        // element before the next step cannot resolve early. Each settle used to scan the whole result list
+        // for an unsettled slot instead, which made n elements cost O(n^2) (issue #4459).
+        var remainingElementsCount = 1;
 
         void ResolveIfFinished()
         {
-            // that means all of them were resolved
-            // Note that "Undefined" is not null, thus the logic is sound, even though awkward
-            // also note that it is important to check if we are done iterating.
-            // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
-            if (results.TrueForAll(static x => x is not null) && doneIterating)
+            remainingElementsCount--;
+            if (remainingElementsCount == 0)
             {
                 var array = _realm.Intrinsics.Array.ConstructFast(results);
                 capability.Resolve(array);
@@ -504,8 +507,6 @@ internal sealed partial class PromiseConstructor : Constructor
                 {
                     if (!iterator.TryIteratorStep(out var nextItem))
                     {
-                        doneIterating = true;
-
                         ResolveIfFinished();
                         break;
                     }
@@ -518,10 +519,9 @@ internal sealed partial class PromiseConstructor : Constructor
                     return capability.PromiseInstance;
                 }
 
-                // note that null here is important
-                // it will help to detect if all inner promises were resolved
-                // In F# it would be Option<JsValue>
+                // A placeholder until the element settles; counted until then.
                 results.Add(null!);
+                remainingElementsCount++;
 
                 var item = promiseResolve.Call(thisObject, value);
                 var thenProps = item.Get("then");
@@ -578,15 +578,18 @@ internal sealed partial class PromiseConstructor : Constructor
             return capability.PromiseInstance;
 
         var results = new List<JsValue>();
-        bool doneIterating = false;
+
+        // The spec's remainingElementsCount: 1 for the iteration itself, plus one per element whose "then" has
+        // been called, minus one each time an element settles or the iteration finishes. It reaches 0 exactly
+        // once, when every element has settled and iteration is done, so a synchronous "then" settling an
+        // element before the next step cannot resolve early. Each settle used to scan the whole result list
+        // for an unsettled slot instead, which made n elements cost O(n^2) (issue #4459).
+        var remainingElementsCount = 1;
 
         void ResolveIfFinished()
         {
-            // that means all of them were resolved
-            // Note that "Undefined" is not null, thus the logic is sound, even though awkward
-            // also note that it is important to check if we are done iterating.
-            // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
-            if (results.TrueForAll(static x => x is not null) && doneIterating)
+            remainingElementsCount--;
+            if (remainingElementsCount == 0)
             {
                 var array = _realm.Intrinsics.Array.ConstructFast(results);
                 capability.Resolve(array);
@@ -606,8 +609,6 @@ internal sealed partial class PromiseConstructor : Constructor
                 {
                     if (!iterator.TryIteratorStep(out var nextItem))
                     {
-                        doneIterating = true;
-
                         ResolveIfFinished();
                         break;
                     }
@@ -620,10 +621,9 @@ internal sealed partial class PromiseConstructor : Constructor
                     return capability.PromiseInstance;
                 }
 
-                // note that null here is important
-                // it will help to detect if all inner promises were resolved
-                // In F# it would be Option<JsValue>
+                // A placeholder until the element settles; counted until then.
                 results.Add(null!);
+                remainingElementsCount++;
 
                 var item = promiseResolve.Call(thisObject, value);
                 var thenProps = item.Get("then");
@@ -706,14 +706,17 @@ internal sealed partial class PromiseConstructor : Constructor
         var errors = new List<JsValue>();
         var doneIterating = false;
 
+        // The spec's remainingElementsCount, as in Promise.all: 1 for the iteration itself, plus one per element,
+        // minus one per rejection and once when iteration finishes; the AggregateError is raised when it reaches
+        // 0. A scan of the errors list on every rejection made n rejections cost O(n^2) (issue #4459).
+        // doneIterating stays: it is the iteratorRecord.[[Done]] that decides whether an abrupt completion closes
+        // the iterator.
+        var remainingElementsCount = 1;
+
         void RejectIfAllRejected()
         {
-            // that means all of them were rejected
-            // Note that "Undefined" is not null, thus the logic is sound, even though awkward
-            // also note that it is important to check if we are done iterating.
-            // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
-
-            if (errors.TrueForAll(static x => x is not null) && doneIterating)
+            remainingElementsCount--;
+            if (remainingElementsCount == 0)
             {
                 capability.Reject(_realm.Intrinsics.AggregateError.CreateFromList(errors));
             }
@@ -746,10 +749,9 @@ internal sealed partial class PromiseConstructor : Constructor
                     throw;
                 }
 
-                // note that null here is important
-                // it will help to detect if all inner promises were rejected
-                // In F# it would be Option<JsValue>
+                // A placeholder until the element rejects; counted until then.
                 errors.Add(null!);
+                remainingElementsCount++;
 
                 var item = promiseResolve.Call(thisObject, value);
                 var thenProps = item.Get("then");
