@@ -18,9 +18,9 @@ using Browser = global::Jint.Browser.Browser;
 /// (sebastienros/jint#4455, the same defect #4449 fixed under <c>Jint/WebApi/</c>): the <c>DOMMatrix</c> and
 /// <c>DOMMatrixReadOnly</c> constructors, <c>roundRect</c> on a 2D context and on <c>Path2D</c>, the <c>hints</c> of
 /// <c>getHighEntropyValues</c>, and a <c>Notification</c>'s <c>vibrate</c> pattern and <c>actions</c> count. Read
-/// counts and the arm a nullish method takes are Microsoft Edge 156's (Chromium), which reads once everywhere except
-/// <c>roundRect</c>: Chromium reads <c>@@iterator</c> twice there, against WebIDL, so the <c>roundRect</c> rows
-/// follow the specification.
+/// counts and the arm a nullish method takes are Microsoft Edge 156's (Chromium) for these non-Array values, which
+/// it reads once everywhere except <c>roundRect</c>: Chromium reads <c>@@iterator</c> twice there, against WebIDL,
+/// so the <c>roundRect</c> rows follow the specification.
 /// </para>
 /// </summary>
 /// <remarks>
@@ -184,7 +184,10 @@ public sealed class BrowserWebIdlIteratorReadTests
         (await page.EvaluateAndAwaitAsync<string>($"reads('{lane}', '{where}', '{answers}')")).Should().Be(expected);
     }
 
-    /// <summary>The issue's own probe, on a real array: every lane reads its <c>@@iterator</c> once.</summary>
+    /// <summary>
+    /// The issue's own probe, on a real array: every lane reads its <c>@@iterator</c> once. Chromium reads it zero
+    /// times on an Array, its fast path skipping <c>@@iterator</c>, so this row follows WebIDL.
+    /// </summary>
     [Test]
     public async Task AnArrayWhoseIteratorIsAGetterIsReadOnceByEveryLane()
     {
