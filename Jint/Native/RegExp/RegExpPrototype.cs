@@ -679,29 +679,20 @@ internal sealed partial class RegExpPrototype : Prototype
         return groups;
     }
 
+    /// <summary>
+    /// The legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B) after the match whose
+    /// (index, length) pairs start at <paramref name="offset"/> in <paramref name="spans"/>, where an index below
+    /// zero marks a group that took no part. Records the spans only; the values are cut out when read.
+    /// </summary>
     private static void UpdateLegacyStaticProperties(Engine engine, JintRegExpEngine matcher, string s, List<int> spans, int offset)
     {
         var constructor = engine.Realm.Intrinsics.RegExp;
-        constructor._legacyInput = s;
-        constructor.SetLegacyContext(s, spans[offset], spans[offset + 1]);
-
-        var lastParen = "";
-        for (var i = 0; i < 9; i++)
+        var groupCount = matcher.CaptureCount;
+        constructor.SetLegacyMatch(s, spans[offset], spans[offset + 1], groupCount);
+        for (var group = 1; group < groupCount && group <= 9; group++)
         {
-            var group = i + 1;
-            if (group < matcher.CaptureCount && spans[offset + 2 * group] >= 0)
-            {
-                var value = s.Substring(spans[offset + 2 * group], spans[offset + 2 * group + 1]);
-                constructor._legacyParens[i] = value;
-                lastParen = value;
-            }
-            else
-            {
-                constructor._legacyParens[i] = "";
-            }
+            constructor.SetLegacyParen(group - 1, spans[offset + 2 * group], spans[offset + 2 * group + 1]);
         }
-
-        constructor._legacyLastParen = lastParen;
     }
 
     private static string CallFunctionalReplace(JsValue replacer, JsCallArguments replacerArgs)
@@ -1495,7 +1486,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 found = TryMatchRangeWithTimeout(customR, matcher, s, 0, out searchIndex, out var searchLength);
                 if (found)
                 {
-                    UpdateLegacyStaticProperties(_engine, s, [new RegexCapture(true, searchIndex, searchLength)], 1);
+                    _engine.Realm.Intrinsics.RegExp.SetLegacyMatch(s, searchIndex, searchLength, groupCount: 1);
                 }
             }
             else
@@ -2187,26 +2178,14 @@ internal sealed partial class RegExpPrototype : Prototype
     private static void UpdateLegacyStaticProperties(Engine engine, string s, ReadOnlySpan<RegexCapture> groups, int groupCount)
     {
         var constructor = engine.Realm.Intrinsics.RegExp;
-        constructor._legacyInput = s;
-        // lastMatch/leftContext/rightContext are all derived from this position on read.
-        constructor.SetLegacyContext(s, groups[0].Index, groups[0].Length);
-        var lastParen = "";
-        for (var i = 0; i < 9; i++)
+        // Only the spans are recorded: every value, lastMatch/leftContext/rightContext and $1-$9 alike, is cut out of
+        // the subject by the read that wants it.
+        constructor.SetLegacyMatch(s, groups[0].Index, groups[0].Length, groupCount);
+        for (var group = 1; group < groupCount && group <= 9; group++)
         {
-            var group = i + 1;
-            if (group < groupCount && groups[group].Participated)
-            {
-                var groupValue = s.Substring(groups[group].Index, groups[group].Length);
-                constructor._legacyParens[i] = groupValue;
-                lastParen = groupValue;
-            }
-            else
-            {
-                constructor._legacyParens[i] = "";
-            }
+            var capture = groups[group];
+            constructor.SetLegacyParen(group - 1, capture.Participated ? capture.Index : -1, capture.Length);
         }
-
-        constructor._legacyLastParen = lastParen;
     }
 
     private static JsArray CreateReturnValueArray(
@@ -2308,28 +2287,14 @@ internal sealed partial class RegExpPrototype : Prototype
     private static void UpdateLegacyStaticProperties(Engine engine, Match match, string s, int actualGroupCount)
     {
         var constructor = engine.Realm.Intrinsics.RegExp;
-        constructor._legacyInput = s;
-        // lastMatch/leftContext/rightContext are all derived from this position on read.
-        constructor.SetLegacyContext(s, match.Index, match.Length);
+        constructor.SetLegacyMatch(s, match.Index, match.Length, actualGroupCount);
 
-        // Update $1-$9
-        var lastParen = "";
-        for (var i = 0; i < 9; i++)
+        // $1-$9: the spans only, cut out of the subject when read.
+        for (var group = 1; group < actualGroupCount && group <= 9; group++)
         {
-            var groupIndex = i + 1;
-            if (groupIndex < actualGroupCount && match.Groups[groupIndex].Success)
-            {
-                // Capture.Value builds a fresh string on every read, so take it once.
-                var groupValue = match.Groups[groupIndex].Value;
-                constructor._legacyParens[i] = groupValue;
-                lastParen = groupValue;
-            }
-            else
-            {
-                constructor._legacyParens[i] = "";
-            }
+            var capture = match.Groups[group];
+            constructor.SetLegacyParen(group - 1, capture.Success ? capture.Index : -1, capture.Length);
         }
-        constructor._legacyLastParen = lastParen;
     }
 
     /// <summary>

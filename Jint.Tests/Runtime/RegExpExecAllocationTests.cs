@@ -48,4 +48,15 @@ public class RegExpExecAllocationTests
         var bytes = BytesPerExec("/b/", "abc");
         bytes.Should().BeLessThan(600);
     }
+
+    // $1-$9 are cut out of the subject when they are read, so exec itself copies a capture once - into the result
+    // array - and not a second time into statics nobody may ever read (about 3250 bytes per exec of three
+    // 200-character captures before, about 2000 after).
+    [Test]
+    public void AnExecCopiesACaptureOnceWhateverTheStaticsHold()
+    {
+        var subject = new string('a', 200) + new string('b', 200) + new string('c', 200);
+        var bytes = BytesPerExec("/(a{200})(b{200})(c{200})/", subject);
+        bytes.Should().BeLessThan(2600);
+    }
 }
