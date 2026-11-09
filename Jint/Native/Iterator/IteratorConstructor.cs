@@ -268,7 +268,7 @@ internal sealed partial class IteratorConstructor : Constructor
                     // Per spec, reverse order of [inputIter, ...iters] = iters in reverse, then inputIter
                     inputIterClosed = true;
                     CloseIteratorsReverse(iters);
-                    try { iterablesIterator.Close(CompletionType.Throw); } catch { /* ignore */ }
+                    iterablesIterator.Close(CompletionType.Throw);
                     throw;
                 }
             }
@@ -560,18 +560,17 @@ internal sealed partial class IteratorConstructor : Constructor
         return null;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ifabruptcloseiterators: IteratorCloseAll(<paramref name="iters"/>, completion) for
+    /// the throw completion every caller is leaving with, so each IteratorClose discards what its <c>return</c> raises
+    /// (https://tc39.es/ecma262/#sec-iteratorclose step 5) and the throw stands. What a close still propagates ends the
+    /// run, a constraint that tripped inside <c>return</c> among them, and is not caught here.
+    /// </summary>
     private static void CloseIteratorsReverse(List<IteratorInstance.ObjectIterator> iters)
     {
         for (var i = iters.Count - 1; i >= 0; i--)
         {
-            try
-            {
-                iters[i].Close(CompletionType.Normal);
-            }
-            catch
-            {
-                // Ignore errors during cleanup
-            }
+            iters[i].Close(CompletionType.Throw);
         }
     }
 }

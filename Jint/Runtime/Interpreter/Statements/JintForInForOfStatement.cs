@@ -1022,22 +1022,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             if (close)
             {
                 suspendable?.Data.Clear(this);
-                try
-                {
-                    iteratorRecord.Close(completionType);
-                }
-                catch
-                {
-                    // if we already have and exception, use it
-                    if (completionType != CompletionType.Throw)
-                    {
-#pragma warning disable CA2219
-#pragma warning disable MA0072
-                        throw;
-#pragma warning restore MA0072
-#pragma warning restore CA2219
-                    }
-                }
+
+                // IteratorClose discards what `return` raises under a throw completion itself (step 5), and propagates
+                // only what must end the run, a constraint that tripped inside `return` among them; under any other
+                // completion what it raises is the loop's (https://tc39.es/ecma262/#sec-iteratorclose).
+                iteratorRecord.Close(completionType);
             }
 
             // Park the reusable iteration environment for the next loop entry; reset at park
@@ -1499,8 +1488,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// <summary>
     /// AsyncIteratorClose steps 3 and 4.a-4.c for a throw completion: <see langword="false"/> when there is nothing to
     /// await, because <c>return</c> is undefined (step 4.b) or reading or calling it was abrupt — a throw completion
-    /// that step 5 then discards in favour of the loop's own. Everything is swallowed, as
-    /// <see cref="IteratorInstance.Close"/> swallows it for a throw completion.
+    /// that step 5 then discards in favour of the loop's own. What is discarded is what
+    /// <see cref="IteratorInstance.Close"/> discards for a throw completion: everything but an exception that ends the
+    /// run (<see cref="Throw.MustPropagateHostException"/>), so a constraint that trips inside <c>return</c> still stops
+    /// the engine.
     /// </summary>
     private static bool TryStartAsyncCloseDiscardingAbrupt(IteratorInstance iteratorRecord, out JsValue innerResult)
     {
@@ -1508,7 +1499,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             return iteratorRecord.TryStartAsyncClose(out innerResult);
         }
-        catch
+        catch (Exception e) when (!Throw.MustPropagateHostException(e))
         {
             innerResult = JsValue.Undefined;
             return false;
@@ -1829,8 +1820,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             }
 
             // Handed back as the completion it is rather than raised again, as BodyEvaluation hands back a throw
-            // completion: a body's throw has been reported to the debugger once already, where it was thrown.
-            TryCloseIterator(iteratorRecord, CompletionType.Throw);
+            // completion: a body's throw has been reported to the debugger once already, where it was thrown. The close
+            // discards what `return` raises itself, and propagates only what must end the run, a constraint that
+            // tripped inside `return` among them.
+            iteratorRecord.Close(CompletionType.Throw);
             return result;
         }
 
@@ -1918,18 +1911,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             data.OuterEnv = oldEnv;
             data.AccumulatedValue = v;
             data.DisposeInProgress = true;
-        }
-    }
-
-    private static void TryCloseIterator(IteratorInstance iterator, CompletionType completionType)
-    {
-        try
-        {
-            iterator.Close(completionType);
-        }
-        catch
-        {
-            // Best-effort close on abrupt — main path already has its own completion.
         }
     }
 

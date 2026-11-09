@@ -8330,6 +8330,39 @@ has a `navigate` member that Chromium does not read, and neither does Jint, so a
 action is stored: a non-persistent notification refuses a non-empty list, and `actions` reads back as an empty frozen
 array. There is no switch back.
 
+### 4.232 An execution constraint that trips inside an iterator's `return` ends the run while a throw is closing the iterator ([#PRNUMBER](https://github.com/sebastienros/jint/pull/PRNUMBER))
+
+A loop, a destructuring pattern or a built-in that is left by a throw closes its iterator by calling `return`, and the
+spec has the throw win over anything `return` throws. Jint let it win over everything, including the exception of an
+execution constraint that tripped while `return` ran. So the limit was spent and the script carried on:
+
+```js
+const it = { [Symbol.iterator]() { return { next() { return { done: false }; }, return() { for (;;) {} } }; } };
+try { for (const x of it) throw new Error('body'); } catch (e) { }
+'finished'
+// LimitExecutionTime(300 ms)    earlier builds: 'finished'    5.x: TimeoutException out of Evaluate
+```
+
+Whether the run ended anyway depended on what came after. A statement or memory limit is checked on every statement,
+so it fired again on the next one. A time limit or a cancellation is checked every 64 statements, so a script with
+fewer than that left finished normally. `MaxRecursionDepth` and `MaxArraySize` fire once, and were simply lost.
+
+The exception now reaches the host from every close a throw performs: `for`-`of` and `for await` (a sync iterable in a
+`for await`, and a `for (await using …)` whose dispose rejects, included), array destructuring in a declaration, an
+assignment or a parameter list, a generator closed while it is suspended in `yield*`, `Array.from`, `Array.fromAsync`,
+the `Map`, `Set`, `WeakMap` and `WeakSet` constructors, `Object.fromEntries`, `Promise.all`, `allSettled`, `any` and
+`race`, the iterator helpers, `Iterator.zip` and `Iterator.zipKeyed`, and the web APIs that convert a sequence. The
+exceptions that do so are the ones a script can never catch: `StatementsCountOverflowException`,
+`MemoryLimitExceededException` (`LimitMemory` and `MaxArraySize`), `ExecutionCanceledException`,
+`RecursionDepthOverflowException`, `RegexMatchTimeoutException`, and the `TimeoutException` and
+`OperationCanceledException` that Jint itself raises. What a script can catch is still discarded, as the spec says: a
+`throw` in `return`, and the `RangeError` of `StackOverflowGuard`. So is a host's own exception from a CLR `return` or
+`Dispose`, a `TimeoutException` included: only one Jint raised counts as the time limit.
+
+**What could break:** nothing a script can observe, except that it no longer completes. A host whose scripts kept
+running past a bound because the bound tripped inside a `return` now gets the bound's exception instead. There is no
+switch back: a constraint a `return` could hide bounded nothing.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

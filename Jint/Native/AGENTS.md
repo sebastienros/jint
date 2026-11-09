@@ -79,3 +79,15 @@ was measured into place:
   `ProxyBenchmark.OwnKeysTrap` measured 6% slower.
 
 Check a change near there with `DOTNET_JitDisasm` against the method's inlinee counts before and after.
+
+## Closing an iterator on the way out of a throw: never wrap the close in a `catch`
+
+IteratorClose with a throw completion lets the throw win over what `return` raises
+(https://tc39.es/ecma262/#sec-iteratorclose step 5), and `IteratorInstance.Close(CompletionType.Throw)` does that
+discarding itself. What it still raises is an exception that ends the run — one `Throw.MustPropagateHostException`
+names, every execution constraint among them. So a built-in leaving by a throw calls `Close(CompletionType.Throw)` and
+lets whatever comes out propagate. A `catch { }` around it, or `catch when (completion == CompletionType.Throw)` in a
+close written by hand, is how a time limit spent inside `return` stopped bounding anything
+([#PRNUMBER](https://github.com/sebastienros/jint/pull/PRNUMBER)). A hand-written close — `return` called directly, as
+the helpers' argument validation and `Array.fromAsync` do — adds `&& !Throw.MustPropagateHostException(e)` to its
+filter. Pinned in `Jint.Tests.PublicInterface/HostIteratorCloseConstraintTests.cs`.

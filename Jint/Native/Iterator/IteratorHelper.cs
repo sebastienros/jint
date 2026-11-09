@@ -1034,9 +1034,10 @@ internal sealed class ZipIterator : ObjectInstance
                 {
                     openIter.Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (!Throw.MustPropagateHostException(ex))
                 {
-                    // Capture the first exception, subsequent ones are ignored
+                    // Capture the first exception, subsequent ones are ignored. One that ends the run - a constraint
+                    // that tripped inside a `return` - is neither: it propagates at once.
                     if (caughtException is null)
                     {
                         caughtException = ex;
@@ -1069,10 +1070,11 @@ internal sealed class ZipIterator : ObjectInstance
             {
                 _openIters[i].Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!Throw.MustPropagateHostException(ex))
             {
                 // Per IteratorClose step 5: if completion is throw, ignore new exceptions
-                // Otherwise, capture the first exception
+                // Otherwise, capture the first exception. One that ends the run - a constraint that tripped inside a
+                // `return` - is neither: it propagates at once.
                 if (!isThrowCompletion && caughtException is null)
                 {
                     caughtException = ex;
