@@ -164,9 +164,19 @@ internal static class GeometryConversion
         {
             var iterator = value.GetIterator(owning, method: iteratorMethod);
             var values = new List<double>(16);
-            while (iterator.TryIteratorStepValue(out var item))
+            try
             {
-                values.Add(TypeConverter.ToNumber(item));
+                while (iterator.TryIteratorStepValue(out var item))
+                {
+                    values.Add(TypeConverter.ToNumber(item));
+                }
+            }
+            catch
+            {
+                // An element whose conversion threw closes the iterator; a step that threw left the record done
+                // (sebastienros/jint#4431).
+                iterator.CloseIfNotDone(CompletionType.Throw);
+                throw;
             }
 
             return FromSequence(owning, values, "Failed to construct '" + interfaceName + "'");

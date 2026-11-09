@@ -8060,6 +8060,44 @@ Async functions and sync generators already behaved correctly and are unchanged.
 on a default engine. With `LimitStatements`, `LimitExecutionTime`, `LimitMemory` or cancellation configured,
 the run used to end with that constraint's exception; it now completes. There is no switch back.
 
+### 4.220 A web API that fails to convert an element of a sequence closes the iterator ([#4431](https://github.com/sebastienros/jint/issues/4431))
+
+When a web API converts an iterable argument to a sequence and an element fails to convert, it now calls the
+iterator's `return` once before the error propagates, so a generator's `finally` runs. A `next` that throws, and a
+sequence that runs out, still call nothing. Most conversions already worked this way. These did not:
+
+```js
+let closed = false;
+function* parts() { try { yield 'a'; yield Symbol(); } finally { closed = true; } }
+try { new Blob(parts()); } catch { }   // TypeError: a Symbol is not a BlobPart
+closed
+// earlier previews: false    5.x: true
+```
+
+- `new Blob` and `new File`'s parts.
+- The sequence form of the `Headers` constructor's argument, which `new Request`, `new Response` and `fetch` share for
+  their `headers`, and the sequence form of `new URLSearchParams`. When an element of a header or pair fails to
+  convert, that pair's iterator is closed and then the outer one. The outer one is also closed when a header or pair
+  is not iterable, or when its own `next` throws.
+- In `Jint.Browser`: the `DOMMatrix` and `DOMMatrixReadOnly` constructors, `getHighEntropyValues`'s hints, a
+  `Notification`'s `vibrate`, `getHTML`'s `shadowRoots`, the lists in a `Sanitizer` configuration, and a keyframes
+  argument (`new KeyframeEffect`, `animate`, `setKeyframes`).
+
+Four conversions closed when they should not have: `IDBDatabase.prototype.transaction`'s store names, the key path of
+`createObjectStore` and `createIndex`, and in `Jint.Browser` `setLineDash` and `roundRect`'s radii. They called
+`return` after `next` had thrown, and no longer do.
+
+`Headers` and `URLSearchParams` also convert their whole sequence before they check it, as WebIDL orders it. Every
+pair is read to its end and every element converted, and only then is a pair refused for not having two items, or a
+header for its name or value. That refusal calls no `return`, since both iterators are done by then. Before,
+`Headers` stopped a pair at its third element and closed both iterators, and both constructors refused a pair as soon
+as they reached it, so the elements after it were never read. A pair that fails to convert after a refused one now
+throws its own error, not the refusal's `TypeError`.
+
+WebIDL's text has no close ([whatwg/webidl#895](https://github.com/whatwg/webidl/issues/895)); Jint follows
+[whatwg/webidl#1662](https://github.com/whatwg/webidl/pull/1662), which proposes one, as Safari already behaves. There
+is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

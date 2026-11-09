@@ -191,7 +191,9 @@ internal sealed class JsCanvasContext : ObjectInstance
         }
         catch
         {
-            iterator.Close(CompletionType.Throw);
+            // A failed conversion closes the iterator. A step that threw left the record done, so
+            // CloseIfNotDone closes nothing then (sebastienros/jint#4431).
+            iterator.CloseIfNotDone(CompletionType.Throw);
             throw;
         }
         foreach (var value in values)

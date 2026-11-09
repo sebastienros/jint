@@ -276,9 +276,19 @@ internal sealed class JsNotification : JsEventTarget
         {
             var iterator = value.GetIterator(realm, method: iteratorMethod);
             var pattern = new List<uint>();
-            while (iterator.TryIteratorStepValue(out var item))
+            try
             {
-                pattern.Add(TypeConverter.ToUint32(item));
+                while (iterator.TryIteratorStepValue(out var item))
+                {
+                    pattern.Add(TypeConverter.ToUint32(item));
+                }
+            }
+            catch
+            {
+                // An entry whose conversion threw closes the iterator; a step that threw left the record done
+                // (sebastienros/jint#4431).
+                iterator.CloseIfNotDone(CompletionType.Throw);
+                throw;
             }
 
             return [.. pattern];

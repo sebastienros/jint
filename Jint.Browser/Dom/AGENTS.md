@@ -90,6 +90,9 @@ Several observable rules must survive changes to the projection:
   its last named result so value and descriptor reads agree during host-contract verification.
 - **Absent `tabindex` still reflects as 0.** That is not a focusability test; `FocusController` uses the
   element kind and content attribute directly.
+- **A sequence conversion closes its iterator when an element fails to convert, and only then**, as the web APIs
+  do ([the rule](../../Jint/WebApi/AGENTS.md#when-a-sequence-conversion-closes-its-iterator));
+  `BrowserWebIdlSequenceCloseTests` runs that matrix over every Browser lane.
 
 ### Every member body goes through one invoker, and that is where a refusal is converted
 

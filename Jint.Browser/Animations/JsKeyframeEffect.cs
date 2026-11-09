@@ -169,26 +169,36 @@ internal sealed class JsKeyframeEffect : JsAnimationEffect
             if (method is not null)
             {
                 var iterator = input.GetIterator(Owner.Realm, method: method);
-                while (iterator.TryIteratorStepValue(out var next))
+                try
                 {
-                    AnimationValues.Check(Owner, frames.Count);
-                    var dictionary = AnimationValues.Dictionary(Owner, next);
-                    var frame = new Keyframe();
-                    if (dictionary is not null)
+                    while (iterator.TryIteratorStepValue(out var next))
                     {
-                        var composite = dictionary.Get("composite");
-                        frame.Composite = composite.IsUndefined() ? "auto" : CompositeValue(composite);
-                        var easing = dictionary.Get("easing");
-                        frame.Easing = easing.IsUndefined() ? "linear" : TypeConverter.ToString(easing);
-                        frame.Offset = AnimationValues.NullableNumber(Owner, dictionary.Get("offset"));
-                        foreach (var name in Names(dictionary))
+                        AnimationValues.Check(Owner, frames.Count);
+                        var dictionary = AnimationValues.Dictionary(Owner, next);
+                        var frame = new Keyframe();
+                        if (dictionary is not null)
                         {
-                            AnimationValues.Check(Owner, propertyIndex++);
-                            frame.Properties.Add(name, TypeConverter.ToString(dictionary.Get(name)));
+                            var composite = dictionary.Get("composite");
+                            frame.Composite = composite.IsUndefined() ? "auto" : CompositeValue(composite);
+                            var easing = dictionary.Get("easing");
+                            frame.Easing = easing.IsUndefined() ? "linear" : TypeConverter.ToString(easing);
+                            frame.Offset = AnimationValues.NullableNumber(Owner, dictionary.Get("offset"));
+                            foreach (var name in Names(dictionary))
+                            {
+                                AnimationValues.Check(Owner, propertyIndex++);
+                                frame.Properties.Add(name, TypeConverter.ToString(dictionary.Get(name)));
+                            }
                         }
-                    }
 
-                    frames.Add(frame);
+                        frames.Add(frame);
+                    }
+                }
+                catch
+                {
+                    // A keyframe whose conversion threw closes the iterator, as a WebIDL sequence's element does; a step
+                    // that threw left the record done (sebastienros/jint#4431).
+                    iterator.CloseIfNotDone(CompletionType.Throw);
+                    throw;
                 }
             }
             else

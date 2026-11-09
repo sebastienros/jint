@@ -326,7 +326,10 @@ internal static class SanitizerConversion
         return dictionary;
     }
 
-    /// <summary>https://webidl.spec.whatwg.org/#es-sequence — iterated through the iterator protocol.</summary>
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#es-sequence — iterated through the iterator protocol. An item whose conversion
+    /// throws closes the iterator; a step that threw left the record done (sebastienros/jint#4431).
+    /// </summary>
     private static List<T> List<T>(Realm realm, JsValue value, Func<Realm, JsValue, T> convert)
     {
         if (value is not ObjectInstance)
@@ -336,9 +339,17 @@ internal static class SanitizerConversion
 
         var iterator = value.GetIterator(realm);
         var list = new List<T>();
-        while (iterator.TryIteratorStepValue(out var item))
+        try
         {
-            list.Add(convert(realm, item));
+            while (iterator.TryIteratorStepValue(out var item))
+            {
+                list.Add(convert(realm, item));
+            }
+        }
+        catch
+        {
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return list;

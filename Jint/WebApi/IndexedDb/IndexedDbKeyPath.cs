@@ -37,7 +37,8 @@ internal sealed class IndexedDbKeyPath(string[] paths, bool sequence)
             }
             catch
             {
-                iterator.Close(CompletionType.Throw);
+                // A step that threw left the record done, and closes nothing (sebastienros/jint#4431).
+                iterator.CloseIfNotDone(CompletionType.Throw);
                 throw;
             }
         }
