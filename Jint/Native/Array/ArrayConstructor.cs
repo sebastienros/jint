@@ -1,6 +1,7 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of constructor methods return JsValue
 
 using System.Collections;
+using System.Runtime.CompilerServices;
 using Jint.Native.Function;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
@@ -936,8 +937,14 @@ public sealed partial class ArrayConstructor : Constructor
         return jsArray;
     }
 
+    /// <summary>
+    /// Copies <paramref name="contents"/> into a new array, throwing <see cref="MemoryLimitExceededException"/> past <c>MaxArraySize</c>.
+    /// </summary>
     public JsArray ConstructFast(JsValue[] contents)
     {
+        // The ownership-taking array constructor does not validate its length (see ConstructFromBuilder).
+        ValidateElementCount((uint) contents.Length);
+
         var array = new JsValue[contents.Length];
         System.Array.Copy(contents, array, contents.Length);
         return new JsArray(this, array);
@@ -945,9 +952,26 @@ public sealed partial class ArrayConstructor : Constructor
 
     internal JsArray ConstructFast(List<JsValue> contents)
     {
+        // The ownership-taking array constructor does not validate its length (see ConstructFromBuilder).
+        ValidateElementCount((uint) contents.Count);
+
         var array = new JsValue[contents.Count];
         contents.CopyTo(array);
         return new JsArray(this, array);
+    }
+
+    /// <summary>
+    /// The <c>MaxArraySize</c> check of <c>ArrayCreate</c>, for the constructors that take ownership of (or copy) a
+    /// finished element list and so never reach it. One compare against the configured limit; the throwing path is
+    /// the same helper and message every other array creation uses.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ValidateElementCount(uint length)
+    {
+        if (length > _engine.Options.Constraints.MaxArraySize)
+        {
+            ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, length);
+        }
     }
 
     /// <summary>
@@ -961,10 +985,7 @@ public sealed partial class ArrayConstructor : Constructor
 
         // The ownership-taking constructor skips capacity validation; the incremental
         // write path enforced MaxArraySize through EnsureCapacity, so keep parity here.
-        if (length > _engine.Options.Constraints.MaxArraySize)
-        {
-            ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, length);
-        }
+        ValidateElementCount(length);
 
         if (length < ArrayInstance.MaxDenseArrayLengthInternal)
         {
