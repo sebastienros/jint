@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1326
+anchors: 1328
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -264,6 +264,7 @@ ecma262 sec-definefield
 ecma262 sec-definemethodproperty
 ecma262 sec-deletepropertyorthrow
 ecma262 sec-detacharraybuffer
+ecma262 sec-disposablestack.prototype.dispose
 ecma262 sec-disposeresources
 ecma262 sec-dowait
 ecma262 sec-ecmascript-function-objects-call-thisargument-argumentslist
@@ -781,6 +782,7 @@ ecma262 sec-stringpad
 ecma262 sec-stringtobigint
 ecma262 sec-stringtonumber
 ecma262 sec-super-keyword-runtime-semantics-evaluation
+ecma262 sec-suppressederror.prototype.message
 ecma262 sec-symbol.for
 ecma262 sec-symbol.keyfor
 ecma262 sec-symbol.prototype-@@toprimitive
