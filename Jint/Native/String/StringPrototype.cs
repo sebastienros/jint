@@ -1527,16 +1527,19 @@ internal sealed partial class StringPrototype : StringInstance
 
         var functionalReplace = replaceValue is ICallable;
 
+        var searchLength = searchString.Length;
         if (!functionalReplace)
         {
             replaceValue = TypeConverter.ToJsString(replaceValue);
-
-            // check fast case
-            var newValue = replaceValue.ToString();
-            if (!newValue.Contains('$') && searchString.Length > 0)
+            var replacement = replaceValue.ToString();
+            if (searchLength > 0 && !replacement.Contains('$'))
             {
-                // just plain old string replace
-                return thisString.Replace(searchString, newValue);
+                var maxMatches = thisString.Length / searchLength;
+                if (maxMatches < ConstraintCheckInterval
+                    && thisString.Length + (long) maxMatches * System.Math.Max(0, replacement.Length - searchLength) <= JsString.MaxLength)
+                {
+                    return thisString.Replace(searchString, replacement);
+                }
             }
         }
 
@@ -1553,7 +1556,6 @@ internal sealed partial class StringPrototype : StringInstance
                 : -1;
         }
 
-        var searchLength = searchString.Length;
         var advanceBy = System.Math.Max(1, searchLength);
 
         var endOfLastMatch = 0;
