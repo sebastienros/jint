@@ -81,11 +81,12 @@ internal sealed partial class AsyncIteratorConstructor : Constructor
 
     /// <summary>
     /// GetIteratorFlattenable(obj, async), the operation <c>AsyncIterator.from</c> and the inner iterator of
-    /// <c>AsyncIterator.prototype.flatMap</c> build their record with. The proposal links the version that had a hint,
-    /// from before the async helpers moved out of tc39/proposal-iterator-helpers
-    /// (https://github.com/tc39/proposal-iterator-helpers/blob/ef4471f0709f37e8f02045b9d5f2d7f3d5e8fc18/spec.html);
-    /// ECMA-262's is sync only. An object with no
-    /// <c>@@asyncIterator</c> but an <c>@@iterator</c> is wrapped by CreateAsyncFromSyncIterator
+    /// <c>AsyncIterator.prototype.flatMap</c> build their record with. Neither the proposal nor the page its link reaches
+    /// defines this form any more: that page and ECMA-262 both render the sync-only GetIteratorFlattenable(obj,
+    /// stringHandling). The calls were written against the pre-split operation that took a <c>sync</c>/<c>async</c> hint
+    /// (tc39/proposal-async-iterator-helpers#19), and this follows that text, as of tc39/proposal-iterator-helpers
+    /// ef4471f (https://github.com/tc39/proposal-iterator-helpers/blob/ef4471f0709f37e8f02045b9d5f2d7f3d5e8fc18/spec.html).
+    /// An object with no <c>@@asyncIterator</c> but an <c>@@iterator</c> is wrapped by CreateAsyncFromSyncIterator
     /// (https://tc39.es/ecma262/#sec-createasyncfromsynciterator), so each value it answers is awaited; one with
     /// neither is the iterator itself (sebastienros/jint#4439).
     /// </summary>

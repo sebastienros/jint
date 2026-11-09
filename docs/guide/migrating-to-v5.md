@@ -7895,8 +7895,13 @@ rejects, still closes the source. `reduce`, `toArray`, `forEach`, `some`, `every
 In `flatMap`, an inner async iterator whose step settles to something other than an object now rejects with a
 `TypeError` and closes the source iterator. It used to end the inner iterator, and `flatMap` went on to the source's
 next value. Calling `return()` on the helper while it is inside a sync iterable whose `return` throws now closes the
-source and resolves, the same as for an async inner iterator whose `return` rejects. It used to reject with that
-error and leave the source open. There is no switch back.
+source, as it already did for an async inner iterator whose `return` rejects. It used to leave the source open. There
+is no switch back.
+
+Whether that `return()` resolves or rejects is not settled yet. Jint resolves it for now, for either kind of inner
+iterator, only because it does not await the inner iterator's close. Expect that to change: the helpers' closes are
+tracked in [#4500](https://github.com/sebastienros/jint/issues/4500), and the proposal is heading towards awaiting
+that close and rejecting.
 
 ## 5. New in v5
 

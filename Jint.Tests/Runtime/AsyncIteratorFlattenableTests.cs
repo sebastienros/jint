@@ -7,8 +7,9 @@ namespace Jint.Tests.Runtime;
 /// with: the inner iterator of
 /// <a href="https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.flatmap">AsyncIterator.prototype.flatMap</a>,
 /// and the argument of <a href="https://tc39.es/proposal-async-iterator-helpers/#sec-asynciterator.from">AsyncIterator.from</a>.
-/// The proposal links the version of the operation that had a <c>sync</c>/<c>async</c> hint
-/// (tc39/proposal-iterator-helpers, before the async helpers were split out): an object with no
+/// Those calls were written against the operation as it was before the async helpers were split out of
+/// tc39/proposal-iterator-helpers (at ef4471f), when it took a <c>sync</c>/<c>async</c> hint; the page the link reaches
+/// now renders the sync-only form (tc39/proposal-async-iterator-helpers#19). In that version an object with no
 /// <c>@@asyncIterator</c> but an <c>@@iterator</c> is wrapped by
 /// <a href="https://tc39.es/ecma262/#sec-createasyncfromsynciterator">CreateAsyncFromSyncIterator</a>, so each value it
 /// answers is awaited, and <c>AsyncIterator.from</c> converts a string with <c>ToObject</c> before it gets there.
@@ -142,12 +143,17 @@ public class AsyncIteratorFlattenableTests
     }
 
     /// <summary>
-    /// <c>return()</c> while an inner iterator is open whose <c>return</c> fails. The proposal closes the inner iterator
-    /// with IteratorClose, which finds an object in the promise the async-from-sync wrapper's <c>return</c> answers and
-    /// does not await it, so the helper goes on to close the outer iterator and resolves. That is what an async inner
-    /// iterator whose <c>return</c> rejects already did. A sync inner iterator's throw used to reject the helper's
-    /// <c>return()</c> and leave the outer iterator open; core-js awaits the inner close and rejects, after closing the
-    /// outer iterator.
+    /// <c>return()</c> while an inner iterator is open whose <c>return</c> fails still closes the outer iterator, once,
+    /// whether the inner iterator is sync or async. A sync inner iterator's throw used to skip that close and leave the
+    /// outer iterator open.
+    /// <para>
+    /// Only the close is pinned, because it is the one part every reading agrees on. Whether the helper's
+    /// <c>return()</c> then resolves or rejects is not. Jint resolves only because it closes the inner iterator with a
+    /// synchronous IteratorClose and never awaits the promise its <c>return</c> answers (sebastienros/jint#4500).
+    /// core-js awaits it and rejects. The proposal is moving the same way. Its July 2026 plenary decided the inner
+    /// iterator is closed first, and the champion leans towards awaiting each close in turn
+    /// (tc39/proposal-async-iterator-helpers#30). The champion also says the current spec text is stale (#19, #31).
+    /// </para>
     /// </summary>
     [TestCase("sync")]
     [TestCase("async")]
@@ -166,11 +172,11 @@ public class AsyncIteratorFlattenableTests
                     : { [Symbol.asyncIterator]() { let j = 0; return { next() { j++; return Promise.resolve({ value: j, done: j > 2 }); }, return() { return Promise.reject(new RangeError('inner')); } }; } };
                 const helper = AsyncIterator.prototype.flatMap.call(outer, () => inner);
                 await helper.next();
-                let answer;
-                try { answer = 'resolved:' + (await helper.return()).done; } catch (e) { answer = 'rejected:' + describe(e); }
-                return answer + ':outer=' + counts.outer;
+                // Settled either way: whether it resolves or rejects is sebastienros/jint#4500's to decide.
+                try { await helper.return(); } catch { }
+                return 'outer=' + counts.outer;
             })()
-            """).Should().Be("resolved:true:outer=1");
+            """).Should().Be("outer=1");
     }
 
     /// <summary>

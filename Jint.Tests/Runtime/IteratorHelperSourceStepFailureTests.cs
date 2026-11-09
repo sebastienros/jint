@@ -136,16 +136,47 @@ public class IteratorHelperSourceStepFailureTests
     /// <c>next</c> again when a step settles to a primitive instead of throwing the <c>TypeError</c>, without end
     /// (sebastienros/jint#4489).
     /// </summary>
-    private static IEnumerable<TestCaseData> HelperCases() =>
-        from failure in _failures
-        from name in _helpers
-        where !(name == "generator" && failure.Kind == "async" && failure.How.EndsWith("Primitive", StringComparison.Ordinal))
-        select new TestCaseData(failure.Kind, name, failure.How, failure.Error);
+    public static TestCases<string, string, string, string> HelperCases
+    {
+        get
+        {
+            var rows = new TestCases<string, string, string, string>();
+            foreach (var failure in _failures)
+            {
+                foreach (var name in _helpers)
+                {
+                    if (name == "generator" && failure.Kind == "async" && failure.How.EndsWith("Primitive", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
 
-    private static IEnumerable<TestCaseData> ConsumerCases() =>
-        from failure in _failures
-        from name in _consumers
-        select new TestCaseData(failure.Kind, name, failure.How, failure.Error);
+                    rows.Add(failure.Kind, name, failure.How, failure.Error);
+                }
+            }
+
+            return rows;
+        }
+    }
+
+    /// <summary>
+    /// Every consuming method against every failure.
+    /// </summary>
+    public static TestCases<string, string, string, string> ConsumerCases
+    {
+        get
+        {
+            var rows = new TestCases<string, string, string, string>();
+            foreach (var failure in _failures)
+            {
+                foreach (var name in _consumers)
+                {
+                    rows.Add(failure.Kind, name, failure.How, failure.Error);
+                }
+            }
+
+            return rows;
+        }
+    }
 
     private static string Run(string script) =>
         new Engine().Evaluate(Harness + "\n" + script).UnwrapIfPromise().AsString();
