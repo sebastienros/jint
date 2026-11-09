@@ -7894,6 +7894,34 @@ the value is the string it stands for for equality, `length`, every `String.prot
 
 See §4.27 for the details, which apply here unchanged.
 
+### 4.216 A wrapped CLR collection deletes a configurable property the script defined on it ([#4457](https://github.com/sebastienros/jint/issues/4457))
+
+A wrapped CLR list, array or other indexed collection refused `delete` for every property it had in three cases:
+when `Options.Interop.AllowWrite` was off (the 5.x default), when the collection was read-only (such as
+`ReadOnlyCollection<T>`, `ImmutableArray<T>` or a bare `IReadOnlyList<T>`), and after `Object.preventExtensions`
+or `Object.freeze`. That included properties the script had defined itself:
+
+```js
+// host: engine.SetValue("list", new List<int> { 1, 2 });   // default options
+Object.defineProperty(list, Symbol.iterator, { value: function* () { yield 9; }, configurable: true });
+delete list[Symbol.iterator]
+// earlier previews: false, and [...list] stays [9]    5.x: true, and [...list] is [1, 2] again
+```
+
+Now only the collection's contents are refused in those cases: an element, and an entry of a dictionary-shaped
+collection such as Newtonsoft's `JObject`. Deleting one still returns `false` (a `TypeError` in strict mode), and
+the collection does not change. Every other property follows the ordinary `delete` rules: removed if it is
+configurable, refused if it is not. Extensibility does not matter, so `Object.preventExtensions` no longer stops
+a configurable property from being deleted. Nor does `Object.freeze`, which does not reach a property the script
+defined on a wrapper: the wrapper lists only the collection's own keys, so that property stays configurable. A
+plain wrapped object, and a writable collection under `AllowWrite`, already behaved this way.
+
+The same rules apply to what the wrapper itself puts on a collection. `delete list.Contains` and
+`delete list.length` now return `true`. The method is back on the next read. So is the count for a collection
+that implements `ICollection`; on any other collection, `length` then reads `Array.prototype.length`. A
+reflected property such as `Count` is non-configurable, so deleting it still returns `false`. There is no
+switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

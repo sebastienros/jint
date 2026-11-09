@@ -123,10 +123,15 @@ internal static class NavigatorUserAgentData
         return StreamPromises.ResolvedWith(engine, realm, result);
     }
 
-    /// <summary>The <c>sequence&lt;DOMString&gt;</c> of hints, converted as WebIDL converts one.</summary>
+    /// <summary>
+    /// The <c>sequence&lt;DOMString&gt;</c> of hints, converted as WebIDL converts one
+    /// (https://webidl.spec.whatwg.org/#es-sequence): <c>@@iterator</c> is read once, and the sequence is created from
+    /// the method that read found (https://webidl.spec.whatwg.org/#create-sequence-from-iterable) rather than from a
+    /// second read.
+    /// </summary>
     private static HashSet<string> Hints(Realm realm, JsValue value)
     {
-        if (value is not ObjectInstance instance || instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is null)
+        if (value is not ObjectInstance instance || instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is not { } iteratorMethod)
         {
             Throw.TypeError(
                 realm,
@@ -135,7 +140,7 @@ internal static class NavigatorUserAgentData
         }
 
         var hints = new HashSet<string>(StringComparer.Ordinal);
-        var iterator = value.GetIterator(realm);
+        var iterator = value.GetIterator(realm, method: iteratorMethod);
         while (iterator.TryIteratorStepValue(out var item))
         {
             hints.Add(TypeConverter.ToString(item));
