@@ -34,7 +34,7 @@ internal sealed partial class UrlSearchParamsIteratorPrototype : IteratorPrototy
     internal UrlSearchParamsIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.UrlSearchParams)
     {
     }
 
@@ -82,7 +82,7 @@ internal sealed partial class UrlSearchParamsIteratorPrototype : IteratorPrototy
         private readonly IteratorKind _kind;
         private int _index;
 
-        public UrlSearchParamsIterator(Engine engine, JsUrlSearchParams parameters, IteratorKind kind) : base(engine)
+        public UrlSearchParamsIterator(Engine engine, JsUrlSearchParams parameters, IteratorKind kind) : base(engine, IteratorBrand.UrlSearchParams)
         {
             _parameters = parameters;
             _kind = kind;

@@ -16,7 +16,7 @@ internal sealed partial class MapIteratorPrototype : IteratorPrototype
     internal MapIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.Map)
     {
     }
 
@@ -78,7 +78,7 @@ internal sealed partial class MapIteratorPrototype : IteratorPrototype
         private KeyedCollectionCursor _cursor;
         private bool _done;
 
-        public MapIterator(Engine engine, JsMap map, MapIteratorKind kind) : base(engine)
+        public MapIterator(Engine engine, JsMap map, MapIteratorKind kind) : base(engine, IteratorBrand.Map)
         {
             _data = map._data;
             _kind = kind;

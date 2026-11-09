@@ -28,7 +28,7 @@ internal sealed partial class FormDataIteratorPrototype : IteratorPrototype
     internal FormDataIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.FormData)
     {
     }
 
@@ -93,7 +93,7 @@ internal sealed class FormDataIterator : IteratorInstance
     private readonly FormDataIteratorKind _kind;
     private int _position;
 
-    internal FormDataIterator(Engine engine, JsFormData formData, FormDataIteratorKind kind) : base(engine)
+    internal FormDataIterator(Engine engine, JsFormData formData, FormDataIteratorKind kind) : base(engine, IteratorBrand.FormData)
     {
         _formData = formData;
         _kind = kind;

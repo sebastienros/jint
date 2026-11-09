@@ -16,7 +16,7 @@ internal sealed partial class RegExpStringIteratorPrototype : IteratorPrototype
     internal RegExpStringIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.RegExpString)
     {
     }
 

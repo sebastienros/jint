@@ -21,7 +21,7 @@ internal sealed partial class SegmentIteratorPrototype : IteratorPrototype
     internal SegmentIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.Segment)
     {
     }
 
@@ -34,10 +34,8 @@ internal sealed partial class SegmentIteratorPrototype : IteratorPrototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-%intlsegmentiteratorprototype%.next, captured into
     /// <see cref="IteratorPrototype"/>'s original <c>next</c> so that an untouched segment iterator steps natively, as
-    /// every other built-in kind does. Step 2's RequireInternalSlot is the check every built-in iterator prototype's
-    /// <c>next</c> makes here, that the receiver is a built-in iterator, not that it is a segment iterator:
-    /// <see cref="IteratorInstance.TryGetIterator"/> steps an iterator natively whichever built-in prototype it
-    /// inherits, which is the same answer only while no built-in <c>next</c> checks the kind.
+    /// every other built-in kind does. Step 2's RequireInternalSlot([[IteratingSegmenter]]) is the brand
+    /// <see cref="IteratorBrand.Segment"/>: any other receiver is a <c>TypeError</c> (sebastienros/jint#4451).
     /// </summary>
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);

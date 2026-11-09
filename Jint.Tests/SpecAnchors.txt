@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1332
+anchors: 1336
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -40,8 +40,11 @@ ecma262 sec-%iteratorhelperprototype%.next
 ecma262 sec-%iteratorhelperprototype%.return
 ecma262 sec-%iteratorprototype%-object
 ecma262 sec-%mapiteratorprototype%-object
+ecma262 sec-%mapiteratorprototype%.next
 ecma262 sec-%regexpstringiteratorprototype%-object
+ecma262 sec-%regexpstringiteratorprototype%.next
 ecma262 sec-%setiteratorprototype%-object
+ecma262 sec-%setiteratorprototype%.next
 ecma262 sec-%stringiteratorprototype%-object
 ecma262 sec-%stringiteratorprototype%.next
 ecma262 sec-%typedarray%-intrinsic-object
@@ -318,6 +321,7 @@ ecma262 sec-generatorfunction-constructor
 ecma262 sec-generatorresume
 ecma262 sec-generatorresumeabrupt
 ecma262 sec-generatorstart
+ecma262 sec-generatorvalidate
 ecma262 sec-generatoryield
 ecma262 sec-get-%typedarray%-@@species
 ecma262 sec-get-%typedarray%.prototype-@@tostringtag

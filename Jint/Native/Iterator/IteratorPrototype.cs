@@ -22,6 +22,10 @@ internal partial class IteratorPrototype : Prototype
     // ObjectIterator and the iteration goes through the `next` it reads.
     private protected FunctionInstance? _originalNextFunction;
 
+    // The brand of the iterators this prototype's own `next` steps (Next), and so of those the native lane may step in
+    // its place (ToIteratorRecord). IteratorBrand.None on %Iterator.prototype%, which has no `next`.
+    private readonly IteratorBrand _brand;
+
     // Stands in for an own `next` that is not a data property; its value is never a function.
     private static readonly PropertyDescriptor NotADataProperty = new(Undefined, PropertyFlag.None);
 
@@ -55,6 +59,8 @@ internal partial class IteratorPrototype : Prototype
     /// <paramref name="iterator"/> itself while it still does. Otherwise the record is an
     /// <see cref="IteratorInstance.ObjectIterator"/> holding what was read, which never reads it again
     /// (sebastienros/jint#4408). The array iterators ask it, and <see cref="ToIteratorRecord"/> falls back to it.
+    /// Both callers have established that <paramref name="iterator"/>'s brand is this prototype's: the array
+    /// iterators by their sealed prototype test, <see cref="ToIteratorRecord"/> by comparing the two.
     /// </summary>
     private protected IteratorInstance ToIteratorRecordReadingNext(IteratorInstance iterator)
     {
@@ -72,10 +78,22 @@ internal partial class IteratorPrototype : Prototype
     /// answer. When it is not, nothing has been read and the <see cref="IteratorInstance.ObjectIterator"/> makes the
     /// one read. An instance that has an own property takes the read here.
     /// <see cref="IteratorInstance.ToIteratorRecord"/> asks it.
+    /// <para>
+    /// Native stepping stands in for a call to this prototype's built-in <c>next</c>, which refuses an iterator of
+    /// another kind (<see cref="Next"/>). So an iterator whose brand is not this prototype's - one a script moved onto
+    /// it - is never stepped natively: the <see cref="IteratorInstance.ObjectIterator"/> reads <c>next</c> and calls it,
+    /// which throws where the specification does (sebastienros/jint#4451). An iterator's prototype is its own kind's
+    /// until a script moves it, so on every other path the comparison is one more test that holds.
+    /// </para>
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal IteratorInstance ToIteratorRecord(IteratorInstance iterator)
     {
+        if (iterator._brand != _brand)
+        {
+            return IteratorInstance.WrapReadingNext(iterator);
+        }
+
         if (iterator._properties is not null)
         {
             return ToIteratorRecordReadingNext(iterator);
@@ -341,12 +359,27 @@ internal partial class IteratorPrototype : Prototype
         }
     }
 
+    /// <summary>
+    /// %Iterator.prototype% (https://tc39.es/ecma262/#sec-%iteratorprototype%-object), which has no <c>next</c>.
+    /// </summary>
     internal IteratorPrototype(
         Engine engine,
         Realm realm,
-        ObjectInstance objectPrototype) : base(engine, realm)
+        ObjectInstance objectPrototype) : this(engine, realm, objectPrototype, IteratorBrand.None)
+    {
+    }
+
+    /// <summary>
+    /// A concrete iterator prototype, whose own <c>next</c> steps the iterators of <paramref name="brand"/>.
+    /// </summary>
+    private protected IteratorPrototype(
+        Engine engine,
+        Realm realm,
+        ObjectInstance objectPrototype,
+        IteratorBrand brand) : base(engine, realm)
     {
         _prototype = objectPrototype;
+        _brand = brand;
     }
 
     protected override void Initialize()
@@ -1372,19 +1405,48 @@ internal partial class IteratorPrototype : Prototype
     /// The step every concrete prototype's own <c>next</c> takes: <c>%ArrayIteratorPrototype%.next</c>,
     /// <c>%MapIteratorPrototype%.next</c>, <c>%IntlSegmentIteratorPrototype%.next</c> and their peers. %Iterator.prototype%
     /// itself has no <c>next</c> (https://tc39.es/ecma262/#sec-%iteratorprototype%-object), so deleting a concrete
-    /// prototype's leaves nothing to inherit, and until sebastienros/jint#4407 it uncovered a built-in one here. The
-    /// receiver check is <see cref="IteratorInstance"/>, never the iterator's kind, which is what lets
-    /// <see cref="IteratorInstance.TryGetIterator"/> step natively whichever built-in prototype an iterator inherits.
+    /// prototype's leaves nothing to inherit, and until sebastienros/jint#4407 it uncovered a built-in one here.
+    /// <para>
+    /// The receiver must be an iterator of this prototype's own kind, whichever realm it comes from, or the step is a
+    /// <c>TypeError</c> and nothing is stepped. That is the internal-slot requirement of
+    /// https://tc39.es/ecma262/#sec-%arrayiteratorprototype%.next and https://tc39.es/ecma262/#sec-%regexpstringiteratorprototype%.next,
+    /// the brand GeneratorValidate compares for https://tc39.es/ecma262/#sec-%mapiteratorprototype%.next,
+    /// https://tc39.es/ecma262/#sec-%setiteratorprototype%.next and https://tc39.es/ecma262/#sec-%stringiteratorprototype%.next
+    /// (https://tc39.es/ecma262/#sec-generatorvalidate), the segment iterator's [[IteratingSegmenter]], and a WebIDL
+    /// iterator's interface. Until sebastienros/jint#4451 any built-in iterator passed, so one kind's <c>next</c> stepped
+    /// another kind's iterator. The native lane stands in for this call only for an iterator of this prototype's kind
+    /// (<see cref="ToIteratorRecord"/>).
+    /// </para>
     /// </summary>
     internal JsValue Next(JsValue thisObject, JsCallArguments arguments)
     {
-        var iterator = thisObject as IteratorInstance;
-        if (iterator is null)
+        if (thisObject is not IteratorInstance iterator || iterator._brand != _brand)
         {
-            Throw.TypeError(_engine.Realm);
+            ThrowIncompatibleReceiver();
+            return Undefined;
         }
 
         iterator.TryIteratorStep(out var result);
         return result;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ThrowIncompatibleReceiver()
+    {
+        var name = _brand switch
+        {
+            IteratorBrand.Array => "Array Iterator",
+            IteratorBrand.Map => "Map Iterator",
+            IteratorBrand.Set => "Set Iterator",
+            IteratorBrand.String => "String Iterator",
+            IteratorBrand.RegExpString => "RegExp String Iterator",
+            IteratorBrand.Segment => "Segmenter String Iterator",
+            IteratorBrand.Headers => "Headers Iterator",
+            IteratorBrand.UrlSearchParams => "URLSearchParams Iterator",
+            IteratorBrand.FormData => "FormData Iterator",
+            _ => "Iterator",
+        };
+
+        Throw.TypeError(_realm, "Method " + name + ".prototype.next called on incompatible receiver");
     }
 }

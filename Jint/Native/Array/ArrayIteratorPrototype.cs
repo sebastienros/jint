@@ -18,7 +18,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
     internal ArrayIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype objectPrototype) : base(engine, realm, objectPrototype)
+        IteratorPrototype objectPrototype) : base(engine, realm, objectPrototype, IteratorBrand.Array)
     {
     }
 

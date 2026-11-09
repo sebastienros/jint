@@ -32,7 +32,7 @@ internal sealed partial class HeadersIteratorPrototype : IteratorPrototype
     internal HeadersIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.Headers)
     {
     }
 
@@ -80,7 +80,7 @@ internal sealed partial class HeadersIteratorPrototype : IteratorPrototype
         private readonly IteratorKind _kind;
         private int _index;
 
-        public HeadersIterator(Engine engine, JsHeaders headers, IteratorKind kind) : base(engine)
+        public HeadersIterator(Engine engine, JsHeaders headers, IteratorKind kind) : base(engine, IteratorBrand.Headers)
         {
             _headers = headers;
             _kind = kind;

@@ -16,7 +16,7 @@ internal sealed partial class StringIteratorPrototype : IteratorPrototype
     internal StringIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.String)
     {
     }
 
