@@ -7986,6 +7986,31 @@ The loop now throws at the step that settled to something other than an object, 
 and the iterator is not closed: its `return` is not called, as for a `next` that throws. A sync iterable reaching
 `for await` through its `Symbol.iterator` already failed this way. There is no switch back.
 
+### 4.219 An async generator keeps its place in the statements around a `for await` ([#4504](https://github.com/sebastienros/jint/issues/4504))
+
+Jint resumes a generator by replaying its body. Each statement on the way back in, such as a `for`, `while`,
+`if`, `switch` or `try`, checks whether the generator was suspended inside it. In an async generator, the
+await of each `for await` step did not record where the generator was suspended. So every statement around
+the loop treated the resume as a fresh entry. A `for` ran its init again, went back to its first value, and
+repeated its last round forever. A `while`, `if` or `switch` ran its test again after the body had changed
+what the test reads, so it left the iteration early or took the other branch. A `try` whose `catch` or
+`finally` held the loop ran its block again. The program from the issue:
+
+```js
+async function* g() {
+    for (let round = 0; round < 2; round++) {
+        log.push('round ' + round);
+        for await (const x of [1]) { }
+    }
+}
+// 4.17.x / earlier previews: round 0, round 1, round 1, round 1, ... and the generator never finishes
+// 5.x:                       round 0, round 1, as Node reports
+```
+
+Async functions and sync generators already behaved correctly and are unchanged. Nothing bounded the runaway
+on a default engine. With `LimitStatements`, `LimitExecutionTime`, `LimitMemory` or cancellation configured,
+the run used to end with that constraint's exception; it now completes. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
