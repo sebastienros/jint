@@ -8115,9 +8115,9 @@ await g.throw('T');
 What the `yield*` throws now depends on how that answer settles. A rejection is thrown as it is, and so is an error
 from reading the promise's `constructor`. An answer that settles to something other than an object throws a
 `TypeError` for that. Only an object lets the close complete, and then the `TypeError` for the missing `throw`
-follows. A thenable's `then` is called, where it used to be ignored. Either way the error reaches a `catch` around the
-`yield*` one microtask after the `throw()` call (two for a thenable), as in V8, where it used to arrive inside the
-call. A `next()` made meanwhile waits for it.
+follows. A thenable's `then` is called, where it used to be ignored. Except for an error from `constructor`, which is
+thrown inside the call, the error reaches a `catch` around the `yield*` one microtask after the `throw()` call (two for
+a thenable), as in V8, where it used to arrive inside the call. A `next()` made meanwhile waits for it.
 
 A wrapped CLR collection's iterator returned from a script's `Symbol.asyncIterator` is disposed once that answer has
 settled, not when `return` is called. A delegate with no `return` still throws the `TypeError` at once, and a
