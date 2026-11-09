@@ -7,7 +7,7 @@ namespace Jint.Tests.PublicInterface;
 
 /// <summary>
 /// Pins, from an embedder's side, that a <c>for await</c> loop whose step settles to something other than an object
-/// ends after one call to <c>next</c>, failing with the <c>TypeError</c> of step 6.c of
+/// ends after one call to <c>next</c>, failing with the <c>TypeError</c> of step 8.c of
 /// <a href="https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset">ForIn/OfBodyEvaluation</a>,
 /// whatever the engine is configured to bound.
 /// </summary>

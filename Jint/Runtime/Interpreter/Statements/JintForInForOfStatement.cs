@@ -568,12 +568,12 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
                         var asyncSuspendData = suspendable?.Data.GetOrCreate<ForAwaitSuspendData>(this);
 
-                        // Resuming from the step's Await (step 6.b), which fulfilled with this value
+                        // Resuming from the step's Await (step 8.b), which fulfilled with this value
                         if (asyncSuspendData?.SettledNextResult is { } settledNextResult)
                         {
                             asyncSuspendData.SettledNextResult = null;
 
-                            // Step 6.c: "If nextResult is not an Object, throw a TypeError exception". A plain throw,
+                            // Step 8.c: "If nextResult is not an Object, throw a TypeError exception". A plain throw,
                             // with `close` still false, so the iterator is not closed.
                             if (!settledNextResult.IsObject())
                             {
@@ -1307,7 +1307,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     }
 
     /// <summary>
-    /// Step 6.c of https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
+    /// Step 8.c of https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
     /// for a <c>for await</c> step that settled to a primitive. Kept out of <see cref="BodyEvaluation"/>, whose frame
     /// would otherwise carry the message's interpolation; <paramref name="settled"/> is never an object, so rendering it
     /// runs no script.

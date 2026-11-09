@@ -5,7 +5,7 @@ using Jint.Runtime;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// Pins step 6.c of
+/// Pins step 8.c of
 /// <a href="https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset">ForIn/OfBodyEvaluation</a>
 /// for a <c>for await</c> loop: once the Await of a step has settled, "If nextResult is not an Object, throw a TypeError
 /// exception". That is a plain throw, not an IfAbruptCloseIterator, so the iterator's <c>return</c> is not called.
@@ -98,10 +98,23 @@ public class ForAwaitNonObjectStepTests
         ("directSymbol", "Symbol(s)"),
     ];
 
-    private static IEnumerable<TestCaseData> Cases() =>
-        from loop in _loops
-        from settlement in _settlements
-        select new TestCaseData(loop, settlement.Name, settlement.Shown);
+    /// <summary>Every consumer against every settlement: the loop, the settlement's name, and how the message shows it.</summary>
+    public static TestCases<string, string, string> Cases
+    {
+        get
+        {
+            var rows = new TestCases<string, string, string>();
+            foreach (var loop in _loops)
+            {
+                foreach (var (name, shown) in _settlements)
+                {
+                    rows.Add(loop, name, shown);
+                }
+            }
+
+            return rows;
+        }
+    }
 
     private static string Run(string script) =>
         new Engine().Evaluate(Harness + "\n" + script).UnwrapIfPromise().AsString();

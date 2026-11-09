@@ -456,7 +456,7 @@ internal sealed class ForAwaitSuspendData : SuspendData
 {
     /// <summary>
     /// What the Await of the loop's step fulfilled with, a primitive included; <c>null</c> only while no step is in
-    /// flight, so a primitive reaches step 6.c's <c>TypeError</c> rather than another step (sebastienros/jint#4489).
+    /// flight, so a primitive reaches step 8.c's <c>TypeError</c> rather than another step (sebastienros/jint#4489).
     /// </summary>
     public JsValue? SettledNextResult { get; set; }
 
