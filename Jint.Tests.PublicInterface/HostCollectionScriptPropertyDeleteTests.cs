@@ -20,8 +20,10 @@ namespace Jint.Tests.PublicInterface;
 /// configurable, kept (and a strict-mode <c>TypeError</c>) if it is not. Extensibility does not enter into it.
 /// </para>
 /// <para>
-/// The expected values are what Node gives for the same script on an ordinary array, and a plain
-/// <c>ObjectWrapper</c> (the three control shapes) already answered them before the fix.
+/// For a script-defined property, the expected values are what Node gives for the same script on an ordinary
+/// array, and a plain <c>ObjectWrapper</c> (the three control shapes) already answered them before the fix. The
+/// element rows and the projected-member rows pin Jint's interop contract instead: an element is the
+/// collection's and stays, and a configurable projected member deletes like any other own property.
 /// </para>
 /// </remarks>
 public class HostCollectionScriptPropertyDeleteTests

@@ -963,7 +963,7 @@ public sealed partial class Options
         /// methods or extension methods whose implementations mutate host state.
         /// </para>
         /// <para>
-        /// It covers the CLR object, not the wrapper's other own properties: a property a script defines on a
+        /// It does not decide whether the wrapper's own properties can be deleted: a property a script defines on a
         /// wrapper can be deleted whenever it is configurable, whatever this option says.
         /// </para>
         /// </remarks>
