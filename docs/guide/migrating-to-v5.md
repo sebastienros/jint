@@ -7873,6 +7873,27 @@ The legacy POSIX IDs `CST6CDT`, `EST5EDT`, `MST7MDT` and `PST8PDT` also resolve 
 `tzdata-legacy`, using the corresponding US zone as an approximation; their rules match from 1967 onward.
 There is no switch back.
 
+### 4.213 A template literal with a long substitution returns a deferred string ([#4460](https://github.com/sebastienros/jint/issues/4460))
+
+A template literal now joins a substitution that is already a long string the way `+` does (§4.27): once the
+result reaches 512 characters it is kept as a deferred two-operand node rather than copied into the growing
+text, so an accumulating template (`` s = `${s}x` ``) is linear rather than quadratic, and prepending
+(`` s = `x${s}` ``) stops copying the whole left operand on every iteration.
+
+**What could break:** the same three host-visible effects §4.27 lists for `+`, and nothing a script can see —
+the value is the string it stands for for equality, `length`, every `String.prototype` method and
+`JSON.stringify`:
+
+- `` engine.Evaluate("`${big}`") `` may hand back a `JsString` **subclass** (a `RopeString`). `is JsString`,
+  `AsString()`, `ToString()` and `ToObject()` are unaffected, but an exact-type test
+  (`result.GetType() == typeof(JsString)`) now fails for one more shape.
+- The result keeps its substitutions alive until something reads its text; reading it once
+  (`AsString()` is enough) drops those references.
+- Under `LimitMemory` the deferred node is charged when it is built, for its shorter operand, rather than for
+  the full copy.
+
+See §4.27 for the details, which apply here unchanged.
+
 ### 4.215 `AsyncIterator.prototype.flatMap` awaits a sync iterable's values, `AsyncIterator.from` takes a string, and a failed step leaves the source open ([#4439](https://github.com/sebastienros/jint/issues/4439))
 
 When a `flatMap` mapper returns a sync iterable, such as an array, a promise among its values is awaited. In 4.16 and

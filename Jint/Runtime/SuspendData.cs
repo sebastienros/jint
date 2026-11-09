@@ -423,10 +423,13 @@ internal sealed class ObjectExpressionSuspendData : SuspendData
 /// Stores the partially-built template literal accumulator and next interpolation
 /// index. The accumulator includes the quasi text up to and including the one at
 /// <see cref="NextExpressionIndex"/> (which was appended just before the
-/// interpolation that suspended).
+/// interpolation that suspended). <see cref="Deferred"/> is the part of the result before the accumulator,
+/// when a long string substitution has already been joined without copying it.
 /// </summary>
 internal sealed class TemplateLiteralSuspendData : SuspendData
 {
+    public Jint.Native.JsString? Deferred { get; set; }
+
     public System.Text.StringBuilder Accumulator { get; set; } = new();
 
     public int NextExpressionIndex { get; set; }
