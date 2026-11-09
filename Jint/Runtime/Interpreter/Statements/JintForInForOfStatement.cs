@@ -255,6 +255,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 if (forAwaitSuspendData.RejectedValue is { } rejectedValue)
                 {
                     suspendable.IsResuming = false;
+                    ForgetStepSuspension(engine);
                     suspendable.Data.Clear(this);
 
                     Throw.JavaScriptException(engine, rejectedValue, _statement!.Location);
@@ -269,6 +270,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 if (forAwaitSuspendData.CurrentValue is null)
                 {
                     suspendable.IsResuming = false;
+                    ForgetStepSuspension(engine);
                 }
             }
         }
@@ -1143,6 +1145,23 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     }
 
     /// <summary>
+    /// Clears the suspension point that <see cref="SuspendForAsyncIteration"/> set on an async generator, once the step
+    /// it awaited has resumed. Every other await in an async generator clears its own node the same way.
+    /// </summary>
+    /// <remarks>
+    /// A stale node would hide the next suspension point that publishes no node of its own: the generator's
+    /// <c>LastSuspensionNode</c> reads <c>_lastYieldNode</c> before <c>_delegatingYieldNode</c>, so a later
+    /// <c>yield*</c> would be reported as suspended at this loop.
+    /// </remarks>
+    private void ForgetStepSuspension(Engine engine)
+    {
+        if (engine.ExecutionContext.AsyncGenerator is { } asyncGenerator && ReferenceEquals(asyncGenerator._lastYieldNode, this))
+        {
+            asyncGenerator._lastYieldNode = null;
+        }
+    }
+
+    /// <summary>
     /// Suspends the current async function/generator to await the iterator's next() Promise.
     /// </summary>
     private Completion SuspendForAsyncIteration(
@@ -1181,6 +1200,14 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             var suspendData = asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(this);
             suspendData.Iterator = iterator;
             suspendData.AccumulatedValue = accumulatedValue;
+
+            // The suspension point is this loop, as it is for the async function above and for the close
+            // (CloseAsyncIterator). The statements around the loop read it through GetSuspensionNode to tell that
+            // the resume lands inside them. Without it, each of them took the resume for a fresh entry. An enclosing
+            // for ran its init again, so it went back to its first round on every step and never ended. A while, an
+            // if or a switch ran its test again, after the body had already changed what that test reads
+            // (sebastienros/jint#4504). ForgetStepSuspension clears the node once the step has resumed.
+            asyncGenerator._lastYieldNode = this;
 
             // Mark that we're waiting for the iterator result
             asyncGenerator._asyncGeneratorState = Native.AsyncGenerator.AsyncGeneratorState.SuspendedYield;
