@@ -54,8 +54,9 @@ In `jint.patch`, every one of them structural or a downlevel port; the behaviour
 are upstream since [sebastienros/gregsex#2](https://github.com/sebastienros/gregsex/pull/2):
 
 - `Contracts/LaneContracts.cs` keeps only `SearchOperation`, `WorkspaceBuffers` and `RunState` (with an
-  absolute-deadline overload); the RegularCore descriptor, the `static abstract` text-reader interfaces and the
-  PCRE2 pair buffer are gone, which is what lets it compile for `netstandard2.0` and `net472`.
+  absolute-deadline overload, which a retry after storage growth uses so the retry does not restart the timeout);
+  the RegularCore descriptor, the `static abstract` text-reader interfaces and the PCRE2 pair buffer are gone, which
+  is what lets it compile for `netstandard2.0` and `net472`.
 - `Flavors/EcmaScript/Unicode` carries only the Unicode 17.0 tables (the version the pinned test262 asserts);
   `EcmaUnicodeData` refuses any other version and `EcmaScriptProfile` defaults to 17.0.
 - `Polyfills/StringSearchValues.cs` declares its `StringSearchValues` alias per file rather than `global`, and

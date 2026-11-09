@@ -1470,6 +1470,12 @@ public sealed partial class Options
         /// <see cref="OptionsSecurityExtensions.ValidateSecurityConfiguration(Options, SecurityConfigurationPolicy)"/>
         /// reports an untimed engine as an error.
         /// </para>
+        /// <para>
+        /// On Jint's own regex engine a search's interval starts at its first clock read, which it makes only after
+        /// its first 16,384 steps of work: a search that ends sooner reads no clock, and a longer one can overrun the
+        /// interval by the time those steps take, which is microseconds. An interval of a millisecond or less is
+        /// measured from the start of the search.
+        /// </para>
         /// </remarks>
         public TimeSpan RegexTimeout { get; set { ThrowIfReadOnly(); field = value; } } = TimeSpan.FromSeconds(10);
 

@@ -107,7 +107,7 @@ internal readonly record struct RegexMatchOptions
 {
     /// <summary>Cancellation for the entire operation.</summary>
     public CancellationToken CancellationToken { get; init; }
-    /// <summary>Positive elapsed-time bound, or null for work-budget-only matching.</summary>
+    /// <summary>Positive elapsed-time bound, or null for work-budget-only matching. A single search reads the clock for the first time after its first 16,384 work units and measures the bound from that read, so a search that finishes sooner reads no clock and a bound longer than a millisecond can be late by the time those units take.</summary>
     public TimeSpan? Timeout { get; init; }
     /// <summary>Overrides must be no greater than the pattern's safety ceilings.</summary>
     public RegexMatchLimits? Limits { get; init; }

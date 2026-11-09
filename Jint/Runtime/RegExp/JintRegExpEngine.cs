@@ -21,8 +21,8 @@ namespace Jint.Runtime.RegExp;
 /// </remarks>
 internal sealed class JintRegExpEngine
 {
-    /// <summary>An absolute deadline that never fires.</summary>
-    internal const long NoDeadline = long.MaxValue;
+    // An absolute deadline that never fires (see AbsoluteDeadline).
+    private const long NoDeadline = long.MaxValue;
 
     // JavaScript places no ceiling on a pattern's size; GregsEx's defaults are a library's bounded policy. What
     // bounds compiling a script-supplied pattern is the regex timeout, as a work budget (CompileWorkPerMillisecond),
@@ -60,13 +60,6 @@ internal sealed class JintRegExpEngine
     private const long RetainedScratchInts = 256L * 1024;
 
     [ThreadStatic] private static Scratch? t_scratch;
-    [ThreadStatic] private static long t_recentTimestamp;
-    [ThreadStatic] private static int t_recentTimestampUses;
-    [ThreadStatic] private static int t_batchDepth;
-
-    // How many searches may share one clock reading. A split or a global replace runs one search per match, and a
-    // clock read per search was a third of the cost of a short one; see RecentTimestamp.
-    private const int SearchesPerClockRead = 64;
 
     private readonly EcmaExecutor _executor;
     private readonly string?[] _groupNames;
@@ -166,24 +159,27 @@ internal sealed class JintRegExpEngine
     /// Match from <paramref name="startIndex"/> (only there when the pattern is sticky), writing group <c>i</c>'s span into <paramref name="groups"/>[i] (group 0 is the
     /// whole match) instead of materializing strings. <paramref name="groups"/> needs <see cref="CaptureCount"/> entries.
     /// </summary>
-    internal bool TryMatch(string input, int startIndex, long deadline, Span<RegexCapture> groups)
-        => Search(input, startIndex, SearchOperation.Captures, groups, deadline, out _, _sticky);
+    internal bool TryMatch(string input, int startIndex, TimeSpan? timeout, Span<RegexCapture> groups)
+        => Search(input, startIndex, SearchOperation.Captures, groups, timeout, out _, _sticky);
 
     /// <summary>
     /// <see cref="TryMatch"/> as a forward search from <paramref name="startIndex"/> even when the pattern is sticky,
     /// for a caller that would otherwise retry a sticky match at every later position (the split matcher).
     /// </summary>
-    internal bool TryFind(string input, int startIndex, long deadline, Span<RegexCapture> groups)
-        => Search(input, startIndex, SearchOperation.Captures, groups, deadline, out _, sticky: false);
+    internal bool TryFind(string input, int startIndex, TimeSpan? timeout, Span<RegexCapture> groups)
+        => Search(input, startIndex, SearchOperation.Captures, groups, timeout, out _, sticky: false);
 
     /// <summary>
     /// Match like <see cref="TryMatch"/>, reporting only the whole match's range: no capture work at all.
-    /// <paramref name="deadline"/> is an absolute <see cref="Stopwatch.GetTimestamp"/> value at/after which the match
-    /// is abandoned with an <see cref="OperationCanceledException"/> (<see cref="NoDeadline"/> never fires).
+    /// <paramref name="timeout"/> is how long the search may take (null for no limit), after which it is abandoned with
+    /// an <see cref="OperationCanceledException"/>. It is measured from the search's first clock read, which comes after
+    /// the first <see cref="RunBudget.ClockStride"/> units of work, so a search that ends sooner reads no clock at all;
+    /// the abort is therefore late by at most the time those units take, over and above the stride the executor already
+    /// allows past any deadline. A timeout of a millisecond or less starts at once and is checked at every step.
     /// </summary>
-    internal bool TryMatchRange(string input, int startIndex, long deadline, out int index, out int length)
+    internal bool TryMatchRange(string input, int startIndex, TimeSpan? timeout, out int index, out int length)
     {
-        var found = Search(input, startIndex, SearchOperation.Range, [], deadline, out var match, _sticky);
+        var found = Search(input, startIndex, SearchOperation.Range, [], timeout, out var match, _sticky);
         index = match.Index;
         length = match.Length;
         return found;
@@ -195,7 +191,7 @@ internal sealed class JintRegExpEngine
     /// split or global match otherwise paid both per match. Stops after an empty match (where to resume is the
     /// caller's rule) and when <paramref name="matches"/> is full; returns how many it wrote, 0 for no match.
     /// </summary>
-    internal int FindRanges(string input, int startIndex, long deadline, Span<RegexMatchRange> matches)
+    internal int FindRanges(string input, int startIndex, TimeSpan? timeout, Span<RegexMatchRange> matches)
     {
         if ((uint) startIndex > (uint) input.Length || matches.IsEmpty)
         {
@@ -204,7 +200,7 @@ internal sealed class JintRegExpEngine
 
         var plan = _plan;
 
-        var state = new RunState(Rent(plan), long.MaxValue, deadline);
+        var state = new RunState(Rent(plan), long.MaxValue, default, timeout, deferStart: true);
         var span = input.AsSpan();
         var count = 0;
         var position = startIndex;
@@ -225,9 +221,10 @@ internal sealed class JintRegExpEngine
 
             if (status != RegexSearchStatus.NoMatch && count == 0)
             {
-                // Growth, a timeout or a resource failure: the single search handles each.
-                ForgetTimestampAfterLongSearch(state.Budget.WorkConsumed);
-                if (!Search(input, position, SearchOperation.Range, [], deadline, out match, sticky: false))
+                // Growth, a timeout or a resource failure: the slow path handles each, a timeout by giving up here
+                // instead of running the search again under a timeout of its own.
+                if (!SearchSlow(input, position, SearchOperation.Range, [], timeout, state.Budget.StartedAt, out match, sticky: false, status,
+                        state.Failure.Code, plan))
                 {
                     return 0;
                 }
@@ -240,61 +237,14 @@ internal sealed class JintRegExpEngine
             break;
         }
 
-        ForgetTimestampAfterLongSearch(state.Budget.WorkConsumed);
         return count;
     }
 
-    /// <summary>Test if the regex matches the input string. See <see cref="TryMatchRange"/> for <paramref name="deadline"/>.</summary>
-    public bool IsMatch(string input, int startIndex = 0, long deadline = NoDeadline)
-        => Search(input, startIndex, SearchOperation.Boolean, [], deadline, out _, _sticky);
+    /// <summary>Test if the regex matches the input string. See <see cref="TryMatchRange"/> for <paramref name="timeout"/>.</summary>
+    public bool IsMatch(string input, int startIndex = 0, TimeSpan? timeout = null)
+        => Search(input, startIndex, SearchOperation.Boolean, [], timeout, out _, _sticky);
 
-    /// <summary>
-    /// Opens a scope in which consecutive searches may share a clock reading (see <see cref="RecentTimestamp"/>). Only
-    /// a native loop that runs no script between its searches may open one: script could run for any length of time,
-    /// which would leave the shared reading arbitrarily stale.
-    /// </summary>
-    internal static SearchBatch BeginBatch()
-    {
-        t_batchDepth++;
-        t_recentTimestamp = 0;
-        return default;
-    }
-
-    internal readonly ref struct SearchBatch
-    {
-        // An instance member because `using` binds Dispose by pattern; the state it resets is per thread.
-#pragma warning disable CA1822
-        public void Dispose()
-        {
-            t_batchDepth--;
-            t_recentTimestamp = 0;
-        }
-#pragma warning restore CA1822
-    }
-
-    /// <summary>
-    /// Inside a <see cref="BeginBatch"/> scope, a <see cref="Stopwatch.GetTimestamp"/> value at most
-    /// <see cref="SearchesPerClockRead"/> short searches old, for arming a match deadline; outside one, the clock. Stale only ever means earlier, so a deadline built on it can fire early - by the time
-    /// those few searches took, each too short to have read the clock itself - and never late: a search long enough
-    /// to read the clock invalidates the reading.
-    /// </summary>
-    internal static long RecentTimestamp()
-    {
-        if (t_batchDepth == 0)
-        {
-            return Stopwatch.GetTimestamp();
-        }
-
-        if (t_recentTimestamp == 0 || ++t_recentTimestampUses >= SearchesPerClockRead)
-        {
-            t_recentTimestamp = Stopwatch.GetTimestamp();
-            t_recentTimestampUses = 0;
-        }
-
-        return t_recentTimestamp;
-    }
-
-    private bool Search(string input, int startIndex, SearchOperation operation, Span<RegexCapture> groups, long deadline, out RegexMatchRange match, bool sticky)
+    private bool Search(string input, int startIndex, SearchOperation operation, Span<RegexCapture> groups, TimeSpan? timeout, out RegexMatchRange match, bool sticky)
     {
         if ((uint) startIndex > (uint) input.Length)
         {
@@ -308,21 +258,21 @@ internal sealed class JintRegExpEngine
         // The admitted frame count is the planned one, the start index is checked above and every caller passes
         // CaptureCount groups: what Search would validate is already known, and the prevalidated entry reads the
         // partitions only up to the planned frame count, so they may be longer than planned.
-        var state = new RunState(Rent(plan), long.MaxValue, deadline);
+        // The timeout starts at the search's first clock read (see TryMatchRange), so a search that ends within its first
+        // stride of work reads no clock.
+        var state = new RunState(Rent(plan), long.MaxValue, default, timeout, deferStart: true);
         var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match, hostSized: true);
         if (status == RegexSearchStatus.Match)
         {
-            ForgetTimestampAfterLongSearch(state.Budget.WorkConsumed);
             return true;
         }
 
         if (status == RegexSearchStatus.NoMatch)
         {
-            ForgetTimestampAfterLongSearch(state.Budget.WorkConsumed);
             return false;
         }
 
-        return SearchSlow(input, startIndex, operation, groups, deadline, out match, sticky, status, state.Failure.Code, plan);
+        return SearchSlow(input, startIndex, operation, groups, timeout, state.Budget.StartedAt, out match, sticky, status, state.Failure.Code, plan);
     }
 
     // The thread's storage when the plan fits what a thread may keep, otherwise storage of the search's own, collected
@@ -351,23 +301,16 @@ internal sealed class JintRegExpEngine
         return new WorkspaceBuffers(new int[capacity.StateSlots], new int[capacity.CaptureSlots], new int[capacity.ScratchSlots]);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ForgetTimestampAfterLongSearch(long workConsumed)
-    {
-        if (workConsumed >= RunBudget.ClockStride)
-        {
-            // Long enough to have read the clock: the cached reading is no longer recent.
-            t_recentTimestamp = 0;
-        }
-    }
-
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private bool SearchSlow(string input, int startIndex, SearchOperation operation, Span<RegexCapture> groups, long deadline,
+    private bool SearchSlow(string input, int startIndex, SearchOperation operation, Span<RegexCapture> groups, TimeSpan? timeout, long startedAt,
         out RegexMatchRange match, bool sticky, RegexSearchStatus status, RegexExecutionFailureCode failure, FramePlan plan)
     {
+        // The attempts run under a timeout that starts at the search's first clock read, so a retry given the same
+        // interval would restart it: each growth could then cost the whole timeout again. The retries share one absolute
+        // deadline instead, taken from where the first attempt's timeout began.
+        var deadline = 0L;
         while (true)
         {
-            t_recentTimestamp = 0;
             if (status is RegexSearchStatus.TimedOut or RegexSearchStatus.Cancelled)
             {
                 throw new OperationCanceledException();
@@ -389,6 +332,11 @@ internal sealed class JintRegExpEngine
                 _plan = plan;
             }
 
+            if (deadline == 0)
+            {
+                deadline = AbsoluteDeadline(timeout, startedAt);
+            }
+
             var state = new RunState(Rent(plan), long.MaxValue, deadline);
             status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match, hostSized: true);
             if (status == RegexSearchStatus.Match)
@@ -403,6 +351,21 @@ internal sealed class JintRegExpEngine
 
             failure = state.Failure.Code;
         }
+    }
+
+    // The Stopwatch.GetTimestamp value at which a search whose timeout began at startedAt is abandoned (0 when the first
+    // attempt never read the clock, which an attempt cut short before its first stride has not; then now is as good as
+    // the attempt's start). Saturates to NoDeadline instead of overflowing for extreme timeouts.
+    private static long AbsoluteDeadline(TimeSpan? timeout, long startedAt)
+    {
+        if (timeout is not { } interval)
+        {
+            return NoDeadline;
+        }
+
+        var start = startedAt != 0 ? startedAt : Stopwatch.GetTimestamp();
+        var ticks = interval.TotalSeconds * Stopwatch.Frequency;
+        return ticks >= long.MaxValue - start ? NoDeadline : start + (long) ticks;
     }
 
     /// <summary>One thread's executor partitions, grown on demand and reused by every matcher on that thread.</summary>

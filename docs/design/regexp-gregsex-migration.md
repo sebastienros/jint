@@ -102,6 +102,13 @@ upstream as [sebastienros/gregsex#3](https://github.com/sebastienros/gregsex/pul
 | G16 | A `.` run searched its four line terminators with a four-value `IndexOfAny`. | Twice .NET's `IndexOf('\n')` over 64 KiB. | One `IndexOfAnyExceptInRange('\u000E', '\u2027')`, verified, with an exact fallback after 8 false hits. |
 | G17 | The inverse-fold cache behind the FIRST prefilters was per mode, not per Unicode version (introduced with G6). | After a Unicode 16 program built it, a Unicode 17 program missed the 17.0 case pairs: wrong `NoMatch`. Not reachable from Jint, which has the 17.0 tables only. | Keyed by its case-table instance. |
 
+A third pass, on the clock a timed search still read, went upstream as
+[sebastienros/gregsex#41](https://github.com/sebastienros/gregsex/pull/41):
+
+| # | Defect | Effect | Fix |
+| --- | --- | --- | --- |
+| G18 | A relative timeout reads the clock when its budget is built and again on the first charge; the absolute-deadline constructor moved the read to the host, which still paid one per search (shared across a batch of up to 64 by `RecentTimestamp`). | 25-50 ns of a 150-230 ns `re.test(s)` on a short subject (Jint always sets a timeout). | The timeout begins at the budget's first stride read, so a search that ends sooner reads no clock; Jint passes the interval and keeps no clock of its own. The deadline can be late by the time one stride of work takes; retries after storage growth share one absolute deadline so growth does not restart it. |
+
 A third pass answered the win-x64 gate on #4300 (SunSpider `tagcloud`, `unpack`, `validate-input`, Dromaeo
 `ObjectRegExp` and cold compiles) and went upstream as
 [sebastienros/gregsex#5](https://github.com/sebastienros/gregsex/pull/5):
