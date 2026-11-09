@@ -125,27 +125,18 @@ internal struct RunBudget
     }
 
     internal RunBudget(long maxWork, CancellationToken cancellation, TimeSpan? timeout)
+        : this(maxWork, cancellation, timeout, deferStart: false)
     {
-        _maxWork = maxWork;
-        _cancellation = cancellation;
-        if (timeout is { } t)
-        {
-            _startedAt = Stopwatch.GetTimestamp();
-            _timeoutTicks = t.TotalSeconds * Stopwatch.Frequency;
-        }
-        else
-        {
-            _startedAt = 0;
-            _timeoutTicks = double.PositiveInfinity;
-        }
-        WorkConsumed = 0;
     }
 
     // A relative timeout whose clock is first read by the stride, not here: a call that finishes before its first
     // ClockStride work units never reads the clock at all, where the eager constructors read it here and again on the
-    // first charge. The deadline is measured from that first read, so it can be late by at most the time ClockStride
-    // units of work take - the order of the overshoot the stride already allows past a deadline. A timeout within
-    // ShortDeadlineSeconds starts here as before, so a tiny timeout stays as prompt as it was.
+    // first charge. The deadline is measured from that first read, which comes on the first charge after the work
+    // consumed has reached ClockStride. When the charge that reaches it is a bulk one (a run charged at once, as
+    // TryChargeRun and the accelerators do) the read waits for the next charge, so the deadline can be late by up to
+    // the time ClockStride units of work take plus the time of one bulk charge: still linear in the subject, and the
+    // order of the overshoot the stride already allows past a deadline. A timeout within ShortDeadlineSeconds starts
+    // here as before, so a tiny timeout stays as prompt as it was.
     // Only a call that runs from its construction to its end may defer. A session outlives its construction, and its
     // deadline counts the time between its steps from the moment it was opened, so it keeps the eager start.
     internal RunBudget(long maxWork, CancellationToken cancellation, TimeSpan? timeout, bool deferStart)
