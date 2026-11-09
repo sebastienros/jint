@@ -10,10 +10,10 @@ namespace Jint.Tests.Runtime;
 /// (<c>for</c>, <c>while</c>, <c>if</c>, <c>switch</c>, <c>try</c>) asks <c>GetSuspensionNode</c> whether the
 /// suspension lies inside it. A <c>for await</c> awaits every step
 /// (https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset,
-/// step 6.b), and in an async function that await records the loop as the suspension point. In an async
+/// step 8.b), and in an async function that await records the loop as the suspension point. In an async
 /// generator it recorded nothing, so every statement around the loop took the resume for a fresh entry. An
-/// enclosing <c>for</c> ran its init again. ForBodyEvaluation (https://tc39.es/ecma262/#sec-forbodyevaluation)
-/// runs the init once, before the first test, and CreatePerIterationEnvironment
+/// enclosing <c>for</c> ran its init again. ForLoopEvaluation runs the init once and then hands over to
+/// ForBodyEvaluation (https://tc39.es/ecma262/#sec-forbodyevaluation), which never runs it again, and CreatePerIterationEnvironment
 /// (https://tc39.es/ecma262/#sec-createperiterationenvironment) carries each round's values into the next. So
 /// the loop went back to its first value on every step and replayed its last round forever. A
 /// <c>while</c>, an <c>if</c> or a <c>switch</c> ran its test again, after the body had already changed what
