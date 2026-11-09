@@ -113,7 +113,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             if (trap is not null)
             {
                 // step 7: CreateArrayFromList(argumentsList) is only observable by the trap, built lazily
-                var argArray = _engine.Realm.Intrinsics.Array.ConstructFast(arguments);
+                var argArray = _engine.Realm.Intrinsics.Array.ConstructFastChecked(arguments);
                 return CallTrap(handler, trap, target, thisObject, argArray);
             }
         }
@@ -161,7 +161,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             {
                 // step 7: CreateArrayFromList(argumentsList) - must not use Array constructor semantics,
                 // a single numeric argument would create a hole-filled array of that length
-                var argArray = _engine.Realm.Intrinsics.Array.ConstructFast(arguments);
+                var argArray = _engine.Realm.Intrinsics.Array.ConstructFastChecked(arguments);
                 var result = CallTrap(handler, trap, target, argArray, newTarget);
 
                 var oi = result as ObjectInstance;
