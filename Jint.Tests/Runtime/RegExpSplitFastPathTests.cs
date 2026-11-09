@@ -1,3 +1,5 @@
+#nullable enable
+
 using Jint.Native;
 using Jint.Native.RegExp;
 

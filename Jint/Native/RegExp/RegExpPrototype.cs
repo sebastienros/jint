@@ -1073,7 +1073,7 @@ internal sealed partial class RegExpPrototype : Prototype
     }
 
     /// <summary>
-    /// Steps 15-25 of https://tc39.es/ecma262/#sec-regexp.prototype-%symbol.split% for a non-empty subject once the
+    /// Steps 16-22 of https://tc39.es/ecma262/#sec-regexp.prototype-%symbol.split% for a non-empty subject once the
     /// splitter is known to be a script RegExp using the built-in <c>exec</c>.
     /// </summary>
     private JsValue SplitWithEngineMatcher(JsRegExp splitter, string s, bool unicodeMatching, long lim)
