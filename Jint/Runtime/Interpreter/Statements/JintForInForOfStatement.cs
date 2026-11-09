@@ -266,6 +266,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 if (forAwaitSuspendData.RejectedValue is { } rejectedValue)
                 {
                     suspendable.IsResuming = false;
+                    ForgetStepSuspension(engine);
                     suspendable.Data.Clear(this);
 
                     Throw.JavaScriptException(engine, rejectedValue, _statement!.Location);
@@ -280,6 +281,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 if (forAwaitSuspendData.CurrentValue is null)
                 {
                     suspendable.IsResuming = false;
+                    ForgetStepSuspension(engine);
                 }
             }
         }
@@ -568,11 +570,20 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
                         var asyncSuspendData = suspendable?.Data.GetOrCreate<ForAwaitSuspendData>(this);
 
-                        // Check if we're resuming from awaiting next() with a successful result
-                        if (asyncSuspendData?.ResolvedIteratorResult is not null)
+                        // Resuming from the step's Await (step 8.b), which fulfilled with this value
+                        if (asyncSuspendData?.SettledNextResult is { } settledNextResult)
                         {
-                            nextResult = asyncSuspendData.ResolvedIteratorResult;
-                            asyncSuspendData.ResolvedIteratorResult = null;
+                            asyncSuspendData.SettledNextResult = null;
+
+                            // Step 8.c: "If nextResult is not an Object, throw a TypeError exception". A plain throw,
+                            // with `close` still false, so the iterator is not closed.
+                            if (!settledNextResult.IsObject())
+                            {
+                                ThrowNextResultNotAnObject(engine, settledNextResult);
+                                return default;
+                            }
+
+                            nextResult = settledNextResult.AsObjectNoTypeCheck();
                             v = asyncSuspendData.AccumulatedValue;
 
                             // Check if iterator is done
@@ -1219,6 +1230,23 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     }
 
     /// <summary>
+    /// Clears the suspension point that <see cref="SuspendForAsyncIteration"/> set on an async generator, once the step
+    /// it awaited has resumed. Every other await in an async generator clears its own node the same way.
+    /// </summary>
+    /// <remarks>
+    /// A stale node would hide the next suspension point that publishes no node of its own: the generator's
+    /// <c>LastSuspensionNode</c> reads <c>_lastYieldNode</c> before <c>_delegatingYieldNode</c>, so a later
+    /// <c>yield*</c> would be reported as suspended at this loop.
+    /// </remarks>
+    private void ForgetStepSuspension(Engine engine)
+    {
+        if (engine.ExecutionContext.AsyncGenerator is { } asyncGenerator && ReferenceEquals(asyncGenerator._lastYieldNode, this))
+        {
+            asyncGenerator._lastYieldNode = null;
+        }
+    }
+
+    /// <summary>
     /// Suspends the current async function/generator to await the iterator's next() Promise.
     /// </summary>
     private Completion SuspendForAsyncIteration(
@@ -1257,6 +1285,14 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             var suspendData = asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(this);
             suspendData.Iterator = iterator;
             suspendData.AccumulatedValue = accumulatedValue;
+
+            // The suspension point is this loop, as it is for the async function above and for the close
+            // (CloseAsyncIterator). The statements around the loop read it through GetSuspensionNode to tell that
+            // the resume lands inside them. Without it, each of them took the resume for a fresh entry. An enclosing
+            // for ran its init again, so it went back to its first round on every step and never ended. A while, an
+            // if or a switch ran its test again, after the body had already changed what that test reads
+            // (sebastienros/jint#4504). ForgetStepSuspension clears the node once the step has resumed.
+            asyncGenerator._lastYieldNode = this;
 
             // Mark that we're waiting for the iterator result
             asyncGenerator._asyncGeneratorState = Native.AsyncGenerator.AsyncGeneratorState.SuspendedYield;
@@ -1298,8 +1334,21 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     }
 
     /// <summary>
+    /// Step 8.c of https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
+    /// for a <c>for await</c> step that settled to a primitive. Kept out of <see cref="BodyEvaluation"/>, whose frame
+    /// would otherwise carry the message's interpolation; <paramref name="settled"/> is never an object, so rendering it
+    /// runs no script.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    [DoesNotReturn]
+    private static void ThrowNextResultNotAnObject(Engine engine, JsValue settled)
+    {
+        Throw.TypeError(engine.Realm, $"Iterator result {settled} is not an object");
+    }
+
+    /// <summary>
     /// Await continuation for a for-await-of running inside an async function: stores the
-    /// resolved iterator result and resumes directly inside the reaction job.
+    /// settled step and resumes directly inside the reaction job.
     /// </summary>
     private sealed class ForAwaitFunctionContinuation : IPromiseContinuation
     {
@@ -1316,9 +1365,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             if (type == ReactionType.Fulfill)
             {
-                // Store the resolved iterator result for resume
+                // Store the settled value for the resume as it is, a primitive included (sebastienros/jint#4489)
                 var resumeSuspendData = _asyncInstance.Data.GetOrCreate<ForAwaitSuspendData>(_statement);
-                resumeSuspendData.ResolvedIteratorResult = value as ObjectInstance;
+                resumeSuspendData.SettledNextResult = value;
 
                 _asyncInstance._resumeValue = JsValue.Undefined;
                 _asyncInstance._resumeWithThrow = false;
@@ -1360,8 +1409,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             var resumeSuspendData = _asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(_statement);
             if (type == ReactionType.Fulfill)
             {
-                // Store the resolved iterator result so the for-await-of loop can use it
-                resumeSuspendData.ResolvedIteratorResult = value as ObjectInstance;
+                // Store the settled value for the resume as it is, a primitive included (sebastienros/jint#4489)
+                resumeSuspendData.SettledNextResult = value;
             }
             else
             {

@@ -7933,6 +7933,55 @@ The legacy POSIX IDs `CST6CDT`, `EST5EDT`, `MST7MDT` and `PST8PDT` also resolve 
 `tzdata-legacy`, using the corresponding US zone as an approximation; their rules match from 1967 onward.
 There is no switch back.
 
+### 4.213 A template literal with a long substitution returns a deferred string ([#4460](https://github.com/sebastienros/jint/issues/4460))
+
+A template literal now joins a substitution that is already a long string the way `+` does (§4.27): once the
+result reaches 512 characters it is kept as a deferred two-operand node rather than copied into the growing
+text, so an accumulating template (`` s = `${s}x` ``) is linear rather than quadratic, and prepending
+(`` s = `x${s}` ``) stops copying the whole left operand on every iteration.
+
+**What could break:** the same three host-visible effects §4.27 lists for `+`, and nothing a script can see —
+the value is the string it stands for for equality, `length`, every `String.prototype` method and
+`JSON.stringify`:
+
+- `` engine.Evaluate("`${big}`") `` may hand back a `JsString` **subclass** (a `RopeString`). `is JsString`,
+  `AsString()`, `ToString()` and `ToObject()` are unaffected, but an exact-type test
+  (`result.GetType() == typeof(JsString)`) now fails for one more shape.
+- The result keeps its substitutions alive until something reads its text; reading it once
+  (`AsString()` is enough) drops those references.
+- Under `LimitMemory` the deferred node is charged when it is built, for its shorter operand, rather than for
+  the full copy.
+
+See §4.27 for the details, which apply here unchanged.
+
+### 4.214 A `yield*` whose delegation ended by a throw starts again, and `throw()` disposes a CLR collection's enumerator ([#4440](https://github.com/sebastienros/jint/issues/4440))
+
+Every evaluation of `yield*` gets a fresh iterator from its operand. In 4.16 and earlier 5.0 builds, a delegation that
+ended with a throw stayed attached to the generator. That happened when the delegate's `next`, `throw` or `return`
+threw, or answered something other than an object. The next time the same `yield*` ran, in a loop around a
+`try`/`catch`, it resumed the delegate that had failed and never read its new operand:
+
+```js
+function* thrower() { throw 'boom'; }
+function* g() { for (let i = 0; i < 2; i++) { try { yield* (i === 0 ? thrower() : [1, 2]); } catch {} } }
+[...g()];
+// 4.16.x / earlier 5.0: []    5.x: [1, 2]
+```
+
+The same holds in an async generator whose delegate's methods throw. A delegation that a constraint or a host
+exception ends no longer keeps the delegate alive either.
+
+A generator suspended in `yield*` passes a `throw()` on to the delegate's `throw`. When the delegate is a wrapped CLR
+collection, or an iterator it handed out, and a script `throw` on it (or on `%ArrayIteratorPrototype%`) ends the
+delegation, the `IEnumerator` is now disposed. The delegation ends when that `throw` answers done, throws, or answers
+something other than an object. This is the same rule as for `return()` in [§4.201](#4-201-returning-from-a-generator-suspended-in-yield-disposes-a-clr-collection-s-enumerator-4429).
+A `throw` that answers not done keeps the delegation going, and the enumerator stays for the steps after it. If
+`Dispose` throws while the `throw`'s own throw or `TypeError` is leaving, that throw wins.
+
+In an async generator, a delegate with no `throw` is closed before `yield*` throws its `TypeError`. If its `return`
+throws during that close, the `return`'s error now propagates instead of the `TypeError`, as it already did in a
+generator. There is no switch back.
+
 ### 4.215 `AsyncIterator.prototype.flatMap` awaits a sync iterable's values, `AsyncIterator.from` takes a string, and a failed step leaves the source open ([#4439](https://github.com/sebastienros/jint/issues/4439))
 
 When a `flatMap` mapper returns a sync iterable, such as an array, a promise among its values is awaited. In 4.16 and
@@ -8023,6 +8072,53 @@ calling the public `ArrayConstructor.ConstructFast(JsValue[])` with more element
 instead of the array. An array of exactly `MaxArraySize` elements is still allowed. There is no switch back: a host
 that must hand script a larger array raises `MaxArraySize`, or builds the array with `new JsArray(engine, items)`,
 which takes the host's array as it is.
+
+### 4.218 `for await` throws when a step settles to something other than an object ([#4489](https://github.com/sebastienros/jint/issues/4489))
+
+A `for await` loop awaits what `next` answers, and fails with a `TypeError` when that settles to something other
+than an object. Before, Jint called `next` again instead, for as long as the step went on settling to a primitive,
+so the run never finished:
+
+```js
+const iterator = { next() { return Promise.resolve(5); } };   // or `return 5;`, `undefined`, `null`, a symbol
+for await (const x of { [Symbol.asyncIterator]() { return iterator; } }) { }
+// 4.x / earlier 5.0: calls next() without end    5.x: TypeError: Iterator result 5 is not an object
+```
+
+This happened on the first step and on any step after one that gave a value, in an async function, in an async
+generator and in a module's top-level `for await`. Each step was a promise job that the entry's own drain went on
+running, so `LimitStatements`, `LimitExecutionTime`, `LimitMemory`, `ObserveCancellation` and an `*Async` entry's
+token ended the run with their own exception. Nothing else did: a default engine spun at a flat working set, and
+neither `MaxRecursionDepth` nor `PromiseTimeout` ever fired.
+
+The loop now throws at the step that settled to something other than an object, without calling `next` again,
+and the iterator is not closed: its `return` is not called, as for a `next` that throws. A sync iterable reaching
+`for await` through its `Symbol.iterator` already failed this way. There is no switch back.
+
+### 4.219 An async generator keeps its place in the statements around a `for await` ([#4504](https://github.com/sebastienros/jint/issues/4504))
+
+Jint resumes a generator by replaying its body. Each statement on the way back in, such as a `for`, `while`,
+`if`, `switch` or `try`, checks whether the generator was suspended inside it. In an async generator, the
+await of each `for await` step did not record where the generator was suspended. So every statement around
+the loop treated the resume as a fresh entry. A `for` ran its init again, went back to its first value, and
+repeated its last round forever. A `while`, `if` or `switch` ran its test again after the body had changed
+what the test reads, so it left the iteration early or took the other branch. A `try` whose `catch` or
+`finally` held the loop ran its block again. The program from the issue:
+
+```js
+async function* g() {
+    for (let round = 0; round < 2; round++) {
+        log.push('round ' + round);
+        for await (const x of [1]) { }
+    }
+}
+// 4.17.x / earlier previews: round 0, round 1, round 1, round 1, ... and the generator never finishes
+// 5.x:                       round 0, round 1, as Node reports
+```
+
+Async functions and sync generators already behaved correctly and are unchanged. Nothing bounded the runaway
+on a default engine. With `LimitStatements`, `LimitExecutionTime`, `LimitMemory` or cancellation configured,
+the run used to end with that constraint's exception; it now completes. There is no switch back.
 
 ## 5. New in v5
 
