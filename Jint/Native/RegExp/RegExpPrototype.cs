@@ -1514,8 +1514,9 @@ internal sealed partial class RegExpPrototype : Prototype
     /// a prepared script or module carries, having had no engine to resolve one against.
     /// </summary>
     private static TimeSpan GetCustomEngineTimeout(JsRegExp R) =>
-        (R.ParseResult.AdditionalData as Engine.RegexConversionOptions)?.Timeout
-        ?? R.Engine.Options.Constraints.RegexTimeout;
+        Options.ConstraintOptions.NormalizeRegexTimeout(
+            (R.ParseResult.AdditionalData as Engine.RegexConversionOptions)?.Timeout
+            ?? R.Engine.Options.Constraints.RegexTimeout);
 
     /// <summary>
     /// Runs the custom regex engine under the configured timeout. The deadline is enforced by inline

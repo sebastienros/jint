@@ -255,4 +255,34 @@ public class HostRegexTimeoutTests
             prepareTimeout,
             "an explicit preparation-time RegexTimeout is the host having chosen, and outranks the engine's constraint");
     }
+
+    /// <summary>
+    /// A budget .NET's <see cref="Regex"/> cannot enforce (<see cref="TimeSpan.MaxValue"/>, anything from the
+    /// <c>int.MaxValue</c>-milliseconds ceiling up, zero or negative) means no limit, and a prepared script's
+    /// run-time regex has to read it the way the same script's source does: normalised at the point of use,
+    /// not handed to <see cref="Regex"/> as it stands, which refuses it.
+    /// </summary>
+    [Theory]
+    [InlineData("max")]
+    [InlineData("ceiling")]
+    [InlineData("zero")]
+    [InlineData("negative")]
+    public void APreparedScriptsRuntimeRegexTreatsAnUnenforceableBudgetAsNoLimit(string budget)
+    {
+        var timeout = budget switch
+        {
+            "max" => TimeSpan.MaxValue,
+            "ceiling" => TimeSpan.FromMilliseconds(int.MaxValue),
+            "zero" => TimeSpan.Zero,
+            _ => TimeSpan.FromSeconds(-1),
+        };
+
+        const string Source = "[new RegExp('a+').test('aaa'), new RegExp('a+', 'u').test('aaa'), 'aaa'.replace(new RegExp('a', 'g'), 'b')].join()";
+        var prepared = Engine.PrepareScript(Source);
+
+        new Engine(o => o.Constraints.RegexTimeout = timeout).Evaluate(prepared).AsString()
+            .Should().Be("true,true,bbb", "an unenforceable budget is no limit, not an argument the matcher refuses");
+        new Engine(o => o.Constraints.RegexTimeout = timeout).Evaluate(Source).AsString()
+            .Should().Be("true,true,bbb");
+    }
 }

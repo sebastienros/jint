@@ -488,7 +488,8 @@ public sealed partial class RegExpConstructor : Constructor
         // timeout against and so deliberately chooses none (sebastienros/jint#3442). It is the same
         // expression RegExpPrototype.GetCustomEngineTimeout resolves at match time.
         var conversionOptions = _engine.GetActiveParserOptions().OnRegExp?.Target as Engine.RegexConversionOptions;
-        var regexTimeout = conversionOptions?.Timeout ?? _engine.Options.Constraints.RegexTimeout;
+        var regexTimeout = Options.ConstraintOptions.NormalizeRegexTimeout(
+            conversionOptions?.Timeout ?? _engine.Options.Constraints.RegexTimeout);
 
         if (!NeedCustomEngine(p, f))
         {
