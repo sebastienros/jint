@@ -810,10 +810,11 @@ public sealed class TypeResolver
             }
         }
 
-        // use the best indexer we were able to find
+        // use the best indexer we were able to find, marked when it is a dictionary's non-generic indexer
+        // standing in for a key the dictionary cannot hold (#4518)
         if (indexerAccessor != null)
         {
-            return indexerAccessor;
+            return indexerAccessor.ForTarget(type);
         }
 
         if (!isInteger && engine._extensionMethods.TryGetExtensionMethods(type, out var extensionMethods))

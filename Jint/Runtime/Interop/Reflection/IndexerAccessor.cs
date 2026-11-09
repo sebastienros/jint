@@ -27,6 +27,10 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     private readonly bool _keyFitsAccessors;
     private readonly bool _keyFitsContainsKey;
 
+    // Indexer.CanWrite, and false for a key that cannot be an entry. Every string-keyed write the wrapper
+    // serves reads it, so it is taken once here rather than asked of the PropertyInfo per write.
+    private readonly bool _writable;
+
     // per-accessor L1 caches over the process-wide compiled delegates, resolved lazily and racily
     private CompiledKeyedAccessor.KeyedIndexerGetter? _compiledGetter;
     private bool _compiledGetterResolved;
@@ -37,10 +41,11 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     private CompiledKeyedAccessor.KeyedPredicate? _compiledContainsKey;
     private bool _compiledContainsKeyResolved;
 
-    private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key) : base(indexer.PropertyType)
+    private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key, bool keyCannotBeAnEntry = false) : base(indexer.PropertyType)
     {
         Indexer = indexer;
         FirstIndexParameter = indexer.GetIndexParameters()[0];
+        KeyCannotBeAnEntry = keyCannotBeAnEntry;
 
         _containsKey = containsKey;
         _key = key;
@@ -53,11 +58,51 @@ internal sealed class IndexerAccessor : ReflectionAccessor
         _keyFitsContainsKey = key is not null
                               && containsKey?.GetParameters() is [{ ParameterType: var containsKeyType }]
                               && containsKeyType.IsInstanceOfType(key);
+        _writable = indexer.CanWrite && !keyCannotBeAnEntry;
     }
 
     internal PropertyInfo Indexer { get; }
 
     internal ParameterInfo FirstIndexParameter { get; }
+
+    /// <summary>
+    /// Whether this indexer stands in for a name the target cannot hold as a key: the non-generic
+    /// <see cref="IDictionary"/> indexer of a generic dictionary, keyed by something that is not the
+    /// dictionary's <c>TKey</c>. It addresses no entry, so it is not <see cref="Writable"/>, and
+    /// <see cref="ObjectWrapper.Set(JsValue, JsValue, JsValue)"/> keeps such a property on the wrapper instead (#4518).
+    /// </summary>
+    internal bool KeyCannotBeAnEntry { get; }
+
+    /// <summary>
+    /// This accessor as it applies to <paramref name="targetType"/>, which is a copy that
+    /// <see cref="KeyCannotBeAnEntry"/> marks when this is the non-generic <see cref="IDictionary"/> indexer
+    /// and the target's generic dictionary cannot hold the key. Asked once per resolved member.
+    /// </summary>
+    /// <remarks>
+    /// That indexer takes any object, because the interface does. Every generic dictionary the base class
+    /// library ships then rejects a key that is not a <c>TKey</c>: the setter throws (an
+    /// <see cref="ArgumentException"/>, or a <see cref="NotSupportedException"/> when read-only), the getter
+    /// answers <see langword="null"/> and <c>Contains</c> answers <see langword="false"/>. Only the setter
+    /// needs answering for, so only <see cref="Writable"/> changes; reads go on asking <c>Contains</c>, as
+    /// before. A name that converts to <c>TKey</c> never reaches this indexer, since the dictionary's own
+    /// <c>this[TKey]</c> takes it first.
+    /// </remarks>
+    internal IndexerAccessor ForTarget(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type targetType)
+    {
+        if (Indexer.DeclaringType != typeof(IDictionary))
+        {
+            return this;
+        }
+
+        var descriptor = TypeDescriptor.Get(targetType);
+        if (!descriptor.IsNonStringKeyedGenericDictionary || descriptor.GenericDictionaryKeyType!.IsInstanceOfType(_key))
+        {
+            return this;
+        }
+
+        return new IndexerAccessor(Indexer, _containsKey, _key, keyCannotBeAnEntry: true);
+    }
 
     internal static bool TryFindIndexer(
         Engine engine,
@@ -195,7 +240,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
 
     public override bool Readable => Indexer.CanRead;
 
-    public override bool Writable => Indexer.CanWrite;
+    public override bool Writable => _writable;
 
     protected override object? DoGetValue(object target, string memberName)
     {

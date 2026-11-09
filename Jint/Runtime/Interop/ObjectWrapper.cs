@@ -755,7 +755,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 // CanPut logic
                 if (!accessor.Writable || !_engine.Options.Interop.AllowWrite)
                 {
-                    return false;
+                    // a name the dictionary cannot hold as a key resolves to an indexer that writes nothing
+                    return accessor is IndexerAccessor { KeyCannotBeAnEntry: true }
+                           && _engine.Options.Interop.AllowWrite
+                           && SetKeyTheDictionaryCannotHold(property, member, value, receiver);
                 }
 
                 if (!Extensible)
@@ -811,6 +814,36 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         return SetSlow(property, value);
+    }
+
+    /// <summary>
+    /// [[Set]] under <see cref="Options.InteropOptions.AllowWrite"/> for a name a non-string-keyed dictionary
+    /// cannot hold as a key, such as <c>"expando"</c> on a <c>Dictionary&lt;int, string&gt;</c> (#4518). It
+    /// cannot be an entry, so it is what a name the CLR type has no member for is on any wrapper: a property of
+    /// the wrapper itself, through the ordinary algorithm
+    /// (https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor). That is also what a symbol key is on the same
+    /// wrapper, and what the name is on a dictionary that implements only the generic contract.
+    /// </summary>
+    /// <remarks>
+    /// Two things differ from the <see cref="ConstantValueAccessor.NullAccessor"/> lane in <see cref="Set"/>.
+    /// It is reached only under <c>AllowWrite</c>, so without it the write stays refused, as every write to a
+    /// string-keyed dictionary is. And <see cref="Options.InteropOptions.ThrowOnUnresolvedMember"/> raises
+    /// nothing, as it raises nothing for the same name's read on a dictionary.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool SetKeyTheDictionaryCannotHold(JsValue property, string member, JsValue value, JsValue receiver)
+    {
+        // The writable-filtered resolution passes over a CLR member that cannot be written and lands on the
+        // indexer, so ask again without the requirement, as the NullAccessor lane does: a member answering
+        // the name (Count) refuses the write like a non-writable property would.
+        var answering = ResolveMemberAccessor(member, MemberResolutionRequirement.None);
+        if (answering is not IndexerAccessor { KeyCannotBeAnEntry: true }
+            && !ReferenceEquals(answering, ConstantValueAccessor.NullAccessor))
+        {
+            return false;
+        }
+
+        return base.Set(property, value, receiver);
     }
 
     /// <summary>

@@ -8330,6 +8330,37 @@ has a `navigate` member that Chromium does not read, and neither does Jint, so a
 action is stored: a non-persistent notification refuses a non-empty list, and `actions` reads back as an empty frozen
 array. There is no switch back.
 
+### 4.230 A wrapped dictionary keeps a name it cannot hold as a key on the wrapper ([#4518](https://github.com/sebastienros/jint/issues/4518))
+
+Under `Options.Interop.AllowWrite`, assigning a name to a wrapped dictionary whose key type is not `string` let the
+dictionary's own exception out of `Evaluate` when the name did not convert to that key type: an `ArgumentException`
+from a `Dictionary<int, string>`, a `NotSupportedException` from a `ReadOnlyDictionary<int, string>`. Script could not
+catch it. The name reached the dictionary through the non-generic `IDictionary` indexer every base class library
+dictionary implements, which refuses a key of the wrong type. Now the name is a property of the wrapper, as a name
+with no CLR member is on any wrapped object, and as it already was on a dictionary that implements only the generic
+`IDictionary<TKey, TValue>`:
+
+```js
+// host: engine.SetValue("d", new Dictionary<int, string> { [1] = "a" });   AllowWrite = true
+d.expando = 2;
+d.expando
+// earlier previews: ArgumentException out of Evaluate    5.x: 2, and the dictionary still holds one entry
+```
+
+- It is an ordinary property. `in`, `hasOwnProperty`, `Object.getOwnPropertyDescriptor` and `delete` see it,
+  `Object.preventExtensions` stops it being added, and the host's dictionary never holds it.
+  `Options.Interop.ThrowOnUnresolvedMember` raises nothing for it, as it raises nothing when script reads the same
+  name.
+- A name that is a read-only member of the dictionary, such as `Count`, is refused instead: `false` from
+  `Reflect.set`, and a `TypeError` in strict mode. It used to reach the indexer too.
+- A name that converts to the key type is still an entry: `"5"` and `"-1"` for an `int` key, `"Monday"` for a
+  `DayOfWeek` key, `"2020-01-01"` for a `DateTime` key. A `Guid`-shaped string is not one, because the default
+  converter makes no `Guid` from a string.
+- Without `AllowWrite` nothing changes. The assignment is refused, as every assignment to a string-keyed dictionary
+  is, and `Object.defineProperty` defines the property on the wrapper, as it did before in both modes.
+
+There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
