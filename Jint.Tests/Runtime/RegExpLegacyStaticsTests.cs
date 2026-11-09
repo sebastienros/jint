@@ -54,7 +54,7 @@ public class RegExpLegacyStaticsTests
     // a failed search leaves the previous values
     [TestCase(Preamble + "/(z)/.exec('zz'); var s1 = all(); var r = 'abc'.search(/(q)/); JSON.stringify([all() === s1, r])", "[true,-1]")]
     // a failed sticky exec leaves the previous values
-    [TestCase(Preamble + "/(z)/.exec('zz'); var s1 = all(); var re = /(q)/y; re.lastIndex = 1; var r = re.exec('aqc'); JSON.stringify([all() === s1, r, re.lastIndex])", "[false,[\"q\",\"q\"],2]")]
+    [TestCase(Preamble + "/(z)/.exec('zz'); var s1 = all(); var re = /(q)/y; re.lastIndex = 0; var r = re.exec('aqc'); JSON.stringify([all() === s1, r, re.lastIndex])", "[true,null,0]")]
     // input assignment
     [TestCase(Preamble + "/(z)/.exec('zz'); RegExp.input = 'x'; core()", "[\"z\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"z\",\"\",\"z\",\"x\"]")]
     // input assignment through $_

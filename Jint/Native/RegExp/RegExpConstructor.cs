@@ -34,7 +34,7 @@ public sealed partial class RegExpConstructor : Constructor
     //
     // input is not part of that: it is written by every match and by the input/$_ setter, and the setter leaves
     // the rest of the last match alone.
-    internal string _legacyInput = "";
+    private string _legacyInput = "";
     private string _legacyContextInput = "";
     private int _legacyMatchIndex;
     private int _legacyMatchEnd;
@@ -87,7 +87,7 @@ public sealed partial class RegExpConstructor : Constructor
     /// <c>RegExp.$1</c>..<c>RegExp.$9</c> for <paramref name="slot"/> 0..8: the capture's text, or the empty string
     /// for a group that took no part in the last match and for one the last match did not have.
     /// </summary>
-    internal string GetLegacyParen(int slot)
+    private string GetLegacyParen(int slot)
     {
         if ((uint) slot >= (uint) _legacyParenCount)
         {
@@ -105,7 +105,7 @@ public sealed partial class RegExpConstructor : Constructor
     /// <summary>
     /// <c>RegExp.lastParen</c>: the last of the first nine captures that took part in the last match.
     /// </summary>
-    internal string GetLegacyLastParen()
+    private string GetLegacyLastParen()
     {
         if ((_legacyMaterialized & LegacyLastParenBit) == 0)
         {
