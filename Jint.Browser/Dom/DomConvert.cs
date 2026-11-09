@@ -86,6 +86,53 @@ internal static class DomConvert
     }
 
     /// <summary>
+    /// Opens a <c>sequence&lt;T&gt;</c> argument or member as WebIDL converts one
+    /// (https://webidl.spec.whatwg.org/#es-sequence): step 1 refuses a value that is not an Object, so a string
+    /// primitive is never iterated by code point; step 2 reads <c>@@iterator</c> once with
+    /// <a href="https://tc39.es/ecma262/#sec-getmethod">GetMethod</a>, which throws for a value that is neither
+    /// callable nor nullish; step 3 refuses an object without one; and step 4 creates the sequence from the method that
+    /// read found (https://webidl.spec.whatwg.org/#create-sequence-from-iterable), without reading it again.
+    /// </summary>
+    /// <remarks>
+    /// Both refusals are <c>TypeError</c>s with Chromium's text. <paramref name="operation"/> is its prefix (<c>Failed
+    /// to construct 'TouchEvent'</c>); a dictionary member also names <paramref name="member"/> and
+    /// <paramref name="dictionary"/>. The caller converts each element as it steps with
+    /// <see cref="Native.Iterator.IteratorInstance.TryIteratorStepValue"/>, and closes with
+    /// <see cref="Native.Iterator.IteratorInstance.CloseIfNotDone"/> in a <c>catch</c> around the loop, so that only an
+    /// element that fails to convert closes the iterator (sebastienros/jint#4431; the rule is in
+    /// <c>Jint/WebApi/AGENTS.md</c>, "When a sequence conversion closes its iterator").
+    /// </remarks>
+    internal static Native.Iterator.IteratorInstance SequenceIterator(
+        Realm realm,
+        JsValue value,
+        string operation,
+        string? member = null,
+        string? dictionary = null)
+    {
+        if (value is not ObjectInstance instance)
+        {
+            NotASequence(realm, operation, member, dictionary, "The provided value cannot be converted to a sequence.");
+            return null!;
+        }
+
+        if (instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is not { } method)
+        {
+            NotASequence(realm, operation, member, dictionary, "The object must have a callable @@iterator property.");
+            return null!;
+        }
+
+        return value.GetIterator(realm, method: method);
+    }
+
+    [System.Diagnostics.CodeAnalysis.DoesNotReturn]
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void NotASequence(Realm realm, string operation, string? member, string? dictionary, string reason)
+    {
+        var where = member is null ? "" : "Failed to read the '" + member + "' property from '" + dictionary + "': ";
+        Throw.TypeError(realm, operation + ": " + where + reason);
+    }
+
+    /// <summary>
     /// https://webidl.spec.whatwg.org/#es-enumeration — a value the enumeration does not carry is a
     /// <c>TypeError</c>. Generic so that the generated <c>DomEnums</c> switch can end in an expression.
     /// </summary>

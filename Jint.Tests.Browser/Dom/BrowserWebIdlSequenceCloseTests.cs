@@ -79,6 +79,26 @@ public sealed class BrowserWebIdlSequenceCloseTests
             bad: { get x() { throw marker('ConversionError'); } },
             run: it => ctx.roundRect(0, 0, 10, 10, it),
         });
+        lanes.mutationObserverAttributeFilter = () => ({
+            goods: ['a'],
+            bad: throwsOnConversion,
+            run: it => new MutationObserver(() => { }).observe(document.body, { attributeFilter: it }),
+        });
+        // observe's steps refuse a filter with attributes false only once the whole dictionary has been converted.
+        lanes.mutationObserverAttributeFilterRefused = () => ({
+            refused: ['a', 'b'],
+            bad: throwsOnConversion,
+            run: it => new MutationObserver(() => { }).observe(document.body, { attributes: false, attributeFilter: it }),
+        });
+        // A threshold out of [0, 1] is the constructor's RangeError, after the conversion; a non-finite one fails
+        // the restricted double conversion itself.
+        lanes.intersectionObserverThreshold = () => ({
+            goods: [0.5],
+            bad: throwsOnConversion,
+            refused: [2, 0.5],
+            run: it => new IntersectionObserver(() => { }, { threshold: it }),
+        });
+        lanes.intersectionObserverThresholdNonFinite = () => ({ goods: [0.5], bad: NaN, run: it => new IntersectionObserver(() => { }, { threshold: it }) });
         """;
 
     // Each lane, named with the error its bad element throws.
@@ -98,9 +118,21 @@ public sealed class BrowserWebIdlSequenceCloseTests
         ["touchEvent"] = "TypeError",
         ["domMatrix"] = "ConversionError",
         ["roundRect"] = "ConversionError",
+        ["mutationObserverAttributeFilter"] = "ConversionError",
+        ["intersectionObserverThreshold"] = "ConversionError",
+        ["intersectionObserverThresholdNonFinite"] = "TypeError",
     };
 
-    public static TestCases<string, string, string, string> EveryLaneUnderEveryProbe => WebIdlSequenceCloseMatrix.Cases(SyncLanes);
+    // The lanes whose algorithm refuses what the conversion produced: each named with the error the refusal throws
+    // and the one its bad element does.
+    private static readonly Dictionary<string, (string Refusal, string Error)> RefusalLanes = new()
+    {
+        ["mutationObserverAttributeFilterRefused"] = ("TypeError", "ConversionError"),
+        ["intersectionObserverThreshold"] = ("RangeError", "ConversionError"),
+    };
+
+    public static TestCases<string, string, string, string> EveryLaneUnderEveryProbe
+        => WebIdlSequenceCloseMatrix.Cases(SyncLanes, refusalLanes: RefusalLanes);
 
     /// <summary>
     /// A conversion that fails on an element closes the iterator once and propagates its own error; a step that

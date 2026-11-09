@@ -8123,6 +8123,49 @@ A wrapped CLR collection's iterator returned from a script's `Symbol.asyncIterat
 settled, not when `return` is called. A delegate with no `return` still throws the `TypeError` at once, and a
 generator's `yield*` is unchanged: its close awaits nothing. There is no switch back.
 
+### 4.225 `Jint.Browser` iterates `attributeFilter` and `threshold`, and refuses a string where it wants a sequence ([#4492](https://github.com/sebastienros/jint/issues/4492))
+
+`MutationObserver.prototype.observe`'s `attributeFilter` and the `IntersectionObserver` constructor's `threshold` are
+now converted the way WebIDL converts a sequence: through `Symbol.iterator`, read once. They used to read `length` and
+the indices, so an iterable that is not an array converted to nothing, and an object with a `length` passed as one:
+
+```js
+observer.observe(element, { attributeFilter: new Set(['a']) });
+// earlier previews: an empty filter, so no attribute is recorded    5.x: records `a`
+new IntersectionObserver(callback, { threshold: new Set([0.5]) }).thresholds
+// earlier previews: [0]    5.x: [0.5]
+new IntersectionObserver(callback, { threshold: { valueOf() { return 0.5; } } }).thresholds
+// earlier previews: [0]    5.x: [0.5]
+```
+
+- An `attributeFilter` that is not iterable is now a `TypeError`, and that includes an array-like object
+  (`{ length: 1, 0: 'a' }` used to be `['a']`). So is `attributeFilter: null`, which used to count as no filter. WebIDL
+  makes any value that is not an object a `TypeError`, and Chromium throws too. Leave the member out, or pass
+  `undefined`, for no filter.
+- `threshold` takes a number or a sequence of numbers. An object with no `Symbol.iterator` is now converted to a
+  number, so an array-like object is `NaN`. A threshold that is `NaN` or infinite, alone or in a sequence, is now a
+  `TypeError`, as WebIDL's `double` requires. It used to be a `RangeError`. A finite threshold outside 0 to 1 is still a
+  `RangeError`. The whole options object is converted before `rootMargin` is parsed, so a `threshold` iterator runs, and
+  a non-finite threshold throws its `TypeError`, before a malformed `rootMargin` throws its `SyntaxError`.
+
+These conversions iterated a string by code point instead of refusing it: `observedAttributes` and `disabledFeatures`
+in `customElements.define`, a `TouchEvent`'s `touches`, `targetTouches` and `changedTouches`, a `FontFaceSetLoadEvent`'s
+`fontfaces`, and the ARIA element arrays such as `ariaControlsElements`. A string is now a `TypeError`. Before, an
+empty string was an empty list, and a non-empty one observed one attribute per character:
+
+```js
+customElements.define('x-a', class extends HTMLElement {
+    static get observedAttributes() { return 'abc'; }
+    attributeChangedCallback() { }
+});
+// earlier previews: defined, observing `a`, `b` and `c`    5.x: TypeError, and nothing is defined
+```
+
+Every answer above is what Chromium gives (Microsoft Edge 156). The messages for a value that is not a sequence, an
+object with no `Symbol.iterator` and a non-finite threshold are Chromium's too. One behavioural difference remains, the close rule
+in §4.220: when an element of `attributeFilter` or `threshold` fails to convert, Jint calls the iterator's `return`,
+which Chromium does not. There is no switch back.
+
 ### 4.227 The `SuppressedError` that disposal builds has no own `message`, and belongs to the realm of the code disposing ([#4494](https://github.com/sebastienros/jint/issues/4494))
 
 When a dispose method throws over an earlier throw, `using`, `await using`, `DisposableStack.prototype.dispose` and
