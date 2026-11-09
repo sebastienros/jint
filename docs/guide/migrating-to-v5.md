@@ -7970,10 +7970,16 @@ Now only the collection's contents are refused in those cases: an element, and a
 collection such as Newtonsoft's `JObject`. Deleting one still returns `false` (a `TypeError` in strict mode), and
 the collection does not change. Every other property follows the ordinary `delete` rules: removed if it is
 configurable, refused if it is not. Extensibility does not matter, so `Object.preventExtensions` no longer stops
-a configurable property from being deleted. `Object.freeze` and `Object.seal` do stop it: they make the property
-non-configurable, now that the wrapper lists it among its own keys
-([§4.223](#4-223-a-wrapped-clr-object-lists-the-properties-the-script-defined-on-it-4503)). A plain wrapped object,
-and a writable collection under `AllowWrite`, already behaved this way.
+a configurable property from being deleted. A plain wrapped object, and a writable collection under `AllowWrite`,
+already behaved this way.
+
+`Object.freeze` and `Object.seal` do stop it for a property the script created: they make it non-configurable,
+because the wrapper now lists it among its own keys
+([§4.223](#4-223-a-wrapped-clr-object-lists-the-properties-the-script-defined-on-it-4503)). They do not yet stop it
+for something the wrapper projects itself and the script redefines, such as the `Symbol.iterator` in the example
+above (or `toJSON`, `length`, `Symbol.dispose`). The wrapper does not list a projection, so after `Object.freeze`
+it stays configurable and `delete` still removes it
+([#4528](https://github.com/sebastienros/jint/issues/4528)).
 
 The same rules apply to what the wrapper itself puts on a collection. `delete list.Contains` and
 `delete list.length` now return `true`. The method is back on the next read. So is the count for a collection
@@ -8130,11 +8136,15 @@ and lead the list when there is none.
 
 No key is listed twice. A CLR member, element or entry the script redefines is still the target's and stays where
 the target lists it, which on a view means not at all for a member such as `Contains`. A key the script defined
-that a dictionary later gains as an entry is listed once, in the dictionary's place. What the wrapper projects
-itself and the target does not report is not listed either, as before: the `length` forwarder, `Symbol.iterator`,
-`toJSON`, `Symbol.dispose`, and a reflected member such as `ToString`. `for..of` over a dictionary still yields only
-its entries. Nor are properties a host stores with `DefineOwnPropertyUnchecked`, which bypasses
-`[[DefineOwnProperty]]`.
+that a dictionary later gains as an entry is listed once, in the dictionary's place. `for..of` over a dictionary
+still yields only its entries.
+
+What the wrapper projects itself and the target does not report is not listed, as before: the `length` forwarder,
+`Symbol.iterator`, `toJSON`, `Symbol.dispose`, and a reflected member such as `ToString`. That stays true after the
+script redefines one: it is still the wrapper's projection, so `Object.freeze` and `Object.seal` do not reach it, it
+stays configurable, and `delete` still removes it ([#4528](https://github.com/sebastienros/jint/issues/4528)).
+Properties a host stores with `DefineOwnPropertyUnchecked`, which bypasses `[[DefineOwnProperty]]`, are not listed
+either.
 
 **What could break:** `JSON.stringify`, `Object.keys`, `Object.assign`, spread and `for..in` over a wrapped object
 or dictionary now include an enumerable property the script defined on it, and `Object.getOwnPropertyNames` and
