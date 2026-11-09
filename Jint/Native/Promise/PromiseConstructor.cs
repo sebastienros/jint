@@ -813,9 +813,7 @@ internal sealed partial class PromiseConstructor : Constructor
             remainingElementsCount--;
             if (remainingElementsCount == 0)
             {
-                var array = _realm.Intrinsics.Array.ConstructFast(errors);
-
-                capability.Reject(Construct(_realm.Intrinsics.AggregateError, [array]));
+                capability.Reject(_realm.Intrinsics.AggregateError.CreateFromList(errors));
             }
         }
 
