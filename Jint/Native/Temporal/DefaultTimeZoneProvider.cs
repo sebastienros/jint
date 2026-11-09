@@ -575,6 +575,13 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
         if (tz is null)
             return null;
 
+        // An IANA name keeps its own spelling, a Link name included: Europe/Kiev stays Europe/Kiev even when the
+        // system had only Europe/Kyiv to resolve it with, so the identifier never becomes the zone it points to.
+        if (Intl.Data.TimeZoneData.FindCanonical(timeZoneId) is { } listed)
+        {
+            return listed;
+        }
+
         // If on non-Windows, TimeZoneInfo.Id is already IANA
         if (!IsWindowsPlatform())
         {
@@ -764,10 +771,15 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
 #if NET8_0_OR_GREATER
         // Case-insensitive fallback over the system's zones, answered from a dictionary built once rather
         // than by re-scanning every zone the machine has on each unresolved identifier.
-        return SystemTimeZonesByIdIgnoreCase.Value.TryGetValue(id, out var systemTz) ? systemTz : null;
-#else
-        return null;
+        if (SystemTimeZonesByIdIgnoreCase.Value.TryGetValue(id, out var systemTz))
+        {
+            return systemTz;
+        }
 #endif
+
+        // A missing Link name resolves to its target; four legacy POSIX IDs have documented US-zone
+        // approximations for systems that do not install tzdata-legacy.
+        return Intl.Data.TimeZoneData.TryGetFallbackTarget(id, out var zone) ? CreateTimeZone(zone) : null;
     }
 
 #if NET8_0_OR_GREATER
