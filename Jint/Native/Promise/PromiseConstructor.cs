@@ -715,9 +715,7 @@ internal sealed partial class PromiseConstructor : Constructor
 
             if (errors.TrueForAll(static x => x is not null) && doneIterating)
             {
-                var array = _realm.Intrinsics.Array.ConstructFast(errors);
-
-                capability.Reject(Construct(_realm.Intrinsics.AggregateError, [array]));
+                capability.Reject(_realm.Intrinsics.AggregateError.CreateFromList(errors));
             }
         }
 
