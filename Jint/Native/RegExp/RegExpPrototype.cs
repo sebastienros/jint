@@ -523,15 +523,37 @@ internal sealed partial class RegExpPrototype : Prototype
 #pragma warning restore CA1845
     }
 
+    // The (index, length) pairs FusedReplace collects, kept between calls so a replace over a handful of matches
+    // does not regrow a list from empty every time. A call takes the buffer and leaves null behind, because a
+    // replacer is script and can run a replace of its own: that one finds the field empty and uses an array
+    // of its own, and whichever finishes last leaves its array here. A buffer that grew past MaxRetainedSpans
+    // is dropped instead, so one huge replace does not pin its storage for the life of the realm; a call that
+    // throws drops its buffer too, and the next one simply allocates.
+    private int[]? _spansBuffer;
+    private const int InitialSpans = 64;
+    private const int MaxRetainedSpans = 4096;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int[] GrowSpans(int[] spans, int used, int extra)
+    {
+        var needed = checked(used + extra);
+        var grown = new int[(int) System.Math.Max(needed, System.Math.Min(2L * spans.Length, 0x7FFFFFC7L))];
+        System.Array.Copy(spans, grown, used);
+        return grown;
+    }
+
     private string FusedReplace(JsRegExp rei, string s, bool global, bool fullUnicode, bool functionalReplace, JsValue replaceValue)
     {
         var matcher = rei.Matcher!;
         var groupCount = matcher.CaptureCount;
         var groups = new RegexCapture[groupCount];
+        var stride = 2 * groupCount;
 
         // Steps 11-12: collect every match as flat (index, length) pairs per group; -1 marks a group that did
         // not participate.
-        var spans = new List<int>();
+        var spans = _spansBuffer ?? new int[InitialSpans];
+        _spansBuffer = null;
+        var spanCount = 0;
         var searchStart = 0;
         var matchCount = 0;
         // No script runs while matches are collected (the replacer is called afterwards), so the searches may share
@@ -551,10 +573,15 @@ internal sealed partial class RegExpPrototype : Prototype
                     break;
                 }
 
+                if (spanCount + stride > spans.Length)
+                {
+                    spans = GrowSpans(spans, spanCount, stride);
+                }
+
                 foreach (var group in groups)
                 {
-                    spans.Add(group.Participated ? group.Index : -1);
-                    spans.Add(group.Length);
+                    spans[spanCount++] = group.Participated ? group.Index : -1;
+                    spans[spanCount++] = group.Length;
                 }
 
                 if (!global)
@@ -568,10 +595,10 @@ internal sealed partial class RegExpPrototype : Prototype
             }
         }
 
-        var stride = 2 * groupCount;
-        var matches = spans.Count / stride;
+        var matches = spanCount / stride;
         if (matches == 0)
         {
+            ReturnSpans(spans);
             return s;
         }
 
@@ -638,9 +665,20 @@ internal sealed partial class RegExpPrototype : Prototype
             nextSourcePosition = position + matchLength;
         }
 
+        ReturnSpans(spans);
+
         JsString.ThrowIfLengthExceeded(_realm, (long) sb.Length + (s.Length - nextSourcePosition));
         sb.Append(s.AsSpan(nextSourcePosition));
         return sb.ToString();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ReturnSpans(int[] spans)
+    {
+        if (spans.Length <= MaxRetainedSpans)
+        {
+            _spansBuffer = spans;
+        }
     }
 
     /// <summary>
@@ -673,7 +711,7 @@ internal sealed partial class RegExpPrototype : Prototype
         return groups;
     }
 
-    private static void UpdateLegacyStaticProperties(Engine engine, JintRegExpEngine matcher, string s, List<int> spans, int offset)
+    private static void UpdateLegacyStaticProperties(Engine engine, JintRegExpEngine matcher, string s, int[] spans, int offset)
     {
         var constructor = engine.Realm.Intrinsics.RegExp;
         constructor._legacyInput = s;
