@@ -31,6 +31,11 @@ A long `a + b` defers its copy, so it is charged when it is built, for the chara
 whose result alone would exceed the limit fails at once: no single string a script builds costs more than the
 budget to read.
 
+`MaxArraySize` bounds every array a script builds from a count, and every argument list a count chosen at run time
+makes longer: a spread, an array-like handed to `apply`, `Reflect.apply` or `Reflect.construct`, the bound arguments
+a chain of `bind` calls adds up. Past it the run ends with `MemoryLimitExceededException`. A list written out in the
+source, such as `f(1, 2, 3)` or `[1, 2, 3]`, is no longer than the script, so it is not counted.
+
 The native stack-overflow guard is enabled by default. It converts exhausted recursion headroom into a
 catchable JavaScript `RangeError` while the engine can still unwind. `MaxRecursionDepth` is an additional,
 configured recursion bound; it does not replace the native-stack guard for every recursion shape.

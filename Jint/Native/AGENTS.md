@@ -52,3 +52,13 @@ it take ownership of a finished array and do **not**, so a built-in that reaches
 script chose hands out an array the host forbade. `Promise.all` did exactly that through `ConstructFast` until it
 checked ([#4493](https://github.com/sebastienros/jint/issues/4493)). Prefer `ConstructFast` or `ConstructFromBuilder`
 for a finished list: one compare, then a single copy, where `CreateArrayFromList` writes element by element.
+
+**An argument list is bounded where it is built, never where it lands.** The rest parameter
+(`FunctionEnvironment.HandleRestElementArray`) and the `arguments` object take the list unchecked, so a call without a
+spread pays nothing. What makes a list longer than its source is checked instead: the spread builder
+(`ExpressionCache.BuildArgumentsWithSpreads`, which array literals share), `CreateListFromArrayLike` before it
+allocates, and a bound function's `CreateArguments`. Each compares against `Engine._maxListLength`, where no limit is
+`ulong.MaxValue`, so a default engine's compare never fails
+([#4505](https://github.com/sebastienros/jint/issues/4505)). A new path that builds a list from a run-time count owes
+the same check, and a list a web API fills from what script stored takes `ArrayInstance.ValidateListLength` before
+allocating.

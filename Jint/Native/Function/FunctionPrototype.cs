@@ -186,6 +186,11 @@ internal sealed partial class FunctionPrototype : Function
     /// <summary>
     /// https://tc39.es/ecma262/#sec-createlistfromarraylike
     /// </summary>
+    /// <remarks>
+    /// The list is as long as the array-like's <c>"length"</c> says, which a script can make anything, so it is held
+    /// to <c>MaxArraySize</c> like an array built from a count, before it is allocated (sebastienros/jint#4505). That
+    /// bounds <c>apply</c>, <c>Reflect.apply</c>, <c>Reflect.construct</c> and a Proxy's <c>ownKeys</c> result.
+    /// </remarks>
     internal static JsValue[] CreateListFromArrayLike(Realm realm, JsValue argArray, Types? elementTypes = null)
     {
         var argArrayObj = argArray as ObjectInstance;
@@ -194,9 +199,10 @@ internal sealed partial class FunctionPrototype : Function
             Throw.TypeError(realm, "CreateListFromArrayLike called on non-object");
         }
         var operations = ArrayOperations.For(argArrayObj, forWrite: false);
+        var maxLength = argArrayObj.Engine._maxListLength;
         var argList = elementTypes is null
-            ? operations.GetAll(errorRealm: realm)
-            : operations.GetAll(elementTypes.Value, errorRealm: realm);
+            ? operations.GetAll(errorRealm: realm, maxLength: maxLength)
+            : operations.GetAll(elementTypes.Value, errorRealm: realm, maxLength: maxLength);
         return argList;
     }
 

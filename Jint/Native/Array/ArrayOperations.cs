@@ -120,16 +120,27 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
     public abstract JsValue Get(ulong index);
 
+    /// <summary>
+    /// Reads every element into a new list. A caller whose list a script sized passes the engine's
+    /// <c>MaxArraySize</c> as <paramref name="maxLength"/>, which is checked after the one read of <c>"length"</c> and
+    /// before the list is allocated (sebastienros/jint#4505).
+    /// </summary>
     public virtual JsValue[] GetAll(
         Types elementTypes = Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.BigInt | Types.Object,
         bool skipHoles = false,
-        Realm? errorRealm = null)
+        Realm? errorRealm = null,
+        ulong maxLength = ulong.MaxValue)
     {
         uint writeIndex = 0;
         var length = GetLongLength();
         if (length > ClrLimits.MaxArrayLength)
         {
             Throw.RangeError(errorRealm ?? Target.Engine.Realm, "Invalid array-like length");
+        }
+
+        if (length > maxLength)
+        {
+            ArrayInstance.ThrowMaximumArraySizeReachedException(Target.Engine, length);
         }
 
         var n = (int) length;
@@ -320,7 +331,8 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         public override JsValue[] GetAll(
             Types elementTypes = Types.Empty | Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Number | Types.Symbol | Types.BigInt | Types.Object,
             bool skipHoles = false,
-            Realm? errorRealm = null)
+            Realm? errorRealm = null,
+            ulong maxLength = ulong.MaxValue)
         {
             var n = _target.GetLength();
             if (n > ClrLimits.MaxArrayLength)
@@ -328,9 +340,15 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
                 Throw.RangeError(errorRealm ?? _target.Engine.Realm, "Invalid array-like length");
             }
 
+            // A sparse array's length is not bounded by MaxArraySize, so the list it asks for is checked here too.
+            if (n > maxLength)
+            {
+                ArrayInstance.ThrowMaximumArraySizeReachedException(_target.Engine, n);
+            }
+
             if (_target._dense == null || _target._dense.Length < n)
             {
-                return base.GetAll(elementTypes, skipHoles, errorRealm);
+                return base.GetAll(elementTypes, skipHoles, errorRealm, maxLength);
             }
 
             // optimized

@@ -1736,6 +1736,13 @@ public sealed partial class Engine : IDisposable
     // track depth at all from the same value (see the JintCallStack construction below).
     internal readonly int _maxRecursionDepth;
 
+    // Options.Constraints.MaxArraySize for the argument lists a run-time count lengthens: a spread, an array-like
+    // handed to apply/Reflect.apply/Reflect.construct, a bound function's arguments (sebastienros/jint#4505). The
+    // default uint.MaxValue means no limit, so it is ulong.MaxValue here and a list's ulong count can never exceed it.
+    // Taken beside _maxRecursionDepth, after Options.Apply, for the same reason, and read only by code that runs script;
+    // array construction keeps reading the option, since it can run while the engine is still being built.
+    internal readonly ulong _maxListLength;
+
     internal Constraint[] ActiveConstraintsForSecurityDiagnostics => _constraints;
     internal readonly EngineSecurityConfigurationSnapshot _securityConfigurationSnapshot;
 
@@ -2017,6 +2024,7 @@ public sealed partial class Engine : IDisposable
             && ReferenceEquals(_referenceResolver, NullPropagatingReferenceResolver.Instance);
 
         _maxRecursionDepth = Options.Constraints.EffectiveMaxRecursionDepth;
+        _maxListLength = Options.Constraints.MaxArraySize == uint.MaxValue ? ulong.MaxValue : Options.Constraints.MaxArraySize;
 
         _operatorOverloadingAllowed = Options.Interop.AllowOperatorOverloading;
 

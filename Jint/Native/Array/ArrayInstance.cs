@@ -1956,7 +1956,22 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return "(" + GetJsNumberLength() + ")[]";
     }
 
-    internal static void ThrowMaximumArraySizeReachedException(Engine engine, uint capacity)
+    /// <summary>
+    /// The <c>MaxArraySize</c> check for a list whose length script chose and which is built without an array
+    /// constructor to make it: an argument list, or a list a web API hands out. One compare against the configured
+    /// limit, before the list is allocated, which an engine without a limit never fails.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ValidateListLength(Engine engine, ulong length)
+    {
+        if (length > engine.Options.Constraints.MaxArraySize)
+        {
+            ThrowMaximumArraySizeReachedException(engine, length);
+        }
+    }
+
+    [DoesNotReturn]
+    internal static void ThrowMaximumArraySizeReachedException(Engine engine, ulong capacity)
     {
         Throw.MemoryLimitExceededException(
             $"The array size {capacity} is larger than maximum allowed ({engine.Options.Constraints.MaxArraySize})"

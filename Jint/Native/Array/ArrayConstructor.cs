@@ -966,13 +966,7 @@ public sealed partial class ArrayConstructor : Constructor
     /// the same helper and message every other array creation uses.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void ValidateElementCount(uint length)
-    {
-        if (length > _engine.Options.Constraints.MaxArraySize)
-        {
-            ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, length);
-        }
-    }
+    private void ValidateElementCount(uint length) => ArrayInstance.ValidateListLength(_engine, length);
 
     /// <summary>
     /// Materializes accumulated builder contents into a plain array instance via an
