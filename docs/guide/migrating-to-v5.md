@@ -8035,6 +8035,13 @@ The loop now throws at the step that settled to something other than an object, 
 and the iterator is not closed: its `return` is not called, as for a `next` that throws. A sync iterable reaching
 `for await` through its `Symbol.iterator` already failed this way. There is no switch back.
 
+### 4.219 Long native replacement and match loops check execution constraints ([#4374](https://github.com/sebastienros/jint/pull/4374))
+
+Native regex replacement and global matching, and plain-string `replaceAll`, now check execution
+constraints during the scan. A time limit or cancellation can interrupt a long `replace`,
+`replaceAll` or `match` call between matches. When `LimitStatements` is configured, each periodic
+check charges one statement for every 10,000 matches.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

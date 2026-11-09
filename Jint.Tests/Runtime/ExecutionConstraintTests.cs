@@ -30,6 +30,15 @@ public class ExecutionConstraintTests
             .Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
+    [Test]
+    public void NativeStickyRegexMatchEnforcesArraySizeBeforeScanningMoreMatches()
+    {
+        var engine = new Engine(cfg => cfg.LimitStatements(2).Constraints.MaxArraySize = 4);
+        engine.SetValue("input", new string('a', 40_000));
+
+        Invoking(() => engine.Evaluate("input.match(/a/gy)")).Should().ThrowExactly<MemoryLimitExceededException>();
+    }
+
     [TestCase(3)]
     [TestCase(5)]
     public void NativeRegexMatchAllowsResultsAtTheArraySizeLimit(int limit)

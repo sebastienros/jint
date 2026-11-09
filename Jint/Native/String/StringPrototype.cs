@@ -1527,9 +1527,20 @@ internal sealed partial class StringPrototype : StringInstance
 
         var functionalReplace = replaceValue is ICallable;
 
+        var searchLength = searchString.Length;
         if (!functionalReplace)
         {
             replaceValue = TypeConverter.ToJsString(replaceValue);
+            var replacement = replaceValue.ToString();
+            if (searchLength > 0 && !replacement.Contains('$'))
+            {
+                var maxMatches = thisString.Length / searchLength;
+                if (maxMatches < ConstraintCheckInterval
+                    && thisString.Length + (long) maxMatches * System.Math.Max(0, replacement.Length - searchLength) <= JsString.MaxLength)
+                {
+                    return thisString.Replace(searchString, replacement);
+                }
+            }
         }
 
         // https://tc39.es/ecma262/#sec-stringindexof
@@ -1545,7 +1556,6 @@ internal sealed partial class StringPrototype : StringInstance
                 : -1;
         }
 
-        var searchLength = searchString.Length;
         var advanceBy = System.Math.Max(1, searchLength);
 
         var endOfLastMatch = 0;

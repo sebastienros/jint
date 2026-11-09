@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using Jint.Native.Array;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
@@ -305,11 +306,10 @@ internal sealed partial class RegExpPrototype : Prototype
             && !rei.NeedsCaseFoldingFallback(s))
         {
             var count = global ? int.MaxValue : 1;
-            var nativeMatchCount = 0;
-
-            string result;
             if (functionalReplace)
             {
+                var nativeMatchCount = 0;
+
                 string Evaluator(Match match)
                 {
                     if (++nativeMatchCount % ConstraintCheckInterval == 0)
@@ -362,23 +362,18 @@ internal sealed partial class RegExpPrototype : Prototype
                     return CallFunctionalReplace(replaceValue, replacerArgs);
                 }
 
-                result = rei.Value.Replace(s, Evaluator, count);
+                return rei.Value.Replace(s, Evaluator, count);
             }
-            else
+
+            var replacement = TypeConverter.ToString(replaceValue);
+            // An empty match can occur at every position, including the end of the input.
+            if (!global || s.Length < ConstraintCheckInterval - 1
+                || (_engine._constraints.Length == 0 && !_engine._asyncEntryToken.CanBeCanceled))
             {
-                var replacement = TypeConverter.ToString(replaceValue);
-                result = rei.Value.Replace(s, _ =>
-                {
-                    if (++nativeMatchCount % ConstraintCheckInterval == 0)
-                    {
-                        _engine.Constraints.Check();
-                    }
-
-                    return replacement;
-                }, count);
+                return rei.Value.Replace(s, replacement, count);
             }
 
-            return result;
+            return ReplaceNativeLiteralWithConstraints(rei.Value, s, replacement);
         }
 
         var results = new List<ObjectInstance>();
@@ -515,6 +510,21 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         var result = ((ICallable) replacer).Call(Undefined, replacerArgs);
         return TypeConverter.ToString(result);
+    }
+
+    private string ReplaceNativeLiteralWithConstraints(Regex regex, string input, string replacement)
+    {
+        // Keep Regex.Replace's timeout across the whole scan. EnumerateMatches restarts it per match.
+        var matchCount = 0;
+        return regex.Replace(input, _ =>
+        {
+            if (++matchCount % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
+            return replacement;
+        });
     }
 
     /// <summary>
@@ -1205,6 +1215,7 @@ internal sealed partial class RegExpPrototype : Prototype
             && !dotnetRei.NeedsCaseFoldingFallback(s))
         {
             // fast path (only for .NET Regex engine)
+            var maxArraySize = _engine.Options.Constraints.MaxArraySize;
             var builder = new JsValueListBuilder(16);
             try
             {
@@ -1216,6 +1227,11 @@ internal sealed partial class RegExpPrototype : Prototype
 
                 while (true)
                 {
+                    if ((uint) builder.Length >= maxArraySize)
+                    {
+                        ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, (uint) builder.Length + 1);
+                    }
+
                     builder.Add(match.Value);
 
                     if (builder.Length % ConstraintCheckInterval == 0)
