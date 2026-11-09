@@ -651,67 +651,65 @@ internal sealed class JintYieldExpression : JintExpression
 
         var onFulfilled = new ClrFunction(engine, "", (_, args) =>
         {
+            var resolvedResult = args.At(0);
+
+            if (resolvedResult is not ObjectInstance resultObj)
+            {
+                var error = engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object");
+                asyncGenerator.ThrowAfterDelegation(error, promiseCapability);
+                return JsValue.Undefined;
+            }
+
+            // IteratorComplete and IteratorValue may throw (poisoned done/value getters)
+            bool done;
+            JsValue value;
             try
             {
-                var resolvedResult = args.At(0);
-
-                if (resolvedResult is not ObjectInstance resultObj)
-                {
-                    var error = engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object");
-                    asyncGenerator.ThrowAfterDelegation(error, promiseCapability);
-                    return JsValue.Undefined;
-                }
-
-                // IteratorComplete and IteratorValue may throw (poisoned done/value getters)
-                bool done;
-                JsValue value;
-                try
-                {
-                    done = IteratorComplete(resultObj);
-                    value = IteratorValue(resultObj);
-                }
-                catch (JavaScriptException e)
-                {
-                    asyncGenerator.ThrowAfterDelegation(e.Error, promiseCapability);
-                    return JsValue.Undefined;
-                }
-
-                if (done)
-                {
-                    // Delegation complete - clean up and resume the outer generator with the final value
-                    asyncGenerator.ClearDelegationIterator();
-
-                    if (delegationResumeType == CompletionType.Return)
-                    {
-                        asyncGenerator._resumeCompletionType = CompletionType.Return;
-                    }
-
-                    if (promiseCapability is not null)
-                    {
-                        asyncGenerator.ResumeAfterDelegation(value, promiseCapability);
-                    }
-                }
-                else
-                {
-                    // AsyncGeneratorYield(value): the inner value answers the pending request as it is
-                    asyncGenerator._currentPromiseCapability = null;
-
-                    if (promiseCapability is not null)
-                    {
-                        asyncGenerator.AsyncGeneratorResolve(value, false, promiseCapability);
-                    }
-
-                    asyncGenerator.AsyncGeneratorResumeNext();
-                }
-
+                done = IteratorComplete(resultObj);
+                value = IteratorValue(resultObj);
+            }
+            catch (JavaScriptException e)
+            {
+                asyncGenerator.ThrowAfterDelegation(e.Error, promiseCapability);
                 return JsValue.Undefined;
             }
             catch
             {
-                // A constraint or host exception ends the delegation too: nothing replays into it (sebastienros/jint#4440).
+                // A constraint or host exception out of a getter ends the delegation too (sebastienros/jint#4440). Only the
+                // getters: past them the delegation is live, or already ended, and the consumer's resolve may throw.
                 asyncGenerator.EndDelegation();
                 throw;
             }
+
+            if (done)
+            {
+                // Delegation complete - clean up and resume the outer generator with the final value
+                asyncGenerator.ClearDelegationIterator();
+
+                if (delegationResumeType == CompletionType.Return)
+                {
+                    asyncGenerator._resumeCompletionType = CompletionType.Return;
+                }
+
+                if (promiseCapability is not null)
+                {
+                    asyncGenerator.ResumeAfterDelegation(value, promiseCapability);
+                }
+            }
+            else
+            {
+                // AsyncGeneratorYield(value): the inner value answers the pending request as it is
+                asyncGenerator._currentPromiseCapability = null;
+
+                if (promiseCapability is not null)
+                {
+                    asyncGenerator.AsyncGeneratorResolve(value, false, promiseCapability);
+                }
+
+                asyncGenerator.AsyncGeneratorResumeNext();
+            }
+
+            return JsValue.Undefined;
         }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
 
         var onRejected = new ClrFunction(engine, "", (_, args) =>

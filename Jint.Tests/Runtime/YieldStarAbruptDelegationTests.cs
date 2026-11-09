@@ -259,6 +259,87 @@ public class YieldStarAbruptDelegationTests
         ParkedDelegation(engine).Should().BeEmpty();
     }
 
+    /// <summary>
+    /// A host exception that escapes the consumer's promise resolve of a yielded value (here an <c>Object.prototype.then</c>
+    /// getter, read when the request's promise is resolved with the iterator result) does not end the delegation: the async
+    /// generator is still suspended in it, so the next <c>next()</c> continues the same delegate rather than calling
+    /// GetIterator on the operand again.
+    /// </summary>
+    [Fact]
+    public void AHostExceptionOutOfTheConsumersResolveLeavesALiveDelegationParked()
+    {
+        var engine = new Engine();
+        engine.SetValue("hostFail", new Action(() => throw new InvalidOperationException("host failed")));
+        engine.Evaluate("""
+            let calls = 0;
+            let armed = false;
+            const operand = {
+                [Symbol.asyncIterator]() {
+                    calls++;
+                    return {
+                        next() {
+                            // A settled promise, so the delegation's await reads nothing off the result; the getter is
+                            // armed for the consumer's resolve alone.
+                            const p = Promise.resolve({ value: 'x', done: false });
+                            armed = true;
+                            return p;
+                        }
+                    };
+                }
+            };
+            Object.defineProperty(Object.prototype, 'then', { configurable: true, get() { if (armed) { hostFail(); } } });
+            globalThis.gen = (async function* () { yield* operand; })();
+            """);
+
+        Exception? thrown = null;
+        try
+        {
+            engine.Evaluate("gen.next()");
+        }
+        catch (Exception ex)
+        {
+            thrown = ex;
+        }
+
+        thrown.Should().BeOfType<InvalidOperationException>();
+        ParkedDelegation(engine).Should().Be("iterator,next,node");
+
+        engine.Evaluate("armed = false; delete Object.prototype.then; gen.next().then(r => { globalThis.second = r.value; });");
+        engine.Evaluate("calls + ':' + second").AsString().Should().Be("1:x");
+    }
+
+    /// <summary>
+    /// A throw() or return() the delegate answers as not done is consumed by the delegation. Once it has completed, the
+    /// plain <c>yield</c> the body resumes at next receives the value of a <c>next(v)</c>, and the stale throw or return
+    /// completion is not read again. (main fixed this separately in sebastienros/jint#4317.) Outcomes are Node's.
+    /// </summary>
+    [Theory]
+    [InlineData("throw", "got:V")]
+    [InlineData("return", "got:V")]
+    public void AResumptionTheDelegationConsumedIsNotReadAgainByTheNextPlainYield(string method, string expected)
+    {
+        var engine = new Engine();
+        engine.Evaluate($$"""
+            let done = false;
+            const it = {
+                [Symbol.iterator]() { return this; },
+                next() { return done ? { value: 'end', done: true } : { value: 1, done: false }; },
+                throw() { done = true; return { value: 't', done: false }; },
+                return() { done = true; return { value: 'r', done: false }; }
+            };
+            function* g() { yield* it; const v = yield 'a'; return 'got:' + v; }
+            const gen = g();
+            const seen = [];
+            seen.push(gen.next().value);
+            seen.push(gen.{{method}}('X').value);
+            seen.push(gen.next().value);
+            let last;
+            try { last = gen.next('V'); } catch (e) { last = { value: 'threw:' + e, done: true }; }
+            globalThis.result = last.value;
+            """);
+        engine.Evaluate("result").AsString().Should().Be(expected);
+    }
+
     // What the generator `gen` still holds of a delegation: the names of the parked fields that are set.
     private static string ParkedDelegation(Engine engine)
     {
