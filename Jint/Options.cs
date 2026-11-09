@@ -958,8 +958,14 @@ public sealed partial class Options
         /// indexers, and collection entries. Defaults to false.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// This option controls the wrapper's write operations. It does not prevent scripts from calling CLR
         /// methods or extension methods whose implementations mutate host state.
+        /// </para>
+        /// <para>
+        /// It does not decide whether the wrapper's own properties can be deleted: a property a script defines on a
+        /// wrapper can be deleted whenever it is configurable, whatever this option says.
+        /// </para>
         /// </remarks>
         public bool AllowWrite { get; set { ThrowIfReadOnly(); field = value; } }
 
