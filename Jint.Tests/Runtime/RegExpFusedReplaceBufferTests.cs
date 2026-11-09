@@ -26,8 +26,10 @@ public class RegExpFusedReplaceBufferTests
         return (int[]?) field!.GetValue(engine.Realm.Intrinsics.RegExp.PrototypeObject);
     }
 
-    // Around the buffer's initial size, its doubling steps and the cap it is retained under (4096 ints is 1024
-    // matches of two groups, so 1024 is the last size kept and 1025 the first dropped).
+    // Around the buffer's initial size, its doubling steps and the cap it is retained under. The capture count
+    // includes group 0, so a match of /(a)b/ takes two (index, length) pairs, four ints: the 64-int buffer holds 16
+    // matches and the 17th grows it, 2048 ints hold 512 and the 513th grows it, and 4096 ints hold 1024, so 1024 is
+    // the last size kept and 1025 grows the buffer past the cap and drops it.
     [TestCase(1)]
     [TestCase(15)]
     [TestCase(16)]
@@ -44,8 +46,8 @@ public class RegExpFusedReplaceBufferTests
         var engine = new Engine();
         engine.SetValue("n", matches);
 
-        engine.Evaluate("'ab'.repeat(n).replace(/(a)(b)/g, '$2$1') === 'ba'.repeat(n)").AsBoolean().Should().BeTrue();
-        engine.Evaluate("'ab'.repeat(n).replace(/(a)(b)/g, (m, a, b) => b + a) === 'ba'.repeat(n)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("'ab'.repeat(n).replace(/(a)b/g, 'b$1') === 'ba'.repeat(n)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("'ab'.repeat(n).replace(/(a)b/g, (m, a) => 'b' + a) === 'ba'.repeat(n)").AsBoolean().Should().BeTrue();
     }
 
     [Test]
@@ -55,8 +57,8 @@ public class RegExpFusedReplaceBufferTests
         foreach (var matches in new[] { 1000, 3, 2000, 1, 1025, 1024, 5000, 2, 700, 700 })
         {
             engine.SetValue("n", matches);
-            engine.Evaluate("'ab'.repeat(n).replace(/(a)(b)/g, '$2$1') === 'ba'.repeat(n)").AsBoolean().Should().BeTrue($"n = {matches}");
-            engine.Evaluate("'ab'.repeat(n).replace(/(a)(b)/g, (m, a, b) => b + a) === 'ba'.repeat(n)").AsBoolean().Should().BeTrue($"n = {matches}");
+            engine.Evaluate("'ab'.repeat(n).replace(/(a)b/g, 'b$1') === 'ba'.repeat(n)").AsBoolean().Should().BeTrue($"n = {matches}");
+            engine.Evaluate("'ab'.repeat(n).replace(/(a)b/g, (m, a) => 'b' + a) === 'ba'.repeat(n)").AsBoolean().Should().BeTrue($"n = {matches}");
         }
     }
 
@@ -66,11 +68,11 @@ public class RegExpFusedReplaceBufferTests
         var engine = new Engine();
         RetainedSpans(engine).Should().BeNull();
 
-        engine.Evaluate("'xaby'.replace(/(a)(b)/g, '$2$1')").AsString().Should().Be("xbay");
+        engine.Evaluate("'xaby'.replace(/(a)b/g, 'b$1')").AsString().Should().Be("xbay");
         var kept = RetainedSpans(engine);
         kept.Should().NotBeNull();
 
-        engine.Evaluate("'xaby'.replace(/(a)(b)/g, '$2$1')").AsString().Should().Be("xbay");
+        engine.Evaluate("'xaby'.replace(/(a)b/g, 'b$1')").AsString().Should().Be("xbay");
         RetainedSpans(engine).Should().BeSameAs(kept, "the next replace of the same size takes it and gives it back");
     }
 
@@ -78,10 +80,11 @@ public class RegExpFusedReplaceBufferTests
     public void ARepeatedReplaceThatFindsNothingKeepsTheBuffer()
     {
         var engine = new Engine();
-        engine.Evaluate("'xaby'.replace(/(a)(b)/g, '$2$1')");
+        engine.Evaluate("'xaby'.replace(/(a)b/g, 'b$1')");
         var kept = RetainedSpans(engine);
+        kept.Should().NotBeNull();
 
-        engine.Evaluate("'xyz'.replace(/(a)(b)/g, '$2$1')").AsString().Should().Be("xyz");
+        engine.Evaluate("'xyz'.replace(/(a)b/g, 'b$1')").AsString().Should().Be("xyz");
         RetainedSpans(engine).Should().BeSameAs(kept);
     }
 
@@ -89,10 +92,10 @@ public class RegExpFusedReplaceBufferTests
     public void AHugeReplaceDoesNotPinItsStorage()
     {
         var engine = new Engine();
-        engine.Evaluate("'ab'.repeat(5000).replace(/(a)(b)/g, '$2$1').length").AsNumber().Should().Be(10000);
+        engine.Evaluate("'ab'.repeat(5000).replace(/(a)b/g, 'b$1').length").AsNumber().Should().Be(10000);
 
-        var kept = RetainedSpans(engine);
-        (kept is null || kept.Length <= 4096).Should().BeTrue("a buffer past the cap is dropped, not kept for the life of the realm");
+        // 20000 ints on a fresh engine: past the cap, so nothing is kept for the life of the realm.
+        RetainedSpans(engine).Should().BeNull();
     }
 
     [Test]
