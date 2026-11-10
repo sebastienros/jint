@@ -1061,9 +1061,10 @@ internal sealed class JintYieldExpression : JintExpression
     /// The reaction to the Await of <see cref="CloseDelegateWithoutThrow"/>: steps 6 to 8 of
     /// https://tc39.es/ecma262/#sec-asynciteratorclose, and then step 7.b.iii.6 of yield*. A rejection is what the
     /// yield* throws (step 6), an answer that is not an object is a <c>TypeError</c> (step 7), and otherwise the close
-    /// completes normally and the <c>TypeError</c> for the missing <c>throw</c> follows. Each is thrown at the yield*,
-    /// where a <c>catch</c> around it sees it (<see cref="AsyncGeneratorInstance.ThrowAfterDelegation"/>), and is created
-    /// in the realm the generator was running in when it suspended.
+    /// completes normally and the <c>TypeError</c> for the missing <c>throw</c> follows. Steps 5 to 8 are
+    /// <see cref="IteratorInstance.AsyncIteratorCloseError"/>, which every AsyncIteratorClose shares. Each error is thrown
+    /// at the yield*, where a <c>catch</c> around it sees it (<see cref="AsyncGeneratorInstance.ThrowAfterDelegation"/>),
+    /// and is created in the realm the generator was running in when it suspended.
     /// </summary>
     private sealed class DelegateCloseContinuation : IPromiseContinuation
     {
@@ -1089,19 +1090,10 @@ internal sealed class JintYieldExpression : JintExpression
             // The return has settled, so the native state goes now; a throw leaves the yield* whatever it settled to.
             _iteratorRecord.CloseNativeStateAfterReturn(CompletionType.Throw);
 
-            JsValue error;
-            if (type == ReactionType.Reject)
-            {
-                error = value;
-            }
-            else if (!value.IsObject())
-            {
-                error = _realm.Intrinsics.TypeError.Construct("Iterator returned non-object");
-            }
-            else
-            {
-                error = _realm.Intrinsics.TypeError.Construct("Iterator does not have throw method");
-            }
+            // The close's completion is a normal one, so whatever it raises is what the yield* throws; only a close that
+            // completes leaves the TypeError for the missing `throw`.
+            var error = IteratorInstance.AsyncIteratorCloseError(_realm, CompletionType.Normal, value, type == ReactionType.Reject)
+                        ?? _realm.Intrinsics.TypeError.Construct("Iterator does not have throw method");
 
             _asyncGenerator.ThrowAfterDelegation(error, _capability);
         }
