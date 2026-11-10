@@ -32,6 +32,11 @@ Both engines must be pumped for a transferred stream to move data.
 Text transform streams require both `Encoding` and `Streams`. Compression transform streams require both
 `Compression` and `Streams`; naming only one half installs neither interface.
 
+Compression supports `gzip`, `deflate` (the ZLIB wrapper), `deflate-raw`, and `brotli`. The .NET 11 asset uses
+incremental codecs that reject truncated members, trailing bytes, and concatenated gzip members with a
+`TypeError`. The .NET 10 asset retains its stream-based decoder: it detects corrupt input and empty streams,
+but can accept truncation, ignore trailing bytes, and decode multiple gzip members.
+
 ## Bridging `System.IO.Stream`
 
 ```csharp

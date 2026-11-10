@@ -8,7 +8,7 @@ Jint is a modern ECMAScript interpreter for .NET. It runs JavaScript directly in
 your process without native dependencies, bytecode generation, or a separate
 runtime.
 
-Jint targets .NET Framework 4.7.2, .NET Standard 2.0/2.1, .NET 8, and .NET 10.
+Jint targets .NET Framework 4.7.2, .NET Standard 2.0/2.1, .NET 10, and .NET 11.
 Start with the [documentation](https://sebastienros.github.io/jint/) or install
 the core package:
 

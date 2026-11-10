@@ -8,7 +8,7 @@ current contracts here take precedence over historical typed CSS proposals.
 
 ## Verification and acceptance
 
-Run fresh Release builds and relevant tests. The package ships net8.0 and net10.0; exercise both in CI.
+Run fresh Release builds and relevant tests. The package ships net10.0 and net11.0; exercise both in CI.
 A locally restricted framework run is partial evidence, not permission to remove a shipped framework.
 For a focused .NET 10 run from the repository root:
 

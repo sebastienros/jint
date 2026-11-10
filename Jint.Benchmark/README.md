@@ -45,13 +45,20 @@ used by the Jint-only benchmarks.)
 Run from **this** directory (the scripts are loaded relative to the working directory):
 
 ```
-dotnet run -c Release -- --allCategories EngineComparison
+dotnet run -c Release -f net10.0 -- --allCategories EngineComparison
 ```
 
 Notes:
 
 * The `--` separator is required so the arguments are forwarded to BenchmarkDotNet instead of being
   consumed by `dotnet run`.
+* Select `-f net10.0` or `-f net11.0` explicitly. The .NET 11 target uses runtime async.
+  BenchmarkDotNet 0.15.8 does not recognize .NET 11 in its runtime selector or out-of-process
+  SDK validator. For an exploratory CLR async comparison, use
+  `--inProcess --filter "*AsyncHostEntryBenchmark*"` on each framework, without `--runtimes`.
+  This retains the normal warmup and measurement counts but not per-row process isolation.
+  The suspended row includes a
+  thread-pool round trip, and runtime comparisons also include JIT and BCL differences.
 * `--allCategories EngineComparison` runs both the script suite and the interop suite; use
   `--allCategories EngineComparisonInterop` for the interop suite alone, or
   `--filter "*EngineComparisonBenchmark*"` for the script suite alone.
@@ -482,7 +489,7 @@ a host that *does* switch it on, had nothing tracking it release to release. The
 Run the whole category:
 
 ```
-dotnet run -c Release --project Jint.Benchmark -- --allCategories WebApi
+dotnet run -c Release -f net10.0 --project Jint.Benchmark -- --allCategories WebApi
 ```
 
 Unlike the comparison suite, these rows load no files, so it does not matter which directory you run
@@ -491,7 +498,7 @@ them from. As everywhere else here, set `JINT_BENCH_MODE=gate` before quoting an
 ### Check the rows before measuring them
 
 ```
-dotnet run -c Release --project Jint.Benchmark -- --smoke-webapi
+dotnet run -c Release -f net10.0 --project Jint.Benchmark -- --smoke-webapi
 ```
 
 This runs every web-API class's `[GlobalSetup]` and then each of its rows three times, and reports
@@ -552,7 +559,7 @@ Seven rows are the ones to run alongside SunSpider and Dromaeo before a release 
 area, each chosen as the row a regression in its area reaches first:
 
 ```
-dotnet run -c Release --project Jint.Benchmark -- --filter "*WebApiUrlBenchmark.ParseAbsolute" "*WebApiUrlBenchmark.SearchParamsMutate" "*WebApiEncodingBenchmark.RoundTripSmall" "*WebApiStructuredCloneBenchmark.CloneNested" "*WebApiFetchObjectModelBenchmark.RequestConstruction" "*WebApiStreamsBenchmark.PumpWithReader" "*WebApiTimerBenchmark.FanOutFiring"
+dotnet run -c Release -f net10.0 --project Jint.Benchmark -- --filter "*WebApiUrlBenchmark.ParseAbsolute" "*WebApiUrlBenchmark.SearchParamsMutate" "*WebApiEncodingBenchmark.RoundTripSmall" "*WebApiStructuredCloneBenchmark.CloneNested" "*WebApiFetchObjectModelBenchmark.RequestConstruction" "*WebApiStreamsBenchmark.PumpWithReader" "*WebApiTimerBenchmark.FanOutFiring"
 ```
 
 * `WebApiUrlBenchmark.ParseAbsolute` — the URL parser is the largest hand-written state machine in

@@ -85,7 +85,7 @@ public class PublicApiTest
         Assert.That(
             gated.Count == 0,
             $"""
-            {gated.Count} source line(s) in Jint.Browser compile conditionally, so its net8.0 and net10.0
+            {gated.Count} source line(s) in Jint.Browser compile conditionally, so its net10.0 and net11.0
             assets no longer necessarily have the same public surface and one baseline no longer covers both.
 
             {string.Join(Environment.NewLine, gated)}

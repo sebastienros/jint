@@ -76,7 +76,11 @@ internal static class WptCensus
     /// </summary>
     private const string ReadmeResourceName = "wpt-vendor-readme.md";
 
+#if NET11_0_OR_GREATER
+    private const string TableHeading = "### .NET 11 inventory";
+#else
     private const string TableHeading = "## The whole corpus, standard by standard";
+#endif
     private const string TableHeader = "| Standard | Suites | Files | Assertions | Not passing |";
     private const string TableDivider = "| --- | --- | --- | --- | --- |";
 

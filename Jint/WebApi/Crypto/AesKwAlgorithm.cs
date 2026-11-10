@@ -18,13 +18,9 @@ namespace Jint.WebApi.Crypto;
 /// registry instead, which is what the <c>wrapKey</c> method's second normalization is for.
 /// </para>
 /// <para>
-/// <b>The algorithm is hand-rolled because the BCL has no unpadded AES-KW.</b> .NET 8 has no key-wrap API at
-/// all, and .NET 10 added only the <i>padded</i> variant of RFC 5649 (<c>AesKwp</c>) — a different algorithm
-/// with a different initial value and a different ciphertext, which would silently interoperate with nobody.
-/// So Section 2.2.1 and 2.2.2 of [RFC3394] are written out here in their index-based form, over the ECB
-/// one-shots: 6n rounds, each one an AES block over <c>A | R[i]</c>, with the round counter <c>t</c>
-/// exclusive-ored into the 64-bit register <c>A</c>. The published test vectors of Section 4 are pinned
-/// byte-for-byte, which is the only way to check cryptography.
+/// .NET 11 provides unpadded RFC 3394 key wrap directly. Earlier targets implement Sections 2.2.1 and
+/// 2.2.2 over ECB one-shots; .NET 10's padded RFC 5649 API is a different algorithm and cannot replace it.
+/// Both paths are checked against the published Section 4 vectors.
 /// </para>
 /// <para>
 /// <b>The wrapped payload has a floor of two blocks as well as a step of one.</b> The Web Cryptography API's
@@ -37,7 +33,7 @@ namespace Jint.WebApi.Crypto;
 /// <para>
 /// <b>An unwrap that fails says only that it failed.</b> The integrity check is a comparison of the recovered
 /// <c>A</c> against the constant initial value, and it is made with
-/// <see cref="CryptographicOperations.FixedTimeEquals"/> against one message that carries nothing about how
+/// <see cref="CryptographicOperations.FixedTimeEquals(ReadOnlySpan{byte}, ReadOnlySpan{byte})"/> against one message that carries nothing about how
 /// close the ciphertext came — the same discipline RSA-OAEP's decrypt keeps, and for the same reason: a
 /// distinguishable failure is an oracle. The recovered register file is zeroed before the throw, so nothing
 /// that failed its check survives the frame.
@@ -48,12 +44,14 @@ internal static class AesKwAlgorithm
     /// <summary>The size of a 64-bit register — RFC 3394's <c>A</c> and each <c>R[i]</c> — in bytes.</summary>
     private const int SemiBlockSize = 8;
 
+#if !NET11_0_OR_GREATER
     /// <summary>
     /// "The default initial value (IV) is defined to be the hexadecimal constant A6A6A6A6A6A6A6A6" —
     /// https://www.rfc-editor.org/rfc/rfc3394#section-2.2.3.1, which is the value the Web Cryptography API's
     /// steps name for both directions.
     /// </summary>
     private static ReadOnlySpan<byte> DefaultIv => [0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6];
+#endif
 
     /// <summary>
     /// https://w3c.github.io/webcrypto/#aes-kw-operations-wrap-key — "the Key Wrap operation described in
@@ -70,6 +68,18 @@ internal static class AesKwAlgorithm
                 + " bytes long, and AES-KW wraps a whole number of 64-bit blocks, at least two of them.");
         }
 
+#if NET11_0_OR_GREATER
+        using var aes = AesCiphers.Create(key);
+        try
+        {
+            return aes.EncryptKeyWrap(plaintext);
+        }
+        catch (Exception e) when (AesCiphers.IsCipherFailure(e))
+        {
+            context.ThrowOperationError(what + ": the key could not be wrapped.");
+            return null!;
+        }
+#else
         var n = plaintext.Length / SemiBlockSize;
 
         // C[0] is A and C[1..n] are the registers, laid out in the buffer the operation returns so that the
@@ -117,6 +127,7 @@ internal static class AesKwAlgorithm
         }
 
         return buffer;
+#endif
     }
 
     /// <summary>
@@ -137,6 +148,18 @@ internal static class AesKwAlgorithm
                 + " bytes long, and an AES-KW ciphertext is a whole number of 64-bit blocks, at least three of them.");
         }
 
+#if NET11_0_OR_GREATER
+        using var aes = AesCiphers.Create(key);
+        try
+        {
+            return aes.DecryptKeyWrap(ciphertext);
+        }
+        catch (Exception e) when (AesCiphers.IsCipherFailure(e))
+        {
+            context.ThrowOperationError(what + ": the key could not be unwrapped.");
+            return null!;
+        }
+#else
         var n = ciphertext.Length / SemiBlockSize - 1;
 
         var buffer = ciphertext.ToArray();
@@ -185,8 +208,10 @@ internal static class AesKwAlgorithm
         }
 
         return buffer.AsSpan(SemiBlockSize).ToArray();
+#endif
     }
 
+#if !NET11_0_OR_GREATER
     /// <summary>
     /// <c>A ^ t</c>, where <c>t</c> is the round counter taken as a 64-bit big-endian integer — the one place
     /// the algorithm's round number reaches the data, and what makes the 6n rounds distinguishable from one
@@ -199,5 +224,6 @@ internal static class AesKwAlgorithm
             register[SemiBlockSize - 1 - k] ^= (byte) (t >>> (8 * k));
         }
     }
+#endif
 }
 #endif

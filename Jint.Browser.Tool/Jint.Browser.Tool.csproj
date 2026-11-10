@@ -4,9 +4,9 @@
     <NeutralLanguage>en-US</NeutralLanguage>
     <OutputType>Exe</OutputType>
 
-    <!-- Keep both frameworks for the in-process command tests. Distribution below uses the .NET 10
+    <!-- Keep all frameworks for the in-process command tests. Distribution below uses the .NET 10
          platform-specific tool format, which requires the .NET 10 SDK to install. -->
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
 
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>

@@ -148,4 +148,4 @@ Show-PlanSettings $guid
 ''
 'Next: run a gating measurement with'
 '  $env:JINT_BENCH_MODE = "gate"'
-'  dotnet run -c Release --project Jint.Benchmark -- --filter "*YourBenchmark*"'
+'  dotnet run -c Release -f net10.0 --project Jint.Benchmark -- --filter "*YourBenchmark*"'

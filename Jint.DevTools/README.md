@@ -29,7 +29,7 @@ Point Chrome's `chrome://inspect` at `127.0.0.1:9222`, or connect PuppeteerSharp
 it is in Chrome: anything that can reach it can evaluate arbitrary script in your process, so `Host` defaults
 to `127.0.0.1` and should stay there.
 
-Requires .NET 8 or later, and is Native AOT compatible — everything the protocol serializes goes through a
+Requires .NET 10 or later, and is Native AOT compatible — everything the protocol serializes goes through a
 source-generated `System.Text.Json` context, and a published native binary is driven over a real socket in
 CI. [`Jint.Browser`](https://www.nuget.org/packages/Jint.Browser) adds the page domains (`Page`, `DOM`,
 `Network`, `Fetch`, `Input`, `Emulation`, `Storage`, `Accessibility`) on the same session core.

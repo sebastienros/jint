@@ -23,11 +23,21 @@ withdrawn before it ships. Anything not listed here is intended to keep working 
 | `net472` | — | **added** |
 | `netstandard2.0` | yes | yes |
 | `netstandard2.1` | yes | yes |
-| `net8.0` | yes | yes |
+| `net8.0` | yes | **dropped** |
 | `net10.0` | yes | yes |
+| `net11.0` | — | **added** |
 
 > **Status: landed** ([#3296](https://github.com/sebastienros/jint/pull/3296)). `Jint/Jint.csproj`
-> targets `net472;netstandard2.0;netstandard2.1;net8.0;net10.0`.
+> targets `net472;netstandard2.0;netstandard2.1;net10.0;net11.0`.
+
+The dedicated `net8.0` asset is removed as .NET 8 leaves support. Modern libraries and their tests
+target .NET 10 and .NET 11; Jint retains its .NET Standard assets for downlevel embedders.
+Building the repository requires the .NET 11 SDK selected by `global.json` (currently a release candidate).
+
+The .NET 11 asset also tightens `DecompressionStream` to the Compression Standard: truncated input,
+trailing bytes, and concatenated gzip members now error both sides with a `TypeError`. Supply one complete
+member per stream and handle rejection from the writable and readable sides. The .NET 10 asset retains its
+previous lenient stream-based decoder; valid compressed input works on both targets.
 
 The `netstandard` and modern .NET targets are deliberately kept. `netstandard2.0` in particular is
 what game engines and other embedded runtimes resolve against, and it costs far more to drop than

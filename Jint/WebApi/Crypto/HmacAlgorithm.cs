@@ -327,16 +327,33 @@ internal static class HmacAlgorithm
     /// with the signature, and "this comparison must be performed in constant-time".
     /// </summary>
     /// <remarks>
-    /// <see cref="CryptographicOperations.FixedTimeEquals"/> is the BCL's constant-time comparison, and the
-    /// only correct way to spell this step: an ordinary comparison returns as soon as two bytes differ, which
-    /// tells an attacker how much of a forged MAC was right and turns a forgery into a byte-at-a-time search.
-    /// It answers <see langword="false"/> for lengths that differ, which the specification's "true if mac is
-    /// equal to signature" also does.
+    /// .NET 11's verification APIs compute and compare without allocating a MAC array. Older targets use
+    /// <see cref="CryptographicOperations.FixedTimeEquals(ReadOnlySpan{byte}, ReadOnlySpan{byte})"/>.
+    /// Both compare in constant time and return false for a signature with the wrong length.
     /// </remarks>
     internal static bool Verify(JsCryptoKey key, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> message)
     {
+#if NET11_0_OR_GREATER
+        switch (key.Algorithm.HashName)
+        {
+            case AlgorithmNormalization.Sha1:
+#pragma warning disable CA5350 // WebCrypto explicitly supports HMAC-SHA-1.
+                return signature.Length == HMACSHA1.HashSizeInBytes && HMACSHA1.Verify(key.Handle, message, signature);
+#pragma warning restore CA5350
+            case AlgorithmNormalization.Sha256:
+                return signature.Length == HMACSHA256.HashSizeInBytes && HMACSHA256.Verify(key.Handle, message, signature);
+            case AlgorithmNormalization.Sha384:
+                return signature.Length == HMACSHA384.HashSizeInBytes && HMACSHA384.Verify(key.Handle, message, signature);
+            case AlgorithmNormalization.Sha512:
+                return signature.Length == HMACSHA512.HashSizeInBytes && HMACSHA512.Verify(key.Handle, message, signature);
+            default:
+                Throw.InvalidOperationException("Unhandled HMAC hash algorithm '" + key.Algorithm.HashName + "'.");
+                return false;
+        }
+#else
         var mac = Sign(key, message);
         return CryptographicOperations.FixedTimeEquals(mac, signature);
+#endif
     }
 }
 #endif

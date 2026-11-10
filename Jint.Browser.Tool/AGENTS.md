@@ -95,7 +95,7 @@ would be a report on the profile.
 
 ### Packaging
 
-`PackAsTool` with `ToolCommandName` `jint-browser`. Ordinary builds keep `net8.0;net10.0` for the
+`PackAsTool` with `ToolCommandName` `jint-browser`. Ordinary builds keep `net10.0;net11.0` for the
 in-process tests; **distribution sets `BrowserToolNative=true`**, selects `net10.0` and uses .NET 10's
 platform-specific Native AOT tool format. Installation requires the .NET 10 SDK, execution no runtime.
 

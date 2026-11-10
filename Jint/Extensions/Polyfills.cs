@@ -8,6 +8,40 @@ using System.Text;
 
 namespace Jint;
 
+#if !NET11_0_OR_GREATER
+internal static class Utf16
+{
+    internal static bool IsValid(ReadOnlySpan<char> value)
+        => IndexOfInvalidSubsequence(value) < 0;
+
+    internal static int IndexOfInvalidSubsequence(ReadOnlySpan<char> value)
+    {
+        if (!value.ContainsAnyInRange('\uD800', '\uDFFF'))
+        {
+            return -1;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var ch = value[i];
+            if (!char.IsSurrogate(ch))
+            {
+                continue;
+            }
+
+            if (!char.IsHighSurrogate(ch) || i + 1 == value.Length || !char.IsLowSurrogate(value[i + 1]))
+            {
+                return i;
+            }
+
+            i++;
+        }
+
+        return -1;
+    }
+}
+#endif
+
 internal static class Polyfills
 {
 #if NETFRAMEWORK || NETSTANDARD2_0

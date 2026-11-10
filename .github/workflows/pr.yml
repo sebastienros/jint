@@ -54,18 +54,15 @@ jobs:
 
     steps:
 
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
     - name: Setup NET
       uses: actions/setup-dotnet@v6
       with:
-        # 8.0 alongside 10.0 because Jint.Tests and Jint.Tests.PublicInterface run a net8.0 leg:
-        # net8.0 is the asset most consumers resolve, and it used to be compiled but never executed.
-        # global.json still pins the SDK to 10.0.100, so 10.0 is what actually builds.
-        dotnet-version: |
-          8.0
-          10.0
-
-    - name: Checkout source code
-      uses: actions/checkout@v7
+        global-json-file: global.json
+        # Also install .NET 10 for runtime coverage.
+        dotnet-version: 10.0
 
     - name: Cache Test262 generated suite
       uses: actions/cache@v6
@@ -107,12 +104,14 @@ jobs:
           ConvertTo-Json -Depth 3 | Set-Content $filter
         dotnet test --solution $filter --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
+    # The .NET 11 MTP runner resolves relative --project paths twice for multi-target projects.
+    # Use absolute paths for project-level runs so every target framework is still exercised.
     - name: Test (Test262 alone)
-      run: dotnet test --project Jint.Tests.Test262/Jint.Tests.Test262.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+      run: dotnet test --project "${{ github.workspace }}/Jint.Tests.Test262/Jint.Tests.Test262.csproj" --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     - name: Test (the browser suite alone)
       if: matrix.os.name == 'windows'
-      run: dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+      run: dotnet test --project "${{ github.workspace }}/Jint.Tests.Browser/Jint.Tests.Browser.csproj" --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
   # The matrix above is the shipped configuration: Release with host-contract verification off, which is what
   # the probe-count and no-descriptor pins in Jint.Tests.PublicInterface document as costing nothing. This leg
@@ -131,24 +130,21 @@ jobs:
 
     steps:
 
-    - name: Setup NET
-      uses: actions/setup-dotnet@v6
-      with:
-        # 8.0 alongside 10.0 because Jint.Tests and Jint.Tests.PublicInterface run a net8.0 leg:
-        # net8.0 is the asset most consumers resolve, and it used to be compiled but never executed.
-        # global.json still pins the SDK to 10.0.100, so 10.0 is what actually builds.
-        dotnet-version: |
-          8.0
-          10.0
-
     - name: Checkout source code
       uses: actions/checkout@v7
 
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        global-json-file: global.json
+        # Also install .NET 10 for runtime coverage.
+        dotnet-version: 10.0
+
     - name: Test Jint.Tests
-      run: dotnet test --project Jint.Tests/Jint.Tests.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+      run: dotnet test --project "${{ github.workspace }}/Jint.Tests/Jint.Tests.csproj" --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     - name: Test Jint.Tests.PublicInterface
-      run: dotnet test --project Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+      run: dotnet test --project "${{ github.workspace }}/Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj" --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
   # Jint.Runtime.Interop.ReflectionEnabled=false is a different publication from every leg above, which all run
   # the default reflection implementation: HostInterop reads the switch once per process, so no test host can
@@ -228,18 +224,17 @@ jobs:
 
     steps:
 
-    - name: Setup NET
-      uses: actions/setup-dotnet@v6
-      with:
-        dotnet-version: |
-          8.0
-          10.0
-
     - name: Checkout source code
       uses: actions/checkout@v7
 
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        global-json-file: global.json
+        dotnet-version: 10.0
+
     - name: Test Jint.Tests.Browser with both client suites
-      run: dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+      run: dotnet test --project "${{ github.workspace }}/Jint.Tests.Browser/Jint.Tests.Browser.csproj" --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     # The gate is only a gate if it is switched: a suite that ignored the variable and ran everywhere would
     # make the leg above pointless, and one that ignored it and ran nowhere would make this leg a lie. So the
@@ -251,7 +246,7 @@ jobs:
       shell: bash
       run: |
         set -o pipefail
-        env -u JINT_BROWSER_CLIENTS dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj \
+        env -u JINT_BROWSER_CLIENTS dotnet test --project "${{ github.workspace }}/Jint.Tests.Browser/Jint.Tests.Browser.csproj" \
           --configuration Release --framework net10.0 \
           --filter "FullyQualifiedName~PlaywrightCourseTests" \
           --no-progress --no-ansi --report-github \
@@ -269,13 +264,14 @@ jobs:
 
     steps:
 
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
     - name: Setup NET
       uses: actions/setup-dotnet@v6
       with:
+        global-json-file: global.json
         dotnet-version: 10.0
-
-    - name: Checkout source code
-      uses: actions/checkout@v7
 
     - name: Pack
       run: dotnet pack Jint/Jint.csproj --configuration Release
@@ -321,6 +317,13 @@ jobs:
         set -o pipefail
         ./tools/package-consumer/bin/Release/net472/PackageConsumer.exe | tee net472.log
         grep -q '^ALL PROBES PASSED' net472.log
+
+    - name: Run it on net11.0
+      shell: bash
+      run: |
+        set -o pipefail
+        ./tools/package-consumer/bin/Release/net11.0/PackageConsumer.exe | tee net11.log
+        grep -q '^ALL PROBES PASSED' net11.log
 
     # The other half of the contract: a host who insists that no member of theirs falls back to
     # reflection says so in .editorconfig, with no attribute property and no MSBuild switch. That works
