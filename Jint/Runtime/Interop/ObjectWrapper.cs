@@ -59,10 +59,18 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <c>@@iterator</c>, <c>@@dispose</c>, <c>@@asyncDispose</c>). Listing those would make the key list depend on
     /// which members happened to be read. Nothing else tells the two apart: a method and a script property are both
     /// plain <see cref="PropertyDescriptor"/>s. Asking the CLR side again at enumeration time would answer a
-    /// different question, about now rather than about the moment of creation, and would get three cases wrong: a
-    /// projection the script deleted and then defined again is the script's, a host's
-    /// <c>DefineOwnPropertyUnchecked</c> store is not, and under <c>PreferJsPrototypeMethods</c> telling a callable
-    /// from a getter on the prototype would mean running the getter.
+    /// different question, about now rather than about the moment of creation, and would get three cases wrong:
+    /// <list type="bullet">
+    /// <item>A projection the wrapper never rebuilds, if the script deleted it and then defined it again, is the
+    /// script's. Those are <c>@@dispose</c>, <c>@@asyncDispose</c>, and a <c>length</c> forwarder no member of that
+    /// name answers.</item>
+    /// <item>A host's <c>DefineOwnPropertyUnchecked</c> store is not the script's.</item>
+    /// <item>Under <c>PreferJsPrototypeMethods</c>, telling a callable from a getter on the prototype would mean running
+    /// the getter.</item>
+    /// </list>
+    /// The other projections come back on the read the define itself makes, through <c>SetProperty</c>, unmarked:
+    /// <c>@@iterator</c> is materialized again, and <c>toJSON</c> or any other reflected member is resolved and cached
+    /// again. A define after a delete therefore redefines the wrapper's projection, which stays unmarked.
     /// </para>
     /// <para>
     /// A flag in padding and a bit on the descriptor, rather than a list, because every CLR object that crosses into
@@ -1172,17 +1180,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// properties the script created on the wrapper itself.
     /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
-    {
-        List<JsValue> keys = [.. EnumerateOwnPropertyKeys(types)];
+        => _hasScriptDefinedKeys ? GetOwnPropertyKeysWithScriptDefinedKeys(types) : [.. EnumerateOwnPropertyKeys(types)];
 
-        // nearly every wrapper never gets a property of the script's own, and pays this test and nothing more
-        if (_hasScriptDefinedKeys)
-        {
-            keys = AddScriptDefinedKeys(keys, types);
-        }
-
-        return keys;
-    }
+    /// <summary>
+    /// <see cref="GetOwnPropertyKeys"/> for a wrapper the script has created a property on, out of line. Nearly every
+    /// wrapper never gets one, and for those <see cref="GetOwnPropertyKeys"/> is the body it had before the script's
+    /// properties were listed plus a single test, with no local kept live across a call.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private List<JsValue> GetOwnPropertyKeysWithScriptDefinedKeys(Types types)
+        => AddScriptDefinedKeys([.. EnumerateOwnPropertyKeys(types)], types);
 
     /// <summary>
     /// Adds the keys the script created on this wrapper to <paramref name="targetKeys"/>, in
