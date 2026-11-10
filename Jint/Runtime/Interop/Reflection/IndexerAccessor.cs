@@ -74,9 +74,21 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     internal bool KeyCannotBeAnEntry { get; }
 
     /// <summary>
-    /// This accessor as it applies to <paramref name="targetType"/>, which is a copy that
-    /// <see cref="KeyCannotBeAnEntry"/> marks when this is the non-generic <see cref="IDictionary"/> indexer
-    /// and the target's generic dictionary cannot hold the key. Asked once per resolved member.
+    /// Whether the type this accessor was resolved for is a dictionary (<see cref="TypeDescriptor.IsDictionary"/>),
+    /// the one kind of target whose refusal <see cref="RefusesAsReadOnly"/> reports. Stamped by
+    /// <see cref="ForTarget"/>.
+    /// </summary>
+    internal bool TargetIsDictionary => _targetIsDictionary;
+
+    // set once, in ForTarget, on an accessor TryFindIndexer has just built and the resolver has not yet
+    // published, so no reader can observe it changing
+    private bool _targetIsDictionary;
+
+    /// <summary>
+    /// This accessor as it applies to <paramref name="targetType"/>: stamped with
+    /// <see cref="TargetIsDictionary"/>, and a copy that <see cref="KeyCannotBeAnEntry"/> marks when this is the
+    /// non-generic <see cref="IDictionary"/> indexer and the target's generic dictionary cannot hold the key.
+    /// Asked once per resolved member, before the resolver publishes the accessor.
     /// </summary>
     /// <remarks>
     /// That indexer takes any object, because the interface does. Every generic dictionary the base class
@@ -90,18 +102,18 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     internal IndexerAccessor ForTarget(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type targetType)
     {
-        if (Indexer.DeclaringType != typeof(IDictionary))
-        {
-            return this;
-        }
-
         var descriptor = TypeDescriptor.Get(targetType);
-        if (!descriptor.IsNonStringKeyedGenericDictionary || descriptor.GenericDictionaryKeyType!.IsInstanceOfType(_key))
+
+        var accessor = this;
+        if (Indexer.DeclaringType == typeof(IDictionary)
+            && descriptor.IsNonStringKeyedGenericDictionary
+            && !descriptor.GenericDictionaryKeyType!.IsInstanceOfType(_key))
         {
-            return this;
+            accessor = new IndexerAccessor(Indexer, _containsKey, _key, keyCannotBeAnEntry: true);
         }
 
-        return new IndexerAccessor(Indexer, _containsKey, _key, keyCannotBeAnEntry: true);
+        accessor._targetIsDictionary = descriptor.IsDictionary;
+        return accessor;
     }
 
     internal static bool TryFindIndexer(
@@ -310,12 +322,16 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     }
 
     /// <summary>
-    /// A dictionary's indexer, recognized by the <c>ContainsKey</c> it was found with, refuses a write when the
-    /// dictionary is read-only and says so with <see cref="NotSupportedException"/>, the collection contracts'
-    /// answer for a read-only <see cref="IDictionary"/> or <see cref="IDictionary{TKey,TValue}"/>.
+    /// A dictionary's indexer refuses a write when the dictionary is read-only and says so with
+    /// <see cref="NotSupportedException"/>, the collection contracts' answer for a read-only
+    /// <see cref="IDictionary"/> or <see cref="IDictionary{TKey,TValue}"/>. Only a dictionary: a keyed host type
+    /// that is not one has no such contract, and its exception reaches the host as any setter's does. That is
+    /// also what keeps a refusable descriptor out of the interpreter's member lane, which declines dictionaries
+    /// (<see cref="ObjectWrapper.TryGetInlineCacheableDescriptor"/>) and could not report one.
     /// </summary>
     protected override bool RefusesAsReadOnly(TargetInvocationException exception)
-        => _containsKey is not null
+        => _targetIsDictionary
+           && _containsKey is not null
            && exception.InnerException is NotSupportedException inner
            && !Throw.MustPropagateHostException(inner);
 

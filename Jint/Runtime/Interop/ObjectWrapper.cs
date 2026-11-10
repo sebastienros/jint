@@ -1619,7 +1619,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <item>the target is a dictionary (member values are dynamic; descriptors are created fresh per access),</item>
     /// <item>a custom <see cref="Options.InteropOptions.MemberAccessor"/> is configured (stay conservative),</item>
     /// <item>the name is <c>length</c> on an <see cref="ICollection"/> target (<see cref="Get"/> serves the live count ahead of any stored descriptor),</item>
-    /// <item>the member has not been resolved-and-stored yet — the caller's slow path performs the store (bumping the version) so a later populate succeeds.</item>
+    /// <item>the member has not been resolved-and-stored yet — the caller's slow path performs the store (bumping the version) so a later populate succeeds,</item>
+    /// <item>the descriptor's write can be refused (a dictionary's indexer, see <see cref="ReflectionDescriptor.WriteCanBeRefused"/>), which only <see cref="Set"/> can report.</item>
     /// </list>
     /// </remarks>
     internal PropertyDescriptor? TryGetInlineCacheableDescriptor(JsString property)
@@ -1639,6 +1640,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         if (!_properties.TryGetValue(property.ToString(), out var descriptor)
             || ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            return null;
+        }
+
+        // The member lane writes through the descriptor's Value setter, which cannot report a refusal. A
+        // dictionary is declined above, but a member resolved against the runtime type (the exposed type having
+        // none) can still be a dictionary's indexer, so the descriptor is asked as well. Population only.
+        if (descriptor is ReflectionDescriptor { WriteCanBeRefused: true })
         {
             return null;
         }

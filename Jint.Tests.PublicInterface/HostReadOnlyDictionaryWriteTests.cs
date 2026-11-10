@@ -263,6 +263,44 @@ public class HostReadOnlyDictionaryWriteTests
         render().Should().Be(before);
     }
 
+    public static TestCases<string, bool, bool> BagWritesAndModes
+    {
+        get
+        {
+            var data = new TestCases<string, bool, bool>();
+            foreach (var write in new[] { "d.alpha = 'z'", "d['alpha'] = 'z'", "Reflect.set(d, 'alpha', 'z')" })
+            {
+                foreach (var readFirst in new[] { false, true })
+                {
+                    data.Add(write, readFirst, false);
+                    data.Add(write, readFirst, true);
+                }
+            }
+
+            return data;
+        }
+    }
+
+    /// <summary>
+    /// Only a dictionary refuses. A type with an indexer and a <c>ContainsKey</c> that is not a dictionary (a
+    /// read-only settings bag) is an ordinary host object whose setter threw, so its
+    /// <see cref="NotSupportedException"/> reaches the host unwrapped, as it always did. That holds on every
+    /// lane: the wrapper's write before any read, the interpreter's member lane that a read primes (for a dot
+    /// write and a constant key alike), and <c>Reflect.set</c>, which goes through the wrapper's stored
+    /// descriptor after a read. They used to disagree, the member lane answering success.
+    /// </summary>
+    [TestCaseSource(nameof(BagWritesAndModes))]
+    public void AnIndexerBagThatIsNotADictionaryStillThrows(string write, bool readFirst, bool strict)
+    {
+        var bag = new ReadOnlySettingsBag(new Dictionary<string, string> { ["alpha"] = "a" });
+        var engine = CreateEngine(bag, strict);
+
+        var thrown = Caught.Exception(() => engine.Execute((readFirst ? "var r = d.alpha; " : "") + write + ";"));
+
+        thrown.Should().BeOfType<NotSupportedException>().Which.Message.Should().Be("read-only");
+        bag["alpha"].Should().Be("a");
+    }
+
     private static string StringSpelling(string key) => key.StartsWith("'", StringComparison.Ordinal) ? key : "'" + key + "'";
 
     /// <summary>
@@ -432,6 +470,20 @@ public class HostReadOnlyDictionaryWriteTests
         public override void Add(object key, object? value) => throw new NotSupportedException("read-only");
         public override void Remove(object key) => throw new NotSupportedException("read-only");
         public override void Clear() => throw new NotSupportedException("read-only");
+    }
+
+    /// <summary>
+    /// A keyed bag that is not a dictionary: an indexer and a <c>ContainsKey</c>, and no dictionary interface.
+    /// </summary>
+    public sealed class ReadOnlySettingsBag(Dictionary<string, string> inner)
+    {
+        public string this[string key]
+        {
+            get => inner[key];
+            set => throw new NotSupportedException("read-only");
+        }
+
+        public bool ContainsKey(string key) => inner.ContainsKey(key);
     }
 
     /// <summary>A dictionary whose every mutation throws <see cref="PlatformNotSupportedException"/>.</summary>

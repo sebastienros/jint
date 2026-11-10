@@ -8371,8 +8371,11 @@ d[5] = 'b';      // earlier previews: TargetInvocationException out of Evaluate 
 delete d[1]     // earlier previews: TargetInvocationException out of Evaluate    5.x: false
 ```
 
+- **Only a dictionary refuses.** A keyed host type that is not one (an indexer and a `ContainsKey`, but no
+  dictionary interface) has no read-only contract, so its setter's `NotSupportedException` still reaches the host
+  unwrapped, as before, whichever way the script writes.
 - **The host's exception handler is no longer asked about it.** The exception from a string-named write, such
-  as `d.k = 'z'` through an indexer whose setter throws, reached `Options.Interop.ExceptionHandler`. Under
+  as `d.k = 'z'` through a dictionary's indexer whose setter throws, reached `Options.Interop.ExceptionHandler`. Under
   `CatchClrExceptions` (or a handler that answers `true`) script saw a catchable `Error`. A refusal is not an
   error, so sloppy mode now raises nothing and strict mode raises the `TypeError` above. The number-key write
   and `delete` never reached the handler.

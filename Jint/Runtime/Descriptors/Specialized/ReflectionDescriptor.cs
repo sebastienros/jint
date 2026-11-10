@@ -85,6 +85,12 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
 
     internal void AttachOwner(ObjectInstance owner) => _owner = owner;
 
+    /// <summary>
+    /// Whether a write through this descriptor can be refused, which only a dictionary's indexer does
+    /// (<see cref="IndexerAccessor.TargetIsDictionary"/>), and which only <see cref="TrySetValue"/> reports.
+    /// </summary>
+    internal bool WriteCanBeRefused => _reflectionAccessor is IndexerAccessor { TargetIsDictionary: true };
+
     private JsValue DoGet(JsValue? thisObj)
     {
         // Immutability promise (Options.Interop.ImmutableCrossingTypes): the member has already been read
@@ -163,11 +169,12 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
         _memoValue = null;
         _memoResult = null;
 
-        // The answer is discarded, as the caller of an accessor's setter discards it. Only a dictionary's
-        // indexer can refuse (#4518), and a dictionary's write never reaches this setter from ObjectWrapper:
-        // SetSlow asks TrySetValue, and the interpreter's member lane never holds a dictionary's descriptor
-        // (ObjectWrapper.TryGetInlineCacheableDescriptor). This copy stays apart from TrySetValue so that the
-        // member lane's POCO write runs exactly what it ran before.
+        // The answer is discarded, as the caller of an accessor's setter discards it. Only an indexer stamped
+        // TargetIsDictionary can refuse (#4518), and its write never reaches this setter from ObjectWrapper:
+        // SetSlow asks TrySetValue instead, and the interpreter's member lane is never given such a descriptor,
+        // because ObjectWrapper.TryGetInlineCacheableDescriptor declines a dictionary and any descriptor whose
+        // WriteCanBeRefused. Every other descriptor reports success or throws, so nothing is lost here. This
+        // copy stays apart from TrySetValue so that the member lane's POCO write runs exactly what it ran before.
         try
         {
             _reflectionAccessor.SetValue(_engine, _target, _propertyName, v!);
