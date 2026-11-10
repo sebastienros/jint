@@ -8373,7 +8373,8 @@ delete d[1]     // earlier previews: TargetInvocationException out of Evaluate  
 
 A dictionary that implements only `IReadOnlyDictionary<TKey, TValue>` has no `Remove`, so `delete` of one of its
 entries used to answer `true` and leave the entry where it was; it answers `false` now. A property the script
-defined on such a wrapper is still deleted as on any object. And a non-string-keyed `ImmutableDictionary` or
+defined on such a wrapper is still deleted as on any object; `ObjectWrapper` overrides `Delete` for this, so a
+subclass calling `base.Delete` reaches it. A non-string-keyed `ImmutableDictionary` or
 `ImmutableSortedDictionary` no longer throws `InvalidCastException` when script reads a name it cannot hold as a
 key: the name reads `undefined`, in both modes.
 

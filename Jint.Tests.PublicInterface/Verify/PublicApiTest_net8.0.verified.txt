@@ -2561,6 +2561,7 @@ namespace Jint.Runtime.Interop
         public System.Type ClrType { get; }
         public object Target { get; }
         public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override bool Delete(Jint.Native.JsValue property) { }
         public override bool Equals(Jint.Native.JsValue? other) { }
         public bool Equals(Jint.Runtime.Interop.ObjectWrapper? other) { }
         public override bool Equals(object? obj) { }

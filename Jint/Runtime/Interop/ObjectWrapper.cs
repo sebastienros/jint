@@ -924,11 +924,12 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-ordinarydelete, except that an entry the dictionary refuses to remove, as a
-    /// read-only one does, is refused rather than reported deleted.
+    /// Deletes the property as an ordinary object does, and refuses an entry the wrapped dictionary will not remove.
     /// </summary>
     public override bool Delete(JsValue property)
     {
+        // https://tc39.es/ecma262/#sec-ordinarydelete, except that an entry a read-only dictionary refuses to
+        // remove is refused rather than reported deleted
         var descriptor = GetOwnProperty(property);
         if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
         {
