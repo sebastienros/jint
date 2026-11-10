@@ -263,12 +263,18 @@ internal abstract partial class IteratorInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iteratorclose steps 3-7 for <paramref name="iterator"/>, with the
     /// <paramref name="completion"/> the consumer leaves with. Under a throw completion nothing the close raises
-    /// replaces it (step 5); otherwise what <c>return</c> throws propagates, and an answer that is not an object is a
+    /// replaces it (step 5) — except an exception that ends the run, an execution constraint tripping inside
+    /// <c>return</c> among them (<see cref="Throw.MustPropagateHostException"/>), which is no completion of the script's
+    /// and always propagates; otherwise what <c>return</c> throws propagates, and an answer that is not an object is a
     /// <c>TypeError</c> (step 7). A built-in iterator's native state is released last, whatever happened
     /// (<see cref="CloseNativeState"/>), and is told a throw completion whenever a throw is leaving the close, so that a
     /// host's <c>Dispose</c> cannot replace it. Out of line: a natively stepped record reaches it only once a script has
     /// added a <c>return</c> somewhere.
     /// </summary>
+    /// <remarks>
+    /// So a close under a throw completion raises nothing but what must end the run, which is what lets a caller close
+    /// with one and propagate whatever comes out, with no <c>catch</c> of its own.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void IteratorClose(ObjectInstance iterator, CompletionType completion)
     {
@@ -283,7 +289,7 @@ internal abstract partial class IteratorInstance : ObjectInstance
             {
                 callable = iterator.GetMethod(CommonProperties.Return);
             }
-            catch when (completion == CompletionType.Throw)
+            catch (Exception e) when (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e))
             {
                 // Step 5: If completion is a throw completion, return ? completion.
                 return;
@@ -297,9 +303,10 @@ internal abstract partial class IteratorInstance : ObjectInstance
                 {
                     innerResult = callable.Call(iterator, Arguments.Empty);
                 }
-                catch when (completion == CompletionType.Throw)
+                catch (Exception e) when (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e))
                 {
-                    // Step 5: If completion is a throw completion, return ? completion.
+                    // Step 5: If completion is a throw completion, return ? completion. A constraint that tripped inside
+                    // `return` is not that completion's to discard: the filter declines it, and it ends the run.
                     return;
                 }
 
@@ -373,7 +380,8 @@ internal abstract partial class IteratorInstance : ObjectInstance
     /// <para>
     /// An abrupt completion of either step propagates. Step 5 — the one that would swallow it —
     /// applies only when the caller's own completion is a throw completion, and a caller holding one
-    /// catches it there and skips the Await (<c>JintForInForOfStatement.TryStartAsyncCloseDiscardingAbrupt</c>).
+    /// catches it there and skips the Await (<c>JintForInForOfStatement.TryStartAsyncCloseDiscardingAbrupt</c>) —
+    /// all of it but what <see cref="Throw.MustPropagateHostException"/> says must end the run.
     /// </para>
     /// <para>
     /// This record is a built-in iterator stepped natively, the loop's record when a script's <c>@@asyncIterator</c>

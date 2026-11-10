@@ -8373,6 +8373,57 @@ has a `navigate` member that Chromium does not read, and neither does Jint, so a
 action is stored: a non-persistent notification refuses a non-empty list, and `actions` reads back as an empty frozen
 array. There is no switch back.
 
+### 4.232 An execution constraint that trips inside an iterator's `return` ends the run while a throw is closing the iterator ([#4547](https://github.com/sebastienros/jint/pull/4547))
+
+A loop, a destructuring pattern or a built-in that is left by a throw closes its iterator by calling `return`, and the
+spec has the throw win over anything `return` throws. Jint let it win over everything, including the exception of an
+execution constraint that tripped while `return` ran. So the limit was spent and the script carried on:
+
+```js
+const it = { [Symbol.iterator]() { return { next() { return { done: false }; }, return() { for (;;) {} } }; } };
+try { for (const x of it) throw new Error('body'); } catch (e) { }
+'finished'
+// LimitExecutionTime(300 ms)    earlier builds: 'finished'    5.x: TimeoutException out of Evaluate
+```
+
+Whether the run ended anyway depended on what came after. A time limit or a cancellation is checked every 64
+statements, so a script with fewer than that left finished normally. `MaxRecursionDepth` and `MaxArraySize` fire once,
+and were simply lost. A statement limit fired again on the next statement, but a script whose error escaped handed the
+host that error, a `JavaScriptException`, in place of `StatementsCountOverflowException`. Only a memory limit, which is
+checked again as the entry ends, was never lost outright.
+
+The exception now reaches the host from every close a throw performs: `for`-`of` and `for await` (a sync iterable in a
+`for await`, and a `for (await using …)` whose dispose rejects, included), array destructuring in a declaration, an
+assignment or a parameter list, a generator closed while it is suspended in `yield*`, `Array.from`, `Array.fromAsync`,
+the `Map`, `Set`, `WeakMap` and `WeakSet` constructors, `Object.fromEntries`, `Promise.all`, `allSettled`, `any` and
+`race`, the iterator helpers (the async ones' argument checks included), `Iterator.zip` and `Iterator.zipKeyed`, and
+the web APIs that convert a sequence. The rule is the one a host function's boundary already follows: an exception that
+ends the run is never converted or discarded. That is the whole of this list:
+
+- the bounds: `StatementsCountOverflowException`, `MemoryLimitExceededException` (`LimitMemory` and `MaxArraySize`),
+  `ExecutionCanceledException`, `RecursionDepthOverflowException`, `RegexMatchTimeoutException`, and the
+  `TimeoutException` and `OperationCanceledException` that Jint itself raises;
+- the limits on what a run builds: `ParsingLimitException`, `ResultLimitExceededException` and
+  `ModuleGraphLimitException`;
+- any `PlatformNotSupportedException` or `OutOfMemoryException`.
+
+What a script can catch is still discarded, as the spec says: a `throw` in `return`, and the `RangeError` of
+`StackOverflowGuard`. So is any other host exception from a CLR `return` or `Dispose`, a host's own `TimeoutException`
+included: only one Jint raised counts as the time limit.
+
+Three closes on the same paths changed with it, all visible to script. `Iterator.zip` with `mode: 'longest'` and a
+`padding` that is not iterable (no `Symbol.iterator`, or one answering a primitive) called each collected iterator's
+`return` twice, and now calls it once, in reverse order. A zip whose step failed closes its other members while it is
+still executing, so a member's `return` that calls the zip's own `return()` or `next()` now gets a `TypeError`, as the
+spec's GeneratorValidate requires. It used to be answered `done`, and a member could have its `return` called twice.
+And a generator resumed with `return()` at a `yield` that is a `for`-`of` loop's whole body
+(`for (let x of it) yield x;`), whose iterator's `return` then throws, left the loop's bindings in scope for the
+`catch` around the loop. The spec leaves the loop's scope before it closes the iterator, and so does Jint now.
+
+**What could break:** apart from those three, nothing a script can observe, except that it no longer completes. A host
+whose scripts kept running past a bound because the bound tripped inside a `return` now gets the bound's exception
+instead. There is no switch back: a constraint a `return` could hide bounded nothing.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
