@@ -27,10 +27,11 @@ namespace Jint.Browser.SystemState;
 /// <para>
 /// <b>The dictionaries follow Chromium's IDL where the standard's differs</b>, since a page is written against what
 /// browsers ship. <c>NotificationOptions</c> reads <c>vibrate</c>, which the current standard does not list, and not the
-/// standard's <c>navigate</c>; <c>NotificationAction</c> reads <c>placeholder</c> and <c>type</c>, which Chromium has, and not the
-/// standard's <c>navigate</c>. Neither <c>navigate</c> is read, so a getter on one never runs: a known gap
-/// (https://notifications.spec.whatwg.org/#dictdef-notificationaction). A non-persistent notification never has an
-/// action, so <c>actions</c> reads back as an empty frozen array and nothing of an action is stored.
+/// standard's <c>navigate</c>; <c>NotificationAction</c> reads <c>placeholder</c> and <c>type</c>, which Chromium has and
+/// the standard does not, and not the standard's <c>navigate</c> either. Neither <c>navigate</c> is read, so a getter on
+/// one never runs: a known gap (https://notifications.spec.whatwg.org/#dictdef-notificationaction). A non-persistent
+/// notification never has an action, so <c>actions</c> reads back as an empty frozen array and nothing of an action is
+/// stored.
 /// </para>
 /// </remarks>
 internal sealed class JsNotification : JsEventTarget
@@ -347,8 +348,8 @@ internal sealed class JsNotification : JsEventTarget
     /// <c>action</c> (required <c>DOMString</c>), <c>icon</c> (<c>USVString</c>), <c>placeholder</c> (<c>DOMString?</c>),
     /// <c>title</c> (required <c>DOMString</c>) and <c>type</c> (<c>NotificationActionType</c>, <c>"button"</c> or
     /// <c>"text"</c>, <c>"button"</c> when absent). That is Chromium's IDL, not
-    /// https://notifications.spec.whatwg.org/#dictdef-notificationaction, whose <c>navigate</c> is not read and whose
-    /// <c>placeholder</c> and <c>type</c> do not exist (see the class remarks). Nothing of the dictionary is kept: a
+    /// https://notifications.spec.whatwg.org/#dictdef-notificationaction, which has <c>navigate</c> (not read here) and
+    /// neither <c>placeholder</c> nor <c>type</c>; see the class remarks. Nothing of the dictionary is kept: a
     /// non-persistent notification refuses a non-empty list, so the conversion is only observable through its getters, its
     /// <c>toString</c>s and its errors.
     /// </summary>
