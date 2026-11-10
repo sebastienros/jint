@@ -60,11 +60,16 @@ internal sealed class TypeDescriptor
             out _genericIndexerSetMethod,
             out _genericRemoveMethod);
 
-        IntegerIndexerProperty = integerIndexer;
         IsDictionary = _tryGetValueMethod is not null || isDictionary;
         IsGenericDictionary = _tryGetValueMethod is not null;
         IsStringKeyedGenericDictionary = IsGenericDictionary && _keyType == _stringType;
         IsNonStringKeyedGenericDictionary = IsGenericDictionary && _keyType != _stringType;
+        IsAddressedByKeyOnly = IsStringKeyedGenericDictionary && ListsEntriesRatherThanValues(type, _valueType);
+
+        // a type addressed by its keys alone has no position script can name, so it has no integer indexer
+        // either. That is also what turns x[0] into x["0"] before the wrapper sees it: Reference keeps an
+        // integer key as a number only for an integer-indexed base.
+        IntegerIndexerProperty = IsAddressedByKeyOnly ? null : integerIndexer;
 
         // dictionaries are considered normal-object-like
         IsArrayLike = !IsDictionary && isCollection;
@@ -91,11 +96,34 @@ internal sealed class TypeDescriptor
     public bool IsIntegerIndexed => IntegerIndexerProperty is not null;
 
     /// <summary>
-    /// Read-write indexer.
+    /// The integer indexer script reaches the target's elements through, or <see langword="null"/> when it has
+    /// none: not a list, or a list <see cref="IsAddressedByKeyOnly"/> says script does not index.
     /// </summary>
     public PropertyInfo? IntegerIndexerProperty { get; }
 
     public bool IsDictionary { get; }
+
+    /// <summary>
+    /// Whether script addresses this type by its string keys alone, although it also implements a list contract.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Newtonsoft's <c>JObject</c>, System.Text.Json's <c>JsonObject</c> from System.Text.Json 9 on (on any target
+    /// framework), and <c>OrderedDictionary&lt;string, TValue&gt;</c> are string-keyed dictionaries that also implement
+    /// <see cref="IList{T}"/>, and what each list holds is an entry rather than a value: a <c>JProperty</c> node, a
+    /// <see cref="KeyValuePair{TKey,TValue}"/>. Reading position 0 of that list hands script an entry, writing it is a
+    /// CLR exception from the collection, and both contradict the key set every other lane reports. So such a type
+    /// gets no array-like view and no <see cref="IntegerIndexerProperty"/>, and an index-shaped key is one more key it
+    /// may or may not have (#4501).
+    /// </para>
+    /// <para>
+    /// The test reads the type alone. The list holds something other than the dictionary's value type, or the type
+    /// declares no integer indexer of its own (<c>JContainer</c> implements <c>IList&lt;JToken&gt;</c> explicitly).
+    /// A non-generic <see cref="IList"/> says nothing about what it holds, so for one the indexer alone decides.
+    /// A type whose list holds its values and which declares an integer indexer keeps its positions, as before.
+    /// </para>
+    /// </remarks>
+    public bool IsAddressedByKeyOnly { get; }
 
     /// <summary>
     /// Whether <see cref="ContainsDictionaryKey"/> can actually answer. <c>ContainsKey</c> is declared on
@@ -274,6 +302,71 @@ internal sealed class TypeDescriptor
             }
             isDictionary |= isGenericDictionary || isReadOnlyGenericDictionary;
         }
+    }
+
+    /// <summary>
+    /// The half of <see cref="IsAddressedByKeyOnly"/> that is not about the dictionary: whether
+    /// <paramref name="type"/>'s list contract, if it has one, lists its entries rather than its values.
+    /// </summary>
+    private static bool ListsEntriesRatherThanValues(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
+        Type type,
+        Type? valueType)
+    {
+        var elementType = ListElementType(type);
+        if (elementType is not null)
+        {
+            return elementType != valueType || TypeResolver.DeclaredIntegerIndexer(type) is null;
+        }
+
+        if (_listType.IsAssignableFrom(type))
+        {
+            // a non-generic IList says nothing about what it holds, so only the indexer can tell: one the type
+            // declares itself is a list of its values, as for a generic list
+            return TypeResolver.DeclaredIntegerIndexer(type) is null;
+        }
+
+        // not a list at all: an ordinary dictionary
+        return false;
+    }
+
+    /// <summary>
+    /// The element type of the generic list contract <paramref name="type"/> implements, <see cref="IList{T}"/> or
+    /// <see cref="IReadOnlyList{T}"/>, the exposed type ahead of its interfaces as the wrapper factory resolves them.
+    /// <see langword="null"/> for none, which a non-generic <see cref="IList"/> may still be.
+    /// </summary>
+    private static Type? ListElementType(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
+    {
+        var elementType = GenericListElementType(type);
+        if (elementType is not null)
+        {
+            return elementType;
+        }
+
+        foreach (var contract in type.GetInterfaces())
+        {
+            elementType = GenericListElementType(contract);
+            if (elementType is not null)
+            {
+                return elementType;
+            }
+        }
+
+        return null;
+    }
+
+    private static Type? GenericListElementType(Type contract)
+    {
+        if (!contract.IsGenericType)
+        {
+            return null;
+        }
+
+        var definition = contract.GetGenericTypeDefinition();
+        return definition == typeof(IList<>) || definition == typeof(IReadOnlyList<>)
+            ? contract.GenericTypeArguments[0]
+            : null;
     }
 
     /// <summary>

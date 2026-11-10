@@ -214,16 +214,25 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         // it, so a type that is not array-like is resolved once and not once per crossing.
         if (!_arrayLikeWrapperResolution.TryGetValue(type, out var factory))
         {
-            try
+            if (TypeDescriptor.Get(type).IsAddressedByKeyOnly)
             {
-                var factoryType = ResolveArrayLikeWrapperFactoryType(type);
-                factory = factoryType is null ? null : (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
+                // a dictionary whose list holds its entries (JObject's JProperty nodes) is an object to script,
+                // not a view of that list: no factory is built, and the IList fallback below is not taken (#4501)
+                factory = NoArrayLikeViewFactory.Instance;
             }
-            catch (Exception e) when (IsMissingGenericInstantiation(e))
+            else
             {
-                // no typed factory on this runtime; the caller degrades to the non-generic ListWrapper,
-                // or to a plain ObjectWrapper when the target is not even an IList
-                factory = null;
+                try
+                {
+                    var factoryType = ResolveArrayLikeWrapperFactoryType(type);
+                    factory = factoryType is null ? null : (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
+                }
+                catch (Exception e) when (IsMissingGenericInstantiation(e))
+                {
+                    // no typed factory on this runtime; the caller degrades to the non-generic ListWrapper,
+                    // or to a plain ObjectWrapper when the target is not even an IList
+                    factory = null;
+                }
             }
 
             // GetOrAdd's value overload rather than TryAdd, so that a race still hands every caller the
@@ -239,6 +248,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         // InvalidCastException out of a wrapper creation.
         if (factory is not null && type.IsInstanceOfType(target))
         {
+            // null from NoArrayLikeViewFactory, and the caller wraps the target as an ordinary object
             result = factory.Create(engine, target, type);
         }
         else if (target is IList list)
@@ -449,9 +459,11 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <see cref="IReadOnlyCollection{T}"/> are all count-and-enumerate contracts with no index in them:
     /// <see cref="Queue{T}"/>, <see cref="Stack{T}"/>, <see cref="LinkedList{T}"/> and
     /// <see cref="HashSet{T}"/> are every one of them array-like with no element at index 0. An indexed lane
-    /// must gate on this rather than on array-likeness (#3302).
+    /// must gate on this rather than on array-likeness (#3302). A list addressed by its keys alone, such as
+    /// Newtonsoft's <c>JObject</c>, has none either, although its target is an <see cref="IList"/> (#4501).
     /// </remarks>
-    internal virtual bool HasIndexedElements => (_typeDescriptor.IsIntegerIndexed || Target is IList) && IndexedElementsExposed;
+    internal virtual bool HasIndexedElements
+        => (_typeDescriptor.IsIntegerIndexed || (Target is IList && !_typeDescriptor.IsAddressedByKeyOnly)) && IndexedElementsExposed;
 
     /// <summary>
     /// Whether the host's <see cref="TypeResolver.MemberFilter"/> admits the indexer an indexed lane would
@@ -554,8 +566,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return ElementKey.Position;
         }
 
-        // a symbol names no position, and a dictionary-shaped target (e.g. Newtonsoft's JObject: both
-        // IDictionary<string,_> and IList<_>) answers a string key from its own keys rather than by index
+        // a symbol names no position, and a dictionary-shaped target (both IDictionary<string,_> and a list of
+        // its values) answers a string key from its own keys rather than by index
         if (property is not JsString jsString || _typeDescriptor.IsDictionary)
         {
             return ElementKey.None;
@@ -1269,10 +1281,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             // array-like views enumerate like JS arrays: index keys, not reflected CLR member names —
             // Object.keys / for-in / spread over a wrapped array or list must yield "0".."n-1"
             // (members like Length or Count stay accessible, they just don't enumerate). Dictionary-shaped
-            // targets (e.g. Newtonsoft's JObject, which is both IDictionary<string,_> and IList<_>)
-            // are handled by the dictionary branches above. A view whose indexer the host's member filter
-            // rejects has no element properties to report, which is the answer Object.keys already gave -
-            // every key it yielded was dropped again by the enumerability probe (#3558).
+            // targets (both IDictionary<string,_> and a list of their values) are handled by the dictionary
+            // branches above. A view whose indexer the host's member filter rejects has no element properties
+            // to report, which is the answer Object.keys already gave - every key it yielded was dropped again
+            // by the enumerability probe (#3558).
             var length = arrayLike.HasIndexedElements ? arrayLike.Length : 0;
             for (var i = 0; i < length; i++)
             {
@@ -1596,8 +1608,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <para>
     /// Also the escape hatch for a subclass whose write path does not reach <see cref="Set"/>'s per-key
     /// eviction — <see cref="ArrayLikeWrapper"/> serves length and fixed-size index writes itself. Such a
-    /// target only ever carries a memo when it is dictionary-shaped as well (Newtonsoft's <c>JObject</c> is
-    /// both), which is exactly when a length write can invalidate arbitrary keys.
+    /// target only ever carries a memo when it is dictionary-shaped as well, which is exactly when a length write
+    /// can invalidate arbitrary keys. Newtonsoft's <c>JObject</c> is not such a target: it is wrapped as an ordinary
+    /// object (#4501).
     /// </para>
     /// </summary>
     private protected void DropCrossingMemo() => _crossingMemo = null;

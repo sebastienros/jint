@@ -168,8 +168,9 @@ public sealed class TypeResolver
     /// The first integer-keyed single-parameter indexer <paramref name="type"/> declares itself, scanned the
     /// way <see cref="IndexerAccessor.TryFindIndexer"/> scans — an explicitly implemented one is reported by
     /// its interface alone and is deliberately not found here, exactly as it is not found there.
+    /// <see cref="TypeDescriptor.IsAddressedByKeyOnly"/> asks the same question, so this is the one definition.
     /// </summary>
-    private static PropertyInfo? DeclaredIntegerIndexer(
+    internal static PropertyInfo? DeclaredIntegerIndexer(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
     {
         foreach (var candidate in type.GetProperties())
@@ -777,12 +778,19 @@ public sealed class TypeResolver
             }
         }
 
+        // An integer-shaped name prefers an integer indexer, which on a type that is both a dictionary and a list
+        // is the list's: JObject's IList<JToken>.Item, whose position 0 is a JProperty node, beat its own string
+        // indexers. A type addressed by its keys alone has no position to name, so the name is one more key and
+        // scores like any other, and the dictionary's string indexer answers it (#4501). Asked only for an
+        // integer-shaped name, and only once per resolved member.
+        var prefersIntegerIndexer = isInteger && !TypeDescriptor.Get(type).IsAddressedByKeyOnly;
+
         // if no methods are found check if target implemented indexing
         var score = int.MaxValue;
         if (indexerAccessor != null)
         {
             var parameter = indexerAccessor.FirstIndexParameter;
-            score = CalculateIndexerScore(parameter, isInteger);
+            score = CalculateIndexerScore(parameter, prefersIntegerIndexer);
         }
 
         if (score != 0)
@@ -799,7 +807,7 @@ public sealed class TypeResolver
                     }
 
                     var parameter = accessor.FirstIndexParameter;
-                    var newScore = CalculateIndexerScore(parameter, isInteger);
+                    var newScore = CalculateIndexerScore(parameter, prefersIntegerIndexer);
                     if (newScore < score)
                     {
                         // found a better one
