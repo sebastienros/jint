@@ -8373,10 +8373,9 @@ Three closes on the same paths changed with it, all visible to script. `Iterator
 `return` twice, and now calls it once, in reverse order. A zip whose step failed closes its other members while it is
 still executing, so a member's `return` that calls the zip's own `return()` or `next()` now gets a `TypeError`, as the
 spec's GeneratorValidate requires. It used to be answered `done`, and a member could have its `return` called twice.
-And a generator resumed with `return()` at a `yield` that is a
-`for`-`of` loop's whole body (`for (let x of it) yield x;`), whose iterator's `return` then throws, left the loop's
-bindings in scope for the `catch` around the loop. The spec leaves the loop's scope before it closes the iterator,
-and so does Jint now.
+And a generator resumed with `return()` at a `yield` that is a `for`-`of` loop's whole body
+(`for (let x of it) yield x;`), whose iterator's `return` then throws, left the loop's bindings in scope for the
+`catch` around the loop. The spec leaves the loop's scope before it closes the iterator, and so does Jint now.
 
 **What could break:** apart from those three, nothing a script can observe, except that it no longer completes. A host
 whose scripts kept running past a bound because the bound tripped inside a `return` now gets the bound's exception
