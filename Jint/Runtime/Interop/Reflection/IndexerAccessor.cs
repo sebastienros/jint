@@ -40,14 +40,15 @@ internal sealed class IndexerAccessor : ReflectionAccessor
 
     // Indexer.CanWrite, and false for a key that cannot be an entry. Every string-keyed write the wrapper
     // serves reads it, so it is taken once here rather than asked of the PropertyInfo per write. Declared after
-    // the fields the read lane touches, so that the runtime's auto layout moves none of them for it.
+    // the fields the read lane touches, so that the runtime's auto layout moves none of them for it. This and
+    // _targetIsDictionary fill the two bytes base's five flags leave free before the reference fields, so the
+    // object keeps base's size; a third flag would not fit, which is why KeyCannotBeAnEntry is derived (#4518).
     private readonly bool _writable;
 
     private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key, bool keyCannotBeAnEntry = false) : base(indexer.PropertyType)
     {
         Indexer = indexer;
         FirstIndexParameter = indexer.GetIndexParameters()[0];
-        KeyCannotBeAnEntry = keyCannotBeAnEntry;
 
         _containsKey = containsKey;
         _key = key;
@@ -97,7 +98,11 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     /// dictionary's <c>TKey</c>. It addresses no entry, so it is not <see cref="Writable"/>, and
     /// <see cref="ObjectWrapper.Set(JsValue, JsValue, JsValue)"/> keeps such a property on the wrapper instead (#4518).
     /// </summary>
-    internal bool KeyCannotBeAnEntry { get; }
+    /// <remarks>
+    /// Read from the containment probe the constructor presets for a marked copy, which nothing else ever
+    /// installs, rather than from a field of its own: it is asked only when a write is refused.
+    /// </remarks>
+    internal bool KeyCannotBeAnEntry => ReferenceEquals(_compiledContainsKey, NoEntry.Predicate);
 
     /// <summary>
     /// Whether the type this accessor was resolved for is a dictionary (<see cref="TypeDescriptor.IsDictionary"/>),
