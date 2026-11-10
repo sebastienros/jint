@@ -1,12 +1,10 @@
 #nullable enable
 
 using System.Collections;
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Dynamic;
-#if NET8_0_OR_GREATER
-using System.Collections.Frozen;
-#endif
 
 namespace Jint.Tests.Runtime;
 
@@ -35,23 +33,20 @@ public partial class InteropTests
     {
         get
         {
-            var shapes = new TestCases<string>
+            return new TestCases<string>
             {
                 // the reported failures: IReadOnlyDictionary<string, T>.Keys is an iterator, not a collection
                 "ImmutableDictionary",
                 "ImmutableSortedDictionary",
-                "ImmutableDictionaryBuilder",
                 "IteratorKeysReadOnlyDictionary",
                 "ExplicitIteratorKeysReadOnlyDictionary",
-                // shapes whose Keys is a collection under either reading
+                // shapes whose Keys is a collection under either reading (the builder resolves IDictionary's)
+                "ImmutableDictionaryBuilder",
                 "ReadOnlyDictionary",
                 "Dictionary",
                 "ExpandoObject",
+                "FrozenDictionary",
             };
-#if NET8_0_OR_GREATER
-            shapes.Add("FrozenDictionary");
-#endif
-            return shapes;
         }
     }
 
@@ -88,10 +83,8 @@ public partial class InteropTests
                 }
 
                 return expando;
-#if NET8_0_OR_GREATER
             case "FrozenDictionary":
                 return entries.ToDictionary(static e => e.Key, static e => e.Value).ToFrozenDictionary();
-#endif
             default:
                 throw new ArgumentOutOfRangeException(nameof(shape), shape, null);
         }
@@ -158,6 +151,20 @@ public partial class InteropTests
     {
         var engine = CreateDictionaryEngine(shape);
         engine.Evaluate("var o = Object.assign({}, d); Object.keys(o).sort().map(k => k + '=' + o[k]).join()")
+            .AsString().Should().Be("a=1,b=2");
+    }
+
+    [TestCaseSource(nameof(StringKeyedDictionaryShapes))]
+    public void ObjectValuesReadsTheValuesOfAStringKeyedDictionary(string shape)
+    {
+        CreateDictionaryEngine(shape).Evaluate("Object.values(d).sort().join()").AsString().Should().Be("1,2");
+    }
+
+    [TestCaseSource(nameof(StringKeyedDictionaryShapes))]
+    public void GetOwnPropertyDescriptorsDescribesTheKeysOfAStringKeyedDictionary(string shape)
+    {
+        var engine = CreateDictionaryEngine(shape);
+        engine.Evaluate("var ds = Object.getOwnPropertyDescriptors(d); Object.keys(ds).sort().map(k => k + '=' + ds[k].value).join()")
             .AsString().Should().Be("a=1,b=2");
     }
 
