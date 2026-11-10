@@ -36,7 +36,9 @@ and the built-ins and web APIs that hand script a list of what it stored. It als
 chosen at run time makes longer: a spread, an array-like handed to `apply`, `Reflect.apply` or `Reflect.construct`,
 and the bound arguments a chain of `bind` calls adds up. Past it the run ends with `MemoryLimitExceededException`.
 A list written out in the source, such as `f(1, 2, 3)` or `[1, 2, 3]`, is no longer than the script, so it is not
-counted, and neither is a list the host builds itself. Not every built-in is bounded yet:
+counted. Neither is a list the host built and passes in, such as the arguments of `engine.Invoke` or a CLR
+`ProxyHandler`'s keys. The exception is a bound function with arguments of its own: it counts them together with
+the arguments it is called with, a host's included. Not every built-in is bounded yet:
 `AsyncIterator.prototype.toArray` and `Array.prototype.toSorted` on an array-like are tracked in
 [#4520](https://github.com/sebastienros/jint/issues/4520).
 

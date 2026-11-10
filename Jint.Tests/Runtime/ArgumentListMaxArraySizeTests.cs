@@ -200,6 +200,7 @@ public class ArgumentListMaxArraySizeTests
     [TestCase("rest.apply(null, o)")]
     [TestCase("Reflect.apply(rest, null, o)")]
     [TestCase("Reflect.construct(Ctor, o)")]
+    [TestCase("Reflect.ownKeys(new Proxy({}, { ownKeys: () => o }))")]
     public void AnArrayLikePastTheLimitIsRefusedBeforeItsElementsAreRead(string expression)
     {
         var engine = EngineWith(Limit);
@@ -219,6 +220,71 @@ public class ArgumentListMaxArraySizeTests
         // The list would be 8 MB; the refusal allocates its message and stack trace.
         allocated.Should().BeLessThan(1_000_000);
 #endif
+    }
+
+    private const string ReadOrderSetup = """
+        var log = '';
+        function note(s) { log = log ? log + ',' + s : s; }
+        function mk(n, values) {
+            const o = {};
+            Object.defineProperty(o, 'length', { get() { note('length'); return n; } });
+            for (let i = 0; i < values.length; i++) {
+                const v = values[i];
+                Object.defineProperty(o, i, { get() { note(String(i)); return v; } });
+            }
+            return o;
+        }
+        function logProxy(t) { return new Proxy(t, { get(target, key, receiver) { note('get:' + String(key)); return Reflect.get(target, key, receiver); } }); }
+        function f(...r) { return r.length; }
+        function C(...r) { this.n = r.length; }
+        function probe(run) { log = ''; let r; try { r = String(run()); } catch (e) { r = e.name + ':' + e.message; } return log + ' => ' + r; }
+        """;
+
+    /// <summary>
+    /// On an engine with a limit, a list under it is read by <c>ArrayOperations.GetAllWithinLimit</c>, which repeats
+    /// <c>GetAll</c>'s loop rather than sharing it, and a script <c>ownKeys</c> trap's result is read once more before
+    /// it is validated. Neither may be observable: the log of every <c>length</c> and element read, and where a
+    /// <c>TypeError</c> stops it, must be what a default engine logs, which is CreateListFromArrayLike's order
+    /// (https://tc39.es/ecma262/#sec-createlistfromarraylike): <c>length</c> once, then each element in order, and an
+    /// element that is not a key throws before the next is read. The logs were checked against Node. The limit (8) is
+    /// above every list here; it only sends them down the bounded lane.
+    /// </summary>
+    [TestCase("Reflect.ownKeys(new Proxy({}, { ownKeys: () => mk(3, [1, 'b', 'c']) }))", "length,0 => TypeError:invalid type")]
+    [TestCase("Reflect.ownKeys(new Proxy({}, { ownKeys: () => mk(3, ['a', 2, 'c']) }))", "length,0,1 => TypeError:invalid type")]
+    [TestCase("Reflect.ownKeys(new Proxy({}, { ownKeys: () => mk(3, ['a', 'b', 'c']) }))", "length,0,1,2 => a,b,c")]
+    [TestCase("Object.keys(new Proxy({}, { ownKeys: () => mk(2, ['a', 'b']) }))", "length,0,1 => ")]
+    [TestCase("(() => { let s = ''; for (const k in new Proxy({ a: 1, b: 2 }, { ownKeys: () => mk(2, ['a', 'b']) })) s += k; return s; })()", "length,0,1 => ab")]
+    [TestCase("Reflect.ownKeys(new Proxy({}, { ownKeys: () => ({ length: { valueOf() { note('valueOf'); return 2; } }, 0: 'a', 1: 'b' }) }))", "valueOf => a,b")]
+    [TestCase("Reflect.ownKeys(new Proxy({}, { ownKeys: () => logProxy({ length: 2, 0: 'a', 1: 'b' }) }))", "get:length,get:0,get:1 => a,b")]
+    [TestCase("Reflect.ownKeys(new Proxy({}, { ownKeys: () => logProxy({ length: 3, 0: 'a', 1: 2, 2: 'c' }) }))", "get:length,get:0,get:1 => TypeError:invalid type")]
+    [TestCase("(() => { const a = ['a', 'b']; Object.defineProperty(a, 1, { get() { note('1'); return 'b'; } }); return Reflect.ownKeys(new Proxy({}, { ownKeys: () => a })); })()", "1 => a,b")]
+    [TestCase("(() => { const a = [1, 'b']; Object.defineProperty(a, 1, { get() { note('1'); return 'b'; } }); return Reflect.ownKeys(new Proxy({}, { ownKeys: () => a })); })()", " => TypeError:invalid type")]
+    [TestCase("Reflect.ownKeys(new Proxy({}, { ownKeys: () => mk(2, ['a', 'a']) }))", "length,0,1 => TypeError:'ownKeys' on proxy: trap returned duplicate entries ('a')")]
+    [TestCase("Reflect.ownKeys(new Proxy({}, { ownKeys: () => 1 }))", " => TypeError:CreateListFromArrayLike called on non-object")]
+    [TestCase("Reflect.ownKeys(new Proxy(Object.preventExtensions({ a: 1 }), { ownKeys: () => mk(2, ['a', 'b']) }))", "length,0,1 => TypeError:'ownKeys' on proxy: trap returned extra keys but proxy target is non-extensible")]
+    [TestCase("f.apply(null, mk(3, [1, 'b', {}]))", "length,0,1,2 => 3")]
+    [TestCase("Reflect.apply(f, null, mk(3, [1, 'b', {}]))", "length,0,1,2 => 3")]
+    [TestCase("Reflect.construct(C, mk(3, [1, 'b', {}])).n", "length,0,1,2 => 3")]
+    [TestCase("f.apply(null, { length: { valueOf() { note('valueOf'); return 2; } } })", "valueOf => 2")]
+    [TestCase("f.apply(null, logProxy({ length: 2, 0: 1, 1: 2 }))", "get:length,get:0,get:1 => 2")]
+    [TestCase("Reflect.apply(f, null, logProxy([1, 2]))", "get:length,get:0,get:1 => 2")]
+    [TestCase("Reflect.construct(C, logProxy({ length: 2, 0: 1, 1: 2 })).n", "get:length,get:0,get:1 => 2")]
+    [TestCase("f.apply(null, 1)", " => TypeError:CreateListFromArrayLike called on non-object")]
+    [TestCase("Reflect.apply(f, null, 'ab')", " => TypeError:CreateListFromArrayLike called on non-object")]
+    [TestCase("(() => { Object.defineProperty(Array.prototype, 1, { get() { note('proto1'); return 'p'; }, configurable: true }); try { return f.apply(null, [0, , 2]); } finally { delete Array.prototype[1]; } })()", "proto1 => 3")]
+    [TestCase("f.apply(null, new Uint8Array(3))", " => 3")]
+    [TestCase("(() => { const a = [1, 2, 3]; a.length = 2; return f.apply(null, a); })()", " => 2")]
+    public void AListUnderTheLimitIsReadAsADefaultEngineReadsIt(string expression, string expected)
+    {
+        var limited = new Engine(options => options.Constraints.MaxArraySize = 8);
+        var unlimited = new Engine();
+        limited.Execute(ReadOrderSetup);
+        unlimited.Execute(ReadOrderSetup);
+
+        var source = $"probe(() => {expression})";
+
+        unlimited.Evaluate(source).AsString().Should().Be(expected);
+        limited.Evaluate(source).AsString().Should().Be(expected);
     }
 
     /// <summary>
