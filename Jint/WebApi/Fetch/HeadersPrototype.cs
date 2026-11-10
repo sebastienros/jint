@@ -122,6 +122,8 @@ internal sealed partial class HeadersPrototype : Prototype
     {
         var values = Brand(thisObject).List.GetSetCookie();
 
+        // As many values as the headers hold, which a script or a response can make anything (sebastienros/jint#4505).
+        ArrayInstance.ValidateListLength(_engine, (uint) values.Count);
         var items = new JsValue[values.Count];
         for (var i = 0; i < values.Count; i++)
         {

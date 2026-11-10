@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Iterator;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -195,9 +196,20 @@ internal sealed class ExpressionCache
     /// not possible (spread protocol is synchronous); suspension can only happen at:
     /// - The <c>_argument</c> of a spread (e.g. <c>...(await fn())</c>) — captured before iteration starts.
     /// - A non-spread element's <c>GetValue</c> — captured before <c>target.Add</c>.
+    /// <para>
+    /// A spread makes the list as long as a run-time count, so the whole list, the arguments written beside the
+    /// spreads included, is held to <c>Options.Constraints.MaxArraySize</c> like an array built from a count
+    /// (sebastienros/jint#4505): an array's spread before any of it is copied, an iterator's at the element that would
+    /// take the list past the limit (only on an engine that has one), and the finished list once. The rest parameter
+    /// and the <c>arguments</c> object are made from this list, so bounding it bounds them. A call with no spread of its
+    /// own comes here only when an argument is an array literal with one (<c>f([...a])</c>, which <see cref="HasSpreads"/>
+    /// counts): that list is as long as its source, so only the finished-list compare runs, and the literal bounds itself.
+    /// </para>
     /// </summary>
     internal int BuildArgumentsWithSpreads(EvaluationContext context, List<JsValue> target, int startIndex = 0)
     {
+        var engine = context.Engine;
+        var limited = engine._hasMaxArraySize;
         var expressions = _expressions;
         int i = startIndex;
         for (; (uint) i < (uint) expressions.Length; i++)
@@ -221,6 +233,11 @@ internal sealed class ExpressionCache
                 if (argument is JsArray ai && ai.HasOriginalIterator(out iteratorMethod))
                 {
                     var length = ai.GetLength();
+                    if (limited)
+                    {
+                        ArrayInstance.ValidateListLength(engine, (ulong) (uint) target.Count + length);
+                    }
+
                     for (uint j = 0; j < length; ++j)
                     {
                         ai.TryGetValue(j, out var value);
@@ -229,7 +246,10 @@ internal sealed class ExpressionCache
                 }
                 else
                 {
-                    var protocol = new ArraySpreadProtocol(context.Engine, target, jse.GetIterator(context.Engine.Realm, argument, iteratorMethod));
+                    var iterator = jse.GetIterator(engine.Realm, argument, iteratorMethod);
+                    IteratorProtocol protocol = limited
+                        ? new BoundedArraySpreadProtocol(engine, target, iterator)
+                        : new ArraySpreadProtocol(engine, target, iterator);
                     protocol.Execute();
                 }
             }
@@ -246,6 +266,12 @@ internal sealed class ExpressionCache
 
                 target.Add(value);
             }
+        }
+
+        // The spreads were checked as they went; this counts the arguments written beside them.
+        if (limited)
+        {
+            ArrayInstance.ValidateListLength(engine, (uint) target.Count);
         }
 
         return i;
@@ -307,6 +333,40 @@ internal sealed class ExpressionCache
 
         protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
         {
+            _instance.Add(currentValue);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="ArraySpreadProtocol"/> for an engine with a <c>MaxArraySize</c>: an iterator says how long it is only
+    /// by ending, so the list is refused at the element that would take it past the limit, and the iterator is closed
+    /// there rather than stepped to its end. An engine without a limit takes the other class and pays no compare per
+    /// element.
+    /// </summary>
+    private sealed class BoundedArraySpreadProtocol : IteratorProtocol
+    {
+        private readonly Engine _engine;
+        private readonly List<JsValue> _instance;
+        private readonly uint _maxArraySize;
+
+        public BoundedArraySpreadProtocol(
+            Engine engine,
+            List<JsValue> instance,
+            IteratorInstance iterator) : base(engine, iterator, 0)
+        {
+            _engine = engine;
+            _instance = instance;
+            _maxArraySize = engine.Options.Constraints.MaxArraySize;
+        }
+
+        protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
+        {
+            var count = (ulong) _instance.Count;
+            if (count >= _maxArraySize)
+            {
+                ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, count + 1);
+            }
+
             _instance.Add(currentValue);
         }
     }

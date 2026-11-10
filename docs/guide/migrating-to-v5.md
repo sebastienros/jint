@@ -8097,6 +8097,61 @@ WebIDL's text has no close ([whatwg/webidl#895](https://github.com/whatwg/webidl
 [whatwg/webidl#1662](https://github.com/whatwg/webidl/pull/1662), which proposes one, as Safari already behaves. There
 is no switch back.
 
+### 4.221 Argument lists built from a spread or an array-like refuse more elements than `MaxArraySize` ([#4505](https://github.com/sebastienros/jint/issues/4505))
+
+`Options.Constraints.MaxArraySize` bounds every array a script can build from a count (§4.217). An argument list was
+not bounded. A spread, or an array-like handed to `apply`, could build a list of any length, and the rest parameter
+and the `arguments` object made from it were just as long. With `MaxArraySize = 10_000`:
+
+```js
+const a = Array.from({ length: 10000 }, (_, i) => i);
+function f(...r) { return r.length; }
+f(...a, ...a);                          // earlier previews: 20000
+                                        // 5.x:              MemoryLimitExceededException
+f.apply(null, { length: 50_000_000 });  // earlier previews: allocates a 50,000,000-element list, then calls
+                                        // 5.x:              MemoryLimitExceededException, before allocating
+```
+
+These lists are now held to the limit, and refused with the same exception and message as `Array(n)`:
+
+- **A spread in a call, `new` or `super`:** the whole list counts, including the arguments written beside the
+  spreads. An array's spread is refused before it is copied. An iterator's is refused at the element that would take
+  the list past the limit, and the iterator is closed there instead of being stepped to its end.
+- **An array literal with a spread**, `[...a, ...b]`, which builds its elements the same way.
+- **`Function.prototype.apply`, `Reflect.apply` and `Reflect.construct`:** the list made from an array-like is
+  refused when its `length` is read, before the list is allocated and before any element is read. A script `Proxy`
+  `ownKeys` trap's result is read the same way. A host `ProxyHandler`'s `OwnKeys` list is not counted: the host has
+  already built it.
+- **A bound function:** the list made from its bound arguments and the call's own, which a chain of `bind` calls
+  adds up.
+- **The web APIs that list what script stored:**
+  - `Headers.prototype.getSetCookie` and `URLSearchParams.prototype.getAll`;
+  - `caches.keys()`, and `keys()` / `matchAll()` on a `Cache`;
+  - `indexedDB.databases()`, and `getAll` / `getAllKeys` on an object store or an index;
+  - an array key, and an object store's or index's array `keyPath`;
+  - in the `Jint.Browser` package, a canvas context's `getLineDash()` and the lists in a `Sanitizer`'s `get()`.
+
+  An array key or a key path is as long as the array the writing engine was given. Several engines can share an
+  origin's store (the `Jint.Browser` package does), so the limit that applies is the reading engine's.
+
+The exception comes out of the call that builds the list. `indexedDB.databases()`, `getAll` and `getAllKeys` build
+theirs in a task, so for them it comes out of `Evaluate`, `Execute` or whatever else runs the event loop.
+
+A list written out in the source is not counted: `f(1, 2, 3)` and `[1, 2, 3]` are no longer than the script, and a
+call without a spread pays nothing for the bound. A host passing its own argument array (`engine.Invoke`,
+`JsValue.Call`) is not checked either, except where a bound function adds its bound arguments to it.
+
+**What could break:**
+
+- **A finite limit:** a host that set a finite `MaxArraySize`, or runs `Options.ForUntrustedCode` (whose limit is
+  10,000), and a script that spreads or applies more elements than that. The arguments beside a spread count, so
+  under a limit of 10,000, `console.log('values', ...a)` is refused for a 10,000-element `a`.
+- **A script `Proxy`'s `ownKeys` trap** returning an array-like longer than the limit now throws
+  `MemoryLimitExceededException`. Before, it threw a `TypeError` for an element that is not a key, or went on.
+
+A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged, and a list of exactly `MaxArraySize`
+elements is still allowed. There is no switch back.
+
 ### 4.224 `yield*` in an async generator awaits the delegate's `return` before `throw()` fails ([#4498](https://github.com/sebastienros/jint/issues/4498))
 
 An async generator suspended in `yield*` and resumed with `throw()` closes a delegate that has no `throw` method, and

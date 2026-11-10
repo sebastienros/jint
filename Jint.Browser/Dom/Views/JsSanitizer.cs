@@ -2,6 +2,7 @@ using Jint.Browser.Runtime;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Sanitization;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -271,6 +272,7 @@ internal static class SanitizerConversion
         if (config.DataAttributes is { } dataAttributes) Put(result, "dataAttributes", dataAttributes);
         if (config.Elements is { } elements)
         {
+            ArrayInstance.ValidateListLength(engine, (uint) elements.Count);
             var items = new JsValue[elements.Count];
             for (var i = 0; i < items.Length; i++)
             {
@@ -363,8 +365,10 @@ internal static class SanitizerConversion
         return item;
     }
 
+    // A configuration's lists grow with every allow and remove call a script makes (sebastienros/jint#4505).
     private static JsArray Names(Engine engine, List<SanitizerName> names)
     {
+        ArrayInstance.ValidateListLength(engine, (uint) names.Count);
         var items = new JsValue[names.Count];
         for (var i = 0; i < items.Length; i++)
         {
@@ -376,6 +380,7 @@ internal static class SanitizerConversion
 
     private static JsArray Targets(Engine engine, List<string> targets)
     {
+        ArrayInstance.ValidateListLength(engine, (uint) targets.Count);
         var items = new JsValue[targets.Count];
         for (var i = 0; i < items.Length; i++)
         {
