@@ -8330,7 +8330,7 @@ has a `navigate` member that Chromium does not read, and neither does Jint, so a
 action is stored: a non-persistent notification refuses a non-empty list, and `actions` reads back as an empty frozen
 array. There is no switch back.
 
-### 4.232 An execution constraint that trips inside an iterator's `return` ends the run while a throw is closing the iterator ([#PRNUMBER](https://github.com/sebastienros/jint/pull/PRNUMBER))
+### 4.232 An execution constraint that trips inside an iterator's `return` ends the run while a throw is closing the iterator ([#4547](https://github.com/sebastienros/jint/pull/4547))
 
 A loop, a destructuring pattern or a built-in that is left by a throw closes its iterator by calling `return`, and the
 spec has the throw win over anything `return` throws. Jint let it win over everything, including the exception of an

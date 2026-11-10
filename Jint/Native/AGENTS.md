@@ -88,6 +88,6 @@ discarding itself. What it still raises is an exception that ends the run — on
 names, every execution constraint among them. So a built-in leaving by a throw calls `Close(CompletionType.Throw)` and
 lets whatever comes out propagate. A `catch { }` around it, or `catch when (completion == CompletionType.Throw)` in a
 close written by hand, is how a time limit spent inside `return` stopped bounding anything
-([#PRNUMBER](https://github.com/sebastienros/jint/pull/PRNUMBER)). A hand-written close — `return` called directly, as
+([#4547](https://github.com/sebastienros/jint/pull/4547)). A hand-written close — `return` called directly, as
 the helpers' argument validation and `Array.fromAsync` do — adds `&& !Throw.MustPropagateHostException(e)` to its
 filter. Pinned in `Jint.Tests.PublicInterface/HostIteratorCloseConstraintTests.cs`.
