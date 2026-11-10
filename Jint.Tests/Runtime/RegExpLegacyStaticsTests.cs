@@ -51,8 +51,10 @@ public class RegExpLegacyStaticsTests
     [TestCase(Preamble + "/(z)/.exec('zz'); var s1 = all(); var r = 'abc'.match(/(q)/); var g = 'abc'.match(/(q)/g); JSON.stringify([all() === s1, r, g])", "[true,null,null]")]
     // a failed search leaves the previous values
     [TestCase(Preamble + "/(z)/.exec('zz'); var s1 = all(); var r = 'abc'.search(/(q)/); JSON.stringify([all() === s1, r])", "[true,-1]")]
-    // a failed sticky exec leaves the previous values
-    [TestCase(Preamble + "/(z)/.exec('zz'); var s1 = all(); var re = /(q)/y; re.lastIndex = 1; var r = re.exec('aqc'); JSON.stringify([all() === s1, r, re.lastIndex])", "[false,[\"q\",\"q\"],2]")]
+    // a failed sticky exec leaves the previous values: the sticky match is at lastIndex 0, where the subject has an 'a'
+    [TestCase(Preamble + "/(z)/.exec('zz'); var s1 = all(); var re = /(q)/y; re.lastIndex = 0; var r = re.exec('aqc'); JSON.stringify([all() === s1, r, re.lastIndex])", "[true,null,0]")]
+    // a sticky exec that does match at lastIndex sets them
+    [TestCase(Preamble + "/(z)/.exec('zz'); var s1 = all(); var re = /(q)/y; re.lastIndex = 1; var r = re.exec('aqc'); JSON.stringify([all() === s1, r, re.lastIndex, RegExp.$1, RegExp.leftContext, RegExp.rightContext])", "[false,[\"q\",\"q\"],2,\"q\",\"a\",\"c\"]")]
     // input assignment
     [TestCase(Preamble + "/(z)/.exec('zz'); RegExp.input = 'x'; all()", "[\"z\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"z\",\"z\",\"\",\"z\",\"x\"]")]
     // input assignment through $_
