@@ -693,6 +693,12 @@ internal sealed partial class RegExpPrototype : Prototype
         {
             constructor.SetLegacyParen(group - 1, spans[offset + 2 * group], spans[offset + 2 * group + 1]);
         }
+
+        if (groupCount > 10)
+        {
+            // lastParen is the last capture, which is not among the nine whose spans were just kept.
+            constructor.SetLegacyLastCapture(spans[offset + 2 * (groupCount - 1)], spans[offset + 2 * (groupCount - 1) + 1]);
+        }
     }
 
     private static string CallFunctionalReplace(JsValue replacer, JsCallArguments replacerArgs)
@@ -2186,6 +2192,13 @@ internal sealed partial class RegExpPrototype : Prototype
             var capture = groups[group];
             constructor.SetLegacyParen(group - 1, capture.Participated ? capture.Index : -1, capture.Length);
         }
+
+        if (groupCount > 10)
+        {
+            // lastParen is the last capture, which is not among the nine whose spans were just kept.
+            var last = groups[groupCount - 1];
+            constructor.SetLegacyLastCapture(last.Participated ? last.Index : -1, last.Length);
+        }
     }
 
     private static JsArray CreateReturnValueArray(
@@ -2294,6 +2307,13 @@ internal sealed partial class RegExpPrototype : Prototype
         {
             var capture = match.Groups[group];
             constructor.SetLegacyParen(group - 1, capture.Success ? capture.Index : -1, capture.Length);
+        }
+
+        if (actualGroupCount > 10)
+        {
+            // lastParen is the last capture, which is not among the nine whose spans were just kept.
+            var last = match.Groups[actualGroupCount - 1];
+            constructor.SetLegacyLastCapture(last.Success ? last.Index : -1, last.Length);
         }
     }
 

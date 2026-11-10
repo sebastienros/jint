@@ -24,9 +24,10 @@ public sealed partial class RegExpConstructor : Constructor
     // (https://github.com/tc39/proposal-regexp-legacy-features); ECMA-262's B.2.4 is the
     // Date.prototype additions.
     //
-    // A successful match records the subject, the position of the match and the (index, length) span of each of
-    // the first nine captures, which is all a read of any of these needs: every value is cut out of the subject
-    // when it is first read, and nothing is cut out for a match whose statics are never read. Strings are
+    // A successful match records the subject, the position of the match, the number of captures and the
+    // (index, length) span of each of the first nine and of the last, which is all a read of any of these needs:
+    // every value is cut out of the subject when it is first read, and nothing is cut out for a match whose
+    // statics are never read. Strings are
     // immutable, so a value cut out later is the one that would have been cut out then. The span array is this
     // constructor's own and the next match overwrites it whole (count and spans together), so no read can see two
     // matches mixed and nothing outlives the match that wrote it; the cut-out values are memoized per match so a
@@ -45,7 +46,11 @@ public sealed partial class RegExpConstructor : Constructor
     private readonly int[] _legacyParenSpans = new int[2 * LegacyParenCapacity];
     private readonly string?[] _legacyParens = new string?[LegacyParenCapacity];
     private string? _legacyLastParenValue;
-    private int _legacyParenCount;
+    // The captures of the last match, group 0 not counted: lastParen is the last of them, and - the first nine.
+    private int _legacyCaptureCount;
+    // The span of the last capture, kept only when there are more than nine (otherwise it is _legacyParenSpans' last).
+    private int _legacyLastCaptureIndex;
+    private int _legacyLastCaptureLength;
     // Bit i: _legacyParens[i] holds the memoized value of $(i + 1). LegacyLastParenBit: _legacyLastParenValue does.
     private int _legacyMaterialized;
 
@@ -56,7 +61,8 @@ public sealed partial class RegExpConstructor : Constructor
     /// <summary>
     /// Records a successful match of <paramref name="input"/> at <paramref name="matchIndex"/> in the statics.
     /// <paramref name="groupCount"/> counts group 0 as well; the spans of the captures follow through
-    /// <see cref="SetLegacyParen"/>, one call for each of the first nine, before anything reads.
+    /// <see cref="SetLegacyParen"/>, one call for each of the first nine, and through
+    /// <see cref="SetLegacyLastCapture"/> when there are more than nine, before anything reads.
     /// </summary>
     internal void SetLegacyMatch(string input, int matchIndex, int matchLength, int groupCount)
     {
@@ -64,7 +70,7 @@ public sealed partial class RegExpConstructor : Constructor
         _legacyContextInput = input;
         _legacyMatchIndex = matchIndex;
         _legacyMatchEnd = matchIndex + matchLength;
-        _legacyParenCount = System.Math.Min(System.Math.Max(groupCount - 1, 0), LegacyParenCapacity);
+        _legacyCaptureCount = System.Math.Max(groupCount - 1, 0);
         if (_legacyMaterialized != 0)
         {
             ForgetMaterializedParens();
@@ -84,12 +90,23 @@ public sealed partial class RegExpConstructor : Constructor
     }
 
     /// <summary>
+    /// Records the span of the last capture of a match with more than nine, which <c>lastParen</c> still reports;
+    /// an <paramref name="index"/> below zero says that group took no part in the match.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void SetLegacyLastCapture(int index, int length)
+    {
+        _legacyLastCaptureIndex = index;
+        _legacyLastCaptureLength = length;
+    }
+
+    /// <summary>
     /// <c>RegExp.$1</c>..<c>RegExp.$9</c> for <paramref name="slot"/> 0..8: the capture's text, or the empty string
     /// for a group that took no part in the last match and for one the last match did not have.
     /// </summary>
     private string GetLegacyParen(int slot)
     {
-        if ((uint) slot >= (uint) _legacyParenCount)
+        if ((uint) slot >= (uint) _legacyCaptureCount)
         {
             return "";
         }
@@ -103,23 +120,24 @@ public sealed partial class RegExpConstructor : Constructor
     }
 
     /// <summary>
-    /// <c>RegExp.lastParen</c>: the last of the first nine captures that took part in the last match.
+    /// <c>RegExp.lastParen</c>: the last capture of the last match, whether or not it took part (then it is the
+    /// empty string), and the empty string for a match with no captures. UpdateLegacyRegExpStaticProperties step 9
+    /// of https://github.com/tc39/proposal-regexp-legacy-features.
     /// </summary>
     private string GetLegacyLastParen()
     {
+        var count = _legacyCaptureCount;
+        if (count <= LegacyParenCapacity)
+        {
+            // The last capture is one of the nine whose spans were kept (and none at all for a count of zero).
+            return count == 0 ? "" : GetLegacyParen(count - 1);
+        }
+
         if ((_legacyMaterialized & LegacyLastParenBit) == 0)
         {
-            var lastParen = "";
-            for (var slot = _legacyParenCount - 1; slot >= 0; slot--)
-            {
-                if (_legacyParenSpans[2 * slot] >= 0)
-                {
-                    lastParen = GetLegacyParen(slot);
-                    break;
-                }
-            }
-
-            _legacyLastParenValue = lastParen;
+            _legacyLastParenValue = _legacyLastCaptureIndex < 0
+                ? ""
+                : _legacyContextInput.Substring(_legacyLastCaptureIndex, _legacyLastCaptureLength);
             _legacyMaterialized |= LegacyLastParenBit;
         }
 
@@ -152,7 +170,7 @@ public sealed partial class RegExpConstructor : Constructor
         _legacyContextInput = "";
         _legacyMatchIndex = 0;
         _legacyMatchEnd = 0;
-        _legacyParenCount = 0;
+        _legacyCaptureCount = 0;
         ForgetMaterializedParens();
     }
 
