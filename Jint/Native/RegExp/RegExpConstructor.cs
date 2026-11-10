@@ -186,8 +186,9 @@ public sealed partial class RegExpConstructor : Constructor
 
     /// <summary>
     /// Runs the search <see cref="SetLegacyPending"/> recorded and fills in the match, as the lane would have if it had
-    /// had the captures. The pending search is cleared first, and the match reads as empty until the search answers, so a
-    /// search that throws (a regex timeout) leaves the statics empty rather than pending for ever.
+    /// had the captures. The pending search is cleared first and the match is unreadable until the search answers, so a
+    /// search that throws (a regex timeout) leaves the statics throwing a <c>TypeError</c> - as after an invalidation, with
+    /// <c>input</c> still readable - rather than describing a match nobody found, or pending for ever.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ResolveLegacyMatch()
@@ -196,9 +197,7 @@ public sealed partial class RegExpConstructor : Constructor
         var matcher = _legacyPendingMatcher!;
         _legacyPendingRegExp = null;
         _legacyPendingMatcher = null;
-        _legacyMatchIndex = 0;
-        _legacyMatchEnd = 0;
-        _legacyCaptureCount = 0;
+        _legacyInvalid |= LegacyMatchInvalid;
 
         var groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[matcher.CaptureCount];
         if (!RegExpPrototype.ReplayLegacyMatch(regExp, matcher, _legacyContextInput, _legacyPendingStart, _legacyPendingFind, groups))
@@ -221,6 +220,8 @@ public sealed partial class RegExpConstructor : Constructor
             var last = groups[count];
             SetLegacyLastCapture(last.Participated ? last.Index : -1, last.Length);
         }
+
+        _legacyInvalid &= ~LegacyMatchInvalid;
     }
 
     private string GetLegacyLastMatch()
