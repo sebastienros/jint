@@ -218,6 +218,15 @@ public class HostReadOnlyDictionaryWriteTests
     [TestCaseSource(nameof(ShapesAndModes))]
     public void AWriteAfterAReadIsRefusedToo(string shape, bool strict)
     {
+#if NETFRAMEWORK
+        if (shape == "FrozenDictionary<int, string>")
+        {
+            // the read, not the write: the string lane reaches FrozenDictionary's `ref readonly TValue this[TKey]`,
+            // and .NET Framework's reflection cannot invoke a method that returns by reference
+            Assert.Ignore("reading an entry by its string spelling throws on .NET Framework, before and after #4518");
+        }
+#endif
+
         var (host, render, existingKey, _) = CreateShape(shape);
         var before = render();
         var key = StringSpelling(existingKey);
