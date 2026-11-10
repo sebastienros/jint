@@ -1,5 +1,6 @@
 #nullable enable
 
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Interpreter;
 
@@ -146,6 +147,50 @@ public class CapturedArgumentsTests
         // the current mapped value and then unmaps the index.
         engine.Evaluate("function f(a) { Object.defineProperty(arguments, '0', { value: 5 }); return a; } f(1)").Should().Be(5);
         engine.Evaluate("function f(a) { Object.defineProperty(arguments, '0', { writable: false }); a = 7; return arguments[0]; } f(1)").Should().Be(1);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-createmappedargumentsobject makes the parameter map with
+    /// OrdinaryObjectCreate(null), and [[GetOwnProperty]] reads it with Get. A map inheriting from
+    /// %Object.prototype% answered for every own property it does not hold (an argument past the formals, an
+    /// index it no longer maps, <c>length</c>, <c>callee</c>, a name the script defined), and a getter there ran
+    /// with the map as its receiver.
+    /// </summary>
+    [TestCase("Object.prototype[1] = undefined; function f(a) { Object.keys(arguments); return arguments[1]; } String(f(1, 2))", "2")]
+    [TestCase("Object.prototype[1] = 9; function f(a) { Object.keys(arguments); return arguments[1]; } f(1, 2)", 2)]
+    [TestCase("function f(a) { arguments.toString = 5; return arguments.toString; } f(1)", 5)]
+    [TestCase("Object.defineProperty(Object.prototype, 'x', { get() { return undefined; }, configurable: true }); function f(a) { Object.defineProperty(arguments, 'x', { value: 3, writable: true, enumerable: true, configurable: true }); return arguments.x; } f(1)", 3)]
+    [TestCase("Object.prototype[0] = undefined; function f(a) { Object.defineProperty(arguments, '0', { writable: false }); return String(arguments[0]); } f(1)", "1")]
+    [TestCase("Object.prototype[0] = undefined; function f(a) { delete arguments[0]; arguments[0] = 4; return String(arguments[0]); } f(1)", "4")]
+    [TestCase("var seen = 'none'; Object.defineProperty(Object.prototype, 'y', { get() { seen = this === Object.prototype ? 'proto' : typeof this; return 4; }, configurable: true }); function f(a) { Object.defineProperty(arguments, 'y', { value: 1, writable: true, enumerable: true, configurable: true }); return arguments.y + ',' + seen; } f(1)", "1,none")]
+    [TestCase("Object.prototype.length = undefined; function f(a) { Object.keys(arguments); return String(arguments.length); } f(1, 2)", "2")]
+    [TestCase("Object.prototype.callee = undefined; function f(a) { Object.keys(arguments); return typeof arguments.callee; } f(1)", "function")]
+    public void TheParameterMapInheritsNothing(string source, object expected)
+    {
+        var engine = new Engine();
+
+        engine.Evaluate(source).Should().Be(JsValue.FromObject(engine, expected));
+    }
+
+    /// <summary>
+    /// The other ways a script reaches the map's define, write and delete paths, each with node's answer: an
+    /// explicit undefined through every define entry point, sealing and freezing, an accessor and a generic
+    /// redefinition, and an array method writing through the object.
+    /// </summary>
+    [TestCase("function f(a) { Object.defineProperty(arguments, '0', { value: undefined, writable: false }); a = 3; return String(arguments[0]) + ',' + a; } f(1)", "undefined,3")]
+    [TestCase("function f(a) { Object.defineProperties(arguments, { 0: { value: undefined } }); return String(a); } f(1)", "undefined")]
+    [TestCase("function f(a) { Reflect.defineProperty(arguments, '0', { value: undefined }); return String(a); } f(1)", "undefined")]
+    [TestCase("function f(a) { Reflect.defineProperty(new Proxy(arguments, {}), '0', { value: undefined }); return String(a); } f(1)", "undefined")]
+    [TestCase("function f(a) { Object.seal(arguments); a = 5; return arguments[0]; } f(1)", 5)]
+    [TestCase("function f(a) { a = undefined; Object.freeze(arguments); a = 5; return String(arguments[0]); } f(1)", "undefined")]
+    [TestCase("function f(a) { Object.defineProperty(arguments, '0', { get() { return 'g'; }, configurable: true }); a = 5; return arguments[0] + ',' + a; } f(1)", "g,5")]
+    [TestCase("function f(a) { Object.defineProperty(arguments, '0', { enumerable: false }); a = 5; return arguments[0]; } f(1)", 5)]
+    [TestCase("function f(a, b) { Array.prototype.splice.call(arguments, 0, 1, undefined); return String(a) + ',' + b; } f(1, 2)", "undefined,2")]
+    public void EveryRouteIntoTheMapKeepsTheSpecsAnswer(string source, object expected)
+    {
+        var engine = new Engine();
+
+        engine.Evaluate(source).Should().Be(JsValue.FromObject(engine, expected));
     }
 
     /// <summary>

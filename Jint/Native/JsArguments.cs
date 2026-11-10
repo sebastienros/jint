@@ -61,8 +61,8 @@ public sealed class JsArguments : ObjectInstance
         _mapDetached = false;
 
         // Materialization can now be deferred past the owning call (even cross-realm queries),
-        // so pin the creating realm: %ThrowTypeError%, %Array.prototype.values% and the map's
-        // prototype are per-realm intrinsics.
+        // so pin the creating realm: %ThrowTypeError% and %Array.prototype.values% are per-realm
+        // intrinsics.
         _realm = _engine.Realm;
 
         ClearProperties();
@@ -113,11 +113,14 @@ public sealed class JsArguments : ObjectInstance
             if (args.Length > 0)
             {
                 // index properties always materialize; the live-binding parameter map is only
-                // built while the owning call is still running (post-return the mapping is
-                // detached and the snapshot values are authoritative)
+                // built while the mapping is live (once FunctionWasCalled detached it, the snapshot
+                // values are authoritative). https://tc39.es/ecma262/#sec-createmappedargumentsobject
+                // makes the map with OrdinaryObjectCreate(null): [[GetOwnProperty]] reads it with Get,
+                // and an inherited %Object.prototype% member would answer for an index, `length` or
+                // `callee` the map does not hold, a getter there seeing the map as its receiver.
                 if (!_mapDetached)
                 {
-                    map = _realm.Intrinsics.Object.Construct(Arguments.Empty);
+                    map = OrdinaryObjectCreate(_engine, proto: null);
                 }
 
                 for (uint i = 0; i < (uint) args.Length; i++)
@@ -252,7 +255,7 @@ public sealed class JsArguments : ObjectInstance
 
             // https://tc39.es/ecma262/#sec-arguments-exotic-objects-getownproperty-p: a mapped index takes its
             // value from the map, whatever the parameter holds. Skipping undefined left the value the property
-            // was created with showing through.
+            // was created with showing through. The map has no prototype, so this finds only what it maps.
             if (ParameterMap.TryGetValue(property, out var jsValue))
             {
                 desc.Value = jsValue;
