@@ -310,7 +310,7 @@ internal sealed partial class RegExpPrototype : Prototype
             }
 
             // The statics report the last match only: lastPos is where it ended.
-            RecordLegacyRange(customRei, _realm, customEngine, s, lastMatchIndex, lastPos - lastMatchIndex);
+            RecordLegacyRange(customRei, customEngine, s, lastMatchIndex, lastPos - lastMatchIndex);
 
             sb.Append(s.AsSpan(lastPos));
             return sb.ToString();
@@ -585,7 +585,7 @@ internal sealed partial class RegExpPrototype : Prototype
             return s;
         }
 
-        var legacyStatics = LegacyStaticsTarget(rei, _realm);
+        var legacyStatics = LegacyStaticsTarget(rei, ExecRealm(rei));
         if (legacyStatics is not null)
         {
             RecordLegacySpans(legacyStatics, matcher, s, spans, (matches - 1) * stride);
@@ -690,11 +690,11 @@ internal sealed partial class RegExpPrototype : Prototype
     /// <summary>
     /// The <c>%RegExp%</c> whose legacy static properties a successful match of <paramref name="r"/> updates, or
     /// <see langword="null"/> when it updates none. This is the hook the RegExp Legacy Features proposal adds to the end
-    /// of RegExpBuiltinExec (https://github.com/tc39/proposal-regexp-legacy-features): when the built-in running the
-    /// match is of the regexp's own realm, a regexp that <c>RegExp</c> itself allocated updates that realm's statics, and
-    /// one a subclass allocated invalidates them (every static but <c>input</c> then throws a <c>TypeError</c> until the
-    /// next update); a regexp of another realm touches neither. <paramref name="thisRealm"/> is the realm of the
-    /// built-in that runs the match, which is not the realm of the script that called it.
+    /// of RegExpBuiltinExec (https://github.com/tc39/proposal-regexp-legacy-features): when the current realm - that of
+    /// the <c>exec</c> function that runs RegExpBuiltinExec, see <see cref="ExecRealm"/> - is the regexp's own, a regexp
+    /// that <c>RegExp</c> itself allocated updates that realm's statics, and one a subclass allocated invalidates them
+    /// (every static but <c>input</c> then throws a <c>TypeError</c> until the next update); a regexp of another realm
+    /// touches neither. <paramref name="thisRealm"/> is that current realm.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static RegExpConstructor? LegacyStaticsTarget(JsRegExp r, Realm thisRealm)
@@ -707,6 +707,18 @@ internal sealed partial class RegExpPrototype : Prototype
         var constructor = thisRealm.Intrinsics.RegExp;
         return r.LegacyFeaturesEnabled ? constructor : InvalidateLegacyStatics(constructor);
     }
+
+    /// <summary>
+    /// The current realm of the RegExpBuiltinExec a lane stands in for: the realm of the <c>exec</c> function that
+    /// RegExpExec calls (https://tc39.es/ecma262/#sec-regexpexec step 5) when it is the built-in one, because calling a
+    /// function makes its realm the current one (https://tc39.es/ecma262/#sec-built-in-function-objects-call-thisargument-argumentslist). That
+    /// built-in is the one the regexp's own prototype carries, which is where <see cref="JsRegExp.HasDefaultRegExpExec"/>
+    /// looks; it is not the realm of the method that called RegExpExec, which can be another realm's
+    /// (<c>RegExp.prototype.test.call(otherRealmRegExp, s)</c> runs the other realm's <c>exec</c>).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Realm ExecRealm(JsRegExp r)
+        => r._prototype is RegExpPrototype prototype ? prototype._realm : r.Engine.Realm;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static RegExpConstructor? InvalidateLegacyStatics(RegExpConstructor constructor)
@@ -721,9 +733,9 @@ internal sealed partial class RegExpPrototype : Prototype
     /// with captures is recorded as the search that finds it, which the statics run if one of them is read.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void RecordLegacyRange(JsRegExp r, Realm thisRealm, JintRegExpEngine matcher, string s, int index, int length)
+    private static void RecordLegacyRange(JsRegExp r, JintRegExpEngine matcher, string s, int index, int length)
     {
-        var constructor = LegacyStaticsTarget(r, thisRealm);
+        var constructor = LegacyStaticsTarget(r, ExecRealm(r));
         if (constructor is null)
         {
             return;
@@ -744,9 +756,9 @@ internal sealed partial class RegExpPrototype : Prototype
     /// that finds it: the statics run that search from <paramref name="searchStart"/> if one of them is read.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void RecordLegacyPending(JsRegExp r, Realm thisRealm, JintRegExpEngine matcher, string s, int searchStart, bool find)
+    private static void RecordLegacyPending(JsRegExp r, JintRegExpEngine matcher, string s, int searchStart, bool find)
     {
-        LegacyStaticsTarget(r, thisRealm)?.SetLegacyPending(s, r, matcher, searchStart, find);
+        LegacyStaticsTarget(r, ExecRealm(r))?.SetLegacyPending(s, r, matcher, searchStart, find);
     }
 
     /// <summary>
@@ -1071,7 +1083,7 @@ internal sealed partial class RegExpPrototype : Prototype
 
                 // The splitter's last successful exec is the empty match at the position that pushed the last piece,
                 // which is lim, or the last position of the subject when there is room for every piece.
-                RecordLegacyRange(fused, _realm, fused.Matcher!, s, (int) System.Math.Min(lim, s.Length - 1), 0);
+                RecordLegacyRange(fused, fused.Matcher!, s, (int) System.Math.Min(lim, s.Length - 1), 0);
                 return StringPrototype.SplitWithStringSeparator(_engine, _realm, "", s, (uint) System.Math.Min(s.Length, lim));
             }
 
@@ -1281,7 +1293,7 @@ internal sealed partial class RegExpPrototype : Prototype
             if (foundIndex >= 0)
             {
                 // The captures of that exec are found again if a static is read; the splitter searched forward from q.
-                RecordLegacyPending(splitter, _realm, matcher, s, foundIndex, find: true);
+                RecordLegacyPending(splitter, matcher, s, foundIndex, find: true);
             }
         }
     }
@@ -1358,7 +1370,7 @@ internal sealed partial class RegExpPrototype : Prototype
             builder.Dispose();
             if (foundIndex >= 0)
             {
-                RecordLegacyRange(splitter, _realm, matcher, s, foundIndex, foundLength);
+                RecordLegacyRange(splitter, matcher, s, foundIndex, foundLength);
             }
         }
     }
@@ -1502,7 +1514,7 @@ internal sealed partial class RegExpPrototype : Prototype
 
                     // The matcher was asked only whether there is a match, so that is all that is recorded: the statics
                     // search again from the start if one is read.
-                    RecordLegacyPending(R, _realm, customEngine, s, 0, find: false);
+                    RecordLegacyPending(R, customEngine, s, 0, find: false);
                     return JsBoolean.True;
                 }
 
@@ -1519,7 +1531,7 @@ internal sealed partial class RegExpPrototype : Prototype
                     return JsBoolean.False;
                 }
                 R.Set(JsRegExp.PropertyLastIndex, matchIndex + matchLength, throwOnError: true);
-                RecordLegacyRange(R, _realm, customEngine, s, matchIndex, matchLength);
+                RecordLegacyRange(R, customEngine, s, matchIndex, matchLength);
                 return JsBoolean.True;
             }
 
@@ -1605,7 +1617,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 found = TryMatchRangeWithTimeout(customR, matcher, s, 0, out searchIndex, out var searchLength);
                 if (found)
                 {
-                    RecordLegacyRange(customR, _realm, matcher, s, searchIndex, searchLength);
+                    RecordLegacyRange(customR, matcher, s, searchIndex, searchLength);
                 }
             }
             else
@@ -1615,7 +1627,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 searchIndex = groups[0].Index;
                 if (found)
                 {
-                    RecordLegacyCaptures(customR, _realm, s, groups);
+                    RecordLegacyCaptures(customR, ExecRealm(customR), s, groups);
                 }
             }
 
@@ -1707,7 +1719,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 }
 
                 // The statics report the last match only.
-                RecordLegacyRange(rei, _realm, customEngine, s, lastMatchIndex, lastMatchLength);
+                RecordLegacyRange(rei, customEngine, s, lastMatchIndex, lastMatchLength);
                 return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
             }
             finally
@@ -1866,14 +1878,17 @@ internal sealed partial class RegExpPrototype : Prototype
     internal static JsValue RegExpExec(ObjectInstance r, string s) => RegExpExec(r, s, r.Engine.Realm);
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-regexpexec, run by a built-in of <paramref name="thisRealm"/> - the current realm
-    /// the legacy RegExp static properties are judged against - which is not the realm of the script that called it.
+    /// https://tc39.es/ecma262/#sec-regexpexec, run by a built-in of <paramref name="thisRealm"/>. That is the current
+    /// realm only for an <c>exec</c> that is not callable, where RegExpBuiltinExec runs in the caller's realm; a callable
+    /// <c>exec</c> runs in its own, which for the built-in one is <see cref="ExecRealm"/> and for any other is its
+    /// function's.
     /// </summary>
     internal static JsValue RegExpExec(ObjectInstance r, string s, Realm thisRealm)
     {
         var ri = r as JsRegExp;
+        var defaultExec = ri is not null && ri.HasDefaultRegExpExec;
 
-        if ((ri is null || !ri.HasDefaultRegExpExec) && r.Get(PropertyExec) is ICallable callable)
+        if (!defaultExec && r.Get(PropertyExec) is ICallable callable)
         {
             var result = callable.Call(r, s);
             if (!result.IsNull() && !result.IsObject())
@@ -1889,7 +1904,8 @@ internal sealed partial class RegExpPrototype : Prototype
             Throw.TypeError(r.Engine.Realm, "Method RegExp.prototype.exec called on incompatible receiver");
         }
 
-        return RegExpBuiltinExec(ri, s, thisRealm);
+        // The built-in exec is called, as RegExpExec step 5 has it, so its realm is the current one.
+        return RegExpBuiltinExec(ri, s, defaultExec ? ExecRealm(ri) : thisRealm);
     }
 
     /// <summary>
@@ -1926,7 +1942,7 @@ internal sealed partial class RegExpPrototype : Prototype
     internal static JsValue RegExpBuiltinExec(JsRegExp R, string s) => RegExpBuiltinExec(R, s, R.Engine.Realm);
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-regexpbuiltinexec, run by a built-in of <paramref name="thisRealm"/>.
+    /// https://tc39.es/ecma262/#sec-regexpbuiltinexec, with <paramref name="thisRealm"/> as the current realm.
     /// </summary>
     internal static JsValue RegExpBuiltinExec(JsRegExp R, string s, Realm thisRealm)
     {
@@ -2330,7 +2346,7 @@ internal sealed partial class RegExpPrototype : Prototype
 
     /// <summary>
     /// The legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B) after a successful match of
-    /// <paramref name="r"/> by a built-in of <paramref name="thisRealm"/>: <paramref name="groups"/>[0] is the match,
+    /// <paramref name="r"/> with <paramref name="thisRealm"/> as the current realm: <paramref name="groups"/>[0] is the match,
     /// the rest its captures.
     /// </summary>
     private static void RecordLegacyCaptures(JsRegExp r, Realm thisRealm, string s, RegexCapture[] groups)

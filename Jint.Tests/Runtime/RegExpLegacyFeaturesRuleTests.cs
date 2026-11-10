@@ -7,8 +7,9 @@ namespace Jint.Tests.Runtime;
 /// (https://github.com/tc39/proposal-regexp-legacy-features) decides at the end of RegExpBuiltinExec
 /// (https://tc39.es/ecma262/#sec-regexpbuiltinexec): a regexp remembers the realm of the constructor that allocated it
 /// (<c>[[Realm]]</c>) and whether that constructor was <c>%RegExp%</c> itself (<c>[[LegacyFeaturesEnabled]]</c>); when the
-/// built-in running the match is of the regexp's realm it updates that realm's statics for such a regexp and
-/// <em>invalidates</em> them for an instance a subclass allocated, and when the realms differ it leaves them alone.
+/// current realm - that of the <c>exec</c> function RegExpExec calls, not of the method that asked for the match - is the
+/// regexp's own it updates that realm's statics for such a regexp and <em>invalidates</em> them for an instance a
+/// subclass allocated, and when the realms differ it leaves them alone.
 /// Invalidating empties every slot, and reading an empty slot throws a <c>TypeError</c> until the next successful match
 /// sets them (assigning to <c>input</c> makes that one readable again by itself).
 /// <para>
@@ -129,8 +130,30 @@ public class RegExpLegacyFeaturesRuleTests
             .Should().Be("""["a","a","xa"]""");
     }
 
-    // A regexp of another realm touches nothing when a built-in of this one matches it: neither realm's statics move.
-    [TestCase("RegExp.prototype.exec.call(re, 'xa')")]
+    // Which realm's statics a match moves is decided by the realm of the exec function that runs RegExpBuiltinExec,
+    // because calling a function makes its realm the current one (https://tc39.es/ecma262/#sec-built-in-function-objects-call-thisargument-argumentslist),
+    // and RegExpExec (https://tc39.es/ecma262/#sec-regexpexec step 5) calls the exec it finds on the regexp - the one on
+    // its own prototype chain, whichever realm's method asked. The statics move only when that is the realm the regexp
+    // was allocated in.
+    private const string TwoRealms = """
+        var other = $262.createRealm().global;
+        var re = new other.RegExp('(a)');
+        var reGlobal = new other.RegExp('(a)', 'g');
+        var mine = /(a)/;
+        var mineGlobal = /(a)/g;
+        /(z)/.exec('xz');
+        """;
+
+    private const string Statics = "JSON.stringify([RegExp.$1, other.RegExp.$1, RegExp.input, other.RegExp.input])";
+
+    private const string Untouched = """["z","","xz",""]""";
+    private const string OtherRealmMoved = """["z","a","xz","xa"]""";
+    private const string ThisRealmMoved = """["a","","xa",""]""";
+
+    private static string RunTwoRealms(string match) => RunWithRealm(TwoRealms + match + ";" + Statics);
+
+    // The regexp is another realm's, and so is the exec it carries: that realm's statics move, this one's do not,
+    // whichever realm's method asked for the match.
     [TestCase("RegExp.prototype.test.call(re, 'xa')")]
     [TestCase("RegExp.prototype[Symbol.match].call(re, 'xa')")]
     [TestCase("RegExp.prototype[Symbol.match].call(reGlobal, 'xa')")]
@@ -138,21 +161,6 @@ public class RegExpLegacyFeaturesRuleTests
     [TestCase("RegExp.prototype[Symbol.replace].call(re, 'xa', 'z')")]
     [TestCase("RegExp.prototype[Symbol.replace].call(reGlobal, 'xa', 'z')")]
     [TestCase("RegExp.prototype[Symbol.replace].call(reGlobal, 'xa', () => 'z')")]
-    [TestCase("RegExp.prototype[Symbol.split].call(re, 'x-a')")]
-    public void ARegExpOfAnotherRealmIsLeftAloneByThisRealmsBuiltIns(string match)
-    {
-        RunWithRealm("""
-            var other = $262.createRealm().global;
-            var re = new other.RegExp('(a)');
-            var reGlobal = new other.RegExp('(a)', 'g');
-            /(z)/.exec('xz');
-            """ + match + """
-            ;
-            JSON.stringify([RegExp.$1, other.RegExp.$1, RegExp.input, other.RegExp.input])
-            """).Should().Be("""["z","","xz",""]""");
-    }
-
-    // ... and a built-in of the regexp's own realm matches it as any other: that realm's statics move, this one's do not.
     [TestCase("other.RegExp.prototype.exec.call(re, 'xa')")]
     [TestCase("other.RegExp.prototype.test.call(re, 'xa')")]
     [TestCase("other.RegExp.prototype[Symbol.match].call(re, 'xa')")]
@@ -164,33 +172,67 @@ public class RegExpLegacyFeaturesRuleTests
     [TestCase("other.eval('/(a)/').exec('xa')")]
     [TestCase("other.eval(\"/(a)/.exec('xa')\")")]
     [TestCase("other.eval(\"'xa'.replace(/(a)/g, 'z')\")")]
-    public void ABuiltInOfTheRegExpsOwnRealmUpdatesThatRealmsStatics(string match)
+    public void AMatchWhoseExecBelongsToTheRegExpsRealmMovesThatRealmsStatics(string match)
     {
-        RunWithRealm("""
-            var other = $262.createRealm().global;
-            var re = new other.RegExp('(a)');
-            var reGlobal = new other.RegExp('(a)', 'g');
-            /(z)/.exec('xz');
-            """ + match + """
-            ;
-            JSON.stringify([RegExp.$1, other.RegExp.$1, RegExp.input, other.RegExp.input])
-            """).Should().Be("""["z","a","xz","xa"]""");
+        RunTwoRealms(match).Should().Be(OtherRealmMoved);
     }
 
-    // A regexp of this realm matched by another realm's built-in: the realms differ, so nothing moves in either.
-    [TestCase("other.RegExp.prototype.exec.call(mine, 'xa')")]
-    [TestCase("other.RegExp.prototype.test.call(mine, 'xa')")]
-    [TestCase("other.RegExp.prototype[Symbol.replace].call(mine, 'xa', 'z')")]
-    public void AnotherRealmsBuiltInLeavesARegExpOfThisRealmAlone(string match)
+    // split builds its splitter with the regexp's species constructor, so the splitter is the other realm's too.
+    [TestCase("RegExp.prototype[Symbol.split].call(re, 'x-a')")]
+    [TestCase("other.RegExp.prototype[Symbol.split].call(re, 'x-a')")]
+    public void ASplitOfAnotherRealmsRegExpMovesThatRealmsStatics(string match)
     {
-        RunWithRealm("""
-            var other = $262.createRealm().global;
-            var mine = /(a)/;
-            /(z)/.exec('xz');
-            """ + match + """
-            ;
-            JSON.stringify([RegExp.$1, other.RegExp.$1, RegExp.input, other.RegExp.input])
-            """).Should().Be("""["z","","xz",""]""");
+        RunTwoRealms(match).Should().Be("""["z","a","xz","x-a"]""");
+    }
+
+    // The regexp is this realm's and its exec is this realm's, though another realm's method asked: this realm's move.
+    [TestCase("other.RegExp.prototype.test.call(mine, 'xa')")]
+    [TestCase("other.RegExp.prototype[Symbol.match].call(mine, 'xa')")]
+    [TestCase("other.RegExp.prototype[Symbol.match].call(mineGlobal, 'xa')")]
+    [TestCase("other.RegExp.prototype[Symbol.search].call(mine, 'xa')")]
+    [TestCase("other.RegExp.prototype[Symbol.replace].call(mine, 'xa', 'z')")]
+    [TestCase("other.RegExp.prototype[Symbol.replace].call(mineGlobal, 'xa', 'z')")]
+    [TestCase("other.RegExp.prototype[Symbol.replace].call(mineGlobal, 'xa', () => 'z')")]
+    public void AnotherRealmsMethodOnARegExpOfThisRealmMovesThisRealmsStatics(string match)
+    {
+        RunTwoRealms(match).Should().Be(ThisRealmMoved);
+    }
+
+    [Test]
+    public void ASplitByAnotherRealmsMethodOfARegExpOfThisRealmMovesThisRealmsStatics()
+    {
+        RunTwoRealms("other.RegExp.prototype[Symbol.split].call(mine, 'x-a')").Should().Be("""["a","","x-a",""]""");
+    }
+
+    // exec itself is the function that runs, so its realm is the current one: a regexp of the other realm is left
+    // alone, and so is a regexp of this realm run by the other realm's exec. Nothing moves.
+    [TestCase("RegExp.prototype.exec.call(re, 'xa')")]
+    [TestCase("other.RegExp.prototype.exec.call(mine, 'xa')")]
+    public void AnExecOfAnotherRealmThanTheRegExpsLeavesBothRealmsStaticsAlone(string match)
+    {
+        RunTwoRealms(match).Should().Be(Untouched);
+    }
+
+    // The exec RegExpExec calls is found through the regexp's prototype, not through where the regexp was allocated: a
+    // regexp given another realm's RegExp.prototype runs that realm's exec, which is not its own realm's.
+    [TestCase("Object.setPrototypeOf(mine, other.RegExp.prototype); mine.test('xa')")]
+    [TestCase("Object.setPrototypeOf(mine, other.RegExp.prototype); RegExp.prototype.test.call(mine, 'xa')")]
+    [TestCase("Object.setPrototypeOf(mineGlobal, other.RegExp.prototype); 'xa'.replace(mineGlobal, 'z')")]
+    [TestCase("Object.setPrototypeOf(mine, other.RegExp.prototype); 'xa'.match(mine)")]
+    [TestCase("Object.setPrototypeOf(re, RegExp.prototype); re.test('xa')")]
+    [TestCase("Object.setPrototypeOf(reGlobal, RegExp.prototype); other.RegExp.prototype[Symbol.replace].call(reGlobal, 'xa', 'z')")]
+    public void ARegExpWhoseExecIsOfAnotherRealmThanItsOwnMovesNothing(string match)
+    {
+        RunTwoRealms(match).Should().Be(Untouched);
+    }
+
+    // ... while a prototype of the same realm that is not RegExp.prototype itself changes nothing.
+    [TestCase("Object.setPrototypeOf(mine, Object.create(RegExp.prototype)); mine.test('xa')")]
+    [TestCase("Object.setPrototypeOf(mine, Object.create(RegExp.prototype)); 'xa'.match(mine)")]
+    [TestCase("Object.setPrototypeOf(mineGlobal, Object.create(RegExp.prototype)); 'xa'.replace(mineGlobal, 'z')")]
+    public void ARegExpWhoseExecIsOfItsOwnRealmMovesThatRealmsStaticsWhateverItsPrototype(string match)
+    {
+        RunTwoRealms(match).Should().Be(ThisRealmMoved);
     }
 
     // Each realm's statics are its own.
