@@ -7966,7 +7966,9 @@ delete list[Symbol.iterator]
 ```
 
 Now only the collection's contents are refused in those cases: an element, and an entry of a dictionary-shaped
-collection such as Newtonsoft's `JObject`. Deleting one still returns `false` (a `TypeError` in strict mode), and
+collection, such as a host type that is both a dictionary and a list of its values. (Newtonsoft's `JObject` is not
+one: it is wrapped as a dictionary, see [§4.222](#4-222-an-index-on-a-wrapped-jobject-is-one-more-of-its-keys-4501).)
+Deleting one still returns `false` (a `TypeError` in strict mode), and
 the collection does not change. Every other property follows the ordinary `delete` rules: removed if it is
 configurable, refused if it is not. Extensibility does not matter, so `Object.preventExtensions` no longer stops
 a configurable property from being deleted. Nor does `Object.freeze`, which does not reach a property the script
@@ -8151,6 +8153,47 @@ call without a spread pays nothing for the bound. A host passing its own argumen
 
 A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged, and a list of exactly `MaxArraySize`
 elements is still allowed. There is no switch back.
+
+### 4.222 An index on a wrapped `JObject` is one more of its keys ([#4501](https://github.com/sebastienros/jint/issues/4501))
+
+Newtonsoft's `JObject` is a string-keyed dictionary and also an `IList<JToken>`, and its list holds `JProperty`
+nodes, not values. Jint wrapped it as a view of that list, so a number key read the list while every key
+enumeration listed the dictionary's keys. Writes and deletes reached the list too, and the `JObject` threw:
+
+```js
+// host: engine.SetValue("jobj", JObject.Parse("{ \"a\": 1 }"));
+jobj[0]                                   // earlier previews: the "a": 1 JProperty      5.x: undefined
+0 in jobj                                 // earlier previews: true                      5.x: false
+Object.getOwnPropertyDescriptor(jobj, 0)  // earlier previews: a getter returning it     5.x: undefined
+delete jobj[0]                            // AllowWrite: ArgumentException out of Evaluate   5.x: true
+jobj[0] = 5                               // AllowWrite: ArgumentException out of Evaluate   5.x: adds the key "0"
+Array.prototype.slice.call(jobj)          // InvalidOperationException out of Evaluate       5.x: []
+```
+
+A string such as `jobj["0"]` that the object did not hold reached the list the same way. Now `0` and `"0"` are one
+key, read, tested, written and deleted through the dictionary like any other, so `jobj[0]` reads a `"0"` key when
+the object has one. `OrderedDictionary<string, TValue>` (.NET 9 and later) has the same shape, and so does
+System.Text.Json's `JsonObject` from System.Text.Json 9 on: the version .NET 9 and later ship, and the package on any
+target framework, .NET Framework and .NET 8 included. Their lists hold `KeyValuePair` entries, and they change the
+same way. So a `JsonObject` now behaves as it did with System.Text.Json 8 and earlier, which is what a .NET 8
+application that references no newer package still runs. Such an object is wrapped the way a
+`Dictionary<string, TValue>` is, which changes three more things:
+
+- its prototype is `Object.prototype` rather than `Array.prototype`, so `jobj.length` is `undefined` unless the
+  object has a `length` key, and `jobj.forEach` and the other array methods are gone. They used to run over the
+  `JProperty` nodes; use `Object.entries(jobj)`, `for…in` or `for…of` (which yields `[key, value]` pairs) instead;
+- under `AllowWrite`, `jobj.length = 0` writes the key `length`. It used to remove every property;
+- under `AllowWrite`, `Object.preventExtensions(jobj)` no longer stops `delete jobj.a`, as it does not for a plain
+  dictionary. `Object.freeze` and `Object.seal` still do, and with `AllowWrite` off every key is still refused.
+  This is the one place [§4.216](#4-216-a-wrapped-clr-collection-deletes-a-configurable-property-the-script-defined-on-it-4457)
+  no longer describes a `JObject`.
+
+**What could break:** script that read a `JObject`'s `JProperty` nodes by position or through `Array.prototype`
+methods, script that relied on its `Array.prototype`, and a host `catch` written for the CLR exceptions above.
+A `JArray` is unchanged. So is a host type that is a dictionary and a list of its own values and declares an
+integer indexer itself; one whose list is reachable only through the interface, as `JObject`'s is, now behaves like
+`JObject`. There is no switch back. A host that needs the entries by position can hand script
+`jobj.Properties().ToList()`.
 
 ### 4.224 `yield*` in an async generator awaits the delegate's `return` before `throw()` fails ([#4498](https://github.com/sebastienros/jint/issues/4498))
 
