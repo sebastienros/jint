@@ -39,6 +39,8 @@ public class YieldStarAbruptDelegationTests
             noThrow: [function () { return { next: yieldsX }; }, 'throw'],
             noThrowReturnThrows: [function () { return { next: yieldsX, return() { throw 'RT'; } }; }, 'throw'],
             noThrowReturnReadThrows: [function () { return { next: yieldsX, get return() { throw 'RTG'; } }; }, 'throw'],
+            noThrowReturnRejects: [function () { return { next: yieldsX, return() { const p = Promise.reject('RR'); p.catch(function () {}); return p; } }; }, 'throw'],
+            noThrowReturnObject: [function () { return { next: yieldsX, return() { return {}; } }; }, 'throw'],
             returnThrows: [function () { return { next: yieldsX, return() { throw 'R'; } }; }, 'return'],
             returnNonObject: [function () { return { next: yieldsX, return() { return 1; } }; }, 'return'],
             returnReadThrows: [function () { return { next: yieldsX, get return() { throw 'RG'; } }; }, 'return'],
@@ -115,7 +117,9 @@ public class YieldStarAbruptDelegationTests
     /// in an async generator, every way that fails once an answer has settled (a non-object, a throwing getter), a
     /// forwarded <c>return()</c>, and every <c>asyncOverSync</c> row. The async <c>noThrowReturnThrows</c> row failed
     /// for a reason of its own: AsyncIteratorClose (https://tc39.es/ecma262/#sec-asynciteratorclose, step 6) swallowed
-    /// what the <c>return</c> threw, and the <c>yield*</c> threw its <c>TypeError</c> instead.
+    /// what the <c>return</c> threw, and the <c>yield*</c> threw its <c>TypeError</c> instead. That close awaits what the
+    /// <c>return</c> answered (step 4.d, sebastienros/jint#4498), so the async <c>noThrowReturnRejects</c> row catches the
+    /// rejection, and both <c>noThrowReturn*</c> rows end the delegation through the resumption after the await.
     /// </summary>
     [TestCase("sync", "nextThrows", "caught:N:false 1:false 2:false end:true")]
     [TestCase("async", "nextThrows", "caught:N:false 1:false 2:false end:true")]
@@ -146,6 +150,11 @@ public class YieldStarAbruptDelegationTests
     [TestCase("asyncOverSync", "noThrowReturnThrows", "x:false caught:RT:false 1:false 2:false end:true")]
     [TestCase("sync", "noThrowReturnReadThrows", "x:false caught:RTG:false 1:false 2:false end:true")]
     [TestCase("async", "noThrowReturnReadThrows", "x:false caught:RTG:false 1:false 2:false end:true")]
+    [TestCase("sync", "noThrowReturnRejects", "x:false caught:TypeError:false 1:false 2:false end:true")]
+    [TestCase("async", "noThrowReturnRejects", "x:false caught:RR:false 1:false 2:false end:true")]
+    [TestCase("asyncOverSync", "noThrowReturnRejects", "x:false caught:TypeError:false 1:false 2:false end:true")]
+    [TestCase("sync", "noThrowReturnObject", "x:false caught:TypeError:false 1:false 2:false end:true")]
+    [TestCase("async", "noThrowReturnObject", "x:false caught:TypeError:false 1:false 2:false end:true")]
     [TestCase("sync", "returnThrows", "x:false caught:R:false 1:false 2:false end:true")]
     [TestCase("async", "returnThrows", "x:false caught:R:false 1:false 2:false end:true")]
     [TestCase("asyncOverSync", "returnThrows", "x:false caught:R:false 1:false 2:false end:true")]
@@ -173,6 +182,8 @@ public class YieldStarAbruptDelegationTests
     [TestCase("async", "throwThrows")]
     [TestCase("sync", "noThrowReturnThrows")]
     [TestCase("async", "noThrowReturnReadThrows")]
+    [TestCase("async", "noThrowReturnRejects")]
+    [TestCase("async", "noThrowReturnObject")]
     [TestCase("sync", "returnThrows")]
     [TestCase("async", "returnReadThrows")]
     public void ADelegationEndedByACaughtThrowLeavesNothingParkedOnTheGenerator(string kind, string way)

@@ -1132,8 +1132,9 @@ internal static class BrowserEventInterfaces
     }
 
     /// <summary>
-    /// A <c>sequence&lt;FontFace&gt; fontfaces = []</c> member — the iterable protocol, with anything that is
-    /// not a <c>FontFace</c> a <c>TypeError</c> after the iterator is closed.
+    /// A <c>sequence&lt;FontFace&gt; fontfaces = []</c> member — https://webidl.spec.whatwg.org/#es-sequence, the
+    /// iterable protocol, with a value that is not an Object, a string included, a <c>TypeError</c>, and anything
+    /// that is not a <c>FontFace</c> a <c>TypeError</c> that closes the iterator (sebastienros/jint#4431).
     /// </summary>
     private static JsValue[] FontFaceSequence(BrowserEventRealm realm, ObjectInstance? init)
     {
@@ -1144,18 +1145,25 @@ internal static class BrowserEventInterfaces
         }
 
         var principal = realm.OwningRealm;
-        var iterator = value.GetIterator(principal);
+        var iterator = Dom.DomConvert.SequenceIterator(principal, value, "Failed to construct 'FontFaceSetLoadEvent'", "fontfaces", "FontFaceSetLoadEventInit");
         var faces = new List<JsValue>();
-        while (iterator.TryIteratorStepValue(out var item))
+        try
         {
-            if (item is not Fonts.JsFontFace)
+            while (iterator.TryIteratorStepValue(out var item))
             {
-                iterator.Close(CompletionType.Throw);
-                Throw.TypeError(principal, "Failed to construct 'FontFaceSetLoadEvent': member fontfaces is not of type 'FontFace'.");
-                return [];
-            }
+                if (item is not Fonts.JsFontFace)
+                {
+                    Throw.TypeError(principal, "Failed to construct 'FontFaceSetLoadEvent': member fontfaces is not of type 'FontFace'.");
+                    return [];
+                }
 
-            faces.Add(item);
+                faces.Add(item);
+            }
+        }
+        catch
+        {
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return [.. faces];

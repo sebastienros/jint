@@ -262,7 +262,8 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         // Dispose resources when generator body completes (not when yielding)
         if (_generatorState != GeneratorState.SuspendedYield)
         {
-            result = genContext.LexicalEnvironment.DisposeResources(result);
+            // The generator's context has been left, so the running realm is its caller's: name the generator's.
+            result = genContext.LexicalEnvironment.DisposeResources(result, genContext.Realm);
         }
 
         ObjectInstance? resultValue = null;

@@ -144,15 +144,14 @@ public class AsyncIteratorFlattenableTests
 
     /// <summary>
     /// <c>return()</c> while an inner iterator is open whose <c>return</c> fails still closes the outer iterator, once,
-    /// whether the inner iterator is sync or async. A sync inner iterator's throw used to skip that close and leave the
-    /// outer iterator open.
+    /// whether the inner iterator is sync or async, and then rejects with the inner iterator's error. A sync inner
+    /// iterator's throw used to skip that close and leave the outer iterator open.
     /// <para>
-    /// Only the close is pinned, because it is the one part every reading agrees on. Whether the helper's
-    /// <c>return()</c> then resolves or rejects is not. Jint resolves only because it closes the inner iterator with a
-    /// synchronous IteratorClose and never awaits the promise its <c>return</c> answers (sebastienros/jint#4500).
-    /// core-js awaits it and rejects. The proposal is moving the same way. Its July 2026 plenary decided the inner
-    /// iterator is closed first, and the champion leans towards awaiting each close in turn
-    /// (tc39/proposal-async-iterator-helpers#30). The champion also says the current spec text is stale (#19, #31).
+    /// The rejection follows tc39/proposal-async-iterator-helpers#30: its July 2026 plenary decided the inner iterator is
+    /// closed first, and the champion leans towards awaiting each close in turn, as a nested <c>for await</c> does (the
+    /// current spec text is stale, #19, #31). core-js 3.51 does the same. Jint resolved until sebastienros/jint#4500,
+    /// because it closed the inner iterator with a synchronous IteratorClose and never awaited what its <c>return</c>
+    /// answered. <c>AsyncIteratorHelperCloseTests</c> pins the rest of that close.
     /// </para>
     /// </summary>
     [TestCase("sync")]
@@ -172,11 +171,11 @@ public class AsyncIteratorFlattenableTests
                     : { [Symbol.asyncIterator]() { let j = 0; return { next() { j++; return Promise.resolve({ value: j, done: j > 2 }); }, return() { return Promise.reject(new RangeError('inner')); } }; } };
                 const helper = AsyncIterator.prototype.flatMap.call(outer, () => inner);
                 await helper.next();
-                // Settled either way: whether it resolves or rejects is sebastienros/jint#4500's to decide.
-                try { await helper.return(); } catch { }
-                return 'outer=' + counts.outer;
+                let settled;
+                try { settled = 'resolved:' + JSON.stringify(await helper.return()); } catch (e) { settled = 'rejected:' + e.name + ':' + e.message; }
+                return settled + ':outer=' + counts.outer;
             })()
-            """).Should().Be("outer=1");
+            """).Should().Be("rejected:RangeError:inner:outer=1");
     }
 
     /// <summary>

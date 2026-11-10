@@ -191,7 +191,12 @@ internal sealed class JsIntersectionObserver : ObjectInstance
 
         var margin = options?.Get("rootMargin") is { } m && !m.IsUndefined() ? TypeConverter.ToString(m) : "0px";
 
-        return (root, SerializeMargin(engine, margin), ReadThresholds(realm, options?.Get("threshold")));
+        // The whole dictionary is converted before the constructor's steps run, so threshold is iterated, and a
+        // non-finite one refused, before step 3 parses rootMargin and step 6 checks the range.
+        var thresholds = ConvertThreshold(realm, options?.Get("threshold"));
+        var rootMargin = SerializeMargin(engine, margin);
+
+        return (root, rootMargin, CheckThresholds(realm, thresholds));
     }
 
     /// <summary>
@@ -262,42 +267,90 @@ internal sealed class JsIntersectionObserver : ObjectInstance
         Throw.JavaScriptException(engine, error, engine.GetLastSyntaxElement()?.Location ?? default);
     }
 
-    private static double[] ReadThresholds(Realm realm, JsValue? value)
+    /// <summary>
+    /// <c>threshold</c>, a <c>(double or sequence&lt;double&gt;)</c> defaulting to 0, converted as WebIDL converts a
+    /// union (https://webidl.spec.whatwg.org/#es-union): an object whose <c>@@iterator</c> one
+    /// <a href="https://tc39.es/ecma262/#sec-getmethod">GetMethod</a> finds takes the sequence arm, created from that
+    /// method (https://webidl.spec.whatwg.org/#create-sequence-from-iterable), and everything else takes the
+    /// <c>double</c> arm, so <c>{ valueOf() { return 0.5; } }</c> is 0.5 and an array-like object is NaN. Nothing is
+    /// read through <c>length</c>.
+    /// </summary>
+    private static List<double> ConvertThreshold(Realm realm, JsValue? value)
     {
-        if (value is null || value.IsUndefined())
-        {
-            return [0];
-        }
-
         var thresholds = new List<double>();
 
-        if (value is ObjectInstance sequence && !value.IsNumber())
+        if (value is null || value.IsUndefined())
         {
-            var length = (int) TypeConverter.ToUint32(sequence.Get("length"));
-            for (var i = 0; i < length; i++)
+            thresholds.Add(0);
+            return thresholds;
+        }
+
+        if (value is ObjectInstance instance && instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is { } method)
+        {
+            var iterator = value.GetIterator(realm, method: method);
+
+            try
             {
-                thresholds.Add(TypeConverter.ToNumber(sequence.Get(i.ToString(CultureInfo.InvariantCulture))));
+                while (iterator.TryIteratorStepValue(out var item))
+                {
+                    thresholds.Add(Threshold(realm, item));
+                }
+            }
+            catch
+            {
+                // A threshold whose conversion threw closes the iterator; a step that threw left the record done
+                // (sebastienros/jint#4431).
+                iterator.CloseIfNotDone(CompletionType.Throw);
+                throw;
             }
         }
         else
         {
-            thresholds.Add(TypeConverter.ToNumber(value));
+            thresholds.Add(Threshold(realm, value));
         }
 
-        if (thresholds.Count == 0)
+        return thresholds;
+    }
+
+    /// <summary>
+    /// One threshold, a WebIDL <c>double</c> (https://webidl.spec.whatwg.org/#es-double), which is restricted: a
+    /// non-finite value is a <c>TypeError</c> of the conversion, not the constructor's <c>RangeError</c>.
+    /// </summary>
+    private static double Threshold(Realm realm, JsValue value)
+    {
+        var number = TypeConverter.ToNumber(value);
+
+        if (!double.IsFinite(number))
         {
-            thresholds.Add(0);
+            Throw.TypeError(
+                realm,
+                "Failed to construct 'IntersectionObserver': Failed to read the 'threshold' property from 'IntersectionObserverInit': The provided double value is non-finite.");
         }
 
+        return number;
+    }
+
+    /// <summary>
+    /// The constructor's steps 5 to 8 (https://w3c.github.io/IntersectionObserver/#dom-intersectionobserver-intersectionobserver):
+    /// a value outside [0, 1] is a <c>RangeError</c>, the list is sorted, and an empty one becomes « 0 ».
+    /// </summary>
+    private static double[] CheckThresholds(Realm realm, List<double> thresholds)
+    {
         foreach (var threshold in thresholds)
         {
-            if (threshold is < 0 or > 1 || double.IsNaN(threshold))
+            if (threshold is < 0 or > 1)
             {
                 Throw.RangeError(realm, "Failed to construct 'IntersectionObserver': Threshold values must be numbers between 0 and 1.");
             }
         }
 
         thresholds.Sort();
+
+        if (thresholds.Count == 0)
+        {
+            thresholds.Add(0);
+        }
+
         return [.. thresholds];
     }
 }

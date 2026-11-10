@@ -30,7 +30,12 @@ internal sealed class DisposableStack : ObjectInstance
     /// </summary>
     internal DisposeCapability DisposeCapability => _disposeCapability;
 
-    public JsValue Dispose()
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-disposablestack.prototype.dispose, run in <paramref name="realm"/>, the realm of
+    /// the built-in that was called: a <c>SuppressedError</c> raised while disposing belongs to it, whichever realm
+    /// called the built-in or created the stack.
+    /// </summary>
+    public JsValue Dispose(Realm realm)
     {
         if (State == DisposableState.Disposed)
         {
@@ -38,7 +43,7 @@ internal sealed class DisposableStack : ObjectInstance
         }
 
         State = DisposableState.Disposed;
-        var completion = _disposeCapability.DisposeResources(new Completion(CompletionType.Normal, Undefined, _engine.GetLastSyntaxElement()));
+        var completion = _disposeCapability.DisposeResources(new Completion(CompletionType.Normal, Undefined, _engine.GetLastSyntaxElement()), realm);
         if (completion.Type == CompletionType.Throw)
         {
             Throw.JavaScriptException(_engine, completion.Value, in completion);

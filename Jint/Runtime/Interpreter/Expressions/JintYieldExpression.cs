@@ -707,7 +707,7 @@ internal sealed class JintYieldExpression : JintExpression
     /// The throw branch of https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation
     /// (step 7.b) in an async generator: forwards a throw() resumption to the delegate's own <c>throw</c>, and awaits and
     /// steps through what it answered as a next() result is. A delegate with no <c>throw</c> is closed, and the yield*
-    /// throws a <c>TypeError</c> (7.b.iii).
+    /// throws a <c>TypeError</c> (7.b.iii, <see cref="CloseDelegateWithoutThrow"/>).
     /// <para>
     /// Every way the delegation ends releases the native state of a built-in iterator the delegate is, as
     /// <see cref="DelegateReturn"/> does for a <c>return</c>: a CLR collection's iterator disposes its host enumerator
@@ -751,8 +751,7 @@ internal sealed class JintYieldExpression : JintExpression
         if (innerPromise is null)
         {
             // Step 7.b.iii: AsyncIteratorClose(iteratorRecord, NormalCompletion(empty)), and then the TypeError.
-            AsyncIteratorClose(iterator);
-            Throw.TypeError(engine.Realm, "Iterator does not have throw method");
+            return CloseDelegateWithoutThrow(context, asyncGenerator, iterator);
         }
 
         return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
@@ -991,33 +990,112 @@ internal sealed class JintYieldExpression : JintExpression
     }
 
     /// <summary>
-    /// The AsyncIteratorClose (https://tc39.es/ecma262/#sec-asynciteratorclose) yield* performs on a delegate that has
-    /// no <c>throw</c>, before it throws its <c>TypeError</c>. Its completion is a normal one, so what reading or calling
-    /// <c>return</c> throws propagates in place of the <c>TypeError</c> (step 6), as IteratorClose's does in a generator;
-    /// it used to be swallowed.
+    /// Step 7.b.iii of https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation in an
+    /// async generator, whose delegate has no <c>throw</c>: <c>? AsyncIteratorClose(iteratorRecord,
+    /// NormalCompletion(empty))</c> (https://tc39.es/ecma262/#sec-asynciteratorclose), and then the <c>TypeError</c>.
+    /// Steps 3 to 4.c of the close run here, and step 4.d's Await of what <c>return</c> answered suspends the generator
+    /// in the yield*; <see cref="DelegateCloseContinuation"/> takes steps 6 and 7 once it settles. The close's completion
+    /// is a normal one, so whatever is abrupt in it is what the yield* throws: reading or calling <c>return</c>, the
+    /// Await's PromiseResolve and a rejection (step 6), and an answer that is not an object (step 7). Only a close that
+    /// completes leaves the <c>TypeError</c> for the missing <c>throw</c>. Without a <c>return</c> nothing is awaited,
+    /// and that <c>TypeError</c> is thrown at once (step 4.b). The close used to call <c>return</c> and throw the
+    /// <c>TypeError</c> without awaiting anything (sebastienros/jint#4498).
+    /// <para>
+    /// A CLR collection's iterator the delegate is disposes its host enumerator in its native close: in place of a
+    /// missing <c>return</c>, at once when reading, calling or awaiting it throws, and otherwise once what it answered has
+    /// settled, as the other AsyncIteratorCloses release it (<see cref="IteratorInstance.CloseNativeStateAfterReturn"/>).
+    /// A throw leaves the yield* whichever way the close ends, so the release is told one, and a host's
+    /// <c>Dispose</c> does not replace it. Out of line: only a throw() into a delegate with no <c>throw</c> reaches it.
+    /// </para>
     /// </summary>
-    private static void AsyncIteratorClose(IteratorInstance iteratorRecord)
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsValue CloseDelegateWithoutThrow(
+        EvaluationContext context,
+        AsyncGeneratorInstance asyncGenerator,
+        IteratorInstance iteratorRecord)
     {
+        var engine = context.Engine;
         var iterator = iteratorRecord.Instance;
+
+        JsPromise? promise = null;
         try
         {
+            // Step 3: Let innerResult be Completion(GetMethod(iterator, "return")).
             var returnMethod = iterator.GetMethod(CommonProperties.Return);
-            if (returnMethod is null)
+            if (returnMethod is not null)
             {
-                return;
+                // Step 4.c, and step 4.d's Await: its PromiseResolve(%Promise%, value) reads a promise's constructor,
+                // which may throw, and that is an abrupt innerResult step 6 propagates as it is.
+                var innerResult = returnMethod.Call(iterator, Arguments.Empty);
+                promise = EnsurePromise(engine, innerResult);
             }
-
-            // TODO: step 4.d awaits what `return` answered, which would suspend the generator here, and step 7 throws a
-            // TypeError for an answer that is not an object; neither is done yet.
-            returnMethod.Call(iterator, Arguments.Empty);
         }
-        finally
+        catch
         {
-            // A CLR collection's iterator the delegate is - itself, or behind the CreateAsyncFromSyncIterator wrapper -
-            // disposes its host enumerator in its native close: in place of a missing `return` (step 4.b), and after one,
-            // since nothing here awaits what it answered (sebastienros/jint#4406). The yield* throws next, so a throw is
-            // what leaves, and a host's Dispose does not replace it.
+            // Step 6: the close is over, and RunAsyncYieldDelegateLoop forgets the delegation.
             iteratorRecord.CloseNativeStateAfterReturn(CompletionType.Throw);
+            throw;
+        }
+
+        if (promise is null)
+        {
+            // Step 4.b: If return is undefined, return ? completion, which is normal; then step 7.b.iii.6 of yield*.
+            iteratorRecord.CloseNativeStateAfterReturn(CompletionType.Throw);
+            Throw.TypeError(engine.Realm, "Iterator does not have throw method");
+        }
+
+        // Step 4.d awaits. Clear the iterator but keep _delegatingYieldNode, so the resume re-enters at the yield* and
+        // throws there what the close decided. The request stays the current one, so a request made meanwhile queues.
+        asyncGenerator.ClearDelegationIterator();
+        asyncGenerator._asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
+
+        PromiseOperations.PerformPromiseThen(
+            engine,
+            promise,
+            new DelegateCloseContinuation(asyncGenerator, iteratorRecord, engine.Realm, asyncGenerator._currentPromiseCapability));
+
+        return JsValue.Undefined;
+    }
+
+    /// <summary>
+    /// The reaction to the Await of <see cref="CloseDelegateWithoutThrow"/>: steps 6 to 8 of
+    /// https://tc39.es/ecma262/#sec-asynciteratorclose, and then step 7.b.iii.6 of yield*. A rejection is what the
+    /// yield* throws (step 6), an answer that is not an object is a <c>TypeError</c> (step 7), and otherwise the close
+    /// completes normally and the <c>TypeError</c> for the missing <c>throw</c> follows. Steps 5 to 8 are
+    /// <see cref="IteratorInstance.AsyncIteratorCloseError"/>, which every AsyncIteratorClose shares. Each error is thrown
+    /// at the yield*, where a <c>catch</c> around it sees it (<see cref="AsyncGeneratorInstance.ThrowAfterDelegation"/>),
+    /// and is created in the realm the generator was running in when it suspended.
+    /// </summary>
+    private sealed class DelegateCloseContinuation : IPromiseContinuation
+    {
+        private readonly AsyncGeneratorInstance _asyncGenerator;
+        private readonly IteratorInstance _iteratorRecord;
+        private readonly Realm _realm;
+        private readonly PromiseCapability? _capability;
+
+        public DelegateCloseContinuation(
+            AsyncGeneratorInstance asyncGenerator,
+            IteratorInstance iteratorRecord,
+            Realm realm,
+            PromiseCapability? capability)
+        {
+            _asyncGenerator = asyncGenerator;
+            _iteratorRecord = iteratorRecord;
+            _realm = realm;
+            _capability = capability;
+        }
+
+        public void Invoke(Engine engine, JsValue value, ReactionType type)
+        {
+            // The return has settled, so the native state goes now; a throw leaves the yield* whatever it settled to.
+            _iteratorRecord.CloseNativeStateAfterReturn(CompletionType.Throw);
+
+            // The close's completion is a normal one, so whatever it raises is what the yield* throws; only a close that
+            // completes leaves the TypeError for the missing `throw`.
+            var error = IteratorInstance.AsyncIteratorCloseError(_realm, CompletionType.Normal, value, type == ReactionType.Reject)
+                        ?? _realm.Intrinsics.TypeError.Construct("Iterator does not have throw method");
+
+            _asyncGenerator.ThrowAfterDelegation(error, _capability);
         }
     }
 

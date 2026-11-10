@@ -50,7 +50,7 @@ internal sealed partial class DisposableStackPrototype : Prototype
     private JsValue Dispose(JsValue thisObject)
     {
         var stack = AssertDisposableStack(thisObject);
-        return stack.Dispose();
+        return stack.Dispose(_realm);
     }
 
     [JsAccessor("disposed")]

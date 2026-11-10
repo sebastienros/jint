@@ -4,6 +4,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.WebApi.Events;
 using Jint.WebApi.StructuredClone;
+using Jint.WebApi.Url;
 
 namespace Jint.Browser.SystemState;
 
@@ -23,10 +24,22 @@ namespace Jint.Browser.SystemState;
 /// <b><c>data</c> is serialized in the constructor and deserialized on every read</b>, as the standard says —
 /// so a function in it is a <c>DataCloneError</c> at <c>new Notification</c>, and <c>n.data !== n.data</c>.
 /// </para>
+/// <para>
+/// <b>The dictionaries follow Chromium's IDL where the standard's differs</b>, since a page is written against what
+/// browsers ship. <c>NotificationOptions</c> reads <c>vibrate</c>, which the current standard does not list, and not the
+/// standard's <c>navigate</c>; <c>NotificationAction</c> reads <c>placeholder</c> and <c>type</c>, which Chromium has and
+/// the standard does not, and not the standard's <c>navigate</c> either. Neither <c>navigate</c> is read, so a getter on
+/// one never runs: a known gap (https://notifications.spec.whatwg.org/#dictdef-notificationaction). A non-persistent
+/// notification never has an action, so <c>actions</c> reads back as an empty frozen array and nothing of an action is
+/// stored.
+/// </para>
 /// </remarks>
 internal sealed class JsNotification : JsEventTarget
 {
+    private const string ConstructFailure = "Failed to construct 'Notification'";
+
     private static readonly string[] _directions = ["auto", "ltr", "rtl"];
+    private static readonly string[] _actionTypes = ["button", "text"];
 
     private readonly PageRuntime _runtime;
     private readonly SerializationRecord _data;
@@ -276,9 +289,19 @@ internal sealed class JsNotification : JsEventTarget
         {
             var iterator = value.GetIterator(realm, method: iteratorMethod);
             var pattern = new List<uint>();
-            while (iterator.TryIteratorStepValue(out var item))
+            try
             {
-                pattern.Add(TypeConverter.ToUint32(item));
+                while (iterator.TryIteratorStepValue(out var item))
+                {
+                    pattern.Add(TypeConverter.ToUint32(item));
+                }
+            }
+            catch
+            {
+                // An entry whose conversion threw closes the iterator; a step that threw left the record done
+                // (sebastienros/jint#4431).
+                iterator.CloseIfNotDone(CompletionType.Throw);
+                throw;
             }
 
             return [.. pattern];
@@ -288,28 +311,95 @@ internal sealed class JsNotification : JsEventTarget
     }
 
     /// <summary>
-    /// How many entries an <c>actions</c> sequence has, which is all the constructor asks of it. <c>@@iterator</c> is
-    /// read once (https://webidl.spec.whatwg.org/#es-sequence) and the sequence is created from what that read found.
+    /// How many entries an <c>actions</c> sequence has, which is all the constructor asks of it, after converting every
+    /// entry as a <c>NotificationAction</c> (https://notifications.spec.whatwg.org/#dictdef-notificationaction): the count
+    /// is the constructor's, but the conversion is the page's to observe, and an entry that fails it is the constructor's
+    /// <c>TypeError</c>. <c>@@iterator</c> is read once (https://webidl.spec.whatwg.org/#es-sequence) and the sequence is
+    /// created from what that read found. An entry that fails to convert closes the iterator
+    /// (https://tc39.es/ecma262/#sec-iteratorclose, with a throw completion, so the conversion's error is the one that
+    /// propagates; sebastienros/jint#4431), and a step that throws leaves it done.
     /// </summary>
     private static int Count(Realm realm, JsValue value)
     {
-        if (value is not ObjectInstance instance || instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is not { } iteratorMethod)
-        {
-            Throw.TypeError(
-                realm,
-                "Failed to construct 'Notification': Failed to read the 'actions' property from 'NotificationOptions': The object must have a callable @@iterator property.");
-            return 0;
-        }
-
-        var iterator = value.GetIterator(realm, method: iteratorMethod);
+        var iterator = Dom.DomConvert.SequenceIterator(realm, value, ConstructFailure, "actions", "NotificationOptions");
         var count = 0;
-        while (iterator.TryIteratorStepValue(out _))
+
+        try
         {
-            count++;
+            while (iterator.TryIteratorStepValue(out var item))
+            {
+                ConvertAction(realm, item);
+                count++;
+            }
+        }
+        catch
+        {
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return count;
     }
+
+    /// <summary>
+    /// Chromium's <c>NotificationAction</c> dictionary, converted as https://webidl.spec.whatwg.org/#js-dictionary: a value
+    /// that is not an object is a <c>TypeError</c>, and the members are read in lexicographic order, each converted as it
+    /// is read, so a required member that is <c>undefined</c> stops the walk at that member. The members are
+    /// <c>action</c> (required <c>DOMString</c>), <c>icon</c> (<c>USVString</c>), <c>placeholder</c> (<c>DOMString?</c>),
+    /// <c>title</c> (required <c>DOMString</c>) and <c>type</c> (<c>NotificationActionType</c>, <c>"button"</c> or
+    /// <c>"text"</c>, <c>"button"</c> when absent). That is Chromium's IDL, not
+    /// https://notifications.spec.whatwg.org/#dictdef-notificationaction, which has <c>navigate</c> (not read here) and
+    /// neither <c>placeholder</c> nor <c>type</c>; see the class remarks. Nothing of the dictionary is kept: a
+    /// non-persistent notification refuses a non-empty list, so the conversion is only observable through its getters, its
+    /// <c>toString</c>s and its errors.
+    /// </summary>
+    private static void ConvertAction(Realm realm, JsValue value)
+    {
+        if (value is not ObjectInstance dictionary)
+        {
+            Throw.TypeError(realm, ConstructFailure + ": Failed to read the 'actions' property from 'NotificationOptions': The provided value is not of type 'NotificationAction'.");
+            return;
+        }
+
+        _ = TypeConverter.ToString(RequiredActionMember(realm, dictionary, "action"));
+
+        if (Member(dictionary, "icon") is { } icon)
+        {
+            _ = UrlValues.ToUsvString(icon);
+        }
+
+        // A nullable DOMString: null stays null, and only another value is converted.
+        if (Member(dictionary, "placeholder") is { } placeholder && !placeholder.IsNull())
+        {
+            _ = TypeConverter.ToString(placeholder);
+        }
+
+        _ = TypeConverter.ToString(RequiredActionMember(realm, dictionary, "title"));
+
+        if (Member(dictionary, "type") is { } type)
+        {
+            var text = TypeConverter.ToString(type);
+            if (Array.IndexOf(_actionTypes, text) < 0)
+            {
+                Throw.TypeError(realm, ActionFailure("type", "The provided value '" + text + "' is not a valid enum value of type NotificationActionType."));
+            }
+        }
+    }
+
+    private static JsValue RequiredActionMember(Realm realm, ObjectInstance dictionary, string name)
+    {
+        var value = dictionary.Get(name);
+        if (value.IsUndefined())
+        {
+            Throw.TypeError(realm, ActionFailure(name, "Required member is undefined."));
+        }
+
+        return value;
+    }
+
+    private static string ActionFailure(string member, string reason)
+        => ConstructFailure + ": Failed to read the 'actions' property from 'NotificationOptions': Failed to read the '"
+           + member + "' property from 'NotificationAction': " + reason;
 
     private sealed class NotificationOptions
     {

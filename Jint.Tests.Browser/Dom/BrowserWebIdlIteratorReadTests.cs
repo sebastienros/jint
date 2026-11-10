@@ -22,10 +22,17 @@ using Browser = global::Jint.Browser.Browser;
 /// it reads once everywhere except <c>roundRect</c>: Chromium reads <c>@@iterator</c> twice there, against WebIDL,
 /// so the <c>roundRect</c> rows follow the specification.
 /// </para>
+/// <para>
+/// Six more lanes never read <c>@@iterator</c> at all, or skipped the sequence conversion's first step
+/// (sebastienros/jint#4492): <c>IntersectionObserver</c>'s <c>threshold</c>, a union whose other arm is
+/// <c>ToNumber</c>, and the bare sequences <c>attributeFilter</c>, <c>observedAttributes</c>, a <c>TouchEvent</c>'s
+/// <c>touches</c>, a <c>FontFaceSetLoadEvent</c>'s <c>fontfaces</c> and <c>ariaControlsElements</c>. Edge 156 reads
+/// once for each of them too, and zero times on an Array.
+/// </para>
 /// </summary>
 /// <remarks>
 /// Whether a conversion closes the iterator when an element fails is not pinned here; that is
-/// sebastienros/jint#4431.
+/// <see cref="BrowserWebIdlSequenceCloseTests"/> (sebastienros/jint#4431).
 /// </remarks>
 public sealed class BrowserWebIdlIteratorReadTests
 {
@@ -74,7 +81,57 @@ public sealed class BrowserWebIdlIteratorReadTests
                     catch (e) { return e.name === 'TypeError' && e.message.includes('Actions are only supported') ? 'counted' : e.name; }
                 },
             }),
+            // IntersectionObserverInit's threshold, a (double or sequence<double>) whose other arm is ToNumber
+            // (sebastienros/jint#4492, as are the five bare sequences below).
+            threshold: () => ({
+                method: function* () { yield 0.5; },
+                own: { valueOf() { return 0.25; } },
+                run: init => new IntersectionObserver(() => { }, { threshold: init }).thresholds.join(),
+            }),
+            attributeFilter: () => ({
+                method: function* () { yield 'a'; },
+                own: {},
+                run: init => {
+                    const element = document.createElement('div');
+                    const observer = new MutationObserver(() => { });
+                    observer.observe(element, { attributeFilter: init });
+                    element.setAttribute('a', '');
+                    element.setAttribute('b', '');
+                    return observer.takeRecords().map(r => r.attributeName).join();
+                },
+            }),
+            observedAttributes: () => ({
+                method: function* () { yield 'a'; },
+                own: {},
+                run: init => {
+                    customElements.define('x-reads-' + definitions++, class extends HTMLElement {
+                        static get observedAttributes() { return init; }
+                        attributeChangedCallback() { }
+                    });
+                    return 'defined';
+                },
+            }),
+            touches: () => ({
+                method: function* () { yield new Touch({ identifier: 1, target: document }); },
+                own: {},
+                run: init => String(new TouchEvent('touchstart', { touches: init }).touches.length),
+            }),
+            fontfaces: () => ({
+                method: function* () { yield new FontFace('f', 'url(f)'); },
+                own: {},
+                run: init => String(new FontFaceSetLoadEvent('loading', { fontfaces: init }).fontfaces.length),
+            }),
+            ariaElements: () => ({
+                method: function* () { yield document.createElement('span'); },
+                own: {},
+                run: init => {
+                    const element = document.createElement('div');
+                    element.ariaControlsElements = init;
+                    return JSON.stringify(element.getAttribute('aria-controls'));
+                },
+            }),
         };
+        let definitions = 0;
 
         // Makes the lane's argument an object whose Symbol.iterator is an accessor - on the object itself ('own') or on
         // its prototype ('proto') - that counts its reads and answers per `answers`, runs the lane and answers
@@ -120,6 +177,12 @@ public sealed class BrowserWebIdlIteratorReadTests
         ["hints"] = ("architecture", "TypeError"),
         ["vibrate"] = ("5,6", "7"),
         ["actions"] = ("counted", "TypeError"),
+        ["threshold"] = ("0.5", "0.25"),
+        ["attributeFilter"] = ("a", "TypeError"),
+        ["observedAttributes"] = ("defined", "TypeError"),
+        ["touches"] = ("1", "TypeError"),
+        ["fontfaces"] = ("1", "TypeError"),
+        ["ariaElements"] = ("\"\"", "TypeError"),
     };
 
     private static readonly string[] Answers =
@@ -205,6 +268,12 @@ public sealed class BrowserWebIdlIteratorReadTests
                     hints: ['architecture'],
                     vibrate: [5, 6],
                     actions: [],
+                    threshold: [0.5],
+                    attributeFilter: ['a'],
+                    observedAttributes: ['a'],
+                    touches: [],
+                    fontfaces: [],
+                    ariaElements: [],
                 };
                 const counts = [];
                 for (const [name, init] of Object.entries(arrays)) {
@@ -216,6 +285,7 @@ public sealed class BrowserWebIdlIteratorReadTests
                 }
                 return counts.join();
             })()
-            """)).Should().Be("domMatrix=1,domMatrixReadOnly=1,roundRect=1,path2DRoundRect=1,hints=1,vibrate=1,actions=1");
+            """)).Should().Be("domMatrix=1,domMatrixReadOnly=1,roundRect=1,path2DRoundRect=1,hints=1,vibrate=1,actions=1,threshold=1,attributeFilter=1,"
+                + "observedAttributes=1,touches=1,fontfaces=1,ariaElements=1");
     }
 }
