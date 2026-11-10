@@ -7947,10 +7947,9 @@ next value. Calling `return()` on the helper while it is inside a sync iterable 
 source, as it already did for an async inner iterator whose `return` rejects. It used to leave the source open. There
 is no switch back.
 
-Whether that `return()` resolves or rejects is not settled yet. Jint resolves it for now, for either kind of inner
-iterator, only because it does not await the inner iterator's close. Expect that to change: the helpers' closes are
-tracked in [#4500](https://github.com/sebastienros/jint/issues/4500), and the proposal is heading towards awaiting
-that close and rejecting.
+Whether that `return()` resolves or rejects was left open here. It now rejects, for either kind of inner iterator,
+because the inner iterator's close is awaited:
+[§4.226](#4-226-the-async-iterator-helpers-await-what-the-source-s-return-answers-when-they-close-it-4500).
 
 ### 4.216 A wrapped CLR collection deletes a configurable property the script defined on it ([#4457](https://github.com/sebastienros/jint/issues/4457))
 
@@ -8100,6 +8099,61 @@ WebIDL's text has no close ([whatwg/webidl#895](https://github.com/whatwg/webidl
 [whatwg/webidl#1662](https://github.com/whatwg/webidl/pull/1662), which proposes one, as Safari already behaves. There
 is no switch back.
 
+### 4.221 Argument lists built from a spread or an array-like refuse more elements than `MaxArraySize` ([#4505](https://github.com/sebastienros/jint/issues/4505))
+
+`Options.Constraints.MaxArraySize` bounds every array a script can build from a count (§4.217). An argument list was
+not bounded. A spread, or an array-like handed to `apply`, could build a list of any length, and the rest parameter
+and the `arguments` object made from it were just as long. With `MaxArraySize = 10_000`:
+
+```js
+const a = Array.from({ length: 10000 }, (_, i) => i);
+function f(...r) { return r.length; }
+f(...a, ...a);                          // earlier previews: 20000
+                                        // 5.x:              MemoryLimitExceededException
+f.apply(null, { length: 50_000_000 });  // earlier previews: allocates a 50,000,000-element list, then calls
+                                        // 5.x:              MemoryLimitExceededException, before allocating
+```
+
+These lists are now held to the limit, and refused with the same exception and message as `Array(n)`:
+
+- **A spread in a call, `new` or `super`:** the whole list counts, including the arguments written beside the
+  spreads. An array's spread is refused before it is copied. An iterator's is refused at the element that would take
+  the list past the limit, and the iterator is closed there instead of being stepped to its end.
+- **An array literal with a spread**, `[...a, ...b]`, which builds its elements the same way.
+- **`Function.prototype.apply`, `Reflect.apply` and `Reflect.construct`:** the list made from an array-like is
+  refused when its `length` is read, before the list is allocated and before any element is read. A script `Proxy`
+  `ownKeys` trap's result is read the same way. A host `ProxyHandler`'s `OwnKeys` list is not counted: the host has
+  already built it.
+- **A bound function:** the list made from its bound arguments and the call's own, which a chain of `bind` calls
+  adds up.
+- **The web APIs that list what script stored:**
+  - `Headers.prototype.getSetCookie` and `URLSearchParams.prototype.getAll`;
+  - `caches.keys()`, and `keys()` / `matchAll()` on a `Cache`;
+  - `indexedDB.databases()`, and `getAll` / `getAllKeys` on an object store or an index;
+  - an array key, and an object store's or index's array `keyPath`;
+  - in the `Jint.Browser` package, a canvas context's `getLineDash()` and the lists in a `Sanitizer`'s `get()`.
+
+  An array key or a key path is as long as the array the writing engine was given. Several engines can share an
+  origin's store (the `Jint.Browser` package does), so the limit that applies is the reading engine's.
+
+The exception comes out of the call that builds the list. `indexedDB.databases()`, `getAll` and `getAllKeys` build
+theirs in a task, so for them it comes out of `Evaluate`, `Execute` or whatever else runs the event loop.
+
+A list written out in the source is not counted: `f(1, 2, 3)` and `[1, 2, 3]` are no longer than the script, and a
+call without a spread pays nothing for the bound. A host passing its own argument array (`engine.Invoke`,
+`JsValue.Call`) is not checked either, except where a bound function adds its bound arguments to it.
+
+**What could break:**
+
+- **A finite limit:** a host that set a finite `MaxArraySize`, or runs `Options.ForUntrustedCode` (whose limit is
+  10,000), and a script that spreads or applies more elements than that. The arguments beside a spread count, so
+  under a limit of 10,000, `console.log('values', ...a)` is refused for a 10,000-element `a`.
+- **A script `Proxy`'s `ownKeys` trap** returning an array-like longer than the limit now throws
+  `MemoryLimitExceededException`. Before, it threw a `TypeError` for an element that is not a key, or went on.
+
+A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged, and a list of exactly `MaxArraySize`
+elements is still allowed. There is no switch back.
+
 ### 4.222 An index on a wrapped `JObject` is one more of its keys ([#4501](https://github.com/sebastienros/jint/issues/4501))
 
 Newtonsoft's `JObject` is a string-keyed dictionary and also an `IList<JToken>`, and its list holds `JProperty`
@@ -8140,6 +8194,184 @@ A `JArray` is unchanged. So is a host type that is a dictionary and a list of it
 integer indexer itself; one whose list is reachable only through the interface, as `JObject`'s is, now behaves like
 `JObject`. There is no switch back. A host that needs the entries by position can hand script
 `jobj.Properties().ToList()`.
+
+### 4.224 `yield*` in an async generator awaits the delegate's `return` before `throw()` fails ([#4498](https://github.com/sebastienros/jint/issues/4498))
+
+An async generator suspended in `yield*` and resumed with `throw()` closes a delegate that has no `throw` method, and
+then throws a `TypeError`. The close now awaits what the delegate's `return` answered, as a `for await` that leaves
+its loop early already did. In 4.x and earlier 5.0 builds Jint called `return` and threw the `TypeError` at once:
+
+```js
+const it = { next() { return { value: 1, done: false }; }, return() { return Promise.reject('R'); } };
+const g = (async function* () { yield* { [Symbol.asyncIterator]() { return it; } }; })();
+await g.next();
+await g.throw('T');
+// 4.x / earlier 5.0: rejects with TypeError    5.x: rejects with 'R'
+```
+
+What the `yield*` throws now depends on how that answer settles. A rejection is thrown as it is, and so is an error
+from reading the promise's `constructor`. An answer that settles to something other than an object throws a
+`TypeError` for that. Only an object lets the close complete, and then the `TypeError` for the missing `throw`
+follows. A thenable's `then` is called, where it used to be ignored. Except for an error from `constructor`, which is
+thrown inside the call, the error reaches a `catch` around the `yield*` one microtask after the `throw()` call (two for
+a thenable), as in V8, where it used to arrive inside the call. A `next()` made meanwhile waits for it.
+
+A wrapped CLR collection's iterator returned from a script's `Symbol.asyncIterator` is disposed once that answer has
+settled, not when `return` is called. A delegate with no `return` still throws the `TypeError` at once, and a
+generator's `yield*` is unchanged: its close awaits nothing. There is no switch back.
+
+### 4.225 `Jint.Browser` iterates `attributeFilter` and `threshold`, and refuses a string where it wants a sequence ([#4492](https://github.com/sebastienros/jint/issues/4492))
+
+`MutationObserver.prototype.observe`'s `attributeFilter` and the `IntersectionObserver` constructor's `threshold` are
+now converted the way WebIDL converts a sequence: through `Symbol.iterator`, read once. They used to read `length` and
+the indices, so an iterable that is not an array converted to nothing, and an object with a `length` passed as one:
+
+```js
+observer.observe(element, { attributeFilter: new Set(['a']) });
+// earlier previews: an empty filter, so no attribute is recorded    5.x: records `a`
+new IntersectionObserver(callback, { threshold: new Set([0.5]) }).thresholds
+// earlier previews: [0]    5.x: [0.5]
+new IntersectionObserver(callback, { threshold: { valueOf() { return 0.5; } } }).thresholds
+// earlier previews: [0]    5.x: [0.5]
+```
+
+- An `attributeFilter` that is not iterable is now a `TypeError`, and that includes an array-like object
+  (`{ length: 1, 0: 'a' }` used to be `['a']`). So is `attributeFilter: null`, which used to count as no filter. WebIDL
+  makes any value that is not an object a `TypeError`, and Chromium throws too. Leave the member out, or pass
+  `undefined`, for no filter.
+- `threshold` takes a number or a sequence of numbers. An object with no `Symbol.iterator` is now converted to a
+  number, so an array-like object is `NaN`. A threshold that is `NaN` or infinite, alone or in a sequence, is now a
+  `TypeError`, as WebIDL's `double` requires. It used to be a `RangeError`. A finite threshold outside 0 to 1 is still a
+  `RangeError`. The whole options object is converted before `rootMargin` is parsed, so a `threshold` iterator runs, and
+  a non-finite threshold throws its `TypeError`, before a malformed `rootMargin` throws its `SyntaxError`.
+
+These conversions iterated a string by code point instead of refusing it: `observedAttributes` and `disabledFeatures`
+in `customElements.define`, a `TouchEvent`'s `touches`, `targetTouches` and `changedTouches`, a `FontFaceSetLoadEvent`'s
+`fontfaces`, and the ARIA element arrays such as `ariaControlsElements`. A string is now a `TypeError`. Before, an
+empty string was an empty list, and a non-empty one observed one attribute per character:
+
+```js
+customElements.define('x-a', class extends HTMLElement {
+    static get observedAttributes() { return 'abc'; }
+    attributeChangedCallback() { }
+});
+// earlier previews: defined, observing `a`, `b` and `c`    5.x: TypeError, and nothing is defined
+```
+
+Every answer above is what Chromium gives (Microsoft Edge 156). The messages for a value that is not a sequence, an
+object with no `Symbol.iterator` and a non-finite threshold are Chromium's too. One behavioural difference remains, the close rule
+in §4.220: when an element of `attributeFilter` or `threshold` fails to convert, Jint calls the iterator's `return`,
+which Chromium does not. There is no switch back.
+
+### 4.226 The async iterator helpers await what the source's `return` answers when they close it ([#4500](https://github.com/sebastienros/jint/issues/4500))
+
+When `take` reaches its limit, or `some`, `every` or `find` finishes early, the helper closes the source iterator
+and waits for what its `return` answers before it settles. If `return` throws, the promise it answers rejects, or that
+promise settles to something other than an object, the helper rejects with that error. A `TypeError` is used for a
+non-object answer. Before, Jint called `return`, ignored whatever happened, and resolved at once. The sync
+`Iterator.prototype` helpers already behaved this way:
+
+```js
+const source = { next() { return Promise.resolve({ value: 1, done: false }); }, return() { throw new RangeError('r'); } };
+await AsyncIterator.prototype.take.call(source, 0).next();
+// 4.x / earlier 5.0: { value: undefined, done: true }    5.x: rejects with the RangeError
+await AsyncIterator.prototype.some.call(source, () => true);
+// 4.x / earlier 5.0: true                                5.x: rejects with the RangeError
+// the same for return() { return Promise.reject(new RangeError('r')); }, and for return() { return 5; } (a TypeError)
+```
+
+A mapper, predicate or reducer that throws or rejects still makes the helper, or the consuming method, reject with
+that error, whatever `return` does. It now rejects only once what `return` answered has settled. If `return` answers
+a thenable, its `then` is now called. A helper's `return()` now also rejects with a `TypeError` when the source's
+`return` answers something that is not an object.
+
+`flatMap`'s `return()`, called while an inner iterator is open, closes that inner iterator first and waits for it.
+Only then does it close the source. If the inner iterator's `return` throws, rejects or answers something other than
+an object, the source is still closed, and `return()` rejects with the inner error. This follows
+[tc39/proposal-async-iterator-helpers#30](https://github.com/tc39/proposal-async-iterator-helpers/issues/30), which
+is the order a nested `for await` closes in. It replaces the stale proposal text, which [§4.215](#4-215-asynciterator-prototype-flatmap-awaits-a-sync-iterable-s-values-asynciterator-from-takes-a-string-and-a-failed-step-leaves-the-source-open-4439)
+left open. Before, the inner iterator was closed synchronously and `return()` resolved. Also, a `flatMap` whose inner
+step failed because the promise it answered has a throwing `constructor` no longer calls that inner iterator's
+`return` from a later `return()`.
+
+A `return()` that comes in while one of a helper's steps is still in flight now completes the helper for good. The
+step still answers its value, and a later `next()` answers `{ done: true }`. Before, the step put the helper back in
+its suspended state, so that `next()` called the closed source's `next` again.
+
+The source is now closed through the same steps a `for await` loop uses. **What could break:**
+
+- A host that hands a wrapped CLR collection's iterator straight to one of these helpers sees its enumerator disposed
+  once `return`'s answer has settled, instead of when `return` is called. A helper's `return()` now disposes it too,
+  which it did not do before.
+- A host `Dispose` that throws now propagates, as it does when a `for … of` loop is left by `break`. That includes a
+  source with no `return` at all, when `take` reaches its limit or `some`, `every` or `find` stops early. Before, it was
+  swallowed.
+- Under `CatchClrExceptions`, that exception rejects the promise the helper or method answered, with the converted
+  error. So does one from the enumerator's `MoveNext`. Before, a step taken inside a promise reaction left the promise
+  pending. A step taken directly by a `next()` call let the exception reach the host unconverted.
+- A constraint that trips inside the source's `return` while a callback's error is closing it now ends the run.
+  Before, it was swallowed.
+
+There is no switch back.
+
+### 4.227 The `SuppressedError` that disposal builds has no own `message`, and belongs to the realm of the code disposing ([#4494](https://github.com/sebastienros/jint/issues/4494))
+
+When a dispose method throws over an earlier throw, `using`, `await using`, `DisposableStack.prototype.dispose` and
+`AsyncDisposableStack.prototype.disposeAsync` throw a `SuppressedError` with `error` and `suppressed` and nothing
+else, as [DisposeResources](https://tc39.es/ecma262/#sec-disposeresources) says. It used to carry an own `message`
+of `""`, which only the constructor defines:
+
+```js
+let e;
+try { using a = { [Symbol.dispose]() { throw 1; } }; throw 2; } catch (x) { e = x; }
+Object.hasOwn(e, 'message')   // 4.x / earlier previews: true    5.x: false
+Object.getOwnPropertyNames(e) // 4.x / earlier previews: ['message', 'error', 'suppressed']    5.x: ['error', 'suppressed']
+e.message                     // '' in both: it inherits `SuppressedError.prototype.message`
+```
+
+`e.message`, `String(e)` and `JavaScriptException.Message` read the same as before; only code that lists or
+copies an error's own properties sees the difference. `new SuppressedError(error, suppressed, "")` still defines
+its own `message`. Node gives the error a message of its own wording, which the specification does not.
+
+The error is also built in the realm of the code that is disposing. In a second realm (a `ShadowRealm`, or a child frame's window in `Jint.Browser`)
+it used to belong to whichever realm was running when the dispose settled, so an `await using` in a function of
+another realm resumed from a job, an async generator's `await using`, and a generator's `using` whose body had been
+left gave a main-realm `SuppressedError`, and a stack's `dispose` called another realm's built-in gave the caller's.
+Those now answer `instanceof` with the realm of the function, generator or built-in. There is no switch back.
+
+### 4.229 `new Notification` converts each entry of `actions` as a `NotificationAction` ([#4516](https://github.com/sebastienros/jint/issues/4516))
+
+`Jint.Browser` used to count the entries of `actions` and convert none of them. Each entry is now converted as a
+`NotificationAction` dictionary, with the members Chromium's IDL gives it: `action` and `title` are required
+`DOMString`s, `icon` is an optional `USVString`, `placeholder` an optional `DOMString?` and `type` a
+`NotificationActionType` (`"button"` or `"text"`, `"button"` when absent). They are read in lexicographic order
+(`action`, `icon`, `placeholder`, `title`, `type`), each converted as it is read, so a getter runs once per entry:
+
+```js
+try { new Notification('t', { actions: [{ action: 'open' }] }); } catch (e) { e.message; }
+// earlier previews: "Actions are only supported for persistent notifications ..."
+// 5.x: "Failed to read the 'actions' property from 'NotificationOptions': Failed to read the 'title' property from 'NotificationAction': Required member is undefined."
+```
+
+- An entry that is not an object, or that lacks `action` or `title`, is a `TypeError` naming the member, as in Chromium.
+  It was a `TypeError` before as well, since a non-persistent notification refuses any non-empty list, but never for
+  this reason. That refusal still follows the conversion, so a list that converts keeps throwing it.
+- A `type` that is neither `"button"` nor `"text"` is a `TypeError` naming the member and the enumeration, as in Chromium.
+  It is read last, so an entry missing `title` fails before its `type` is read.
+- A member whose conversion throws now propagates what it threw: a `Symbol`, or a `toString` that throws. Chromium
+  prefixes a `Symbol`'s message with the member it was reading; Jint's is the bare `TypeError`.
+- A failing entry stops the options conversion where it is. `actions` is the first member WebIDL reads, so `body`,
+  `data` and the rest are no longer read, and the entries after the failing one are no longer taken from the iterator.
+- A failing entry calls the iterator's `return` once before the error propagates, as in §4.220, which Chromium does
+  not. A `next` that throws, and a list that runs out, still call nothing.
+- A value that is not a sequence has Chromium's messages: "The provided value cannot be converted to a sequence."
+  for a value that is not an object, and "The object must have a callable @@iterator property." for one with no
+  `Symbol.iterator`.
+
+The answers are Chromium's (Microsoft Edge 156), including which members it reads. The standard's `NotificationAction`
+has a `navigate` member that Chromium does not read, and neither does Jint, so a getter on it never runs. Nothing of an
+action is stored: a non-persistent notification refuses a non-empty list, and `actions` reads back as an empty frozen
+array. There is no switch back.
 
 ## 5. New in v5
 

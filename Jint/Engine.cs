@@ -2017,6 +2017,7 @@ public sealed partial class Engine : IDisposable
             && ReferenceEquals(_referenceResolver, NullPropagatingReferenceResolver.Instance);
 
         _maxRecursionDepth = Options.Constraints.EffectiveMaxRecursionDepth;
+        _hasMaxArraySize = Options.Constraints.MaxArraySize != uint.MaxValue;
 
         _operatorOverloadingAllowed = Options.Interop.AllowOperatorOverloading;
 
@@ -2248,6 +2249,15 @@ public sealed partial class Engine : IDisposable
     // brand-new-key lane of ObjectInstance.CreateDataProperty all exclude a built-in-shape object, so by the time one of
     // them can reach this prototype, this field is already set.
     internal bool _arrayIteratorNextMayBeReplaced;
+
+    // Whether Options.Constraints.MaxArraySize is set (it is not uint.MaxValue), for the lists a run-time count lengthens:
+    // a spread, an array-like handed to apply/Reflect.apply/Reflect.construct, a script ownKeys trap's result, a bound
+    // function's arguments (sebastienros/jint#4505). Taken beside _maxRecursionDepth, after Options.Apply, and read only
+    // by code that runs script; the limit itself is read from the option behind it, on an engine that has one. A bool
+    // so that a default engine pays one byte test, and declared after the other flags so that it lands in the padding
+    // before the struct fields: an 8-byte snapshot moved every primitive field after it, the hot flags and counters
+    // among them, by 8 bytes.
+    internal readonly bool _hasMaxArraySize;
 
     /// <summary>
     /// The block-level function declarations of the sloppy direct or indirect eval whose body is

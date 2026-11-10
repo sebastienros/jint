@@ -155,6 +155,55 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         return jsValues;
     }
 
+    /// <summary>
+    /// <see cref="GetAll"/> for a list a script sized, on an engine with a <c>MaxArraySize</c>: the one read of
+    /// <c>"length"</c>, then the limit, then the elements, so a refused list is never allocated and no element of it
+    /// is read (sebastienros/jint#4505). It is a twin rather than a parameter on <see cref="GetAll"/> because
+    /// <see cref="GetAll"/> is inlined into <c>JsProxy.ValidateOwnKeysTrapResult</c>, and any change to it, a
+    /// signature alone included, moved the inliner's other decisions there and slowed that path. The loop is
+    /// <see cref="GetAll"/>'s with <c>skipHoles</c> off; keep the two in step.
+    /// </summary>
+    internal JsValue[] GetAllWithinLimit(uint maxLength, Types elementTypes, Realm errorRealm)
+    {
+        var length = GetLongLength();
+        if (length > ClrLimits.MaxArrayLength)
+        {
+            Throw.RangeError(errorRealm, "Invalid array-like length");
+        }
+
+        if (length > maxLength)
+        {
+            ArrayInstance.ThrowMaximumArraySizeReachedException(Target.Engine, (uint) length);
+        }
+
+        // An array's "length" is an own data property, so reading it again observes nothing, and the array lane
+        // keeps its dense copy. Any other array-like is read here, once.
+        if (this is JsArrayOperations)
+        {
+            return GetAll(elementTypes, skipHoles: false, errorRealm);
+        }
+
+        var n = (int) length;
+        var jsValues = new JsValue[n];
+        for (uint i = 0; i < (uint) n; i++)
+        {
+            if (i > 0 && i % Engine.ConstraintCheckInterval == 0)
+            {
+                Target.Engine.Constraints.Check();
+            }
+
+            var jsValue = Get(i);
+            if ((jsValue.Type & elementTypes) == Types.Empty)
+            {
+                Throw.TypeErrorNoEngine("invalid type");
+            }
+
+            jsValues[i] = jsValue;
+        }
+
+        return jsValues;
+    }
+
     public abstract bool TryGetValue(ulong index, out JsValue value);
 
     public abstract bool HasProperty(ulong index);

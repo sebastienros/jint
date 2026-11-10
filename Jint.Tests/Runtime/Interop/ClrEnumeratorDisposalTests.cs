@@ -125,7 +125,9 @@ public class ClrEnumeratorDisposalTests
     private const string ScriptReturnHarness = """
         // Ways of leaving the CLR iterator `it` (or one `items` hands out) early: the sync closes, yield* handed a throw()
         // it has no `throw` for, a for await whose @@asyncIterator answers `it`, a for await over `items` itself, which
-        // goes through the CreateAsyncFromSyncIterator wrapper, and Array.fromAsync whose mapping function throws.
+        // goes through the CreateAsyncFromSyncIterator wrapper, Array.fromAsync whose mapping function throws, and the
+        // async iterator helpers over `it`: take at its limit, some finishing early, a mapper that throws, and a
+        // helper's return().
         const leaveEarly = {
             forOfBreak: function () { for (const x of it) { break; } return 'done'; },
             forOfThrow: function () { try { for (const x of it) { throw 'E'; } } catch (e) { if (e !== 'E') { throw e; } return 'caught:E'; } },
@@ -141,7 +143,11 @@ public class ClrEnumeratorDisposalTests
                 const g = (async function* () { yield* { [Symbol.asyncIterator]() { return it; } }; })();
                 await g.next();
                 await g.throw('T');
-            }
+            },
+            helperTakeAtLimit: async function () { await AsyncIterator.prototype.take.call(it, 0).next(); return 'done'; },
+            helperSomeStops: async function () { return String(await AsyncIterator.prototype.some.call(it, () => true)); },
+            helperMapperThrows: async function () { await AsyncIterator.prototype.map.call(it, () => { throw 'M'; }).next(); },
+            helperReturn: async function () { const h = AsyncIterator.prototype.map.call(it, x => x); await h.next(); await h.return(); return 'done'; }
         };
         """;
 
@@ -152,7 +158,8 @@ public class ClrEnumeratorDisposalTests
     /// still disposed, once, after it - whatever the <c>return</c> does, a throw and a non-object answer included
     /// (sebastienros/jint#4406). Jint used to dispose without reading <c>return</c> at all. An asynchronous close
     /// disposes once what the <c>return</c> answered has settled. <c>null</c> is no method, and the native close
-    /// disposes in its place, as before. The outcomes are Node 26's for an array iterator given the same
+    /// disposes in its place, as before. The async iterator helpers close through the same AsyncIteratorClose
+    /// (sebastienros/jint#4500); a helper's <c>return()</c> did not dispose at all before it. The outcomes are Node 26's for an array iterator given the same
     /// <c>return</c>: a loop left by <c>break</c> propagates what <c>return</c> throws, and a <c>TypeError</c> for a
     /// non-object answer, while a loop left by a throw keeps its own throw.
     /// </summary>
@@ -186,6 +193,30 @@ public class ClrEnumeratorDisposalTests
     [TestCase("fromAsyncMapperThrows", "prototype", "ok", "threw:M", 1)]
     [TestCase("fromAsyncMapperThrows", "null", "ok", "threw:M", 0)]
     [TestCase("asyncYieldStarThrow", "own", "ok", "threw:TypeError", 1)]
+    [TestCase("asyncYieldStarThrow", "own", "throws", "threw:R", 1)]
+    [TestCase("asyncYieldStarThrow", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("asyncYieldStarThrow", "prototype", "ok", "threw:TypeError", 1)]
+    [TestCase("asyncYieldStarThrow", "null", "ok", "threw:TypeError", 0)]
+    [TestCase("helperTakeAtLimit", "own", "ok", "done", 1)]
+    [TestCase("helperTakeAtLimit", "own", "throws", "threw:R", 1)]
+    [TestCase("helperTakeAtLimit", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("helperTakeAtLimit", "prototype", "ok", "done", 1)]
+    [TestCase("helperTakeAtLimit", "null", "ok", "done", 0)]
+    [TestCase("helperSomeStops", "own", "ok", "true", 1)]
+    [TestCase("helperSomeStops", "own", "throws", "threw:R", 1)]
+    [TestCase("helperSomeStops", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("helperSomeStops", "prototype", "ok", "true", 1)]
+    [TestCase("helperSomeStops", "null", "ok", "true", 0)]
+    [TestCase("helperMapperThrows", "own", "ok", "threw:M", 1)]
+    [TestCase("helperMapperThrows", "own", "throws", "threw:M", 1)]
+    [TestCase("helperMapperThrows", "own", "nonObject", "threw:M", 1)]
+    [TestCase("helperMapperThrows", "prototype", "ok", "threw:M", 1)]
+    [TestCase("helperMapperThrows", "null", "ok", "threw:M", 0)]
+    [TestCase("helperReturn", "own", "ok", "done", 1)]
+    [TestCase("helperReturn", "own", "throws", "threw:R", 1)]
+    [TestCase("helperReturn", "own", "nonObject", "threw:TypeError", 1)]
+    [TestCase("helperReturn", "prototype", "ok", "done", 1)]
+    [TestCase("helperReturn", "null", "ok", "done", 0)]
     public void AScriptReturnOnAClrIteratorIsCalledAndTheEnumeratorStillDisposed(string way, string where, string kind, string expected, int calls)
     {
         var items = new CountingEnumerable();
@@ -234,6 +265,13 @@ public class ClrEnumeratorDisposalTests
     [TestCase("asyncIteratorBreak", "throws", "threw:R")]
     [TestCase("asyncIteratorBreak", "nonObject", "threw:TypeError")]
     [TestCase("asyncIteratorThrow", "ok", "caught:E")]
+    [TestCase("asyncYieldStarThrow", "ok", "threw:TypeError")]
+    [TestCase("asyncYieldStarThrow", "throws", "threw:R")]
+    [TestCase("asyncYieldStarThrow", "nonObject", "threw:TypeError")]
+    [TestCase("helperTakeAtLimit", "ok", "dispose failed")]
+    [TestCase("helperTakeAtLimit", "throws", "threw:R")]
+    [TestCase("helperTakeAtLimit", "nonObject", "threw:TypeError")]
+    [TestCase("helperMapperThrows", "ok", "threw:M")]
     public void AHostDisposeThatThrowsAfterAScriptReturnDoesNotReplaceAThrowThatIsLeaving(string way, string kind, string expected)
     {
         var items = new FaultingEnumerable("dispose");
@@ -254,6 +292,103 @@ public class ClrEnumeratorDisposalTests
             })()
             """).Should().Be(expected);
         items.Disposals.Should().Be(1);
+    }
+
+    private const string HostFailureHarness = """
+        // Ways an async iterator helper or a consuming method meets a host exception from the enumerator behind
+        // `items`. Its Dispose: take at its limit, and some, every and find stopping early, with no `return` and after
+        // a script one. Its MoveNext on the second step: filter, drop, toArray and some take that step inside a promise
+        // reaction, and map's is a next() the script calls, which must answer a rejected promise. flatMap's inner step,
+        // inside the reaction to the mapper's answer, steps an iterator `items` handed out that has taken its first step
+        // already, so the source it closes records its calls in `trace`.
+        const trace = [];
+        const meet = {
+            takeAtLimit: () => AsyncIterator.prototype.take.call(items[Symbol.iterator](), 0).next(),
+            someStops: () => AsyncIterator.prototype.some.call(items[Symbol.iterator](), () => true),
+            everyStops: () => AsyncIterator.prototype.every.call(items[Symbol.iterator](), () => false),
+            findStops: () => AsyncIterator.prototype.find.call(items[Symbol.iterator](), () => true),
+            someStopsAfterAReturn: () => {
+                const it = items[Symbol.iterator]();
+                it.return = function () { return {}; };
+                return AsyncIterator.prototype.some.call(it, () => true);
+            },
+            filterSecondStep: () => AsyncIterator.prototype.filter.call(items[Symbol.iterator](), () => false).next(),
+            dropSecondStep: () => AsyncIterator.prototype.drop.call(items[Symbol.iterator](), 1).next(),
+            toArraySecondStep: () => AsyncIterator.prototype.toArray.call(items[Symbol.iterator]()),
+            someSecondStep: () => AsyncIterator.prototype.some.call(items[Symbol.iterator](), () => false),
+            mapSecondNext: async () => {
+                const h = AsyncIterator.prototype.map.call(items[Symbol.iterator](), x => x);
+                await h.next();
+                let p;
+                try { p = h.next(); } catch (e) { return 'next() threw:' + e.name; }
+                return p;
+            },
+            flatMapInnerStep: () => {
+                const it = items[Symbol.iterator]();
+                it.next();
+                const outer = {
+                    next() { trace.push('outer.next'); return Promise.resolve({ value: 1, done: false }); },
+                    return() { trace.push('outer.return'); return {}; }
+                };
+                return AsyncIterator.prototype.flatMap.call(outer, () => it).next();
+            }
+        };
+        """;
+
+    /// <summary>
+    /// A host exception from the enumerator a helper or a consuming method is using: its <c>Dispose</c> when the close
+    /// releases it, and its <c>MoveNext</c> on a later step. Under <c>CatchClrExceptions</c> it is converted and rejects
+    /// the promise the helper or the method answered, as a JavaScript throw at the same point does. Most of those steps
+    /// run in a promise reaction with no capability to reject, so the conversion used to reach no one and the promise
+    /// stayed pending. The rest, <c>take</c> at its limit, a close after a script <c>return</c> and <c>map</c>'s
+    /// <c>next()</c>, let the exception reach the host unconverted. Without the handler it propagates to
+    /// the host as it is, as a <c>for</c>-<c>of</c> left by <c>break</c> propagates a throwing <c>Dispose</c>
+    /// (sebastienros/jint#4500). The enumerator is disposed once either way.
+    /// </summary>
+    [TestCase("dispose", "takeAtLimit", true, "rejected:Error")]
+    [TestCase("dispose", "someStops", true, "rejected:Error")]
+    [TestCase("dispose", "everyStops", true, "rejected:Error")]
+    [TestCase("dispose", "findStops", true, "rejected:Error")]
+    [TestCase("dispose", "someStopsAfterAReturn", true, "rejected:Error")]
+    [TestCase("moveNext", "filterSecondStep", true, "rejected:Error")]
+    [TestCase("moveNext", "dropSecondStep", true, "rejected:Error")]
+    [TestCase("moveNext", "toArraySecondStep", true, "rejected:Error")]
+    [TestCase("moveNext", "someSecondStep", true, "rejected:Error")]
+    [TestCase("moveNext", "mapSecondNext", true, "rejected:Error")]
+    [TestCase("moveNext", "flatMapInnerStep", true, "rejected:Error|outer.next,outer.return")]
+    [TestCase("dispose", "takeAtLimit", false, "dispose failed")]
+    [TestCase("dispose", "someStops", false, "dispose failed")]
+    [TestCase("dispose", "everyStops", false, "dispose failed")]
+    [TestCase("dispose", "findStops", false, "dispose failed")]
+    [TestCase("dispose", "someStopsAfterAReturn", false, "dispose failed")]
+    [TestCase("moveNext", "filterSecondStep", false, "step failed")]
+    [TestCase("moveNext", "dropSecondStep", false, "step failed")]
+    [TestCase("moveNext", "toArraySecondStep", false, "step failed")]
+    [TestCase("moveNext", "someSecondStep", false, "step failed")]
+    [TestCase("moveNext", "mapSecondNext", false, "step failed")]
+    [TestCase("moveNext", "flatMapInnerStep", false, "step failed")]
+    public void AHostExceptionFromTheEnumeratorReachesTheHelpersPromise(string fault, string way, bool catchClrExceptions, string expected)
+    {
+        var items = new FaultingEnumerable(fault);
+        var engine = new Engine(options =>
+        {
+            if (catchClrExceptions)
+            {
+                options.CatchClrExceptions();
+            }
+        });
+        engine.SetValue("items", items);
+
+        AnswerOrHostFailure(engine, HostFailureHarness + "\n" + $$"""
+            (async function () {
+                let outcome;
+                try { outcome = 'resolved:' + JSON.stringify(await meet.{{way}}()); }
+                catch (e) { outcome = 'rejected:' + (e instanceof Error ? e.name : String(e)); }
+                return trace.length === 0 ? outcome : outcome + '|' + trace.join(',');
+            })()
+            """).Should().Be(expected);
+        items.Disposals.Should().Be(1);
+        items.StepsAfterDisposal.Should().Be(0);
     }
 
     /// <summary>
@@ -323,6 +458,50 @@ public class ClrEnumeratorDisposalTests
             })()
             """).UnwrapIfPromise().AsString().Should().Be("TypeError");
         items.Disposals.Should().Be(1);
+    }
+
+    /// <summary>
+    /// An asynchronous close disposes the enumerator once what the script's <c>return</c> answered has settled
+    /// (<a href="https://tc39.es/ecma262/#sec-asynciteratorclose">AsyncIteratorClose</a> step 4.d), so a <c>return</c>
+    /// still using the iterator until its promise settles finds it whole. A <c>for await</c> left by <c>break</c> is the
+    /// control. <c>yield*</c> handed a <c>throw()</c> its delegate has no <c>throw</c> for awaited nothing and disposed at
+    /// the call (sebastienros/jint#4498).
+    /// </summary>
+    [TestCase("forAwaitBreak", "pending 0 done settled 1")]
+    [TestCase("asyncYieldStarThrow", "pending 0 TypeError settled 1")]
+    public void AnAsynchronousCloseDisposesTheEnumeratorOnceTheReturnHasSettled(string way, string expected)
+    {
+        var items = new CountingEnumerable();
+        var engine = new Engine();
+        engine.SetValue("items", items);
+        engine.SetValue("disposals", new Func<int>(() => items.Disposals));
+
+        engine.Evaluate($$"""
+            (async function () {
+                const it = items[Symbol.iterator]();
+                let settle;
+                it.return = function () { return new Promise(function (resolve) { settle = resolve; }); };
+                const operand = { [Symbol.asyncIterator]() { return it; } };
+                const leave = {
+                    forAwaitBreak: async function () { for await (const x of operand) { break; } return 'done'; },
+                    asyncYieldStarThrow: async function () {
+                        const g = (async function* () { yield* operand; })();
+                        await g.next();
+                        await g.throw('T');
+                        return 'no throw';
+                    }
+                };
+                const p = leave.{{way}}().catch(function (e) { return e.constructor.name; });
+                for (let i = 0; i < 10; i++) { await null; }
+                const out = [settle ? 'pending ' + disposals() : 'return not called'];
+                settle({});
+                out.push(await p);
+                out.push('settled ' + disposals());
+                return out.join(' ');
+            })()
+            """).UnwrapIfPromise().AsString().Should().Be(expected);
+        items.Disposals.Should().Be(1);
+        items.StepsAfterDisposal.Should().Be(0);
     }
 
     private const string YieldStarReturnHarness = """
