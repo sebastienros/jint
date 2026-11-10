@@ -250,7 +250,10 @@ public sealed class JsArguments : ObjectInstance
                 return desc;
             }
 
-            if (ParameterMap.TryGetValue(property, out var jsValue) && !jsValue.IsUndefined())
+            // https://tc39.es/ecma262/#sec-arguments-exotic-objects-getownproperty-p: a mapped index takes its
+            // value from the map, whatever the parameter holds. Skipping undefined left the value the property
+            // was created with showing through.
+            if (ParameterMap.TryGetValue(property, out var jsValue))
             {
                 desc.Value = jsValue;
             }
@@ -385,8 +388,11 @@ public sealed class JsArguments : ObjectInstance
                 }
                 else
                 {
+                    // https://tc39.es/ecma262/#sec-arguments-exotic-objects-defineownproperty-p-desc: a descriptor
+                    // that has a [[Value]] field sets it through the map, and undefined is such a value; only an
+                    // absent field (a null Value) leaves the parameter alone.
                     var descValue = desc.Value;
-                    if (descValue is not null && !descValue.IsUndefined())
+                    if (descValue is not null)
                     {
                         map.Set(property, descValue, false);
                     }

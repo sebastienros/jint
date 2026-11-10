@@ -101,6 +101,54 @@ public class CapturedArgumentsTests
     }
 
     /// <summary>
+    /// A mapped index reads its parameter through the map whatever the parameter holds, undefined included:
+    /// https://tc39.es/ecma262/#sec-arguments-exotic-objects-getownproperty-p always takes the value from
+    /// the map, so the value the property was created with never shows through. Once the mapping outlived the
+    /// call, nothing froze the binding into that stale value any more, and an <c>undefined</c> parameter read
+    /// back as its original argument.
+    /// </summary>
+    [TestCase("function f(a) { a = undefined; var g = function () {}; return arguments; } var o = f(1); Object.getOwnPropertyDescriptor(o, '0').value")]
+    [TestCase("function f(a) { a = undefined; var g = function () {}; Object.keys(arguments); return arguments; } f(1)[0]")]
+    [TestCase("function f(a) { a = undefined; var g = function () {}; return arguments; } var o = f(1); Object.keys(o); o[0]")]
+    [TestCase("function f(a) { return [() => arguments, v => { a = v; }]; } var r = f(1); var o = r[0](); Object.keys(o); r[1](undefined); o[0]")]
+    // The same rule during the call, where the map is live on every branch.
+    [TestCase("function f(a) { Object.keys(arguments); a = undefined; return arguments[0]; } f(1)")]
+    [TestCase("function f(a) { a = undefined; return Object.getOwnPropertyDescriptor(arguments, '0').value; } f(1)")]
+    // A non-writable redefinition with no value takes the mapped value (sec-arguments-exotic-objects-defineownproperty-p-desc).
+    [TestCase("function f(a) { a = undefined; Object.defineProperty(arguments, '0', { writable: false }); a = 7; return arguments[0]; } f(1)")]
+    public void AMappedIndexHoldingUndefinedReadsUndefined(string source)
+    {
+        var engine = new Engine();
+
+        engine.Evaluate(source).Should().BeUndefined();
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-arguments-exotic-objects-defineownproperty-p-desc: a data descriptor that
+    /// has a value sets it through the map, and <c>undefined</c> is a value like any other.
+    /// </summary>
+    [TestCase("function f(a) { Object.defineProperty(arguments, '0', { value: undefined }); return a; } f(1)")]
+    [TestCase("function f(a) { Object.defineProperty(arguments, '0', { value: undefined }); return arguments[0]; } f(1)")]
+    [TestCase("function f(a) { return [() => arguments, () => a]; } var r = f(1); Object.defineProperty(r[0](), '0', { value: undefined }); r[1]()")]
+    public void DefiningAMappedIndexAsUndefinedWritesTheParameter(string source)
+    {
+        var engine = new Engine();
+
+        engine.Evaluate(source).Should().BeUndefined();
+    }
+
+    [Test]
+    public void DefiningAMappedIndexKeepsTheRestOfItsRules()
+    {
+        var engine = new Engine();
+
+        // A value other than undefined, and a non-writable redefinition with no value of its own, which keeps
+        // the current mapped value and then unmaps the index.
+        engine.Evaluate("function f(a) { Object.defineProperty(arguments, '0', { value: 5 }); return a; } f(1)").Should().Be(5);
+        engine.Evaluate("function f(a) { Object.defineProperty(arguments, '0', { writable: false }); a = 7; return arguments[0]; } f(1)").Should().Be(1);
+    }
+
+    /// <summary>
     /// A call through a property of the arguments object passes the object itself as the callee's
     /// <c>this</c> (https://tc39.es/ecma262/#sec-evaluatecall), and the callee can keep it.
     /// </summary>
@@ -152,11 +200,11 @@ public class CapturedArgumentsTests
             f("second");
             """);
 
-        engine.Evaluate("h()").ToString().Should().Be("first");
+        engine.Evaluate("h()").Should().Be("first");
 
         engine.Execute("const k = f({ v: 1 });");
-        engine.Evaluate("typeof k()").ToString().Should().Be("object");
-        engine.Evaluate("k().v").ToString().Should().Be("1");
+        engine.Evaluate("typeof k()").Should().Be("object");
+        engine.Evaluate("k().v").Should().Be(1);
     }
 
     [Test]
