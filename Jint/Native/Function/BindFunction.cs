@@ -1,3 +1,4 @@
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -166,9 +167,20 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
 
     private JsValue[] CreateArguments(JsCallArguments arguments)
     {
-        var combined = _engine._jsValueArrayPool.RentArray(BoundArguments.Length + arguments.Length);
-        System.Array.Copy(BoundArguments, combined, BoundArguments.Length);
-        System.Array.Copy(arguments, 0, combined, BoundArguments.Length, arguments.Length);
+        var boundArguments = BoundArguments;
+        var length = boundArguments.Length + arguments.Length;
+
+        // The bound arguments and the call's were each bounded where they were built, but a chain of binds adds them
+        // up, so the list made of them is held to MaxArraySize too (sebastienros/jint#4505). A default engine pays one
+        // byte test; a bind with no arguments of its own makes a list no longer than the call's, and is not checked.
+        if (_engine._hasMaxArraySize && boundArguments.Length != 0)
+        {
+            ArrayInstance.ValidateListLength(_engine, (ulong) length);
+        }
+
+        var combined = _engine._jsValueArrayPool.RentArray(length);
+        System.Array.Copy(boundArguments, combined, boundArguments.Length);
+        System.Array.Copy(arguments, 0, combined, boundArguments.Length, arguments.Length);
         return combined;
     }
 

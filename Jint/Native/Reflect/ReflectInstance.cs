@@ -40,7 +40,9 @@ internal sealed partial class ReflectInstance : BuiltinShapeObject
             Throw.TypeError(_realm, "Reflect.apply requires the first argument to be a function");
         }
 
-        var args = FunctionPrototype.CreateListFromArrayLike(_realm, argumentsList);
+        var args = _engine._hasMaxArraySize
+            ? FunctionPrototype.CreateListFromArrayLikeWithinLimit(_realm, argumentsList, FunctionPrototype.AnyElementType)
+            : FunctionPrototype.CreateListFromArrayLike(_realm, argumentsList);
 
         // 3. Perform PrepareForTailCall().
 
@@ -62,7 +64,9 @@ internal sealed partial class ReflectInstance : BuiltinShapeObject
         var newTargetArgument = arguments.At(2, arguments[0]);
         AssertConstructor(_engine, newTargetArgument);
 
-        var args = FunctionPrototype.CreateListFromArrayLike(_realm, arguments.At(1));
+        var args = _engine._hasMaxArraySize
+            ? FunctionPrototype.CreateListFromArrayLikeWithinLimit(_realm, arguments.At(1), FunctionPrototype.AnyElementType)
+            : FunctionPrototype.CreateListFromArrayLike(_realm, arguments.At(1));
 
         return target.Construct(args, newTargetArgument);
     }
