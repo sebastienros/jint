@@ -3,10 +3,12 @@
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// Pins where an IteratorClose sits among the steps around it, for two closes that had it in the wrong place: each
-/// iterator <c>Iterator.zip</c> collected is closed once when its <c>padding</c> fails to be an iterable, and a
-/// <c>for</c>-<c>of</c> left early has its scope gone before the iterator's <c>return</c> runs. Of the rows below, the
-/// two zip paddings that are not iterable and the two generator resumptions failed before the fix; the rest are controls.
+/// Pins where an IteratorClose sits among the steps around it, for closes that had it in the wrong place: each iterator
+/// <c>Iterator.zip</c> collected is closed once when its <c>padding</c> fails to be an iterable, a zip closing its
+/// members after a failed step is still executing while their <c>return</c> runs, and a <c>for</c>-<c>of</c> left early
+/// has its scope gone before the iterator's <c>return</c> runs. Of the rows below, the two zip paddings that are not
+/// iterable, the five re-entrant calls made while a failed step closes the members, and the two generator resumptions
+/// failed before the fix; the rest are controls.
 /// </summary>
 public class IteratorCloseOrderTests
 {
@@ -38,6 +40,61 @@ public class IteratorCloseOrderTests
         engine.Evaluate(ZipHarness + $$"""
             try { Iterator.zip([mk(1), mk(2)], { mode: 'longest', padding: {{padding}} }); }
             catch (e) { error = e.constructor.name; }
+            log.join(', ') + ' / ' + error
+            """).Should().Be(expected);
+    }
+
+    /// <summary>
+    /// Members whose <c>return</c> logs, and one (<c>reenter</c>) whose <c>return</c> calls the zip's own
+    /// <c>return()</c> or <c>next()</c> while the zip is closing its members, for the re-entrancy rows.
+    /// </summary>
+    private const string ReentrantZipHarness = """
+        const log = [];
+        let z;
+        const mk = (name, reenter) => ({
+            [Symbol.iterator]() {
+                return {
+                    next() { return { value: name, done: false }; },
+                    return() {
+                        log.push('return ' + name);
+                        if (reenter) {
+                            try { z[reenter](); log.push('re-entered'); } catch (e) { log.push('re-entry ' + e.constructor.name); }
+                        }
+                        return {};
+                    },
+                };
+            },
+        });
+        const failing = { [Symbol.iterator]() { return { next() { throw new Error('step'); } }; } };
+        const finished = { [Symbol.iterator]() { return { next() { return { value: 0, done: true }; } }; } };
+        let error = 'nothing';
+        """;
+
+    /// <summary>
+    /// The zip closes its open members when a step fails as IfAbruptCloseIterators inside its own closure
+    /// (https://tc39.es/ecma262/#sec-iteratorzip step 3), so the generator is executing while they run, and a member's
+    /// <c>return</c> that calls the zip's <c>return()</c> or <c>next()</c> gets GeneratorValidate's <c>TypeError</c>
+    /// (https://tc39.es/ecma262/#sec-generatorvalidate step 6); the closes go on, each member closed once, and the
+    /// step's own error is what the caller sees. test262's <c>zip/suspended-yield-iterator-close-calls-return.js</c> pins
+    /// the same state for a close a <c>return()</c> resumes. Jint marked the zip completed before these closes: the
+    /// re-entrant <c>return()</c> answered done after closing the remaining members itself, and the loop it emptied then
+    /// raised a CLR <c>ArgumentOutOfRangeException</c> in place of the step's error. The last two rows close inside the
+    /// step instead (a member that ran out, and a strict length mismatch), and are controls.
+    /// </summary>
+    [TestCase("[mk('A'), mk('B'), failing, mk('C', 'return')]", "", "return C, re-entry TypeError, return B, return A / Error")]
+    [TestCase("[mk('A'), mk('B'), failing, mk('C', 'return')]", ", { mode: 'longest' }", "return C, re-entry TypeError, return B, return A / Error")]
+    [TestCase("[mk('A'), mk('B'), failing, mk('C', 'return')]", ", { mode: 'strict' }", "return C, re-entry TypeError, return B, return A / Error")]
+    [TestCase("[mk('A'), mk('B'), failing, mk('C', 'next')]", "", "return C, re-entry TypeError, return B, return A / Error")]
+    [TestCase("[mk('A'), mk('B'), failing, mk('C', 'next')]", ", { mode: 'strict' }", "return C, re-entry TypeError, return B, return A / Error")]
+    [TestCase("[finished, mk('B'), mk('C', 'return')]", "", "return C, re-entry TypeError, return B / nothing")]
+    [TestCase("[mk('A'), mk('B', 'return'), finished]", ", { mode: 'strict' }", "return B, re-entry TypeError, return A / TypeError")]
+    public void AReturnThatReentersTheZipWhileItClosesItsMembersMeetsAnExecutingGenerator(string members, string options, string expected)
+    {
+        var engine = new Engine();
+
+        engine.Evaluate(ReentrantZipHarness + $$"""
+            z = Iterator.zip({{members}}{{options}});
+            try { z.next(); } catch (e) { error = e.constructor.name; }
             log.join(', ') + ' / ' + error
             """).Should().Be(expected);
     }
