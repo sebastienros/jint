@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1332
+anchors: 1333
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -214,6 +214,7 @@ ecma262 sec-createintrinsics
 ecma262 sec-createiterresultobject
 ecma262 sec-createlistfromarraylike
 ecma262 sec-createmapiterator
+ecma262 sec-createmappedargumentsobject
 ecma262 sec-createmethodproperty
 ecma262 sec-createnonenumerabledatapropertyorthrow
 ecma262 sec-createperiterationenvironment

@@ -29,10 +29,10 @@ public sealed class JsArguments : ObjectInstance
     // which clears the flag, so every materializing path stays consistent.
     private bool _virtualMode;
 
-    // Set when the owning call returned: the parameter map is detached, so mapped index reads
-    // switch from live bindings to the escaped snapshot (which write-syncs while mapped), and a
-    // later materialization must not rebuild the map — matching the long-standing behavior of
-    // nulling ParameterMap in FunctionWasCalled.
+    // Set when the owning call returned into an environment that may be reused (see FunctionWasCalled):
+    // the parameter map is detached, so mapped index reads switch from live bindings to the escaped
+    // snapshot (which write-syncs while mapped), and a later materialization must not rebuild the map.
+    // An environment a closure may hold keeps the map, as the spec does for every mapped object.
     private bool _mapDetached;
 
     internal JsArguments(Engine engine)
@@ -500,20 +500,34 @@ public sealed class JsArguments : ObjectInstance
         }
     }
 
-    internal void FunctionWasCalled()
+    /// <summary>
+    /// The owning call returned: an object nothing claimed goes back to the pool, and a mapped one detaches
+    /// from the call's environment where that environment may be reused.
+    /// </summary>
+    /// <param name="environmentOutlivesCall">
+    /// Whether a closure or a direct eval may have captured the call's environment, so that it is never handed
+    /// to a later call (<c>JintFunctionDefinition.State.EnvironmentMayEscape</c>).
+    /// </param>
+    internal void FunctionWasCalled(bool environmentOutlivesCall)
     {
-        // Freeze the final mapped-binding values into the snapshot while the map is still live, then
-        // detach: post-call reads see the captured snapshot, not live bindings, and a later
-        // materialization must not rebuild the map.
-        if (!_mapDetached && _func is not null)
+        // https://tc39.es/ecma262/#sec-createmappedargumentsobject: nothing ends the mapping when the call
+        // returns, and a closure over the environment can still write the parameter or the index afterwards.
+        // Only an environment no closure can reach is reused by the next call, so only then must an escaped
+        // object stop reading it; nothing else can see that binding any more, which is what makes the detach
+        // unobservable. Freeze the final binding values into the snapshot while the map is still live, then
+        // detach, so a later materialization does not rebuild the map either.
+        if (!environmentOutlivesCall)
         {
-            FreezeMappedBindings();
+            if (!_mapDetached && _func is not null)
+            {
+                FreezeMappedBindings();
+            }
+
+            _mapDetached = true;
+
+            // should no longer expose arguments which is special name
+            ParameterMap = null;
         }
-
-        _mapDetached = true;
-
-        // should no longer expose arguments which is special name
-        ParameterMap = null;
 
         if (_canReturnToPool)
         {
