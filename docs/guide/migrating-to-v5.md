@@ -8026,7 +8026,9 @@ delete list[Symbol.iterator]
 ```
 
 Now only the collection's contents are refused in those cases: an element, and an entry of a dictionary-shaped
-collection such as Newtonsoft's `JObject`. Deleting one still returns `false` (a `TypeError` in strict mode), and
+collection, such as a host type that is both a dictionary and a list of its values. (Newtonsoft's `JObject` is not
+one: it is wrapped as a dictionary, see [§4.222](#4-222-an-index-on-a-wrapped-jobject-is-one-more-of-its-keys-4501).)
+Deleting one still returns `false` (a `TypeError` in strict mode), and
 the collection does not change. Every other property follows the ordinary `delete` rules: removed if it is
 configurable, refused if it is not. Extensibility does not matter, so `Object.preventExtensions` no longer stops
 a configurable property from being deleted. Nor does `Object.freeze`, which does not reach a property the script
@@ -8156,6 +8158,102 @@ throws its own error, not the refusal's `TypeError`.
 WebIDL's text has no close ([whatwg/webidl#895](https://github.com/whatwg/webidl/issues/895)); Jint follows
 [whatwg/webidl#1662](https://github.com/whatwg/webidl/pull/1662), which proposes one, as Safari already behaves. There
 is no switch back.
+
+### 4.221 Argument lists built from a spread or an array-like refuse more elements than `MaxArraySize` ([#4505](https://github.com/sebastienros/jint/issues/4505))
+
+`Options.Constraints.MaxArraySize` bounds every array a script can build from a count (§4.217). An argument list was
+not bounded. A spread, or an array-like handed to `apply`, could build a list of any length, and the rest parameter
+and the `arguments` object made from it were just as long. With `MaxArraySize = 10_000`:
+
+```js
+const a = Array.from({ length: 10000 }, (_, i) => i);
+function f(...r) { return r.length; }
+f(...a, ...a);                          // earlier previews: 20000
+                                        // 5.x:              MemoryLimitExceededException
+f.apply(null, { length: 50_000_000 });  // earlier previews: allocates a 50,000,000-element list, then calls
+                                        // 5.x:              MemoryLimitExceededException, before allocating
+```
+
+These lists are now held to the limit, and refused with the same exception and message as `Array(n)`:
+
+- **A spread in a call, `new` or `super`:** the whole list counts, including the arguments written beside the
+  spreads. An array's spread is refused before it is copied. An iterator's is refused at the element that would take
+  the list past the limit, and the iterator is closed there instead of being stepped to its end.
+- **An array literal with a spread**, `[...a, ...b]`, which builds its elements the same way.
+- **`Function.prototype.apply`, `Reflect.apply` and `Reflect.construct`:** the list made from an array-like is
+  refused when its `length` is read, before the list is allocated and before any element is read. A script `Proxy`
+  `ownKeys` trap's result is read the same way. A host `ProxyHandler`'s `OwnKeys` list is not counted: the host has
+  already built it.
+- **A bound function:** the list made from its bound arguments and the call's own, which a chain of `bind` calls
+  adds up.
+- **The web APIs that list what script stored:**
+  - `Headers.prototype.getSetCookie` and `URLSearchParams.prototype.getAll`;
+  - `caches.keys()`, and `keys()` / `matchAll()` on a `Cache`;
+  - `indexedDB.databases()`, and `getAll` / `getAllKeys` on an object store or an index;
+  - an array key, and an object store's or index's array `keyPath`;
+  - in the `Jint.Browser` package, a canvas context's `getLineDash()` and the lists in a `Sanitizer`'s `get()`.
+
+  An array key or a key path is as long as the array the writing engine was given. Several engines can share an
+  origin's store (the `Jint.Browser` package does), so the limit that applies is the reading engine's.
+
+The exception comes out of the call that builds the list. `indexedDB.databases()`, `getAll` and `getAllKeys` build
+theirs in a task, so for them it comes out of `Evaluate`, `Execute` or whatever else runs the event loop.
+
+A list written out in the source is not counted: `f(1, 2, 3)` and `[1, 2, 3]` are no longer than the script, and a
+call without a spread pays nothing for the bound. A host passing its own argument array (`engine.Invoke`,
+`JsValue.Call`) is not checked either, except where a bound function adds its bound arguments to it.
+
+**What could break:**
+
+- **A finite limit:** a host that set a finite `MaxArraySize`, or runs `Options.ForUntrustedCode` (whose limit is
+  10,000), and a script that spreads or applies more elements than that. The arguments beside a spread count, so
+  under a limit of 10,000, `console.log('values', ...a)` is refused for a 10,000-element `a`.
+- **A script `Proxy`'s `ownKeys` trap** returning an array-like longer than the limit now throws
+  `MemoryLimitExceededException`. Before, it threw a `TypeError` for an element that is not a key, or went on.
+
+A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged, and a list of exactly `MaxArraySize`
+elements is still allowed. There is no switch back.
+
+### 4.222 An index on a wrapped `JObject` is one more of its keys ([#4501](https://github.com/sebastienros/jint/issues/4501))
+
+Newtonsoft's `JObject` is a string-keyed dictionary and also an `IList<JToken>`, and its list holds `JProperty`
+nodes, not values. Jint wrapped it as a view of that list, so a number key read the list while every key
+enumeration listed the dictionary's keys. Writes and deletes reached the list too, and the `JObject` threw:
+
+```js
+// host: engine.SetValue("jobj", JObject.Parse("{ \"a\": 1 }"));
+jobj[0]                                   // earlier previews: the "a": 1 JProperty      5.x: undefined
+0 in jobj                                 // earlier previews: true                      5.x: false
+Object.getOwnPropertyDescriptor(jobj, 0)  // earlier previews: a getter returning it     5.x: undefined
+delete jobj[0]                            // AllowWrite: ArgumentException out of Evaluate   5.x: true
+jobj[0] = 5                               // AllowWrite: ArgumentException out of Evaluate   5.x: adds the key "0"
+Array.prototype.slice.call(jobj)          // InvalidOperationException out of Evaluate       5.x: []
+```
+
+A string such as `jobj["0"]` that the object did not hold reached the list the same way. Now `0` and `"0"` are one
+key, read, tested, written and deleted through the dictionary like any other, so `jobj[0]` reads a `"0"` key when
+the object has one. `OrderedDictionary<string, TValue>` (.NET 9 and later) has the same shape, and so does
+System.Text.Json's `JsonObject` from System.Text.Json 9 on: the version .NET 9 and later ship, and the package on any
+target framework, .NET Framework and .NET 8 included. Their lists hold `KeyValuePair` entries, and they change the
+same way. So a `JsonObject` now behaves as it did with System.Text.Json 8 and earlier, which is what a .NET 8
+application that references no newer package still runs. Such an object is wrapped the way a
+`Dictionary<string, TValue>` is, which changes three more things:
+
+- its prototype is `Object.prototype` rather than `Array.prototype`, so `jobj.length` is `undefined` unless the
+  object has a `length` key, and `jobj.forEach` and the other array methods are gone. They used to run over the
+  `JProperty` nodes; use `Object.entries(jobj)`, `for…in` or `for…of` (which yields `[key, value]` pairs) instead;
+- under `AllowWrite`, `jobj.length = 0` writes the key `length`. It used to remove every property;
+- under `AllowWrite`, `Object.preventExtensions(jobj)` no longer stops `delete jobj.a`, as it does not for a plain
+  dictionary. `Object.freeze` and `Object.seal` still do, and with `AllowWrite` off every key is still refused.
+  This is the one place [§4.216](#4-216-a-wrapped-clr-collection-deletes-a-configurable-property-the-script-defined-on-it-4457)
+  no longer describes a `JObject`.
+
+**What could break:** script that read a `JObject`'s `JProperty` nodes by position or through `Array.prototype`
+methods, script that relied on its `Array.prototype`, and a host `catch` written for the CLR exceptions above.
+A `JArray` is unchanged. So is a host type that is a dictionary and a list of its own values and declares an
+integer indexer itself; one whose list is reachable only through the interface, as `JObject`'s is, now behaves like
+`JObject`. There is no switch back. A host that needs the entries by position can hand script
+`jobj.Properties().ToList()`.
 
 ### 4.224 `yield*` in an async generator awaits the delegate's `return` before `throw()` fails ([#4498](https://github.com/sebastienros/jint/issues/4498))
 
@@ -8334,6 +8432,57 @@ The answers are Chromium's (Microsoft Edge 156), including which members it read
 has a `navigate` member that Chromium does not read, and neither does Jint, so a getter on it never runs. Nothing of an
 action is stored: a non-persistent notification refuses a non-empty list, and `actions` reads back as an empty frozen
 array. There is no switch back.
+
+### 4.232 An execution constraint that trips inside an iterator's `return` ends the run while a throw is closing the iterator ([#4547](https://github.com/sebastienros/jint/pull/4547))
+
+A loop, a destructuring pattern or a built-in that is left by a throw closes its iterator by calling `return`, and the
+spec has the throw win over anything `return` throws. Jint let it win over everything, including the exception of an
+execution constraint that tripped while `return` ran. So the limit was spent and the script carried on:
+
+```js
+const it = { [Symbol.iterator]() { return { next() { return { done: false }; }, return() { for (;;) {} } }; } };
+try { for (const x of it) throw new Error('body'); } catch (e) { }
+'finished'
+// LimitExecutionTime(300 ms)    earlier builds: 'finished'    5.x: TimeoutException out of Evaluate
+```
+
+Whether the run ended anyway depended on what came after. A time limit or a cancellation is checked every 64
+statements, so a script with fewer than that left finished normally. `MaxRecursionDepth` and `MaxArraySize` fire once,
+and were simply lost. A statement limit fired again on the next statement, but a script whose error escaped handed the
+host that error, a `JavaScriptException`, in place of `StatementsCountOverflowException`. Only a memory limit, which is
+checked again as the entry ends, was never lost outright.
+
+The exception now reaches the host from every close a throw performs: `for`-`of` and `for await` (a sync iterable in a
+`for await`, and a `for (await using …)` whose dispose rejects, included), array destructuring in a declaration, an
+assignment or a parameter list, a generator closed while it is suspended in `yield*`, `Array.from`, `Array.fromAsync`,
+the `Map`, `Set`, `WeakMap` and `WeakSet` constructors, `Object.fromEntries`, `Promise.all`, `allSettled`, `any` and
+`race`, the iterator helpers (the async ones' argument checks included), `Iterator.zip` and `Iterator.zipKeyed`, and
+the web APIs that convert a sequence. The rule is the one a host function's boundary already follows: an exception that
+ends the run is never converted or discarded. That is the whole of this list:
+
+- the bounds: `StatementsCountOverflowException`, `MemoryLimitExceededException` (`LimitMemory` and `MaxArraySize`),
+  `ExecutionCanceledException`, `RecursionDepthOverflowException`, `RegexMatchTimeoutException`, and the
+  `TimeoutException` and `OperationCanceledException` that Jint itself raises;
+- the limits on what a run builds: `ParsingLimitException`, `ResultLimitExceededException` and
+  `ModuleGraphLimitException`;
+- any `PlatformNotSupportedException` or `OutOfMemoryException`.
+
+What a script can catch is still discarded, as the spec says: a `throw` in `return`, and the `RangeError` of
+`StackOverflowGuard`. So is any other host exception from a CLR `return` or `Dispose`, a host's own `TimeoutException`
+included: only one Jint raised counts as the time limit.
+
+Three closes on the same paths changed with it, all visible to script. `Iterator.zip` with `mode: 'longest'` and a
+`padding` that is not iterable (no `Symbol.iterator`, or one answering a primitive) called each collected iterator's
+`return` twice, and now calls it once, in reverse order. A zip whose step failed closes its other members while it is
+still executing, so a member's `return` that calls the zip's own `return()` or `next()` now gets a `TypeError`, as the
+spec's GeneratorValidate requires. It used to be answered `done`, and a member could have its `return` called twice.
+And a generator resumed with `return()` at a `yield` that is a `for`-`of` loop's whole body
+(`for (let x of it) yield x;`), whose iterator's `return` then throws, left the loop's bindings in scope for the
+`catch` around the loop. The spec leaves the loop's scope before it closes the iterator, and so does Jint now.
+
+**What could break:** apart from those three, nothing a script can observe, except that it no longer completes. A host
+whose scripts kept running past a bound because the bound tripped inside a `return` now gets the bound's exception
+instead. There is no switch back: a constraint a `return` could hide bounded nothing.
 
 ## 5. New in v5
 
