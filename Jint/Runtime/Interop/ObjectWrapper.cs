@@ -1498,7 +1498,12 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         if (includeStrings && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
         {
-            var keys = (ICollection<string>) _typeDescriptor.KeysAccessor!.GetValue(Target)!;
+            // IReadOnlyDictionary<,>.Keys is the one the descriptor may have found, and what ImmutableDictionary and
+            // ImmutableSortedDictionary return through it is an iterator, not a collection. The collection test comes
+            // first because IEnumerable<out T> is variant, so a cast to it costs a CastCache probe where the exact
+            // ICollection<T> test is an interface-map scan, and a Dictionary's keys are a collection.
+            var keysValue = _typeDescriptor.KeysAccessor!.GetValue(Target)!;
+            IEnumerable<string> keys = keysValue as ICollection<string> ?? (IEnumerable<string>) keysValue;
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             // each step pulls from the user dictionary's key enumerator
             foreach (var key in keys)
