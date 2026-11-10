@@ -1646,7 +1646,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         // The member lane writes through the descriptor's Value setter, which cannot report a refusal. A
         // dictionary is declined above, but a member resolved against the runtime type (the exposed type having
-        // none) can still be a dictionary's indexer, so the descriptor is asked as well. Population only.
+        // none) can still be a dictionary's indexer, so the descriptor is asked as well. This runs when the lane
+        // populates, not per access. The read lane populates through here too, so reads of that rare shape also
+        // go uncached; they still answer correctly, through Get.
         if (descriptor is ReflectionDescriptor { WriteCanBeRefused: true })
         {
             return null;

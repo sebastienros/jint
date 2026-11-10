@@ -5,6 +5,7 @@ using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
+using Jint.Runtime.Interop;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -299,6 +300,35 @@ public class HostReadOnlyDictionaryWriteTests
 
         thrown.Should().BeOfType<NotSupportedException>().Which.Message.Should().Be("read-only");
         bag["alpha"].Should().Be("a");
+    }
+
+    /// <summary>
+    /// A read-only dictionary exposed as a type that is not one, here <see cref="IEnumerable"/>. The wrapper then
+    /// does not count as a dictionary, so the interpreter's member lane would admit it. But the exposed type has no
+    /// member <c>k</c>, so the member resolves against the runtime type, as the dictionary's indexer, whose write
+    /// can be refused. The member lane writes through a descriptor that cannot report that refusal, so the
+    /// descriptor itself must be what keeps it out of that lane. Three writes after a read exercise the lane once
+    /// it is warm.
+    /// </summary>
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ExposedAsNonDictionaryOverAReadOnlyDictionary(bool strict)
+    {
+        var host = new ReadOnlyStringDictionary(new Dictionary<string, string> { ["k"] = "v" });
+        var engine = CreateEngine(new object(), strict);
+        engine.SetValue("d", ObjectWrapper.Create(engine, host, typeof(IEnumerable)));
+
+        var outcome = engine.Evaluate("""
+            var r = d.k;
+            var res = [];
+            for (var i = 0; i < 3; i++) {
+                try { d.k = 'z'; res.push('no error'); } catch (e) { res.push(e.constructor.name); }
+            }
+            res.join() + '|' + Reflect.set(d, 'k', 'z') + '|' + d.k
+            """).AsString();
+
+        outcome.Should().Be((strict ? "TypeError,TypeError,TypeError" : "no error,no error,no error") + "|false|v");
+        host["k"].Should().Be("v");
     }
 
     private static string StringSpelling(string key) => key.StartsWith("'", StringComparison.Ordinal) ? key : "'" + key + "'";
