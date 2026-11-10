@@ -246,7 +246,7 @@ internal abstract class IteratorInstance : ObjectInstance
             {
                 callable = _target.GetMethod(CommonProperties.Return);
             }
-            catch when (completion == CompletionType.Throw)
+            catch (Exception e) when (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e))
             {
                 // Step 5: If completion is a throw completion, return ? completion.
                 return;
@@ -262,7 +262,7 @@ internal abstract class IteratorInstance : ObjectInstance
             {
                 innerResult = callable.Call(_target, Arguments.Empty);
             }
-            catch when (completion == CompletionType.Throw)
+            catch (Exception e) when (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e))
             {
                 // Step 5: If completion is a throw completion, return ? completion.
                 return;

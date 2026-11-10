@@ -136,13 +136,15 @@ internal partial class IteratorPrototype : Prototype
         // innerResult is inspected, so nothing raised while closing may replace the error that
         // triggered the close. That covers the GetMethod in step 2 as much as the call in step 3.c:
         // a throwing "return" accessor, or a "return" that is present but not callable, must leave
-        // the original TypeError/RangeError/coercion error standing.
+        // the original TypeError/RangeError/coercion error standing. Never an exception that ends the run, though: a
+        // constraint that trips inside "return" is no completion of the script's, and propagates
+        // (Throw.MustPropagateHostException), as IteratorInstance's IteratorClose lets it.
         ICallable? returnMethod;
         try
         {
             returnMethod = obj.GetMethod(CommonProperties.Return);
         }
-        catch when (completionType == CompletionType.Throw)
+        catch (Exception e) when (completionType == CompletionType.Throw && !Throw.MustPropagateHostException(e))
         {
             return;
         }
@@ -156,7 +158,7 @@ internal partial class IteratorPrototype : Prototype
         {
             returnMethod.Call(obj, Arguments.Empty);
         }
-        catch when (completionType == CompletionType.Throw)
+        catch (Exception e) when (completionType == CompletionType.Throw && !Throw.MustPropagateHostException(e))
         {
             // Ignore errors from return when completion is throw
         }

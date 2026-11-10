@@ -100,13 +100,14 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     {
         // See the identical helper on IteratorPrototype: step 4 runs before innerResult is
         // inspected, so neither the GetMethod of step 2 nor the call of step 3.c may replace the
-        // error that triggered the close.
+        // error that triggered the close - but an exception that ends the run, a constraint that
+        // tripped inside "return", is no such error and propagates (Throw.MustPropagateHostException).
         ICallable? returnMethod;
         try
         {
             returnMethod = obj.GetMethod(CommonProperties.Return);
         }
-        catch when (completionType == CompletionType.Throw)
+        catch (Exception e) when (completionType == CompletionType.Throw && !Throw.MustPropagateHostException(e))
         {
             return;
         }
@@ -120,7 +121,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         {
             returnMethod.Call(obj, Arguments.Empty);
         }
-        catch when (completionType == CompletionType.Throw)
+        catch (Exception e) when (completionType == CompletionType.Throw && !Throw.MustPropagateHostException(e))
         {
             // Ignore errors from return when completion is throw
         }
@@ -315,7 +316,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
 
         var onRejected = new ClrFunction(_engine, "", (_, innerArgs) =>
         {
-            try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
+            try { iterated.Close(CompletionType.Throw); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
             promiseCapability.Reject(innerArgs.At(0));
             return Undefined;
         }, 1, PropertyFlag.Configurable);
@@ -477,7 +478,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
                 }
                 catch (JavaScriptException ex)
                 {
-                    try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
+                    try { iterated.Close(CompletionType.Throw); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
                     cap.Reject(ex.Error);
                     return;
                 }
@@ -551,7 +552,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             shouldStop: (resolved, value, cap) =>
             {
                 if (!TypeConverter.ToBoolean(resolved)) return false;
-                try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
+                try { iterated.Close(CompletionType.Normal); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
                 cap.Resolve(JsBoolean.True);
                 return true;
             });
@@ -571,7 +572,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             shouldStop: (resolved, value, cap) =>
             {
                 if (TypeConverter.ToBoolean(resolved)) return false;
-                try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
+                try { iterated.Close(CompletionType.Normal); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
                 cap.Resolve(JsBoolean.False);
                 return true;
             });
@@ -591,7 +592,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             shouldStop: (resolved, value, cap) =>
             {
                 if (!TypeConverter.ToBoolean(resolved)) return false;
-                try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
+                try { iterated.Close(CompletionType.Normal); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
                 cap.Resolve(value);
                 return true;
             });
@@ -623,7 +624,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
                 }
                 catch (JavaScriptException ex)
                 {
-                    try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
+                    try { iterated.Close(CompletionType.Throw); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
                     cap.Reject(ex.Error);
                     return;
                 }
