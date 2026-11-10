@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Dynamic;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Newtonsoft.Json.Linq;
 
@@ -469,6 +470,74 @@ public class HostWrapperScriptDefinedKeysTests
     }
 
     /// <summary>
+    /// Only a projection the wrapper does not rebuild becomes the script's when the script deletes it and defines it
+    /// again. The others come back on the read the define itself makes, so the define redefines the wrapper's own:
+    /// <c>Symbol.iterator</c> is materialized again and stays unlisted, and a plain wrapper's <c>toJSON</c> resolves
+    /// from its CLR method again and is listed once, by the target. A <c>length</c> forwarder over a collection with
+    /// no <c>Length</c> member is not rebuilt, so the script's <c>length</c> is its own: listed, and frozen.
+    /// </summary>
+    [Test]
+    public void AProjectionDeletedThenDefinedIsTheScriptsOnlyWhereTheWrapperDoesNotRebuildIt()
+    {
+        var engine = CreateEngine(new List<int> { 1, 2 }, allowWrite: false);
+        engine.SetValue("record", new JsonRecord());
+
+        engine.Evaluate(
+            """
+            delete host[Symbol.iterator];
+            Object.defineProperty(host, Symbol.iterator, { value: function* () { yield 9; }, configurable: true });
+            const iterator = [Object.getOwnPropertySymbols(host).length, [...host].join()].join('/');
+
+            const recordKeys = Reflect.ownKeys(record).join();
+            delete record.toJSON;
+            Object.defineProperty(record, 'toJSON', { value() { return 'script'; }, configurable: true });
+            const toJson = [recordKeys, Reflect.ownKeys(record).join(), JSON.stringify(record)].join('/');
+
+            delete host.length;
+            Object.defineProperty(host, 'length', { value: 7, configurable: true });
+            const listed = Reflect.ownKeys(host).join();
+            Object.freeze(host);
+            const length = [listed, Object.getOwnPropertyDescriptor(host, 'length').configurable].join('/');
+
+            [iterator, toJson, length].join(';')
+            """).AsString().Should().Be("0/9;Value,toJSON/Value,toJSON/\"script\";0,1,length/false");
+    }
+
+    /// <summary>
+    /// What a host stores with <c>ObjectInstance.DefineOwnPropertyUnchecked</c> is
+    /// the host's, not the script's: it is not listed, on its own or beside a property the script defined.
+    /// </summary>
+    [Test]
+    public void AHostsUncheckedStoreIsNotListed()
+    {
+        var engine = CreateEngine(new HostRecord(), allowWrite: false);
+        var wrapper = (ObjectInstance) engine.GetValue("host");
+        wrapper.DefineOwnPropertyUnchecked("hostOnly", new PropertyDescriptor(JsString.Create("host"), PropertyFlag.ConfigurableEnumerableWritable));
+
+        engine.Evaluate("[Reflect.ownKeys(host).join(), host.hostOnly].join(';')").AsString().Should().Be("Value;host");
+        engine.Evaluate("Object.defineProperty(host, 'tag', { value: 1, configurable: true }); Reflect.ownKeys(host).join()")
+            .AsString().Should().Be("Value,tag");
+    }
+
+    /// <summary>
+    /// Under <c>PreferJsPrototypeMethods</c> a view defers <c>find</c> to <c>Array.prototype</c> rather than to the CLR
+    /// <c>Find</c> its name also matches, so a <c>find</c> the script defines is a creation: marked, listed and frozen.
+    /// </summary>
+    [Test]
+    public void UnderPreferJsPrototypeMethodsAScriptKeyIsListed()
+    {
+        var engine = new Engine(options => options.Interop.PreferJsPrototypeMethods = true);
+        engine.SetValue("host", new List<int> { 1, 2 });
+
+        engine.Evaluate(
+            """
+            Object.defineProperty(host, 'find', { value: 1, enumerable: true, configurable: true });
+            Object.freeze(host);
+            [Reflect.ownKeys(host).join(), host.find, Object.getOwnPropertyDescriptor(host, 'find').configurable].join(';')
+            """).AsString().Should().Be("0,1,find;1;false");
+    }
+
+    /// <summary>
     /// Symbols follow creation order too, with a deleted one defined again after the rest.
     /// </summary>
     [Test]
@@ -736,6 +805,16 @@ public class HostWrapperScriptDefinedKeysTests
     public sealed class HostRecord
     {
         public int Value { get; set; } = 1;
+    }
+
+    /// <summary>
+    /// A host object with a public <c>toJSON</c> method, which its wrapper projects for <c>JSON.stringify</c>.
+    /// </summary>
+    public sealed class JsonRecord
+    {
+        public int Value { get; set; } = 1;
+
+        public string toJSON() => "clr";
     }
 
     /// <summary>

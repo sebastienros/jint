@@ -7977,8 +7977,8 @@ already behaved this way.
 because the wrapper now lists it among its own keys
 ([§4.223](#4-223-a-wrapped-clr-object-lists-the-properties-the-script-defined-on-it-4503)). They do not yet stop it
 for something the wrapper projects itself and the script redefines, such as the `Symbol.iterator` in the example
-above (or `toJSON`, `length`, `Symbol.dispose`). The wrapper does not list a projection, so after `Object.freeze`
-it stays configurable and `delete` still removes it
+above (or the `length` forwarder, or `Symbol.dispose`). The wrapper does not list a projection, so after
+`Object.freeze` it stays configurable and `delete` still removes it
 ([#4528](https://github.com/sebastienros/jint/issues/4528)).
 
 The same rules apply to what the wrapper itself puts on a collection. `delete list.Contains` and
@@ -8140,11 +8140,23 @@ that a dictionary later gains as an entry is listed once, in the dictionary's pl
 still yields only its entries.
 
 What the wrapper projects itself and the target does not report is not listed, as before: the `length` forwarder,
-`Symbol.iterator`, `toJSON`, `Symbol.dispose`, and a reflected member such as `ToString`. That stays true after the
-script redefines one: it is still the wrapper's projection, so `Object.freeze` and `Object.seal` do not reach it, it
-stays configurable, and `delete` still removes it ([#4528](https://github.com/sebastienros/jint/issues/4528)).
-A property the script defines after deleting a projection is the script's own, and is listed. Properties a host
-stores with `DefineOwnPropertyUnchecked`, which bypasses `[[DefineOwnProperty]]`, are not listed either.
+`Symbol.iterator`, `Symbol.dispose` and `Symbol.asyncDispose`, and a reflected member such as `ToString`. (A plain
+wrapper does list a public `toJSON` method, once, because its target reports its methods by name.) That stays
+true after the script redefines one: it is still the wrapper's projection, so `Object.freeze` and `Object.seal` do
+not reach it, it stays configurable, and `delete` still removes it
+([#4528](https://github.com/sebastienros/jint/issues/4528)).
+
+What happens when the script deletes a projection and then defines a property of that name depends on whether the
+wrapper rebuilds the projection:
+- **It does not rebuild:** `Symbol.dispose`, `Symbol.asyncDispose`, and the `length` forwarder of a collection with
+  no `Length` member (a `List<T>`, whose count is `Count`). The new property is the script's own: it is listed, and
+  `Object.freeze` reaches it.
+- **It rebuilds on the next read**, and the define is that read: `Symbol.iterator` is materialized again, and
+  `toJSON`, a reflected member such as `ToString`, and `length` on an array resolve from the CLR type again. So the
+  define redefines the wrapper's projection, which stays the wrapper's and is listed only where it was before.
+
+Properties a host stores with `DefineOwnPropertyUnchecked`, which bypasses `[[DefineOwnProperty]]`, are not listed
+either, whether or not the script has defined properties of its own.
 
 **What could break:** `JSON.stringify`, `Object.keys`, `Object.assign`, spread and `for..in` over a wrapped object
 or dictionary now include an enumerable property the script defined on it, and `Object.getOwnPropertyNames` and
