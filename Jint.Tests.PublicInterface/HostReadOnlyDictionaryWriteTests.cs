@@ -64,27 +64,6 @@ public class HostReadOnlyDictionaryWriteTests
         }
     }
 
-    /// <summary>
-    /// <see cref="ShapesAndModes"/> without <c>ImmutableDictionary&lt;string, string&gt;</c>, for a test that lists a
-    /// dictionary's keys. Its <c>Keys</c> is an iterator and not an <see cref="ICollection{T}"/>, which
-    /// <c>ObjectWrapper.EnumerateOwnPropertyKeys</c> casts it to, so <c>Reflect.ownKeys</c> over it throws
-    /// <see cref="InvalidCastException"/> with or without a write. That is not what the test is about.
-    /// </summary>
-    public static TestCases<string, bool> KeyListingShapesAndModes
-    {
-        get
-        {
-            var data = new TestCases<string, bool>();
-            foreach (var shape in _shapes.Where(shape => shape != "ImmutableDictionary<string, string>"))
-            {
-                data.Add(shape, false);
-                data.Add(shape, true);
-            }
-
-            return data;
-        }
-    }
-
     private sealed record Shape(object Host, Func<string> Render, string ExistingKey, string NewKey);
 
     private static Shape CreateShape(string shape)
@@ -240,7 +219,7 @@ public class HostReadOnlyDictionaryWriteTests
     /// Only the keys are read, never an entry's value, which .NET Framework cannot do for a
     /// <c>FrozenDictionary</c> (see <see cref="AWriteAfterAReadIsRefusedToo"/>).
     /// </summary>
-    [TestCaseSource(nameof(KeyListingShapesAndModes))]
+    [TestCaseSource(nameof(ShapesAndModes))]
     public void ARefusedWriteOrDeleteListsNoKey(string shape, bool strict)
     {
         var (host, render, existingKey, newKey) = CreateShape(shape);
