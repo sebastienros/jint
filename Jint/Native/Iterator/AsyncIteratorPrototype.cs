@@ -316,7 +316,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
 
         var onRejected = new ClrFunction(_engine, "", (_, innerArgs) =>
         {
-            try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
+            try { iterated.Close(CompletionType.Throw); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
             promiseCapability.Reject(innerArgs.At(0));
             return Undefined;
         }, 1, PropertyFlag.Configurable);
@@ -478,7 +478,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
                 }
                 catch (JavaScriptException ex)
                 {
-                    try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
+                    try { iterated.Close(CompletionType.Throw); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
                     cap.Reject(ex.Error);
                     return;
                 }
@@ -552,7 +552,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             shouldStop: (resolved, value, cap) =>
             {
                 if (!TypeConverter.ToBoolean(resolved)) return false;
-                try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
+                try { iterated.Close(CompletionType.Normal); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
                 cap.Resolve(JsBoolean.True);
                 return true;
             });
@@ -572,7 +572,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             shouldStop: (resolved, value, cap) =>
             {
                 if (TypeConverter.ToBoolean(resolved)) return false;
-                try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
+                try { iterated.Close(CompletionType.Normal); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
                 cap.Resolve(JsBoolean.False);
                 return true;
             });
@@ -592,7 +592,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             shouldStop: (resolved, value, cap) =>
             {
                 if (!TypeConverter.ToBoolean(resolved)) return false;
-                try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
+                try { iterated.Close(CompletionType.Normal); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
                 cap.Resolve(value);
                 return true;
             });
@@ -624,7 +624,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
                 }
                 catch (JavaScriptException ex)
                 {
-                    try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
+                    try { iterated.Close(CompletionType.Throw); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
                     cap.Reject(ex.Error);
                     return;
                 }

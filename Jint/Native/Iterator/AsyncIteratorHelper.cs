@@ -57,7 +57,7 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
             if (!Exhausted)
             {
                 Exhausted = true;
-                try { Iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
+                try { Iterated.Close(CompletionType.Throw); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
             }
             promiseCapability.Reject(ex.Error);
         }
@@ -179,7 +179,7 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
     {
         State = GeneratorState.Completed;
         Exhausted = true;
-        try { Iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
+        try { Iterated.Close(CompletionType.Throw); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
         promiseCapability.Reject(error);
     }
 }
@@ -387,7 +387,7 @@ internal sealed class AsyncTakeIterator : AsyncIteratorHelper
         {
             State = GeneratorState.Completed;
             Exhausted = true;
-            try { Iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
+            try { Iterated.Close(CompletionType.Normal); } catch (Exception closeError) when (!Throw.MustPropagateHostException(closeError)) { /* ignore */ }
             promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
             return;
         }

@@ -1,5 +1,6 @@
 #nullable enable
 
+using Jint.Constraints;
 using Jint.Runtime;
 
 namespace Jint.Tests.PublicInterface;
@@ -103,6 +104,10 @@ public class HostIteratorCloseConstraintTests
         ["for await over a rejected value"] = new("for await (const x of makeIterable(() => Promise.reject(new Error('body')))) { }"),
         ["for await over a value whose constructor throws"] = new("for await (const x of makeIterable(poisonedPromise)) { }"),
         ["for-of whose await using dispose rejects"] = new("for (await using x of makeIterable(rejectingDisposable)) { }"),
+        ["AsyncIterator.prototype.map step"] = new("await AsyncIterator.prototype.map.call(asyncIterable[Symbol.asyncIterator](), fail).next();"),
+        ["AsyncIterator.prototype.forEach step"] = new("await AsyncIterator.prototype.forEach.call(asyncIterable[Symbol.asyncIterator](), fail);"),
+        ["AsyncIterator.prototype.reduce step"] = new("await AsyncIterator.prototype.reduce.call(asyncIterable[Symbol.asyncIterator](), fail, 0);"),
+        ["AsyncIterator.prototype.some step"] = new("await AsyncIterator.prototype.some.call(asyncIterable[Symbol.asyncIterator](), fail);"),
         ["Promise.all"] = new("class P extends Promise { static resolve() { fail(); } } await P.all(iterable);"),
         ["Array.fromAsync"] = new("await Array.fromAsync(asyncIterable, fail);"),
     };
@@ -127,8 +132,9 @@ public class HostIteratorCloseConstraintTests
         "CancellationToken",
         "MaxRecursionDepth",
         "MaxArraySize",
-        // The timeout is outrun by a host sleep, so no row depends on how fast it runs.
-        "TimeoutInterval",
+        // The deadline is armed from inside return() with a budget that has already run out, so no row depends on how
+        // fast it runs. (TimeoutInterval has its own smoke test below, with a generous budget.)
+        "OperationDeadline",
 #if NET8_0_OR_GREATER
         // A per-thread allocation counter .NET Framework does not have.
         "LimitMemory",
@@ -136,10 +142,10 @@ public class HostIteratorCloseConstraintTests
     ];
 
     /// <summary>
-    /// What a script can catch, thrown from inside <c>return</c>. Main also pins the <c>RangeError</c> the stack overflow
-    /// guard raises for a recursion nothing else bounds; that row took the test host down on 4.x, so it is not carried over.
+    /// What a script can catch, thrown from inside <c>return</c>: a <c>throw</c>, and the <c>RangeError</c> the stack
+    /// overflow guard raises for a recursion nothing else bounds (opt-in on 4.x, so the row turns it on).
     /// </summary>
-    private static readonly string[] Controls = ["throw"];
+    private static readonly string[] Controls = ["throw", "StackOverflowGuard"];
 
     private static IEnumerable<(string Site, string Context)> Placements()
     {
@@ -276,6 +282,25 @@ public class HostIteratorCloseConstraintTests
     }
 
     /// <summary>
+    /// The real timeout, once: the budget is generous, so reaching <c>return()</c> inside it does not depend on the
+    /// machine, and a host sleep then outruns it.
+    /// </summary>
+    [Fact]
+    public void ATimeoutIntervalThatElapsesInsideReturnEndsTheRun()
+    {
+        var engine = new Engine(options => options.TimeoutInterval(TimeSpan.FromSeconds(2)));
+        engine.SetValue("outrun", new Action(() => Thread.Sleep(2500)));
+
+        var thrown = Record.Exception(() => engine.Evaluate("""
+            function spin() { for (let i = 0; i < 100000; i++) { } }
+            const iterable = { [Symbol.iterator]() { return { next() { return { done: false }; }, return() { outrun(); spin(); return {}; } }; } };
+            try { for (const x of iterable) { throw new Error('body'); } } catch (e) { }
+            """));
+
+        thrown.Should().BeOfType<TimeoutException>();
+    }
+
+    /// <summary>
     /// The line the filter draws: Jint's own <see cref="TimeoutException"/> ends the run because Jint raised it, not
     /// because of its type, so a host's own one from a CLR <c>return</c> is a host failure the closing throw still wins
     /// over, as it wins over a host's <c>Dispose</c>.
@@ -311,6 +336,7 @@ public class HostIteratorCloseConstraintTests
     private sealed class Harness : IDisposable
     {
         private readonly CancellationTokenSource _cancellation = new();
+        private readonly OperationDeadlineConstraint _deadline = new();
         private readonly string _trip;
 
         public Harness(string bound)
@@ -338,9 +364,9 @@ public class HostIteratorCloseConstraintTests
                     _trip = "new Array(5000);";
                     Expected = typeof(MemoryLimitExceededException);
                     break;
-                case "TimeoutInterval":
-                    configure = options => options.TimeoutInterval(TimeSpan.FromMilliseconds(100));
-                    _trip = "outrunTheDeadline(); spin();";
+                case "OperationDeadline":
+                    configure = options => options.Constraint(_deadline);
+                    _trip = "armTheDeadline(); spin();";
                     Expected = typeof(TimeoutException);
                     break;
 #if NET8_0_OR_GREATER
@@ -354,6 +380,8 @@ public class HostIteratorCloseConstraintTests
                     _trip = "throw new Error('from return');";
                     break;
                 case "StackOverflowGuard":
+                    // Opt-in on 4.x, where main has it on.
+                    configure = options => options.Constraints.StackOverflowGuard = true;
                     _trip = "(function overflow() { return 1 + overflow(); })();";
                     break;
                 default:
@@ -363,7 +391,7 @@ public class HostIteratorCloseConstraintTests
             Engine = configure is null ? new Engine() : new Engine(configure);
             Engine.SetValue("reached", new Action(() => ReturnCalls++));
             Engine.SetValue("cancel", new Action(_cancellation.Cancel));
-            Engine.SetValue("outrunTheDeadline", new Action(() => Thread.Sleep(250)));
+            Engine.SetValue("armTheDeadline", new Action(() => _deadline.Begin(TimeSpan.FromTicks(1))));
         }
 
         public Engine Engine { get; }

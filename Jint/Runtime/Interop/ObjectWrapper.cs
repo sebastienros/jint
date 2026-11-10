@@ -1616,7 +1616,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         public override void Close(CompletionType completion)
         {
-            (_enumerator as IDisposable)?.Dispose();
+            try
+            {
+                (_enumerator as IDisposable)?.Dispose();
+            }
+            catch (Exception e) when (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e))
+            {
+                // IteratorClose step 5: under a throw completion the script's error wins over what the host's Dispose
+                // raises - but not over an exception that ends the run, a constraint that tripped inside it.
+            }
+
             base.Close(completion);
         }
 

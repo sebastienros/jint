@@ -74,7 +74,7 @@ public sealed class ClrFunction : Function, IEquatable<ClrFunction>
         {
             return _func(thisObject, arguments);
         }
-        catch (Exception e) when (e is not JavaScriptException)
+        catch (Exception e) when (e is not JavaScriptException && !Throw.MustPropagateHostException(e))
         {
             if (_engine.Options.Interop.ExceptionHandler(e))
             {
