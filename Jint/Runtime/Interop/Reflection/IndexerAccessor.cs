@@ -82,10 +82,10 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     /// That indexer takes any object, because the interface does. Every generic dictionary the base class
     /// library ships then rejects a key that is not a <c>TKey</c>: the setter throws (an
     /// <see cref="ArgumentException"/>, or a <see cref="NotSupportedException"/> when read-only), the getter
-    /// answers <see langword="null"/> and <c>Contains</c> answers <see langword="false"/>. Only the setter
-    /// needs answering for, so only <see cref="Writable"/> changes; reads go on asking <c>Contains</c>, as
-    /// before. A name that converts to <c>TKey</c> never reaches this indexer, since the dictionary's own
-    /// <c>this[TKey]</c> takes it first.
+    /// answers <see langword="null"/> and <c>Contains</c> answers <see langword="false"/>, or throws, as
+    /// <c>ImmutableDictionary</c>'s does. So the marked copy is not <see cref="Writable"/> and reports no entry
+    /// without asking. A name that converts to <c>TKey</c> never reaches this indexer, since the dictionary's
+    /// own <c>this[TKey]</c> takes it first.
     /// </remarks>
     internal IndexerAccessor ForTarget(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type targetType)
@@ -309,6 +309,14 @@ internal sealed class IndexerAccessor : ReflectionAccessor
         }
     }
 
+    /// <summary>
+    /// A dictionary's indexer, recognized by the <c>ContainsKey</c> it was found with, refuses a write when the
+    /// dictionary is read-only and says so with <see cref="NotSupportedException"/>, the collection contracts'
+    /// answer for a read-only <see cref="IDictionary"/> or <see cref="IDictionary{TKey,TValue}"/>.
+    /// </summary>
+    protected override bool RefusesAsReadOnly(TargetInvocationException exception)
+        => _containsKey is not null && exception.InnerException is NotSupportedException;
+
     public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, string memberName, bool enumerable = true)
     {
         if (!KeyIsPresent(target))
@@ -325,6 +333,13 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     /// </summary>
     private bool KeyIsPresent(object target)
     {
+        if (KeyCannotBeAnEntry)
+        {
+            // there is no entry to find, and asking would not always answer: ImmutableDictionary's
+            // IDictionary.Contains casts the key to TKey and throws InvalidCastException for one that is not
+            return false;
+        }
+
         if (_containsKey is null)
         {
             return true;

@@ -414,12 +414,19 @@ internal sealed class TypeDescriptor
 
             return true;
         }
-        catch (TargetInvocationException tie) when (tie.InnerException is ArgumentException or InvalidCastException)
+        catch (TargetInvocationException tie) when (tie.InnerException is ArgumentException or InvalidCastException or NotSupportedException)
         {
+            // NotSupportedException is the collection contracts' answer for a read-only dictionary
+            // (ReadOnlyDictionary, ImmutableDictionary, FrozenDictionary): a refused write, not a failure
             return false;
         }
     }
 
+    /// <summary>
+    /// Removes <paramref name="key"/>, answering <see langword="false"/> when the dictionary refuses to remove
+    /// anything: it has no <c>Remove</c>, or it is read-only and says so with
+    /// <see cref="NotSupportedException"/>. A key it did not hold is not a refusal.
+    /// </summary>
     public bool TryRemoveDictionaryValue(object target, object key)
     {
         if (_genericRemoveMethod is null)
@@ -435,13 +442,24 @@ internal sealed class TypeDescriptor
             _compiledRemoveResolved = true;
         }
 
-        var remove = _compiledRemove;
-        if (remove is not null && KeyFitsCompiledLane(key))
+        try
         {
-            return InvokeKeyPredicateCompiled(remove, target, key);
-        }
+            var remove = _compiledRemove;
+            if (remove is not null && KeyFitsCompiledLane(key))
+            {
+                InvokeKeyPredicateCompiled(remove, target, key);
+            }
+            else
+            {
+                _genericRemoveMethod.Invoke(target, [key]);
+            }
 
-        return _genericRemoveMethod.Invoke(target, [key]) is true;
+            return true;
+        }
+        catch (TargetInvocationException tie) when (tie.InnerException is NotSupportedException)
+        {
+            return false;
+        }
     }
 
     /// <summary>

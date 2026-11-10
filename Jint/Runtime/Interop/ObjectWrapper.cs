@@ -767,8 +767,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     return false;
                 }
 
-                accessor.SetValue(_engine, Target, member, value);
-                return true;
+                // false when a dictionary refused the entry as read-only
+                return accessor.SetValue(_engine, Target, member, value);
             }
         }
         else if (property is JsSymbol jsSymbol)
@@ -923,7 +923,29 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         base.SetOwnProperty(property, desc);
     }
 
-    public override void RemoveOwnProperty(JsValue property)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ordinarydelete, except that an entry the dictionary refuses to remove, as a
+    /// read-only one does, is refused rather than reported deleted.
+    /// </summary>
+    public override bool Delete(JsValue property)
+    {
+        var descriptor = GetOwnProperty(property);
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            return true;
+        }
+
+        return descriptor.Configurable && RemoveOwnPropertyUnlessRefused(property);
+    }
+
+    public override void RemoveOwnProperty(JsValue property) => RemoveOwnPropertyUnlessRefused(property);
+
+    /// <summary>
+    /// Removes the property, and under <see cref="Options.InteropOptions.AllowWrite"/> the dictionary entry it
+    /// names. <see langword="false"/>, with nothing removed, when the dictionary holds the entry and refuses to
+    /// remove it.
+    /// </summary>
+    private bool RemoveOwnPropertyUnlessRefused(JsValue property)
     {
         ForgetResolvedProperty(property);
 
@@ -931,21 +953,43 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             if (property is JsString jsString && _typeDescriptor.IsStringKeyedGenericDictionary)
             {
-                _typeDescriptor.TryRemoveDictionaryValue(Target, jsString.ToString());
+                var key = jsString.ToString();
+                var removed = _typeDescriptor.TryRemoveDictionaryValue(Target, key);
                 _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (!removed && HoldsDictionaryKey(key))
+                {
+                    return false;
+                }
             }
             else if (!property.IsString()
                 && !property.IsSymbol()
                 && _typeDescriptor.IsNonStringKeyedGenericDictionary
                 && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
             {
-                _typeDescriptor.TryRemoveDictionaryValue(Target, clrKey!);
+                var removed = _typeDescriptor.TryRemoveDictionaryValue(Target, clrKey!);
                 _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (!removed && HoldsDictionaryKey(clrKey!))
+                {
+                    return false;
+                }
             }
         }
 
         // also remove from _properties cache to avoid stale entries
         base.RemoveOwnProperty(property);
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a dictionary that refused a removal holds <paramref name="key"/>: only an entry is refused, and a
+    /// property the script defined on the wrapper is removed as on any object.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool HoldsDictionaryKey(object key)
+    {
+        var contains = _typeDescriptor.ContainsDictionaryKey(Target, key);
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
+        return contains;
     }
 
     /// <summary>

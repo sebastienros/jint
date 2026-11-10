@@ -8330,7 +8330,7 @@ has a `navigate` member that Chromium does not read, and neither does Jint, so a
 action is stored: a non-persistent notification refuses a non-empty list, and `actions` reads back as an empty frozen
 array. There is no switch back.
 
-### 4.230 A wrapped dictionary keeps a name it cannot hold as a key on the wrapper ([#4518](https://github.com/sebastienros/jint/issues/4518))
+### 4.230 A wrapped dictionary keeps a name it cannot hold as a key on the wrapper, and a read-only one refuses a write ([#4518](https://github.com/sebastienros/jint/issues/4518))
 
 Under `Options.Interop.AllowWrite`, assigning a name to a wrapped dictionary whose key type is not `string` let the
 dictionary's own exception out of `Evaluate` when the name did not convert to that key type: an `ArgumentException`
@@ -8358,6 +8358,24 @@ d.expando
   converter makes no `Guid` from a string.
 - Without `AllowWrite` nothing changes. The assignment is refused, as every assignment to a string-keyed dictionary
   is, and `Object.defineProperty` defines the property on the wrapper, as it did before in both modes.
+
+A read-only dictionary now refuses a write or `delete` of an entry under `AllowWrite`, instead of letting its
+`NotSupportedException` out of `Evaluate`, raw or wrapped in a `TargetInvocationException`. That applies to
+`ReadOnlyDictionary`, `ImmutableDictionary`, `ImmutableSortedDictionary`, `FrozenDictionary`, and any
+`IDictionary` or `IDictionary<TKey, TValue>` that throws it. `Reflect.set` and `Reflect.deleteProperty` return
+`false`, an assignment or `delete` in strict mode is a `TypeError`, and the dictionary does not change:
+
+```js
+// host: engine.SetValue("d", new ReadOnlyDictionary<int, string>(new Dictionary<int, string> { [1] = "a" }));
+d[5] = 'b';      // earlier previews: TargetInvocationException out of Evaluate    5.x: refused
+delete d[1]     // earlier previews: TargetInvocationException out of Evaluate    5.x: false
+```
+
+A dictionary that implements only `IReadOnlyDictionary<TKey, TValue>` has no `Remove`, so `delete` of one of its
+entries used to answer `true` and leave the entry where it was; it answers `false` now. A property the script
+defined on such a wrapper is still deleted as on any object. And a non-string-keyed `ImmutableDictionary` or
+`ImmutableSortedDictionary` no longer throws `InvalidCastException` when script reads a name it cannot hold as a
+key: the name reads `undefined`, in both modes.
 
 There is no switch back.
 
