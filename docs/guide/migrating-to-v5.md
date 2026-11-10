@@ -8191,6 +8191,40 @@ another realm resumed from a job, an async generator's `await using`, and a gene
 left gave a main-realm `SuppressedError`, and a stack's `dispose` called another realm's built-in gave the caller's.
 Those now answer `instanceof` with the realm of the function, generator or built-in. There is no switch back.
 
+### 4.229 `new Notification` converts each entry of `actions` as a `NotificationAction` ([#4516](https://github.com/sebastienros/jint/issues/4516))
+
+`Jint.Browser` used to count the entries of `actions` and convert none of them. Each entry is now converted as a
+`NotificationAction` dictionary, with the members Chromium's IDL gives it: `action` and `title` are required
+`DOMString`s, `icon` is an optional `USVString`, `placeholder` an optional `DOMString?` and `type` a
+`NotificationActionType` (`"button"` or `"text"`, `"button"` when absent). They are read in lexicographic order
+(`action`, `icon`, `placeholder`, `title`, `type`), each converted as it is read, so a getter runs once per entry:
+
+```js
+try { new Notification('t', { actions: [{ action: 'open' }] }); } catch (e) { e.message; }
+// earlier previews: "Actions are only supported for persistent notifications ..."
+// 5.x: "Failed to read the 'actions' property from 'NotificationOptions': Failed to read the 'title' property from 'NotificationAction': Required member is undefined."
+```
+
+- An entry that is not an object, or that lacks `action` or `title`, is a `TypeError` naming the member, as in Chromium.
+  It was a `TypeError` before as well, since a non-persistent notification refuses any non-empty list, but never for
+  this reason. That refusal still follows the conversion, so a list that converts keeps throwing it.
+- A `type` that is neither `"button"` nor `"text"` is a `TypeError` naming the member and the enumeration, as in Chromium.
+  It is read last, so an entry missing `title` fails before its `type` is read.
+- A member whose conversion throws now propagates what it threw: a `Symbol`, or a `toString` that throws. Chromium
+  prefixes a `Symbol`'s message with the member it was reading; Jint's is the bare `TypeError`.
+- A failing entry stops the options conversion where it is. `actions` is the first member WebIDL reads, so `body`,
+  `data` and the rest are no longer read, and the entries after the failing one are no longer taken from the iterator.
+- A failing entry calls the iterator's `return` once before the error propagates, as in §4.220, which Chromium does
+  not. A `next` that throws, and a list that runs out, still call nothing.
+- A value that is not a sequence has Chromium's messages: "The provided value cannot be converted to a sequence."
+  for a value that is not an object, and "The object must have a callable @@iterator property." for one with no
+  `Symbol.iterator`.
+
+The answers are Chromium's (Microsoft Edge 156), including which members it reads. The standard's `NotificationAction`
+has a `navigate` member that Chromium does not read, and neither does Jint, so a getter on it never runs. Nothing of an
+action is stored: a non-persistent notification refuses a non-empty list, and `actions` reads back as an empty frozen
+array. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
