@@ -241,6 +241,28 @@ public class AsyncIteratorHelperCloseTests
             });
         }
 
+        // flatMap's return() while its outer step is in flight closes the source with no inner iterator open. The step then
+        // opens one on the completed helper, and nothing closes either afterwards: a second return() or a next() answers
+        // done, and the source's `return` is called once.
+        function flatMapReturnDuringStep(second) {
+            const log = [];
+            const inner = {
+                [Symbol.asyncIterator]() { return this; },
+                next() { log.push('inner.next'); return Promise.resolve({ value: 'i', done: false }); },
+                return() { log.push('inner.return'); return {}; }
+            };
+            const outer = {
+                next() { log.push('outer.next'); return Promise.resolve({ value: 1, done: false }); },
+                return() { log.push('outer.return'); return {}; }
+            };
+            const h = AsyncIterator.prototype.flatMap.call(outer, () => inner);
+            const p1 = h.next();
+            const p2 = h.return();
+            return Promise.all([p1, p2]).then(([r1, r2]) =>
+                (second === 'return' ? h.return() : h.next()).then(r3 =>
+                    h.return().then(r4 => [r1, r2, r3, r4].map(r => JSON.stringify(r)).join('|') + '|' + log.join(','))));
+        }
+
         // A return() while a step is in flight: the step still answers its value, the source is closed once, and a later
         // next() answers done without stepping the closed source again. The async generator doing the same with
         // for await is the control.
@@ -632,6 +654,20 @@ public class AsyncIteratorHelperCloseTests
     public void AReturnDuringAStepCompletesTheHelperForGood(string name)
     {
         Run($"returnDuringStep('{name}')").Should().Be("p1:{\"value\":1,\"done\":false}|p2:{\"done\":true}|p3:{\"done\":true}|next1,return");
+    }
+
+    /// <summary>
+    /// flatMap's <c>return()</c> while its outer step is in flight closes the source, with no inner iterator open yet.
+    /// The step goes on to open one on the completed helper, and nothing closes either afterwards: a later
+    /// <c>return()</c> or <c>next()</c> answers done, and the source's <c>return</c> is called once. A later
+    /// <c>return()</c> used to take that inner iterator for an open one, closing it and then the source a second time.
+    /// core-js 3.51's answers.
+    /// </summary>
+    [TestCase("return", "{\"value\":\"i\",\"done\":false}|{\"done\":true}|{\"done\":true}|{\"done\":true}|outer.next,outer.return,inner.next")]
+    [TestCase("next", "{\"value\":\"i\",\"done\":false}|{\"done\":true}|{\"done\":true}|{\"done\":true}|outer.next,outer.return,inner.next")]
+    public void FlatMapsReturnDuringAnOuterStepClosesTheSourceOnce(string second, string expected)
+    {
+        Run($"flatMapReturnDuringStep('{second}')").Should().Be(expected);
     }
 
     /// <summary>

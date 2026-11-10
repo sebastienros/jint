@@ -587,9 +587,13 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
         var doneResult = CreateIteratorResult(Undefined, done: true);
 
+        // An inner iterator on a source that is already Exhausted belongs to a step that was in flight when an earlier
+        // return() closed the source: the helper was completed then, so it closes nothing now, the source a second time
+        // least of all.
         var inner = _innerIterator;
-        if (inner is null)
+        if (inner is null || Exhausted)
         {
+            _innerIterator = null;
             CloseSource(promiseCapability, CompletionType.Return, doneResult);
             return promiseCapability.PromiseInstance;
         }
@@ -641,6 +645,22 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
                 // used to leave it set, so a return() afterwards called its `return` (sebastienros/jint#4500).
                 _innerIterator = null;
                 throw;
+            }
+            catch (Exception e) when (!Throw.MustPropagateHostException(e))
+            {
+                // A host exception from the inner step, such as a CLR collection's MoveNext behind the async-from-sync
+                // wrapper, which lets it through: converted as its function would convert it, it fails the step as a
+                // JavaScript throw does. The step usually runs in a promise reaction with no capability to reject, which
+                // left the helper's promise pending (sebastienros/jint#4500). Declined by the handler, it propagates as it
+                // is.
+                _innerIterator = null;
+                if (!IteratorInstance.TryConvertHostException(_engine, e, out var error))
+                {
+                    throw;
+                }
+
+                RejectWithError(promiseCapability, error);
+                return;
             }
 
             var self = this;

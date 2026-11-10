@@ -298,7 +298,10 @@ public class ClrEnumeratorDisposalTests
         // Ways an async iterator helper or a consuming method meets a host exception from the enumerator behind
         // `items`. Its Dispose: take at its limit, and some, every and find stopping early, with no `return` and after
         // a script one. Its MoveNext on the second step: filter, drop, toArray and some take that step inside a promise
-        // reaction, and map's is a next() the script calls, which must answer a rejected promise.
+        // reaction, and map's is a next() the script calls, which must answer a rejected promise. flatMap's inner step,
+        // inside the reaction to the mapper's answer, steps an iterator `items` handed out that has taken its first step
+        // already, so the source it closes records its calls in `trace`.
+        const trace = [];
         const meet = {
             takeAtLimit: () => AsyncIterator.prototype.take.call(items[Symbol.iterator](), 0).next(),
             someStops: () => AsyncIterator.prototype.some.call(items[Symbol.iterator](), () => true),
@@ -319,6 +322,15 @@ public class ClrEnumeratorDisposalTests
                 let p;
                 try { p = h.next(); } catch (e) { return 'next() threw:' + e.name; }
                 return p;
+            },
+            flatMapInnerStep: () => {
+                const it = items[Symbol.iterator]();
+                it.next();
+                const outer = {
+                    next() { trace.push('outer.next'); return Promise.resolve({ value: 1, done: false }); },
+                    return() { trace.push('outer.return'); return {}; }
+                };
+                return AsyncIterator.prototype.flatMap.call(outer, () => it).next();
             }
         };
         """;
@@ -343,6 +355,7 @@ public class ClrEnumeratorDisposalTests
     [TestCase("moveNext", "toArraySecondStep", true, "rejected:Error")]
     [TestCase("moveNext", "someSecondStep", true, "rejected:Error")]
     [TestCase("moveNext", "mapSecondNext", true, "rejected:Error")]
+    [TestCase("moveNext", "flatMapInnerStep", true, "rejected:Error|outer.next,outer.return")]
     [TestCase("dispose", "takeAtLimit", false, "dispose failed")]
     [TestCase("dispose", "someStops", false, "dispose failed")]
     [TestCase("dispose", "everyStops", false, "dispose failed")]
@@ -353,6 +366,7 @@ public class ClrEnumeratorDisposalTests
     [TestCase("moveNext", "toArraySecondStep", false, "step failed")]
     [TestCase("moveNext", "someSecondStep", false, "step failed")]
     [TestCase("moveNext", "mapSecondNext", false, "step failed")]
+    [TestCase("moveNext", "flatMapInnerStep", false, "step failed")]
     public void AHostExceptionFromTheEnumeratorReachesTheHelpersPromise(string fault, string way, bool catchClrExceptions, string expected)
     {
         var items = new FaultingEnumerable(fault);
@@ -367,8 +381,10 @@ public class ClrEnumeratorDisposalTests
 
         AnswerOrHostFailure(engine, HostFailureHarness + "\n" + $$"""
             (async function () {
-                try { return 'resolved:' + JSON.stringify(await meet.{{way}}()); }
-                catch (e) { return 'rejected:' + (e instanceof Error ? e.name : String(e)); }
+                let outcome;
+                try { outcome = 'resolved:' + JSON.stringify(await meet.{{way}}()); }
+                catch (e) { outcome = 'rejected:' + (e instanceof Error ? e.name : String(e)); }
+                return trace.length === 0 ? outcome : outcome + '|' + trace.join(',');
             })()
             """).Should().Be(expected);
         items.Disposals.Should().Be(1);
