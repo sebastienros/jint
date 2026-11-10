@@ -7971,9 +7971,16 @@ one: it is wrapped as a dictionary, see [§4.222](#4-222-an-index-on-a-wrapped-j
 Deleting one still returns `false` (a `TypeError` in strict mode), and
 the collection does not change. Every other property follows the ordinary `delete` rules: removed if it is
 configurable, refused if it is not. Extensibility does not matter, so `Object.preventExtensions` no longer stops
-a configurable property from being deleted. Nor does `Object.freeze`, which does not reach a property the script
-defined on a wrapper: the wrapper lists only the collection's own keys, so that property stays configurable. A
-plain wrapped object, and a writable collection under `AllowWrite`, already behaved this way.
+a configurable property from being deleted. A plain wrapped object, and a writable collection under `AllowWrite`,
+already behaved this way.
+
+`Object.freeze` and `Object.seal` do stop it for a property the script created: they make it non-configurable,
+because the wrapper now lists it among its own keys
+([§4.223](#4-223-a-wrapped-clr-object-lists-the-properties-the-script-defined-on-it-4503)). They do not yet stop it
+for something the wrapper projects itself and the script redefines, such as the `Symbol.iterator` in the example
+above (or the `length` forwarder, or `Symbol.dispose`). The wrapper does not list a projection, so after
+`Object.freeze` it stays configurable and `delete` still removes it
+([#4528](https://github.com/sebastienros/jint/issues/4528)).
 
 The same rules apply to what the wrapper itself puts on a collection. `delete list.Contains` and
 `delete list.length` now return `true`. The method is back on the next read. So is the count for a collection
@@ -8194,6 +8201,65 @@ A `JArray` is unchanged. So is a host type that is a dictionary and a list of it
 integer indexer itself; one whose list is reachable only through the interface, as `JObject`'s is, now behaves like
 `JObject`. There is no switch back. A host that needs the entries by position can hand script
 `jobj.Properties().ToList()`.
+
+### 4.223 A wrapped CLR object lists the properties the script defined on it ([#4503](https://github.com/sebastienros/jint/issues/4503))
+
+A wrapped CLR object listed only its target's keys: the members of a plain object, the positions of a list or
+array, the entries of a dictionary. A property the script defined on the wrapper itself, string or symbol, was
+never listed, so everything that reads an object's own keys missed it:
+
+```js
+// host: engine.SetValue("host", new List<int> { 1, 2 });   // or any other wrapped object
+Object.defineProperty(host, 'tag', { value: 1, enumerable: true, configurable: true, writable: true });
+Reflect.ownKeys(host)        // earlier previews: ['0', '1']                  5.x: ['0', '1', 'tag']
+Object.freeze(host);
+delete host.tag              // earlier previews: true, and isFrozen was true  5.x: false
+```
+
+The script's keys now follow the target's: `Reflect.ownKeys`, `Object.getOwnPropertyNames` and
+`getOwnPropertySymbols`, `Object.keys` / `values` / `entries`, `Object.assign`, spread, `for..in`,
+`JSON.stringify` and `ObjectInstance.GetOwnProperties` on the host side all see them. `Object.freeze` and
+`Object.seal` make them non-configurable, so `delete` refuses them afterwards and `Object.isFrozen` /
+`isSealed` stop answering `true` while one is still configurable. A symbol a script assigns (`host[sym] = 1`) is
+created only where `Options.Interop.AllowWrite` allows it, as before, and is listed when it is.
+
+The order is the one an ordinary object has: integer indices ascending, then strings in creation order, then
+symbols in creation order, with the target's keys counted as the oldest. The target's own keys are never
+reordered. A view lists its positions first and never gains an index of the script's: its positions are its
+elements, and it refuses to define any other index. A plain wrapper's member names are never indices, so a
+script's index such as `'0'` comes ahead of them. A dictionary keeps the order it enumerates its own keys in,
+numeric ones included, exactly as before; the script's indices join a leading run of ascending numeric keys,
+and lead the list when there is none.
+
+No key is listed twice. A CLR member, element or entry the script redefines is still the target's and stays where
+the target lists it, which on a view means not at all for a member such as `Contains`. A key the script defined
+that a dictionary later gains as an entry is listed once, in the dictionary's place. `for..of` over a dictionary
+still yields only its entries.
+
+What the wrapper projects itself and the target does not report is not listed, as before: the `length` forwarder,
+`Symbol.iterator`, `Symbol.dispose` and `Symbol.asyncDispose`, and a reflected member such as `ToString`. (A plain
+wrapper does list a public `toJSON` method, once, because its target reports its methods by name.) That stays
+true after the script redefines one: it is still the wrapper's projection, so `Object.freeze` and `Object.seal` do
+not reach it, it stays configurable, and `delete` still removes it
+([#4528](https://github.com/sebastienros/jint/issues/4528)).
+
+What happens when the script deletes a projection and then defines a property of that name depends on whether the
+wrapper rebuilds the projection:
+- **It does not rebuild:** `Symbol.dispose`, `Symbol.asyncDispose`, and the `length` forwarder of a collection with
+  no `Length` member (a `List<T>`, whose count is `Count`). The new property is the script's own: it is listed, and
+  `Object.freeze` reaches it.
+- **It rebuilds on the next read**, and the define is that read: `Symbol.iterator` is materialized again, and
+  `toJSON`, a reflected member such as `ToString`, and `length` on an array resolve from the CLR type again. So the
+  define redefines the wrapper's projection, which stays the wrapper's and is listed only where it was before.
+
+Properties a host stores with `DefineOwnPropertyUnchecked`, which bypasses `[[DefineOwnProperty]]`, are not listed
+either, whether or not the script has defined properties of its own.
+
+**What could break:** `JSON.stringify`, `Object.keys`, `Object.assign`, spread and `for..in` over a wrapped object
+or dictionary now include an enumerable property the script defined on it, and `Object.getOwnPropertyNames` and
+`Reflect.ownKeys` include a non-enumerable one too. A script that relied on the first group skipping it defines it
+non-enumerable; one that relied on `Reflect.ownKeys` skipping it keeps it on an object of its own. There is no
+switch back.
 
 ### 4.224 `yield*` in an async generator awaits the delegate's `return` before `throw()` fails ([#4498](https://github.com/sebastienros/jint/issues/4498))
 
