@@ -8371,10 +8371,22 @@ d[5] = 'b';      // earlier previews: TargetInvocationException out of Evaluate 
 delete d[1]     // earlier previews: TargetInvocationException out of Evaluate    5.x: false
 ```
 
-A dictionary that implements only `IReadOnlyDictionary<TKey, TValue>` has no `Remove`, so `delete` of one of its
-entries used to answer `true` and leave the entry where it was; it answers `false` now. A property the script
-defined on such a wrapper is still deleted as on any object; `ObjectWrapper` overrides `Delete` for this, so a
-subclass calling `base.Delete` reaches it. A non-string-keyed `ImmutableDictionary` or
+- **The host's exception handler is no longer asked about it.** The exception from a string-named write, such
+  as `d.k = 'z'` through an indexer whose setter throws, reached `Options.Interop.ExceptionHandler`. Under
+  `CatchClrExceptions` (or a handler that answers `true`) script saw a catchable `Error`. A refusal is not an
+  error, so sloppy mode now raises nothing and strict mode raises the `TypeError` above. The number-key write
+  and `delete` never reached the handler.
+- **`PlatformNotSupportedException` is not a refusal**, although it derives from `NotSupportedException`. It is
+  one of the exceptions the engine always lets through to the host, and it does so here as before:
+  unwrapped from a string-named write, inside the `TargetInvocationException` from a number-key write or a
+  `delete`.
+- **`IReadOnlyDictionary<TKey, TValue>` alone has no `Remove`.** A `delete` of one of its entries used to answer
+  `true` and leave the entry where it was; it answers `false` now. A property the script defined on such a
+  wrapper is still deleted as on any object.
+- **`ObjectWrapper` overrides `Delete`** for the refusal, and seals its `RemoveOwnProperty` override. Neither
+  can break a host, because `ObjectWrapper`'s constructor is internal and so nothing outside Jint derives from it.
+
+A non-string-keyed `ImmutableDictionary` or
 `ImmutableSortedDictionary` no longer throws `InvalidCastException` when script reads a name it cannot hold as a
 key: the name reads `undefined`, in both modes.
 

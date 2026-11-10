@@ -414,10 +414,12 @@ internal sealed class TypeDescriptor
 
             return true;
         }
-        catch (TargetInvocationException tie) when (tie.InnerException is ArgumentException or InvalidCastException or NotSupportedException)
+        catch (TargetInvocationException tie) when (tie.InnerException is ArgumentException or InvalidCastException or NotSupportedException
+                                                    && !Throw.MustPropagateHostException(tie.InnerException))
         {
             // NotSupportedException is the collection contracts' answer for a read-only dictionary
-            // (ReadOnlyDictionary, ImmutableDictionary, FrozenDictionary): a refused write, not a failure
+            // (ReadOnlyDictionary, ImmutableDictionary, FrozenDictionary): a refused write, not a failure. Its
+            // PlatformNotSupportedException is one the engine always lets through, so the shared list decides.
             return false;
         }
     }
@@ -456,7 +458,8 @@ internal sealed class TypeDescriptor
 
             return true;
         }
-        catch (TargetInvocationException tie) when (tie.InnerException is NotSupportedException)
+        catch (TargetInvocationException tie) when (tie.InnerException is NotSupportedException
+                                                    && !Throw.MustPropagateHostException(tie.InnerException))
         {
             return false;
         }

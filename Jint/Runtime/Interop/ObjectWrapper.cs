@@ -889,6 +889,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         var ownDesc = GetOwnProperty(property);
+        if (ownDesc is ReflectionDescriptor reflected)
+        {
+            // a read stores an indexer's descriptor here, and the dictionary behind it may refuse the write as
+            // read-only, which the Value setter below cannot report (#4518)
+            return reflected.TrySetValue(value);
+        }
+
         ownDesc.Value = value;
         return true;
     }
@@ -936,15 +943,24 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return true;
         }
 
+        // ObjectInstance.Delete calls RemoveOwnProperty virtually. This calls its body directly, which skips
+        // nothing because RemoveOwnProperty is sealed here, and the body can report a refusal.
         return descriptor.Configurable && RemoveOwnPropertyUnlessRefused(property);
     }
 
-    public override void RemoveOwnProperty(JsValue property) => RemoveOwnPropertyUnlessRefused(property);
-
     /// <summary>
     /// Removes the property, and under <see cref="Options.InteropOptions.AllowWrite"/> the dictionary entry it
-    /// names. <see langword="false"/>, with nothing removed, when the dictionary holds the entry and refuses to
-    /// remove it.
+    /// names. Nothing is removed when the dictionary holds the entry and refuses to remove it.
+    /// </summary>
+    /// <remarks>
+    /// Sealed so that <see cref="Delete"/> may call the body directly: no subclass outside the assembly can
+    /// exist, the constructor being internal, and none inside it overrides this.
+    /// </remarks>
+    public sealed override void RemoveOwnProperty(JsValue property) => RemoveOwnPropertyUnlessRefused(property);
+
+    /// <summary>
+    /// <see cref="RemoveOwnProperty"/>, answering <see langword="false"/>, with nothing removed, when the
+    /// dictionary holds the entry and refuses to remove it.
     /// </summary>
     private bool RemoveOwnPropertyUnlessRefused(JsValue property)
     {

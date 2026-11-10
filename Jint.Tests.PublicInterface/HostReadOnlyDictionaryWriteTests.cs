@@ -211,6 +211,88 @@ public class HostReadOnlyDictionaryWriteTests
     }
 
     /// <summary>
+    /// A read through the string lane stores the indexer's descriptor on the wrapper, so the write after it no
+    /// longer takes the lane that reports a refusal: it goes through the stored descriptor instead, which
+    /// reported success for a write the dictionary had refused. Both run in one engine here, in both modes.
+    /// </summary>
+    [TestCaseSource(nameof(ShapesAndModes))]
+    public void AWriteAfterAReadIsRefusedToo(string shape, bool strict)
+    {
+        var (host, render, existingKey, _) = CreateShape(shape);
+        var before = render();
+        var key = StringSpelling(existingKey);
+        var engine = CreateEngine(host, strict);
+
+        engine.Evaluate($"var read = d[{key}]; Reflect.set(d, {key}, 'z')").AsBoolean().Should().BeFalse();
+        Outcome(engine, $"d[{key}] = 'z'").Should().Be(strict ? "TypeError" : "no error");
+        engine.Evaluate($"d[{key}] === read").AsBoolean().Should().BeTrue();
+        render().Should().Be(before);
+    }
+
+    /// <summary>
+    /// Under <c>CatchClrExceptions</c> the string lane's <see cref="NotSupportedException"/> used to reach
+    /// script as a catchable <c>Error</c>, through the host's exception handler. A refusal is not an error, so
+    /// the handler is not consulted: sloppy mode is silent, strict mode is the <c>TypeError</c> every refusal is.
+    /// </summary>
+    [TestCase(nameof(ReadOnlyStringDictionary), false)]
+    [TestCase(nameof(ReadOnlyStringDictionary), true)]
+    [TestCase(nameof(ReadOnlyHashtable), false)]
+    [TestCase(nameof(ReadOnlyHashtable), true)]
+    public void UnderCatchClrExceptionsTheRefusalIsNotAnError(string shape, bool strict)
+    {
+        var (host, render, existingKey, _) = CreateShape(shape);
+        var before = render();
+        var engine = new Engine(options =>
+        {
+            options.Strict = strict;
+            options.Interop.AllowWrite = true;
+            options.CatchClrExceptions();
+        });
+        engine.SetValue("d", host);
+
+        Outcome(engine, $"d[{existingKey}] = 'z'").Should().Be(strict ? "TypeError" : "no error");
+        render().Should().Be(before);
+    }
+
+    private static string StringSpelling(string key) => key.StartsWith("'", StringComparison.Ordinal) ? key : "'" + key + "'";
+
+    /// <summary>
+    /// <see cref="PlatformNotSupportedException"/> is a <see cref="NotSupportedException"/>, and one the engine
+    /// always lets through to the host (it says the platform cannot run the operation at all), so it is not a
+    /// read-only refusal. Each lane surfaces it exactly as before: the number lane and <c>delete</c> as the
+    /// <see cref="System.Reflection.TargetInvocationException"/> it arrives in, the string lane unwrapped.
+    /// </summary>
+    [TestCase(false)]
+    [TestCase(true)]
+    public void PlatformNotSupportedExceptionStillReachesTheHost(bool catchClrExceptions)
+    {
+        Engine CreatePlatformEngine()
+        {
+            var engine = new Engine(options =>
+            {
+                options.Interop.AllowWrite = true;
+                if (catchClrExceptions)
+                {
+                    options.CatchClrExceptions();
+                }
+            });
+            engine.SetValue("d", new PlatformRefusingDictionary(new Dictionary<int, string> { [1] = "one" }));
+            return engine;
+        }
+
+        var numberLaneSet = Caught.Exception(() => CreatePlatformEngine().Execute("d[5] = 'y';"));
+        numberLaneSet.Should().BeOfType<System.Reflection.TargetInvocationException>()
+            .Which.InnerException.Should().BeOfType<PlatformNotSupportedException>();
+
+        var stringLaneSet = Caught.Exception(() => CreatePlatformEngine().Execute("d['1'] = 'z';"));
+        stringLaneSet.Should().BeOfType<PlatformNotSupportedException>();
+
+        var numberLaneDelete = Caught.Exception(() => CreatePlatformEngine().Execute("delete d[1];"));
+        numberLaneDelete.Should().BeOfType<System.Reflection.TargetInvocationException>()
+            .Which.InnerException.Should().BeOfType<PlatformNotSupportedException>();
+    }
+
+    /// <summary>
     /// Without <c>AllowWrite</c> all three were refused already, and still are.
     /// </summary>
     [TestCaseSource(nameof(Shapes))]
@@ -341,6 +423,32 @@ public class HostReadOnlyDictionaryWriteTests
         public override void Add(object key, object? value) => throw new NotSupportedException("read-only");
         public override void Remove(object key) => throw new NotSupportedException("read-only");
         public override void Clear() => throw new NotSupportedException("read-only");
+    }
+
+    /// <summary>A dictionary whose every mutation throws <see cref="PlatformNotSupportedException"/>.</summary>
+    public sealed class PlatformRefusingDictionary(Dictionary<int, string> inner) : IDictionary<int, string>
+    {
+        public string this[int key]
+        {
+            get => inner[key];
+            set => throw new PlatformNotSupportedException("not on this platform");
+        }
+
+        public ICollection<int> Keys => inner.Keys;
+        public ICollection<string> Values => inner.Values;
+        public int Count => inner.Count;
+        public bool IsReadOnly => false;
+        public void Add(int key, string value) => throw new PlatformNotSupportedException("not on this platform");
+        public void Add(KeyValuePair<int, string> item) => throw new PlatformNotSupportedException("not on this platform");
+        public void Clear() => throw new PlatformNotSupportedException("not on this platform");
+        public bool Contains(KeyValuePair<int, string> item) => ((ICollection<KeyValuePair<int, string>>) inner).Contains(item);
+        public bool ContainsKey(int key) => inner.ContainsKey(key);
+        public void CopyTo(KeyValuePair<int, string>[] array, int arrayIndex) => ((ICollection<KeyValuePair<int, string>>) inner).CopyTo(array, arrayIndex);
+        public IEnumerator<KeyValuePair<int, string>> GetEnumerator() => inner.GetEnumerator();
+        public bool Remove(int key) => throw new PlatformNotSupportedException("not on this platform");
+        public bool Remove(KeyValuePair<int, string> item) => throw new PlatformNotSupportedException("not on this platform");
+        public bool TryGetValue(int key, out string value) => inner.TryGetValue(key, out value!);
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     /// <summary>

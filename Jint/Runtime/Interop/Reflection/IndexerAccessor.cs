@@ -315,7 +315,9 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     /// answer for a read-only <see cref="IDictionary"/> or <see cref="IDictionary{TKey,TValue}"/>.
     /// </summary>
     protected override bool RefusesAsReadOnly(TargetInvocationException exception)
-        => _containsKey is not null && exception.InnerException is NotSupportedException;
+        => _containsKey is not null
+           && exception.InnerException is NotSupportedException inner
+           && !Throw.MustPropagateHostException(inner);
 
     public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, string memberName, bool enumerable = true)
     {
