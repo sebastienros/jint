@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// <c>String.prototype.split</c> converts a separator that has no <c>@@split</c> method to a string before it
-/// looks at the limit: step 5 is <c>? ToString(separator)</c> and step 6 is the zero-limit return
+/// looks at the limit: step 6 is <c>? ToString(separator)</c> and step 7 is the zero-limit return
 /// (https://tc39.es/ecma262/#sec-string.prototype.split). A RegExp whose <c>@@split</c> is gone took a shortcut
 /// that skipped the conversion, so for a zero limit its <c>toString</c>, and the <c>source</c> and
 /// <c>flags</c> reads inside <c>RegExp.prototype.toString</c>, never ran. Every expectation here was read off
@@ -17,7 +17,7 @@ public class StringSplitSeparatorConversionTests
     [Test]
     public void ARegExpSeparatorWithoutSplitIsConvertedToAStringWhenTheLimitIsZero()
     {
-        // String.prototype.split step 5 (ToString(separator)) runs before step 6 returns [] for a zero limit.
+        // String.prototype.split step 6 (ToString(separator)) runs before step 7 returns [] for a zero limit.
         // RegExp.prototype.toString reads "source" and then "flags", so the getters show the conversion ran.
         Run("""
             delete RegExp.prototype[Symbol.split];
@@ -68,7 +68,7 @@ public class StringSplitSeparatorConversionTests
     [TestCase("null", "4294967295", """[["toString"],["a","b"]]""")]
     public void AnOwnUndefinedOrNullSplitSymbolFallsThroughToTheStringConversion(string value, string limit, string expected)
     {
-        // GetMethod (https://tc39.es/ecma262/#sec-getmethod) treats undefined and null alike: no splitter, so step 5 applies.
+        // GetMethod (https://tc39.es/ecma262/#sec-getmethod) treats undefined and null alike: no splitter, so step 6 applies.
         Run($$"""
             var log = [];
             var re = /a/;
@@ -82,7 +82,7 @@ public class StringSplitSeparatorConversionTests
     [Test]
     public void TheSeparatorIsConvertedAfterTheLimitWhenTheLimitIsZero()
     {
-        // Steps 3, 4, 5 and then 6: ToString(O), ToUint32(limit), ToString(separator), and only then the zero-limit return.
+        // Steps 4, 5, 6 and then 7: ToString(O), ToUint32(limit), ToString(separator), and only then the zero-limit return.
         Run("""
             delete RegExp.prototype[Symbol.split];
             var log = [];
@@ -98,7 +98,7 @@ public class StringSplitSeparatorConversionTests
     [Test]
     public void TheSeparatorIsConvertedAfterTheLimitWhenTheLimitIsNotZero()
     {
-        // The order is the same when step 6 does not return early.
+        // The order is the same when step 7 does not return early.
         Run("""
             delete RegExp.prototype[Symbol.split];
             var log = [];
@@ -114,7 +114,7 @@ public class StringSplitSeparatorConversionTests
     [Test]
     public void AnAbruptLimitConversionStopsBeforeTheSeparatorIsConverted()
     {
-        // Step 4 is abrupt, so step 5 never runs.
+        // Step 5 is abrupt, so step 6 never runs.
         Run("""
             delete RegExp.prototype[Symbol.split];
             var log = [];
@@ -132,7 +132,7 @@ public class StringSplitSeparatorConversionTests
     [TestCase("undefined", "RangeError:boom")]
     public void AnAbruptSeparatorConversionPropagatesWhateverTheLimit(string limit, string expected)
     {
-        // Step 5 is `? ToString(separator)`: a throwing toString must surface for a zero limit as well as for any other.
+        // Step 6 is `? ToString(separator)`: a throwing toString must surface for a zero limit as well as for any other.
         Run($$"""
             delete RegExp.prototype[Symbol.split];
             var re = /a/;
@@ -146,7 +146,7 @@ public class StringSplitSeparatorConversionTests
     [Test]
     public void AnAbruptSourceGetterPropagatesWhenTheLimitIsZero()
     {
-        // RegExp.prototype.toString reads "source" first; its abrupt completion is the result of step 5.
+        // RegExp.prototype.toString reads "source" first; its abrupt completion is the result of step 6.
         Run("""
             delete RegExp.prototype[Symbol.split];
             var re = /a/;
@@ -215,7 +215,7 @@ public class StringSplitSeparatorConversionTests
     [Test]
     public void ARegExpWithItsSplitMethodIsNeverConvertedToAString()
     {
-        // Step 2 hands the work to @@split, so toString stays unread for a zero limit and for any other.
+        // Step 3 hands the work to @@split, so toString stays unread for a zero limit and for any other.
         Run("""
             var calls = 0;
             var re = /b/;
@@ -255,7 +255,7 @@ public class StringSplitSeparatorConversionTests
     [Test]
     public void NullAndUndefinedSeparatorsKeepTheirMeaning()
     {
-        // null converts to "null" (step 5), undefined stays undefined (step 7) and a zero limit still wins over it (step 6).
+        // null converts to "null" (step 6), undefined stays undefined (step 8) and a zero limit still wins over it (step 7).
         Run("""
             JSON.stringify([
               'anullb'.split(null), 'anullb'.split(null, 1), 'anullb'.split(null, 0),

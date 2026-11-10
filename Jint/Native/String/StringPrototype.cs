@@ -1226,7 +1226,7 @@ internal sealed partial class StringPrototype : StringInstance
         // Coerce into a number, true will become 1
         var lim = limit.IsUndefined() ? uint.MaxValue : TypeConverter.ToUint32(limit);
 
-        // Step 5: ? ToString(separator). If we got here the separator has no @@split, so it is converted
+        // Step 6: ? ToString(separator). If we got here the separator has no @@split, so it is converted
         // exactly once, before the zero-limit return, and a RegExp is no exception (its toString reads
         // "source" and "flags"). Don't call IsRegExp - it would be an observable extra property access (@@match).
         // SplitWithStringSeparator takes the converted JsString, so its own ToString does not convert again.
