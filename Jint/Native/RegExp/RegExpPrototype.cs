@@ -25,7 +25,6 @@ internal sealed partial class RegExpPrototype : Prototype
 
     private static readonly JsString PropertyExec = new("exec");
     private static readonly JsString PropertyIndex = new("index");
-    private static readonly JsString PropertyInput = new("input");
     private static readonly JsString PropertySticky = new("sticky");
     private static readonly JsString PropertyGlobal = new("global");
     internal static readonly JsString PropertySource = new("source");
@@ -1809,12 +1808,7 @@ internal sealed partial class RegExpPrototype : Prototype
         if (!global && !sticky && !R.Indices
             && string.Equals(R.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
         {
-            // "aaa".match() => [ '', index: 0, input: 'aaa' ]
-            var array = R.Engine.Realm.Intrinsics.Array.ArrayCreate(1);
-            array.DefineOwnDataPropertyUnchecked(PropertyIndex._value, lastIndex);
-            array.DefineOwnDataPropertyUnchecked(PropertyInput._value, s);
-            array.SetIndexValue(0, JsString.Empty, updateLength: false);
-            return array;
+            return CreateEmptyPatternResult(R, s);
         }
 
         // Every pattern written in script runs on the ECMAScript matcher; only a host-supplied Regex reaches .NET.
@@ -1894,6 +1888,26 @@ internal sealed partial class RegExpPrototype : Prototype
         }
 
         return CreateReturnValueArray(R, match, s, fullUnicode, hasIndices);
+    }
+
+    /// <summary>
+    /// The result of <c>RegExpBuiltinExec</c> for the empty pattern <c>(?:)</c> on a regexp that is neither global nor
+    /// sticky, which needs no matcher: it matches the empty string at index 0, with no captures and no named groups.
+    /// That is the array <see cref="CreateReturnValueArrayFromCustom"/> builds for it - <c>index</c>, <c>input</c> and
+    /// <c>groups</c> (an own <c>undefined</c>) in that order, then the legacy statics -
+    /// https://tc39.es/ecma262/#sec-regexpbuiltinexec steps 20-36 - without the matcher call or the capture span array.
+    /// </summary>
+    private static JsArray CreateEmptyPatternResult(JsRegExp R, string s)
+    {
+        var engine = R.Engine;
+        var array = engine.Realm.Intrinsics.Array.ArrayCreate(1);
+        DefineResultProperty(array, KeyIndex, JsNumber.PositiveZero);
+        DefineResultProperty(array, KeyInput, s);
+        DefineResultProperty(array, KeyGroups, Undefined);
+        array.SetIndexValue(0, JsString.Empty, updateLength: false);
+
+        engine.Realm.Intrinsics.RegExp.SetLegacyMatch(s, 0, 0, groupCount: 1);
+        return array;
     }
 
     /// <summary>
