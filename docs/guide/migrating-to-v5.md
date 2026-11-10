@@ -8361,9 +8361,16 @@ exceptions that do so are the ones a script can never catch: `StatementsCountOve
 `throw` in `return`, and the `RangeError` of `StackOverflowGuard`. So is a host's own exception from a CLR `return` or
 `Dispose`, a `TimeoutException` included: only one Jint raised counts as the time limit.
 
-**What could break:** nothing a script can observe, except that it no longer completes. A host whose scripts kept
-running past a bound because the bound tripped inside a `return` now gets the bound's exception instead. There is no
-switch back: a constraint a `return` could hide bounded nothing.
+Two closes on the same paths changed with it, both visible to script. `Iterator.zip` with `mode: 'longest'` and a
+`padding` that is not iterable (no `Symbol.iterator`, or one answering a primitive) called each collected iterator's
+`return` twice, and now calls it once, in reverse order. And a generator resumed with `return()` at a `yield` that is a
+`for`-`of` loop's whole body (`for (let x of it) yield x;`), whose iterator's `return` then throws, left the loop's
+bindings in scope for the `catch` around the loop. The spec leaves the loop's scope before it closes the iterator,
+and so does Jint now.
+
+**What could break:** apart from those two, nothing a script can observe, except that it no longer completes. A host
+whose scripts kept running past a bound because the bound tripped inside a `return` now gets the bound's exception
+instead. There is no switch back: a constraint a `return` could hide bounded nothing.
 
 ## 5. New in v5
 

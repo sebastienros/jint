@@ -283,8 +283,10 @@ internal sealed partial class IteratorConstructor : Constructor
             throw;
         }
 
-        // Get padding iterator now that we have all iters collected
-        // Per spec, if GetIterator throws, close all collected iters
+        // Get padding iterator now that we have all iters collected: GetIterator(paddingOption, sync), whose every abrupt
+        // completion - a missing or throwing @@iterator, an answer that is not an object, a throwing `next` read - is
+        // IfAbruptCloseIterators(paddingIter, iters) (https://tc39.es/ecma262/#sec-iterator.zip step 14.b.ii). The catch
+        // below is that close, so the TypeErrors are only thrown here: closing first as well closed every iterator twice.
         if (paddingObj != null)
         {
             try
@@ -292,14 +294,12 @@ internal sealed partial class IteratorConstructor : Constructor
                 var method = paddingObj.GetMethod(GlobalSymbolRegistry.Iterator);
                 if (method is null)
                 {
-                    CloseIteratorsReverse(iters);
                     Throw.TypeError(_realm, "padding is not iterable");
                     return Undefined;
                 }
                 var iterResult = method.Call(paddingObj);
                 if (iterResult is not ObjectInstance iterObj)
                 {
-                    CloseIteratorsReverse(iters);
                     Throw.TypeError(_realm, "Iterator result is not an object");
                     return Undefined;
                 }
