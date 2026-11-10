@@ -8460,6 +8460,12 @@ d.expando
   `Object.preventExtensions` stops it being added, and the host's dictionary never holds it.
   `Options.Interop.ThrowOnUnresolvedMember` raises nothing for it, as it raises nothing when script reads the same
   name.
+- It is listed like any property the script creates on a wrapper
+  ([§4.223](#4-223-a-wrapped-clr-object-lists-the-properties-the-script-defined-on-it-4503)): `Object.keys`,
+  `for..in`, `Reflect.ownKeys`, `Object.entries`, spread and `JSON.stringify` yield it after the dictionary's entries,
+  in creation order, a symbol last, and `delete` forgets it. An array index the key type cannot hold, such as
+  `'3000000000'` for an `int` key, sorts among the leading indices as on any object. A name the dictionary refused is
+  never listed.
 - A name that is a read-only member of the dictionary, such as `Count`, is refused instead: `false` from
   `Reflect.set`, and a `TypeError` in strict mode. It used to reach the indexer too.
 - A name that converts to the key type is still an entry: `"5"` and `"-1"` for an `int` key, `"Monday"` for a

@@ -438,6 +438,350 @@ public class HostDictionaryForeignKeyWriteTests
         engine.Evaluate("try { d.expando = 2; 'no error' } catch (e) { e.constructor.name }").AsString().Should().Be("TypeError");
     }
 
+    // How the kept key is enumerated (#4503, migration guide 4.223). A property the script creates on a wrapper is
+    // listed after the target's own keys because ObjectWrapper.SetOwnProperty marks a creation. The key this class
+    // keeps on the wrapper reaches SetOwnProperty through [[Set]]'s ordinary algorithm
+    // (https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor, CreateDataProperty on the receiver), so it is
+    // such a creation, and every test below fails if it stops being one. Each expectation is relative to the list
+    // the same enumeration gave before the script wrote anything, so it holds for a shape whose target lists
+    // entries (int keys), none it can name (a Guid key has no string spelling the wrapper reports), or its CLR
+    // members (the reference shape). The values are Node's for an ordinary object holding the same keys.
+
+    /// <summary>The enumerations that yield the string keys, each of which reads the one hook.</summary>
+    private static readonly string[] _stringKeyEnumerations =
+    [
+        "Reflect.ownKeys(d).filter(k => typeof k === 'string')",
+        "Object.getOwnPropertyNames(d)",
+        "Object.keys(d)",
+        "(() => { const r = []; for (const k in d) r.push(k); return r; })()",
+        "Object.entries(d).map(e => e[0])",
+        "Object.keys({ ...d })",
+        "Object.keys(Object.assign({}, d))",
+        "Object.keys(JSON.parse(JSON.stringify(d)))",
+    ];
+
+    private static (string Enumeration, string Expected)[] AllStringKeys(string expected)
+        => [.. _stringKeyEnumerations.Select(enumeration => (enumeration, expected))];
+
+    /// <summary>
+    /// Takes every enumeration in <paramref name="checks"/> before and after <paramref name="script"/> runs, and
+    /// answers which of them is not what its expectation (a function of the list taken before) says; empty when
+    /// all agree.
+    /// </summary>
+    /// <remarks>
+    /// The reference shape lists its CLR members, and the order reflection returns them in is not stable: on .NET
+    /// Framework it changes as members are resolved, in this process and not only in this engine. For that shape the
+    /// members the engine listed at first are compared as interchangeable, so that the keys the script created are
+    /// still compared by position among them and after them.
+    /// </remarks>
+    private static string Disagreements(Engine engine, string shape, string script, params (string Enumeration, string Expected)[] checks)
+    {
+        var enumerations = string.Join(",\n", checks.Select(check => $"() => {check.Enumeration}"));
+        var expectations = string.Join(",\n", checks.Select(check => check.Expected));
+        var reflected = shape == nameof(GenericOnlyDictionary) ? "true" : "false";
+        engine.Execute($"var enumerations = [{enumerations}]; var expectations = [{expectations}];");
+        engine.Execute("var before = enumerations.map(e => e()); globalThis.members ??= new Set(before.flat());");
+        engine.Execute(script);
+        return engine.Evaluate(
+            $$"""
+            enumerations.map((e, i) => {
+              const canonical = list => JSON.stringify({{reflected}} ? list.map(k => members.has(k) ? '#' : k) : list);
+              const got = canonical(e());
+              const want = canonical(expectations[i](before[i]));
+              return got === want ? '' : e.toString() + ' gave ' + got + ', wanted ' + want;
+            }).filter(x => x).join('; ')
+            """).AsString();
+    }
+
+    private static string Listed(string key)
+        => $"b => /^(0|[1-9][0-9]*)$/.test({Literal(key)}) && Number({Literal(key)}) < 4294967295 ? [{Literal(key)}, ...b] : [...b, {Literal(key)}]";
+
+    /// <summary>
+    /// The key follows what the dictionary lists and is listed by every enumeration, in either mode. Where the key is
+    /// an array index that the key type cannot hold (<c>"5"</c> on a <see cref="Guid"/> key), it leads the list, as
+    /// an index does on an ordinary object.
+    /// </summary>
+    [TestCaseSource(nameof(ShapesAndForeignKeys))]
+    public void AForeignNameIsListedAfterTheTargetsKeys(string shape, string key)
+    {
+        foreach (var strict in new[] { false, true })
+        {
+            var (host, count) = CreateShape(shape);
+            var engine = CreateEngine(host, allowWrite: true, strict);
+
+            Disagreements(engine, shape, $"d[{Literal(key)}] = 2;", AllStringKeys(Listed(key))).Should().BeEmpty($"strict: {strict}");
+            count().Should().Be(1);
+        }
+    }
+
+    /// <summary>
+    /// A read that answers "absent" before the write (<c>in</c>, <c>hasOwnProperty</c>, the descriptor, the value)
+    /// leaves nothing on the wrapper that would stand between the write and the listing.
+    /// </summary>
+    [TestCaseSource(nameof(ShapesAndModes))]
+    public void AReadBeforeTheWriteStillLeavesTheKeyListed(string shape, bool strict)
+    {
+        var (host, count) = CreateShape(shape);
+        var engine = CreateEngine(host, allowWrite: true, strict);
+
+        Disagreements(
+            engine,
+            shape,
+            """
+            void d.expando;
+            'expando' in d;
+            d.hasOwnProperty('expando');
+            Object.getOwnPropertyDescriptor(d, 'expando');
+            d.expando = 2;
+            d.expando = 3;
+            """,
+            AllStringKeys("b => [...b, 'expando']")).Should().BeEmpty();
+        engine.Evaluate("d.expando").AsNumber().Should().Be(3);
+        count().Should().Be(1);
+    }
+
+    /// <summary>
+    /// A symbol is the one key a dictionary cannot hold under any key type, so it is a property of the wrapper
+    /// whatever <c>AllowWrite</c> is allowed to do to a name. It is listed after the strings, and is no string key.
+    /// </summary>
+    [TestCaseSource(nameof(ShapesAndModes))]
+    public void ASymbolIsListedAfterTheStrings(string shape, bool strict)
+    {
+        var (host, count) = CreateShape(shape);
+        var engine = CreateEngine(host, allowWrite: true, strict);
+
+        Disagreements(
+            engine,
+            shape,
+            "d[Symbol.for('s')] = 3; d.expando = 2;",
+            [
+                .. AllStringKeys("b => [...b, 'expando']"),
+                ("Reflect.ownKeys(d).map(String)", "b => [...b, 'expando', 'Symbol(s)']"),
+                ("Object.getOwnPropertySymbols(d).map(String)", "b => ['Symbol(s)']"),
+            ]).Should().BeEmpty();
+        engine.Evaluate("d[Symbol.for('s')]").AsNumber().Should().Be(3);
+        count().Should().Be(1);
+    }
+
+    /// <summary>
+    /// The order is OrdinaryOwnPropertyKeys over the target's keys and the script's, the target's being the older
+    /// (https://tc39.es/ecma262/#sec-ordinaryownpropertykeys): array indices ascending, with the dictionary's own
+    /// leading ones, then strings in creation order, then symbols in creation order. Every index below is
+    /// larger than an <see cref="int"/> key can be, so it cannot be an entry. A key deleted and written again
+    /// is the newest, and the dictionary is untouched throughout. Node gives the same order for
+    /// <c>{ 1: 'a', 2: 'b' }</c> given the same writes.
+    /// </summary>
+    [TestCase("Dictionary<int, string>")]
+    [TestCase("SortedDictionary<int, string>")]
+    [TestCase("SortedList<int, string>")]
+    public void TheKeysKeepOrdinaryOwnPropertyKeysOrder(string shape)
+    {
+        foreach (var strict in new[] { false, true })
+        {
+            var (host, count) = CreateShape(shape);
+            switch (host)
+            {
+                case Dictionary<int, string> dictionary:
+                    dictionary[2] = "b";
+                    break;
+                case SortedDictionary<int, string> sorted:
+                    sorted[2] = "b";
+                    break;
+                case SortedList<int, string> list:
+                    list[2] = "b";
+                    break;
+            }
+
+            var engine = CreateEngine(host, allowWrite: true, strict);
+
+            engine.Execute(
+                """
+                d.foo = 1;
+                d['3000000000'] = 2;
+                d['4294967295'] = 3;
+                d.bar = 4;
+                d['1.5'] = 5;
+                d[Symbol.for('s1')] = 6;
+                d['2147483648'] = 7;
+                d[Symbol.for('s2')] = 8;
+                """);
+
+            engine.Evaluate("Reflect.ownKeys(d).map(String).join()").AsString()
+                .Should().Be("1,2,2147483648,3000000000,foo,4294967295,bar,1.5,Symbol(s1),Symbol(s2)", $"strict: {strict}");
+            engine.Evaluate("Object.keys(d).join()").AsString()
+                .Should().Be("1,2,2147483648,3000000000,foo,4294967295,bar,1.5");
+
+            engine.Execute("delete d.foo; d.foo = 9; delete d[Symbol.for('s1')]; d[Symbol.for('s1')] = 10;");
+
+            engine.Evaluate("Reflect.ownKeys(d).map(String).join()").AsString()
+                .Should().Be("1,2,2147483648,3000000000,4294967295,bar,1.5,foo,Symbol(s2),Symbol(s1)");
+            count().Should().Be(2, "no key of the script's was ever an entry");
+        }
+    }
+
+    /// <summary>
+    /// <c>delete</c> forgets the key everywhere, and writing it again lists it after what was written in between.
+    /// </summary>
+    [TestCaseSource(nameof(ShapesAndModes))]
+    public void ADeletedKeyIsNoLongerListed(string shape, bool strict)
+    {
+        var (host, count) = CreateShape(shape);
+        var engine = CreateEngine(host, allowWrite: true, strict);
+
+        Disagreements(
+            engine,
+            shape,
+            "d.expando = 2; d.other = 3; d[Symbol.for('s')] = 4;",
+            [
+                .. AllStringKeys("b => [...b, 'expando', 'other']"),
+                ("Reflect.ownKeys(d).map(String)", "b => [...b, 'expando', 'other', 'Symbol(s)']"),
+                ("Object.getOwnPropertySymbols(d).map(String)", "b => ['Symbol(s)']"),
+            ]).Should().BeEmpty("they are listed before they are deleted");
+
+        Disagreements(
+            engine,
+            shape,
+            "delete d.expando; delete d[Symbol.for('s')];",
+            [
+                .. AllStringKeys("b => b.filter(k => k !== 'expando')"),
+                ("Reflect.ownKeys(d).map(String)", "b => b.filter(k => k !== 'expando' && k !== 'Symbol(s)')"),
+                ("Object.getOwnPropertySymbols(d).map(String)", "b => []"),
+            ]).Should().BeEmpty();
+        engine.Evaluate("'expando' in d || d.hasOwnProperty('expando') || Symbol.for('s') in d").AsBoolean().Should().BeFalse();
+
+        Disagreements(
+            engine,
+            shape,
+            "d.expando = 5;",
+            [
+                .. AllStringKeys("b => [...b, 'expando']"),
+                ("Reflect.ownKeys(d).map(String)", "b => [...b, 'expando']"),
+            ]).Should().BeEmpty("the key is written again after 'other'");
+        count().Should().Be(1);
+    }
+
+    /// <summary>
+    /// A write the wrapper refuses lists nothing: without <c>AllowWrite</c> a name and a symbol are both refused,
+    /// as Node refuses them on a frozen object. The reference shape is not a row: with no non-generic indexer it
+    /// keeps the name as a plain object does, <c>AllowWrite</c> or not.
+    /// </summary>
+    [TestCaseSource(nameof(NonGenericIndexerShapesAndModes))]
+    public void WithoutAllowWriteARefusedWriteListsNothing(string shape, bool strict)
+    {
+        var (host, count) = CreateShape(shape);
+        var engine = CreateEngine(host, allowWrite: false, strict);
+
+        Disagreements(
+            engine,
+            shape,
+            """
+            Reflect.set(d, 'expando', 2);
+            Reflect.set(d, Symbol.for('s'), 3);
+            try { d.expando = 2; } catch (e) { }
+            try { d[Symbol.for('s')] = 3; } catch (e) { }
+            """,
+            [
+                .. AllStringKeys("b => b"),
+                ("Reflect.ownKeys(d).map(String)", "b => b"),
+            ]).Should().BeEmpty();
+        count().Should().Be(1);
+    }
+
+    /// <summary>A non-extensible wrapper refuses the new key (<c>Reflect.set</c> answers <c>false</c>), so it is not listed.</summary>
+    [TestCaseSource(nameof(ShapesAndModes))]
+    public void ANonExtensibleWrapperListsNothingItRefused(string shape, bool strict)
+    {
+        var (host, count) = CreateShape(shape);
+        var engine = CreateEngine(host, allowWrite: true, strict);
+
+        Disagreements(
+            engine,
+            shape,
+            """
+            Object.preventExtensions(d);
+            Reflect.set(d, 'expando', 2);
+            Reflect.set(d, Symbol.for('s'), 3);
+            try { d.expando = 2; } catch (e) { }
+            try { d[Symbol.for('s')] = 3; } catch (e) { }
+            """,
+            [
+                .. AllStringKeys("b => b"),
+                ("Reflect.ownKeys(d).map(String)", "b => b"),
+            ]).Should().BeEmpty();
+        count().Should().Be(1);
+    }
+
+    /// <summary>A CLR member the dictionary reads but cannot write refuses the name, so nothing is stored or listed under it.</summary>
+    [TestCaseSource(nameof(ShapesAndModes))]
+    public void ARefusedMemberWriteListsNothing(string shape, bool strict)
+    {
+        var (host, count) = CreateShape(shape);
+        var engine = CreateEngine(host, allowWrite: true, strict);
+
+        Disagreements(
+            engine,
+            shape,
+            """
+            Reflect.set(d, 'Count', 5);
+            Reflect.set(d, 'ContainsKey', 5);
+            try { d.Count = 5; } catch (e) { }
+            try { d.ContainsKey = 5; } catch (e) { }
+            """,
+            [
+                .. AllStringKeys("b => b"),
+                ("Reflect.ownKeys(d).map(String)", "b => b"),
+            ]).Should().BeEmpty();
+        count().Should().Be(1);
+    }
+
+    /// <summary>
+    /// <c>Object.defineProperty</c> defines the key on the wrapper in both modes, and redefining it, as an accessor
+    /// here, lists it once and leaves it in its place.
+    /// </summary>
+    [TestCaseSource(nameof(ShapesAndModes))]
+    public void DefinePropertyListsTheKeyInBothModes(string shape, bool allowWrite)
+    {
+        var (host, count) = CreateShape(shape);
+        var engine = CreateEngine(host, allowWrite);
+
+        Disagreements(
+            engine,
+            shape,
+            """
+            Object.defineProperty(d, 'expando', { value: 2, writable: true, enumerable: true, configurable: true });
+            Object.defineProperty(d, 'later', { value: 3, writable: true, enumerable: true, configurable: true });
+            Object.defineProperty(d, 'expando', { get() { return 7; }, enumerable: true, configurable: true });
+            """,
+            AllStringKeys("b => [...b, 'expando', 'later']")).Should().BeEmpty();
+        engine.Evaluate("d.expando").AsNumber().Should().Be(7);
+        count().Should().Be(1);
+    }
+
+    /// <summary>
+    /// Because the key is listed, <c>Object.seal</c> and <c>Object.freeze</c> reach it
+    /// (https://tc39.es/ecma262/#sec-setintegritylevel): it becomes non-configurable, so <c>delete</c> refuses it,
+    /// as Node refuses it on an ordinary object.
+    /// </summary>
+    [TestCaseSource(nameof(ShapesAndModes))]
+    public void SealingAndFreezingReachTheKey(string shape, bool freeze)
+    {
+        foreach (var strict in new[] { false, true })
+        {
+            var (host, count) = CreateShape(shape);
+            var engine = CreateEngine(host, allowWrite: true, strict);
+
+            engine.Execute($"d.expando = 2; Object.{(freeze ? "freeze" : "seal")}(d);");
+
+            engine.Evaluate("Object.getOwnPropertyDescriptor(d, 'expando').configurable").AsBoolean().Should().BeFalse($"strict: {strict}");
+            engine.Evaluate("Object.getOwnPropertyDescriptor(d, 'expando').writable").AsBoolean().Should().Be(!freeze);
+            engine.Evaluate("Reflect.deleteProperty(d, 'expando')").AsBoolean().Should().BeFalse();
+            engine.Evaluate("try { delete d.expando; 'no error' } catch (e) { e.constructor.name }").AsString()
+                .Should().Be(strict ? "TypeError" : "no error");
+            engine.Evaluate("d.hasOwnProperty('expando')").AsBoolean().Should().BeTrue();
+            count().Should().Be(1);
+        }
+    }
+
     /// <summary>
     /// The reference shape: a dictionary implementing only <see cref="IDictionary{TKey,TValue}"/>, so that no
     /// non-generic indexer stands in for a name its key type cannot hold.

@@ -64,6 +64,27 @@ public class HostReadOnlyDictionaryWriteTests
         }
     }
 
+    /// <summary>
+    /// <see cref="ShapesAndModes"/> without <c>ImmutableDictionary&lt;string, string&gt;</c>, for a test that lists a
+    /// dictionary's keys. Its <c>Keys</c> is an iterator and not an <see cref="ICollection{T}"/>, which
+    /// <c>ObjectWrapper.EnumerateOwnPropertyKeys</c> casts it to, so <c>Reflect.ownKeys</c> over it throws
+    /// <see cref="InvalidCastException"/> with or without a write. That is not what the test is about.
+    /// </summary>
+    public static TestCases<string, bool> KeyListingShapesAndModes
+    {
+        get
+        {
+            var data = new TestCases<string, bool>();
+            foreach (var shape in _shapes.Where(shape => shape != "ImmutableDictionary<string, string>"))
+            {
+                data.Add(shape, false);
+                data.Add(shape, true);
+            }
+
+            return data;
+        }
+    }
+
     private sealed record Shape(object Host, Func<string> Render, string ExistingKey, string NewKey);
 
     private static Shape CreateShape(string shape)
@@ -208,6 +229,64 @@ public class HostReadOnlyDictionaryWriteTests
 
         engine.Evaluate("delete d.tag").AsBoolean().Should().BeTrue();
         engine.Evaluate("'tag' in d").AsBoolean().Should().BeFalse();
+        render().Should().Be(before);
+    }
+
+    /// <summary>
+    /// A refused write or delete leaves no key behind. A property the script creates on a wrapper is listed after
+    /// the target's keys (#4503, migration guide 4.223), and an entry the dictionary refused is not one: the keys
+    /// the wrapper reports are the dictionary's before and after, and the refused key is no property of the wrapper
+    /// either. A property the script does define afterwards is listed once, last, and <c>delete</c> forgets it.
+    /// Only the keys are read, never an entry's value, which .NET Framework cannot do for a
+    /// <c>FrozenDictionary</c> (see <see cref="AWriteAfterAReadIsRefusedToo"/>).
+    /// </summary>
+    [TestCaseSource(nameof(KeyListingShapesAndModes))]
+    public void ARefusedWriteOrDeleteListsNoKey(string shape, bool strict)
+    {
+        var (host, render, existingKey, newKey) = CreateShape(shape);
+        var before = render();
+        const string Keys = "JSON.stringify([Reflect.ownKeys(d).map(String), Object.getOwnPropertyNames(d)])";
+
+        string[] refusals =
+        [
+            $"d[{newKey}] = 'y'",
+            $"Reflect.set(d, {newKey}, 'y')",
+            $"d[{existingKey}] = 'z'",
+            $"Reflect.set(d, {existingKey}, 'z')",
+            $"delete d[{existingKey}]",
+            $"Reflect.deleteProperty(d, {existingKey})",
+        ];
+
+        // an engine of its own for each statement, for the reason given above WritingANewEntryIsRefused
+        foreach (var refusal in refusals)
+        {
+            var engine = CreateEngine(host, strict);
+            var keys = engine.Evaluate(Keys).AsString();
+
+            Outcome(engine, refusal);
+
+            engine.Evaluate(Keys).AsString().Should().Be(keys, refusal);
+            engine.Evaluate($"{newKey} in d").AsBoolean().Should().BeFalse(refusal);
+            render().Should().Be(before, refusal);
+        }
+
+        // all of them in one engine, then a property of the script's own
+        var together = CreateEngine(host, strict);
+        var initial = together.Evaluate(Keys).AsString();
+        foreach (var refusal in refusals)
+        {
+            Outcome(together, refusal);
+        }
+
+        together.Evaluate(Keys).AsString().Should().Be(initial);
+
+        together.Execute("Object.defineProperty(d, 'tag', { value: 1, writable: true, enumerable: true, configurable: true });");
+        together.Evaluate("Reflect.ownKeys(d).map(String).filter(k => k === 'tag').length").AsNumber().Should().Be(1);
+        together.Evaluate("Reflect.ownKeys(d).map(String).pop()").AsString().Should().Be("tag");
+        together.Evaluate("Object.getOwnPropertyNames(d).pop()").AsString().Should().Be("tag");
+
+        together.Evaluate("delete d.tag").AsBoolean().Should().BeTrue();
+        together.Evaluate(Keys).AsString().Should().Be(initial);
         render().Should().Be(before);
     }
 
