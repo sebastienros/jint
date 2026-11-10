@@ -286,33 +286,103 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             Throw.TypeError(_functionObject._realm, "Destructed parameter is null");
         }
 
-        JsArray? array;
-        if (argument is JsArray { HasOriginalIterator: true } ai)
+        // Read by index in place of the array's iterator while that is unobservable.
+        if (argument is JsArray { HasOriginalIterator: true } array)
         {
-            array = ai;
+            var arrayContents = array.ToArray();
+            for (var i = 0; i < arrayPattern.Elements.Count; i++)
+            {
+                SetFunctionParameter(context, arrayPattern.Elements[i], arrayContents, i, initiallyEmpty);
+            }
+
+            return;
+        }
+
+        if (!argument.TryGetIterator(_functionObject._realm, out var iterator))
+        {
+            Throw.TypeError(context.Engine.Realm, "object is not iterable");
+        }
+
+        BindArrayPatternFromIterator(context, initiallyEmpty, arrayPattern, iterator);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization for a parameter's array pattern over
+    /// an iterator: each element steps the iterator, unless an earlier step found it done, and only then evaluates its
+    /// initializer and binds, and a rest element takes every value left. Once the elements are bound, the pattern closes
+    /// an iterator that is not done (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization), and an
+    /// element that throws closes it with that throw, so the element's error wins over whatever the iterator's
+    /// <c>return</c> does (https://tc39.es/ecma262/#sec-iteratorclose step 5). Jint used to step every element first,
+    /// close with a normal completion before any initializer ran, close an iterator the elements had run out, and leave
+    /// an empty pattern's iterator open. A parameter list cannot suspend, so nothing here is resumed.
+    /// </summary>
+    private void BindArrayPatternFromIterator(EvaluationContext context, bool initiallyEmpty, ArrayPattern arrayPattern, IteratorInstance iterator)
+    {
+        var value = new JsValue[1];
+        try
+        {
+            ref readonly var elements = ref arrayPattern.Elements;
+            for (var i = 0; i < elements.Count; i++)
+            {
+                var element = elements[i];
+                if (element is RestElement restElement)
+                {
+                    var rest = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
+                    uint count = 0;
+                    var iterations = 0;
+                    while (!iterator.Done)
+                    {
+                        // A built-in iterator's steps cross no statement boundary, so the loop checks the constraints
+                        // itself, as IteratorProtocol.Execute does; the catch below closes the iterator if one throws.
+                        if (++iterations % Engine.ConstraintCheckInterval == 0)
+                        {
+                            _engine.Constraints.Check();
+                        }
+
+                        if (!iterator.TryIteratorStepValue(out var next))
+                        {
+                            break;
+                        }
+
+                        rest.SetIndexValue(count++, next, updateLength: false);
+                    }
+
+                    rest.SetLength(count);
+                    BindRestElement(context, restElement, rest, initiallyEmpty);
+                    continue;
+                }
+
+                // An elision steps too, and binds nothing.
+                value[0] = !iterator.Done && iterator.TryIteratorStepValue(out var stepped) ? stepped : Undefined;
+                if (element is not null)
+                {
+                    SetFunctionParameter(context, element, value, 0, initiallyEmpty);
+                }
+            }
+        }
+        catch
+        {
+            // A step that threw left the record done, and is not closed.
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
+        }
+
+        iterator.CloseIfNotDone(CompletionType.Normal);
+    }
+
+    private void BindRestElement(EvaluationContext context, RestElement restElement, JsArray rest, bool initiallyEmpty)
+    {
+        if (restElement.Argument is Identifier restIdentifier)
+        {
+            SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
+        }
+        else if (restElement.Argument is DestructuringPattern pattern)
+        {
+            SetFunctionParameter(context, pattern, [rest], 0, initiallyEmpty);
         }
         else
         {
-            if (!argument.TryGetIterator(_functionObject._realm, out var iterator))
-            {
-                Throw.TypeError(context.Engine.Realm, "object is not iterable");
-            }
-
-            array = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
-            var max = arrayPattern.Elements.Count;
-            if (max > 0 && arrayPattern.Elements[max - 1]?.Type == NodeType.RestElement)
-            {
-                // need to consume all
-                max = int.MaxValue;
-            }
-            var protocol = new ArrayPatternProtocol(_engine, array, iterator, max);
-            protocol.Execute();
-        }
-
-        var arrayContents = array.ToArray();
-        for (var i = 0; i < arrayPattern.Elements.Count; i++)
-        {
-            SetFunctionParameter(context, arrayPattern.Elements[i], arrayContents, i, initiallyEmpty);
+            Throw.SyntaxError(_functionObject._realm, "Rest parameters can only be identifiers or arrays");
         }
     }
 
@@ -420,40 +490,6 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             else
             {
                 Throw.TypeError(_functionObject._realm, "Can't update the value of an immutable binding.");
-            }
-        }
-    }
-
-    private sealed class ArrayPatternProtocol : IteratorProtocol
-    {
-        private readonly JsArray _instance;
-        private readonly int _max;
-        private long _index;
-
-        public ArrayPatternProtocol(
-            Engine engine,
-            JsArray instance,
-            IteratorInstance iterator,
-            int max) : base(engine, iterator, 0)
-        {
-            _instance = instance;
-            _max = max;
-        }
-
-        protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
-        {
-            _instance.SetIndexValue((uint) _index, currentValue, updateLength: false);
-            _index++;
-        }
-
-        protected override bool ShouldContinue => _index < _max;
-
-        protected override void IterationEnd()
-        {
-            if (_index > 0)
-            {
-                _instance.SetLength((uint) _index);
-                IteratorClose(CompletionType.Normal);
             }
         }
     }

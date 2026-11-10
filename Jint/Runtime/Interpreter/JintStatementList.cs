@@ -328,6 +328,27 @@ internal sealed class JintStatementList
         return completion;
     }
 
+    /// <summary>
+    /// Drops the request a generator's return() resumption raised, once something has taken over from the return
+    /// completion it stands for: here, a throw from the iterator's return() as the for-of loop the resumption left
+    /// closes it (https://tc39.es/ecma262/#sec-iteratorclose).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ClearReturnRequest(Engine engine)
+    {
+        var generator = engine.ExecutionContext.Generator;
+        if (generator is not null)
+        {
+            generator._returnRequested = false;
+        }
+
+        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
+        if (asyncGenerator is not null)
+        {
+            asyncGenerator._returnRequested = false;
+        }
+    }
+
     private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, Node s)
     {
         var error = errorConstructor.Construct(e.Message);
