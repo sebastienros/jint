@@ -1011,22 +1011,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             if (close)
             {
                 suspendable?.Data.Clear(this);
-                try
-                {
-                    iteratorRecord.Close(completionType);
-                }
-                catch
-                {
-                    // if we already have and exception, use it
-                    if (completionType != CompletionType.Throw)
-                    {
-#pragma warning disable CA2219
-#pragma warning disable MA0072
-                        throw;
-#pragma warning restore MA0072
-#pragma warning restore CA2219
-                    }
-                }
+
+                // IteratorClose discards what `return` raises under a throw completion itself (step 5), and propagates
+                // only what must end the run, a constraint that tripped inside `return` among them; under any other
+                // completion what it raises is the loop's (https://tc39.es/ecma262/#sec-iteratorclose).
+                iteratorRecord.Close(completionType);
             }
 
             // Park the reusable iteration environment for the next loop entry; reset at park
@@ -1832,9 +1821,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             iterator.Close(completionType);
         }
-        catch
+        catch (Exception e) when (!Throw.MustPropagateHostException(e))
         {
-            // Best-effort close on abrupt — main path already has its own completion.
+            // Best-effort close on abrupt — main path already has its own completion. An exception that ends the run, a
+            // constraint that tripped inside `return`, is no completion of the script's and propagates.
         }
     }
 

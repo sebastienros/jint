@@ -100,13 +100,14 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     {
         // See the identical helper on IteratorPrototype: step 4 runs before innerResult is
         // inspected, so neither the GetMethod of step 2 nor the call of step 3.c may replace the
-        // error that triggered the close.
+        // error that triggered the close - but an exception that ends the run, a constraint that
+        // tripped inside "return", is no such error and propagates (Throw.MustPropagateHostException).
         ICallable? returnMethod;
         try
         {
             returnMethod = obj.GetMethod(CommonProperties.Return);
         }
-        catch when (completionType == CompletionType.Throw)
+        catch (Exception e) when (completionType == CompletionType.Throw && !Throw.MustPropagateHostException(e))
         {
             return;
         }
@@ -120,7 +121,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         {
             returnMethod.Call(obj, Arguments.Empty);
         }
-        catch when (completionType == CompletionType.Throw)
+        catch (Exception e) when (completionType == CompletionType.Throw && !Throw.MustPropagateHostException(e))
         {
             // Ignore errors from return when completion is throw
         }

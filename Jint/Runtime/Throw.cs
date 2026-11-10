@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using Jint.Native;
@@ -17,6 +18,35 @@ internal sealed record ErrorDispatchInfo(ErrorConstructor ErrorConstructor, stri
 
 internal static class Throw
 {
+    internal static bool IsEngineAbortException(Exception exception)
+        => EngineAbortRegistry.Exceptions.TryGetValue(exception, out _);
+
+    /// <summary>
+    /// The exceptions that end the run rather than complete it: each exists to bound or abort execution, so no
+    /// JavaScript completion may discard it. IteratorClose step 5 lets a throw completion win over what <c>return</c>
+    /// raises, but not over one of these. Jint's own <see cref="System.TimeoutException"/> and
+    /// <see cref="System.OperationCanceledException"/> are on it through the engine-abort registry rather than by type, so that
+    /// a host's own one, raised from a CLR <c>return</c>, is still a host failure the closing throw wins over.
+    /// </summary>
+    internal static bool MustPropagateHostException(Exception exception) => exception
+        is global::Jint.Runtime.ExecutionCanceledException
+        or global::Jint.Runtime.MemoryLimitExceededException
+        or global::Jint.Runtime.StatementsCountOverflowException
+        or global::Jint.Runtime.RecursionDepthOverflowException
+        or System.Text.RegularExpressions.RegexMatchTimeoutException
+        or System.PlatformNotSupportedException
+        or System.OutOfMemoryException
+        || IsEngineAbortException(exception);
+
+    private static void MarkEngineAbort(Exception exception)
+        => EngineAbortRegistry.Exceptions.Add(exception, EngineAbortRegistry.Marker);
+
+    private static class EngineAbortRegistry
+    {
+        internal static readonly ConditionalWeakTable<Exception, object> Exceptions = new();
+        internal static readonly object Marker = new();
+    }
+
     /// <summary>
     /// Renders <paramref name="value"/> for an error message without ever running user JavaScript.
     /// <para>
@@ -194,19 +224,25 @@ internal static class Throw
     [DoesNotReturn]
     public static void TimeoutException()
     {
-        throw new TimeoutException();
+        var exception = new TimeoutException();
+        MarkEngineAbort(exception);
+        throw exception;
     }
 
     [DoesNotReturn]
     public static void TimeoutException(string message)
     {
-        throw new TimeoutException(message);
+        var exception = new TimeoutException(message);
+        MarkEngineAbort(exception);
+        throw exception;
     }
 
     [DoesNotReturn]
     public static void OperationCanceledException(CancellationToken cancellationToken)
     {
-        throw new OperationCanceledException(cancellationToken);
+        var exception = new OperationCanceledException(cancellationToken);
+        MarkEngineAbort(exception);
+        throw exception;
     }
 
     [DoesNotReturn]
