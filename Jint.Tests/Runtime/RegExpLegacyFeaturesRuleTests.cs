@@ -235,6 +235,41 @@ public class RegExpLegacyFeaturesRuleTests
         RunTwoRealms(match).Should().Be(ThisRealmMoved);
     }
 
+    // RegExp.prototype.compile reads the same two slots (the proposal's changes to it): it throws a TypeError unless the
+    // current realm - the realm of the compile function that was called - is the regexp's [[Realm]] and the regexp has
+    // [[LegacyFeaturesEnabled]]. Neither is about the regexp's prototype, which a script can replace.
+    [TestCase("new RegExp('a').compile('b').source", "b")]
+    [TestCase("/a/.compile('b').source", "b")]
+    [TestCase("new M('a').compile('b')", "TypeError")]
+    [TestCase("RegExp.prototype.compile.call(new M('a'), 'b')", "TypeError")]
+    [TestCase("Object.setPrototypeOf(new M('a'), RegExp.prototype).compile('b')", "TypeError")]
+    [TestCase("Reflect.construct(RegExp, ['a'], M).compile('b')", "TypeError")]
+    [TestCase("Object.setPrototypeOf(new RegExp('a'), M.prototype).compile('b').source", "b")]
+    [TestCase("(function () { var r = new RegExp('a'); Object.setPrototypeOf(r, {}); RegExp.prototype.compile.call(r, 'b'); return Object.getOwnPropertyDescriptor(RegExp.prototype, 'source').get.call(r); })()", "b")]
+    [TestCase("(function () { var r = new RegExp('a'); Object.setPrototypeOf(r, Object.create(RegExp.prototype)); return r.compile('b').source; })()", "b")]
+    public void CompileFollowsTheRegExpsRealmAndFlagNotItsPrototype(string expression, string expected)
+    {
+        Run(Probe + $"(function () {{ try {{ return {expression}; }} catch (e) {{ return e.constructor.name; }} }})()").Should().Be(expected);
+    }
+
+    [TestCase("RegExp.prototype.compile.call(new other.RegExp('a'))", "TypeError")]
+    [TestCase("other.RegExp.prototype.compile.call(/a/)", "other TypeError")]
+    [TestCase("Object.setPrototypeOf(/a/, other.RegExp.prototype).compile('b')", "other TypeError")]
+    [TestCase("Object.setPrototypeOf(new other.RegExp('a'), RegExp.prototype).compile('b')", "TypeError")]
+    [TestCase("new other.RegExp('a').compile('b').source", "b")]
+    [TestCase("other.RegExp.prototype.compile.call(new other.RegExp('a'), 'b').source", "b")]
+    [TestCase("Object.setPrototypeOf(new other.RegExp('a'), Object.create(other.RegExp.prototype)).compile('b').source", "b")]
+    public void CompileOfARegExpOfAnotherRealmIsRefusedByTheRealmOfTheCompileCalled(string expression, string expected)
+    {
+        RunWithRealm($$"""
+            var other = $262.createRealm().global;
+            (function () {
+              try { return {{expression}}; }
+              catch (e) { return (e instanceof other.TypeError ? 'other ' : e instanceof TypeError ? '' : 'neither ') + e.constructor.name; }
+            })()
+            """).Should().Be(expected);
+    }
+
     // Each realm's statics are its own.
     [Test]
     public void TwoRealmsKeepTheirOwnStatics()

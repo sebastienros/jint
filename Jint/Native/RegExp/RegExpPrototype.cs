@@ -2598,9 +2598,11 @@ internal sealed partial class RegExpPrototype : Prototype
             return default!;
         }
 
-        // 3. If SameValue(O.[[Prototype]], %RegExp%.prototype) is false, throw a TypeError.
-        // This rejects subclass instances and cross-realm instances.
-        if (!ReferenceEquals(r.Prototype, _realm.Intrinsics.RegExp.PrototypeObject))
+        // 3. The RegExp Legacy Features proposal (https://github.com/tc39/proposal-regexp-legacy-features, the changes to
+        // RegExp.prototype.compile): if the current realm is not O.[[Realm]], or O.[[LegacyFeaturesEnabled]] is false,
+        // throw a TypeError. That rejects an instance a subclass allocated and an instance of another realm, by the two
+        // slots RegExpAlloc set rather than by what its prototype happens to be now.
+        if (!ReferenceEquals(r.LegacyRealm, _realm) || !r.LegacyFeaturesEnabled)
         {
             Throw.TypeError(_realm, "RegExp.prototype.compile cannot be used on RegExp subclass or cross-realm instances");
             return default!;

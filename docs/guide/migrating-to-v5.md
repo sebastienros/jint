@@ -6465,9 +6465,10 @@ record of the migration, including what it found in both engines, is
   the match (the one `RegExp.prototype.test` and the others call on the regexp): when it is the realm that allocated
   the regexp they are set, when a subclass of `RegExp` allocated it they are **invalidated** (reading one throws a
   `TypeError` until the next successful match of a plain `RegExp` sets them again; `RegExp.input` can still be
-  assigned and read), and when another realm allocated it they are left alone. V8 applies neither restriction
-  (Node 26 updates the statics after a subclass instance matches), so a script that read `RegExp.$1` after matching
-  with a subclass instance gets a `TypeError` here.
+  assigned and read), and when another realm allocated it they are left alone. `RegExp.prototype.compile` reads the
+  same two facts instead of looking at the regexp's prototype. V8 applies neither restriction (Node 26 updates the
+  statics after a subclass instance matches), so a script that read `RegExp.$1` after matching with a subclass
+  instance gets a `TypeError` here.
 - **A host `Regex` still matches with .NET semantics by default**, exactly as before. To have it read as an
   ECMAScript pattern instead, set `options.Interop.RegexConversion = RegexConversionMode.EcmaScript`
   ([5.42](#5-42-a-host-regex-can-be-read-as-ecmascript)).
