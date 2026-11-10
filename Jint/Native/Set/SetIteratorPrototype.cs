@@ -27,7 +27,7 @@ internal sealed partial class SetIteratorPrototype : IteratorPrototype
     }
 
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.Set);
 
     internal IteratorInstance ConstructEntryIterator(JsSet set)
     {

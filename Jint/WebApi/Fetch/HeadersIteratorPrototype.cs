@@ -56,7 +56,7 @@ internal sealed partial class HeadersIteratorPrototype : IteratorPrototype
     /// WebIDL too.
     /// </remarks>
     [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable, CaptureField = nameof(_originalNextFunction))]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.Headers);
 
     internal IteratorInstance ConstructEntryIterator(JsHeaders headers)
         => new HeadersIterator(_engine, headers, IteratorKind.KeyAndValue) { _prototype = this };

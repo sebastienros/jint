@@ -38,5 +38,5 @@ internal sealed partial class SegmentIteratorPrototype : IteratorPrototype
     /// <see cref="IteratorBrand.Segment"/>: any other receiver is a <c>TypeError</c> (sebastienros/jint#4451).
     /// </summary>
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.Segment);
 }

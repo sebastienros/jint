@@ -27,7 +27,7 @@ internal sealed partial class StringIteratorPrototype : IteratorPrototype
     }
 
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.String);
 
     public ObjectInstance Construct(string str)
     {

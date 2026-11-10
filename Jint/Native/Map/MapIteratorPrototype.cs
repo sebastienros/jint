@@ -27,7 +27,7 @@ internal sealed partial class MapIteratorPrototype : IteratorPrototype
     }
 
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.Map);
 
     internal IteratorInstance ConstructEntryIterator(JsMap map)
     {

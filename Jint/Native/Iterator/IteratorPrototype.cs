@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Native.Number;
@@ -1417,19 +1419,29 @@ internal partial class IteratorPrototype : Prototype
     /// another kind's iterator. The native lane stands in for this call only for an iterator of this prototype's kind
     /// (<see cref="ToIteratorRecord"/>).
     /// </para>
+    /// <para>
+    /// <paramref name="brand"/> is this prototype's own brand, which each concrete prototype's <c>next</c> passes as a
+    /// constant. Iterator.prototype.toArray and the other helpers call <c>next</c> once per step, and where the JIT
+    /// inlines this into such a loop the check is then one byte compare against an immediate, with no read of the
+    /// prototype. The shape is the one this method had before the check, so that the JIT still inlines it
+    /// (sebastienros/jint#4536).
+    /// </para>
     /// </summary>
-    internal JsValue Next(JsValue thisObject, JsCallArguments arguments)
+    internal JsValue Next(JsValue thisObject, IteratorBrand brand)
     {
-        if (thisObject is not IteratorInstance iterator || iterator._brand != _brand)
+        Debug.Assert(brand == _brand, "a prototype's next passes its own brand");
+
+        var iterator = thisObject as IteratorInstance;
+        if (iterator is null || iterator._brand != brand)
         {
             ThrowIncompatibleReceiver();
-            return Undefined;
         }
 
         iterator.TryIteratorStep(out var result);
         return result;
     }
 
+    [DoesNotReturn]
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowIncompatibleReceiver()
     {
