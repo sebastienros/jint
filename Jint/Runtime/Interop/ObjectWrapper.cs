@@ -1404,7 +1404,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         if (includeStrings && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
         {
-            var keys = (ICollection<string>) _typeDescriptor.KeysAccessor!.GetValue(Target)!;
+            // IEnumerable<string>, not ICollection<string>: IReadOnlyDictionary<,>.Keys is the one the descriptor may
+            // have found, and what ImmutableDictionary and ImmutableSortedDictionary return through it is an iterator
+            var keys = (IEnumerable<string>) _typeDescriptor.KeysAccessor!.GetValue(Target)!;
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             // each step pulls from the user dictionary's key enumerator
             foreach (var key in keys)
