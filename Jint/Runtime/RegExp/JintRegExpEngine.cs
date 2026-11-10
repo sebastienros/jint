@@ -208,7 +208,21 @@ internal sealed class JintRegExpEngine
 
         var plan = _plan;
 
-        var state = NewState(Rent(plan), timeout, out var started);
+        // The interval starts at the budget's first stride read (see TryMatchRange); an interval of DeferredStartAbove or
+        // less starts at a clock read made here instead, and started is what SearchSlow carries into its retries. Each
+        // state is built in place: a helper returning it by value cost the hot path a larger frame and two struct copies.
+        var buffers = Rent(plan);
+        long started = 0;
+        RunState state;
+        if (timeout is { } interval && interval.Ticks <= DeferredStartAbove)
+        {
+            state = new RunState(buffers, long.MaxValue, ShortIntervalDeadline(timeout, out started));
+        }
+        else
+        {
+            state = new RunState(buffers, long.MaxValue, default, timeout, deferStart: true);
+        }
+
         var span = input.AsSpan();
         var count = 0;
         var position = startIndex;
@@ -267,8 +281,21 @@ internal sealed class JintRegExpEngine
         // CaptureCount groups: what Search would validate is already known, and the prevalidated entry reads the
         // partitions only up to the planned frame count, so they may be longer than planned.
         // The timeout starts at the search's first clock read (see TryMatchRange), so a search that ends within its first
-        // stride of work reads no clock.
-        var state = NewState(Rent(plan), timeout, out var started);
+        // stride of work reads no clock; an interval of DeferredStartAbove or less starts at a clock read made here
+        // instead, and started is what SearchSlow carries into its retries. Each state is built in place: a helper
+        // returning it by value cost this method a larger frame and two struct copies.
+        var buffers = Rent(plan);
+        long started = 0;
+        RunState state;
+        if (timeout is { } interval && interval.Ticks <= DeferredStartAbove)
+        {
+            state = new RunState(buffers, long.MaxValue, ShortIntervalDeadline(timeout, out started));
+        }
+        else
+        {
+            state = new RunState(buffers, long.MaxValue, default, timeout, deferStart: true);
+        }
+
         var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match, hostSized: true);
         if (status == RegexSearchStatus.Match)
         {
@@ -310,20 +337,13 @@ internal sealed class JintRegExpEngine
         return new WorkspaceBuffers(new int[capacity.StateSlots], new int[capacity.CaptureSlots], new int[capacity.ScratchSlots]);
     }
 
-    // The state a search runs under: the interval starts at the budget's first stride read, or, for a short interval, at a
-    // clock read made here. started is that read (0 when the budget has not read the clock yet), and what SearchSlow
-    // needs to keep its retries inside the same deadline.
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static RunState NewState(WorkspaceBuffers buffers, TimeSpan? timeout, out long started)
+    // The absolute deadline of an interval too short to defer, from a clock read made now, which is also where its
+    // retries measure from. Kept out of line: this is the cold side of every search's choice of budget.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static long ShortIntervalDeadline(TimeSpan? timeout, out long started)
     {
-        if (timeout is { } interval && interval.Ticks <= DeferredStartAbove)
-        {
-            started = Stopwatch.GetTimestamp();
-            return new RunState(buffers, long.MaxValue, AbsoluteDeadline(timeout, started));
-        }
-
-        started = 0;
-        return new RunState(buffers, long.MaxValue, default, timeout, deferStart: true);
+        started = Stopwatch.GetTimestamp();
+        return AbsoluteDeadline(timeout, started);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

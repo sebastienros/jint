@@ -84,13 +84,15 @@ public class RegExpTimeoutTests
         engine.Evaluate("'abab'.replace(/(b)/g, (m, g) => g.toUpperCase())").AsString().Should().Be("aBaB");
     }
 
-    [TestCase(1)]
-    [TestCase(0.01)]
-    public void ATimeoutOfAMillisecondOrLessIsMeasuredFromTheSearchStartAndStillEndsACatastrophicOne(double milliseconds)
+    // Built from ticks: on .NET Framework TimeSpan.FromMilliseconds rounds to whole milliseconds, so a fractional one is
+    // TimeSpan.Zero there, which means untimed, and a catastrophic search under it never ends.
+    [TestCase(100L)]
+    [TestCase(JintRegExpEngine.DeferredStartAbove)]
+    public void ATimeoutOfAMillisecondOrLessIsMeasuredFromTheSearchStartAndStillEndsACatastrophicOne(long ticks)
     {
         // Not deferred (see JintRegExpEngine.DeferredStartAbove): the deadline comes from a clock read at the start of the
         // search and is first checked at the first stride, as it was before the budget could defer its start.
-        var timeout = TimeSpan.FromMilliseconds(milliseconds);
+        var timeout = TimeSpan.FromTicks(ticks);
         var engine = new Engine(o => o.Constraints.RegexTimeout = timeout);
         engine.SetValue("S", Subject);
 
@@ -156,7 +158,8 @@ public class RegExpTimeoutTests
     {
         // A search that exhausts the frames it started with is retried with more (see JintRegExpEngine.SearchSlow), which
         // is where a timeout that began at the first attempt's clock read has to be carried over. A fresh matcher each
-        // time, so the plan an earlier call grew cannot spare this one the retry, and PlannedFrames says it grew.
+        // time, so the plan an earlier call grew cannot spare this one the retry, and PlannedFrames says it grew. This
+        // proves the retry runs and answers under a timeout; it cannot tell a carried deadline from a restarted one.
         TimeSpan? timeout = milliseconds is { } ms ? TimeSpan.FromMilliseconds(ms) : null;
         var matcher = JintRegExpEngine.Compile(NeedsFrames, RegExpFlags.None);
         var groups = new RegexCapture[matcher.CaptureCount];
@@ -184,10 +187,12 @@ public class RegExpTimeoutTests
     }
 
     [Test]
-    public void RetriesShareTheDeadlineTheFirstAttemptsTimeoutBeganAt()
+    public void AbsoluteDeadlineIsMeasuredFromWhereTheIntervalBegan()
     {
-        // The conversion every retry goes through: from where the interval began, not from the retry, and never beyond
-        // the range of a timestamp.
+        // The conversion SearchSlow applies once to carry the first attempt's start into every retry: from where the
+        // interval began, not from the retry, and never beyond the range of a timestamp. That it is applied, rather than
+        // each retry taking the interval afresh, is not pinned here: telling the two apart needs SearchSlow's FramePlan
+        // exposed, and the growth test above shows only that the retries happen and answer.
         var interval = TimeSpan.FromSeconds(3);
         var ticks = (long) (interval.TotalSeconds * Stopwatch.Frequency);
 
