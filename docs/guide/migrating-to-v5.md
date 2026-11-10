@@ -8343,9 +8343,11 @@ try { for (const x of it) throw new Error('body'); } catch (e) { }
 // LimitExecutionTime(300 ms)    earlier builds: 'finished'    5.x: TimeoutException out of Evaluate
 ```
 
-Whether the run ended anyway depended on what came after. A statement or memory limit is checked on every statement,
-so it fired again on the next one. A time limit or a cancellation is checked every 64 statements, so a script with
-fewer than that left finished normally. `MaxRecursionDepth` and `MaxArraySize` fire once, and were simply lost.
+Whether the run ended anyway depended on what came after. A time limit or a cancellation is checked every 64
+statements, so a script with fewer than that left finished normally. `MaxRecursionDepth` and `MaxArraySize` fire once,
+and were simply lost. A statement limit fired again on the next statement, but a script whose error escaped handed the
+host that error, a `JavaScriptException`, in place of `StatementsCountOverflowException`. Only a memory limit, which is
+checked again as the entry ends, was never lost outright.
 
 The exception now reaches the host from every close a throw performs: `for`-`of` and `for await` (a sync iterable in a
 `for await`, and a `for (await using …)` whose dispose rejects, included), array destructuring in a declaration, an
