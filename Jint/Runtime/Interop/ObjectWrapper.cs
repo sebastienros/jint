@@ -1657,18 +1657,24 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return null;
         }
 
-        // The member lane writes through the descriptor's Value setter, which cannot report a refusal. A
-        // dictionary is declined above, but a member resolved against the runtime type (the exposed type having
-        // none) can still be a dictionary's indexer, so the descriptor is asked as well. This runs when the lane
-        // populates, not per access. The read lane populates through here too, so reads of that rare shape also
-        // go uncached; they still answer correctly, through Get.
-        if (descriptor is ReflectionDescriptor { WriteCanBeRefused: true })
-        {
-            return null;
-        }
-
-        return descriptor;
+        return UnlessItsWriteCanBeRefused(descriptor);
     }
+
+    /// <summary>
+    /// <paramref name="descriptor"/>, or <see langword="null"/> when a write through it can be refused, which the
+    /// member lane, writing through <c>Value</c>, cannot report.
+    /// </summary>
+    /// <remarks>
+    /// A dictionary is declined before this, but a member resolved against the runtime type (the exposed type
+    /// having none) can still be a dictionary's indexer, so the descriptor is asked as well. This runs when the
+    /// lane populates, not per access. The read lane populates through here too, so reads of that rare shape also
+    /// go uncached; they still answer correctly, through <see cref="Get"/>. Out of line because
+    /// <see cref="TryGetInlineCacheableDescriptor"/> is inlined into the interpreter's member read lane, which
+    /// every wrapper read runs, a dictionary's included (#4518).
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static PropertyDescriptor? UnlessItsWriteCanBeRefused(PropertyDescriptor descriptor)
+        => descriptor is ReflectionDescriptor { WriteCanBeRefused: true } ? null : descriptor;
 
     // need to be public for advanced cases like RavenDB yielding properties from CLR objects
     public static PropertyDescriptor GetPropertyDescriptor(Engine engine, object target, MemberInfo member)

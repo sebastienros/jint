@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
@@ -27,10 +28,6 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     private readonly bool _keyFitsAccessors;
     private readonly bool _keyFitsContainsKey;
 
-    // Indexer.CanWrite, and false for a key that cannot be an entry. Every string-keyed write the wrapper
-    // serves reads it, so it is taken once here rather than asked of the PropertyInfo per write.
-    private readonly bool _writable;
-
     // per-accessor L1 caches over the process-wide compiled delegates, resolved lazily and racily
     private CompiledKeyedAccessor.KeyedIndexerGetter? _compiledGetter;
     private bool _compiledGetterResolved;
@@ -40,6 +37,11 @@ internal sealed class IndexerAccessor : ReflectionAccessor
 
     private CompiledKeyedAccessor.KeyedPredicate? _compiledContainsKey;
     private bool _compiledContainsKeyResolved;
+
+    // Indexer.CanWrite, and false for a key that cannot be an entry. Every string-keyed write the wrapper
+    // serves reads it, so it is taken once here rather than asked of the PropertyInfo per write. Declared after
+    // the fields the read lane touches, so that the runtime's auto layout moves none of them for it.
+    private readonly bool _writable;
 
     private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key, bool keyCannotBeAnEntry = false) : base(indexer.PropertyType)
     {
@@ -59,6 +61,30 @@ internal sealed class IndexerAccessor : ReflectionAccessor
                               && containsKey?.GetParameters() is [{ ParameterType: var containsKeyType }]
                               && containsKeyType.IsInstanceOfType(key);
         _writable = indexer.CanWrite && !keyCannotBeAnEntry;
+
+        if (keyCannotBeAnEntry)
+        {
+            // No entry, answered through the state KeyIsPresent already reads: the containment probe is resolved
+            // here to one that never finds the key, so the read lane, which every name a dictionary resolves to its
+            // indexer runs, carries no test of its own for the mark (#4518). ForTarget marks only the non-generic
+            // IDictionary indexer, which always carries IDictionary.Contains, so KeyIsPresent never takes its
+            // "no probe, assume present" exit for a marked copy.
+            Debug.Assert(containsKey is not null, "a marked indexer is IDictionary's, which has Contains");
+            _compiledContainsKey = NoEntry.Predicate;
+            _compiledContainsKeyResolved = true;
+        }
+    }
+
+    /// <summary>
+    /// The containment probe of an indexer marked <see cref="KeyCannotBeAnEntry"/>, which never asks the target.
+    /// </summary>
+    /// <remarks>
+    /// The target's own <c>Contains</c> would not always answer: <c>ImmutableDictionary</c>'s casts the key to
+    /// <c>TKey</c> and throws <see cref="InvalidCastException"/>.
+    /// </remarks>
+    private static class NoEntry
+    {
+        internal static readonly CompiledKeyedAccessor.KeyedPredicate Predicate = static (_, _) => false;
     }
 
     internal PropertyInfo Indexer { get; }
@@ -349,15 +375,14 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     /// Runs the <c>ContainsKey</c>/<c>Contains</c> probe that keeps a dictionary indexer from throwing on a
     /// missing key. No probe means "assume present", exactly as before.
     /// </summary>
+    /// <remarks>
+    /// An indexer marked <see cref="KeyCannotBeAnEntry"/> answers <see langword="false"/> here without asking
+    /// the target, through the probe its constructor resolves (<see cref="NoEntry"/>), so this method carries
+    /// no test of its own for it: every read, <c>in</c> and <c>hasOwnProperty</c> that reaches a dictionary's
+    /// indexer runs through it (#4518).
+    /// </remarks>
     private bool KeyIsPresent(object target)
     {
-        if (KeyCannotBeAnEntry)
-        {
-            // there is no entry to find, and asking would not always answer: ImmutableDictionary's
-            // IDictionary.Contains casts the key to TKey and throws InvalidCastException for one that is not
-            return false;
-        }
-
         if (_containsKey is null)
         {
             return true;

@@ -215,13 +215,6 @@ internal abstract class ReflectionAccessor
         return true;
     }
 
-    /// <summary>
-    /// Whether <paramref name="exception"/>, thrown by the target's setter, is a refusal the caller reports as
-    /// <c>[[Set]]</c> returning <see langword="false"/> rather than an error. Only a dictionary's indexer
-    /// answers yes, see <see cref="IndexerAccessor"/>.
-    /// </summary>
-    protected virtual bool RefusesAsReadOnly(TargetInvocationException exception) => false;
-
     /// <remarks>
     /// <paramref name="value"/> carried a <c>[DynamicallyAccessedMembers]</c> annotation until it was
     /// noticed that the attribute is honoured only on a <see cref="Type"/> or a <see cref="string"/>
@@ -240,4 +233,16 @@ internal abstract class ReflectionAccessor
     {
         return new ReflectionDescriptor(engine, this, target, memberName, enumerable);
     }
+
+    /// <summary>
+    /// Whether <paramref name="exception"/>, thrown by the target's setter, is a refusal the caller reports as
+    /// <c>[[Set]]</c> returning <see langword="false"/> rather than an error. Only a dictionary's indexer
+    /// answers yes, see <see cref="IndexerAccessor"/>.
+    /// </summary>
+    /// <remarks>
+    /// Declared last, so that it moves no other virtual's vtable slot. The read lane calls
+    /// <see cref="CreatePropertyDescriptor"/> through its slot whenever the guarded devirtualization of it does not
+    /// apply (#4518).
+    /// </remarks>
+    protected virtual bool RefusesAsReadOnly(TargetInvocationException exception) => false;
 }
