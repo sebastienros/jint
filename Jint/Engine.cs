@@ -650,6 +650,7 @@ public sealed partial class Engine : IDisposable
         // Read after Options.Apply so the snapshot observes the same value JintCallStack does
         // (Apply runs the user's configuration callbacks, which can still touch Constraints).
         _maxRecursionDepth = Options.Constraints.MaxRecursionDepth;
+        _hasMaxArraySize = Options.Constraints.MaxArraySize != uint.MaxValue;
 
         // Likewise after Apply: a configuration callback registered with Options.Configure is a
         // documented place to finish configuring an engine, and enabling operator overloading from
@@ -705,6 +706,15 @@ public sealed partial class Engine : IDisposable
     // identity alone cannot see a name added to a pinned env. Creates into fresh environments
     // never bump: a fresh environment cannot appear in a previously pinned chain.
     internal int _envBindingInjectionEpoch;
+
+    // Whether Options.Constraints.MaxArraySize is set (it is not uint.MaxValue), for the lists a run-time count lengthens:
+    // a spread, an array-like handed to apply/Reflect.apply/Reflect.construct, a script ownKeys trap's result, a bound
+    // function's arguments (sebastienros/jint#4505). Taken beside _maxRecursionDepth, after Options.Apply, and read only
+    // by code that runs script; the limit itself is read from the option behind it, on an engine that has one. A bool
+    // so that a default engine pays one byte test, and declared after the other flags so that it lands in the padding
+    // before the struct fields: an 8-byte snapshot moved every primitive field after it, the hot flags and counters
+    // among them, by 8 bytes.
+    internal readonly bool _hasMaxArraySize;
 
     /// <summary>
     /// The block-level function declarations of the sloppy direct or indirect eval whose body is

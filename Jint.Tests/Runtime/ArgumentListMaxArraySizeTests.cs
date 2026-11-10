@@ -1,0 +1,343 @@
+#nullable enable
+
+using Jint.Native;
+using Jint.Native.Object;
+using Jint.Runtime;
+using Jint.Runtime.Interop;
+
+namespace Jint.Tests.Runtime;
+
+/// <summary>
+/// An argument list whose length the script chose at run time is bounded by <c>Options.Constraints.MaxArraySize</c>
+/// like an array built from a count (issue #4505): a spread
+/// (https://tc39.es/ecma262/#sec-runtime-semantics-argumentlistevaluation, and an array literal's
+/// https://tc39.es/ecma262/#sec-runtime-semantics-arrayaccumulation, which shares its builder), an array-like handed to
+/// <c>apply</c>, <c>Reflect.apply</c> or <c>Reflect.construct</c> (https://tc39.es/ecma262/#sec-createlistfromarraylike),
+/// and the list a bound function makes of its own arguments and the call's
+/// (https://tc39.es/ecma262/#sec-bound-function-exotic-objects-call-thisargument-argumentslist). The rest parameter and
+/// the <c>arguments</c> object are made from that list, so bounding it bounds them. Each shape is pinned past the
+/// limit, at exactly the limit, and on an engine with no limit.
+/// </summary>
+public class ArgumentListMaxArraySizeTests
+{
+    private static class Caught
+    {
+        public static Exception? Exception(Action action)
+        {
+            try
+            {
+                action();
+                return null;
+            }
+            catch (Exception e)
+            {
+                return e;
+            }
+        }
+    }
+
+    private const uint Limit = 4;
+
+    private const string Setup = """
+        function rest(...r) { return r.length; }
+        function args() { return arguments.length; }
+        function Ctor(...r) { this.n = r.length; }
+        class Base { constructor(...r) { this.n = r.length; } }
+        class Derived extends Base { constructor(x) { super(...x, ...x); } }
+        class Implicit extends Base {}
+        var yielded = 0;
+        function* g(n) { for (let i = 0; i < n; i++) { yielded++; yield i; } }
+        var a2 = [0, 1], a3 = [0, 1, 2], a4 = [0, 1, 2, 3];
+        function chain(links, perLink) { let f = rest; for (let i = 0; i < links; i++) f = f.bind(null, ...g(perLink)); return f; }
+        """;
+
+    private static Engine EngineWith(uint maxArraySize)
+    {
+        var engine = new Engine(options => options.Constraints.MaxArraySize = maxArraySize);
+        engine.Execute(Setup);
+        return engine;
+    }
+
+    /// <summary>
+    /// The size each refusal reports says where the check fired: the spread of a long generator stops at the first
+    /// element past the limit rather than at its end, and an array's spread is refused before it is copied.
+    /// </summary>
+    [Theory]
+    [InlineData("rest(...g(1000))", 5)]
+    [InlineData("args(...g(1000))", 5)]
+    [InlineData("[...g(1000)]", 5)]
+    [InlineData("rest(...a4, ...a4)", 8)]
+    [InlineData("rest(...a3, ...a2)", 5)]
+    [InlineData("args(...a3, ...a2)", 5)]
+    [InlineData("rest(0, ...a4)", 5)]
+    [InlineData("rest(...a4, 0)", 5)]
+    [InlineData("new Ctor(...a3, ...a2)", 5)]
+    [InlineData("new Derived(a3)", 6)]
+    [InlineData("new Implicit(...a3, ...a2)", 5)]
+    [InlineData("[...a3, ...a2]", 5)]
+    [InlineData("[0, ...a4]", 5)]
+    [InlineData("rest.apply(null, { length: 5 })", 5)]
+    [InlineData("Reflect.apply(rest, null, { length: 5 })", 5)]
+    [InlineData("Reflect.construct(Ctor, { length: 5 })", 5)]
+    [InlineData("(() => { let n = 0; for (const k in new Proxy({}, { ownKeys: () => ({ length: 5, 0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e' }) })) n++; return n; })()", 5)]
+    [InlineData("rest.bind(null, ...a3)(...a2)", 5)]
+    [InlineData("new (Ctor.bind(null, ...a3))(...a2)", 5)]
+    [InlineData("chain(2, 3)()", 6)]
+    public void AListPastTheLimitIsRefused(string expression, int reportedSize)
+    {
+        var engine = EngineWith(Limit);
+
+        var thrown = Caught.Exception(() => engine.Evaluate(expression));
+
+        thrown.Should().BeOfType<MemoryLimitExceededException>();
+        thrown!.Message.Should().Be($"The array size {reportedSize} is larger than maximum allowed ({Limit})");
+    }
+
+    /// <summary>
+    /// Growing an array's <c>length</c> writes no element, so a sparse array can be longer than the limit; the list a
+    /// spread or <c>apply</c> makes of it is as long as that <c>length</c>, and is refused.
+    /// </summary>
+    [Theory]
+    [InlineData("rest(...sparse)")]
+    [InlineData("rest.apply(null, sparse)")]
+    [InlineData("Reflect.apply(rest, null, sparse)")]
+    public void ASparseArrayLongerThanTheLimitIsRefused(string expression)
+    {
+        var engine = EngineWith(Limit);
+        engine.Execute("var sparse = []; sparse.length = 5;");
+        engine.Evaluate("sparse.length").AsNumber().Should().Be(5);
+
+        var thrown = Caught.Exception(() => engine.Evaluate(expression));
+
+        thrown.Should().BeOfType<MemoryLimitExceededException>();
+        thrown!.Message.Should().Be($"The array size 5 is larger than maximum allowed ({Limit})");
+    }
+
+    /// <summary>
+    /// A host <see cref="ProxyHandler"/>'s keys are a list the host already built, so holding them to the limit would
+    /// bound no memory and only break enumeration: <c>for…in</c>, <c>Object.assign</c> and object spread read past the
+    /// limit, and so does the host. A script <c>ownKeys</c> trap over the same target, whose array-like's
+    /// <c>length</c> the script chose, is still refused.
+    /// </summary>
+    [Fact]
+    public void AHostProxyHandlersKeysAreNotCountedButAScriptTrapsAre()
+    {
+        var engine = EngineWith(Limit);
+        var target = engine.Evaluate("({ a: 1, b: 2, c: 3, d: 4, e: 5 })").AsObject();
+        var proxy = engine.Advanced.CreateProxy(target, new HostKeys(["a", "b", "c", "d", "e"]));
+        engine.SetValue("hostProxy", proxy);
+        engine.SetValue("target", target);
+
+        engine.Evaluate("(() => { let n = 0; for (const k in hostProxy) n++; return n; })()").AsNumber().Should().Be(5);
+        engine.Evaluate("Object.assign({}, hostProxy).e").AsNumber().Should().Be(5);
+        engine.Evaluate("({ ...hostProxy }).e").AsNumber().Should().Be(5);
+        proxy.GetOwnPropertyKeys().Should().HaveCount(5);
+
+        var thrown = Caught.Exception(() => engine.Evaluate("""
+            (() => { let n = 0; for (const k in new Proxy(target, { ownKeys: () => ['a', 'b', 'c', 'd', 'e'] })) n++; return n; })()
+            """));
+        thrown.Should().BeOfType<MemoryLimitExceededException>();
+        thrown!.Message.Should().Be($"The array size 5 is larger than maximum allowed ({Limit})");
+    }
+
+    private sealed class HostKeys(string[] keys) : ProxyHandler
+    {
+        public override IReadOnlyList<JsValue>? OwnKeys(ObjectInstance target)
+            => keys.Select(static key => (JsValue) JsString.Create(key)).ToList();
+    }
+
+    [Fact]
+    public void ASpreadOfALongIteratorStopsSteppingItAtTheLimit()
+    {
+        var engine = EngineWith(Limit);
+
+        Caught.Exception(() => engine.Evaluate("rest(...g(1000))")).Should().BeOfType<MemoryLimitExceededException>();
+
+        engine.Evaluate("yielded").AsNumber().Should().Be(Limit + 1);
+    }
+
+    [Theory]
+    [InlineData("rest(...g(4))", 4)]
+    [InlineData("args(...g(4))", 4)]
+    [InlineData("[...g(4)].length", 4)]
+    [InlineData("rest(...a2, ...a2)", 4)]
+    [InlineData("args(...a2, ...a2)", 4)]
+    [InlineData("rest(0, ...a3)", 4)]
+    [InlineData("rest(...a3, 0)", 4)]
+    [InlineData("new Ctor(...a2, ...a2).n", 4)]
+    [InlineData("new Derived(a2).n", 4)]
+    [InlineData("new Implicit(...a2, ...a2).n", 4)]
+    [InlineData("[...a2, ...a2].length", 4)]
+    [InlineData("[0, ...a3].length", 4)]
+    [InlineData("rest.apply(null, { length: 4 })", 4)]
+    [InlineData("Reflect.apply(rest, null, { length: 4 })", 4)]
+    [InlineData("Reflect.construct(Ctor, { length: 4 }).n", 4)]
+    [InlineData("Reflect.ownKeys(new Proxy({}, { ownKeys: () => ({ length: 4, 0: 'a', 1: 'b', 2: 'c', 3: 'd' }) })).length", 4)]
+    [InlineData("rest.bind(null, ...a2)(...a2)", 4)]
+    [InlineData("new (Ctor.bind(null, ...a2))(...a2).n", 4)]
+    [InlineData("chain(2, 2)()", 4)]
+    public void AListOfExactlyTheLimitIsAllowed(string expression, double expected)
+    {
+        var engine = EngineWith(Limit);
+
+        engine.Evaluate(expression).AsNumber().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A list written out in the source is as long as the source, which the host chose to run, so it costs no check:
+    /// a call without a spread pays nothing for the bound. Only a list a run-time count can lengthen is counted.
+    /// </summary>
+    [Theory]
+    [InlineData("rest(0, 1, 2, 3, 4)", 5)]
+    [InlineData("args(0, 1, 2, 3, 4)", 5)]
+    [InlineData("new Ctor(0, 1, 2, 3, 4).n", 5)]
+    [InlineData("[0, 1, 2, 3, 4].length", 5)]
+    public void AListWrittenOutInTheSourceIsNotCounted(string expression, double expected)
+    {
+        var engine = EngineWith(Limit);
+
+        engine.Evaluate(expression).AsNumber().Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("rest(...a4, ...a4, ...a4)", 12)]
+    [InlineData("[...a4, ...g(10)].length", 14)]
+    [InlineData("rest.apply(null, { length: 50 })", 50)]
+    [InlineData("Reflect.construct(Ctor, { length: 50 }).n", 50)]
+    [InlineData("chain(3, 3)(...a4)", 13)]
+    public void AnEngineWithoutALimitBuildsAnyList(string expression, double expected)
+    {
+        var engine = new Engine();
+        engine.Execute(Setup);
+
+        engine.Evaluate(expression).AsNumber().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// An array-like's list is refused when its <c>length</c> is read, before it is allocated and before any element
+    /// is read: a <c>{ length: n }</c> object costs a script nothing to make, and the list it asks for costs the host
+    /// eight bytes per element.
+    /// </summary>
+    [Theory]
+    [InlineData("rest.apply(null, o)")]
+    [InlineData("Reflect.apply(rest, null, o)")]
+    [InlineData("Reflect.construct(Ctor, o)")]
+    [InlineData("Reflect.ownKeys(new Proxy({}, { ownKeys: () => o }))")]
+    public void AnArrayLikePastTheLimitIsRefusedBeforeItsElementsAreRead(string expression)
+    {
+        var engine = EngineWith(Limit);
+        engine.Execute("var reads = 0; var o = { length: 1000000, get 0() { reads++; return 0; } };");
+
+#if NET
+        var before = GC.GetAllocatedBytesForCurrentThread();
+#endif
+        var thrown = Caught.Exception(() => engine.Evaluate(expression));
+#if NET
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+#endif
+
+        thrown.Should().BeOfType<MemoryLimitExceededException>();
+        engine.Evaluate("reads").AsNumber().Should().Be(0);
+#if NET
+        // The list would be 8 MB; the refusal allocates its message and stack trace.
+        allocated.Should().BeLessThan(1_000_000);
+#endif
+    }
+
+    private const string ReadOrderSetup = """
+        var log = '';
+        function note(s) { log = log ? log + ',' + s : s; }
+        function mk(n, values) {
+            const o = {};
+            Object.defineProperty(o, 'length', { get() { note('length'); return n; } });
+            for (let i = 0; i < values.length; i++) {
+                const v = values[i];
+                Object.defineProperty(o, i, { get() { note(String(i)); return v; } });
+            }
+            return o;
+        }
+        function logProxy(t) { return new Proxy(t, { get(target, key, receiver) { note('get:' + String(key)); return Reflect.get(target, key, receiver); } }); }
+        function f(...r) { return r.length; }
+        function C(...r) { this.n = r.length; }
+        function probe(run) { log = ''; let r; try { r = String(run()); } catch (e) { r = e.name + ':' + e.message; } return log + ' => ' + r; }
+        """;
+
+    /// <summary>
+    /// On an engine with a limit, a list under it is read by <c>ArrayOperations.GetAllWithinLimit</c>, which repeats
+    /// <c>GetAll</c>'s loop rather than sharing it, and a script <c>ownKeys</c> trap's result is read once more before
+    /// it is validated. Neither may be observable: the log of every <c>length</c> and element read, and where a
+    /// <c>TypeError</c> stops it, must be what a default engine logs, which is CreateListFromArrayLike's order
+    /// (https://tc39.es/ecma262/#sec-createlistfromarraylike): <c>length</c> once, then each element in order, and an
+    /// element that is not a key throws before the next is read. The logs were checked against Node. The limit (8) is
+    /// above every list here; it only sends them down the bounded lane.
+    /// </summary>
+    [Theory]
+    [InlineData("Reflect.ownKeys(new Proxy({}, { ownKeys: () => mk(3, [1, 'b', 'c']) }))", "length,0 => TypeError:invalid type")]
+    [InlineData("Reflect.ownKeys(new Proxy({}, { ownKeys: () => mk(3, ['a', 2, 'c']) }))", "length,0,1 => TypeError:invalid type")]
+    [InlineData("Reflect.ownKeys(new Proxy({}, { ownKeys: () => mk(3, ['a', 'b', 'c']) }))", "length,0,1,2 => a,b,c")]
+    [InlineData("Object.keys(new Proxy({}, { ownKeys: () => mk(2, ['a', 'b']) }))", "length,0,1 => ")]
+    [InlineData("(() => { let s = ''; for (const k in new Proxy({ a: 1, b: 2 }, { ownKeys: () => mk(2, ['a', 'b']) })) s += k; return s; })()", "length,0,1 => ab")]
+    [InlineData("Reflect.ownKeys(new Proxy({}, { ownKeys: () => ({ length: { valueOf() { note('valueOf'); return 2; } }, 0: 'a', 1: 'b' }) }))", "valueOf => a,b")]
+    [InlineData("Reflect.ownKeys(new Proxy({}, { ownKeys: () => logProxy({ length: 2, 0: 'a', 1: 'b' }) }))", "get:length,get:0,get:1 => a,b")]
+    [InlineData("Reflect.ownKeys(new Proxy({}, { ownKeys: () => logProxy({ length: 3, 0: 'a', 1: 2, 2: 'c' }) }))", "get:length,get:0,get:1 => TypeError:invalid type")]
+    [InlineData("(() => { const a = ['a', 'b']; Object.defineProperty(a, 1, { get() { note('1'); return 'b'; } }); return Reflect.ownKeys(new Proxy({}, { ownKeys: () => a })); })()", "1 => a,b")]
+    [InlineData("(() => { const a = [1, 'b']; Object.defineProperty(a, 1, { get() { note('1'); return 'b'; } }); return Reflect.ownKeys(new Proxy({}, { ownKeys: () => a })); })()", " => TypeError:invalid type")]
+    [InlineData("Reflect.ownKeys(new Proxy({}, { ownKeys: () => mk(2, ['a', 'a']) }))", "length,0,1 => TypeError:'ownKeys' on proxy: trap returned duplicate entries ('a')")]
+    [InlineData("Reflect.ownKeys(new Proxy({}, { ownKeys: () => 1 }))", " => TypeError:CreateListFromArrayLike called on non-object")]
+    [InlineData("Reflect.ownKeys(new Proxy(Object.preventExtensions({ a: 1 }), { ownKeys: () => mk(2, ['a', 'b']) }))", "length,0,1 => TypeError:'ownKeys' on proxy: trap returned extra keys but proxy target is non-extensible")]
+    [InlineData("f.apply(null, mk(3, [1, 'b', {}]))", "length,0,1,2 => 3")]
+    [InlineData("Reflect.apply(f, null, mk(3, [1, 'b', {}]))", "length,0,1,2 => 3")]
+    [InlineData("Reflect.construct(C, mk(3, [1, 'b', {}])).n", "length,0,1,2 => 3")]
+    [InlineData("f.apply(null, { length: { valueOf() { note('valueOf'); return 2; } } })", "valueOf => 2")]
+    [InlineData("f.apply(null, logProxy({ length: 2, 0: 1, 1: 2 }))", "get:length,get:0,get:1 => 2")]
+    [InlineData("Reflect.apply(f, null, logProxy([1, 2]))", "get:length,get:0,get:1 => 2")]
+    [InlineData("Reflect.construct(C, logProxy({ length: 2, 0: 1, 1: 2 })).n", "get:length,get:0,get:1 => 2")]
+    [InlineData("f.apply(null, 1)", " => TypeError:CreateListFromArrayLike called on non-object")]
+    [InlineData("Reflect.apply(f, null, 'ab')", " => TypeError:CreateListFromArrayLike called on non-object")]
+    [InlineData("(() => { Object.defineProperty(Array.prototype, 1, { get() { note('proto1'); return 'p'; }, configurable: true }); try { return f.apply(null, [0, , 2]); } finally { delete Array.prototype[1]; } })()", "proto1 => 3")]
+    [InlineData("f.apply(null, new Uint8Array(3))", " => 3")]
+    [InlineData("(() => { const a = [1, 2, 3]; a.length = 2; return f.apply(null, a); })()", " => 2")]
+    public void AListUnderTheLimitIsReadAsADefaultEngineReadsIt(string expression, string expected)
+    {
+        var limited = new Engine(options => options.Constraints.MaxArraySize = 8);
+        var unlimited = new Engine();
+        limited.Execute(ReadOrderSetup);
+        unlimited.Execute(ReadOrderSetup);
+
+        var source = $"probe(() => {expression})";
+
+        unlimited.Evaluate(source).AsString().Should().Be(expected);
+        limited.Evaluate(source).AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A spread list suspended at an <c>await</c> or a <c>yield</c> keeps what it built so far, and the resumed walk
+    /// counts from there, so the part built before the suspension is not forgotten.
+    /// </summary>
+    [Theory]
+    [InlineData("(async () => rest(...a3, ...(await Promise.resolve(a2))))()")]
+    [InlineData("(async () => [...a3, ...(await Promise.resolve(a2))])()")]
+    [InlineData("(() => { function* gen() { return rest(...a3, ...(yield)); } const it = gen(); it.next(); return it.next(a2).value; })()")]
+    [InlineData("(() => { function* gen() { return [...a3, ...(yield)]; } const it = gen(); it.next(); return it.next(a2).value; })()")]
+    public void ASpreadListResumedPastTheLimitIsRefused(string expression)
+    {
+        var engine = EngineWith(Limit);
+
+        var thrown = Caught.Exception(() => engine.Evaluate(expression).UnwrapIfPromise());
+
+        thrown.Should().BeOfType<MemoryLimitExceededException>();
+        thrown!.Message.Should().Be($"The array size 5 is larger than maximum allowed ({Limit})");
+    }
+
+    [Theory]
+    [InlineData("(async () => rest(...a2, ...(await Promise.resolve(a2))))()")]
+    [InlineData("(async () => [...a2, ...(await Promise.resolve(a2))].length)()")]
+    [InlineData("(() => { function* gen() { return rest(...a2, ...(yield)); } const it = gen(); it.next(); return it.next(a2).value; })()")]
+    [InlineData("(() => { function* gen() { return [...a2, ...(yield)].length; } const it = gen(); it.next(); return it.next(a2).value; })()")]
+    public void ASpreadListResumedAtExactlyTheLimitIsAllowed(string expression)
+    {
+        var engine = EngineWith(Limit);
+
+        engine.Evaluate(expression).UnwrapIfPromise().AsNumber().Should().Be(Limit);
+    }
+}
