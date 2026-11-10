@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1326
+anchors: 1335
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -264,6 +264,7 @@ ecma262 sec-definefield
 ecma262 sec-definemethodproperty
 ecma262 sec-deletepropertyorthrow
 ecma262 sec-detacharraybuffer
+ecma262 sec-disposablestack.prototype.dispose
 ecma262 sec-disposeresources
 ecma262 sec-dowait
 ecma262 sec-ecmascript-function-objects-call-thisargument-argumentslist
@@ -317,6 +318,7 @@ ecma262 sec-generatorfunction-constructor
 ecma262 sec-generatorresume
 ecma262 sec-generatorresumeabrupt
 ecma262 sec-generatorstart
+ecma262 sec-generatorvalidate
 ecma262 sec-generatoryield
 ecma262 sec-get-%typedarray%-@@species
 ecma262 sec-get-%typedarray%.prototype-@@tostringtag
@@ -379,6 +381,7 @@ ecma262 sec-hostensurecancompilestrings
 ecma262 sec-hostfinalizeimportmeta
 ecma262 sec-hostgetimportmetaproperties
 ecma262 sec-hostmakejobcallback
+ecma262 sec-ifabruptcloseiterators
 ecma262 sec-initializeboundname
 ecma262 sec-initializehostdefinedrealm
 ecma262 sec-initializeinstanceelements
@@ -428,6 +431,7 @@ ecma262 sec-iterator.prototype.toarray
 ecma262 sec-iterator.zip
 ecma262 sec-iterator.zipkeyed
 ecma262 sec-iteratorclose
+ecma262 sec-iteratorcloseall
 ecma262 sec-iteratornext
 ecma262 sec-iteratorstep
 ecma262 sec-iteratorstepvalue
@@ -781,6 +785,7 @@ ecma262 sec-stringpad
 ecma262 sec-stringtobigint
 ecma262 sec-stringtonumber
 ecma262 sec-super-keyword-runtime-semantics-evaluation
+ecma262 sec-suppressederror.prototype.message
 ecma262 sec-symbol.for
 ecma262 sec-symbol.keyfor
 ecma262 sec-symbol.prototype-@@toprimitive
@@ -1065,8 +1070,12 @@ proposal-async-iterator-helpers sec-asynciterator-constructor
 proposal-async-iterator-helpers sec-asynciterator.from
 proposal-async-iterator-helpers sec-asynciteratorprototype-@@tostringtag
 proposal-async-iterator-helpers sec-asynciteratorprototype.constructor
+proposal-async-iterator-helpers sec-asynciteratorprototype.every
+proposal-async-iterator-helpers sec-asynciteratorprototype.find
 proposal-async-iterator-helpers sec-asynciteratorprototype.flatmap
 proposal-async-iterator-helpers sec-asynciteratorprototype.map
+proposal-async-iterator-helpers sec-asynciteratorprototype.some
+proposal-async-iterator-helpers sec-asynciteratorprototype.take
 proposal-async-iterator-helpers sec-ifabruptcloseasynciterator
 proposal-async-iterator-helpers sec-wrapforvalidasynciteratorprototype-object
 proposal-async-iterator-helpers sec-wrapforvalidasynciteratorprototype.next

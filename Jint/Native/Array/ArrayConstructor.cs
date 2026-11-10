@@ -301,9 +301,11 @@ public sealed partial class ArrayConstructor : Constructor
                 iteratorRecord.CloseNativeStateAfterReturn(CompletionType.Throw);
             }
         }
-        catch (Exception)
+        catch (Exception e) when (!Throw.MustPropagateHostException(e))
         {
-            // Errors from iterator close are suppressed per spec
+            // Every caller closes with a throw completion, which wins over what the close raises (AsyncIteratorClose
+            // step 5) - but never over an exception that ends the run, a constraint that tripped inside `return` among
+            // them, which the filter lets through.
         }
     }
 

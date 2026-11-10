@@ -1019,25 +1019,22 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
         finally
         {
+            // Step 8.l restores the LexicalEnvironment, after 8.k has disposed the iteration's resources and before 8.m
+            // closes the iterator
+            // (https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset). A
+            // completion the body returned was restored from already; this is the one an exception leaves with, such as a
+            // generator's return() resumption at a `yield` that is the whole body. Restored after the close instead, a
+            // `return` that threw skipped it, and the catch around the loop saw the loop's bindings.
+            engine.UpdateLexicalEnvironment(oldEnv);
+
             if (close)
             {
                 suspendable?.Data.Clear(this);
-                try
-                {
-                    iteratorRecord.Close(completionType);
-                }
-                catch
-                {
-                    // if we already have and exception, use it
-                    if (completionType != CompletionType.Throw)
-                    {
-#pragma warning disable CA2219
-#pragma warning disable MA0072
-                        throw;
-#pragma warning restore MA0072
-#pragma warning restore CA2219
-                    }
-                }
+
+                // IteratorClose discards what `return` raises under a throw completion itself (step 5), and propagates
+                // only what must end the run, a constraint that tripped inside `return` among them; under any other
+                // completion what it raises is the loop's (https://tc39.es/ecma262/#sec-iteratorclose).
+                iteratorRecord.Close(completionType);
             }
 
             // Park the reusable iteration environment for the next loop entry; reset at park
@@ -1061,8 +1058,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 forInIterator.ClearForPark();
                 System.Threading.Interlocked.Exchange(ref _cachedForInIterator, forInIterator);
             }
-
-            engine.UpdateLexicalEnvironment(oldEnv);
         }
 
         // Reached only from the first catch above: every other way out of the loop returns or rethrows.
@@ -1499,8 +1494,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     /// <summary>
     /// AsyncIteratorClose steps 3 and 4.a-4.c for a throw completion: <see langword="false"/> when there is nothing to
     /// await, because <c>return</c> is undefined (step 4.b) or reading or calling it was abrupt — a throw completion
-    /// that step 5 then discards in favour of the loop's own. Everything is swallowed, as
-    /// <see cref="IteratorInstance.Close"/> swallows it for a throw completion.
+    /// that step 5 then discards in favour of the loop's own. What is discarded is what
+    /// <see cref="IteratorInstance.Close"/> discards for a throw completion: everything but an exception that ends the
+    /// run (<see cref="Throw.MustPropagateHostException"/>), so a constraint that trips inside <c>return</c> still stops
+    /// the engine.
     /// </summary>
     private static bool TryStartAsyncCloseDiscardingAbrupt(IteratorInstance iteratorRecord, out JsValue innerResult)
     {
@@ -1508,7 +1505,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             return iteratorRecord.TryStartAsyncClose(out innerResult);
         }
-        catch
+        catch (Exception e) when (!Throw.MustPropagateHostException(e))
         {
             innerResult = JsValue.Undefined;
             return false;
@@ -1631,32 +1628,23 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     {
         var engine = context.Engine;
 
-        iteratorRecord?.CloseNativeStateAfterReturn(
-            completion.Type == CompletionType.Throw || rejected || !settled.IsObject() ? CompletionType.Throw : completion.Type);
+        // Steps 5 to 8 decide, in the helper every AsyncIteratorClose shares: what the close raises in place of the
+        // loop's own completion, a rejection (step 6) or the TypeError for an answer that is not an object (step 7), or
+        // nothing, when the completion stands (steps 5 and 8).
+        var error = IteratorInstance.AsyncIteratorCloseError(engine.Realm, completion.Type, settled, rejected);
 
-        // Step 5: If completion is a throw completion, return ? completion. Handed back as the completion
-        // it is rather than raised again: it has been reported to the debugger once already, and a fresh
-        // exception would report it a second time and lose the location it was thrown at.
-        if (completion.Type == CompletionType.Throw)
+        iteratorRecord?.CloseNativeStateAfterReturn(
+            completion.Type == CompletionType.Throw || error is not null ? CompletionType.Throw : completion.Type);
+
+        // A throw completion is handed back as the completion it is rather than raised again: it has been reported to
+        // the debugger once already, and a fresh exception would report it a second time and lose the location it was
+        // thrown at.
+        if (error is null)
         {
             return completion;
         }
 
-        // Step 6: If innerResult is a throw completion, return ? innerResult.
-        if (rejected)
-        {
-            Throw.JavaScriptException(engine, settled, _statement!.Location);
-        }
-
-        // Step 7: If innerResult.[[Value]] is not an Object, throw a TypeError exception. The Await
-        // is what makes this bite for an async iterator: the check is against the *settled* value,
-        // so a return() answering Promise.resolve(42) fails it exactly as a sync one answering 42.
-        if (!settled.IsObject())
-        {
-            Throw.TypeError(engine.Realm, "Iterator returned non-object");
-        }
-
-        // Step 8: Return ? completion.
+        Throw.JavaScriptException(engine, error, _statement!.Location);
         return completion;
     }
 
@@ -1838,8 +1826,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             }
 
             // Handed back as the completion it is rather than raised again, as BodyEvaluation hands back a throw
-            // completion: a body's throw has been reported to the debugger once already, where it was thrown.
-            TryCloseIterator(iteratorRecord, CompletionType.Throw);
+            // completion: a body's throw has been reported to the debugger once already, where it was thrown. The close
+            // discards what `return` raises itself, and propagates only what must end the run, a constraint that
+            // tripped inside `return` among them.
+            iteratorRecord.Close(CompletionType.Throw);
             return result;
         }
 
@@ -1927,18 +1917,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             data.OuterEnv = oldEnv;
             data.AccumulatedValue = v;
             data.DisposeInProgress = true;
-        }
-    }
-
-    private static void TryCloseIterator(IteratorInstance iterator, CompletionType completionType)
-    {
-        try
-        {
-            iterator.Close(completionType);
-        }
-        catch
-        {
-            // Best-effort close on abrupt — main path already has its own completion.
         }
     }
 
