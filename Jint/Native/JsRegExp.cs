@@ -20,10 +20,24 @@ public sealed class JsRegExp : ObjectInstance
     public JsRegExp(Engine engine)
         : base(engine, ObjectClass.RegExp)
     {
+        LegacyRealm = engine.Realm;
         // The empty pattern, matching what its Source says; Intrinsics.RegExp.Construct builds any other.
         Source = regExpForMatchingAllCharacters;
         Matcher = RegExpParseCache.GetOrCompile(engine.Realm, "", "", System.Threading.Timeout.InfiniteTimeSpan);
     }
+
+    /// <summary>
+    /// <c>[[Realm]]</c> of the RegExp Legacy Features proposal: the realm of the constructor that allocated this
+    /// instance, which decides whose legacy statics a match of it may touch.
+    /// https://github.com/tc39/proposal-regexp-legacy-features
+    /// </summary>
+    internal Realm LegacyRealm { get; set; }
+
+    /// <summary>
+    /// <c>[[LegacyFeaturesEnabled]]</c> of the same proposal: false for an instance a subclass of <c>RegExp</c> (rather
+    /// than <c>RegExp</c> itself) allocated, whose matches invalidate the legacy statics instead of setting them.
+    /// </summary>
+    internal bool LegacyFeaturesEnabled { get; set; } = true;
 
     /// <summary>The pattern text, escaped as <c>RegExp.prototype.source</c> reports it.</summary>
     public string Source { get; set; }

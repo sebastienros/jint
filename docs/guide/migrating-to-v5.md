@@ -6458,6 +6458,13 @@ record of the migration, including what it found in both engines, is
     patterns, but .NET reads `\d`, `\w`, `\b`, `$` and `.` differently and has no `u`/`v` modes. `new JsRegExp(engine)`
     is the empty pattern `/(?:)/`; build any other with `engine.Intrinsics.RegExp.Construct(new JsValue[] { pattern,
     flags })`.
+- **The legacy statics follow the RegExp Legacy Features proposal.** `RegExp.$1`…`$9`, `lastMatch`, `lastParen`, `leftContext` and
+  `rightContext` now describe the last successful match of every call that matches - `test`, a global `match`, `replace`
+  and `split` as well as `exec` - and `lastParen` is the last capture whether or not it took part (the empty string if not).
+  A match by an instance of a `RegExp` subclass **invalidates** them: reading one throws a `TypeError` until the next
+  successful match of a plain `RegExp` sets them again (`RegExp.input` can still be assigned and read), and a regexp of
+  another realm leaves them alone. V8 applies neither restriction (Node 26 updates them after a subclass instance matches), so
+  a script that read `RegExp.$1` after matching with a subclass instance gets a `TypeError` here.
 - **A host `Regex` still matches with .NET semantics by default**, exactly as before. To have it read as an
   ECMAScript pattern instead, set `options.Interop.RegexConversion = RegexConversionMode.EcmaScript`
   ([5.42](#5-42-a-host-regex-can-be-read-as-ecmascript)).

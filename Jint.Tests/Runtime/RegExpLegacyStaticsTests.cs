@@ -15,8 +15,8 @@ namespace Jint.Tests.Runtime;
 /// The expected strings are what Node prints for the same script, apart from the receiver and descriptor checks,
 /// which are the proposal's (V8 has no receiver check and gives every accessor a setter).
 /// <para>
-/// Not under test: <c>test()</c>, a global <c>match</c>, a plain-string <c>replace</c> and <c>split</c>, which do not
-/// update the statics yet (J3 in docs/design/regexp-gregsex-migration.md). <c>lastParen</c> has its own class.
+/// The lanes other than <c>exec</c> are in <c>RegExpLegacyStaticsLaneTests</c>, <c>lastParen</c> in
+/// <c>RegExpLastParenTests</c>, and which regexp may touch the statics at all in <c>RegExpLegacyFeaturesRuleTests</c>.
 /// </para>
 /// </summary>
 public class RegExpLegacyStaticsTests

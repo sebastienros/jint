@@ -27,14 +27,24 @@ public sealed partial class RegExpConstructor : Constructor
     // A successful match records the subject, the position of the match, the number of captures and the
     // (index, length) span of each of the first nine and of the last, which is all a read of any of these needs:
     // every value is cut out of the subject when it is first read, and nothing is cut out for a match whose
-    // statics are never read. Strings are
-    // immutable, so a value cut out later is the one that would have been cut out then. The span array is this
-    // constructor's own and the next match overwrites it whole (count and spans together), so no read can see two
-    // matches mixed and nothing outlives the match that wrote it; the cut-out values are memoized per match so a
-    // second read of $1 is as cheap as it always was.
+    // statics are never read. Strings are immutable, so a value cut out later is the one that would have been cut
+    // out then. The span array is this constructor's own and the next match overwrites it whole (count and spans
+    // together), so no read can see two matches mixed and nothing outlives the match that wrote it; the cut-out
+    // values are memoized per match so a second read of $1 is as cheap as it always was.
+    //
+    // A lane that never learns a match's captures records the search that finds it instead (SetLegacyPending): the
+    // regexp, its matcher, the subject and where to search from. test() asks its matcher only whether there is a
+    // match, and a global match or a plain-string replace asks it only for ranges, so recording the captures would
+    // cost every call a search no script may ever want the result of. The first read of a static runs that search
+    // (ResolveLegacyMatch) and fills in what a lane that had the captures would have recorded. A matcher is a pure
+    // function of its pattern, the subject and where the search starts, so the match it finds is the one the lane found.
     //
     // input is not part of that: it is written by every match and by the input/$_ setter, and the setter leaves
     // the rest of the last match alone.
+    //
+    // A match by an instance a subclass allocated invalidates all of this (InvalidateLegacyProperties): the proposal
+    // sets the slots to empty, and a read of an empty slot throws a TypeError. input is a slot of its own in that:
+    // assigning to it makes it readable again while the others stay unreadable until the next successful match.
     private string _legacyInput = "";
     private string _legacyContextInput = "";
     private int _legacyMatchIndex;
@@ -42,21 +52,27 @@ public sealed partial class RegExpConstructor : Constructor
 
     private const int LegacyParenCapacity = 9;
     private const int LegacyLastParenBit = 1 << LegacyParenCapacity;
+    private const int LegacyMatchInvalid = 1;
+    private const int LegacyInputInvalid = 2;
 
     private readonly int[] _legacyParenSpans = new int[2 * LegacyParenCapacity];
     private readonly string?[] _legacyParens = new string?[LegacyParenCapacity];
     private string? _legacyLastParenValue;
-    // The captures of the last match, group 0 not counted: lastParen is the last of them, and - the first nine.
+    // The captures of the last match, group 0 not counted: lastParen is the last of them, and $1-$9 the first nine.
     private int _legacyCaptureCount;
     // The span of the last capture, kept only when there are more than nine (otherwise it is _legacyParenSpans' last).
     private int _legacyLastCaptureIndex;
     private int _legacyLastCaptureLength;
     // Bit i: _legacyParens[i] holds the memoized value of $(i + 1). LegacyLastParenBit: _legacyLastParenValue does.
     private int _legacyMaterialized;
+    // LegacyMatchInvalid: the slots a match sets other than input are empty. LegacyInputInvalid: input is.
+    private int _legacyInvalid;
 
-    internal string _legacyLastMatch => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchIndex, _legacyMatchEnd - _legacyMatchIndex) : "";
-    internal string _legacyLeftContext => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(0, _legacyMatchIndex) : "";
-    internal string _legacyRightContext => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchEnd) : "";
+    // The search a lane recorded in place of the match's captures, until the first read runs it. Null: nothing pending.
+    private JsRegExp? _legacyPendingRegExp;
+    private JintRegExpEngine? _legacyPendingMatcher;
+    private int _legacyPendingStart;
+    private bool _legacyPendingFind;
 
     /// <summary>
     /// Records a successful match of <paramref name="input"/> at <paramref name="matchIndex"/> in the statics.
@@ -71,6 +87,34 @@ public sealed partial class RegExpConstructor : Constructor
         _legacyMatchIndex = matchIndex;
         _legacyMatchEnd = matchIndex + matchLength;
         _legacyCaptureCount = System.Math.Max(groupCount - 1, 0);
+        _legacyInvalid = 0;
+        if (_legacyPendingRegExp is not null)
+        {
+            _legacyPendingRegExp = null;
+            _legacyPendingMatcher = null;
+        }
+
+        if (_legacyMaterialized != 0)
+        {
+            ForgetMaterializedParens();
+        }
+    }
+
+    /// <summary>
+    /// Records a successful match of <paramref name="input"/> as the search that finds it: <paramref name="matcher"/>
+    /// of <paramref name="regExp"/>, started at <paramref name="searchStart"/> (a forward search even for a sticky
+    /// matcher when <paramref name="find"/>, otherwise in the matcher's own mode). Nothing else about the match is
+    /// known until a static is read.
+    /// </summary>
+    internal void SetLegacyPending(string input, JsRegExp regExp, JintRegExpEngine matcher, int searchStart, bool find)
+    {
+        _legacyInput = input;
+        _legacyContextInput = input;
+        _legacyPendingRegExp = regExp;
+        _legacyPendingMatcher = matcher;
+        _legacyPendingStart = searchStart;
+        _legacyPendingFind = find;
+        _legacyInvalid = 0;
         if (_legacyMaterialized != 0)
         {
             ForgetMaterializedParens();
@@ -101,11 +145,109 @@ public sealed partial class RegExpConstructor : Constructor
     }
 
     /// <summary>
+    /// InvalidateLegacyRegExpStaticProperties: every static is empty, so a read throws a <c>TypeError</c> until the next
+    /// successful match sets them again. Assigning <c>input</c> makes that one readable on its own.
+    /// </summary>
+    internal void InvalidateLegacyProperties()
+    {
+        _legacyInvalid = LegacyMatchInvalid | LegacyInputInvalid;
+        _legacyInput = "";
+        _legacyContextInput = "";
+        _legacyMatchIndex = 0;
+        _legacyMatchEnd = 0;
+        _legacyCaptureCount = 0;
+        _legacyPendingRegExp = null;
+        _legacyPendingMatcher = null;
+        ForgetMaterializedParens();
+    }
+
+    private void ThrowIfLegacyInvalid(int mask)
+    {
+        if ((_legacyInvalid & mask) != 0)
+        {
+            ThrowLegacyInvalid();
+        }
+    }
+
+    [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ThrowLegacyInvalid()
+    {
+        Throw.TypeError(_realm, "The legacy RegExp static properties are not available until the next successful match: the last one was made by an instance of a RegExp subclass");
+    }
+
+    private void EnsureLegacyMatch()
+    {
+        if (_legacyPendingRegExp is not null)
+        {
+            ResolveLegacyMatch();
+        }
+    }
+
+    /// <summary>
+    /// Runs the search <see cref="SetLegacyPending"/> recorded and fills in the match, as the lane would have if it had
+    /// had the captures. The pending search is cleared first, and the match reads as empty until the search answers, so a
+    /// search that throws (a regex timeout) leaves the statics empty rather than pending for ever.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ResolveLegacyMatch()
+    {
+        var regExp = _legacyPendingRegExp!;
+        var matcher = _legacyPendingMatcher!;
+        _legacyPendingRegExp = null;
+        _legacyPendingMatcher = null;
+        _legacyMatchIndex = 0;
+        _legacyMatchEnd = 0;
+        _legacyCaptureCount = 0;
+
+        var groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[matcher.CaptureCount];
+        if (!RegExpPrototype.ReplayLegacyMatch(regExp, matcher, _legacyContextInput, _legacyPendingStart, _legacyPendingFind, groups))
+        {
+            return;
+        }
+
+        _legacyMatchIndex = groups[0].Index;
+        _legacyMatchEnd = groups[0].Index + groups[0].Length;
+        var count = groups.Length - 1;
+        _legacyCaptureCount = count;
+        for (var slot = 0; slot < count && slot < LegacyParenCapacity; slot++)
+        {
+            var capture = groups[slot + 1];
+            SetLegacyParen(slot, capture.Participated ? capture.Index : -1, capture.Length);
+        }
+
+        if (count > LegacyParenCapacity)
+        {
+            var last = groups[count];
+            SetLegacyLastCapture(last.Participated ? last.Index : -1, last.Length);
+        }
+    }
+
+    private string GetLegacyLastMatch()
+    {
+        EnsureLegacyMatch();
+        return _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchIndex, _legacyMatchEnd - _legacyMatchIndex) : "";
+    }
+
+    private string GetLegacyLeftContext()
+    {
+        EnsureLegacyMatch();
+        return _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(0, _legacyMatchIndex) : "";
+    }
+
+    private string GetLegacyRightContext()
+    {
+        EnsureLegacyMatch();
+        return _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchEnd) : "";
+    }
+
+    /// <summary>
     /// <c>RegExp.$1</c>..<c>RegExp.$9</c> for <paramref name="slot"/> 0..8: the capture's text, or the empty string
     /// for a group that took no part in the last match and for one the last match did not have.
     /// </summary>
     private string GetLegacyParen(int slot)
     {
+        EnsureLegacyMatch();
         if ((uint) slot >= (uint) _legacyCaptureCount)
         {
             return "";
@@ -126,6 +268,7 @@ public sealed partial class RegExpConstructor : Constructor
     /// </summary>
     private string GetLegacyLastParen()
     {
+        EnsureLegacyMatch();
         var count = _legacyCaptureCount;
         if (count <= LegacyParenCapacity)
         {
@@ -171,6 +314,9 @@ public sealed partial class RegExpConstructor : Constructor
         _legacyMatchIndex = 0;
         _legacyMatchEnd = 0;
         _legacyCaptureCount = 0;
+        _legacyInvalid = 0;
+        _legacyPendingRegExp = null;
+        _legacyPendingMatcher = null;
         ForgetMaterializedParens();
     }
 
@@ -214,6 +360,8 @@ public sealed partial class RegExpConstructor : Constructor
             {
                 Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
             }
+
+            ThrowIfLegacyInvalid(LegacyMatchInvalid);
             return getter(this);
         }
 
@@ -229,12 +377,14 @@ public sealed partial class RegExpConstructor : Constructor
         var inputGetter = new ClrFunction(Engine, "get input", (thisObj, _) =>
         {
             if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
+            ThrowIfLegacyInvalid(LegacyInputInvalid);
             return (JsValue) _legacyInput;
         }, 0, LengthFlags);
         var inputSetter = new ClrFunction(Engine, "set input", (thisObj, args) =>
         {
             if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Setter called on non-RegExp constructor");
             _legacyInput = TypeConverter.ToString(args.At(0));
+            _legacyInvalid &= ~LegacyInputInvalid;
             return Undefined;
         }, 1, LengthFlags);
         var inputAccessor = new GetSetPropertyDescriptor(get: inputGetter, set: inputSetter, flags: PropertyFlag.Configurable);
@@ -247,6 +397,7 @@ public sealed partial class RegExpConstructor : Constructor
                 get: new ClrFunction(Engine, "", (thisObj, _) =>
                 {
                     if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
+                    ThrowIfLegacyInvalid(LegacyMatchInvalid);
                     return (JsValue) GetLegacyParen(i);
                 }, 0, LengthFlags),
                 set: Undefined,
@@ -255,14 +406,14 @@ public sealed partial class RegExpConstructor : Constructor
 
         SetProperty("input", inputAccessor);
         SetProperty("$_", inputAccessor);
-        SetProperty("lastMatch", CreateLegacyReadOnlyAccessor(static c => c._legacyLastMatch));
-        SetProperty("$&", CreateLegacyReadOnlyAccessor(static c => c._legacyLastMatch));
+        SetProperty("lastMatch", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLastMatch()));
+        SetProperty("$&", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLastMatch()));
         SetProperty("lastParen", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLastParen()));
         SetProperty("$+", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLastParen()));
-        SetProperty("leftContext", CreateLegacyReadOnlyAccessor(static c => c._legacyLeftContext));
-        SetProperty("$`", CreateLegacyReadOnlyAccessor(static c => c._legacyLeftContext));
-        SetProperty("rightContext", CreateLegacyReadOnlyAccessor(static c => c._legacyRightContext));
-        SetProperty("$'", CreateLegacyReadOnlyAccessor(static c => c._legacyRightContext));
+        SetProperty("leftContext", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLeftContext()));
+        SetProperty("$`", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLeftContext()));
+        SetProperty("rightContext", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyRightContext()));
+        SetProperty("$'", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyRightContext()));
         SetProperty("$1", CreateParenAccessor(0));
         SetProperty("$2", CreateParenAccessor(1));
         SetProperty("$3", CreateParenAccessor(2));
@@ -748,11 +899,15 @@ AppendEscapedNewLine:
 
     private JsRegExp RegExpAlloc(JsValue newTarget)
     {
+        // RegExpAlloc of the RegExp Legacy Features proposal: the instance remembers the realm of the constructor that
+        // allocated it, and keeps the legacy features only when that constructor is %RegExp% itself rather than a
+        // subclass (or any other newTarget).
         if (ReferenceEquals(newTarget, this))
         {
             return new JsRegExp(_engine)
             {
-                _prototype = PrototypeObject
+                _prototype = PrototypeObject,
+                LegacyRealm = _realm
             };
         }
 
@@ -760,6 +915,8 @@ AppendEscapedNewLine:
             newTarget,
             static intrinsics => intrinsics.RegExp.PrototypeObject,
             static (Engine engine, Realm _, object? _) => new JsRegExp(engine));
+        r.LegacyRealm = _realm;
+        r.LegacyFeaturesEnabled = false;
         return r;
     }
 
