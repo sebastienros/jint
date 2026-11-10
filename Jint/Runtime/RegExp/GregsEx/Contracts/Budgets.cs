@@ -139,6 +139,10 @@ internal struct RunBudget
     // here as before, so a tiny timeout stays as prompt as it was.
     // Only a call that runs from its construction to its end may defer. A session outlives its construction, and its
     // deadline counts the time between its steps from the moment it was opened, so it keeps the eager start.
+    // Small enough to inline into a host's per-search state construction, which is why the clock read of the eager start
+    // is behind a call (Now) and the seconds are computed once: a host that builds a budget per search, as Jint's global
+    // match does, paid for an out-of-line call and a copy of the struct when this was not so.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal RunBudget(long maxWork, CancellationToken cancellation, TimeSpan? timeout, bool deferStart)
     {
         _maxWork = maxWork;
@@ -146,25 +150,27 @@ internal struct RunBudget
         if (timeout is { } t)
         {
             _timeoutTicks = t.TotalSeconds * Stopwatch.Frequency;
-            if (deferStart && t.TotalSeconds > ShortDeadlineSeconds)
+            if (deferStart && t.Ticks > ShortDeadlineTicks)
             {
-                _startedAt = 0;
                 _nextClockCheck = ClockStride;
                 _checkpointsAmortized = true;
                 _startPending = true;
             }
             else
             {
-                _startedAt = Stopwatch.GetTimestamp();
+                _startedAt = Now();
             }
         }
         else
         {
-            _startedAt = 0;
             _timeoutTicks = double.PositiveInfinity;
         }
         WorkConsumed = 0;
     }
+
+    // The eager start's clock read, out of line so it stays out of the inlined constructor.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static long Now() => Stopwatch.GetTimestamp();
 
     // An absolute Stopwatch deadline (long.MaxValue for none), so a search starts without reading the clock when its
     // host already holds the deadline; converting it to a TimeSpan and back read the clock twice per search.
@@ -190,6 +196,9 @@ internal struct RunBudget
     // is as described above.
     internal const long ClockStride = 16384;
     private const double ShortDeadlineSeconds = 0.001;
+    // The same boundary in TimeSpan ticks (1 ms = 10,000), so the constructor compares integers: a timeout of exactly
+    // ShortDeadlineSeconds is short, one tick more is not.
+    private const long ShortDeadlineTicks = TimeSpan.TicksPerMillisecond;
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal bool TryCharge(long units, int offset, out RegexExecutionFailure failure)
