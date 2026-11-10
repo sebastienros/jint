@@ -384,6 +384,7 @@ ecma262 sec-hostensurecancompilestrings
 ecma262 sec-hostfinalizeimportmeta
 ecma262 sec-hostgetimportmetaproperties
 ecma262 sec-hostmakejobcallback
+ecma262 sec-ifabruptcloseiterators
 ecma262 sec-initializeboundname
 ecma262 sec-initializehostdefinedrealm
 ecma262 sec-initializeinstanceelements
@@ -433,6 +434,7 @@ ecma262 sec-iterator.prototype.toarray
 ecma262 sec-iterator.zip
 ecma262 sec-iterator.zipkeyed
 ecma262 sec-iteratorclose
+ecma262 sec-iteratorcloseall
 ecma262 sec-iteratornext
 ecma262 sec-iteratorstep
 ecma262 sec-iteratorstepvalue
