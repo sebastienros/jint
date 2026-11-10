@@ -1019,7 +1019,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
         finally
         {
-            // Step 8.k restores the LexicalEnvironment before step 8.l closes the iterator
+            // Step 8.l restores the LexicalEnvironment, after 8.k has disposed the iteration's resources and before 8.m
+            // closes the iterator
             // (https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset). A
             // completion the body returned was restored from already; this is the one an exception leaves with, such as a
             // generator's return() resumption at a `yield` that is the whole body. Restored after the close instead, a

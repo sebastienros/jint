@@ -21,8 +21,11 @@ namespace Jint.Tests.PublicInterface;
 /// first checks it again; a memory limit was never lost outright, being checked again on the way out of the entry too.
 /// </para>
 /// <para>
-/// Every site below leaves through such a throw, from each kind of function body the interpreter runs it in, in both
-/// shapes, with nothing after the close. A bounded loop stands in for the <c>for (;;) {}</c> that found this, so a build
+/// Every site below but one leaves through such a throw, from each kind of function body the interpreter runs it in, in
+/// both shapes, with nothing after the close. The exception is the zip whose shortest member ran out, which closes the
+/// rest with a return completion. It is here beside the strict length mismatch because a bound propagating out of a
+/// zip's IteratorCloseAll once left the iterator it tripped in for the zip's own catch to close a second time, and the
+/// one-call assertion every row makes is what catches that. A bounded loop stands in for the <c>for (;;) {}</c> that found this, so a build
 /// where a bound never trips fails rather than hangs, and the clock and the token are moved from inside <c>return</c> so
 /// no row depends on how fast it runs. What a script could catch is still discarded, which the control rows pin over the
 /// same sites.
@@ -45,6 +48,7 @@ public class HostIteratorCloseConstraintTests
         function makeIterable(produce) { return { [Symbol.iterator]() { return makeIterator(produce); } }; }
         const iterable = makeIterable(() => undefined);
         const entries = makeIterable(() => ({}));
+        const finished = { [Symbol.iterator]() { return { next() { return { value: undefined, done: true }; } }; } };
         const asyncIterable = {
             [Symbol.asyncIterator]() {
                 return {
@@ -67,32 +71,43 @@ public class HostIteratorCloseConstraintTests
 
         """;
 
-    /// <summary>Each close a throw completion performs, as a statement list that leaves by <c>fail</c>'s error.</summary>
-    private static readonly Dictionary<string, string> SyncSites = new(StringComparer.Ordinal)
+    /// <summary>
+    /// A close, as a statement list, and what a control row's <c>catch</c> sees from it: <c>fail</c>'s error for every
+    /// close a throw performs, the <c>TypeError</c> for the one a strict zip throws itself, and nothing for the one close
+    /// here that no throw performs, which therefore has no control row.
+    /// </summary>
+    private sealed record Site(string Statements, string? Caught = "body");
+
+    /// <summary>Each close an iterator gets on the way out of a throw, plus one zip close that no throw performs.</summary>
+    private static readonly Dictionary<string, Site> SyncSites = new(StringComparer.Ordinal)
     {
-        ["for-of with a throwing body"] = "for (const x of iterable) { fail(); }",
-        ["array destructuring"] = "const [a = fail()] = iterable;",
-        ["parameter destructuring"] = "(function ([a = fail()]) { })(iterable);",
-        ["yield* closed by its consumer"] = "function* g() { yield* iterable; } for (const x of g()) { fail(); }",
-        ["Array.from"] = "Array.from(iterable, fail);",
-        ["Map constructor"] = "class M extends Map { set() { fail(); } } new M(entries);",
-        ["Set constructor"] = "class S extends Set { add() { fail(); } } new S(iterable);",
-        ["Iterator.prototype.take argument"] = "Iterator.prototype.take.call(makeIterator(() => undefined), { valueOf: fail });",
-        ["iterator helper step"] = "Iterator.from(iterable).map(fail).next();",
-        ["Iterator.zip argument"] = "Iterator.zip([iterable, { get [Symbol.iterator]() { return fail(); } }]);",
-        ["Iterator.zip step"] = "Iterator.zip([iterable, { [Symbol.iterator]() { return { next: fail }; } }]).next();",
+        ["for-of with a throwing body"] = new("for (const x of iterable) { fail(); }"),
+        ["array destructuring"] = new("const [a = fail()] = iterable;"),
+        ["parameter destructuring"] = new("(function ([a = fail()]) { })(iterable);"),
+        ["yield* closed by its consumer"] = new("function* g() { yield* iterable; } for (const x of g()) { fail(); }"),
+        ["Array.from"] = new("Array.from(iterable, fail);"),
+        ["Map constructor"] = new("class M extends Map { set() { fail(); } } new M(entries);"),
+        ["Set constructor"] = new("class S extends Set { add() { fail(); } } new S(iterable);"),
+        ["Iterator.prototype.take argument"] = new("Iterator.prototype.take.call(makeIterator(() => undefined), { valueOf: fail });"),
+        ["AsyncIterator.prototype.take argument"] = new("AsyncIterator.prototype.take.call(makeIterator(() => undefined), { valueOf: fail });"),
+        ["iterator helper step"] = new("Iterator.from(iterable).map(fail).next();"),
+        ["Iterator.zip argument"] = new("Iterator.zip([iterable, { get [Symbol.iterator]() { return fail(); } }]);"),
+        ["Iterator.zip step"] = new("Iterator.zip([iterable, { [Symbol.iterator]() { return { next: fail }; } }]).next();"),
+        ["Iterator.zip strict length mismatch"] = new("Iterator.zip([iterable, finished], { mode: 'strict' }).next();", "TypeError"),
+        // IteratorCloseAll with a return completion: the shortest member ran out, and no throw is leaving.
+        ["Iterator.zip shortest exhaustion"] = new("Iterator.zip([finished, iterable]).next();", Caught: null),
     };
 
     /// <summary>The closes only an async function or an async generator can reach.</summary>
-    private static readonly Dictionary<string, string> AsyncSites = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, Site> AsyncSites = new(StringComparer.Ordinal)
     {
-        ["for await over an async iterable"] = "for await (const x of asyncIterable) { fail(); }",
-        ["for await over a sync iterable"] = "for await (const x of iterable) { fail(); }",
-        ["for await over a rejected value"] = "for await (const x of makeIterable(() => Promise.reject(new Error('body')))) { }",
-        ["for await over a value whose constructor throws"] = "for await (const x of makeIterable(poisonedPromise)) { }",
-        ["for-of whose await using dispose rejects"] = "for (await using x of makeIterable(rejectingDisposable)) { }",
-        ["Promise.all"] = "class P extends Promise { static resolve() { fail(); } } await P.all(iterable);",
-        ["Array.fromAsync"] = "await Array.fromAsync(asyncIterable, fail);",
+        ["for await over an async iterable"] = new("for await (const x of asyncIterable) { fail(); }"),
+        ["for await over a sync iterable"] = new("for await (const x of iterable) { fail(); }"),
+        ["for await over a rejected value"] = new("for await (const x of makeIterable(() => Promise.reject(new Error('body')))) { }"),
+        ["for await over a value whose constructor throws"] = new("for await (const x of makeIterable(poisonedPromise)) { }"),
+        ["for-of whose await using dispose rejects"] = new("for (await using x of makeIterable(rejectingDisposable)) { }"),
+        ["Promise.all"] = new("class P extends Promise { static resolve() { fail(); } } await P.all(iterable);"),
+        ["Array.fromAsync"] = new("await Array.fromAsync(asyncIterable, fail);"),
     };
 
     /// <summary>The bodies a site runs in: the script itself, and each kind of function that suspends.</summary>
@@ -168,7 +183,10 @@ public class HostIteratorCloseConstraintTests
         {
             foreach (var (site, context) in Placements())
             {
-                rows.Add(control, site, context);
+                if (SiteOf(site).Caught is not null)
+                {
+                    rows.Add(control, site, context);
+                }
             }
         }
 
@@ -215,9 +233,10 @@ public class HostIteratorCloseConstraintTests
     {
         using var harness = new Harness(control);
 
-        harness.Engine.Evaluate(harness.Script(Place(site, context, handler: "caught = e && e.message;")));
+        harness.Engine.Evaluate(harness.Script(
+            Place(site, context, handler: "caught = e instanceof TypeError ? 'TypeError' : e && e.message;")));
 
-        harness.Engine.Evaluate("caught").Should().Be("body");
+        harness.Engine.Evaluate("caught").Should().Be(SiteOf(site).Caught!);
         harness.ReturnCalls.Should().Be(1);
     }
 
@@ -274,9 +293,11 @@ public class HostIteratorCloseConstraintTests
     /// The site in its context, inside a <c>try</c> whose <c>catch</c> runs <paramref name="handler"/>, or with no
     /// <c>try</c> at all for a <see langword="null"/> one.
     /// </summary>
+    private static Site SiteOf(string site) => SyncSites.TryGetValue(site, out var sync) ? sync : AsyncSites[site];
+
     private static string Place(string site, string context, string? handler)
     {
-        var statements = SyncSites.TryGetValue(site, out var sync) ? sync : AsyncSites[site];
+        var statements = SiteOf(site).Statements;
         var body = handler is null ? statements : "try { " + statements + " } catch (e) { " + handler + " }";
         return Contexts[context].Replace("/*BODY*/", body);
     }

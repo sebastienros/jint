@@ -8353,13 +8353,20 @@ The exception now reaches the host from every close a throw performs: `for`-`of`
 `for await`, and a `for (await using …)` whose dispose rejects, included), array destructuring in a declaration, an
 assignment or a parameter list, a generator closed while it is suspended in `yield*`, `Array.from`, `Array.fromAsync`,
 the `Map`, `Set`, `WeakMap` and `WeakSet` constructors, `Object.fromEntries`, `Promise.all`, `allSettled`, `any` and
-`race`, the iterator helpers, `Iterator.zip` and `Iterator.zipKeyed`, and the web APIs that convert a sequence. The
-exceptions that do so are the ones a script can never catch: `StatementsCountOverflowException`,
-`MemoryLimitExceededException` (`LimitMemory` and `MaxArraySize`), `ExecutionCanceledException`,
-`RecursionDepthOverflowException`, `RegexMatchTimeoutException`, and the `TimeoutException` and
-`OperationCanceledException` that Jint itself raises. What a script can catch is still discarded, as the spec says: a
-`throw` in `return`, and the `RangeError` of `StackOverflowGuard`. So is a host's own exception from a CLR `return` or
-`Dispose`, a `TimeoutException` included: only one Jint raised counts as the time limit.
+`race`, the iterator helpers (the async ones' argument checks included), `Iterator.zip` and `Iterator.zipKeyed`, and
+the web APIs that convert a sequence. The rule is the one a host function's boundary already follows: an exception that
+ends the run is never converted or discarded. That is the whole of this list:
+
+- the bounds: `StatementsCountOverflowException`, `MemoryLimitExceededException` (`LimitMemory` and `MaxArraySize`),
+  `ExecutionCanceledException`, `RecursionDepthOverflowException`, `RegexMatchTimeoutException`, and the
+  `TimeoutException` and `OperationCanceledException` that Jint itself raises;
+- the limits on what a run builds: `ParsingLimitException`, `ResultLimitExceededException` and
+  `ModuleGraphLimitException`;
+- any `PlatformNotSupportedException` or `OutOfMemoryException`.
+
+What a script can catch is still discarded, as the spec says: a `throw` in `return`, and the `RangeError` of
+`StackOverflowGuard`. So is any other host exception from a CLR `return` or `Dispose`, a host's own `TimeoutException`
+included: only one Jint raised counts as the time limit.
 
 Two closes on the same paths changed with it, both visible to script. `Iterator.zip` with `mode: 'longest'` and a
 `padding` that is not iterable (no `Symbol.iterator`, or one answering a primitive) called each collected iterator's

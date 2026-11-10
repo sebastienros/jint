@@ -803,6 +803,12 @@ internal sealed class ZipIterator : ObjectInstance
         }
         catch
         {
+            // IteratorCloseAll(openIters, the throw completion) for whatever leaves the step - a member's `next` that
+            // threw, the TypeError of a strict length mismatch, or an exception that ends the run, a constraint that
+            // tripped in a member's `next` or in a `return` a close above was running. The rule is the one a for-of
+            // follows when a constraint trips in its body: the iterators still open are closed, with a throw completion,
+            // so their `return` runs and only a constraint tripping in one of those replaces what is leaving. An
+            // iterator a close above already took out of the list is not closed again.
             _state = GeneratorState.Completed;
             CloseAllIterators(CompletionType.Throw);
             throw;
@@ -1025,7 +1031,10 @@ internal sealed class ZipIterator : ObjectInstance
 
         for (var j = _openIters.Count - 1; j >= 0; j--)
         {
+            // Out of the list before it is closed, whatever the close raises: see CloseAllIterators.
             var openIter = _openIters[j];
+            _openIters.RemoveAt(j);
+
             // Find the index of this iterator in the original list
             var originalIndex = _iters.IndexOf(openIter);
             if (originalIndex != upToIndex && originalIndex != -1)
@@ -1046,7 +1055,6 @@ internal sealed class ZipIterator : ObjectInstance
                 }
             }
         }
-        _openIters.Clear();
 
         // Rethrow the first captured exception
         if (caughtException is not null)
@@ -1066,9 +1074,15 @@ internal sealed class ZipIterator : ObjectInstance
 
         for (var i = _openIters.Count - 1; i >= 0; i--)
         {
+            // Out of the list before it is closed. A constraint that trips inside its `return` propagates from here
+            // (below), and Next's catch then closes what is still open: an iterator left in the list would be closed a
+            // second time there, while one taken out as it is closed never is, and none still open is skipped.
+            var openIter = _openIters[i];
+            _openIters.RemoveAt(i);
+
             try
             {
-                _openIters[i].Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
+                openIter.Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
             }
             catch (Exception ex) when (!Throw.MustPropagateHostException(ex))
             {
@@ -1082,7 +1096,6 @@ internal sealed class ZipIterator : ObjectInstance
                 }
             }
         }
-        _openIters.Clear();
 
         // Rethrow the first captured exception
         if (caughtException is not null)

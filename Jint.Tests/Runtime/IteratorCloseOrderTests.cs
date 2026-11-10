@@ -5,7 +5,8 @@ namespace Jint.Tests.Runtime;
 /// <summary>
 /// Pins where an IteratorClose sits among the steps around it, for two closes that had it in the wrong place: each
 /// iterator <c>Iterator.zip</c> collected is closed once when its <c>padding</c> fails to be an iterable, and a
-/// <c>for</c>-<c>of</c> left early has its scope gone before the iterator's <c>return</c> runs.
+/// <c>for</c>-<c>of</c> left early has its scope gone before the iterator's <c>return</c> runs. Of the rows below, the
+/// two zip paddings that are not iterable and the two generator resumptions failed before the fix; the rest are controls.
 /// </summary>
 public class IteratorCloseOrderTests
 {
@@ -52,11 +53,12 @@ public class IteratorCloseOrderTests
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset step
-    /// 8.k restores the running execution context's LexicalEnvironment before step 8.l closes the iterator, so a
-    /// <c>return</c> that throws under a <c>break</c> or a <c>return</c> leaves the loop's own scope behind: nothing the
-    /// script runs next sees its <c>let</c> binding. Jint closed first, and a throw out of the close skipped the restore,
-    /// so the binding stayed in scope for the <c>catch</c>, a closure made in it and the rest of the script. Every
-    /// expected value is what Node 26 answers.
+    /// 8.l restores the running execution context's LexicalEnvironment, after 8.k has disposed the iteration's resources
+    /// and before 8.m closes the iterator. So a <c>return</c> that throws under a <c>break</c>, a <c>return</c> or a
+    /// labelled <c>continue</c> leaves the loop's own scope behind: nothing the script runs next sees its binding. These
+    /// rows passed before the generator rows below were fixed too, because a completion the loop's body returns was always
+    /// restored from before the close; they are the controls that the fix keeps it that way, and every expected value is
+    /// what Node 26 answers.
     /// </summary>
     [TestCase("let seen; try { for (let x of it) { break; } } catch (e) { seen = typeof x; } seen", "undefined")]
     [TestCase("try { for (let x of it) { break; } } catch (e) { } typeof x", "undefined")]
@@ -76,7 +78,9 @@ public class IteratorCloseOrderTests
     /// <summary>
     /// A generator's <c>return()</c> resumption at a <c>yield</c> that is the loop's whole body arrives as an exception
     /// rather than as the body's completion, and closes the iterator with a return completion. A <c>return</c> that throws
-    /// then replaces it, and the <c>catch</c> around the loop sees the scope outside it, as Node 26 does.
+    /// then replaces it, and the <c>catch</c> around the loop sees the scope outside it, as Node 26 does. These are the
+    /// rows that failed: Jint restored the scope after the close on this path, and a throw out of the close skipped the
+    /// restore, so the <c>catch</c> saw the loop's binding (<c>'number'</c>, and <c>1</c> for the shadowed one).
     /// </summary>
     [TestCase("function* g() { try { for (let x of it) yield x; } catch (e) { return typeof x; } }", "undefined")]
     [TestCase("function* g() { let y = 'outer'; try { for (let y of it) yield y; } catch (e) { return y; } }", "outer")]
