@@ -170,4 +170,119 @@ public class HostRegexTimeoutTests
             prepareTimeout,
             "a prepared script's own regex timeout governs the regexes it builds, exactly as it governs its literals");
     }
+
+    /// <summary>
+    /// A prepared script that chose no timeout of its own runs its literals under the budget of the engine
+    /// executing it. Preparation happens where there is no engine, so the value it used to bake in was
+    /// Jint's 10 s default — a host that tightened the constraint and then adopted <c>PrepareScript</c>,
+    /// the path this repository recommends for production, silently ran at 10 s
+    /// (sebastienros/jint#3442).
+    /// </summary>
+    [Fact]
+    public void APreparedScriptWithoutItsOwnTimeoutRunsItsLiteralsUnderTheEnginesBudget()
+    {
+        var prepared = Engine.PrepareScript(Script("'{S}'.match(/{P}/)"));
+
+        ShouldHaveRunUnderTheHostBudget(ShouldTimeOut(() => BoundedEngine().Execute(prepared)));
+    }
+
+    /// <summary>
+    /// The run-time half of the same script, which #3431 made agree with its literals and which therefore
+    /// has to keep agreeing with them here.
+    /// </summary>
+    [Fact]
+    public void APreparedScriptWithoutItsOwnTimeoutBuildsItsRuntimeRegexUnderTheEnginesBudget()
+    {
+        var prepared = Engine.PrepareScript(Script("'{S}'.match(new RegExp('{P}'))"));
+
+        ShouldHaveRunUnderTheHostBudget(ShouldTimeOut(() => BoundedEngine().Execute(prepared)));
+    }
+
+    /// <summary>
+    /// The same for a prepared module.
+    /// </summary>
+    [Fact]
+    public void APreparedModuleWithoutItsOwnTimeoutRunsUnderTheEnginesBudget()
+    {
+        var prepared = Engine.PrepareModule(Script("export default '{S}'.match(/{P}/)"));
+        var engine = BoundedEngine();
+        engine.Modules.Add("main", builder => builder.AddModule(prepared));
+
+        ShouldHaveRunUnderTheHostBudget(ShouldTimeOut(() => engine.Modules.Import("main")));
+    }
+
+    /// <summary>
+    /// One <c>Prepared&lt;Script&gt;</c>, two engines, two budgets — in both orders, because the adapted
+    /// regex is memoized on the shared AST node and the hazard is precisely that whichever engine
+    /// evaluates the literal first decides for the other.
+    /// </summary>
+    [Theory]
+    [InlineData(400, 900)]
+    [InlineData(900, 400)]
+    public void OnePreparedScriptObservesEachEnginesOwnBudget(int firstMs, int secondMs)
+    {
+        var first = TimeSpan.FromMilliseconds(firstMs);
+        var second = TimeSpan.FromMilliseconds(secondMs);
+        var prepared = Engine.PrepareScript(Script("'{S}'.match(/{P}/)"));
+
+        var firstTimedOut = ShouldTimeOut(() => new Engine(o => o.Constraints.RegexTimeout = first).Execute(prepared));
+        var secondTimedOut = ShouldTimeOut(() => new Engine(o => o.Constraints.RegexTimeout = second).Execute(prepared));
+
+        firstTimedOut.MatchTimeout.Should().Be(first);
+        secondTimedOut.MatchTimeout.Should().Be(
+            second,
+            "the per-node adaptation memo on a shared prepared script must not let the first engine to reach a literal decide the budget of the next one");
+    }
+
+    /// <summary>
+    /// The explicit case, from the literal lane: a preparation that chose 2 s keeps 2 s on an engine
+    /// configured for 400 ms. Nothing about resolving an unchosen timeout may reach a chosen one.
+    /// </summary>
+    [Fact]
+    public void APreparedScriptsOwnTimeoutStillOutranksTheEnginesBudgetForALiteral()
+    {
+        var prepareTimeout = TimeSpan.FromSeconds(2);
+        var preparationOptions = ScriptPreparationOptions.Default with
+        {
+            ParsingOptions = ScriptPreparationOptions.Default.ParsingOptions with { RegexTimeout = prepareTimeout },
+        };
+
+        var prepared = Engine.PrepareScript(Script("'{S}'.match(/{P}/)"), options: preparationOptions);
+
+        var timedOut = ShouldTimeOut(() => BoundedEngine().Execute(prepared));
+
+        timedOut.MatchTimeout.Should().Be(
+            prepareTimeout,
+            "an explicit preparation-time RegexTimeout is the host having chosen, and outranks the engine's constraint");
+    }
+
+    /// <summary>
+    /// A budget .NET's <see cref="Regex"/> cannot enforce (<see cref="TimeSpan.MaxValue"/>, anything from the
+    /// <c>int.MaxValue</c>-milliseconds ceiling up, zero or negative) means no limit, and a prepared script's
+    /// run-time regex has to read it the way the same script's source does: normalised at the point of use,
+    /// not handed to <see cref="Regex"/> as it stands, which refuses it.
+    /// </summary>
+    [Theory]
+    [InlineData("max")]
+    [InlineData("ceiling")]
+    [InlineData("zero")]
+    [InlineData("negative")]
+    public void APreparedScriptsRuntimeRegexTreatsAnUnenforceableBudgetAsNoLimit(string budget)
+    {
+        var timeout = budget switch
+        {
+            "max" => TimeSpan.MaxValue,
+            "ceiling" => TimeSpan.FromMilliseconds(int.MaxValue),
+            "zero" => TimeSpan.Zero,
+            _ => TimeSpan.FromSeconds(-1),
+        };
+
+        const string Source = "[new RegExp('a+').test('aaa'), new RegExp('a+', 'u').test('aaa'), 'aaa'.replace(new RegExp('a', 'g'), 'b')].join()";
+        var prepared = Engine.PrepareScript(Source);
+
+        new Engine(o => o.Constraints.RegexTimeout = timeout).Evaluate(prepared).AsString()
+            .Should().Be("true,true,bbb", "an unenforceable budget is no limit, not an argument the matcher refuses");
+        new Engine(o => o.Constraints.RegexTimeout = timeout).Evaluate(Source).AsString()
+            .Should().Be("true,true,bbb");
+    }
 }

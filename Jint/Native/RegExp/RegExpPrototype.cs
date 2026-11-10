@@ -1510,11 +1510,13 @@ internal sealed partial class RegExpPrototype : Prototype
     /// <summary>
     /// Effective per-match timeout for a custom-engine regex: the value the pattern was compiled under,
     /// carried via <see cref="RegExpParseResult.AdditionalData"/>, falling back to the engine's configured
-    /// constraint where no conversion options were in force.
+    /// constraint where no conversion options were in force or where they chose no timeout — which is what
+    /// a prepared script or module carries, having had no engine to resolve one against.
     /// </summary>
     private static TimeSpan GetCustomEngineTimeout(JsRegExp R) =>
-        (R.ParseResult.AdditionalData as Engine.RegexConversionOptions)?.Timeout
-        ?? R.Engine.Options.Constraints.RegexTimeout;
+        Options.ConstraintOptions.NormalizeRegexTimeout(
+            (R.ParseResult.AdditionalData as Engine.RegexConversionOptions)?.Timeout
+            ?? R.Engine.Options.Constraints.RegexTimeout);
 
     /// <summary>
     /// Runs the custom regex engine under the configured timeout. The deadline is enforced by inline

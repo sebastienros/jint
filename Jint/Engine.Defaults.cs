@@ -21,37 +21,62 @@ public partial class Engine
             | ExperimentalESFeatures.DeferImportEvaluation,
     };
 
-    internal static readonly TimeSpan DefaultRegexTimeout = TimeSpan.FromSeconds(10);
+    /// <summary>
+    /// OnRegExp handler that leaves the match timeout to the engine executing the parsed source
+    /// (interpreted .NET Regex).
+    /// </summary>
+    internal static OnRegExpHandler DeferredInterpretedRegExpHandler
+        => CreateRegExpHandler(RegexCompilation.Interpreted, timeout: null);
 
     /// <summary>
-    /// OnRegExp handler for <see cref="DefaultRegexTimeout"/> (interpreted .NET Regex).
+    /// OnRegExp handler that leaves the match timeout to the engine executing the parsed source
+    /// (eagerly compiled .NET Regex).
     /// </summary>
-    internal static OnRegExpHandler DefaultConvertRegExpHandler
-        => CreateRegExpHandler(RegexCompilation.Interpreted, DefaultRegexTimeout);
+    internal static OnRegExpHandler DeferredCompiledRegExpHandler
+        => CreateRegExpHandler(RegexCompilation.Compiled, timeout: null);
 
     /// <summary>
-    /// OnRegExp handler for <see cref="DefaultRegexTimeout"/> (eagerly compiled .NET Regex).
+    /// OnRegExp handler that leaves the match timeout to the engine executing the parsed source
+    /// (interpreted .NET Regex, upgraded to compiled on reuse; see <see cref="RegexCompilation.Adaptive"/>).
     /// </summary>
-    internal static OnRegExpHandler DefaultCompileRegExpHandler
-        => CreateRegExpHandler(RegexCompilation.Compiled, DefaultRegexTimeout);
+    internal static OnRegExpHandler DeferredAdaptiveRegExpHandler
+        => CreateRegExpHandler(RegexCompilation.Adaptive, timeout: null);
 
     /// <summary>
-    /// OnRegExp handler for <see cref="DefaultRegexTimeout"/> (interpreted .NET Regex, upgraded to
-    /// compiled on reuse; see <see cref="RegexCompilation.Adaptive"/>).
+    /// Creates an OnRegExp handler with a caller-specified timeout, or with none at all — see
+    /// <see cref="RegexConversionOptions.Timeout"/>.
     /// </summary>
-    internal static OnRegExpHandler DefaultAdaptiveRegExpHandler
-        => CreateRegExpHandler(RegexCompilation.Adaptive, DefaultRegexTimeout);
-
-    /// <summary>
-    /// Creates an OnRegExp handler with a caller-specified timeout.
-    /// </summary>
-    internal static OnRegExpHandler CreateRegExpHandler(RegexCompilation compilation, TimeSpan timeout)
+    internal static OnRegExpHandler CreateRegExpHandler(RegexCompilation compilation, TimeSpan? timeout)
         => new RegexConversionOptions(compilation, timeout).HandleOnRegExp;
 
-    internal sealed class RegexConversionOptions(RegexCompilation compilation, TimeSpan timeout)
+    /// <summary>
+    /// Both halves of how one parsed source's regular expressions are adapted: how they are code-generated,
+    /// and how long a match of one may run. Hung off <see cref="ParserOptions.OnRegExp"/> and read back from
+    /// the parse result of every pattern that source produces, literal and run-time-built alike.
+    /// </summary>
+    internal sealed class RegexConversionOptions(RegexCompilation compilation, TimeSpan? timeout)
     {
         public RegexCompilation Compilation { get; } = compilation;
-        public TimeSpan Timeout { get; } = timeout;
+
+        /// <summary>
+        /// The already-normalized match timeout this source's patterns run under, or <see langword="null"/>
+        /// when nobody chose one and the engine executing the source decides through
+        /// <see cref="Jint.Options.ConstraintOptions.RegexTimeout"/>.
+        /// </summary>
+        /// <remarks>
+        /// Preparation is what produces <see langword="null"/>: there is no engine at prepare time, and
+        /// baking Jint's own ten-second default in instead meant a host that had tightened the constraint
+        /// for security and then adopted <see cref="PrepareScript"/> silently ran at ten seconds
+        /// (sebastienros/jint#3442). A <see cref="TimeSpan"/> resolved per engine at the point of use keeps
+        /// this object — which is published onto a shared AST — engine-neutral.
+        /// </remarks>
+        public TimeSpan? Timeout { get; } = timeout;
+
+        /// <summary>
+        /// Resolves <see cref="Timeout"/> against the engine that is about to run the pattern.
+        /// </summary>
+        public TimeSpan ResolveTimeout(Engine engine)
+            => Timeout ?? Jint.Options.ConstraintOptions.NormalizeRegexTimeout(engine.Options.Constraints.RegexTimeout);
 
         internal RegExpParseResult HandleOnRegExp(in RegExpParsingContext ctx)
         {
