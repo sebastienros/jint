@@ -946,6 +946,19 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.split");
         var s = TypeConverter.ToString(stringArg);
+
+        // An unmodified RegExp has nothing in steps 4-10 that script can see, so it splits on its own matcher; an
+        // empty subject is matched through RegExpExec on the splitter (step 15) and a limit that is an object may run
+        // script between the steps, so those keep the specified order below.
+        if (rx is JsRegExp own && s.Length != 0 && !limit.IsObject())
+        {
+            var split = SplitOnOwnMatcher(own, s, limit);
+            if (split is not null)
+            {
+                return split;
+            }
+        }
+
         var c = SpeciesConstructor(rx, _realm.Intrinsics.RegExp);
         var flags = TypeConverter.ToJsString(rx.Get(PropertyFlags));
         var unicodeMatching = flags.Contains('u') || flags.Contains('v');
@@ -976,16 +989,7 @@ internal sealed partial class RegExpPrototype : Prototype
 
         if (splitter is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } fused)
         {
-            if (string.Equals(fused.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
-            {
-                // The empty pattern matches between every pair of code units (or code points under u/v), which is
-                // a split into single characters; there is nothing for a matcher to search for.
-                return unicodeMatching
-                    ? SplitFused(fused, s, unicodeMatching, lim)
-                    : StringPrototype.SplitWithStringSeparator(_engine, _realm, "", s, (uint) System.Math.Min(s.Length, lim));
-            }
-
-            return SplitFused(fused, s, unicodeMatching, lim);
+            return SplitWithEngineMatcher(fused, s, unicodeMatching, lim);
         }
 
         if (!unicodeMatching && splitter is JsRegExp R && R.HasDefaultRegExpExec && R.UsesDotNetEngine)
@@ -1066,6 +1070,141 @@ internal sealed partial class RegExpPrototype : Prototype
         }
 
         return SplitSlow(s, splitter, unicodeMatching, lim);
+    }
+
+    /// <summary>
+    /// Steps 16-22 of https://tc39.es/ecma262/#sec-regexp.prototype-%symbol.split% for a non-empty subject once the
+    /// splitter is known to be a script RegExp using the built-in <c>exec</c>.
+    /// </summary>
+    private JsValue SplitWithEngineMatcher(JsRegExp splitter, string s, bool unicodeMatching, long lim)
+    {
+        if (string.Equals(splitter.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
+        {
+            // The empty pattern matches between every pair of code units (or code points under u/v), which is
+            // a split into single characters; there is nothing for a matcher to search for.
+            return unicodeMatching
+                ? SplitFused(splitter, s, unicodeMatching, lim)
+                : StringPrototype.SplitWithStringSeparator(_engine, _realm, "", s, (uint) System.Math.Min(s.Length, lim));
+        }
+
+        return SplitFused(splitter, s, unicodeMatching, lim);
+    }
+
+    /// <summary>
+    /// <c>RegExp.prototype[@@split]</c> on a receiver that is a plain script RegExp, answered from the receiver's own
+    /// matcher without the species lookup, the <c>flags</c> read and the splitter, or <see langword="null"/> where
+    /// script could see the difference (the caller then runs the specified steps). Reached with a non-empty subject
+    /// and a <paramref name="limit"/> that is not an object.
+    /// https://tc39.es/ecma262/#sec-regexp.prototype-%symbol.split%
+    /// <para>
+    /// What makes each step that is skipped unobservable, by the step's number:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>4. <c>SpeciesConstructor(rx, %RegExp%)</c> is <c>Get(rx, "constructor")</c> and then
+    /// <c>Get(C, @@species)</c>. <c>rx</c> has no own property (<see cref="ObjectInstance.Properties"/> is null and
+    /// <c>lastIndex</c> is kept outside it; no own symbol), its prototype is this very RegExp.prototype, whose own
+    /// <c>constructor</c> is a data property holding %RegExp% (<see cref="HasDefaultConstructorProperty"/>), and
+    /// %RegExp%'s <c>@@species</c> is still the built-in getter that answers its receiver
+    /// (<see cref="RegExpConstructor.HasDefaultSpecies"/>). So C is %RegExp% and no script ran.</item>
+    /// <item>5. <c>Get(rx, "flags")</c> reaches RegExp.prototype's <c>flags</c> accessor, which reads the eight
+    /// flag accessors; while all nine are the built-in ones (<see cref="HasDefaultFlagAccessors"/>) the answer is
+    /// <see cref="JsRegExp.CanonicalFlags"/> and no script ran. This is what <see cref="GetFlagsString"/> does for
+    /// <c>@@replace</c> and <c>@@match</c>.</item>
+    /// <item>6-9. <c>unicodeMatching</c> is <see cref="JsRegExp.FullUnicode"/>. <c>newFlags</c> only adds <c>y</c>, which
+    /// the sticky retry at each position <c>q</c> needs and the forward search of <see cref="SplitFused"/> replaces: it
+    /// searches non-sticky whatever the matcher was compiled with, and neither <c>g</c>, <c>y</c> nor <c>d</c> changes
+    /// the compiled program, so the receiver's matcher is the splitter's.</item>
+    /// <item>10. <c>Construct(%RegExp%, «rx, newFlags»)</c> runs <c>IsRegExp(rx)</c>, which reads <c>rx[@@match]</c>:
+    /// <c>rx</c> has no own symbol and RegExp.prototype holds <c>@@match</c> as a data property
+    /// (<see cref="HasPlainMatchProperty"/>), a read of which runs no script. RegExpAlloc then reads %RegExp%'s
+    /// non-writable, non-configurable <c>prototype</c>, and RegExpInitialize parses the pattern and flags the receiver
+    /// already parsed into an object nothing else can reach.</item>
+    /// <item>13. <c>ToUint32(limit)</c> runs script only for an object, which the caller has routed to the specified
+    /// steps; a symbol or a BigInt throws its <c>TypeError</c> as before.</item>
+    /// <item>15, 19. <c>RegExpExec(splitter, S)</c> looks up <c>exec</c> on a splitter that inherits it from
+    /// RegExp.prototype, so the splitter's <c>exec</c> is this prototype's (<see cref="HasDefaultExec"/>), checked here
+    /// after everything that could have changed it; the splitter's <c>lastIndex</c> writes are invisible. The
+    /// receiver's own <c>exec</c> is never consulted, so one on the receiver only makes it leave this path.</item>
+    /// </list>
+    /// <para>
+    /// <c>rx.lastIndex</c> is neither read nor written by <c>@@split</c>, so it is not touched here either. A
+    /// receiver made by another script is split under the match timeout of the script that calls split, as a splitter
+    /// built by the call would be (<see cref="RunsUnderActiveRegexTimeout"/>).
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue? SplitOnOwnMatcher(JsRegExp rx, string s, JsValue limit)
+    {
+        if (!CanSplitOnOwnMatcher(rx) || !RunsUnderActiveRegexTimeout(rx))
+        {
+            return null;
+        }
+
+        var lim = limit.IsUndefined() ? NumberConstructor.MaxSafeInteger : TypeConverter.ToUint32(limit);
+        if (lim == 0)
+        {
+            return _realm.Intrinsics.Array.ArrayCreate(0);
+        }
+
+        return SplitWithEngineMatcher(rx, s, rx.FullUnicode, lim);
+    }
+
+    /// <summary>
+    /// Whether steps 4-10 of <c>@@split</c> on <paramref name="rx"/> can run no script and build a splitter that
+    /// matches exactly as <paramref name="rx"/> does; see <see cref="SplitOnOwnMatcher"/> for the argument. Nothing is
+    /// cached: the symbol-keyed properties and the values of data properties move no version, so each condition is
+    /// read where it is asked.
+    /// </summary>
+    internal bool CanSplitOnOwnMatcher(JsRegExp rx)
+    {
+        return rx.Properties is null
+               && rx._symbols is null
+               && ReferenceEquals(rx.Prototype, this)
+               && !rx.UsesDotNetEngine
+               && HasDefaultFlagAccessors
+               && HasDefaultConstructorProperty
+               && _constructor.HasDefaultSpecies
+               && HasPlainMatchProperty
+               && HasDefaultExec;
+    }
+
+    /// <summary>
+    /// Whether <c>RegExp.prototype.constructor</c> is still an own data property holding this realm's %RegExp%. The
+    /// value of a data property can be written in place, which moves no version, so the descriptor is read.
+    /// </summary>
+    private bool HasDefaultConstructorProperty
+    {
+        get
+        {
+            var descriptor = GetOwnProperty(CommonProperties.Constructor);
+            return !descriptor.IsAccessorDescriptor() && ReferenceEquals(UnwrapJsValue(descriptor), _constructor);
+        }
+    }
+
+    /// <summary>
+    /// Whether <c>RegExp.prototype[@@match]</c> is an own data property, which <c>IsRegExp</c> reads without
+    /// running script; an accessor, or none (so that <c>Object.prototype</c> is asked next), is not.
+    /// </summary>
+    private bool HasPlainMatchProperty
+    {
+        get
+        {
+            var descriptor = GetOwnProperty(GlobalSymbolRegistry.Match);
+            return !ReferenceEquals(descriptor, PropertyDescriptor.Undefined) && descriptor.IsDataDescriptor();
+        }
+    }
+
+    /// <summary>
+    /// Whether a splitter built now would match under the timeout <paramref name="rx"/> carries. A splitter takes the
+    /// timeout of the script running when it is built (<c>RegExpConstructor.RegExpInitialize</c>), a receiver the one
+    /// of the script that made it, and the two differ only when one script calls <c>split</c> on a RegExp another made
+    /// under different parsing options; that call takes the specified steps, which build the splitter.
+    /// </summary>
+    private bool RunsUnderActiveRegexTimeout(JsRegExp rx)
+    {
+        var active = _engine.GetActiveParserOptions().OnRegExp?.Target as Engine.RegexConversionOptions;
+        return ReferenceEquals(active, rx.ConversionOptions)
+               || Engine.RegexConversionOptions.ResolveTimeout(active, _engine) == GetCustomEngineTimeout(rx);
     }
 
 #if NET8_0_OR_GREATER

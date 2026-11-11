@@ -6,6 +6,7 @@ using Jint.Collections;
 using Jint.Extensions;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -88,11 +89,34 @@ public sealed partial class RegExpConstructor : Constructor
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
+        _builtInSpecies = _symbols![GlobalSymbolRegistry.Species];
         AddLegacyAccessors();
     }
 
     [JsSymbolAccessor("Species")]
     private static JsValue Species(JsValue thisObject) => thisObject;
+
+    // The @@species descriptor Initialize installed. A script cannot change which getter it holds in place: giving
+    // the accessor another getter, turning it into a data property and deleting it all store a different
+    // descriptor object (or remove the entry), so while this very instance is what the constructor holds, the
+    // getter is the built-in one that answers its receiver.
+    private PropertyDescriptor? _builtInSpecies;
+
+    /// <summary>
+    /// Whether <c>RegExp[@@species]</c> is still the built-in accessor, which answers its receiver, so that
+    /// <see cref="ObjectInstance.SpeciesConstructor"/> asked about a constructor of <c>RegExp</c> answers
+    /// <c>RegExp</c> without running script. Symbol-keyed properties move no version, so this reads the descriptor.
+    /// </summary>
+    internal bool HasDefaultSpecies
+    {
+        get
+        {
+            EnsureInitialized();
+            return _symbols is { } symbols
+                   && symbols.TryGetValue(GlobalSymbolRegistry.Species, out var descriptor)
+                   && ReferenceEquals(descriptor, _builtInSpecies);
+        }
+    }
 
     // Legacy static accessors (RegExp Legacy Features proposal). Kept hand-rolled rather than
     // [JsAccessor] because the accessor function names are non-identifier strings like
