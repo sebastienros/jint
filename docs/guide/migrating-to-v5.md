@@ -8670,7 +8670,39 @@ shrinks the array while the rest collects changes what it collects. A getter an 
 at an index past the pattern no longer runs either, and an array whose `length` is `2 ** 32 - 1`, over which any such
 pattern used to throw a CLR `OverflowException` out of `Execute`, now binds, a rest collecting it under the engine's
 constraints. Otherwise a parameter pattern over an array that holds no getter and that no initializer changes binds
-what it did, and declarations and assignments are unchanged. There is no switch back.
+what it did, and declarations and assignments follow in 4.236. There is no switch back.
+
+### 4.236 A declaration's or an assignment's array pattern over an array reads only the elements it steps to ([#4564](https://github.com/sebastienros/jint/pull/4564))
+
+An array pattern in a declaration, an assignment, a `for`-`of` head or a `catch` parameter, over an array whose
+iterator is the built-in one, stands for that iterator just as a parameter's does (4.235): each element makes one step,
+which reads the array's `length` and then the element at the next index, or reports done once the index reaches the
+length, and after that no element reads anything. Jint read the element at each element's own index whatever the
+length. An index past the end therefore fell through to the prototype chain, so a getter `Array.prototype` held there
+ran and its answer was bound; an element after the end bound whatever an initializer, a getter or a setter had pushed
+onto the array since; and a rest element collected up to the length from before its first read:
+
+```js
+Object.defineProperty(Array.prototype, 1, { get() { return 7; }, configurable: true });
+var [a, b] = [1];
+b
+// 4.16.x / earlier 5.0: 7    5.x: undefined
+
+const arr = [1];
+const [x, y = arr.push(8, 9), z] = arr;
+z
+// 4.16.x / earlier 5.0: 9    5.x: undefined
+```
+
+A host `ArrayLikeObject` whose prototype gives it the array iterator is read the same way: its `length` at every
+step, and an element with one `[[Get]]` and no `[[HasProperty]]` before it. An array whose prototype chain holds a
+`Proxy` now sees the traps Jint's own array iterator causes, for a hole the proxy's `get` trap alone (4.237), where it
+saw a `has` trap before. A rest element over an
+array whose reads may run script, such as one whose length runs past its stored elements (`new Array(n)`), one with
+an accessor or a frozen one, now checks the engine's
+constraints as it collects, and a parameter's rest is now bounded by `MaxArraySize` as a declaration's always was.
+Otherwise a pattern over an array that holds no getter and that nothing changes while it binds binds what it did.
+There is no switch back.
 
 ### 4.237 A hole in an array is read through an exotic prototype's own `[[Get]]` ([#4566](https://github.com/sebastienros/jint/pull/4566))
 
@@ -8706,7 +8738,7 @@ These readers now ask an exotic prototype its `[[Get]]` and nothing else:
 - a computed member read and `Reflect.get`;
 - the array iterator's values and entries, which is what `for`-`of`, spread and `Array.from` over an array use;
 - `join`, `at`, `find`, `findIndex`, `findLast` and `findLastIndex`;
-- a parameter's array pattern;
+- an array pattern: a parameter's, a declaration's and an assignment's (4.235, 4.236);
 - from C#, the `JsArray` indexer, its enumerator and `ToArray()`.
 
 A host `ObjectInstance` on the chain that overrides `Get` is now asked for the index, with the array as the receiver,

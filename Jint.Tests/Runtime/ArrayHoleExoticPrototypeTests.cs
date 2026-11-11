@@ -18,16 +18,13 @@ namespace Jint.Tests.Runtime;
 /// <para>
 /// The algorithms that ask <c>HasProperty</c> before <c>Get</c> (<c>forEach</c>, <c>map</c> and the other
 /// <c>Array.prototype</c> methods) ask both questions of an exotic link, and the ones that only read (an indexed read,
-/// <c>join</c>, the array iterator, a parameter's array pattern) ask only <c>[[Get]]</c>. Every expected string is Node
-/// 26's answer to the same script, run in a fresh realm per row.
+/// <c>join</c>, <c>find</c>, the array iterator and the array patterns that stand in for it) ask only
+/// <c>[[Get]]</c>. Every expected string is Node 26's answer to the same script, run in a fresh realm per row.
 /// </para>
 /// </summary>
 /// <remarks>
 /// Every case builds its own <see cref="Engine"/>, since most rows write an index to an intrinsic prototype, and the
-/// fixture holds no mutable state, so its cases run in parallel. A declaration's or an assignment's array pattern over
-/// an array whose prototype is a Proxy is not here: on this tree that lane reads through <c>HasProperty</c> and
-/// <c>Get</c> rather than through the array, so it asks the <c>has</c> trap Node does not, until it reads the array
-/// the way the parameter lane does.
+/// fixture holds no mutable state, so its cases run in parallel.
 /// </remarks>
 [Parallelizable(ParallelScope.All)]
 public class ArrayHoleExoticPrototypeTests
@@ -113,6 +110,35 @@ public class ArrayHoleExoticPrototypeTests
         ("ParameterRestGenerator",
             "Object.setPrototypeOf(arr, proxy); (function* ([a, ...r]) { result = report(r.join()); })(arr).next();",
             "get Symbol(Symbol.iterator) (arr) get 1 (arr) => P,3"),
+
+        // A declaration's or an assignment's array pattern reads the array as its iterator would, with Get alone.
+        ("VarPattern",
+            "Object.setPrototypeOf(arr, proxy); var [a, b, c] = arr; result = report([a, b, c].join());",
+            "get Symbol(Symbol.iterator) (arr) get 1 (arr) => 1,P,3"),
+        ("AssignmentPattern",
+            "Object.setPrototypeOf(arr, proxy); var a, b, c; [a, b, c] = arr; result = report([a, b, c].join());",
+            "get Symbol(Symbol.iterator) (arr) get 1 (arr) => 1,P,3"),
+        ("VarPatternElision",
+            "Object.setPrototypeOf(arr, proxy); var [a, , c] = arr; result = report([a, c].join());",
+            "get Symbol(Symbol.iterator) (arr) get 1 (arr) => 1,3"),
+        ("VarPatternRest",
+            "Object.setPrototypeOf(arr, proxy); var [a, ...r] = arr; result = report(r.join());",
+            "get Symbol(Symbol.iterator) (arr) get 1 (arr) => P,3"),
+        ("AssignmentPatternRest",
+            "Object.setPrototypeOf(arr, proxy); var a, r; [a, ...r] = arr; result = report(r.join());",
+            "get Symbol(Symbol.iterator) (arr) get 1 (arr) => P,3"),
+        ("LetPattern",
+            "Object.setPrototypeOf(arr, proxy); let [a, b, c] = arr; result = report([a, b, c].join());",
+            "get Symbol(Symbol.iterator) (arr) get 1 (arr) => 1,P,3"),
+        ("ForOfHeadPattern",
+            "Object.setPrototypeOf(arr, proxy); var outer = [arr]; log.length = 0; for (var [a, b, c] of outer) result = report([a, b, c].join());",
+            "get Symbol(Symbol.iterator) (arr) get 1 (arr) => 1,P,3"),
+        ("VarPatternInAGenerator",
+            "Object.setPrototypeOf(arr, proxy); (function* () { var [a, b, c] = arr; result = report([a, b, c].join()); })().next();",
+            "get Symbol(Symbol.iterator) (arr) get 1 (arr) => 1,P,3"),
+        ("VarPatternInAnAsyncFunction",
+            "Object.setPrototypeOf(arr, proxy); (async function () { var [a, b, c] = arr; result = report([a, b, c].join()); })();",
+            "get Symbol(Symbol.iterator) (arr) get 1 (arr) => 1,P,3"),
 
         // FindViaPredicate reads every index with Get alone (https://tc39.es/ecma262/#sec-findviapredicate), so a
         // proxy that answers get but not has still hands the callback its value.

@@ -328,7 +328,8 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             if (element is RestElement restElement)
             {
                 // The rest element is the last one, and takes every step left: none, once the iterator is done.
-                BindRestElement(context, restElement, CollectRestFromArray(array, position, done), initiallyEmpty);
+                var rest = DestructuringPatternAssignmentExpression.CollectRestFromArray(_engine, array, position, done);
+                BindRestElement(context, restElement, rest, initiallyEmpty);
                 return;
             }
 
@@ -376,62 +377,6 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         {
             HandleAssignmentPatternOrExpression(context, assignmentPattern.Left, assignmentPattern.Right, value, initiallyEmpty);
         }
-    }
-
-    /// <summary>
-    /// BindingRestElement over the array <see cref="BindArrayPatternFromArray"/> reads, from the index its steps reached:
-    /// nothing once the iterator is done, and otherwise one step per element until a step finds the index at the length,
-    /// which each step reads again, since a getter may grow or shrink the array. While its elements are dense and no
-    /// prototype holds an index, no read runs script, so the length cannot move, and what is left is copied in one pass.
-    /// </summary>
-    private JsArray CollectRestFromArray(JsArray array, uint position, bool done)
-    {
-        var length = array.GetLength();
-        if (!done && array.CanUseFastAccess && array._dense is { } dense && length <= (uint) dense.Length)
-        {
-            var count = position < length ? length - position : 0;
-            var items = new JsValue[count];
-            for (uint j = 0; j < count; j++)
-            {
-                array.TryGetValue(position + j, out var item);
-                items[j] = item;
-            }
-
-            return new JsArray(_engine, items);
-        }
-
-        return CollectRestByStepping(array, position, done);
-    }
-
-    /// <summary>
-    /// <see cref="CollectRestFromArray"/> once the iterator is done, or for an array whose reads may run script, which it
-    /// steps as the iterator would, reading the length at every step.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private JsArray CollectRestByStepping(JsArray array, uint position, bool done)
-    {
-        var rest = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
-        if (done)
-        {
-            return rest;
-        }
-
-        uint index = 0;
-        var iterations = 0;
-        while (position < array.GetLength())
-        {
-            // A step crosses no statement boundary, so the loop checks the constraints itself, as the iterator lane does.
-            if (++iterations % Engine.ConstraintCheckInterval == 0)
-            {
-                _engine.Constraints.Check();
-            }
-
-            var item = array.GetElement(position++);
-            rest.SetIndexValue(index++, item, updateLength: false);
-        }
-
-        rest.SetLength(index);
-        return rest;
     }
 
     /// <summary>
