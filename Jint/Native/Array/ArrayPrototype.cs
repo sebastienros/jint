@@ -1740,7 +1740,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // arguments are in range on this lane whatever the generic one above had to allow for.
         if (thisObject is JsArray ai && a is JsArray a2)
         {
-            a2.CopyValues(ai, (uint) k, 0, (uint) length);
+            a2.CopySlice(ai, (uint) k, (uint) length);
         }
         else
         {

@@ -1,5 +1,7 @@
 #nullable enable
 
+using Jint.Native;
+
 namespace Jint.Tests.Runtime;
 
 /// <summary>
@@ -14,6 +16,9 @@ namespace Jint.Tests.Runtime;
 /// tail of the range uncopied. And the loop that serves a dense source copied a hole as a hole without asking the
 /// prototype chain, and copied an index past the dense backing as <c>undefined</c> where the source had no
 /// such property at all.
+/// The dense loop and slice also assumed a freshly allocated result: a species constructor can return an array it
+/// has already filled or given another length, a hole must leave an element it filled alone, and slice's closing
+/// <c>Set(A, "length", n, true)</c> must grow or truncate it.
 /// </para>
 /// <para>
 /// Every expected value is Node 26's, each row run in a fresh <c>vm</c> context. Each row needs its own engine: the
@@ -334,17 +339,62 @@ public class ArrayCopyValuesTests
                 show(Object.freeze([1, , 3]).concat(Object.freeze([4, , 6])));
                 """, "6[v:1,v:P,v:3,v:4,v:P,v:6]");
 
-            // the species result
+            // the species result: a target the constructor filled keeps what a hole leaves alone, and takes the length the algorithm sets
             rows.Add("SliceIntoPrefilledSpeciesTarget", """
                 var a = [1, 2, 3, 4];
                 a.constructor = { [Symbol.species]: function (n) { var r = new Array(n); r[0] = 'x'; return r; } };
                 show(a.slice(1, 3));
                 """, "2[v:2,v:3]");
+            rows.Add("SliceSpeciesKeepsAPrefilledSlotAtAHole", """
+                var a = [1, , 3];
+                a.constructor = { [Symbol.species]: function (n) { var r = new Array(n); r[1] = 'x'; return r; } };
+                show(a.slice());
+                """, "3[v:1,v:x,v:3]");
+            rows.Add("SliceSpeciesKeepsAPrefilledSlotPastTheBacking", """
+                var a = [1, 2]; a.length = 5;
+                a.constructor = { [Symbol.species]: function (n) { var r = new Array(n); r[4] = 'z'; return r; } };
+                show(a.slice());
+                """, "5[v:1,v:2,hole,hole,v:z]");
+            rows.Add("SliceSpeciesKeepsAPrefilledSlotWithAStartOffset", """
+                var a = [1, 2, , 4, 5];
+                a.constructor = { [Symbol.species]: function (n) { var r = new Array(n); r[0] = 'x'; return r; } };
+                show(a.slice(2));
+                """, "3[v:x,v:4,v:5]");
+            rows.Add("SliceSpeciesOverwritesAPrefilledSlotAnElementFills", """
+                var a = [1, 2, 3];
+                a.constructor = { [Symbol.species]: function (n) { var r = new Array(n); r[1] = 'x'; return r; } };
+                show(a.slice());
+                """, "3[v:1,v:2,v:3]");
+            rows.Add("SliceIntoShortSpeciesTarget", """
+                var a = [1, 2, 3, 4];
+                a.constructor = { [Symbol.species]: function (n) { return []; } };
+                show(a.slice(1, 3));
+                """, "2[v:2,v:3]");
+            rows.Add("SliceIntoLongSpeciesTarget", """
+                var a = [1, 2, 3, 4];
+                a.constructor = { [Symbol.species]: function (n) { return [9, 9, 9, 9, 9]; } };
+                show(a.slice(1, 3));
+                """, "2[v:2,v:3]");
+            rows.Add("SliceIntoShortSpeciesTargetWithTrailingHoles", """
+                var a = [1, 2]; a.length = 5;
+                a.constructor = { [Symbol.species]: function (n) { return []; } };
+                show(a.slice(1));
+                """, "4[v:2,hole,hole,hole]");
             rows.Add("ConcatIntoPrefilledSpeciesTarget", """
                 var a = [1, 2];
                 a.constructor = { [Symbol.species]: function (n) { var r = []; r[0] = 'x'; r[1] = 'y'; return r; } };
                 show(a.concat([3, , 5]));
                 """, "5[v:1,v:2,v:3,hole,v:5]");
+            rows.Add("ConcatSpeciesKeepsAPrefilledSlotAtAHole", """
+                var a = [1, , 3];
+                a.constructor = { [Symbol.species]: function () { return [ , 'b']; } };
+                show(a.concat());
+                """, "3[v:1,v:b,v:3]");
+            rows.Add("ConcatSpeciesKeepsAPrefilledSlotAtAnArgumentHole", """
+                var a = [1, 2];
+                a.constructor = { [Symbol.species]: function () { var r = []; r[3] = 'y'; return r; } };
+                show(a.concat([5, , 7]));
+                """, "5[v:1,v:2,v:5,v:y,v:7]");
 
             // the pristine case: holes stay holes
             rows.Add("SlicePristineHolesStayHoles", """
@@ -359,5 +409,25 @@ public class ArrayCopyValuesTests
 
             return rows;
         }
+    }
+
+    /// <summary>
+    /// A result is sized by the range it copies, not by the backing store of the array it copies from. The copy used
+    /// to ask for room for the whole backing, so a two-element slice of a 100000-element array left the result a
+    /// backing of 131072 slots.
+    /// </summary>
+    [TestCase("big.slice(0, 2)", 2)]
+    [TestCase("big.slice(50000, 50003)", 3)]
+    [TestCase("big.slice(99990)", 10)]
+    [TestCase("[].concat(big.slice(0, 3), big.slice(10, 12))", 8)]
+    public void TheResultIsNotSizedByTheBackingOfTheSource(string expression, int largestBacking)
+    {
+        var engine = new Engine();
+        engine.Execute("var big = []; for (var i = 0; i < 100000; i++) big.push(i);");
+
+        var result = (JsArray) engine.Evaluate(expression);
+
+        result._dense.Should().NotBeNull();
+        result._dense!.Length.Should().BeLessThanOrEqualTo(largestBacking);
     }
 }
