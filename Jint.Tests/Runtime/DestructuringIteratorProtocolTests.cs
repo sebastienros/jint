@@ -159,10 +159,10 @@ public class DestructuringIteratorProtocolTests
         LogWithTarget("[t.a, t.b, t.c] = iterableOf([1]);")
             .Should().Be("next,done,value,set a=1,next,done,set b=undefined,set c=undefined");
 
-        // An elision steps (and reads the value, per IteratorStepValue) but assigns nothing; the
+        // An elision performs IteratorStep, which reads `done` and never `value`, and assigns nothing; the
         // pattern then stops short of the iterator's end, so IteratorClose runs.
         LogWithTarget("[t.a, , t.b] = iterableOf([1, 2, 3, 4]);")
-            .Should().Be("next,done,value,set a=1,next,done,value,next,done,value,set b=3,return");
+            .Should().Be("next,done,value,set a=1,next,done,next,done,value,set b=3,return");
 
         // A rest element drains what is left, and the drained iterator is not closed afterwards.
         LogWithTarget("[t.a, ...t.rest] = iterableOf([1, 2, 3]);")

@@ -156,6 +156,42 @@ internal abstract partial class IteratorInstance : ObjectInstance
     }
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-iteratorstep
+    /// Steps the iterator for a consumer that discards the result and maintains <see cref="Done"/> exactly as
+    /// <see cref="TryIteratorStepValue"/> does, but never reads the result's <c>value</c>: an array pattern's
+    /// elision performs IteratorStep, not IteratorStepValue
+    /// (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation). Returns
+    /// <c>false</c> for the spec's ~done~ result.
+    /// </summary>
+    internal bool TryIteratorStepWithoutValue()
+    {
+        try
+        {
+            if (!TryStepWithoutValue())
+            {
+                // IteratorStep step 5.a: a done result sets [[Done]] as well.
+                Done = true;
+                return false;
+            }
+        }
+        catch
+        {
+            Done = true;
+            throw;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// <see cref="TryStepValue"/> for a step whose value nobody wants. A built-in iterator's result has no observable
+    /// <c>value</c> to skip, so the default is the step it already makes without an <c>IteratorResult</c>; only an
+    /// iterator the script drives through its own <c>next</c> has a result whose <c>value</c> can be a getter or a
+    /// Proxy trap, and that one overrides this to read <c>done</c> alone.
+    /// </summary>
+    internal virtual bool TryStepWithoutValue() => TryStepValue(out _);
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-iteratorclose
     /// IteratorClose, guarded by the record's [[Done]] — the shape the spec writes as
     /// "If <c>iteratorRecord</c>.[[Done]] is <c>false</c>, ... IteratorClose". A step that already
@@ -527,6 +563,13 @@ internal abstract partial class IteratorInstance : ObjectInstance
 
             return true;
         }
+
+        /// <summary>
+        /// IteratorStep's <c>next</c> call and <c>done</c> read (https://tc39.es/ecma262/#sec-iteratorstep) without the
+        /// <c>value</c> read that follows them in IteratorStepValue. The result is the script's own object here, so
+        /// the read is observable.
+        /// </summary>
+        internal override bool TryStepWithoutValue() => TryIteratorStep(out _);
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-iteratornext

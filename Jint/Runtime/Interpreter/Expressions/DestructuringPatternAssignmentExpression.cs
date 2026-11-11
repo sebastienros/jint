@@ -134,6 +134,34 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
     }
 
     /// <summary>
+    /// IteratorStep (https://tc39.es/ecma262/#sec-iteratorstep) under the same <c>If iteratorRecord.[[Done]] is false</c>
+    /// guard, for <c>Elision : ,</c> of IteratorDestructuringAssignmentEvaluation
+    /// (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation), which an array
+    /// pattern's holes all reach: the step is made and discarded, so the result's <c>value</c> is never read, where
+    /// <see cref="StepValue"/> reads it. An abrupt step sets <paramref name="done"/> as it does there.
+    /// </summary>
+    private static void StepElision(IteratorInstance it, ref bool done)
+    {
+        if (done)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!it.TryStepWithoutValue())
+            {
+                done = true;
+            }
+        }
+        catch
+        {
+            done = true;
+            throw;
+        }
+    }
+
+    /// <summary>
     /// The array lane reads elements by index in place of the iterator <c>%Array.prototype.values%</c> would create,
     /// and the pattern closes that iterator unless it ran out ("If iteratorRecord.[[Done]] is false, return ?
     /// IteratorClose(iteratorRecord, result)", https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization).
@@ -211,7 +239,7 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
                     {
                         // An elision consumes a step and discards it; it never ends the pattern, so
                         // the elements after it still bind (undefined, or their initializer).
-                        StepValue(iterator!, ref done);
+                        StepElision(iterator!, ref done);
                     }
                     // skip assignment
                     continue;

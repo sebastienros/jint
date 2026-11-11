@@ -8520,6 +8520,31 @@ And a generator resumed with `return()` at a `yield` that is a `for`-`of` loop's
 whose scripts kept running past a bound because the bound tripped inside a `return` now gets the bound's exception
 instead. There is no switch back: a constraint a `return` could hide bounded nothing.
 
+### 4.233 An elision in an array pattern steps the iterator without reading `value` ([#0000](https://github.com/sebastienros/jint/pull/0000))
+
+An elision (`[, a]`, `[a, , b]`, `[,]`) skips one step of the iterator, and the spec performs IteratorStep for it, which
+calls `next` and reads `done` and nothing else. Jint stepped it the way it steps an element that binds, and read the
+step result's `value` as well. A getter on `value` therefore ran once for each hole, and one that threw failed a pattern
+that bound nothing from that step:
+
+```js
+const log = [];
+const it = {
+  [Symbol.iterator]() { return this; },
+  next() { return { done: false, get value() { log.push('value'); return 1; } }; },
+  return() { return {}; }
+};
+const [, a] = it;
+log.length
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+The rule holds wherever an array pattern is evaluated: a declaration, an assignment, a parameter list, a `for`-`of` head,
+a `catch` parameter, and a pattern with an `await` or a `yield` in it. An element that binds still reads `value`, and a
+hole the iterator has already finished at does not step it at all, as before. An array pattern over an unmodified array,
+and over a built-in iterator whose result has no `value` a script could observe, behaves as it did. There is no switch
+back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
