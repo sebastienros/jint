@@ -8520,7 +8520,7 @@ And a generator resumed with `return()` at a `yield` that is a `for`-`of` loop's
 whose scripts kept running past a bound because the bound tripped inside a `return` now gets the bound's exception
 instead. There is no switch back: a constraint a `return` could hide bounded nothing.
 
-### 4.233 An elision in an array pattern steps the iterator without reading `value` ([#0000](https://github.com/sebastienros/jint/pull/0000))
+### 4.233 An elision in an array pattern steps the iterator without reading `value` ([#4556](https://github.com/sebastienros/jint/pull/4556))
 
 An elision (`[, a]`, `[a, , b]`, `[,]`) skips one step of the iterator, and the spec performs IteratorStep for it, which
 calls `next` and reads `done` and nothing else. Jint stepped it the way it steps an element that binds, and read the
