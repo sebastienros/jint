@@ -5,7 +5,7 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// <summary>
 /// An iteration statement and the label set LabelledEvaluation evaluates it with: every label stacked directly on it,
 /// so <c>a: b: for (...)</c> is evaluated with {a, b}.
-/// https://tc39.es/ecma262/#sec-labelled-statements-runtime-semantics-labelledevaluation
+/// https://tc39.es/ecma262/#sec-runtime-semantics-labelledevaluation
 /// </summary>
 internal abstract class JintIterationStatement<T> : JintStatement<T> where T : Statement
 {
@@ -21,7 +21,7 @@ internal abstract class JintIterationStatement<T> : JintStatement<T> where T : S
     internal sealed override void SetEnclosingLabels(string[] labels) => _enclosingLabels = labels;
 
     /// <summary>
-    /// LoopContinues steps 3 and 4 for a <c>continue</c> that names a label: whether this loop's label set holds it.
+    /// LoopContinues steps 4 and 5 for a <c>continue</c> that names a label: whether this loop's label set holds it.
     /// Out of line, because only a labelled <c>continue</c> reaches it and a loop's per-iteration path must not grow.
     /// https://tc39.es/ecma262/#sec-loopcontinues
     /// </summary>

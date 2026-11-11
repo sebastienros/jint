@@ -8,7 +8,7 @@ namespace Jint.Tests.Runtime;
 /// <summary>
 /// A loop's label set is every label stacked directly on it: <c>a: b: for (...)</c> evaluates the loop with {a, b},
 /// because LabelledEvaluation appends each label on its way down
-/// (https://tc39.es/ecma262/#sec-labelled-statements-runtime-semantics-labelledevaluation), and LoopContinues keeps
+/// (https://tc39.es/ecma262/#sec-runtime-semantics-labelledevaluation), and LoopContinues keeps
 /// the loop iterating for a <c>continue</c> naming any label in that set
 /// (https://tc39.es/ecma262/#sec-loopcontinues). Every loop compared the target with the innermost label alone, so
 /// <c>continue a</c> left the loop as a Continue completion nothing consumed: a function skipped the rest of its body

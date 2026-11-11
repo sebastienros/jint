@@ -23,7 +23,7 @@ internal sealed class JintLabeledStatement : JintStatement<LabeledStatement>
 
     /// <summary>
     /// Hands the item under this label stack every label above its own, the rest of LabelledEvaluation's newLabelSet.
-    /// https://tc39.es/ecma262/#sec-labelled-statements-runtime-semantics-labelledevaluation
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-labelledevaluation
     /// </summary>
     private void PassStackedLabelsDown()
     {

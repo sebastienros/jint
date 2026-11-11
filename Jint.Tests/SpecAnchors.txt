@@ -443,7 +443,6 @@ ecma262 sec-jobcallback-records
 ecma262 sec-json.parse
 ecma262 sec-json.stringify
 ecma262 sec-keyforsymbol
-ecma262 sec-labelled-statements-runtime-semantics-labelledevaluation
 ecma262 sec-lengthofarraylike
 ecma262 sec-let-and-const-declarations-runtime-semantics-evaluation
 ecma262 sec-line-terminators
@@ -706,6 +705,7 @@ ecma262 sec-runtime-semantics-iteratorbindinginitialization
 ecma262 sec-runtime-semantics-iteratordestructuringassignmentevaluation
 ecma262 sec-runtime-semantics-keyedbindinginitialization
 ecma262 sec-runtime-semantics-keyeddestructuringassignmentevaluation
+ecma262 sec-runtime-semantics-labelledevaluation
 ecma262 sec-runtime-semantics-methoddefinitionevaluation
 ecma262 sec-runtime-semantics-propertydefinitionevaluation
 ecma262 sec-runtime-semantics-repeatmatcher-abstract-operation
