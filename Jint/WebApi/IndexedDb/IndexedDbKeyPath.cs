@@ -79,7 +79,16 @@ internal sealed class IndexedDbKeyPath(string[] paths, bool sequence)
     }
 
     internal JsValue ToValue(Engine engine)
-        => IsSequence ? new JsArray(engine, Paths.Select(static p => (JsValue) JsString.Create(p)).ToArray()) : JsString.Create(Paths[0]);
+    {
+        if (!IsSequence)
+        {
+            return JsString.Create(Paths[0]);
+        }
+
+        // As long as the array the writing engine was given, which need not be this one (sebastienros/jint#4505).
+        ArrayInstance.ValidateListLength(engine, (uint) Paths.Length);
+        return new JsArray(engine, Paths.Select(static p => (JsValue) JsString.Create(p)).ToArray());
+    }
 
     /// <summary>https://w3c.github.io/IndexedDB/#evaluate-a-key-path-on-a-value.</summary>
     internal bool TryEvaluate(SerializedValue root, out SerializedValue value)

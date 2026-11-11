@@ -803,8 +803,28 @@ internal sealed class ZipIterator : ObjectInstance
         }
         catch
         {
-            _state = GeneratorState.Completed;
-            CloseAllIterators(CompletionType.Throw);
+            // IteratorCloseAll(openIters, the throw completion) for whatever leaves the step - a member's `next` that
+            // threw, the TypeError of a strict length mismatch, or an exception that ends the run, a constraint that
+            // tripped in a member's `next` or in a `return` a close above was running. The rule is the one a for-of
+            // follows when a constraint trips in its body: the iterators still open are closed, with a throw completion,
+            // so their `return` runs and only a constraint tripping in one of those replaces what is leaving. An
+            // iterator a close above already took out of the list is not closed again.
+            //
+            // These closes are IfAbruptCloseIterators inside the helper's closure (https://tc39.es/ecma262/#sec-iteratorzip
+            // step 3), so the generator is still executing while they run: a `return` that calls the helper's own next()
+            // or return() meets GeneratorValidate's TypeError (https://tc39.es/ecma262/#sec-generatorvalidate step 6), as
+            // test262's zip/suspended-yield-iterator-close-calls-return.js pins. Marked completed before them instead, a
+            // re-entrant return() closed the list itself and emptied it under this loop.
+            try
+            {
+                CloseAllIterators(CompletionType.Throw);
+            }
+            finally
+            {
+                _state = GeneratorState.Completed;
+                _exhausted = true;
+            }
+
             throw;
         }
     }
@@ -1023,9 +1043,14 @@ internal sealed class ZipIterator : ObjectInstance
         Exception? caughtException = null;
         var isThrowCompletion = false;
 
-        for (var j = _openIters.Count - 1; j >= 0; j--)
+        // Popped from the end, which is IteratorCloseAll's reverse List order, and out of the list before it is closed,
+        // whatever the close raises: see CloseAllIterators.
+        while (_openIters.Count > 0)
         {
-            var openIter = _openIters[j];
+            var last = _openIters.Count - 1;
+            var openIter = _openIters[last];
+            _openIters.RemoveAt(last);
+
             // Find the index of this iterator in the original list
             var originalIndex = _iters.IndexOf(openIter);
             if (originalIndex != upToIndex && originalIndex != -1)
@@ -1034,9 +1059,10 @@ internal sealed class ZipIterator : ObjectInstance
                 {
                     openIter.Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (!Throw.MustPropagateHostException(ex))
                 {
-                    // Capture the first exception, subsequent ones are ignored
+                    // Capture the first exception, subsequent ones are ignored. One that ends the run - a constraint
+                    // that tripped inside a `return` - is neither: it propagates at once.
                     if (caughtException is null)
                     {
                         caughtException = ex;
@@ -1045,7 +1071,6 @@ internal sealed class ZipIterator : ObjectInstance
                 }
             }
         }
-        _openIters.Clear();
 
         // Rethrow the first captured exception
         if (caughtException is not null)
@@ -1063,16 +1088,26 @@ internal sealed class ZipIterator : ObjectInstance
         Exception? caughtException = null;
         var isThrowCompletion = completionType == CompletionType.Throw;
 
-        for (var i = _openIters.Count - 1; i >= 0; i--)
+        // Popped from the end, which is IteratorCloseAll's reverse List order (https://tc39.es/ecma262/#sec-iteratorcloseall
+        // step 1), and never indexed from a count taken before the loop: the list is what a close may have changed.
+        while (_openIters.Count > 0)
         {
+            // Out of the list before it is closed. A constraint that trips inside its `return` propagates from here
+            // (below), and Next's catch then closes what is still open: an iterator left in the list would be closed a
+            // second time there, while one taken out as it is closed never is, and none still open is skipped.
+            var last = _openIters.Count - 1;
+            var openIter = _openIters[last];
+            _openIters.RemoveAt(last);
+
             try
             {
-                _openIters[i].Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
+                openIter.Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!Throw.MustPropagateHostException(ex))
             {
                 // Per IteratorClose step 5: if completion is throw, ignore new exceptions
-                // Otherwise, capture the first exception
+                // Otherwise, capture the first exception. One that ends the run - a constraint that tripped inside a
+                // `return` - is neither: it propagates at once.
                 if (!isThrowCompletion && caughtException is null)
                 {
                     caughtException = ex;
@@ -1080,7 +1115,6 @@ internal sealed class ZipIterator : ObjectInstance
                 }
             }
         }
-        _openIters.Clear();
 
         // Rethrow the first captured exception
         if (caughtException is not null)

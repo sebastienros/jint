@@ -29,8 +29,9 @@ namespace Jint.Tests.PublicInterface;
 public class HostCollectionScriptPropertyDeleteTests
 {
     /// <summary>
-    /// The collection views, one per wrapper class plus the read-only and dictionary-shaped variants, then the
-    /// plain wrappers they must agree with.
+    /// The collection views, one per wrapper class plus the read-only variants, then <c>JObject</c> (wrapped as a
+    /// dictionary since #4501) and the plain wrappers they must agree with. The dictionary-shaped view is
+    /// <see cref="KeyedList"/>'s.
     /// </summary>
     private static readonly string[] _shapes =
     [

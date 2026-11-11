@@ -18,7 +18,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
     internal ArrayIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype objectPrototype) : base(engine, realm, objectPrototype)
+        IteratorPrototype objectPrototype) : base(engine, realm, objectPrototype, IteratorBrand.Array)
     {
     }
 
@@ -55,7 +55,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
     // Captured into IteratorPrototype._originalNextFunction, which ToIteratorRecordReadingNext compares a read of `next`
     // against.
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.Array);
 
     /// <summary>
     /// The built-in %ArrayIteratorPrototype%.next (https://tc39.es/ecma262/#sec-%arrayiteratorprototype%.next), captured
