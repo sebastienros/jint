@@ -8595,9 +8595,11 @@ const grow = [undefined];
 
 This holds for every function a parameter list belongs to: a function, an arrow, a method, a class constructor, and
 the async and generator forms of each. A rest element reads the length again at each step, so a getter that grows or
-shrinks the array while the rest collects changes what it collects. A parameter pattern over an array that holds no
-getter and that no initializer changes binds what it did, and declarations and assignments are unchanged. There is no
-switch back.
+shrinks the array while the rest collects changes what it collects. A getter an array inherits from `Array.prototype`
+at an index past the pattern no longer runs either, and an array whose `length` is `2 ** 32 - 1`, over which any such
+pattern used to throw a CLR `OverflowException` out of `Execute`, now binds, a rest collecting it under the engine's
+constraints. Otherwise a parameter pattern over an array that holds no getter and that no initializer changes binds
+what it did, and declarations and assignments are unchanged. There is no switch back.
 
 ## 5. New in v5
 
