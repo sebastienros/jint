@@ -25,7 +25,6 @@ internal sealed partial class RegExpPrototype : Prototype
 
     private static readonly JsString PropertyExec = new("exec");
     private static readonly JsString PropertyIndex = new("index");
-    private static readonly JsString PropertyInput = new("input");
     private static readonly JsString PropertySticky = new("sticky");
     private static readonly JsString PropertyGlobal = new("global");
     internal static readonly JsString PropertySource = new("source");
@@ -37,6 +36,12 @@ internal sealed partial class RegExpPrototype : Prototype
     private static readonly JsString PropertyDotAll = new("dotAll");
     private static readonly JsString PropertyUnicode = new("unicode");
     private static readonly JsString PropertyUnicodeSets = new("unicodeSets");
+
+    // The names of the data properties RegExpBuiltinExec adds to its result, hashed once (see DefineResultProperty).
+    private static readonly Key KeyIndex = "index";
+    private static readonly Key KeyInput = "input";
+    private static readonly Key KeyGroups = "groups";
+    private static readonly Key KeyIndices = "indices";
 
     [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
     private readonly RegExpConstructor _constructor;
@@ -267,6 +272,7 @@ internal sealed partial class RegExpPrototype : Prototype
             var sb = new ValueStringBuilder(stackalloc char[256]);
 
             int lastPos = 0;
+            int lastMatchIndex = 0;
             int searchStart = 0;
             int maxCount = global ? int.MaxValue : 1;
             int count = 0;
@@ -288,6 +294,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 sb.Append(s.AsSpan(lastPos, matchIndex - lastPos));
                 sb.Append(replStr);
 
+                lastMatchIndex = matchIndex;
                 lastPos = matchIndex + matchLength;
                 searchStart = matchLength == 0
                     ? (int) AdvanceStringIndex(s, (ulong) matchIndex, fullUnicode)
@@ -301,6 +308,9 @@ internal sealed partial class RegExpPrototype : Prototype
                 sb.Dispose();
                 return s;
             }
+
+            // The statics report the last match only: lastPos is where it ended.
+            RecordLegacyRange(customRei, customEngine, s, lastMatchIndex, lastPos - lastMatchIndex);
 
             sb.Append(s.AsSpan(lastPos));
             return sb.ToString();
@@ -396,7 +406,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 _engine.Constraints.Check();
             }
 
-            var result = RegExpExec(rx, s);
+            var result = RegExpExec(rx, s, _realm);
             if (result.IsNull())
             {
                 break;
@@ -575,7 +585,11 @@ internal sealed partial class RegExpPrototype : Prototype
             return s;
         }
 
-        UpdateLegacyStaticProperties(_engine, matcher, s, spans, (matches - 1) * stride);
+        var legacyStatics = LegacyStaticsTarget(rei);
+        if (legacyStatics is not null)
+        {
+            RecordLegacySpans(legacyStatics, matcher, s, spans, (matches - 1) * stride);
+        }
 
         var template = functionalReplace ? null : TypeConverter.ToString(replaceValue);
         var sb = new ValueStringBuilder(stackalloc char[256]);
@@ -673,29 +687,132 @@ internal sealed partial class RegExpPrototype : Prototype
         return groups;
     }
 
-    private static void UpdateLegacyStaticProperties(Engine engine, JintRegExpEngine matcher, string s, List<int> spans, int offset)
+    /// <summary>
+    /// The <c>%RegExp%</c> whose legacy static properties a successful match of <paramref name="r"/> updates, or
+    /// <see langword="null"/> when it updates none. This is the hook the RegExp Legacy Features proposal adds to the end
+    /// of RegExpBuiltinExec (https://github.com/tc39/proposal-regexp-legacy-features): when the current realm - that of
+    /// the <c>exec</c> function that runs RegExpBuiltinExec, see <see cref="ExecRealm"/> - is the regexp's own, a regexp
+    /// that <c>RegExp</c> itself allocated updates that realm's statics, and one a subclass allocated invalidates them
+    /// (every static but <c>input</c> then throws a <c>TypeError</c> until the next update); a regexp of another realm
+    /// touches neither. <paramref name="thisRealm"/> is that current realm.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static RegExpConstructor? LegacyStaticsTarget(JsRegExp r, Realm thisRealm)
     {
-        var constructor = engine.Realm.Intrinsics.RegExp;
-        constructor._legacyInput = s;
-        constructor.SetLegacyContext(s, spans[offset], spans[offset + 1]);
-
-        var lastParen = "";
-        for (var i = 0; i < 9; i++)
+        var owner = r.LegacyConstructor;
+        if (!ReferenceEquals(owner._realm, thisRealm))
         {
-            var group = i + 1;
-            if (group < matcher.CaptureCount && spans[offset + 2 * group] >= 0)
-            {
-                var value = s.Substring(spans[offset + 2 * group], spans[offset + 2 * group + 1]);
-                constructor._legacyParens[i] = value;
-                lastParen = value;
-            }
-            else
-            {
-                constructor._legacyParens[i] = "";
-            }
+            return null;
         }
 
-        constructor._legacyLastParen = lastParen;
+        return r.LegacyFeaturesEnabled ? owner : InvalidateLegacyStatics(owner);
+    }
+
+    /// <summary>
+    /// <see cref="LegacyStaticsTarget(JsRegExp, Realm)"/> for a lane that has found the regexp's <c>exec</c> to be the
+    /// built-in one, so the current realm is <see cref="ExecRealm"/>. The common case - a regexp <c>RegExp</c> itself
+    /// allocated, still on the <c>RegExp.prototype</c> of that realm - is that regexp's prototype being its owner's, which
+    /// settles both the realm and the flag without finding the exec's realm.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static RegExpConstructor? LegacyStaticsTarget(JsRegExp r)
+    {
+        var owner = r.LegacyConstructor;
+        if (r.LegacyFeaturesEnabled && ReferenceEquals(r._prototype, owner.PrototypeObject))
+        {
+            return owner;
+        }
+
+        return LegacyStaticsTargetOfAnotherPrototype(r);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static RegExpConstructor? LegacyStaticsTargetOfAnotherPrototype(JsRegExp r) => LegacyStaticsTarget(r, ExecRealm(r));
+
+    /// <summary>
+    /// The current realm of the RegExpBuiltinExec a lane stands in for: the realm of the <c>exec</c> function that
+    /// RegExpExec calls (https://tc39.es/ecma262/#sec-regexpexec step 5) when it is the built-in one, because calling a
+    /// function makes its realm the current one (https://tc39.es/ecma262/#sec-built-in-function-objects-call-thisargument-argumentslist). That
+    /// built-in is the one the regexp's own prototype carries, which is where <see cref="JsRegExp.HasDefaultRegExpExec"/>
+    /// looks; it is not the realm of the method that called RegExpExec, which can be another realm's
+    /// (<c>RegExp.prototype.test.call(otherRealmRegExp, s)</c> runs the other realm's <c>exec</c>).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Realm ExecRealm(JsRegExp r)
+        => r._prototype is RegExpPrototype prototype ? prototype._realm : r.Engine.Realm;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static RegExpConstructor? InvalidateLegacyStatics(RegExpConstructor constructor)
+    {
+        constructor.InvalidateLegacyProperties();
+        return null;
+    }
+
+    /// <summary>
+    /// Records the last match of a lane that asked its matcher for a range only: <paramref name="index"/> and
+    /// <paramref name="length"/> are all it knows of the match. A pattern without captures needs nothing more; one
+    /// with captures is recorded as the search that finds it, which the statics run if one of them is read.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void RecordLegacyRange(JsRegExp r, JintRegExpEngine matcher, string s, int index, int length)
+    {
+        var constructor = LegacyStaticsTarget(r);
+        if (constructor is null)
+        {
+            return;
+        }
+
+        if (matcher.CaptureCount == 1)
+        {
+            constructor.SetLegacyMatch(s, index, length, groupCount: 1);
+        }
+        else
+        {
+            constructor.SetLegacyPending(s, r, matcher, index, find: false);
+        }
+    }
+
+    /// <summary>
+    /// Records the last match of a lane that did not learn where it was, or what its captures are, as the search
+    /// that finds it: the statics run that search from <paramref name="searchStart"/> if one of them is read.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void RecordLegacyPending(JsRegExp r, JintRegExpEngine matcher, string s, int searchStart, bool find)
+    {
+        LegacyStaticsTarget(r)?.SetLegacyPending(s, r, matcher, searchStart, find);
+    }
+
+    /// <summary>
+    /// Runs again the search a lane recorded with <see cref="RecordLegacyPending"/>, writing the spans of its groups,
+    /// under the same timeout. The matcher is a pure function of the pattern, the subject and where the search starts, so
+    /// this finds the match the lane found.
+    /// </summary>
+    internal static bool ReplayLegacyMatch(JsRegExp r, JintRegExpEngine matcher, string s, int searchStart, bool find, RegexCapture[] groups)
+    {
+        return find
+            ? TryFindWithTimeout(r, matcher, s, searchStart, groups)
+            : TryMatchWithTimeout(r, matcher, s, searchStart, groups);
+    }
+
+    /// <summary>
+    /// The legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B) after the match whose
+    /// (index, length) pairs start at <paramref name="offset"/> in <paramref name="spans"/>, where an index below
+    /// zero marks a group that took no part. Records the spans only; the values are cut out when read.
+    /// </summary>
+    private static void RecordLegacySpans(RegExpConstructor constructor, JintRegExpEngine matcher, string s, List<int> spans, int offset)
+    {
+        var groupCount = matcher.CaptureCount;
+        constructor.SetLegacyMatch(s, spans[offset], spans[offset + 1], groupCount);
+        for (var group = 1; group < groupCount && group <= 9; group++)
+        {
+            constructor.SetLegacyParen(group - 1, spans[offset + 2 * group], spans[offset + 2 * group + 1]);
+        }
+
+        if (groupCount > 10)
+        {
+            // lastParen is the last capture, which is not among the nine whose spans were just kept.
+            constructor.SetLegacyLastCapture(spans[offset + 2 * (groupCount - 1)], spans[offset + 2 * (groupCount - 1) + 1]);
+        }
     }
 
     private static string CallFunctionalReplace(JsValue replacer, JsCallArguments replacerArgs)
@@ -964,7 +1081,7 @@ internal sealed partial class RegExpPrototype : Prototype
         if (s.Length == 0)
         {
             var a = _realm.Intrinsics.Array.ArrayCreate(0);
-            var z = RegExpExec(splitter, s);
+            var z = RegExpExec(splitter, s, _realm);
             if (!z.IsNull())
             {
                 return a;
@@ -980,9 +1097,15 @@ internal sealed partial class RegExpPrototype : Prototype
             {
                 // The empty pattern matches between every pair of code units (or code points under u/v), which is
                 // a split into single characters; there is nothing for a matcher to search for.
-                return unicodeMatching
-                    ? SplitFused(fused, s, unicodeMatching, lim)
-                    : StringPrototype.SplitWithStringSeparator(_engine, _realm, "", s, (uint) System.Math.Min(s.Length, lim));
+                if (unicodeMatching)
+                {
+                    return SplitFused(fused, s, unicodeMatching, lim);
+                }
+
+                // The splitter's last successful exec is the empty match at the position that pushed the last piece,
+                // which is lim, or the last position of the subject when there is room for every piece.
+                RecordLegacyRange(fused, fused.Matcher!, s, (int) System.Math.Min(lim, s.Length - 1), 0);
+                return StringPrototype.SplitWithStringSeparator(_engine, _realm, "", s, (uint) System.Math.Min(s.Length, lim));
             }
 
             return SplitFused(fused, s, unicodeMatching, lim);
@@ -1126,6 +1249,8 @@ internal sealed partial class RegExpPrototype : Prototype
 
         var groups = new RegexCapture[matcher.CaptureCount];
         var builder = new JsValueListBuilder(16);
+        // Where the splitter's last successful exec matched (-1: it never did), which is what the legacy statics report.
+        var foundIndex = -1;
         try
         {
             var size = s.Length;
@@ -1152,6 +1277,7 @@ internal sealed partial class RegExpPrototype : Prototype
                     break;
                 }
 
+                foundIndex = matchStart;
                 var e = System.Math.Min(matchStart + groups[0].Length, size);
                 if (e == p)
                 {
@@ -1185,6 +1311,11 @@ internal sealed partial class RegExpPrototype : Prototype
         finally
         {
             builder.Dispose();
+            if (foundIndex >= 0)
+            {
+                // The captures of that exec are found again if a static is read; the splitter searched forward from q.
+                RecordLegacyPending(splitter, matcher, s, foundIndex, find: true);
+            }
         }
     }
 
@@ -1198,6 +1329,9 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         Span<RegexMatchRange> ranges = stackalloc RegexMatchRange[32];
         var builder = new JsValueListBuilder(16);
+        // The splitter's last successful exec (-1: it never matched), which is what the legacy statics report.
+        var foundIndex = -1;
+        var foundLength = 0;
         try
         {
             var size = s.Length;
@@ -1228,6 +1362,8 @@ internal sealed partial class RegExpPrototype : Prototype
                         break;
                     }
 
+                    foundIndex = matchStart;
+                    foundLength = ranges[i].Length;
                     var e = System.Math.Min(matchStart + ranges[i].Length, size);
                     if (e == p)
                     {
@@ -1253,6 +1389,10 @@ internal sealed partial class RegExpPrototype : Prototype
         finally
         {
             builder.Dispose();
+            if (foundIndex >= 0)
+            {
+                RecordLegacyRange(splitter, matcher, s, foundIndex, foundLength);
+            }
         }
     }
 
@@ -1291,7 +1431,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 }
 
                 splitter.Set(JsRegExp.PropertyLastIndex, currentIndex, true);
-                var z = RegExpExec(splitter, s);
+                var z = RegExpExec(splitter, s, _realm);
                 if (z.IsNull())
                 {
                     currentIndex = AdvanceStringIndex(s, currentIndex, unicodeMatching);
@@ -1388,7 +1528,15 @@ internal sealed partial class RegExpPrototype : Prototype
                 var customEngine = R.Matcher!;
                 if (!R.Sticky && !R.Global)
                 {
-                    return IsMatchWithTimeout(R, customEngine, s, 0);
+                    if (!IsMatchWithTimeout(R, customEngine, s, 0))
+                    {
+                        return JsBoolean.False;
+                    }
+
+                    // The matcher was asked only whether there is a match, so that is all that is recorded: the statics
+                    // search again from the start if one is read.
+                    RecordLegacyPending(R, customEngine, s, 0, find: false);
+                    return JsBoolean.True;
                 }
 
                 if (!TryGetSearchStart(R, s, numericLastIndex, out var lastIndex))
@@ -1404,6 +1552,7 @@ internal sealed partial class RegExpPrototype : Prototype
                     return JsBoolean.False;
                 }
                 R.Set(JsRegExp.PropertyLastIndex, matchIndex + matchLength, throwOnError: true);
+                RecordLegacyRange(R, customEngine, s, matchIndex, matchLength);
                 return JsBoolean.True;
             }
 
@@ -1434,7 +1583,7 @@ internal sealed partial class RegExpPrototype : Prototype
             }
         }
 
-        var match = RegExpExec(r, s);
+        var match = RegExpExec(r, s, _realm);
         return !match.IsNull();
     }
 
@@ -1489,7 +1638,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 found = TryMatchRangeWithTimeout(customR, matcher, s, 0, out searchIndex, out var searchLength);
                 if (found)
                 {
-                    UpdateLegacyStaticProperties(_engine, s, [new RegexCapture(true, searchIndex, searchLength)], 1);
+                    RecordLegacyRange(customR, matcher, s, searchIndex, searchLength);
                 }
             }
             else
@@ -1499,7 +1648,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 searchIndex = groups[0].Index;
                 if (found)
                 {
-                    UpdateLegacyStaticProperties(_engine, s, groups, groups.Length);
+                    RecordLegacyCaptures(customR, ExecRealm(customR), s, groups);
                 }
             }
 
@@ -1512,7 +1661,7 @@ internal sealed partial class RegExpPrototype : Prototype
             return found ? searchIndex : -1;
         }
 
-        var result = RegExpExec(rx, s);
+        var result = RegExpExec(rx, s, _realm);
         var currentLastIndex = rx.Get(JsRegExp.PropertyLastIndex);
         if (!SameValue(currentLastIndex, previousLastIndex))
         {
@@ -1540,7 +1689,7 @@ internal sealed partial class RegExpPrototype : Prototype
         var global = flags.Contains('g');
         if (!global)
         {
-            return RegExpExec(rx, s);
+            return RegExpExec(rx, s, _realm);
         }
 
         var fullUnicode = flags.Contains('u') || flags.Contains('v');
@@ -1555,6 +1704,8 @@ internal sealed partial class RegExpPrototype : Prototype
             try
             {
                 int lastIndex = 0;
+                int lastMatchIndex = 0;
+                int lastMatchLength = 0;
                 using var batch = JintRegExpEngine.BeginBatch();
                 var loopTimeout = GetCustomEngineTimeout(rei);
                 while (lastIndex <= s.Length)
@@ -1570,6 +1721,8 @@ internal sealed partial class RegExpPrototype : Prototype
                     }
 
                     builder.Add(s.Substring(matchIndex, matchLength));
+                    lastMatchIndex = matchIndex;
+                    lastMatchLength = matchLength;
 
                     if (matchLength == 0)
                     {
@@ -1581,7 +1734,14 @@ internal sealed partial class RegExpPrototype : Prototype
                     }
                 }
 
-                return builder.Length == 0 ? Null : _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+                if (builder.Length == 0)
+                {
+                    return Null;
+                }
+
+                // The statics report the last match only.
+                RecordLegacyRange(rei, customEngine, s, lastMatchIndex, lastMatchLength);
+                return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
             }
             finally
             {
@@ -1666,7 +1826,7 @@ internal sealed partial class RegExpPrototype : Prototype
                     _engine.Constraints.Check();
                 }
 
-                var result = RegExpExec(rx, s);
+                var result = RegExpExec(rx, s, _realm);
                 if (result.IsNull())
                 {
                     return builder.Length == 0 ? Null : _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
@@ -1736,11 +1896,20 @@ internal sealed partial class RegExpPrototype : Prototype
         return index + 2;
     }
 
-    internal static JsValue RegExpExec(ObjectInstance r, string s)
+    internal static JsValue RegExpExec(ObjectInstance r, string s) => RegExpExec(r, s, r.Engine.Realm);
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-regexpexec, run by a built-in of <paramref name="thisRealm"/>. That is the current
+    /// realm only for an <c>exec</c> that is not callable, where RegExpBuiltinExec runs in the caller's realm; a callable
+    /// <c>exec</c> runs in its own, which for the built-in one is <see cref="ExecRealm"/> and for any other is its
+    /// function's.
+    /// </summary>
+    internal static JsValue RegExpExec(ObjectInstance r, string s, Realm thisRealm)
     {
         var ri = r as JsRegExp;
+        var defaultExec = ri is not null && ri.HasDefaultRegExpExec;
 
-        if ((ri is null || !ri.HasDefaultRegExpExec) && r.Get(PropertyExec) is ICallable callable)
+        if (!defaultExec && r.Get(PropertyExec) is ICallable callable)
         {
             var result = callable.Call(r, s);
             if (!result.IsNull() && !result.IsObject())
@@ -1756,12 +1925,13 @@ internal sealed partial class RegExpPrototype : Prototype
             Throw.TypeError(r.Engine.Realm, "Method RegExp.prototype.exec called on incompatible receiver");
         }
 
-        return RegExpBuiltinExec(ri, s);
+        // The built-in exec is called, as RegExpExec step 5 has it, so its realm is the current one.
+        return RegExpBuiltinExec(ri, s, defaultExec ? ExecRealm(ri) : thisRealm);
     }
 
     /// <summary>
     /// Whether <c>RegExp.prototype.exec</c> is still this realm's built-in implementation, which is what
-    /// lets <see cref="RegExpExec"/> and the fast paths skip the <c>Get(R, "exec")</c> of
+    /// lets <see cref="RegExpExec(ObjectInstance, string)"/> and the fast paths skip the <c>Get(R, "exec")</c> of
     /// <see href="https://tc39.es/ecma262/#sec-regexpexec">RegExpExec</see> step 1.
     /// <para>
     /// The check reads the own descriptor rather than performing an ordinary <c>[[Get]]</c>: a script may
@@ -1790,7 +1960,12 @@ internal sealed partial class RegExpPrototype : Prototype
     /// deliberately not <c>RegExpExec</c>, so a script that replaced <c>RegExp.prototype.exec</c> cannot observe
     /// or alter a <c>URLPattern</c> match.
     /// </remarks>
-    internal static JsValue RegExpBuiltinExec(JsRegExp R, string s)
+    internal static JsValue RegExpBuiltinExec(JsRegExp R, string s) => RegExpBuiltinExec(R, s, R.Engine.Realm);
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-regexpbuiltinexec, with <paramref name="thisRealm"/> as the current realm.
+    /// </summary>
+    internal static JsValue RegExpBuiltinExec(JsRegExp R, string s, Realm thisRealm)
     {
         var length = (ulong) s.Length;
         var lastIndex = TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
@@ -1806,18 +1981,13 @@ internal sealed partial class RegExpPrototype : Prototype
         if (!global && !sticky && !R.Indices
             && string.Equals(R.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
         {
-            // "aaa".match() => [ '', index: 0, input: 'aaa' ]
-            var array = R.Engine.Realm.Intrinsics.Array.ArrayCreate(1);
-            array.DefineOwnDataPropertyUnchecked(PropertyIndex._value, lastIndex);
-            array.DefineOwnDataPropertyUnchecked(PropertyInput._value, s);
-            array.SetIndexValue(0, JsString.Empty, updateLength: false);
-            return array;
+            return CreateEmptyPatternResult(R, s, thisRealm);
         }
 
         // Every pattern written in script runs on the ECMAScript matcher; only a host-supplied Regex reaches .NET.
         if (!R.UsesDotNetEngine)
         {
-            return CustomEngineBuiltinExec(R, R.Matcher!, s, lastIndex, global, sticky);
+            return CustomEngineBuiltinExec(R, R.Matcher!, s, lastIndex, global, sticky, thisRealm);
         }
 
         var matcher = R.HostRegex!;
@@ -1833,7 +2003,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 return Null;
             }
 
-            return CreateReturnValueArray(R, m, s, fullUnicode: false, hasIndices: false);
+            return CreateReturnValueArray(R, m, s, fullUnicode: false, hasIndices: false, thisRealm);
         }
 
         // the stateful version
@@ -1890,13 +2060,33 @@ internal sealed partial class RegExpPrototype : Prototype
             R.Set(JsRegExp.PropertyLastIndex, e, true);
         }
 
-        return CreateReturnValueArray(R, match, s, fullUnicode, hasIndices);
+        return CreateReturnValueArray(R, match, s, fullUnicode, hasIndices, thisRealm);
+    }
+
+    /// <summary>
+    /// The result of <c>RegExpBuiltinExec</c> for the empty pattern <c>(?:)</c> on a regexp that is neither global nor
+    /// sticky, which needs no matcher: it matches the empty string at index 0, with no captures and no named groups.
+    /// That is the array <see cref="CreateReturnValueArrayFromCustom"/> builds for it - <c>index</c>, <c>input</c> and
+    /// <c>groups</c> (an own <c>undefined</c>) in that order, then the legacy statics -
+    /// https://tc39.es/ecma262/#sec-regexpbuiltinexec steps 20-36 - without the matcher call or the capture span array.
+    /// </summary>
+    private static JsArray CreateEmptyPatternResult(JsRegExp R, string s, Realm thisRealm)
+    {
+        var engine = R.Engine;
+        var array = engine.Realm.Intrinsics.Array.ArrayCreate(1);
+        DefineResultProperty(array, KeyIndex, JsNumber.PositiveZero);
+        DefineResultProperty(array, KeyInput, s);
+        DefineResultProperty(array, KeyGroups, Undefined);
+        array.SetIndexValue(0, JsString.Empty, updateLength: false);
+
+        LegacyStaticsTarget(R, thisRealm)?.SetLegacyMatch(s, 0, 0, groupCount: 1);
+        return array;
     }
 
     /// <summary>
     /// RegExpBuiltinExec implementation for the custom regex engine.
     /// </summary>
-    private static JsValue CustomEngineBuiltinExec(JsRegExp R, JintRegExpEngine customEngine, string s, ulong lastIndex, bool global, bool sticky)
+    private static JsValue CustomEngineBuiltinExec(JsRegExp R, JintRegExpEngine customEngine, string s, ulong lastIndex, bool global, bool sticky, Realm thisRealm)
     {
         var hasIndices = R.Indices;
         var length = (ulong) s.Length;
@@ -1931,7 +2121,7 @@ internal sealed partial class RegExpPrototype : Prototype
             R.Set(JsRegExp.PropertyLastIndex, e, true);
         }
 
-        return CreateReturnValueArrayFromCustom(R, customEngine, groups, s, hasIndices);
+        return CreateReturnValueArrayFromCustom(R, customEngine, groups, s, hasIndices, thisRealm);
     }
 
     /// <summary>
@@ -2065,6 +2255,34 @@ internal sealed partial class RegExpPrototype : Prototype
     }
 
     /// <summary>
+    /// Adds <c>index</c>, <c>input</c>, <c>groups</c> or <c>indices</c> to the result array of a match, as
+    /// <c>CreateDataPropertyOrThrow(A, name, value)</c> does in
+    /// https://tc39.es/ecma262/#sec-regexpbuiltinexec steps 22-36 and
+    /// https://tc39.es/ecma262/#sec-makematchindicesindexpairarray: a writable, enumerable, configurable data property.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <paramref name="array"/> was created a few lines earlier by the caller, so it is extensible, has never been
+    /// handed to script and holds none of these names - the checks <see cref="ObjectInstance.DefineOwnProperty"/> runs
+    /// can only answer "yes". Going through it cost two descriptors per property (the one
+    /// <c>CreateDataProperty</c> builds to describe the define and the one it stores) plus the lookup that proves the
+    /// name is absent; this stores the one descriptor that is kept. Do not use it for an array that has been seen by
+    /// script, or in order to overwrite a name: it replaces whatever is there without asking.
+    /// </para>
+    /// <para>
+    /// An array has no hidden-class shape to fall out of (<c>ShapeMode</c> belongs to <see cref="JsObject"/>), so the
+    /// raw store costs a result array nothing the define did not: its named members live in the same property
+    /// dictionary, as the same descriptors, in the same order, and <c>m.index</c> is read by the same lane as before.
+    /// The change flag the array's own <c>[[DefineOwnProperty]]</c> raises for a named property is one nothing reads.
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void DefineResultProperty(JsArray array, Key name, JsValue value)
+    {
+        array.SetProperty(name, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
+    }
+
+    /// <summary>
     /// Build the JS result array from a custom engine match result.
     /// </summary>
     /// <summary>
@@ -2075,13 +2293,14 @@ internal sealed partial class RegExpPrototype : Prototype
         JintRegExpEngine matcher,
         RegexCapture[] groups,
         string s,
-        bool hasIndices)
+        bool hasIndices,
+        Realm thisRealm)
     {
         var engine = rei.Engine;
         var actualGroupCount = groups.Length;
         var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) actualGroupCount);
-        array.CreateDataProperty(PropertyIndex, groups[0].Index);
-        array.CreateDataProperty(PropertyInput, s);
+        DefineResultProperty(array, KeyIndex, groups[0].Index);
+        DefineResultProperty(array, KeyInput, s);
 
         ObjectInstance? jsGroups = null;
         List<string?>? groupNames = null;
@@ -2134,45 +2353,47 @@ internal sealed partial class RegExpPrototype : Prototype
             array.SetIndexValue((uint) i, capturedValue, updateLength: false);
         }
 
-        array.CreateDataProperty(PropertyGroups, jsGroups ?? Undefined);
+        DefineResultProperty(array, KeyGroups, jsGroups ?? Undefined);
 
         if (hasIndices)
         {
             var indicesArray = MakeMatchIndicesIndexPairArray(engine, s, indices!, groupNames, hasAnyGroupName);
-            array.CreateDataPropertyOrThrow("indices", indicesArray);
+            DefineResultProperty(array, KeyIndices, indicesArray);
         }
 
-        UpdateLegacyStaticProperties(engine, s, groups, actualGroupCount);
+        RecordLegacyCaptures(rei, thisRealm, s, groups);
         return array;
     }
 
     /// <summary>
-    /// The legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B) after a successful match:
-    /// <paramref name="groups"/>[0] is the match, the next <paramref name="groupCount"/> - 1 its captures.
+    /// The legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B) after a successful match of
+    /// <paramref name="r"/> with <paramref name="thisRealm"/> as the current realm: <paramref name="groups"/>[0] is the match,
+    /// the rest its captures.
     /// </summary>
-    private static void UpdateLegacyStaticProperties(Engine engine, string s, ReadOnlySpan<RegexCapture> groups, int groupCount)
+    private static void RecordLegacyCaptures(JsRegExp r, Realm thisRealm, string s, RegexCapture[] groups)
     {
-        var constructor = engine.Realm.Intrinsics.RegExp;
-        constructor._legacyInput = s;
-        // lastMatch/leftContext/rightContext are all derived from this position on read.
-        constructor.SetLegacyContext(s, groups[0].Index, groups[0].Length);
-        var lastParen = "";
-        for (var i = 0; i < 9; i++)
+        var constructor = LegacyStaticsTarget(r, thisRealm);
+        if (constructor is null)
         {
-            var group = i + 1;
-            if (group < groupCount && groups[group].Participated)
-            {
-                var groupValue = s.Substring(groups[group].Index, groups[group].Length);
-                constructor._legacyParens[i] = groupValue;
-                lastParen = groupValue;
-            }
-            else
-            {
-                constructor._legacyParens[i] = "";
-            }
+            return;
         }
 
-        constructor._legacyLastParen = lastParen;
+        var groupCount = groups.Length;
+        // Only the spans are recorded: every value, lastMatch/leftContext/rightContext and $1-$9 alike, is cut out of
+        // the subject by the read that wants it.
+        constructor.SetLegacyMatch(s, groups[0].Index, groups[0].Length, groupCount);
+        for (var group = 1; group < groupCount && group <= 9; group++)
+        {
+            var capture = groups[group];
+            constructor.SetLegacyParen(group - 1, capture.Participated ? capture.Index : -1, capture.Length);
+        }
+
+        if (groupCount > 10)
+        {
+            // lastParen is the last capture, which is not among the nine whose spans were just kept.
+            var last = groups[groupCount - 1];
+            constructor.SetLegacyLastCapture(last.Participated ? last.Index : -1, last.Length);
+        }
     }
 
     private static JsArray CreateReturnValueArray(
@@ -2180,13 +2401,14 @@ internal sealed partial class RegExpPrototype : Prototype
         Match match,
         string s,
         bool fullUnicode,
-        bool hasIndices)
+        bool hasIndices,
+        Realm thisRealm)
     {
         var engine = rei.Engine;
         var actualGroupCount = GetActualRegexGroupCount(rei, match);
         var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) actualGroupCount);
-        array.CreateDataProperty(PropertyIndex, match.Index);
-        array.CreateDataProperty(PropertyInput, s);
+        DefineResultProperty(array, KeyIndex, match.Index);
+        DefineResultProperty(array, KeyInput, s);
 
         ObjectInstance? groups = null;
         List<string?>? groupNames = null;
@@ -2252,16 +2474,16 @@ internal sealed partial class RegExpPrototype : Prototype
             array.SetIndexValue(i, capturedValue, updateLength: false);
         }
 
-        array.CreateDataProperty(PropertyGroups, groups ?? Undefined);
+        DefineResultProperty(array, KeyGroups, groups ?? Undefined);
 
         if (hasIndices)
         {
             var indicesArray = MakeMatchIndicesIndexPairArray(engine, s, indices!, groupNames, hasAnyGroupName);
-            array.CreateDataPropertyOrThrow("indices", indicesArray);
+            DefineResultProperty(array, KeyIndices, indicesArray);
         }
 
         // Update the legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B)
-        UpdateLegacyStaticProperties(engine, match, s, actualGroupCount);
+        RecordLegacyMatch(rei, thisRealm, match, s, actualGroupCount);
 
         return array;
     }
@@ -2271,31 +2493,29 @@ internal sealed partial class RegExpPrototype : Prototype
     /// "RegExp Legacy Features" proposal (https://github.com/tc39/proposal-regexp-legacy-features),
     /// not from ECMA-262 Annex B.
     /// </summary>
-    private static void UpdateLegacyStaticProperties(Engine engine, Match match, string s, int actualGroupCount)
+    private static void RecordLegacyMatch(JsRegExp r, Realm thisRealm, Match match, string s, int actualGroupCount)
     {
-        var constructor = engine.Realm.Intrinsics.RegExp;
-        constructor._legacyInput = s;
-        // lastMatch/leftContext/rightContext are all derived from this position on read.
-        constructor.SetLegacyContext(s, match.Index, match.Length);
-
-        // Update $1-$9
-        var lastParen = "";
-        for (var i = 0; i < 9; i++)
+        var constructor = LegacyStaticsTarget(r, thisRealm);
+        if (constructor is null)
         {
-            var groupIndex = i + 1;
-            if (groupIndex < actualGroupCount && match.Groups[groupIndex].Success)
-            {
-                // Capture.Value builds a fresh string on every read, so take it once.
-                var groupValue = match.Groups[groupIndex].Value;
-                constructor._legacyParens[i] = groupValue;
-                lastParen = groupValue;
-            }
-            else
-            {
-                constructor._legacyParens[i] = "";
-            }
+            return;
         }
-        constructor._legacyLastParen = lastParen;
+
+        constructor.SetLegacyMatch(s, match.Index, match.Length, actualGroupCount);
+
+        // $1-$9: the spans only, cut out of the subject when read.
+        for (var group = 1; group < actualGroupCount && group <= 9; group++)
+        {
+            var capture = match.Groups[group];
+            constructor.SetLegacyParen(group - 1, capture.Success ? capture.Index : -1, capture.Length);
+        }
+
+        if (actualGroupCount > 10)
+        {
+            // lastParen is the last capture, which is not among the nine whose spans were just kept.
+            var last = match.Groups[actualGroupCount - 1];
+            constructor.SetLegacyLastCapture(last.Success ? last.Index : -1, last.Length);
+        }
     }
 
     /// <summary>
@@ -2325,7 +2545,7 @@ internal sealed partial class RegExpPrototype : Prototype
             }
         }
 
-        a.CreateDataPropertyOrThrow("groups", groups ?? Undefined);
+        DefineResultProperty(a, KeyGroups, groups ?? Undefined);
         for (var i = 0; i < n; ++i)
         {
             var matchIndices = indices[i];
@@ -2399,9 +2619,11 @@ internal sealed partial class RegExpPrototype : Prototype
             return default!;
         }
 
-        // 3. If SameValue(O.[[Prototype]], %RegExp%.prototype) is false, throw a TypeError.
-        // This rejects subclass instances and cross-realm instances.
-        if (!ReferenceEquals(r.Prototype, _realm.Intrinsics.RegExp.PrototypeObject))
+        // 3. The RegExp Legacy Features proposal (https://github.com/tc39/proposal-regexp-legacy-features, the changes to
+        // RegExp.prototype.compile): if the current realm is not O.[[Realm]], or O.[[LegacyFeaturesEnabled]] is false,
+        // throw a TypeError. That rejects an instance a subclass allocated and an instance of another realm, by the two
+        // slots RegExpAlloc set rather than by what its prototype happens to be now.
+        if (!ReferenceEquals(r.LegacyConstructor._realm, _realm) || !r.LegacyFeaturesEnabled)
         {
             Throw.TypeError(_realm, "RegExp.prototype.compile cannot be used on RegExp subclass or cross-realm instances");
             return default!;
@@ -2441,6 +2663,6 @@ internal sealed partial class RegExpPrototype : Prototype
         }
 
         var s = TypeConverter.ToString(arguments.At(0));
-        return RegExpBuiltinExec(r, s);
+        return RegExpBuiltinExec(r, s, _realm);
     }
 }

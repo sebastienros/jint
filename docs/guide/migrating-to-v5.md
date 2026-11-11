@@ -6458,6 +6458,17 @@ record of the migration, including what it found in both engines, is
     patterns, but .NET reads `\d`, `\w`, `\b`, `$` and `.` differently and has no `u`/`v` modes. `new JsRegExp(engine)`
     is the empty pattern `/(?:)/`; build any other with `engine.Intrinsics.RegExp.Construct(new JsValue[] { pattern,
     flags })`.
+- **The legacy statics follow the RegExp Legacy Features proposal.** `RegExp.$1`…`$9`, `lastMatch`, `lastParen`,
+  `leftContext` and `rightContext` now describe the last successful match of every call that matches - `test`, a
+  global `match`, `replace` and `split` as well as `exec` - and `lastParen` is the last capture whether or not it
+  took part (the empty string if not). Whose statics move is decided by the realm of the `exec` function that runs
+  the match (the one `RegExp.prototype.test` and the others call on the regexp): when it is the realm that allocated
+  the regexp they are set, when a subclass of `RegExp` allocated it they are **invalidated** (reading one throws a
+  `TypeError` until the next successful match of a plain `RegExp` sets them again; `RegExp.input` can still be
+  assigned and read), and when another realm allocated it they are left alone. `RegExp.prototype.compile` reads the
+  same two facts instead of looking at the regexp's prototype. V8 applies neither restriction (Node 26 updates the
+  statics after a subclass instance matches), so a script that read `RegExp.$1` after matching with a subclass
+  instance gets a `TypeError` here.
 - **A host `Regex` still matches with .NET semantics by default**, exactly as before. To have it read as an
   ECMAScript pattern instead, set `options.Interop.RegexConversion = RegexConversionMode.EcmaScript`
   ([5.42](#5-42-a-host-regex-can-be-read-as-ecmascript)).
