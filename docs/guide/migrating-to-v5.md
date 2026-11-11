@@ -8545,6 +8545,34 @@ hole the iterator has already finished at does not step it at all, as before. An
 and over a built-in iterator whose result has no `value` a script could observe, behaves as it did. There is no switch
 back.
 
+### 4.235 A parameter's array pattern over an array reads only the elements it steps to
+
+An array pattern in a parameter list, over an array whose iterator is the built-in one, stands for that iterator: each
+element makes one step, which reads the array's `length` and then the element at the next index, and it steps only
+after the element before it has bound. Jint copied the whole array before binding anything. A getter at an index past
+the pattern therefore ran, and one that threw failed a call that bound nothing from it; a getter inside the pattern ran
+before the initializers of the elements ahead of it; and an initializer that pushed to or popped from the array was
+invisible to the elements after it, a rest element included:
+
+```js
+const log = [];
+const arr = [1, 2];
+Object.defineProperty(arr, 2, { get() { log.push('get 2'); return 3; } });
+(function ([a]) {})(arr);
+log.length
+// 4.16.x / earlier 5.0: 1    5.x: 0
+
+const grow = [undefined];
+(function ([a = grow.push('pushed'), b]) { return b; })(grow)
+// 4.16.x / earlier 5.0: undefined    5.x: 'pushed'
+```
+
+This holds for every function a parameter list belongs to: a function, an arrow, a method, a class constructor, and
+the async and generator forms of each. A rest element reads the length again at each step, so a getter that grows or
+shrinks the array while the rest collects changes what it collects. A parameter pattern over an array that holds no
+getter and that no initializer changes binds what it did, and declarations and assignments are unchanged. There is no
+switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
