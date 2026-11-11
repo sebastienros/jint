@@ -224,9 +224,10 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
     /// https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation): nothing once the
     /// iterator is done, and otherwise one step per element until a step finds the index at the length, which each
     /// step reads again, since a getter may grow or shrink the array. While its elements are dense and no prototype
-    /// holds an index, no read runs script, so the length cannot move, and what is left is copied in one pass. A
-    /// parameter's pattern collects through this too, and the rest array is created at the size left, so
-    /// <c>MaxArraySize</c> bounds it as it does every array the engine creates.
+    /// holds an index, no read runs script, so the length cannot move, and what is left is copied in one pass into an
+    /// exact-size list the rest array takes. A parameter's pattern collects through this too. The ownership-taking
+    /// constructor validates no length, so the copy checks <c>MaxArraySize</c> itself, as every array the engine
+    /// creates is bounded.
     /// </summary>
     internal static JsArray CollectRestFromArray(Engine engine, JsArray array, uint position, bool done)
     {
@@ -234,14 +235,19 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
         if (!done && array.CanUseFastAccess && array._dense is { } dense && length <= (uint) dense.Length)
         {
             var count = position < length ? length - position : 0;
-            var rest = engine.Realm.Intrinsics.Array.ArrayCreate(count);
+            if (engine._hasMaxArraySize)
+            {
+                ArrayInstance.ValidateListLength(engine, count);
+            }
+
+            var items = new JsValue[count];
             for (uint j = 0; j < count; j++)
             {
                 array.TryGetValue(position + j, out var item);
-                rest.SetIndexValue(j, item, updateLength: false);
+                items[j] = item;
             }
 
-            return rest;
+            return new JsArray(engine, items);
         }
 
         return CollectRestByStepping(engine, array, position, done);
