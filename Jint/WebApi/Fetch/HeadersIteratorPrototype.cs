@@ -32,7 +32,7 @@ internal sealed partial class HeadersIteratorPrototype : IteratorPrototype
     internal HeadersIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.Headers)
     {
     }
 
@@ -56,7 +56,7 @@ internal sealed partial class HeadersIteratorPrototype : IteratorPrototype
     /// WebIDL too.
     /// </remarks>
     [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable, CaptureField = nameof(_originalNextFunction))]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.Headers);
 
     internal IteratorInstance ConstructEntryIterator(JsHeaders headers)
         => new HeadersIterator(_engine, headers, IteratorKind.KeyAndValue) { _prototype = this };
@@ -80,7 +80,7 @@ internal sealed partial class HeadersIteratorPrototype : IteratorPrototype
         private readonly IteratorKind _kind;
         private int _index;
 
-        public HeadersIterator(Engine engine, JsHeaders headers, IteratorKind kind) : base(engine)
+        public HeadersIterator(Engine engine, JsHeaders headers, IteratorKind kind) : base(engine, IteratorBrand.Headers)
         {
             _headers = headers;
             _kind = kind;
