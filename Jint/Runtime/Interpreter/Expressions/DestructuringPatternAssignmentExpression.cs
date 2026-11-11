@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
@@ -179,6 +180,139 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
             ? array.OriginalIteratorInheritsNoReturnMethod
             : realm.Intrinsics.ArrayIteratorPrototype.InstancesInheritNoReturnMethod();
 
+    /// <summary>
+    /// The step the array lane makes in place of the iterator's, under the same <c>If iteratorRecord.[[Done]] is
+    /// false</c> guard as <see cref="StepValue"/>: %ArrayIteratorPrototype%.next
+    /// (https://tc39.es/ecma262/#sec-%arrayiteratorprototype%.next) reads the length, then gets the element at the
+    /// next index, through a hole to the prototype chain, or reports done without reading anything. The next index is
+    /// the element's own, since every element and elision before it made one step while the iterator was not done;
+    /// once it is, <paramref name="done"/> stays set and nothing is read again, however an initializer, a getter or a
+    /// setter has grown the array since. An array is read as its own iterator reads it, anything else array-like as
+    /// its iterator reads it through <see cref="ArrayOperations"/>: a bare Get, with no HasProperty first.
+    /// <para>
+    /// Out of line, as the virtual read it replaced was: inlined into the pattern's element forms, it grew
+    /// <see cref="HandleArrayPattern"/> past the JIT's budget for the binding each form makes after its step.
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsValue StepIndexed(JsArray? array, ArrayOperations? operations, uint index, ref bool done)
+    {
+        if (!done)
+        {
+            if (array is not null)
+            {
+                if (index < array.GetLength())
+                {
+                    array.TryGetValue(index, out var value);
+                    return value;
+                }
+            }
+            else if (index < operations!.GetLongLength())
+            {
+                return operations.Get(index);
+            }
+
+            done = true;
+        }
+
+        return JsValue.Undefined;
+    }
+
+    /// <summary>
+    /// BindingRestElement and AssignmentRestElement over an array the lane reads by index, from the index its steps
+    /// reached (https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization,
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation): nothing once the
+    /// iterator is done, and otherwise one step per element until a step finds the index at the length, which each
+    /// step reads again, since a getter may grow or shrink the array. While its elements are dense and no prototype
+    /// holds an index, no read runs script, so the length cannot move, and what is left is copied in one pass into an
+    /// exact-size list the rest array takes. A parameter's pattern collects through this too. The ownership-taking
+    /// constructor validates no length, so the copy checks <c>MaxArraySize</c> itself, as every array the engine
+    /// creates is bounded.
+    /// </summary>
+    internal static JsArray CollectRestFromArray(Engine engine, JsArray array, uint position, bool done)
+    {
+        var length = array.GetLength();
+        if (!done && array.CanUseFastAccess && array._dense is { } dense && length <= (uint) dense.Length)
+        {
+            var count = position < length ? length - position : 0;
+            if (engine._hasMaxArraySize)
+            {
+                ArrayInstance.ValidateListLength(engine, count);
+            }
+
+            var items = new JsValue[count];
+            for (uint j = 0; j < count; j++)
+            {
+                array.TryGetValue(position + j, out var item);
+                items[j] = item;
+            }
+
+            return new JsArray(engine, items);
+        }
+
+        return CollectRestByStepping(engine, array, position, done);
+    }
+
+    /// <summary>
+    /// <see cref="CollectRestFromArray"/> once the iterator is done, or for an array whose reads may run script, which
+    /// it steps as the iterator would, reading the length at every step. The rest array starts at the size left before
+    /// the first step, which is what it ends at unless a getter moves the length.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsArray CollectRestByStepping(Engine engine, JsArray array, uint position, bool done)
+    {
+        var length = done ? 0 : array.GetLength();
+        var rest = engine.Realm.Intrinsics.Array.ArrayCreate(position < length ? length - position : 0);
+        uint index = 0;
+        var iterations = 0;
+        while (position < length)
+        {
+            // A step crosses no statement boundary, so the loop checks the constraints itself, as the iterator lane
+            // does.
+            if (++iterations % Engine.ConstraintCheckInterval == 0)
+            {
+                engine.Constraints.Check();
+            }
+
+            array.TryGetValue(position++, out var item);
+            rest.SetIndexValue(index++, item, updateLength: false);
+            length = array.GetLength();
+        }
+
+        rest.SetLength(index);
+        return rest;
+    }
+
+    /// <summary>
+    /// <see cref="CollectRestByStepping"/> for an array-like object the lane reads through
+    /// <see cref="ArrayOperations"/>: a host <see cref="ArrayLikeObject"/> or a wrapped CLR collection. Its length is
+    /// read once per step, as the iterator reads it, and the read for the first step sizes the rest array. A wrapper's
+    /// length is whatever its CLR <c>Count</c> or <c>Length</c> answers, which nothing keeps in the array index range,
+    /// so it is clamped to it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsArray CollectRestFromArrayLike(Engine engine, ArrayOperations operations, uint position, bool done)
+    {
+        var length = done ? 0 : System.Math.Min(operations.GetLongLength(), ArrayOperations.MaxArrayLength);
+        var next = (ulong) position;
+        var rest = engine.Realm.Intrinsics.Array.ArrayCreate(next < length ? length - next : 0);
+        uint index = 0;
+        var iterations = 0;
+        while (next < length)
+        {
+            if (++iterations % Engine.ConstraintCheckInterval == 0)
+            {
+                engine.Constraints.Check();
+            }
+
+            rest.SetIndexValue(index++, operations.Get(next++), updateLength: false);
+            length = System.Math.Min(operations.GetLongLength(), ArrayOperations.MaxArrayLength);
+        }
+
+        rest.SetLength(index);
+        return rest;
+    }
+
     private static JsValue HandleArrayPattern(
         EvaluationContext context,
         ArrayPattern pattern,
@@ -190,6 +324,7 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
         var realm = engine.Realm;
 
         var obj = TypeConverter.ToObject(realm, argument);
+        JsArray? array = null;
         ArrayOperations? arrayOperations = null;
         IteratorInstance? iterator = null;
 
@@ -202,7 +337,13 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
             && obj.HasOriginalIterator(out iteratorMethod)
             && (!engine._builtinIteratorChainMayHaveReturn || IndexReadsCloseNothing(obj, realm)))
         {
-            arrayOperations = ArrayOperations.For(obj, forWrite: false);
+            // Each element makes the step the iterator would (StepIndexed): an array read directly, as its own
+            // iterator reads it, anything else array-like through the operations its iterator reads it through.
+            array = obj as JsArray;
+            if (array is null)
+            {
+                arrayOperations = ArrayOperations.For(obj, forWrite: false);
+            }
         }
         else
         {
@@ -231,31 +372,26 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
 
                 if (left is null)
                 {
-                    if (arrayOperations != null)
+                    // An elision consumes a step and discards it; it never ends the pattern, so the elements after
+                    // it still bind (undefined, or their initializer). An array iterator's step reads the element even
+                    // so.
+                    if (iterator is null)
                     {
-                        arrayOperations.TryGetValue(i, out _);
+                        StepIndexed(array, arrayOperations, i, ref done);
                     }
                     else
                     {
-                        // An elision consumes a step and discards it; it never ends the pattern, so
-                        // the elements after it still bind (undefined, or their initializer).
-                        StepElision(iterator!, ref done);
+                        StepElision(iterator, ref done);
                     }
-                    // skip assignment
+
                     continue;
                 }
 
                 if (left is Identifier identifier)
                 {
-                    JsValue value;
-                    if (arrayOperations != null)
-                    {
-                        arrayOperations.TryGetValue(i, out value);
-                    }
-                    else
-                    {
-                        value = StepValue(iterator!, ref done);
-                    }
+                    var value = iterator is null
+                        ? StepIndexed(array, arrayOperations, i, ref done)
+                        : StepValue(iterator, ref done);
 
                     AssignToIdentifier(engine, identifier.Name, value, environment, checkReference);
                 }
@@ -263,31 +399,19 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
                 {
                     var reference = GetReferenceFromMember(context, me);
 
-                    JsValue value;
-                    if (arrayOperations != null)
-                    {
-                        arrayOperations.TryGetValue(i, out value);
-                    }
-                    else
-                    {
-                        value = StepValue(iterator!, ref done);
-                    }
+                    var value = iterator is null
+                        ? StepIndexed(array, arrayOperations, i, ref done)
+                        : StepValue(iterator, ref done);
 
                     AssignToReference(engine, reference, value, environment);
                 }
                 else if (left is DestructuringPattern dp)
                 {
-                    JsValue value;
-                    if (arrayOperations != null)
-                    {
-                        arrayOperations.TryGetValue(i, out value);
-                    }
-                    else
-                    {
-                        // BindingElement : BindingPattern binds the nested pattern to the value the
-                        // step produced, never to the { value, done } result object the step returned.
-                        value = StepValue(iterator!, ref done);
-                    }
+                    // BindingElement : BindingPattern binds the nested pattern to the value the
+                    // step produced, never to the { value, done } result object the step returned.
+                    var value = iterator is null
+                        ? StepIndexed(array, arrayOperations, i, ref done)
+                        : StepValue(iterator, ref done);
                     ProcessPatterns(context, dp, value, environment);
                 }
                 else if (left is RestElement restElement)
@@ -298,41 +422,18 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
                         reference = GetReferenceFromMember(context, memberExpression);
                     }
 
-                    JsArray array;
-                    if (arrayOperations != null)
+                    JsArray rest;
+                    if (iterator is null)
                     {
-                        // This lane is gated on HasOriginalIterator, so the receiver is a JsArray, an
-                        // ArrayLikeObject or an array-like ObjectWrapper, and all three count elements in
-                        // the array index range. Clamp rather than cast all the same: a wrapper's "length"
-                        // is whatever its CLR Count/Length property returns, and nothing constrains that
-                        // property's type.
-                        var length = (uint) System.Math.Min(arrayOperations.GetLongLength(), ArrayOperations.MaxArrayLength);
-
-                        // A pattern with more leading elements than the source has already drove the
-                        // notional iterator to done, so the "Repeat, while iteratorRecord.[[Done]] is
-                        // false" of BindingRestElement
-                        // (https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization)
-                        // and AssignmentRestElement
-                        // (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation)
-                        // adds nothing, and the rest array is empty.
-                        // The subtraction is unsigned, so that case has to be clamped rather than left
-                        // to wrap: with i past length, an unclamped length - i produced a rest array
-                        // claiming close to 2^32 elements, which .length reported and which
-                        // JSON.stringify, a spread and concat all went on to consume. The clamp costs
-                        // the comparison the loop below already makes on its first iteration; the
-                        // subtraction inside that loop needs none, since j starts at i.
-                        var restLength = i < length ? length - i : 0;
-
-                        array = engine.Realm.Intrinsics.Array.ArrayCreate(restLength);
-                        for (uint j = i; j < length; ++j)
-                        {
-                            arrayOperations.TryGetValue(j, out var indexValue);
-                            array.SetIndexValue(j - i, indexValue, updateLength: false);
-                        }
+                        // Every element before the rest made one step while the iterator was not done, so the
+                        // steps reached the rest's own index; once done, the rest takes none and is empty.
+                        rest = array is not null
+                            ? CollectRestFromArray(engine, array, i, done)
+                            : CollectRestFromArrayLike(engine, arrayOperations!, i, done);
                     }
                     else
                     {
-                        array = engine.Realm.Intrinsics.Array.ArrayCreate(0);
+                        rest = engine.Realm.Intrinsics.Array.ArrayCreate(0);
                         uint index = 0;
                         var iterations = 0;
                         // AssignmentRestElement / BindingRestElement: "Repeat, while
@@ -351,7 +452,7 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
                             JsValue value;
                             try
                             {
-                                if (!iterator!.TryIteratorStep(out var item))
+                                if (!iterator.TryIteratorStep(out var item))
                                 {
                                     done = true;
                                     break;
@@ -365,23 +466,23 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
                                 throw;
                             }
 
-                            array.SetIndexValue(index++, value, updateLength: false);
+                            rest.SetIndexValue(index++, value, updateLength: false);
                         }
 
-                        array.SetLength(index);
+                        rest.SetLength(index);
                     }
 
                     if (restElement.Argument is Identifier leftIdentifier)
                     {
-                        AssignToIdentifier(engine, leftIdentifier.Name, array, environment, checkReference);
+                        AssignToIdentifier(engine, leftIdentifier.Name, rest, environment, checkReference);
                     }
                     else if (restElement.Argument is DestructuringPattern bp)
                     {
-                        ProcessPatterns(context, bp, array, environment);
+                        ProcessPatterns(context, bp, rest, environment);
                     }
                     else
                     {
-                        AssignToReference(engine, reference!, array, environment);
+                        AssignToReference(engine, reference!, rest, environment);
                     }
                 }
                 else if (left is AssignmentPattern assignmentPattern)
@@ -398,15 +499,9 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
                         memberReference = GetReferenceFromMember(context, memberExpr);
                     }
 
-                    JsValue value;
-                    if (arrayOperations != null)
-                    {
-                        arrayOperations.TryGetValue(i, out value);
-                    }
-                    else
-                    {
-                        value = StepValue(iterator!, ref done);
-                    }
+                    var value = iterator is null
+                        ? StepIndexed(array, arrayOperations, i, ref done)
+                        : StepValue(iterator, ref done);
 
                     // Only an initializer the engine actually ran can be the subject of
                     // NamedEvaluation below; a supplied value is bound exactly as it came in.

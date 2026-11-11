@@ -296,12 +296,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             && array.HasOriginalIterator(out iteratorMethod)
             && (!_engine._builtinIteratorChainMayHaveReturn || array.OriginalIteratorInheritsNoReturnMethod))
         {
-            var arrayContents = array.ToArray();
-            for (var i = 0; i < arrayPattern.Elements.Count; i++)
-            {
-                SetFunctionParameter(context, arrayPattern.Elements[i], arrayContents, i, initiallyEmpty);
-            }
-
+            BindArrayPatternFromArray(context, initiallyEmpty, arrayPattern, array);
             return;
         }
 
@@ -311,6 +306,77 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         }
 
         BindArrayPatternFromIterator(context, initiallyEmpty, arrayPattern, iterator);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization for a parameter's array pattern over
+    /// an array whose iterator would be the built-in one, read by index in its place. Each element makes the step
+    /// %ArrayIteratorPrototype%.next would (https://tc39.es/ecma262/#sec-createarrayiterator): read the length, then
+    /// get the element at the next index, through a hole to the prototype chain, or find the iterator done, which it
+    /// then stays. An element steps only once the one before it has bound, so an initializer that pushes or pops is
+    /// seen by the steps after it, and nothing past the last element is read. Jint copied the whole array before
+    /// binding, which ran every getter past the pattern and bound against the length from before any initializer ran.
+    /// </summary>
+    private void BindArrayPatternFromArray(EvaluationContext context, bool initiallyEmpty, ArrayPattern arrayPattern, JsArray array)
+    {
+        ref readonly var elements = ref arrayPattern.Elements;
+        uint position = 0;
+        var done = false;
+        for (var i = 0; i < elements.Count; i++)
+        {
+            var element = elements[i];
+            if (element is RestElement restElement)
+            {
+                // The rest element is the last one, and takes every step left: none, once the iterator is done.
+                var rest = DestructuringPatternAssignmentExpression.CollectRestFromArray(_engine, array, position, done);
+                BindRestElement(context, restElement, rest, initiallyEmpty);
+                return;
+            }
+
+            var value = Undefined;
+            if (!done)
+            {
+                if (position < array.GetLength())
+                {
+                    array.TryGetValue(position, out value);
+                    position++;
+                }
+                else
+                {
+                    done = true;
+                }
+            }
+
+            // An elision makes its step and binds nothing.
+            if (element is Identifier identifier)
+            {
+                SetItemSafely(identifier.Name, value, initiallyEmpty);
+            }
+            else if (element is not null)
+            {
+                BindPatternElement(context, element, value, initiallyEmpty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Binds an element of an array pattern that is a nested pattern or has an initializer to the value its step
+    /// produced: what <see cref="SetFunctionParameterUnlikely"/> does for one, without an argument list to read it from.
+    /// </summary>
+    private void BindPatternElement(EvaluationContext context, Node element, JsValue value, bool initiallyEmpty)
+    {
+        if (element is ArrayPattern arrayPattern)
+        {
+            HandleArrayPattern(context, initiallyEmpty, value, arrayPattern);
+        }
+        else if (element is ObjectPattern objectPattern)
+        {
+            HandleObjectPattern(context, initiallyEmpty, value, objectPattern);
+        }
+        else if (element is AssignmentPattern assignmentPattern)
+        {
+            HandleAssignmentPatternOrExpression(context, assignmentPattern.Left, assignmentPattern.Right, value, initiallyEmpty);
+        }
     }
 
     /// <summary>

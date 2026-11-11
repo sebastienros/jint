@@ -167,14 +167,18 @@ internal abstract class ReflectionAccessor
         }
     }
 
-    public void SetValue(Engine engine, object target, string memberName, JsValue value)
+    /// <summary>
+    /// Writes the member, answering <see langword="false"/> only when the target refused the write the way a
+    /// read-only collection does (see <see cref="RefusesAsReadOnly"/>). Any other failure is thrown.
+    /// </summary>
+    public bool SetValue(Engine engine, object target, string memberName, JsValue value)
     {
         // compiled fast lane: an exact-typed value is written without boxing and without the
         // conversion dispatch below; anything else declines here having written nothing
         if (TrySetJsValue(engine, target, value))
         {
             engine.CheckAmortizedConstraintsAtHostBoundary();
-            return;
+            return true;
         }
 
         object? converted;
@@ -199,10 +203,16 @@ internal abstract class ReflectionAccessor
         catch (TargetInvocationException exception)
         {
             engine.CheckAmortizedConstraintsAtHostBoundary();
+            if (RefusesAsReadOnly(exception))
+            {
+                return false;
+            }
+
             Throw.MeaningfulException(engine, exception);
         }
 
         engine.CheckAmortizedConstraintsAtHostBoundary();
+        return true;
     }
 
     /// <remarks>
@@ -223,4 +233,16 @@ internal abstract class ReflectionAccessor
     {
         return new ReflectionDescriptor(engine, this, target, memberName, enumerable);
     }
+
+    /// <summary>
+    /// Whether <paramref name="exception"/>, thrown by the target's setter, is a refusal the caller reports as
+    /// <c>[[Set]]</c> returning <see langword="false"/> rather than an error. Only a dictionary's indexer
+    /// answers yes, see <see cref="IndexerAccessor"/>.
+    /// </summary>
+    /// <remarks>
+    /// Declared last, so that it moves no other virtual's vtable slot. The read lane calls
+    /// <see cref="CreatePropertyDescriptor"/> through its slot whenever the guarded devirtualization of it does not
+    /// apply (#4518).
+    /// </remarks>
+    protected virtual bool RefusesAsReadOnly(TargetInvocationException exception) => false;
 }
