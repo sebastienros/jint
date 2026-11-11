@@ -8701,16 +8701,26 @@ typed[1]
 // 4.16.x / earlier 5.0: 'o'    5.x: undefined
 ```
 
-Every read of an array's index takes the prototype's `[[Get]]` now: a computed member read, `Reflect.get`, `for`-`of`,
-spread, `Array.from`, `join`, `at`, a parameter's array pattern, and from C# the `JsArray` indexer and its enumerator.
-The same holds for a host `ObjectInstance` on the chain that overrides `Get`: it is now asked for the index, with the
-array as the receiver, instead of being probed for an own property and passed over. A getter on an ordinary prototype
-runs with the array as its receiver, as before.
+These readers now ask an exotic prototype its `[[Get]]` and nothing else:
 
-`ArrayInstance.TryGetValue(uint, out JsValue)` stays hole-aware: it answers what `HasProperty` and then `Get` answer, so
-an exotic prototype is asked both questions, a Proxy's `has` trap first and its `get` trap only when `has` says the
-index exists. An array whose prototype chain is the intrinsic `Array.prototype` and `Object.prototype`, with no index on
-either, reads what it did. There is no switch back.
+- a computed member read and `Reflect.get`;
+- the array iterator's values and entries, which is what `for`-`of`, spread and `Array.from` over an array use;
+- `join`, `at`, `find`, `findIndex`, `findLast` and `findLastIndex`;
+- a parameter's array pattern;
+- from C#, the `JsArray` indexer, its enumerator and `ToArray()`.
+
+A host `ObjectInstance` on the chain that overrides `Get` is now asked for the index, with the array as the receiver,
+instead of being probed for an own property and passed over. A getter on an ordinary prototype runs with the array as
+its receiver, as before.
+
+The array iterator's keys (`arr.keys()`) no longer read the element at each step, which they never needed to. A getter
+at an index, own or inherited, therefore no longer runs while the keys are listed.
+
+The `Array.prototype` methods whose spec asks `HasProperty` before `Get` (`forEach`, `map`, `filter`, `some`, `every`,
+`reduce`, `indexOf` and the rest) still ask both, so a Proxy prototype sees its `has` trap first. So does
+`ArrayInstance.TryGetValue(uint, out JsValue)`, which stays hole-aware: it reports `false` when `HasProperty` does, and
+otherwise returns what `Get` returns. An array whose prototype chain is the intrinsic `Array.prototype` and
+`Object.prototype`, with no index on either, reads what it did. There is no switch back.
 
 ## 5. New in v5
 

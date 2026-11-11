@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1347
+anchors: 1348
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -298,6 +298,7 @@ ecma262 sec-finalization-registry-cleanup-callback
 ecma262 sec-finalization-registry-constructor
 ecma262 sec-finalization-registry.prototype.register
 ecma262 sec-finalization-registry.prototype.unregister
+ecma262 sec-findviapredicate
 ecma262 sec-flattenintoarray
 ecma262 sec-for-in-and-for-of-statements
 ecma262 sec-forbidden-extensions

@@ -54,6 +54,9 @@ public class ArrayHoleExoticPrototypeTests
             deleteProperty: function (t, k) { log.push('deleteProperty ' + key(k)); return Reflect.deleteProperty(t, k); }
         };
         var proxy = new Proxy(Array.prototype, handler);
+        var getOnly = new Proxy(Array.prototype, {
+            get: function (t, k, r) { log.push('get ' + key(k) + (r === arr ? ' (arr)' : ' (other)')); return k === '1' ? 'G' : Reflect.get(t, k, r); }
+        });
         var arr = [1, , 3];
         """;
 
@@ -110,6 +113,41 @@ public class ArrayHoleExoticPrototypeTests
         ("ParameterRestGenerator",
             "Object.setPrototypeOf(arr, proxy); (function* ([a, ...r]) { result = report(r.join()); })(arr).next();",
             "get Symbol(Symbol.iterator) (arr) get 1 (arr) => P,3"),
+
+        // FindViaPredicate reads every index with Get alone (https://tc39.es/ecma262/#sec-findviapredicate), so a
+        // proxy that answers get but not has still hands the callback its value.
+        ("Find",
+            "Object.setPrototypeOf(arr, proxy); var seen = []; arr.find(function (v) { seen.push(v); }); result = report(seen.join());",
+            "get find (arr) get 1 (arr) => 1,P,3"),
+        ("FindIndex",
+            "Object.setPrototypeOf(arr, proxy); var seen = []; var found = arr.findIndex(function (v) { seen.push(v); return v === 'P'; }); result = report(seen.join() + ' ' + found);",
+            "get findIndex (arr) get 1 (arr) => 1,P 1"),
+        ("FindLast",
+            "Object.setPrototypeOf(arr, proxy); var seen = []; arr.findLast(function (v) { seen.push(v); }); result = report(seen.join());",
+            "get findLast (arr) get 1 (arr) => 3,P,1"),
+        ("FindLastIndex",
+            "Object.setPrototypeOf(arr, proxy); var seen = []; var found = arr.findLastIndex(function (v) { seen.push(v); return v === 'P'; }); result = report(seen.join() + ' ' + found);",
+            "get findLastIndex (arr) get 1 (arr) => 3,P 1"),
+        ("FindThroughAGetOnlyProxy",
+            "Object.setPrototypeOf(arr, getOnly); var seen = []; arr.find(function (v) { seen.push(v); }); result = report(seen.join());",
+            "get find (arr) get 1 (arr) => 1,G,3"),
+        ("FindLastThroughAGetOnlyProxy",
+            "Object.setPrototypeOf(arr, getOnly); var seen = []; arr.findLast(function (v) { seen.push(v); }); result = report(seen.join());",
+            "get findLast (arr) get 1 (arr) => 3,G,1"),
+
+        // A keys step reads no element; a values or entries step reads it with Get.
+        ("Keys",
+            "Object.setPrototypeOf(arr, proxy); result = report([...arr.keys()].join());",
+            "get keys (arr) => 0,1,2"),
+        ("KeysForOf",
+            "Object.setPrototypeOf(arr, proxy); var out = []; for (var k of arr.keys()) out.push(k); result = report(out.join());",
+            "get keys (arr) => 0,1,2"),
+        ("Entries",
+            "Object.setPrototypeOf(arr, proxy); result = report([...arr.entries()].join(';'));",
+            "get entries (arr) get 1 (arr) => 0,1;1,P;2,3"),
+        ("Values",
+            "Object.setPrototypeOf(arr, proxy); result = report([...arr.values()].join());",
+            "get values (arr) get 1 (arr) => 1,P,3"),
 
         // HasProperty, then Get when it answers true.
         ("ForEach",
@@ -231,6 +269,14 @@ public class ArrayHoleExoticPrototypeTests
             "function g(a, b, c) { 'use strict'; return arguments; } var arr = [1, , 3]; Object.setPrototypeOf(arr, g('a', 'b', 'c')); Object.prototype[1] = 'o'; result = arr[1];",
             "b"),
 
+        // A keys step reads no element at all, so even an own getter does not run.
+        ("OwnGetter.KeysReadNoElement",
+            "var log = []; var arr = [1, 2]; Object.defineProperty(arr, 0, { get: function () { log.push('get 0'); return 1; } }); var ks = [...arr.keys()]; result = log.join() + ' => ' + ks.join();",
+            " => 0,1"),
+        ("OwnGetter.EntriesReadEachElementOnce",
+            "var log = []; var arr = [1, 2]; Object.defineProperty(arr, 0, { get: function () { log.push('get 0'); return 1; } }); var es = [...arr.entries()]; result = log.join() + ' => ' + es.join(';');",
+            "get 0 => 0,1;1,2"),
+
         // The intrinsic chain.
         ("PlainArray.Hole",
             "var arr = [1, , 3]; result = String(arr[1]) + ' ' + String(arr[5]);",
@@ -271,7 +317,7 @@ public class ArrayHoleExoticPrototypeTests
         engine.Execute(ProxyPrelude);
         engine.Execute(script);
         engine.Tasks.ProcessTasks();
-        engine.Evaluate("result").AsString().Should().Be(expected, name);
+        engine.Evaluate("result").Should().Be(expected, name);
     }
 
     [TestCaseSource(nameof(ChainCases))]
@@ -281,7 +327,7 @@ public class ArrayHoleExoticPrototypeTests
         engine.Execute("var result;");
         engine.Execute(script);
         engine.Tasks.ProcessTasks();
-        engine.Evaluate("result").AsString().Should().Be(expected, name);
+        engine.Evaluate("result").Should().Be(expected, name);
     }
 
     /// <summary>
@@ -298,17 +344,46 @@ public class ArrayHoleExoticPrototypeTests
         var array = engine.GetValue("arr").AsArray();
 
         array.TryGetValue(1, out var inherited).Should().BeTrue();
-        inherited.AsString().Should().Be("P");
-        engine.Evaluate("report('')").AsString().Should().Be("has 1 get 1 (arr) => ");
+        inherited.Should().Be("P");
+        engine.Evaluate("report('')").Should().Be("has 1 get 1 (arr) => ");
 
         engine.Execute("log.length = 0;");
         array.TryGetValue(5, out var absent).Should().BeFalse();
-        absent.IsUndefined().Should().BeTrue();
-        engine.Evaluate("report('')").AsString().Should().Be("has 5 => ");
+        absent.Should().BeUndefined();
+        engine.Evaluate("report('')").Should().Be("has 5 => ");
 
         engine.Execute("log.length = 0;");
-        array[1].AsString().Should().Be("P");
-        engine.Evaluate("report('')").AsString().Should().Be("get 1 (arr) => ");
+        array[1].Should().Be("P");
+        engine.Evaluate("report('')").Should().Be("get 1 (arr) => ");
+    }
+
+    /// <summary>
+    /// <c>ToArray</c> is a sequence of plain reads, like the indexer and the enumerator, so a proxy that answers
+    /// <c>get</c> for an index but not <c>has</c> is read the same way by all three, where the hole-aware
+    /// <c>TryGetValue</c> reports the index absent.
+    /// </summary>
+    [Test]
+    public void ToArrayReadsAsTheIndexerDoesThroughAGetOnlyProxy()
+    {
+        var engine = new Engine();
+        engine.Execute(ProxyPrelude);
+        engine.Execute("Object.setPrototypeOf(arr, getOnly);");
+        var array = engine.GetValue("arr").AsArray();
+
+        var copy = array.ToArray();
+        copy.Should().HaveCount(3);
+        copy[1].Should().Be("G");
+        engine.Evaluate("report('')").Should().Be("get 1 (arr) => ");
+
+        engine.Execute("log.length = 0;");
+        array[1].Should().Be("G");
+        array.Select(element => element.ToString()).Should().Equal("1", "G", "3");
+        engine.Evaluate("report('')").Should().Be("get 1 (arr) get 1 (arr) => ");
+
+        engine.Execute("log.length = 0;");
+        array.TryGetValue(1, out var probed).Should().BeFalse();
+        probed.Should().BeUndefined();
+        engine.Evaluate("report('')").Should().Be(" => ");
     }
 
     /// <summary>
@@ -329,15 +404,15 @@ public class ArrayHoleExoticPrototypeTests
             """);
         var array = engine.GetValue("arr");
 
-        engine.Evaluate("arr[1]").AsString().Should().Be("host 1");
+        engine.Evaluate("arr[1]").Should().Be("host 1");
         host.Receivers.Should().ContainSingle().Which.Should().BeSameAs(array);
 
         host.Receivers.Clear();
-        engine.Evaluate("var out = []; for (var v of arr) out.push(v); out.join()").AsString().Should().Be("1,host 1,3");
+        engine.Evaluate("var out = []; for (var v of arr) out.push(v); out.join()").Should().Be("1,host 1,3");
         host.Receivers.Should().HaveCount(1).And.OnlyContain(r => ReferenceEquals(r, array));
 
         host.Receivers.Clear();
-        engine.Evaluate("(function ([a, b, c]) { return [a, b, c].join(); })(arr)").AsString().Should().Be("1,host 1,3");
+        engine.Evaluate("(function ([a, b, c]) { return [a, b, c].join(); })(arr)").Should().Be("1,host 1,3");
         host.Receivers.Should().HaveCount(1).And.OnlyContain(r => ReferenceEquals(r, array));
     }
 

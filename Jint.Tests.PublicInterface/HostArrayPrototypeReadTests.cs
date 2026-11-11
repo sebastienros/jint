@@ -28,15 +28,15 @@ public class HostArrayPrototypeReadTests
             """);
         var array = engine.GetValue("arr").AsArray();
 
-        engine.Evaluate("arr[1]").AsString().Should().Be("host 1");
-        engine.Evaluate("var out = []; for (var v of arr) out.push(v); out.join()").AsString().Should().Be("1,host 1,3");
-        engine.Evaluate("[...arr].join()").AsString().Should().Be("1,host 1,3");
-        engine.Evaluate("(function ([a, b, c]) { return b; })(arr)").AsString().Should().Be("host 1");
+        engine.Evaluate("arr[1]").Should().Be("host 1");
+        engine.Evaluate("var out = []; for (var v of arr) out.push(v); out.join()").Should().Be("1,host 1,3");
+        engine.Evaluate("[...arr].join()").Should().Be("1,host 1,3");
+        engine.Evaluate("(function ([a, b, c]) { return b; })(arr)").Should().Be("host 1");
 
         // the indexer is a plain read; TryGetValue asks HasProperty first, which this host answers too
-        array[1].AsString().Should().Be("host 1");
+        array[1].Should().Be("host 1");
         array.TryGetValue(1, out var inherited).Should().BeTrue();
-        inherited.AsString().Should().Be("host 1");
+        inherited.Should().Be("host 1");
 
         host.Receivers.Should().NotBeEmpty().And.OnlyContain(receiver => ReferenceEquals(receiver, array));
     }

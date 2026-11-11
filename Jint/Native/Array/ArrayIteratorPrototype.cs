@@ -108,12 +108,13 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
             var position = _position;
             if (!_closed && position < len)
             {
-                var value = _array.GetElement(position);
+                // a keys step reads no element (https://tc39.es/ecma262/#sec-createarrayiterator): only the
+                // value and entry kinds Get the index
                 nextItem = _kind switch
                 {
                     ArrayIteratorType.Key => IteratorResult.CreateValueIteratorPosition(_engine, JsNumber.Create(position)),
-                    ArrayIteratorType.Value => IteratorResult.CreateValueIteratorPosition(_engine, value),
-                    _ => IteratorResult.CreateKeyValueIteratorPosition(_engine, JsNumber.Create(position), value)
+                    ArrayIteratorType.Value => IteratorResult.CreateValueIteratorPosition(_engine, _array.GetElement(position)),
+                    _ => IteratorResult.CreateKeyValueIteratorPosition(_engine, JsNumber.Create(position), _array.GetElement(position))
                 };
 
                 _position++;

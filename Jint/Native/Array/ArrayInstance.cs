@@ -1548,8 +1548,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         var array = new JsValue[length];
         for (uint i = 0; i < length; i++)
         {
-            TryGetValue(i, out var outValue);
-            array[i] = outValue;
+            array[i] = GetElement(i);
         }
 
         return array;
@@ -1872,16 +1871,24 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
                         _engine.Constraints.Check();
                     }
 
-                    if (TryGetValue(k, out var kvalue) || visitUnassigned)
+                    // FindViaPredicate reads every index with Get alone (https://tc39.es/ecma262/#sec-findviapredicate);
+                    // the callers that skip a hole ask HasProperty first, which TryGetValue answers with it
+                    JsValue kvalue;
+                    if (visitUnassigned)
                     {
-                        kvalue ??= Undefined;
-                        var testResult = invoker.Call(thisArg, kvalue, k);
-                        if (TypeConverter.ToBoolean(testResult))
-                        {
-                            index = k;
-                            value = kvalue;
-                            return true;
-                        }
+                        kvalue = GetElement(k);
+                    }
+                    else if (!TryGetValue(k, out kvalue))
+                    {
+                        continue;
+                    }
+
+                    var testResult = invoker.Call(thisArg, kvalue, k);
+                    if (TypeConverter.ToBoolean(testResult))
+                    {
+                        index = k;
+                        value = kvalue;
+                        return true;
                     }
                 }
             }
@@ -1895,16 +1902,22 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
                     }
 
                     var idx = (uint) k;
-                    if (TryGetValue(idx, out var kvalue) || visitUnassigned)
+                    JsValue kvalue;
+                    if (visitUnassigned)
                     {
-                        kvalue ??= Undefined;
-                        var testResult = invoker.Call(thisArg, kvalue, idx);
-                        if (TypeConverter.ToBoolean(testResult))
-                        {
-                            index = idx;
-                            value = kvalue;
-                            return true;
-                        }
+                        kvalue = GetElement(idx);
+                    }
+                    else if (!TryGetValue(idx, out kvalue))
+                    {
+                        continue;
+                    }
+
+                    var testResult = invoker.Call(thisArg, kvalue, idx);
+                    if (TypeConverter.ToBoolean(testResult))
+                    {
+                        index = idx;
+                        value = kvalue;
+                        return true;
                     }
                 }
             }
