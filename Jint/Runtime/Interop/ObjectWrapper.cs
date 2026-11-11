@@ -803,7 +803,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 // CanPut logic
                 if (!accessor.Writable || !_engine.Options.Interop.AllowWrite)
                 {
-                    return false;
+                    // a name the dictionary cannot hold as a key resolves to an indexer that writes nothing
+                    return accessor is IndexerAccessor { KeyCannotBeAnEntry: true }
+                           && _engine.Options.Interop.AllowWrite
+                           && SetKeyTheDictionaryCannotHold(property, member, value, receiver);
                 }
 
                 if (!Extensible)
@@ -812,8 +815,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     return false;
                 }
 
-                accessor.SetValue(_engine, Target, member, value);
-                return true;
+                // false when a dictionary refused the entry as read-only
+                return accessor.SetValue(_engine, Target, member, value);
             }
         }
         else if (property is JsSymbol jsSymbol)
@@ -862,6 +865,36 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     }
 
     /// <summary>
+    /// [[Set]] under <see cref="Options.InteropOptions.AllowWrite"/> for a name a non-string-keyed dictionary
+    /// cannot hold as a key, such as <c>"expando"</c> on a <c>Dictionary&lt;int, string&gt;</c> (#4518). It
+    /// cannot be an entry, so it is what a name the CLR type has no member for is on any wrapper: a property of
+    /// the wrapper itself, through the ordinary algorithm
+    /// (https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor). That is also what a symbol key is on the same
+    /// wrapper, and what the name is on a dictionary that implements only the generic contract.
+    /// </summary>
+    /// <remarks>
+    /// Two things differ from the <see cref="ConstantValueAccessor.NullAccessor"/> lane in <see cref="Set"/>.
+    /// It is reached only under <c>AllowWrite</c>, so without it the write stays refused, as every write to a
+    /// string-keyed dictionary is. And <see cref="Options.InteropOptions.ThrowOnUnresolvedMember"/> raises
+    /// nothing, as it raises nothing for the same name's read on a dictionary.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool SetKeyTheDictionaryCannotHold(JsValue property, string member, JsValue value, JsValue receiver)
+    {
+        // The writable-filtered resolution passes over a CLR member that cannot be written and lands on the
+        // indexer, so ask again without the requirement, as the NullAccessor lane does: a member answering
+        // the name (Count) refuses the write like a non-writable property would.
+        var answering = ResolveMemberAccessor(member, MemberResolutionRequirement.None);
+        if (answering is not IndexerAccessor { KeyCannotBeAnEntry: true }
+            && !ReferenceEquals(answering, ConstantValueAccessor.NullAccessor))
+        {
+            return false;
+        }
+
+        return base.Set(property, value, receiver);
+    }
+
+    /// <summary>
     /// Resolves the accessor the write lane in <see cref="Set"/> consults, under the given
     /// <paramref name="requirement"/>. Falls back to the runtime type when the exposed type differs,
     /// mirroring <see cref="GetOwnProperty(JsValue, MemberResolutionRequirement, bool)"/>.
@@ -904,6 +937,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         var ownDesc = GetOwnProperty(property);
+        if (ownDesc is ReflectionDescriptor reflected)
+        {
+            // a read stores an indexer's descriptor here, and the dictionary behind it may refuse the write as
+            // read-only, which the Value setter below cannot report (#4518)
+            return reflected.TrySetValue(value);
+        }
+
         ownDesc.Value = value;
         return true;
     }
@@ -957,7 +997,39 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         base.SetOwnProperty(property, desc);
     }
 
-    public override void RemoveOwnProperty(JsValue property)
+    /// <summary>
+    /// Deletes the property as an ordinary object does, and refuses an entry the wrapped dictionary will not remove.
+    /// </summary>
+    public override bool Delete(JsValue property)
+    {
+        // https://tc39.es/ecma262/#sec-ordinarydelete, except that an entry a read-only dictionary refuses to
+        // remove is refused rather than reported deleted
+        var descriptor = GetOwnProperty(property);
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            return true;
+        }
+
+        // ObjectInstance.Delete calls RemoveOwnProperty virtually. This calls its body directly, which skips
+        // nothing because RemoveOwnProperty is sealed here, and the body can report a refusal.
+        return descriptor.Configurable && RemoveOwnPropertyUnlessRefused(property);
+    }
+
+    /// <summary>
+    /// Removes the property, and under <see cref="Options.InteropOptions.AllowWrite"/> the dictionary entry it
+    /// names. Nothing is removed when the dictionary holds the entry and refuses to remove it.
+    /// </summary>
+    /// <remarks>
+    /// Sealed so that <see cref="Delete"/> may call the body directly: no subclass outside the assembly can
+    /// exist, the constructor being internal, and none inside it overrides this.
+    /// </remarks>
+    public sealed override void RemoveOwnProperty(JsValue property) => RemoveOwnPropertyUnlessRefused(property);
+
+    /// <summary>
+    /// <see cref="RemoveOwnProperty"/>, answering <see langword="false"/>, with nothing removed, when the
+    /// dictionary holds the entry and refuses to remove it.
+    /// </summary>
+    private bool RemoveOwnPropertyUnlessRefused(JsValue property)
     {
         ForgetResolvedProperty(property);
 
@@ -965,21 +1037,43 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             if (property is JsString jsString && _typeDescriptor.IsStringKeyedGenericDictionary)
             {
-                _typeDescriptor.TryRemoveDictionaryValue(Target, jsString.ToString());
+                var key = jsString.ToString();
+                var removed = _typeDescriptor.TryRemoveDictionaryValue(Target, key);
                 _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (!removed && HoldsDictionaryKey(key))
+                {
+                    return false;
+                }
             }
             else if (!property.IsString()
                 && !property.IsSymbol()
                 && _typeDescriptor.IsNonStringKeyedGenericDictionary
                 && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
             {
-                _typeDescriptor.TryRemoveDictionaryValue(Target, clrKey!);
+                var removed = _typeDescriptor.TryRemoveDictionaryValue(Target, clrKey!);
                 _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (!removed && HoldsDictionaryKey(clrKey!))
+                {
+                    return false;
+                }
             }
         }
 
         // also remove from _properties cache to avoid stale entries
         base.RemoveOwnProperty(property);
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a dictionary that refused a removal holds <paramref name="key"/>: only an entry is refused, and a
+    /// property the script defined on the wrapper is removed as on any object.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool HoldsDictionaryKey(object key)
+    {
+        var contains = _typeDescriptor.ContainsDictionaryKey(Target, key);
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
+        return contains;
     }
 
     /// <summary>
@@ -1788,7 +1882,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <item>the target is a dictionary (member values are dynamic; descriptors are created fresh per access),</item>
     /// <item>a custom <see cref="Options.InteropOptions.MemberAccessor"/> is configured (stay conservative),</item>
     /// <item>the name is <c>length</c> on an <see cref="ICollection"/> target (<see cref="Get"/> serves the live count ahead of any stored descriptor),</item>
-    /// <item>the member has not been resolved-and-stored yet — the caller's slow path performs the store (bumping the version) so a later populate succeeds.</item>
+    /// <item>the member has not been resolved-and-stored yet — the caller's slow path performs the store (bumping the version) so a later populate succeeds,</item>
+    /// <item>the descriptor's write can be refused (a dictionary's indexer, see <see cref="ReflectionDescriptor.WriteCanBeRefused"/>), which only <see cref="Set"/> can report.</item>
     /// </list>
     /// </remarks>
     internal PropertyDescriptor? TryGetInlineCacheableDescriptor(JsString property)
@@ -1806,14 +1901,33 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return null;
         }
 
-        if (!_properties.TryGetValue(property.ToString(), out var descriptor)
-            || ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        if (!_properties.TryGetValue(property.ToString(), out var descriptor))
         {
             return null;
         }
 
-        return descriptor;
+        return CacheableOrNull(descriptor);
     }
+
+    /// <summary>
+    /// <paramref name="descriptor"/>, or <see langword="null"/> when it is <see cref="PropertyDescriptor.Undefined"/>
+    /// or a write through it can be refused, which the member lane, writing through <c>Value</c>, cannot report.
+    /// </summary>
+    /// <remarks>
+    /// A dictionary is declined before this, but a member resolved against the runtime type (the exposed type
+    /// having none) can still be a dictionary's indexer, so the descriptor is asked as well. This runs when the
+    /// lane populates: once per call site and wrapper, or per access at a site that sees a different stored
+    /// wrapper each time. The read lane populates through here too, so reads of that rare shape also go uncached;
+    /// they still answer correctly, through <see cref="Get"/>. Out of line, and with the <c>Undefined</c> test
+    /// that used to be inline, because <see cref="TryGetInlineCacheableDescriptor"/> is inlined into the
+    /// interpreter's member read lane, which every wrapper read runs, a dictionary's included: the inlined copy
+    /// stays no larger than before the refusal test, so that lane keeps its size and its code placement (#4518).
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static PropertyDescriptor? CacheableOrNull(PropertyDescriptor descriptor)
+        => ReferenceEquals(descriptor, PropertyDescriptor.Undefined) || descriptor is ReflectionDescriptor { WriteCanBeRefused: true }
+            ? null
+            : descriptor;
 
     // need to be public for advanced cases like RavenDB yielding properties from CLR objects
     public static PropertyDescriptor GetPropertyDescriptor(Engine engine, object target, MemberInfo member)

@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
@@ -37,7 +38,14 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     private CompiledKeyedAccessor.KeyedPredicate? _compiledContainsKey;
     private bool _compiledContainsKeyResolved;
 
-    private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key) : base(indexer.PropertyType)
+    // Indexer.CanWrite, and false for a key that cannot be an entry. Every string-keyed write the wrapper
+    // serves reads it, so it is taken once here rather than asked of the PropertyInfo per write. Declared after
+    // the fields the read lane touches, so that the runtime's auto layout moves none of them for it. This and
+    // _targetIsDictionary fill the two bytes base's five flags leave free before the reference fields, so the
+    // object keeps base's size; a third flag would not fit, which is why KeyCannotBeAnEntry is derived (#4518).
+    private readonly bool _writable;
+
+    private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key, bool keyCannotBeAnEntry = false) : base(indexer.PropertyType)
     {
         Indexer = indexer;
         FirstIndexParameter = indexer.GetIndexParameters()[0];
@@ -53,11 +61,91 @@ internal sealed class IndexerAccessor : ReflectionAccessor
         _keyFitsContainsKey = key is not null
                               && containsKey?.GetParameters() is [{ ParameterType: var containsKeyType }]
                               && containsKeyType.IsInstanceOfType(key);
+        _writable = indexer.CanWrite && !keyCannotBeAnEntry;
+
+        if (keyCannotBeAnEntry)
+        {
+            // No entry, answered through the state KeyIsPresent already reads: the containment probe is resolved
+            // here to one that never finds the key, so the read lane, which every name a dictionary resolves to its
+            // indexer runs, carries no test of its own for the mark (#4518). ForTarget marks only the non-generic
+            // IDictionary indexer, which always carries IDictionary.Contains, so KeyIsPresent never takes its
+            // "no probe, assume present" exit for a marked copy.
+            Debug.Assert(containsKey is not null, "a marked indexer is IDictionary's, which has Contains");
+            _compiledContainsKey = NoEntry.Predicate;
+            _compiledContainsKeyResolved = true;
+        }
+    }
+
+    /// <summary>
+    /// The containment probe of an indexer marked <see cref="KeyCannotBeAnEntry"/>, which never asks the target.
+    /// </summary>
+    /// <remarks>
+    /// The target's own <c>Contains</c> would not always answer: <c>ImmutableDictionary</c>'s casts the key to
+    /// <c>TKey</c> and throws <see cref="InvalidCastException"/>.
+    /// </remarks>
+    private static class NoEntry
+    {
+        internal static readonly CompiledKeyedAccessor.KeyedPredicate Predicate = static (_, _) => false;
     }
 
     internal PropertyInfo Indexer { get; }
 
     internal ParameterInfo FirstIndexParameter { get; }
+
+    /// <summary>
+    /// Whether this indexer stands in for a name the target cannot hold as a key: the non-generic
+    /// <see cref="IDictionary"/> indexer of a generic dictionary, keyed by something that is not the
+    /// dictionary's <c>TKey</c>. It addresses no entry, so it is not <see cref="Writable"/>, and
+    /// <see cref="ObjectWrapper.Set(JsValue, JsValue, JsValue)"/> keeps such a property on the wrapper instead (#4518).
+    /// </summary>
+    /// <remarks>
+    /// Read from the containment probe the constructor presets for a marked copy, which nothing else ever
+    /// installs, rather than from a field of its own: it is asked only when a write is refused.
+    /// </remarks>
+    internal bool KeyCannotBeAnEntry => ReferenceEquals(_compiledContainsKey, NoEntry.Predicate);
+
+    /// <summary>
+    /// Whether the type this accessor was resolved for is a dictionary (<see cref="TypeDescriptor.IsDictionary"/>),
+    /// the one kind of target whose refusal <see cref="RefusesAsReadOnly"/> reports. Stamped by
+    /// <see cref="ForTarget"/>.
+    /// </summary>
+    internal bool TargetIsDictionary => _targetIsDictionary;
+
+    // set once, in ForTarget, on an accessor TryFindIndexer has just built and the resolver has not yet
+    // published, so no reader can observe it changing
+    private bool _targetIsDictionary;
+
+    /// <summary>
+    /// This accessor as it applies to <paramref name="targetType"/>: stamped with
+    /// <see cref="TargetIsDictionary"/>, and a copy that <see cref="KeyCannotBeAnEntry"/> marks when this is the
+    /// non-generic <see cref="IDictionary"/> indexer and the target's generic dictionary cannot hold the key.
+    /// Asked once per resolved member, before the resolver publishes the accessor.
+    /// </summary>
+    /// <remarks>
+    /// That indexer takes any object, because the interface does. Every generic dictionary the base class
+    /// library ships then rejects a key that is not a <c>TKey</c>: the setter throws (an
+    /// <see cref="ArgumentException"/>, or a <see cref="NotSupportedException"/> when read-only), the getter
+    /// answers <see langword="null"/> and <c>Contains</c> answers <see langword="false"/>, or throws, as
+    /// <c>ImmutableDictionary</c>'s does. So the marked copy is not <see cref="Writable"/> and reports no entry
+    /// without asking. A name that converts to <c>TKey</c> never reaches this indexer, since the dictionary's
+    /// own <c>this[TKey]</c> takes it first.
+    /// </remarks>
+    internal IndexerAccessor ForTarget(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type targetType)
+    {
+        var descriptor = TypeDescriptor.Get(targetType);
+
+        var accessor = this;
+        if (Indexer.DeclaringType == typeof(IDictionary)
+            && descriptor.IsNonStringKeyedGenericDictionary
+            && !descriptor.GenericDictionaryKeyType!.IsInstanceOfType(_key))
+        {
+            accessor = new IndexerAccessor(Indexer, _containsKey, _key, keyCannotBeAnEntry: true);
+        }
+
+        accessor._targetIsDictionary = descriptor.IsDictionary;
+        return accessor;
+    }
 
     internal static bool TryFindIndexer(
         Engine engine,
@@ -195,7 +283,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
 
     public override bool Readable => Indexer.CanRead;
 
-    public override bool Writable => Indexer.CanWrite;
+    public override bool Writable => _writable;
 
     protected override object? DoGetValue(object target, string memberName)
     {
@@ -264,6 +352,20 @@ internal sealed class IndexerAccessor : ReflectionAccessor
         }
     }
 
+    /// <summary>
+    /// A dictionary's indexer refuses a write when the dictionary is read-only and says so with
+    /// <see cref="NotSupportedException"/>, the collection contracts' answer for a read-only
+    /// <see cref="IDictionary"/> or <see cref="IDictionary{TKey,TValue}"/>. Only a dictionary: a keyed host type
+    /// that is not one has no such contract, and its exception reaches the host as any setter's does. That is
+    /// also what keeps a refusable descriptor out of the interpreter's member lane, which declines dictionaries
+    /// (<see cref="ObjectWrapper.TryGetInlineCacheableDescriptor"/>) and could not report one.
+    /// </summary>
+    protected override bool RefusesAsReadOnly(TargetInvocationException exception)
+        => _targetIsDictionary
+           && _containsKey is not null
+           && exception.InnerException is NotSupportedException inner
+           && !Throw.MustPropagateHostException(inner);
+
     public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, string memberName, bool enumerable = true)
     {
         if (!KeyIsPresent(target))
@@ -278,6 +380,12 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     /// Runs the <c>ContainsKey</c>/<c>Contains</c> probe that keeps a dictionary indexer from throwing on a
     /// missing key. No probe means "assume present", exactly as before.
     /// </summary>
+    /// <remarks>
+    /// An indexer marked <see cref="KeyCannotBeAnEntry"/> answers <see langword="false"/> here without asking
+    /// the target, through the probe its constructor resolves (<see cref="NoEntry"/>), so this method carries
+    /// no test of its own for it: every read, <c>in</c> and <c>hasOwnProperty</c> that reaches a dictionary's
+    /// indexer runs through it (#4518).
+    /// </remarks>
     private bool KeyIsPresent(object target)
     {
         if (_containsKey is null)

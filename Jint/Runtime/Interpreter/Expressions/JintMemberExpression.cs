@@ -1479,7 +1479,11 @@ internal sealed class JintMemberExpression : JintExpression
                 // SetSlow exactly: CanPut's own-descriptor branch with live flag/accessor reads
                 // (defineProperty can mutate the same instance without a version bump), then store through
                 // the descriptor — a ReflectionDescriptor forwards to the CLR setter, keeping conversion
-                // and exception semantics. Non-writable members (e.g. read-only CLR properties, whose
+                // and exception semantics. SetSlow differs only for a descriptor whose write a read-only
+                // dictionary can refuse, which it asks through ReflectionDescriptor.TrySetValue because the
+                // Value setter cannot report a refusal; TryGetInlineCacheableDescriptor never hands this lane
+                // one (it declines dictionaries and ReflectionDescriptor.WriteCanBeRefused), so for everything
+                // the lane holds the two are the same. Non-writable members (e.g. read-only CLR properties, whose
                 // ReflectionDescriptor exposes no setter when not writable or interop writes are disabled)
                 // fall through to the PutValue fallback so strict/sloppy failure behavior stays identical.
                 // Population only consumes descriptors a read has already stored; it never resolves members
