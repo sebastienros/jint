@@ -10,14 +10,28 @@ namespace Jint.Native.Iterator;
 
 internal abstract partial class IteratorInstance : ObjectInstance
 {
+    /// <summary>
+    /// Which concrete prototype's <c>next</c> may step this iterator (sebastienros/jint#4451), fixed at creation. That
+    /// <c>next</c> compares it (<see cref="IteratorPrototype.Next"/>), and so does the native lane, which stands in for a
+    /// call to it (<see cref="IteratorPrototype.ToIteratorRecord"/>).
+    /// </summary>
+    internal readonly IteratorBrand _brand;
+
+    // An iterator that inherits %ArrayIteratorPrototype% carries its brand, IteratorBrand.Array, the zero value.
     protected IteratorInstance(Engine engine) : base(engine)
     {
         _prototype = engine.Realm.Intrinsics.ArrayIteratorPrototype;
     }
 
-    private protected IteratorInstance(Engine engine, ObjectInstance prototype) : base(engine)
+    private protected IteratorInstance(Engine engine, IteratorBrand brand) : this(engine)
+    {
+        _brand = brand;
+    }
+
+    private protected IteratorInstance(Engine engine, ObjectInstance prototype, IteratorBrand brand) : base(engine)
     {
         _prototype = prototype;
+        _brand = brand;
     }
 
     public override object ToObject()
@@ -74,10 +88,10 @@ internal abstract partial class IteratorInstance : ObjectInstance
             && prototype.InheritsOriginalIteratorMethod())
         {
             // The prototype's check, not the virtual ToIteratorRecord(): this skips the ArrayIterator and
-            // ArrayLikeIterator overrides, which wrap an iterator whose prototype is not %ArrayIteratorPrototype%.
-            // Native stepping is still the same answer only because no built-in `next` brand-checks its receiver, so
-            // another kind's untouched `next` steps this iterator exactly as the native lane does. A built-in `next`
-            // that starts brand-checking must make this lane check the prototype's kind too.
+            // ArrayLikeIterator overrides, which read `next` where the prototype's cached answer needs no read. That
+            // check compares this iterator's brand with the prototype's own, so an iterator moved onto another kind's
+            // prototype is wrapped, as the overrides wrap it: that kind's `next` refuses it, and native stepping would
+            // skip the TypeError (sebastienros/jint#4451).
             iterator = prototype.ToIteratorRecord(this);
             return true;
         }
@@ -579,7 +593,7 @@ internal abstract partial class IteratorInstance : ObjectInstance
         // stands in for the CreateStringIterator object (https://tc39.es/ecma262/#sec-createstringiterator), so closing
         // it finds a `return` where that object's close would - on %StringIteratorPrototype% or above it, never on the
         // %ArrayIteratorPrototype% the base constructor assigns (sebastienros/jint#4406).
-        public StringIterator(Engine engine, string str, ObjectInstance prototype) : base(engine, prototype)
+        public StringIterator(Engine engine, string str, ObjectInstance prototype) : base(engine, prototype, IteratorBrand.String)
         {
             _iterator = StringInfo.GetTextElementEnumerator(str);
         }
@@ -606,7 +620,7 @@ internal abstract partial class IteratorInstance : ObjectInstance
 
         private bool _done;
 
-        public RegExpStringIterator(Engine engine, ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode) : base(engine)
+        public RegExpStringIterator(Engine engine, ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode) : base(engine, IteratorBrand.RegExpString)
         {
             var r = iteratingRegExp as JsRegExp;
             if (r is null)

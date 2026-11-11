@@ -16,7 +16,7 @@ internal sealed partial class SetIteratorPrototype : IteratorPrototype
     internal SetIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.Set)
     {
     }
 
@@ -27,7 +27,7 @@ internal sealed partial class SetIteratorPrototype : IteratorPrototype
     }
 
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.Set);
 
     internal IteratorInstance ConstructEntryIterator(JsSet set)
     {
@@ -53,7 +53,7 @@ internal sealed partial class SetIteratorPrototype : IteratorPrototype
         private KeyedCollectionCursor _cursor;
         private bool _done;
 
-        public SetIterator(Engine engine, JsSet set, bool keyAndValue) : base(engine)
+        public SetIterator(Engine engine, JsSet set, bool keyAndValue) : base(engine, IteratorBrand.Set)
         {
             _prototype = engine.Realm.Intrinsics.SetIteratorPrototype;
             _data = set._data;
