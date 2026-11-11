@@ -18,7 +18,9 @@ namespace Jint.Tests.Runtime;
 /// such property at all.
 /// The dense loop and slice also assumed a freshly allocated result: a species constructor can return an array it
 /// has already filled or given another length, a hole must leave an element it filled alone, and slice's closing
-/// <c>Set(A, "length", n, true)</c> must grow or truncate it.
+/// <c>Set(A, "length", n, true)</c> must grow or truncate it, and throws when the length is not writable even if it
+/// already matches. Concat reads the length of each source once, before any element, because an inherited getter the
+/// copy runs can change it.
 /// </para>
 /// <para>
 /// Every expected value is Node 26's, each row run in a fresh <c>vm</c> context. Each row needs its own engine: the
@@ -228,6 +230,21 @@ public class ArrayCopyValuesTests
                 Object.defineProperty(Array.prototype, 1, { configurable: true, get: function () { delete a[3]; return 'G'; } });
                 show(a.slice());
                 """, "4[v:0,v:G,v:2,hole]");
+            rows.Add("ConcatInheritedAccessorChangesTheReceiverLength", """
+                var a = [1, , 3];
+                Object.defineProperty(Array.prototype, 1, { configurable: true, get: function () { a.length = 10; return 'x'; } });
+                show(a.concat([4]));
+                """, "4[v:1,v:x,v:3,v:4]");
+            rows.Add("ConcatInheritedAccessorShrinksAnArgument", """
+                var b = [4, , 6, 7];
+                Object.defineProperty(Array.prototype, 1, { configurable: true, get: function () { b.length = 1; return 'x'; } });
+                show([0, 0].concat(b, [9]));
+                """, "7[v:0,v:0,v:4,v:x,hole,hole,v:9]");
+            rows.Add("ConcatInheritedAccessorGrowsAnArgument", """
+                var b = [4, , 6];
+                Object.defineProperty(Array.prototype, 1, { configurable: true, get: function () { b.length = 10; return 'x'; } });
+                show([0, 0].concat(b, [9]));
+                """, "6[v:0,v:0,v:4,v:x,v:6,v:9]");
             rows.Add("ConcatInheritedIndexReceiverAndArgument", """
                 Array.prototype[1] = 'P';
                 show([0, , 2].concat([5, , 7]));
@@ -380,6 +397,21 @@ public class ArrayCopyValuesTests
                 a.constructor = { [Symbol.species]: function (n) { return []; } };
                 show(a.slice(1));
                 """, "4[v:2,hole,hole,hole]");
+            rows.Add("SliceIntoNonWritableLengthSpeciesTarget", """
+                var a = [1, 2, 3];
+                a.constructor = { [Symbol.species]: function (n) { var r = new Array(n); Object.defineProperty(r, 'length', { writable: false }); return r; } };
+                try { a.slice(); 'returned'; } catch (e) { e instanceof TypeError ? 'TypeError' : 'other ' + e.name; }
+                """, "TypeError");
+            rows.Add("SliceHoleyIntoNonWritableLengthSpeciesTarget", """
+                var a = [1, , 3];
+                a.constructor = { [Symbol.species]: function (n) { var r = new Array(n); Object.defineProperty(r, 'length', { writable: false }); return r; } };
+                try { a.slice(); 'returned'; } catch (e) { e instanceof TypeError ? 'TypeError' : 'other ' + e.name; }
+                """, "TypeError");
+            rows.Add("SliceEmptyRangeIntoNonWritableLengthSpeciesTarget", """
+                var a = [1, 2, 3];
+                a.constructor = { [Symbol.species]: function (n) { var r = new Array(n); Object.defineProperty(r, 'length', { writable: false }); return r; } };
+                try { a.slice(1, 1); 'returned'; } catch (e) { e instanceof TypeError ? 'TypeError' : 'other ' + e.name; }
+                """, "TypeError");
             rows.Add("ConcatIntoPrefilledSpeciesTarget", """
                 var a = [1, 2];
                 a.constructor = { [Symbol.species]: function (n) { var r = []; r[0] = 'x'; r[1] = 'y'; return r; } };
@@ -419,7 +451,6 @@ public class ArrayCopyValuesTests
     [TestCase("big.slice(0, 2)", 2)]
     [TestCase("big.slice(50000, 50003)", 3)]
     [TestCase("big.slice(99990)", 10)]
-    [TestCase("[].concat(big.slice(0, 3), big.slice(10, 12))", 8)]
     public void TheResultIsNotSizedByTheBackingOfTheSource(string expression, int largestBacking)
     {
         var engine = new Engine();
@@ -429,5 +460,21 @@ public class ArrayCopyValuesTests
 
         result._dense.Should().NotBeNull();
         result._dense!.Length.Should().BeLessThanOrEqualTo(largestBacking);
+    }
+
+    /// <summary>
+    /// A control, not a pin: this concat never reaches <c>CopyValues</c>. It is served by the lane that sums the
+    /// lengths first and allocates the result exactly, so it passes with or without the fix.
+    /// </summary>
+    [Test]
+    public void AConcatOfSmallSlicesIsAllocatedExactlyAsItAlwaysWas()
+    {
+        var engine = new Engine();
+        engine.Execute("var big = []; for (var i = 0; i < 100000; i++) big.push(i);");
+
+        var result = (JsArray) engine.Evaluate("[].concat(big.slice(0, 3), big.slice(10, 12))");
+
+        result._dense.Should().NotBeNull();
+        result._dense!.Length.Should().BeLessThanOrEqualTo(8);
     }
 }

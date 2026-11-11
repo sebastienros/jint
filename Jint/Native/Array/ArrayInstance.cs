@@ -1981,7 +1981,9 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     {
         CopyValues(source, sourceStartIndex, 0, length);
 
-        if (GetJsNumberLength()._value != length)
+        // a length that is not writable refuses the Set whatever the value (OrdinarySetWithOwnDescriptor), so it is
+        // asked even when the length already matches
+        if (!LengthIsWritable || GetJsNumberLength()._value != length)
         {
             Set(CommonProperties.Length, JsNumber.Create(length), true);
         }

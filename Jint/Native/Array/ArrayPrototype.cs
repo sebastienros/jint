@@ -2073,8 +2073,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
             {
                 if (e is JsArray eArray && a is JsArray a2)
                 {
-                    a2.CopyValues(eArray, 0, n, eArray.GetLength());
-                    n += eArray.GetLength();
+                    // the length is read once, before any element: an inherited getter the copy runs can change it
+                    var length = eArray.GetLength();
+                    a2.CopyValues(eArray, 0, n, length);
+                    n += length;
                 }
                 else
                 {
