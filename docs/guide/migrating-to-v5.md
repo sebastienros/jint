@@ -8405,6 +8405,36 @@ another realm resumed from a job, an async generator's `await using`, and a gene
 left gave a main-realm `SuppressedError`, and a stack's `dispose` called another realm's built-in gave the caller's.
 Those now answer `instanceof` with the realm of the function, generator or built-in. There is no switch back.
 
+### 4.228 A built-in iterator's `next` steps only an iterator of its own kind ([#4451](https://github.com/sebastienros/jint/issues/4451))
+
+Each built-in iterator prototype's `next` now throws a `TypeError` when its receiver is an iterator of another kind.
+That covers the iterators of arrays, `Map`, `Set`, strings, `matchAll` and `Intl.Segmenter` segments, and those of
+`Headers`, `FormData` and `URLSearchParams`. In 4.16 and earlier 5.0 builds any built-in iterator was accepted and
+stepped:
+
+```js
+const arrayNext = Object.getPrototypeOf([].values()).next;
+arrayNext.call(new Map([[1, 2]]).entries())
+// 4.16.x / earlier 5.0: { value: [1, 2], done: false }    5.x: TypeError
+```
+
+The array iterator's `next` still steps the iterators of typed arrays, array-likes and wrapped CLR collections, which
+inherit its prototype. The same kind's `next` from another realm is accepted too.
+
+Loops follow the same rule. An iterator moved onto another kind's prototype, or a kind's prototype given another
+kind's `next`, now throws at the first step of a `for…of`, a spread, `Array.from`, a destructuring, `yield*` or a
+`for await`. Before, it iterated as if nothing had changed:
+
+```js
+const it = new Set([1, 2]).values();
+Object.setPrototypeOf(it, Object.getPrototypeOf([].values()));
+[...it]
+// 4.16.x / earlier 5.0: [1, 2]    5.x: TypeError
+```
+
+A host or script that borrowed one kind's `next` to step another kind's iterator must call that iterator's own `next`.
+There is no switch back.
+
 ### 4.229 `new Notification` converts each entry of `actions` as a `NotificationAction` ([#4516](https://github.com/sebastienros/jint/issues/4516))
 
 `Jint.Browser` used to count the entries of `actions` and convert none of them. Each entry is now converted as a
