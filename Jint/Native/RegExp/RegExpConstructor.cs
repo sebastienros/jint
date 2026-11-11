@@ -456,10 +456,6 @@ public sealed partial class RegExpConstructor : Constructor
         // This method is called when a RegExp object is created at run-time, e.g.,
         // `new RegExp("abc", "i")`, `RegExp("abc", "i")`, `/x/.compile("abc", "i")`, `"x".match("abc")`, etc.
 
-        // A previously host-supplied Regex is re-initialized from a JavaScript pattern here (compile),
-        // so it stops being a host regex and gets a compiled matcher below.
-        r.HostRegex = null;
-
         var p = pattern.IsUndefined() ? "" : TypeConverter.ToString(pattern);
         if (string.IsNullOrEmpty(p))
         {
@@ -479,6 +475,13 @@ public sealed partial class RegExpConstructor : Constructor
         // Compiling is also what validates: the flags and the pattern's early errors are both the matcher's
         // to report, so a pattern is parsed once rather than once by Acornima and again here.
         r.Matcher = RegExpParseCache.GetOrCompile(_realm, p, f, Engine.RegexConversionOptions.ResolveTimeout(conversionOptions, _engine));
+
+        // A previously host-supplied Regex is re-initialized from a JavaScript pattern here (compile), so it stops
+        // being a host regex only now. Everything above can throw or run script (ToString on the pattern or the
+        // flags, an invalid pattern, a compile that outran its budget), and RegExpInitialize assigns nothing to the
+        // object until the last of those has passed (https://tc39.es/ecma262/#sec-regexpinitialize), so an abrupt
+        // completion must leave a host Regex still matching, and script run above must still see it as one.
+        r.HostRegex = null;
         r.ConversionOptions = conversionOptions;
 
         // The pattern may contain characters that are not valid in a regexp literal ('/' and new line characters),
@@ -641,11 +644,18 @@ AppendEscapedNewLine:
         return RegExpInitialize(r, pattern, flags);
     }
 
-    private JsRegExp RegExpAlloc(JsValue newTarget)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-regexpalloc
+    /// The object is not reachable from script until the <c>RegExpInitialize</c> that follows it, and the only
+    /// script that can run in between (reading <c>newTarget.prototype</c>) runs before the object exists. So
+    /// <paramref name="matcher"/> is the one the caller already holds, or <see langword="null"/> when the
+    /// initialization compiles it; no matcher is made up for an object nothing can match against yet.
+    /// </summary>
+    private JsRegExp RegExpAlloc(JsValue newTarget, JintRegExpEngine? matcher = null)
     {
         if (ReferenceEquals(newTarget, this))
         {
-            return new JsRegExp(_engine)
+            return new JsRegExp(_engine, matcher)
             {
                 _prototype = PrototypeObject
             };
@@ -654,7 +664,8 @@ AppendEscapedNewLine:
         var r = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.RegExp.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new JsRegExp(engine));
+            static (Engine engine, Realm _, JintRegExpEngine? initial) => new JsRegExp(engine, initial),
+            matcher);
         return r;
     }
 
@@ -662,8 +673,7 @@ AppendEscapedNewLine:
     {
         // This method is called to create a JsRegExp object from a regexp literal, e.g., `/abc/i`.
 
-        var r = RegExpAlloc(this);
-        r.Matcher = matcher;
+        var r = RegExpAlloc(this, matcher);
         r.ConversionOptions = conversionOptions;
 
         // Source is already a valid, properly escaped JS regexp pattern.

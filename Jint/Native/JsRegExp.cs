@@ -18,11 +18,22 @@ public sealed class JsRegExp : ObjectInstance
     private PropertyDescriptor _prototypeDescriptor = null!;
 
     public JsRegExp(Engine engine)
-        : base(engine, ObjectClass.RegExp)
+        : this(engine, RegExpParseCache.GetOrCompile(engine.Realm, "", "", System.Threading.Timeout.InfiniteTimeSpan))
     {
         // The empty pattern, matching what its Source says; Intrinsics.RegExp.Construct builds any other.
+    }
+
+    // RegExpAlloc: the object is not reachable from script until the RegExpInitialize that follows it, which
+    // assigns the matcher (a host Regex has none), the source and the flags. A literal evaluates this on every
+    // pass, so a path that already holds its matcher passes it and every other passes null, rather than looking
+    // the empty pattern up in the process-wide cache for a value that is replaced before anything reads it.
+    // https://tc39.es/ecma262/#sec-regexpalloc
+    internal JsRegExp(Engine engine, JintRegExpEngine? matcher)
+        : base(engine, ObjectClass.RegExp)
+    {
+        // Every initialization replaces the source; this is what the public constructor's empty pattern reports.
         Source = regExpForMatchingAllCharacters;
-        Matcher = RegExpParseCache.GetOrCompile(engine.Realm, "", "", System.Threading.Timeout.InfiniteTimeSpan);
+        Matcher = matcher;
     }
 
     /// <summary>The pattern text, escaped as <c>RegExp.prototype.source</c> reports it.</summary>
