@@ -8545,7 +8545,7 @@ hole the iterator has already finished at does not step it at all, as before. An
 and over a built-in iterator whose result has no `value` a script could observe, behaves as it did. There is no switch
 back.
 
-### 4.235 A parameter's array pattern over an array reads only the elements it steps to
+### 4.235 A parameter's array pattern over an array reads only the elements it steps to ([#4559](https://github.com/sebastienros/jint/pull/4559))
 
 An array pattern in a parameter list, over an array whose iterator is the built-in one, stands for that iterator: each
 element makes one step, which reads the array's `length` and then the element at the next index, and it steps only
