@@ -58,6 +58,14 @@ internal abstract class JintStatement
         Execute(context);
     }
 
+    /// <summary>
+    /// Adds the labels stacked above the innermost one to an iteration statement's label set, once, as the label stack
+    /// is built; see <see cref="JintIterationStatement{T}"/>. Any other statement has no label set and ignores them.
+    /// </summary>
+    internal virtual void SetEnclosingLabels(string[] labels)
+    {
+    }
+
     public ref readonly SourceLocation Location => ref _statement.LocationRef;
 
     /// <summary>
