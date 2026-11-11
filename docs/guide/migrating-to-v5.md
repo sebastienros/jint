@@ -8601,7 +8601,7 @@ pattern used to throw a CLR `OverflowException` out of `Execute`, now binds, a r
 constraints. Otherwise a parameter pattern over an array that holds no getter and that no initializer changes binds
 what it did, and declarations and assignments follow in 4.236. There is no switch back.
 
-### 4.236 A declaration's or an assignment's array pattern over an array reads only the elements it steps to ([#PRNUMBER](https://github.com/sebastienros/jint/pull/PRNUMBER))
+### 4.236 A declaration's or an assignment's array pattern over an array reads only the elements it steps to ([#4564](https://github.com/sebastienros/jint/pull/4564))
 
 An array pattern in a declaration, an assignment, a `for`-`of` head or a `catch` parameter, over an array whose
 iterator is the built-in one, stands for that iterator just as a parameter's does (4.235): each element makes one step,
