@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1341
+anchors: 1342
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -1076,6 +1076,7 @@ proposal-async-iterator-helpers sec-asynciterator-constructor
 proposal-async-iterator-helpers sec-asynciterator.from
 proposal-async-iterator-helpers sec-asynciteratorprototype-@@tostringtag
 proposal-async-iterator-helpers sec-asynciteratorprototype.constructor
+proposal-async-iterator-helpers sec-asynciteratorprototype.drop
 proposal-async-iterator-helpers sec-asynciteratorprototype.every
 proposal-async-iterator-helpers sec-asynciteratorprototype.find
 proposal-async-iterator-helpers sec-asynciteratorprototype.flatmap
