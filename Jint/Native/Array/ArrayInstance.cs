@@ -638,39 +638,18 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return false;
     }
 
-    internal JsValue Get(uint index)
-    {
-        if (!TryGetValue(index, out var value))
-        {
-            // Reading a hole walks the prototype chain, but when nothing relevant has changed
-            // (no exotic descriptors here, prototypes pristine — the same invariant the write
-            // fast path trusts) the walk provably yields undefined: skip it and the per-hole
-            // JsString the probe would allocate.
-            if (CanUseFastAccess)
-            {
-                return Undefined;
-            }
-
-            value = Prototype?.Get(JsString.Create(index)) ?? Undefined;
-        }
-
-        return value;
-    }
+    /// <summary>
+    /// <c>Get(O, ! ToString(𝔽(index)))</c> with this array as the receiver; see <see cref="GetElement"/>.
+    /// </summary>
+    internal JsValue Get(uint index) => GetElement(index);
 
     public sealed override JsValue Get(JsValue property, JsValue receiver)
     {
         if (IsSafeSelfTarget(receiver) && IsArrayIndex(property, out var index))
         {
-            if (TryGetValue(index, out var value))
-            {
-                return value;
-            }
-
-            // hole/out-of-range read with pristine prototypes: see Get(uint)
-            if (CanUseFastAccess)
-            {
-                return Undefined;
-            }
+            // the whole of [[Get]] for an index: an own element, or the prototype chain's answer, which
+            // GetElement settles itself, so nothing is left for the generic read below to find
+            return GetElement(index);
         }
 
         if (CommonProperties.Length.Equals(property))
@@ -1046,6 +1025,14 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     /// bridging a JavaScript array into a sparse-aware representation can tell the two apart in a single
     /// pass. Getters on the array or its prototype chain are invoked, exactly as an indexed read from
     /// script would.
+    /// <para>
+    /// An index the array does not hold is answered as <c>HasProperty</c> and then <c>Get</c> would answer it
+    /// (https://tc39.es/ecma262/#sec-hasproperty, https://tc39.es/ecma262/#sec-get-o-p). For a chain of ordinary
+    /// objects that is one walk; an object on the chain whose <c>[[Get]]</c> is not the ordinary one — a Proxy, a
+    /// typed array, an arguments object, a host object overriding <c>Get</c> — is asked both questions, so a Proxy
+    /// there runs its <c>has</c> trap and then, when that answers <see langword="true"/>, its <c>get</c> trap with
+    /// this array as the receiver.
+    /// </para>
     /// </summary>
     /// <param name="index">The array index to read.</param>
     /// <param name="value">The resolved value, or <see cref="JsValue.Undefined"/> when the result is <see langword="false"/>.</param>
@@ -1062,6 +1049,18 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         return TryGetValueUnlikely(index, out value);
     }
+
+    /// <summary>
+    /// <c>Get(O, ! ToString(𝔽(index)))</c> with this array as the receiver, for the readers that want the value
+    /// and not whether the index exists: an indexed read, a step of the array iterator
+    /// (https://tc39.es/ecma262/#sec-createarrayiterator), and the array-pattern lanes that stand in for that
+    /// iterator. A hole, or an index past the end, reads on the prototype chain, where an object whose
+    /// <c>[[Get]]</c> is not the ordinary one is asked only that, so a Proxy there runs its <c>get</c> trap and
+    /// nothing else. <see cref="TryGetValue(uint, out JsValue)"/> asks it <c>HasProperty</c> first.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal JsValue GetElement(uint index)
+        => GetValue(index, unwrapFromNonDataDescriptor: true) ?? GetInheritedElement(index);
 
     /// <summary>
     /// Fast read of a present dense element: returns true only when <paramref name="index"/> is in
@@ -1188,24 +1187,93 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         if (!CanUseFastAccess)
         {
             // slow path must be checked for prototype
-            var prototype = Prototype;
-            JsValue key = index;
-            while (prototype is not null)
-            {
-                // The hook's base body is this level's GetOwnProperty plus the same unwrap against the
-                // same receiver (the one-argument UnwrapJsValue forwards `this`), so nothing in the walk
-                // changes for an in-box prototype; a host one gets to answer without a descriptor.
-                if (prototype.TryGetOwnPropertyValue(key, this, out value))
-                {
-                    return true;
-                }
-
-                prototype = prototype.Prototype;
-            }
+            return TryGetFromPrototypeChain(index, askPresence: true, out value);
         }
 
         value = Undefined;
         return false;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue GetInheritedElement(uint index)
+    {
+        if (!CanUseFastAccess)
+        {
+            TryGetFromPrototypeChain(index, askPresence: false, out var value);
+            return value;
+        }
+
+        // Reading a hole walks the prototype chain, but when nothing relevant has changed (no exotic
+        // descriptors here, prototypes pristine — the same invariant the write fast path trusts) the walk
+        // provably yields undefined: skip it and the per-hole key the probe would allocate.
+        return Undefined;
+    }
+
+    /// <summary>
+    /// OrdinaryGet once this array has no own element at <paramref name="index"/>: <c>parent.[[Get]](P, Receiver)</c>
+    /// (https://tc39.es/ecma262/#sec-ordinary-object-internal-methods-and-internal-slots-get-p-receiver, OrdinaryGet
+    /// step 2.c). An ordinary parent answers that from its own property or hands the same step to its own parent,
+    /// which is why the walk can run it as a loop asking each link for an own value — but only while the link's
+    /// <c>[[Get]]</c> is the ordinary one. A link carrying <see cref="InternalTypes.ExoticGet"/> has an algorithm of
+    /// its own: a Proxy's runs its <c>get</c> trap, never <c>getOwnPropertyDescriptor</c> or <c>getPrototypeOf</c>
+    /// (https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-get-p-receiver), and a typed
+    /// array's answers a canonical numeric key itself without consulting its own prototype
+    /// (https://tc39.es/ecma262/#sec-typedarray-get). So the walk hands the rest of the read to the first such link, as
+    /// <c>ObjectInstance</c>'s own chain walk does. <paramref name="askPresence"/> says whether the caller needs to
+    /// know the index exists — asks <c>HasProperty</c> before <c>Get</c> — which only an exotic link makes a second
+    /// question.
+    /// </summary>
+    private bool TryGetFromPrototypeChain(uint index, bool askPresence, out JsValue value)
+    {
+        var prototype = Prototype;
+        JsValue key = index;
+        while (prototype is not null)
+        {
+            if ((prototype._type & InternalTypes.ExoticGet) != InternalTypes.Empty)
+            {
+                return TryGetFromExoticPrototype(prototype, index, askPresence, out value);
+            }
+
+            // The hook's base body is this level's GetOwnProperty plus the same unwrap against the
+            // same receiver (the one-argument UnwrapJsValue forwards `this`), so nothing in the walk
+            // changes for an in-box prototype; a host one gets to answer without a descriptor.
+            if (prototype.TryGetOwnPropertyValue(key, this, out value))
+            {
+                return true;
+            }
+
+            prototype = prototype.Prototype;
+        }
+
+        value = Undefined;
+        return false;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool TryGetFromExoticPrototype(ObjectInstance prototype, uint index, bool askPresence, out JsValue value)
+    {
+        // The hand-over is a native frame, and what the link does next is its own algorithm — a Proxy forwarding
+        // to a chain of proxies is a recursion script controls — so this is where the walk probes the stack, as
+        // ObjectInstance's does (sebastienros/jint#4076).
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
+        var property = JsString.Create(index);
+        if (askPresence)
+        {
+            // HasProperty(O, P), whose ordinary part the walk has just done, and then Get(O, P) from the array
+            // itself: a has trap that changes the chain is seen by the read after it, as by the two operations.
+            if (!prototype.HasProperty(property))
+            {
+                value = Undefined;
+                return false;
+            }
+
+            value = Get(property, this);
+            return true;
+        }
+
+        value = prototype.Get(property, this);
+        return true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1507,8 +1575,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             var length = GetLength();
             for (uint i = 0; i < length; i++)
             {
-                TryGetValue(i, out var outValue);
-                yield return new IndexedEntry((int) i, outValue);
+                yield return new IndexedEntry((int) i, GetElement(i));
             }
 
             yield break;
@@ -1853,11 +1920,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     public JsValue this[uint index]
     {
-        get
-        {
-            TryGetValue(index, out var kValue);
-            return kValue;
-        }
+        get => GetElement(index);
         set
         {
             SetIndexValue(index, value, updateLength: true);
@@ -1868,16 +1931,13 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     {
         get
         {
-            JsValue? kValue;
             if (index >= 0)
             {
-                TryGetValue((uint) index, out kValue);
+                return GetElement((uint) index);
             }
-            else
-            {
-                // slow path
-                TryGetValue(JsNumber.Create(index), out kValue);
-            }
+
+            // slow path
+            TryGetValue(JsNumber.Create(index), out var kValue);
             return kValue;
         }
         set

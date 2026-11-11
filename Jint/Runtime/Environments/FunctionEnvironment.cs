@@ -337,7 +337,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             {
                 if (position < array.GetLength())
                 {
-                    array.TryGetValue(position, out value);
+                    value = array.GetElement(position);
                     position++;
                 }
                 else
@@ -426,7 +426,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
                 _engine.Constraints.Check();
             }
 
-            array.TryGetValue(position++, out var item);
+            var item = array.GetElement(position++);
             rest.SetIndexValue(index++, item, updateLength: false);
         }
 

@@ -240,8 +240,7 @@ internal sealed class ExpressionCache
 
                     for (uint j = 0; j < length; ++j)
                     {
-                        ai.TryGetValue(j, out var value);
-                        target.Add(value);
+                        target.Add(ai.GetElement(j));
                     }
                 }
                 else

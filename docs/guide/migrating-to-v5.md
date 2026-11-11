@@ -8672,6 +8672,46 @@ pattern used to throw a CLR `OverflowException` out of `Execute`, now binds, a r
 constraints. Otherwise a parameter pattern over an array that holds no getter and that no initializer changes binds
 what it did, and declarations and assignments are unchanged. There is no switch back.
 
+### 4.237 A hole in an array is read through an exotic prototype's own `[[Get]]` ([#PR](https://github.com/sebastienros/jint/pull/PR))
+
+A read of an index an array does not hold, a hole or an index past the end, goes on to the array's prototype chain,
+and the spec asks the prototype's `[[Get]]` with the array as the receiver. Jint walked the chain itself, asking each
+object on it for an own property. That is the same thing only while every object on the chain reads like an ordinary
+one. With a Proxy on the chain the read ran the proxy's `getOwnPropertyDescriptor` and `getPrototypeOf` traps instead
+of its `get` trap. With a typed array on the chain, whose `[[Get]]` answers every numeric key itself, an index on
+`Object.prototype` showed through it:
+
+```js
+const log = [];
+const arr = [1, , 3];
+Object.setPrototypeOf(arr, new Proxy(Array.prototype, {
+  get(t, k, r) { log.push('get ' + String(k)); return k === '1' ? 'P' : Reflect.get(t, k, r); },
+  getOwnPropertyDescriptor(t, k) { log.push('gopd ' + String(k)); return Reflect.getOwnPropertyDescriptor(t, k); },
+  getPrototypeOf(t) { log.push('getPrototypeOf'); return Reflect.getPrototypeOf(t); }
+}));
+log.length = 0; arr[1]; log.join()
+// 4.16.x / earlier 5.0: 'gopd 1,getPrototypeOf,get 1'    5.x: 'get 1'
+log.length = 0; [...arr].join()
+// 4.16.x / earlier 5.0: '1,,3'    5.x: '1,P,3'
+
+const typed = [1, , 3];
+Object.setPrototypeOf(typed, Object.create(new Int8Array(0)));
+Object.prototype[1] = 'o';
+typed[1]
+// 4.16.x / earlier 5.0: 'o'    5.x: undefined
+```
+
+Every read of an array's index takes the prototype's `[[Get]]` now: a computed member read, `Reflect.get`, `for`-`of`,
+spread, `Array.from`, `join`, `at`, a parameter's array pattern, and from C# the `JsArray` indexer and its enumerator.
+The same holds for a host `ObjectInstance` on the chain that overrides `Get`: it is now asked for the index, with the
+array as the receiver, instead of being probed for an own property and passed over. A getter on an ordinary prototype
+runs with the array as its receiver, as before.
+
+`ArrayInstance.TryGetValue(uint, out JsValue)` stays hole-aware: it answers what `HasProperty` and then `Get` answer, so
+an exotic prototype is asked both questions, a Proxy's `has` trap first and its `get` trap only when `has` says the
+index exists. An array whose prototype chain is the intrinsic `Array.prototype` and `Object.prototype`, with no index on
+either, reads what it did. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

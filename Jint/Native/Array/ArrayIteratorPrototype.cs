@@ -108,7 +108,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
             var position = _position;
             if (!_closed && position < len)
             {
-                _array.TryGetValue(position, out var value);
+                var value = _array.GetElement(position);
                 nextItem = _kind switch
                 {
                     ArrayIteratorType.Key => IteratorResult.CreateValueIteratorPosition(_engine, JsNumber.Create(position)),
@@ -137,7 +137,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
                 var position = _position;
                 if (!_closed && position < len)
                 {
-                    _array.TryGetValue(position, out var stepped);
+                    var stepped = _array.GetElement(position);
                     _position++;
                     value = stepped;
                     return true;
