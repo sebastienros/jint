@@ -281,21 +281,15 @@ internal sealed class JintRegExpEngine
         // CaptureCount groups: what Search would validate is already known, and the prevalidated entry reads the
         // partitions only up to the planned frame count, so they may be longer than planned.
         // The timeout starts at the search's first clock read (see TryMatchRange), so a search that ends within its first
-        // stride of work reads no clock; an interval of DeferredStartAbove or less starts at a clock read made here
-        // instead, and started is what SearchSlow carries into its retries. Each state is built in place: a helper
-        // returning it by value cost this method a larger frame and two struct copies.
-        var buffers = Rent(plan);
-        long started = 0;
-        RunState state;
+        // stride of work reads no clock; an interval of DeferredStartAbove or less takes SearchShortInterval. The state is
+        // built here, in place, at the one site: a helper returning it by value cost a larger frame and two struct copies,
+        // and a second construction site made the JIT build it through stack temporaries.
         if (timeout is { } interval && interval.Ticks <= DeferredStartAbove)
         {
-            state = new RunState(buffers, long.MaxValue, ShortIntervalDeadline(timeout, out started));
-        }
-        else
-        {
-            state = new RunState(buffers, long.MaxValue, default, timeout, deferStart: true);
+            return SearchShortInterval(input, startIndex, operation, groups, interval, out match, sticky, plan);
         }
 
+        var state = new RunState(Rent(plan), long.MaxValue, default, timeout, deferStart: true);
         var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match, hostSized: true);
         if (status == RegexSearchStatus.Match)
         {
@@ -307,8 +301,29 @@ internal sealed class JintRegExpEngine
             return false;
         }
 
-        return SearchSlow(input, startIndex, operation, groups, timeout, started != 0 ? started : state.Budget.StartedAt, out match, sticky, status,
-            state.Failure.Code, plan);
+        return SearchSlow(input, startIndex, operation, groups, timeout, state.Budget.StartedAt, out match, sticky, status, state.Failure.Code, plan);
+    }
+
+    // Search for an interval too short to defer: the deadline comes from a clock read made here, and is first checked at
+    // the first stride. Out of line, so none of it is part of the inlined body of every other search.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool SearchShortInterval(string input, int startIndex, SearchOperation operation, Span<RegexCapture> groups, TimeSpan interval,
+        out RegexMatchRange match, bool sticky, FramePlan plan)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var state = new RunState(Rent(plan), long.MaxValue, AbsoluteDeadline(interval, started));
+        var status = _executor.SearchPrevalidated(input.AsSpan(), startIndex, sticky, operation, plan.Frames, ref state, groups, out match, hostSized: true);
+        if (status == RegexSearchStatus.Match)
+        {
+            return true;
+        }
+
+        if (status == RegexSearchStatus.NoMatch)
+        {
+            return false;
+        }
+
+        return SearchSlow(input, startIndex, operation, groups, interval, started, out match, sticky, status, state.Failure.Code, plan);
     }
 
     // The thread's storage when the plan fits what a thread may keep, otherwise storage of the search's own, collected

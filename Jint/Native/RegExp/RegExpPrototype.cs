@@ -3,6 +3,7 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
@@ -1944,7 +1945,10 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
         var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
-        var matcherTimeout = MatcherTimeout(timeout);
+        // Kept as an inline expression, not a call to MatcherTimeout: the JIT sets the inline budget of this method, and with it
+        // whether CountRun, CompleteSimpleMatch and TryChargeFast are inlined into the search below, from the method's own IL
+        // size (ten times it), and a few bytes less left four of them as calls on every match of a global search.
+        TimeSpan? matcherTimeout = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? null : timeout;
         try
         {
             return engine.TryMatchRange(s, startIndex, matcherTimeout, out index, out length);
