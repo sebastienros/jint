@@ -33,7 +33,9 @@ internal sealed class JintMemberExpression : JintExpression
     private readonly JsValue? _determinedProperty;
     private readonly bool _objectExpressionCanShortCircuit;
     private readonly bool _computedReadEligible;
-    private readonly bool _objectReadKeepsRawEnvironmentWalk;
+    // Not readonly: a call or a tagged template whose callee this is clears it at build time (see
+    // HandsOnBaseAsReceiver).
+    private bool _objectReadKeepsRawEnvironmentWalk;
     private ObjectInstance? _cachedReadObject;
     private PropertyDescriptor? _cachedReadDescriptor;
     private uint _cachedReadVersion;
@@ -261,6 +263,14 @@ internal sealed class JintMemberExpression : JintExpression
     internal override void EnableShortCircuitPropagation() => _propagatesShortCircuit = true;
 
     /// <summary>
+    /// Called at build time by a call or a tagged template whose callee this is. The base becomes the callee's
+    /// <c>this</c> (https://tc39.es/ecma262/#sec-evaluatecall), so an <c>arguments</c> base is handed on rather
+    /// than only read from, and has to be resolved through the identifier read that marks the object as having
+    /// escaped the frame instead of the raw walk that keeps it poolable.
+    /// </summary>
+    internal void HandsOnBaseAsReceiver() => _objectReadKeepsRawEnvironmentWalk = false;
+
+    /// <summary>
     /// What this link returns when the chain short-circuits here or below: the signal when the next link
     /// is waiting for it, and the chain's actual value — <c>undefined</c> — when this is the outermost
     /// link. Only ever reached from a link that can short-circuit, which is exactly the shape whose fast
@@ -305,7 +315,10 @@ internal sealed class JintMemberExpression : JintExpression
                 {
                     // `arguments[i]` / `eval.x`: GetValue's HandOn would materialize the arguments object and
                     // permanently opt the frame's JsArguments out of pooling; the raw walk
-                    // returns the live object and mapped-index reads stay on the parameter map.
+                    // returns the live object and mapped-index reads stay on the parameter map. Sound only
+                    // because the object goes no further than this access: a callee is told otherwise
+                    // (HandsOnBaseAsReceiver), and a closure's late read is answered by a snapshot taken at
+                    // instantiation (State.ArgumentsMayOutliveCall).
                     var env = engine.ExecutionContext.LexicalEnvironment;
                     JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                         env,
