@@ -352,12 +352,20 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
                     continue;
                 }
 
-                // An elision steps too, and binds nothing.
-                value[0] = !iterator.Done && iterator.TryIteratorStepValue(out var stepped) ? stepped : Undefined;
-                if (element is not null)
+                if (element is null)
                 {
-                    SetFunctionParameter(context, element, value, 0, initiallyEmpty);
+                    // An elision steps too, and binds nothing: IteratorStep, which never reads the result's `value`
+                    // (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation).
+                    if (!iterator.Done)
+                    {
+                        iterator.TryIteratorStepWithoutValue();
+                    }
+
+                    continue;
                 }
+
+                value[0] = !iterator.Done && iterator.TryIteratorStepValue(out var stepped) ? stepped : Undefined;
+                SetFunctionParameter(context, element, value, 0, initiallyEmpty);
             }
         }
         catch
