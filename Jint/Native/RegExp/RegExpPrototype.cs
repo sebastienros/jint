@@ -42,9 +42,9 @@ internal sealed partial class RegExpPrototype : Prototype
     private readonly RegExpConstructor _constructor;
 
     // exec is a per-realm instance slot (not a [JsFunction]): HasDefaultExec compares the current exec
-    // value's underlying delegate against _defaultExec to detect user replacement, so it must be a
-    // ClrFunction wrapping _defaultExec with a stable per-realm identity — which the shape's instance slot
-    // provides (a generated dispatcher would be a different Function subtype and break the check).
+    // value against this function to detect user replacement, so it must be a ClrFunction wrapping
+    // _defaultExec with a stable per-realm identity — which the shape's instance slot provides (a generated
+    // dispatcher would be a different Function subtype and break the check).
     [JsProperty(Name = "exec", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
     private readonly ClrFunction _execFunction;
 
@@ -523,15 +523,37 @@ internal sealed partial class RegExpPrototype : Prototype
 #pragma warning restore CA1845
     }
 
+    // The (index, length) pairs FusedReplace collects, kept between calls so a replace over a handful of matches
+    // does not regrow a list from empty every time. A call takes the buffer and leaves null behind, because a
+    // replacer is script and can run a replace of its own: that one finds the field empty and uses an array
+    // of its own, and whichever finishes last leaves its array here. A buffer that grew past MaxRetainedSpans
+    // is dropped instead, so one huge replace does not pin its storage for the life of the realm; a call that
+    // throws drops its buffer too, and the next one simply allocates.
+    private int[]? _spansBuffer;
+    private const int InitialSpans = 64;
+    private const int MaxRetainedSpans = 4096;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int[] GrowSpans(int[] spans, int used, int extra)
+    {
+        var needed = checked(used + extra);
+        var grown = new int[(int) System.Math.Max(needed, System.Math.Min(2L * spans.Length, 0x7FFFFFC7L))];
+        System.Array.Copy(spans, grown, used);
+        return grown;
+    }
+
     private string FusedReplace(JsRegExp rei, string s, bool global, bool fullUnicode, bool functionalReplace, JsValue replaceValue)
     {
         var matcher = rei.Matcher!;
         var groupCount = matcher.CaptureCount;
         var groups = new RegexCapture[groupCount];
+        var stride = 2 * groupCount;
 
         // Steps 11-12: collect every match as flat (index, length) pairs per group; -1 marks a group that did
         // not participate.
-        var spans = new List<int>();
+        var spans = _spansBuffer ?? new int[InitialSpans];
+        _spansBuffer = null;
+        var spanCount = 0;
         var searchStart = 0;
         var matchCount = 0;
         // No script runs while matches are collected (the replacer is called afterwards), so the searches may share
@@ -551,10 +573,15 @@ internal sealed partial class RegExpPrototype : Prototype
                     break;
                 }
 
+                if (spanCount + stride > spans.Length)
+                {
+                    spans = GrowSpans(spans, spanCount, stride);
+                }
+
                 foreach (var group in groups)
                 {
-                    spans.Add(group.Participated ? group.Index : -1);
-                    spans.Add(group.Length);
+                    spans[spanCount++] = group.Participated ? group.Index : -1;
+                    spans[spanCount++] = group.Length;
                 }
 
                 if (!global)
@@ -568,10 +595,10 @@ internal sealed partial class RegExpPrototype : Prototype
             }
         }
 
-        var stride = 2 * groupCount;
-        var matches = spans.Count / stride;
+        var matches = spanCount / stride;
         if (matches == 0)
         {
+            ReturnSpans(spans);
             return s;
         }
 
@@ -638,9 +665,20 @@ internal sealed partial class RegExpPrototype : Prototype
             nextSourcePosition = position + matchLength;
         }
 
+        ReturnSpans(spans);
+
         JsString.ThrowIfLengthExceeded(_realm, (long) sb.Length + (s.Length - nextSourcePosition));
         sb.Append(s.AsSpan(nextSourcePosition));
         return sb.ToString();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ReturnSpans(int[] spans)
+    {
+        if (spans.Length <= MaxRetainedSpans)
+        {
+            _spansBuffer = spans;
+        }
     }
 
     /// <summary>
@@ -673,7 +711,7 @@ internal sealed partial class RegExpPrototype : Prototype
         return groups;
     }
 
-    private static void UpdateLegacyStaticProperties(Engine engine, JintRegExpEngine matcher, string s, List<int> spans, int offset)
+    private static void UpdateLegacyStaticProperties(Engine engine, JintRegExpEngine matcher, string s, int[] spans, int offset)
     {
         var constructor = engine.Realm.Intrinsics.RegExp;
         constructor._legacyInput = s;
@@ -1769,16 +1807,54 @@ internal sealed partial class RegExpPrototype : Prototype
     /// extra time — with <c>RegExp.prototype</c> itself as the receiver rather than the regexp being
     /// matched, which is observable and simply wrong.
     /// </para>
+    /// <para>
+    /// The answer is a comparison of two fields while nothing has changed: the descriptor found the last time
+    /// is kept with the own-property version it was found at, so only a change to the prototype's own
+    /// properties sends the call back to the lookup.
+    /// </para>
     /// </summary>
     internal bool HasDefaultExec
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            var descriptor = GetOwnProperty(PropertyExec);
-            return !descriptor.IsAccessorDescriptor()
-                   && UnwrapJsValue(descriptor) is ClrFunction functionInstance
-                   && functionInstance._func == _defaultExec;
+            // While the own-property version still matches the one the descriptor was confirmed against, it is
+            // still the descriptor exec resolves to: replacing it, turning it into an accessor and deleting it
+            // all go through SetOwnProperty, SetProperty or RemoveOwnProperty, which move the version. What
+            // none of them touch is the value inside it, since an assignment or a defineProperty with a value
+            // updates the descriptor in place, so the value is compared on every call.
+            var descriptor = _execDescriptor;
+            if (descriptor is not null
+                && _propertiesVersion == _execDescriptorVersion
+                && ReferenceEquals(descriptor._value, _execFunction))
+            {
+                return true;
+            }
+
+            return HasDefaultExecSlow();
         }
+    }
+
+    // The own descriptor of exec, and the own-property version at which it was last seen holding the built-in
+    // function. Left null until the first query, and never set for a descriptor that is not a plain data one.
+    private PropertyDescriptor? _execDescriptor;
+    private uint _execDescriptorVersion;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool HasDefaultExecSlow()
+    {
+        var descriptor = GetOwnProperty(PropertyExec);
+        var isDefault = !descriptor.IsAccessorDescriptor()
+                        && UnwrapJsValue(descriptor) is ClrFunction functionInstance
+                        && functionInstance._func == _defaultExec;
+
+        if (isDefault && (descriptor._flags & PropertyFlag.CustomJsValue) == PropertyFlag.None)
+        {
+            _execDescriptor = descriptor;
+            _execDescriptorVersion = _propertiesVersion;
+        }
+
+        return isDefault;
     }
 
     /// <summary>
