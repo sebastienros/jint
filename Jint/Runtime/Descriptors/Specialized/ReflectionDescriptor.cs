@@ -85,6 +85,12 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
 
     internal void AttachOwner(ObjectInstance owner) => _owner = owner;
 
+    /// <summary>
+    /// Whether a write through this descriptor can be refused, which only a dictionary's indexer does
+    /// (<see cref="IndexerAccessor.TargetIsDictionary"/>), and which only <see cref="TrySetValue"/> reports.
+    /// </summary>
+    internal bool WriteCanBeRefused => _reflectionAccessor is IndexerAccessor { TargetIsDictionary: true };
+
     private JsValue DoGet(JsValue? thisObj)
     {
         // Immutability promise (Options.Interop.ImmutableCrossingTypes): the member has already been read
@@ -163,6 +169,12 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
         _memoValue = null;
         _memoResult = null;
 
+        // The answer is discarded, as the caller of an accessor's setter discards it. Only an indexer stamped
+        // TargetIsDictionary can refuse (#4518), and its write never reaches this setter from ObjectWrapper:
+        // SetSlow asks TrySetValue instead, and the interpreter's member lane is never given such a descriptor,
+        // because ObjectWrapper.TryGetInlineCacheableDescriptor declines a dictionary and any descriptor whose
+        // WriteCanBeRefused. Every other descriptor reports success or throws, so nothing is lost here. This
+        // copy stays apart from TrySetValue so that the member lane's POCO write runs exactly what it ran before.
         try
         {
             _reflectionAccessor.SetValue(_engine, _target, _propertyName, v!);
@@ -170,6 +182,31 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
         catch (TargetInvocationException exception)
         {
             Throw.MeaningfulException(_engine, exception);
+        }
+    }
+
+    /// <summary>
+    /// The write <see cref="PropertyDescriptor.Value"/>'s setter performs, answering <see langword="false"/>
+    /// when the target refused it as a read-only dictionary does, which the setter cannot report.
+    /// </summary>
+    internal bool TrySetValue(JsValue value)
+    {
+        if (!_engine.Options.Interop.AllowWrite || _owner is { Extensible: false })
+        {
+            Throw.TypeError(_engine.Realm, $"Cannot assign to read only property '{_propertyName}' of object '#<Object>'");
+        }
+
+        _memoValue = null;
+        _memoResult = null;
+
+        try
+        {
+            return _reflectionAccessor.SetValue(_engine, _target, _propertyName, value);
+        }
+        catch (TargetInvocationException exception)
+        {
+            Throw.MeaningfulException(_engine, exception);
+            return false;
         }
     }
 }

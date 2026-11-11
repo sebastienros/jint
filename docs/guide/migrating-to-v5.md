@@ -8469,6 +8469,77 @@ has a `navigate` member that Chromium does not read, and neither does Jint, so a
 action is stored: a non-persistent notification refuses a non-empty list, and `actions` reads back as an empty frozen
 array. There is no switch back.
 
+### 4.230 A wrapped dictionary keeps a name it cannot hold as a key on the wrapper, and a read-only one refuses a write ([#4518](https://github.com/sebastienros/jint/issues/4518))
+
+Under `Options.Interop.AllowWrite`, assigning a name to a wrapped dictionary whose key type is not `string` let the
+dictionary's own exception out of `Evaluate` when the name did not convert to that key type: an `ArgumentException`
+from a `Dictionary<int, string>`, a `NotSupportedException` from a `ReadOnlyDictionary<int, string>`. Script could not
+catch it. The name reached the dictionary through the non-generic `IDictionary` indexer every base class library
+dictionary implements, which refuses a key of the wrong type. Now the name is a property of the wrapper, as a name
+with no CLR member is on any wrapped object, and as it already was on a dictionary that implements only the generic
+`IDictionary<TKey, TValue>`:
+
+```js
+// host: engine.SetValue("d", new Dictionary<int, string> { [1] = "a" });   AllowWrite = true
+d.expando = 2;
+d.expando
+// earlier previews: ArgumentException out of Evaluate    5.x: 2, and the dictionary still holds one entry
+```
+
+- It is an ordinary property. `in`, `hasOwnProperty`, `Object.getOwnPropertyDescriptor` and `delete` see it,
+  `Object.preventExtensions` stops it being added, and the host's dictionary never holds it.
+  `Options.Interop.ThrowOnUnresolvedMember` raises nothing for it, as it raises nothing when script reads the same
+  name.
+- It is listed like any property the script creates on a wrapper
+  ([§4.223](#4-223-a-wrapped-clr-object-lists-the-properties-the-script-defined-on-it-4503)): `Object.keys`,
+  `for..in`, `Reflect.ownKeys`, `Object.entries`, spread and `JSON.stringify` yield it after the dictionary's entries,
+  in creation order, a symbol last, and `delete` forgets it. An array index the key type cannot hold, such as
+  `'3000000000'` for an `int` key, sorts among the leading indices as on any object. A name the dictionary refused is
+  never listed.
+- A name that is a read-only member of the dictionary, such as `Count`, is refused instead: `false` from
+  `Reflect.set`, and a `TypeError` in strict mode. It used to reach the indexer too.
+- A name that converts to the key type is still an entry: `"5"` and `"-1"` for an `int` key, `"Monday"` for a
+  `DayOfWeek` key, `"2020-01-01"` for a `DateTime` key. A `Guid`-shaped string is not one, because the default
+  converter makes no `Guid` from a string.
+- Without `AllowWrite` nothing changes. The assignment is refused, as every assignment to a string-keyed dictionary
+  is, and `Object.defineProperty` defines the property on the wrapper, as it did before in both modes.
+
+A read-only dictionary now refuses a write or `delete` of an entry under `AllowWrite`, instead of letting its
+`NotSupportedException` out of `Evaluate`, raw or wrapped in a `TargetInvocationException`. That applies to
+`ReadOnlyDictionary`, `ImmutableDictionary`, `ImmutableSortedDictionary`, `FrozenDictionary`, and any
+`IDictionary` or `IDictionary<TKey, TValue>` that throws it. `Reflect.set` and `Reflect.deleteProperty` return
+`false`, an assignment or `delete` in strict mode is a `TypeError`, and the dictionary does not change:
+
+```js
+// host: engine.SetValue("d", new ReadOnlyDictionary<int, string>(new Dictionary<int, string> { [1] = "a" }));
+d[5] = 'b';      // earlier previews: TargetInvocationException out of Evaluate    5.x: refused
+delete d[1]     // earlier previews: TargetInvocationException out of Evaluate    5.x: false
+```
+
+- **Only a dictionary refuses.** A keyed host type that is not one (an indexer and a `ContainsKey`, but no
+  dictionary interface) has no read-only contract, so its setter's `NotSupportedException` still reaches the host
+  unwrapped, as before, whichever way the script writes.
+- **The host's exception handler is no longer asked about it.** The exception from a string-named write, such
+  as `d.k = 'z'` through a dictionary's indexer whose setter throws, reached `Options.Interop.ExceptionHandler`. Under
+  `CatchClrExceptions` (or a handler that answers `true`) script saw a catchable `Error`. A refusal is not an
+  error, so sloppy mode now raises nothing and strict mode raises the `TypeError` above. The number-key write
+  and `delete` never reached the handler.
+- **`PlatformNotSupportedException` is not a refusal**, although it derives from `NotSupportedException`. It is
+  one of the exceptions the engine always lets through to the host, and it does so here as before:
+  unwrapped from a string-named write, inside the `TargetInvocationException` from a number-key write or a
+  `delete`.
+- **`IReadOnlyDictionary<TKey, TValue>` alone has no `Remove`.** A `delete` of one of its entries used to answer
+  `true` and leave the entry where it was; it answers `false` now. A property the script defined on such a
+  wrapper is still deleted as on any object.
+- **`ObjectWrapper` overrides `Delete`** for the refusal, and seals its `RemoveOwnProperty` override. Neither
+  can break a host, because `ObjectWrapper`'s constructor is internal and so nothing outside Jint derives from it.
+
+A non-string-keyed `ImmutableDictionary` or
+`ImmutableSortedDictionary` no longer throws `InvalidCastException` when script reads a name it cannot hold as a
+key: the name reads `undefined`, in both modes.
+
+There is no switch back.
+
 ### 4.232 An execution constraint that trips inside an iterator's `return` ends the run while a throw is closing the iterator ([#4547](https://github.com/sebastienros/jint/pull/4547))
 
 A loop, a destructuring pattern or a built-in that is left by a throw closes its iterator by calling `return`, and the
