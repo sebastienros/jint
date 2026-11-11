@@ -2146,7 +2146,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
         {
             if (arguments[i] is JsArray ja)
             {
-                if (ja._dense is null || ja.GetLength() > (ulong) ja._dense.Length + 50)
+                // CanUseFastAccess too: AppendConcatItem copies a null slot as a hole, which is right only while
+                // nothing inherited can fill it (HasProperty in https://tc39.es/ecma262/#sec-array.prototype.concat
+                // asks the prototype chain). The receiver passed that test at the call site.
+                if (ja._dense is null || ja.GetLength() > (ulong) ja._dense.Length + 50 || !ja.CanUseFastAccess)
                 {
                     return false;
                 }

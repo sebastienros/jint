@@ -1894,8 +1894,21 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     }
 
     /// <summary>
-    /// Fast path for concatenating sane-sized arrays, we assume size has been calculated.
+    /// Copies <paramref name="length"/> elements of <paramref name="source"/>, starting at
+    /// <paramref name="sourceStartIndex"/>, to <paramref name="targetStartIndex"/> onward, skipping every index
+    /// the source does not have: the <c>HasProperty</c> then <c>Get</c> loop of
+    /// https://tc39.es/ecma262/#sec-array.prototype.slice and https://tc39.es/ecma262/#sec-array.prototype.concat.
+    /// <c>HasProperty</c> asks the prototype chain too, so a hole is only a hole when nothing inherited fills it.
+    /// The caller sizes the result and sets its length; this never does.
     /// </summary>
+    /// <remarks>
+    /// The dense lane copies the backing store as it stands, which answers every index of it without asking
+    /// anyone, so it is sound only while no prototype holds an index and no element is an accessor: exactly
+    /// <see cref="CanUseFastAccess"/>, tested once up front because nothing in the lane can run script. A source
+    /// that fails it is read an index at a time through <see cref="TryGetValue(uint, out JsValue)"/>, which
+    /// resolves a hole against the chain afresh each turn, so an accessor that mutates the source is observed by
+    /// the indices after it.
+    /// </remarks>
     internal void CopyValues(JsArray source, uint sourceStartIndex, uint targetStartIndex, uint length)
     {
         if (length == 0)
@@ -1914,30 +1927,24 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         if (dense != null
             && sourceDense != null
             && (uint) dense.Length >= targetStartIndex + length
-            && dense[targetStartIndex] is null)
+            && dense[targetStartIndex] is null
+            && source.CanUseFastAccess)
         {
+            // Nothing inherits an index, so an index past the backing is as absent as a null slot inside it: both
+            // stay holes in the target, whose slots are null already.
             uint j = 0;
             for (var i = sourceStartIndex; i < sourceStartIndex + length; ++i, j++)
             {
-                JsValue? sourceValue;
-                if (i < (uint) sourceDense.Length)
-                {
-                    sourceValue = sourceDense[i];
-                }
-                else
-                {
-                    source.TryGetValue(i, out sourceValue);
-                }
-
-                dense[targetStartIndex + j] = sourceValue;
+                dense[targetStartIndex + j] = i < (uint) sourceDense.Length ? sourceDense[i] : null;
             }
         }
         else
         {
-            // slower version
-            for (uint k = sourceStartIndex; k < length; k++)
+            // slower version: counted rather than bounded by an end index, so the range is `length` elements
+            // whatever the start, and the end cannot wrap
+            for (uint c = 0; c < length; c++)
             {
-                if (source.TryGetValue(k, out var subElement))
+                if (source.TryGetValue(sourceStartIndex + c, out var subElement))
                 {
                     SetIndexValue(targetStartIndex, subElement, updateLength: false);
                 }
