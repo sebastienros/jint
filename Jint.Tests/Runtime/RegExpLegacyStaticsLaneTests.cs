@@ -171,6 +171,32 @@ public class RegExpLegacyStaticsLaneTests
     [TestCase(Preamble + Seed + "'zabcdefghijkw'.replace(/(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)/g, 'X'); all()", "[\"a\",\"b\",\"c\",\"d\",\"e\",\"f\",\"g\",\"h\",\"i\",\"abcdefghijk\",\"k\",\"z\",\"w\",\"zabcdefghijkw\"]")]
     // named groups through a test
     [TestCase(Preamble + Seed + "/(?<n>a)(?<m>b)?/.test('xa'); all()", "[\"a\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"a\",\"\",\"x\",\"\",\"xa\"]")]
+    // The record stores a reference into the constructor only when it differs from the one held, so these record the
+    // same regexp or subject again, and again after something else has been recorded or assigned in between.
+    // the same test again
+    [TestCase(Preamble + Seed + "var re = /(b)(c)?/; var s = 'abc'; re.test(s); re.test(s); all()", "[\"b\",\"c\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"bc\",\"c\",\"a\",\"\",\"abc\"]")]
+    // the same test again after a read
+    [TestCase(Preamble + Seed + "var re = /(b)(c)?/; var s = 'abc'; re.test(s); var a = all(); re.test(s); JSON.stringify([a, all()])", "[\"[\\\"b\\\",\\\"c\\\",\\\"\\\",\\\"\\\",\\\"\\\",\\\"\\\",\\\"\\\",\\\"\\\",\\\"\\\",\\\"bc\\\",\\\"c\\\",\\\"a\\\",\\\"\\\",\\\"abc\\\"]\",\"[\\\"b\\\",\\\"c\\\",\\\"\\\",\\\"\\\",\\\"\\\",\\\"\\\",\\\"\\\",\\\"\\\",\\\"\\\",\\\"bc\\\",\\\"c\\\",\\\"a\\\",\\\"\\\",\\\"abc\\\"]\"]")]
+    // the same test again after input was assigned
+    [TestCase(Preamble + Seed + "var re = /(b)(c)?/; var s = 'abc'; re.test(s); RegExp.input = 'q'; var a = RegExp.input; re.test(s); JSON.stringify([a, RegExp.input, RegExp.$1])", "[\"q\",\"abc\",\"b\"]")]
+    // the same test again after another match in between
+    [TestCase(Preamble + Seed + "var re = /(b)(c)?/; var s = 'abc'; re.test(s); var a = RegExp.$1; /(z)/.exec('z'); var b = RegExp.$1; re.test(s); JSON.stringify([a, b, RegExp.$1, RegExp.$2, RegExp.input])", "[\"b\",\"z\",\"b\",\"c\",\"abc\"]")]
+    // the same subject with another regexp
+    [TestCase(Preamble + Seed + "var s = 'abc'; /(a)/.test(s); /(b)/.test(s); /(a)/.test(s); all()", "[\"a\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"a\",\"a\",\"\",\"bc\",\"abc\"]")]
+    // the same regexp on another subject
+    [TestCase(Preamble + Seed + "var re = /(b)/; re.test('abc'); re.test('xbx'); all()", "[\"b\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"b\",\"b\",\"x\",\"x\",\"xbx\"]")]
+    // the same global match again
+    [TestCase(Preamble + Seed + "'abcb'.match(/(b)/g); 'abcb'.match(/(b)/g); all()", "[\"b\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"b\",\"b\",\"abc\",\"\",\"abcb\"]")]
+    // the same plain replace again
+    [TestCase(Preamble + Seed + "var s = 'x-y-z'; s.replace(/(-)/g, '+'); s.replace(/(-)/g, '+'); all()", "[\"-\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"-\",\"-\",\"x-y\",\"z\",\"x-y-z\"]")]
+    // the same split again
+    [TestCase(Preamble + Seed + "var s = 'a-b-c'; s.split(/(-)/); s.split(/(-)/); all()", "[\"-\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"-\",\"-\",\"a-b\",\"c\",\"a-b-c\"]")]
+    // the same exec again
+    [TestCase(Preamble + Seed + "var re = /(a)(b)/; re.exec('xab'); re.exec('xab'); all()", "[\"a\",\"b\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"ab\",\"b\",\"x\",\"\",\"xab\"]")]
+    // input assigned between two reads of one test
+    [TestCase(Preamble + Seed + "/(b)/.test('abc'); RegExp.input = 'q'; var a = RegExp.$1; /(b)/.test('abc'); JSON.stringify([a, RegExp.input, RegExp.$1])", "[\"b\",\"abc\",\"b\"]")]
+    // the same range record again
+    [TestCase(Preamble + Seed + "var re = /b/g; var s = 'abcb'; re.lastIndex = 0; re.test(s); re.lastIndex = 0; re.test(s); all()", "[\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"b\",\"\",\"a\",\"cb\",\"abcb\"]")]
     public void TheStaticsAreTheLastMatchOfTheCall(string script, string expected)
     {
         Run(script).Should().Be(expected);

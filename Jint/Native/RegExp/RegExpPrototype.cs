@@ -585,7 +585,7 @@ internal sealed partial class RegExpPrototype : Prototype
             return s;
         }
 
-        var legacyStatics = LegacyStaticsTarget(rei, ExecRealm(rei));
+        var legacyStatics = LegacyStaticsTarget(rei);
         if (legacyStatics is not null)
         {
             RecordLegacySpans(legacyStatics, matcher, s, spans, (matches - 1) * stride);
@@ -699,14 +699,35 @@ internal sealed partial class RegExpPrototype : Prototype
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static RegExpConstructor? LegacyStaticsTarget(JsRegExp r, Realm thisRealm)
     {
-        if (!ReferenceEquals(r.LegacyRealm, thisRealm))
+        var owner = r.LegacyConstructor;
+        if (!ReferenceEquals(owner._realm, thisRealm))
         {
             return null;
         }
 
-        var constructor = thisRealm.Intrinsics.RegExp;
-        return r.LegacyFeaturesEnabled ? constructor : InvalidateLegacyStatics(constructor);
+        return r.LegacyFeaturesEnabled ? owner : InvalidateLegacyStatics(owner);
     }
+
+    /// <summary>
+    /// <see cref="LegacyStaticsTarget(JsRegExp, Realm)"/> for a lane that has found the regexp's <c>exec</c> to be the
+    /// built-in one, so the current realm is <see cref="ExecRealm"/>. The common case - a regexp <c>RegExp</c> itself
+    /// allocated, still on the <c>RegExp.prototype</c> of that realm - is that regexp's prototype being its owner's, which
+    /// settles both the realm and the flag without finding the exec's realm.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static RegExpConstructor? LegacyStaticsTarget(JsRegExp r)
+    {
+        var owner = r.LegacyConstructor;
+        if (r.LegacyFeaturesEnabled && ReferenceEquals(r._prototype, owner.PrototypeObject))
+        {
+            return owner;
+        }
+
+        return LegacyStaticsTargetOfAnotherPrototype(r);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static RegExpConstructor? LegacyStaticsTargetOfAnotherPrototype(JsRegExp r) => LegacyStaticsTarget(r, ExecRealm(r));
 
     /// <summary>
     /// The current realm of the RegExpBuiltinExec a lane stands in for: the realm of the <c>exec</c> function that
@@ -735,7 +756,7 @@ internal sealed partial class RegExpPrototype : Prototype
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void RecordLegacyRange(JsRegExp r, JintRegExpEngine matcher, string s, int index, int length)
     {
-        var constructor = LegacyStaticsTarget(r, ExecRealm(r));
+        var constructor = LegacyStaticsTarget(r);
         if (constructor is null)
         {
             return;
@@ -758,7 +779,7 @@ internal sealed partial class RegExpPrototype : Prototype
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void RecordLegacyPending(JsRegExp r, JintRegExpEngine matcher, string s, int searchStart, bool find)
     {
-        LegacyStaticsTarget(r, ExecRealm(r))?.SetLegacyPending(s, r, matcher, searchStart, find);
+        LegacyStaticsTarget(r)?.SetLegacyPending(s, r, matcher, searchStart, find);
     }
 
     /// <summary>
@@ -2602,7 +2623,7 @@ internal sealed partial class RegExpPrototype : Prototype
         // RegExp.prototype.compile): if the current realm is not O.[[Realm]], or O.[[LegacyFeaturesEnabled]] is false,
         // throw a TypeError. That rejects an instance a subclass allocated and an instance of another realm, by the two
         // slots RegExpAlloc set rather than by what its prototype happens to be now.
-        if (!ReferenceEquals(r.LegacyRealm, _realm) || !r.LegacyFeaturesEnabled)
+        if (!ReferenceEquals(r.LegacyConstructor._realm, _realm) || !r.LegacyFeaturesEnabled)
         {
             Throw.TypeError(_realm, "RegExp.prototype.compile cannot be used on RegExp subclass or cross-realm instances");
             return default!;

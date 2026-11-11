@@ -18,20 +18,30 @@ public sealed class JsRegExp : ObjectInstance
     private PropertyDescriptor _prototypeDescriptor = null!;
 
     public JsRegExp(Engine engine)
-        : base(engine, ObjectClass.RegExp)
+        : this(engine, engine.Realm.Intrinsics.RegExp)
     {
-        LegacyRealm = engine.Realm;
-        // The empty pattern, matching what its Source says; Intrinsics.RegExp.Construct builds any other.
-        Source = regExpForMatchingAllCharacters;
-        Matcher = RegExpParseCache.GetOrCompile(engine.Realm, "", "", System.Threading.Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>
-    /// <c>[[Realm]]</c> of the RegExp Legacy Features proposal: the realm of the constructor that allocated this
-    /// instance, which decides whose legacy statics a match of it may touch.
-    /// https://github.com/tc39/proposal-regexp-legacy-features
+    /// A regexp allocated by <paramref name="owner"/>, the <c>%RegExp%</c> of the realm that allocates it (RegExpAlloc
+    /// of the RegExp Legacy Features proposal), which is what the realm is read from.
     /// </summary>
-    internal Realm LegacyRealm { get; set; }
+    internal JsRegExp(Engine engine, RegExpConstructor owner)
+        : base(engine, ObjectClass.RegExp)
+    {
+        LegacyConstructor = owner;
+        // The empty pattern, matching what its Source says; Intrinsics.RegExp.Construct builds any other.
+        Source = regExpForMatchingAllCharacters;
+        Matcher = RegExpParseCache.GetOrCompile(owner._realm, "", "", System.Threading.Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>
+    /// The <c>%RegExp%</c> of the regexp's <c>[[Realm]]</c> in the RegExp Legacy Features proposal - the realm of the
+    /// constructor that allocated this instance, which decides whose legacy statics a match of it may touch - kept as
+    /// the constructor whose statics it updates, so the realm is <c>LegacyConstructor._realm</c> and the common case needs
+    /// no lookup. https://github.com/tc39/proposal-regexp-legacy-features
+    /// </summary>
+    internal RegExpConstructor LegacyConstructor { get; }
 
     /// <summary>
     /// <c>[[LegacyFeaturesEnabled]]</c> of the same proposal: false for an instance a subclass of <c>RegExp</c> (rather

@@ -45,8 +45,10 @@ public sealed partial class RegExpConstructor : Constructor
     // A match by an instance a subclass allocated invalidates all of this (InvalidateLegacyProperties): the proposal
     // sets the slots to empty, and a read of an empty slot throws a TypeError. input is a slot of its own in that:
     // assigning to it makes it readable again while the others stay unreadable until the next successful match.
-    private string _legacyInput = "";
+    // The subject of the last match, which is what input reads; a script's assignment to input is kept beside it
+    // (null: none since the last match) so that a match stores one reference, not two.
     private string _legacyContextInput = "";
+    private string? _legacyInputAssigned;
     private int _legacyMatchIndex;
     private int _legacyMatchEnd;
 
@@ -82,8 +84,14 @@ public sealed partial class RegExpConstructor : Constructor
     /// </summary>
     internal void SetLegacyMatch(string input, int matchIndex, int matchLength, int groupCount)
     {
-        _legacyInput = input;
-        _legacyContextInput = input;
+        // A reference store into this long-lived object is a write barrier; the same subject again (a loop over one
+        // string) needs none.
+        if (!ReferenceEquals(_legacyContextInput, input))
+        {
+            _legacyContextInput = input;
+        }
+
+        _legacyInputAssigned = null;
         _legacyMatchIndex = matchIndex;
         _legacyMatchEnd = matchIndex + matchLength;
         _legacyCaptureCount = System.Math.Max(groupCount - 1, 0);
@@ -106,12 +114,26 @@ public sealed partial class RegExpConstructor : Constructor
     /// matcher when <paramref name="find"/>, otherwise in the matcher's own mode). Nothing else about the match is
     /// known until a static is read.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void SetLegacyPending(string input, JsRegExp regExp, JintRegExpEngine matcher, int searchStart, bool find)
     {
-        _legacyInput = input;
-        _legacyContextInput = input;
-        _legacyPendingRegExp = regExp;
-        _legacyPendingMatcher = matcher;
+        // Each reference is stored only when it changes: a loop over one regexp and one subject stores none.
+        if (!ReferenceEquals(_legacyContextInput, input))
+        {
+            _legacyContextInput = input;
+        }
+
+        _legacyInputAssigned = null;
+        if (!ReferenceEquals(_legacyPendingRegExp, regExp))
+        {
+            _legacyPendingRegExp = regExp;
+        }
+
+        if (!ReferenceEquals(_legacyPendingMatcher, matcher))
+        {
+            _legacyPendingMatcher = matcher;
+        }
+
         _legacyPendingStart = searchStart;
         _legacyPendingFind = find;
         _legacyInvalid = 0;
@@ -151,7 +173,7 @@ public sealed partial class RegExpConstructor : Constructor
     internal void InvalidateLegacyProperties()
     {
         _legacyInvalid = LegacyMatchInvalid | LegacyInputInvalid;
-        _legacyInput = "";
+        _legacyInputAssigned = null;
         _legacyContextInput = "";
         _legacyMatchIndex = 0;
         _legacyMatchEnd = 0;
@@ -312,7 +334,7 @@ public sealed partial class RegExpConstructor : Constructor
     /// </summary>
     internal void ResetLegacyProperties()
     {
-        _legacyInput = "";
+        _legacyInputAssigned = null;
         _legacyContextInput = "";
         _legacyMatchIndex = 0;
         _legacyMatchEnd = 0;
@@ -381,12 +403,12 @@ public sealed partial class RegExpConstructor : Constructor
         {
             if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
             ThrowIfLegacyInvalid(LegacyInputInvalid);
-            return (JsValue) _legacyInput;
+            return (JsValue) (_legacyInputAssigned ?? _legacyContextInput);
         }, 0, LengthFlags);
         var inputSetter = new ClrFunction(Engine, "set input", (thisObj, args) =>
         {
             if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Setter called on non-RegExp constructor");
-            _legacyInput = TypeConverter.ToString(args.At(0));
+            _legacyInputAssigned = TypeConverter.ToString(args.At(0));
             _legacyInvalid &= ~LegacyInputInvalid;
             return Undefined;
         }, 1, LengthFlags);
@@ -907,18 +929,17 @@ AppendEscapedNewLine:
         // subclass (or any other newTarget).
         if (ReferenceEquals(newTarget, this))
         {
-            return new JsRegExp(_engine)
+            return new JsRegExp(_engine, this)
             {
-                _prototype = PrototypeObject,
-                LegacyRealm = _realm
+                _prototype = PrototypeObject
             };
         }
 
+        // The factory is handed the realm of this constructor, whose %RegExp% is this.
         var r = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.RegExp.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new JsRegExp(engine));
-        r.LegacyRealm = _realm;
+            static (Engine engine, Realm realm, object? _) => new JsRegExp(engine, realm.Intrinsics.RegExp));
         r.LegacyFeaturesEnabled = false;
         return r;
     }
