@@ -296,12 +296,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             && array.HasOriginalIterator(out iteratorMethod)
             && (!_engine._builtinIteratorChainMayHaveReturn || array.OriginalIteratorInheritsNoReturnMethod))
         {
-            var arrayContents = array.ToArray();
-            for (var i = 0; i < arrayPattern.Elements.Count; i++)
-            {
-                SetFunctionParameter(context, arrayPattern.Elements[i], arrayContents, i, initiallyEmpty);
-            }
-
+            BindArrayPatternFromArray(context, initiallyEmpty, arrayPattern, array);
             return;
         }
 
@@ -311,6 +306,132 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         }
 
         BindArrayPatternFromIterator(context, initiallyEmpty, arrayPattern, iterator);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization for a parameter's array pattern over
+    /// an array whose iterator would be the built-in one, read by index in its place. Each element makes the step
+    /// %ArrayIteratorPrototype%.next would (https://tc39.es/ecma262/#sec-createarrayiterator): read the length, then
+    /// get the element at the next index, through a hole to the prototype chain, or find the iterator done, which it
+    /// then stays. An element steps only once the one before it has bound, so an initializer that pushes or pops is
+    /// seen by the steps after it, and nothing past the last element is read. Jint copied the whole array before
+    /// binding, which ran every getter past the pattern and bound against the length from before any initializer ran.
+    /// </summary>
+    private void BindArrayPatternFromArray(EvaluationContext context, bool initiallyEmpty, ArrayPattern arrayPattern, JsArray array)
+    {
+        ref readonly var elements = ref arrayPattern.Elements;
+        uint position = 0;
+        var done = false;
+        for (var i = 0; i < elements.Count; i++)
+        {
+            var element = elements[i];
+            if (element is RestElement restElement)
+            {
+                // The rest element is the last one, and takes every step left: none, once the iterator is done.
+                BindRestElement(context, restElement, CollectRestFromArray(array, position, done), initiallyEmpty);
+                return;
+            }
+
+            var value = Undefined;
+            if (!done)
+            {
+                if (position < array.GetLength())
+                {
+                    array.TryGetValue(position, out value);
+                    position++;
+                }
+                else
+                {
+                    done = true;
+                }
+            }
+
+            // An elision makes its step and binds nothing.
+            if (element is Identifier identifier)
+            {
+                SetItemSafely(identifier.Name, value, initiallyEmpty);
+            }
+            else if (element is not null)
+            {
+                BindPatternElement(context, element, value, initiallyEmpty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Binds an element of an array pattern that is a nested pattern or has an initializer to the value its step
+    /// produced: what <see cref="SetFunctionParameterUnlikely"/> does for one, without an argument list to read it from.
+    /// </summary>
+    private void BindPatternElement(EvaluationContext context, Node element, JsValue value, bool initiallyEmpty)
+    {
+        if (element is ArrayPattern arrayPattern)
+        {
+            HandleArrayPattern(context, initiallyEmpty, value, arrayPattern);
+        }
+        else if (element is ObjectPattern objectPattern)
+        {
+            HandleObjectPattern(context, initiallyEmpty, value, objectPattern);
+        }
+        else if (element is AssignmentPattern assignmentPattern)
+        {
+            HandleAssignmentPatternOrExpression(context, assignmentPattern.Left, assignmentPattern.Right, value, initiallyEmpty);
+        }
+    }
+
+    /// <summary>
+    /// BindingRestElement over the array <see cref="BindArrayPatternFromArray"/> reads, from the index its steps reached:
+    /// nothing once the iterator is done, and otherwise one step per element until a step finds the index at the length,
+    /// which each step reads again, since a getter may grow or shrink the array. While its elements are dense and no
+    /// prototype holds an index, no read runs script, so the length cannot move, and what is left is copied in one pass.
+    /// </summary>
+    private JsArray CollectRestFromArray(JsArray array, uint position, bool done)
+    {
+        var length = array.GetLength();
+        if (!done && array.CanUseFastAccess && array._dense is { } dense && length <= (uint) dense.Length)
+        {
+            var count = position < length ? length - position : 0;
+            var items = new JsValue[count];
+            for (uint j = 0; j < count; j++)
+            {
+                array.TryGetValue(position + j, out var item);
+                items[j] = item;
+            }
+
+            return new JsArray(_engine, items);
+        }
+
+        return CollectRestByStepping(array, position, done);
+    }
+
+    /// <summary>
+    /// <see cref="CollectRestFromArray"/> once the iterator is done, or for an array whose reads may run script, which it
+    /// steps as the iterator would, reading the length at every step.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsArray CollectRestByStepping(JsArray array, uint position, bool done)
+    {
+        var rest = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
+        if (done)
+        {
+            return rest;
+        }
+
+        uint index = 0;
+        var iterations = 0;
+        while (position < array.GetLength())
+        {
+            // A step crosses no statement boundary, so the loop checks the constraints itself, as the iterator lane does.
+            if (++iterations % Engine.ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
+            array.TryGetValue(position++, out var item);
+            rest.SetIndexValue(index++, item, updateLength: false);
+        }
+
+        rest.SetLength(index);
+        return rest;
     }
 
     /// <summary>
