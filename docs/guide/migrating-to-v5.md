@@ -8672,7 +8672,7 @@ pattern used to throw a CLR `OverflowException` out of `Execute`, now binds, a r
 constraints. Otherwise a parameter pattern over an array that holds no getter and that no initializer changes binds
 what it did, and declarations and assignments are unchanged. There is no switch back.
 
-### 4.237 A hole in an array is read through an exotic prototype's own `[[Get]]` ([#PR](https://github.com/sebastienros/jint/pull/PR))
+### 4.237 A hole in an array is read through an exotic prototype's own `[[Get]]` ([#4566](https://github.com/sebastienros/jint/pull/4566))
 
 A read of an index an array does not hold, a hole or an index past the end, goes on to the array's prototype chain,
 and the spec asks the prototype's `[[Get]]` with the array as the receiver. Jint walked the chain itself, asking each
