@@ -1197,6 +1197,25 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return false;
     }
 
+    /// <summary>
+    /// The missing-element half of <see cref="FindWithCallback"/>'s read, so that its loops inline one own-element
+    /// read each, as they did when they read through <see cref="TryGetValue(uint, out JsValue)"/>. FindViaPredicate,
+    /// behind <c>find</c>, <c>findIndex</c>, <c>findLast</c> and <c>findLastIndex</c>, visits every index and reads
+    /// it with <c>Get</c> alone (https://tc39.es/ecma262/#sec-findviapredicate); <c>some</c> skips an index
+    /// <c>HasProperty</c> says is absent. Only an element the array does not hold tells the two apart.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool TryGetMissingElement(uint index, bool visitUnassigned, out JsValue value)
+    {
+        if (CanUseFastAccess)
+        {
+            value = Undefined;
+            return visitUnassigned;
+        }
+
+        return TryGetFromPrototypeChain(index, askPresence: !visitUnassigned, out value) || visitUnassigned;
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private JsValue GetInheritedElement(uint index)
     {
@@ -1871,14 +1890,8 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
                         _engine.Constraints.Check();
                     }
 
-                    // FindViaPredicate reads every index with Get alone (https://tc39.es/ecma262/#sec-findviapredicate);
-                    // the callers that skip a hole ask HasProperty first, which TryGetValue answers with it
-                    JsValue kvalue;
-                    if (visitUnassigned)
-                    {
-                        kvalue = GetElement(k);
-                    }
-                    else if (!TryGetValue(k, out kvalue))
+                    var kvalue = GetValue(k, unwrapFromNonDataDescriptor: true);
+                    if (kvalue is null && !TryGetMissingElement(k, visitUnassigned, out kvalue))
                     {
                         continue;
                     }
@@ -1902,12 +1915,8 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
                     }
 
                     var idx = (uint) k;
-                    JsValue kvalue;
-                    if (visitUnassigned)
-                    {
-                        kvalue = GetElement(idx);
-                    }
-                    else if (!TryGetValue(idx, out kvalue))
+                    var kvalue = GetValue(idx, unwrapFromNonDataDescriptor: true);
+                    if (kvalue is null && !TryGetMissingElement(idx, visitUnassigned, out kvalue))
                     {
                         continue;
                     }
