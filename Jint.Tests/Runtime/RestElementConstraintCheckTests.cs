@@ -49,7 +49,7 @@ public class RestElementConstraintCheckTests
     [TestCase("Object.freeze(Array.from({{ length: {0} }}))", "(function ([a, , ...r]) { })(source);")]
     [TestCase("new Array({0})", "var [...r] = source;")]
     [TestCase("new Array({0})", "var a, r; [a, , ...r] = source;")]
-    [TestCase("Object.freeze(Array.from({{ length: {0} }}))", "const [...r] = source;")]
+    [TestCase("Object.freeze(Array.from({{ length: {0} }}))", "{ const [...r] = source; }")]
     [TestCase("Object.freeze(Array.from({{ length: {0} }}))", "var r; for ([...r] of [source]) { }")]
     public void ARestOverAnArrayCollectedStepByStepChecksTheConstraints(string source, string script)
     {
