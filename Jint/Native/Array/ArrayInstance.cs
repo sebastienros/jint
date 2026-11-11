@@ -639,8 +639,11 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     }
 
     /// <summary>
-    /// <c>Get(O, ! ToString(𝔽(index)))</c> with this array as the receiver; see <see cref="GetElement"/>.
+    /// <c>Get(O, ! ToString(𝔽(index)))</c> with this array as the receiver; see <see cref="GetElement"/>. Kept out
+    /// of line: <c>ArrayReadOperations.Get</c> calls it only for a hole once the chain has changed, and inlining it
+    /// there grows that hot method by the whole of the lane it never takes.
     /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal JsValue Get(uint index) => GetElement(index);
 
     public sealed override JsValue Get(JsValue property, JsValue receiver)
