@@ -1,6 +1,5 @@
 ﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -270,7 +269,6 @@ internal sealed partial class RegExpPrototype : Prototype
             int searchStart = 0;
             int maxCount = global ? int.MaxValue : 1;
             int count = 0;
-            using var batch = JintRegExpEngine.BeginBatch();
             var loopTimeout = GetCustomEngineTimeout(customRei);
 
             while (count < maxCount && searchStart <= s.Length)
@@ -534,38 +532,33 @@ internal sealed partial class RegExpPrototype : Prototype
         var spans = new List<int>();
         var searchStart = 0;
         var matchCount = 0;
-        // No script runs while matches are collected (the replacer is called afterwards), so the searches may share
-        // clock readings; the scope ends before the first replacer runs.
-        using (JintRegExpEngine.BeginBatch())
+        var loopTimeout = GetCustomEngineTimeout(rei);
+        while (searchStart <= s.Length)
         {
-            var loopTimeout = GetCustomEngineTimeout(rei);
-            while (searchStart <= s.Length)
+            if (++matchCount % ConstraintCheckInterval == 0)
             {
-                if (++matchCount % ConstraintCheckInterval == 0)
-                {
-                    _engine.Constraints.Check();
-                }
-
-                if (!TryMatchWithTimeout(rei, matcher, s, searchStart, groups, loopTimeout))
-                {
-                    break;
-                }
-
-                foreach (var group in groups)
-                {
-                    spans.Add(group.Participated ? group.Index : -1);
-                    spans.Add(group.Length);
-                }
-
-                if (!global)
-                {
-                    break;
-                }
-
-                searchStart = groups[0].Length == 0
-                    ? (int) AdvanceStringIndex(s, (ulong) groups[0].Index, fullUnicode)
-                    : groups[0].Index + groups[0].Length;
+                _engine.Constraints.Check();
             }
+
+            if (!TryMatchWithTimeout(rei, matcher, s, searchStart, groups, loopTimeout))
+            {
+                break;
+            }
+
+            foreach (var group in groups)
+            {
+                spans.Add(group.Participated ? group.Index : -1);
+                spans.Add(group.Length);
+            }
+
+            if (!global)
+            {
+                break;
+            }
+
+            searchStart = groups[0].Length == 0
+                ? (int) AdvanceStringIndex(s, (ulong) groups[0].Index, fullUnicode)
+                : groups[0].Index + groups[0].Length;
         }
 
         var stride = 2 * groupCount;
@@ -1132,7 +1125,6 @@ internal sealed partial class RegExpPrototype : Prototype
             var p = 0;
             var q = 0;
             var matchCount = 0;
-            using var batch = JintRegExpEngine.BeginBatch();
             var loopTimeout = GetCustomEngineTimeout(splitter);
             while (q < size)
             {
@@ -1204,7 +1196,6 @@ internal sealed partial class RegExpPrototype : Prototype
             var p = 0;
             var q = 0;
             var matchCount = 0;
-            using var batch = JintRegExpEngine.BeginBatch();
             var loopTimeout = GetCustomEngineTimeout(splitter);
             while (q < size)
             {
@@ -1258,10 +1249,10 @@ internal sealed partial class RegExpPrototype : Prototype
 
     private static int FindRangesWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex, Span<RegexMatchRange> ranges, TimeSpan resolvedTimeout)
     {
-        var deadline = resolvedTimeout.TotalMilliseconds <= 0 || resolvedTimeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(resolvedTimeout);
+        var matcherTimeout = MatcherTimeout(resolvedTimeout);
         try
         {
-            return engine.FindRanges(s, startIndex, deadline, ranges);
+            return engine.FindRanges(s, startIndex, matcherTimeout, ranges);
         }
         catch (OperationCanceledException)
         {
@@ -1555,7 +1546,6 @@ internal sealed partial class RegExpPrototype : Prototype
             try
             {
                 int lastIndex = 0;
-                using var batch = JintRegExpEngine.BeginBatch();
                 var loopTimeout = GetCustomEngineTimeout(rei);
                 while (lastIndex <= s.Length)
                 {
@@ -1947,7 +1937,7 @@ internal sealed partial class RegExpPrototype : Prototype
     /// Runs the matcher under the configured timeout, reporting only the match range, for the lanes that read the
     /// match position and nothing else: the matcher does no capture work and nothing is materialized. The deadline
     /// is enforced by elapsed-time checks inside the matcher rather than a thread-pool
-    /// <see cref="CancellationTokenSource"/> timer, so the abort fires promptly even when the pool is saturated —
+    /// <see cref="System.Threading.CancellationTokenSource"/> timer, so the abort fires promptly even when the pool is saturated —
     /// mirroring how <see cref="Regex.Match(string,int)"/> enforces <see cref="Regex.MatchTimeout"/>. Throws
     /// <see cref="RegexMatchTimeoutException"/> when the timeout elapses.
     /// </summary>
@@ -1955,10 +1945,13 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
         var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
-        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
+        // Kept as an inline expression, not a call to MatcherTimeout: the JIT sets the inline budget of this method, and with it
+        // whether CountRun, CompleteSimpleMatch and TryChargeFast are inlined into the search below, from the method's own IL
+        // size (ten times it), and a few bytes less left four of them as calls on every match of a global search.
+        TimeSpan? matcherTimeout = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? null : timeout;
         try
         {
-            return engine.TryMatchRange(s, startIndex, deadline, out index, out length);
+            return engine.TryMatchRange(s, startIndex, matcherTimeout, out index, out length);
         }
         catch (OperationCanceledException)
         {
@@ -1980,10 +1973,10 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
         var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
-        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
+        var matcherTimeout = MatcherTimeout(timeout);
         try
         {
-            return engine.TryMatch(s, startIndex, deadline, groups);
+            return engine.TryMatch(s, startIndex, matcherTimeout, groups);
         }
         catch (OperationCanceledException)
         {
@@ -2004,10 +1997,10 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         // A loop resolves the timeout once and passes it; Options are frozen, so it cannot change between searches.
         var timeout = resolvedTimeout ?? GetCustomEngineTimeout(R);
-        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
+        var matcherTimeout = MatcherTimeout(timeout);
         try
         {
-            return engine.TryFind(s, startIndex, deadline, groups);
+            return engine.TryFind(s, startIndex, matcherTimeout, groups);
         }
         catch (OperationCanceledException)
         {
@@ -2027,10 +2020,10 @@ internal sealed partial class RegExpPrototype : Prototype
     private static bool IsMatchWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex)
     {
         var timeout = GetCustomEngineTimeout(R);
-        var deadline = timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan ? JintRegExpEngine.NoDeadline : ComputeRegexDeadline(timeout);
+        var matcherTimeout = MatcherTimeout(timeout);
         try
         {
-            return engine.IsMatch(s, startIndex, deadline);
+            return engine.IsMatch(s, startIndex, matcherTimeout);
         }
         catch (OperationCanceledException)
         {
@@ -2045,24 +2038,14 @@ internal sealed partial class RegExpPrototype : Prototype
     }
 
     /// <summary>
-    /// Convert a positive, finite regex timeout into an absolute <see cref="Stopwatch.GetTimestamp"/>
-    /// deadline for the custom engine's inline interrupt checks. Saturates to <see cref="JintRegExpEngine.NoDeadline"/>
-    /// (never fires) instead of overflowing for extreme timeout values.
+    /// The configured timeout as the matcher takes it: null for none. A non-positive interval (what
+    /// <see cref="Regex.InfiniteMatchTimeout"/> and a normalized timeout use to say untimed) must not reach the
+    /// matcher as a timeout, or the negative interval would put the deadline in the past and every match would report
+    /// one at once. The matcher starts the interval at its first clock read, so a search that ends within its first
+    /// stride of work reads no clock, and it enforces the interval inline rather than on a timer, so the abort fires
+    /// promptly even when the thread pool is saturated.
     /// </summary>
-    private static long ComputeRegexDeadline(TimeSpan timeout)
-    {
-        if (timeout <= TimeSpan.Zero)
-        {
-            // Untimed, which is what Regex.InfiniteMatchTimeout means and what a normalized timeout uses
-            // to say it. Without this the negative interval would put the deadline in the past and every
-            // match would report a timeout immediately.
-            return JintRegExpEngine.NoDeadline;
-        }
-
-        var now = JintRegExpEngine.RecentTimestamp();
-        var ticks = timeout.TotalSeconds * Stopwatch.Frequency;
-        return ticks >= long.MaxValue - now ? JintRegExpEngine.NoDeadline : now + (long) ticks;
-    }
+    private static TimeSpan? MatcherTimeout(TimeSpan timeout) => timeout.Ticks <= 0 ? null : timeout;
 
     /// <summary>
     /// Build the JS result array from a custom engine match result.

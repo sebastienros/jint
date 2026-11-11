@@ -83,13 +83,18 @@ internal struct RunBudget
 {
     private readonly long _maxWork;
     private readonly CancellationToken _cancellation;
-    private readonly long _startedAt;
+    // Where the relative timeout began: construction, or for a deferred start the first clock read the stride asks for.
+    private long _startedAt;
     private readonly double _timeoutTicks;
     private long _nextClockCheck;
-    // Set by the absolute-deadline constructor, whose caller reads the clock per search: a zero-unit checkpoint then
-    // waits for the stride like any other charge, instead of reading the clock again at the start of every search.
+    // Set by the absolute-deadline constructor, whose caller reads the clock per search, and by a deferred start, which
+    // reads it at the first stride: a zero-unit checkpoint then waits for the stride like any other charge, instead of
+    // reading the clock again at the start of every search.
     private readonly bool _checkpointsAmortized;
+    // A deferred start the clock has not been read for yet; _startedAt stays 0 until it is.
+    private bool _startPending;
     internal long WorkConsumed { get; private set; }
+    // The timestamp the relative timeout is measured from; 0 while a deferred start is pending (see StartDeadline).
     internal readonly long StartedAt => _startedAt;
     internal readonly long RemainingWork => _maxWork - WorkConsumed;
     internal readonly bool IsUnconstrained(long units) =>
@@ -120,21 +125,52 @@ internal struct RunBudget
     }
 
     internal RunBudget(long maxWork, CancellationToken cancellation, TimeSpan? timeout)
+        : this(maxWork, cancellation, timeout, deferStart: false)
+    {
+    }
+
+    // A relative timeout whose clock is first read by the stride, not here: a call that finishes before its first
+    // ClockStride work units never reads the clock at all, where the eager constructors read it here and again on the
+    // first charge. The deadline is measured from that first read, which comes on the first charge after the work
+    // consumed has reached ClockStride. When the charge that reaches it is a bulk one (a run charged at once, as
+    // TryChargeRun and the accelerators do) the read waits for the next charge, so the deadline can be late by up to
+    // the time ClockStride units of work take plus the time of one bulk charge: still linear in the subject, and the
+    // order of the overshoot the stride already allows past a deadline. A timeout within ShortDeadlineSeconds starts
+    // here as before, so a tiny timeout stays as prompt as it was.
+    // Only a call that runs from its construction to its end may defer. A session outlives its construction, and its
+    // deadline counts the time between its steps from the moment it was opened, so it keeps the eager start.
+    // Small enough to inline into a host's per-search state construction, which is why the clock read of the eager start
+    // is behind a call (Now) and the seconds are computed once: a host that builds a budget per search, as Jint's global
+    // match does, paid for an out-of-line call and a copy of the struct when this was not so.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal RunBudget(long maxWork, CancellationToken cancellation, TimeSpan? timeout, bool deferStart)
     {
         _maxWork = maxWork;
         _cancellation = cancellation;
         if (timeout is { } t)
         {
-            _startedAt = Stopwatch.GetTimestamp();
             _timeoutTicks = t.TotalSeconds * Stopwatch.Frequency;
+            if (deferStart && t.Ticks > ShortDeadlineTicks)
+            {
+                _nextClockCheck = ClockStride;
+                _checkpointsAmortized = true;
+                _startPending = true;
+            }
+            else
+            {
+                _startedAt = Now();
+            }
         }
         else
         {
-            _startedAt = 0;
             _timeoutTicks = double.PositiveInfinity;
         }
         WorkConsumed = 0;
     }
+
+    // The eager start's clock read, out of line so it stays out of the inlined constructor.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static long Now() => Stopwatch.GetTimestamp();
 
     // An absolute Stopwatch deadline (long.MaxValue for none), so a search starts without reading the clock when its
     // host already holds the deadline; converting it to a TimeSpan and back read the clock twice per search.
@@ -155,8 +191,14 @@ internal struct RunBudget
     // Deadline overshoot is therefore bounded by ClockStride units of work, and cancellation and the
     // work limit are still checked on every charge. When the deadline is within ShortDeadlineSeconds the
     // clock is read on every charge, so tiny timeouts fire as promptly as before amortization.
+    // A deferred start (see the constructor above) reads the clock for the first time when the work consumed first
+    // reaches ClockStride and the next charge arrives, and that read is where its timeout begins; every read after it
+    // is as described above.
     internal const long ClockStride = 16384;
     private const double ShortDeadlineSeconds = 0.001;
+    // The same boundary in TimeSpan ticks (1 ms = 10,000), so the constructor compares integers: a timeout of exactly
+    // ShortDeadlineSeconds is short, one tick more is not.
+    private const long ShortDeadlineTicks = TimeSpan.TicksPerMillisecond;
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal bool TryCharge(long units, int offset, out RegexExecutionFailure failure)
@@ -164,7 +206,7 @@ internal struct RunBudget
         // With a timeout the fast path used to be skipped on every charge, so every timed match paid the slow path per
         // unit of work - 30-50% of a scan. A positive charge that stays short of the next clock read decides nothing
         // the slow path would decide differently; a zero-unit checkpoint still reads the clock, unless the deadline
-        // was handed in absolute (see _checkpointsAmortized).
+        // was handed in absolute or its start is deferred (see _checkpointsAmortized).
         if ((double.IsPositiveInfinity(_timeoutTicks) ||
                 ((units > 0 || _checkpointsAmortized) && WorkConsumed + units < _nextClockCheck)) &&
             !_cancellation.IsCancellationRequested && (ulong)units <= (ulong)(_maxWork - WorkConsumed))
@@ -182,6 +224,13 @@ internal struct RunBudget
         if (!double.IsPositiveInfinity(_timeoutTicks) && ((units == 0 && !_checkpointsAmortized) || WorkConsumed >= _nextClockCheck))
         {
             timestamp = Stopwatch.GetTimestamp();
+            if (_startPending)
+            {
+                // The first read of a deferred start is where its timeout begins.
+                _startedAt = timestamp;
+                _startPending = false;
+            }
+
             var remaining = _timeoutTicks - (timestamp - _startedAt);
             _nextClockCheck = remaining < ShortDeadlineSeconds * Stopwatch.Frequency ? WorkConsumed : WorkConsumed + ClockStride;
         }
@@ -190,11 +239,35 @@ internal struct RunBudget
             timestamp = _startedAt;
         }
 
-        return TryChargeAt(units, offset, timestamp, out failure);
+        return Evaluate(units, offset, timestamp, out failure);
     }
 
-    // Deterministic deadline-boundary testing; production obtains time only above.
+    // Begins a deferred start now, for a holder that copies the budget and polls it with timestamps of its own (a
+    // kernel's guard): the copy would otherwise begin the timeout alone, and whatever the original runs afterwards
+    // (the interpreter, after the kernel gives up) would begin it again.
+    internal void StartDeadline()
+    {
+        if (_startPending)
+        {
+            _startedAt = Stopwatch.GetTimestamp();
+            _startPending = false;
+        }
+    }
+
+    // Deterministic deadline-boundary testing; production obtains time only above. A timestamp handed in is a clock
+    // read, so the first one begins a deferred start instead of being measured from a start that has not happened.
     internal bool TryChargeAt(long units, int offset, long timestamp, out RegexExecutionFailure failure)
+    {
+        if (_startPending)
+        {
+            _startedAt = timestamp;
+            _startPending = false;
+        }
+
+        return Evaluate(units, offset, timestamp, out failure);
+    }
+
+    private bool Evaluate(long units, int offset, long timestamp, out RegexExecutionFailure failure)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(units);
         var code = _cancellation.IsCancellationRequested ? RegexExecutionFailureCode.Cancelled :
