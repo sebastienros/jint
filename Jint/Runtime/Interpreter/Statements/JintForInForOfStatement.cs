@@ -17,7 +17,7 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-for-in-and-for-of-statements
 /// </summary>
-internal sealed class JintForInForOfStatement : JintStatement<Statement>
+internal sealed class JintForInForOfStatement : JintIterationStatement<Statement>
 {
     private readonly Node _leftNode;
     private readonly Statement _forBody;
@@ -979,7 +979,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     return new Completion(CompletionType.Normal, v, _statement!);
                 }
 
-                if (result.Type != CompletionType.Continue || (result.Target != null && !string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
+                if (result.Type != CompletionType.Continue || (result.Target is { } target && !LabelSetContains(target)))
                 {
                     completionType = result.Type;
                     if (result.IsAbrupt())
@@ -1777,7 +1777,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         // continues an enclosing loop and so leaves this one, exactly as BodyEvaluation treats it.
         if (result.IsAbrupt()
             && (result.Type != CompletionType.Continue
-                || (result.Target is not null && !string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal))))
+                || (result.Target is { } target && !LabelSetContains(target))))
         {
             suspendable.Data.Clear(this);
             if (iteratorKind == IteratorKind.Async)
