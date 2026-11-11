@@ -147,7 +147,8 @@ internal abstract class IteratorHelper : ObjectInstance
     /// "done" getter, a throwing "value" getter - sets the record's [[Done]] to true and is returned
     /// as-is, with no IteratorClose. Every helper spells the step `? IteratorStepValue(iterated)`,
     /// outside the IfAbruptCloseIterator that guards the call it feeds, so marking the record
-    /// Exhausted is what keeps the close in Next from invoking "return" on it.
+    /// Exhausted is what keeps the close in Next from invoking "return" on it. The one step that is
+    /// not an IteratorStepValue is the skip loop of drop, which is <see cref="TryIteratorStepWithoutValue"/>.
     /// </remarks>
     protected StepResult IteratorStepValue()
     {
@@ -159,6 +160,32 @@ internal abstract class IteratorHelper : ObjectInstance
             }
 
             return new StepResult(result.Get(CommonProperties.Value), false);
+        }
+        catch
+        {
+            Exhausted = true;
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iteratorstep
+    /// Steps the underlying iterator for a helper that discards the result: <c>next</c> is called and <c>done</c> is
+    /// read, and the result's <c>value</c> is not, which is the difference between IteratorStep and
+    /// <see cref="IteratorStepValue"/>. Only the skip loop of <c>drop</c> takes it
+    /// (https://tc39.es/ecma262/#sec-iterator.prototype.drop). Answers <see langword="false"/> for the spec's ~done~
+    /// result. The underlying record is always an <see cref="IteratorInstance.ObjectIterator"/>, whose result is the
+    /// script's own object and so has a <c>value</c> that can be a getter or a Proxy trap.
+    /// </summary>
+    /// <remarks>
+    /// An abrupt completion is handled exactly as in <see cref="IteratorStepValue"/>: the record is done, the helper's
+    /// <see cref="Exhausted"/> says so, and nothing is closed.
+    /// </remarks>
+    protected bool TryIteratorStepWithoutValue()
+    {
+        try
+        {
+            return Iterated.TryIteratorStep(out _);
         }
         catch
         {
@@ -216,11 +243,11 @@ internal sealed class DropIterator : IteratorHelper
 
     protected override StepResult ExecuteStep()
     {
-        // Skip elements while remaining > 0
+        // Skip elements while remaining > 0. Each skipped element is `? IteratorStep(iterated)`: its `done` is read and
+        // its `value` never is, where the loop below reads both (IteratorStepValue).
         while (_remaining > 0)
         {
-            var step = IteratorStepValue();
-            if (step.Done)
+            if (!TryIteratorStepWithoutValue())
             {
                 Exhausted = true;
                 return StepResult.DoneResult;
