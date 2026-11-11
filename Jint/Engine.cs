@@ -2288,6 +2288,14 @@ public sealed partial class Engine : IDisposable
                 ao = CreateMappedArgumentsObject(function, parameterNames, argumentsList, env);
             }
 
+            if (configuration.ArgumentsMayOutliveCall)
+            {
+                // An arrow (or what a direct eval leaves behind) can read this binding after the call returns,
+                // which is too late for that read to keep the caller's argument array or the pooled object, so
+                // copy the values now and keep the object out of the pool.
+                ao.Materialize();
+            }
+
             if (strict)
             {
                 env.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao, DisposeHint.Normal);

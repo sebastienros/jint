@@ -93,6 +93,7 @@ internal sealed class JintCallExpression : JintExpression
         _calleeExpression = Build(expression.Callee);
         _calleeIsSuper = _calleeExpression._expression.Type == NodeType.Super;
         _calleeMember = _calleeExpression as JintMemberExpression;
+        _calleeMember?.HandsOnBaseAsReceiver();
         _isTailPosition = ReferenceEquals(expression.UserData, TailCallMarker.Instance);
 
         // A ChainExpression callee is a chain of its own whose value has already been taken
