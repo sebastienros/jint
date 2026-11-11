@@ -8405,6 +8405,36 @@ another realm resumed from a job, an async generator's `await using`, and a gene
 left gave a main-realm `SuppressedError`, and a stack's `dispose` called another realm's built-in gave the caller's.
 Those now answer `instanceof` with the realm of the function, generator or built-in. There is no switch back.
 
+### 4.228 A built-in iterator's `next` steps only an iterator of its own kind ([#4451](https://github.com/sebastienros/jint/issues/4451))
+
+Each built-in iterator prototype's `next` now throws a `TypeError` when its receiver is an iterator of another kind.
+That covers the iterators of arrays, `Map`, `Set`, strings, `matchAll` and `Intl.Segmenter` segments, and those of
+`Headers`, `FormData` and `URLSearchParams`. In 4.16 and earlier 5.0 builds any built-in iterator was accepted and
+stepped:
+
+```js
+const arrayNext = Object.getPrototypeOf([].values()).next;
+arrayNext.call(new Map([[1, 2]]).entries())
+// 4.16.x / earlier 5.0: { value: [1, 2], done: false }    5.x: TypeError
+```
+
+The array iterator's `next` still steps the iterators of typed arrays, array-likes and wrapped CLR collections, which
+inherit its prototype. The same kind's `next` from another realm is accepted too.
+
+Loops follow the same rule. An iterator moved onto another kind's prototype, or a kind's prototype given another
+kind's `next`, now throws at the first step of a `for…of`, a spread, `Array.from`, a destructuring, `yield*` or a
+`for await`. Before, it iterated as if nothing had changed:
+
+```js
+const it = new Set([1, 2]).values();
+Object.setPrototypeOf(it, Object.getPrototypeOf([].values()));
+[...it]
+// 4.16.x / earlier 5.0: [1, 2]    5.x: TypeError
+```
+
+A host or script that borrowed one kind's `next` to step another kind's iterator must call that iterator's own `next`.
+There is no switch back.
+
 ### 4.229 `new Notification` converts each entry of `actions` as a `NotificationAction` ([#4516](https://github.com/sebastienros/jint/issues/4516))
 
 `Jint.Browser` used to count the entries of `actions` and convert none of them. Each entry is now converted as a
@@ -8560,6 +8590,87 @@ And a generator resumed with `return()` at a `yield` that is a `for`-`of` loop's
 **What could break:** apart from those three, nothing a script can observe, except that it no longer completes. A host
 whose scripts kept running past a bound because the bound tripped inside a `return` now gets the bound's exception
 instead. There is no switch back: a constraint a `return` could hide bounded nothing.
+
+### 4.233 An elision in an array pattern steps the iterator without reading `value` ([#4556](https://github.com/sebastienros/jint/pull/4556))
+
+An elision (`[, a]`, `[a, , b]`, `[,]`) skips one step of the iterator, and the spec performs IteratorStep for it, which
+calls `next` and reads `done` and nothing else. Jint stepped it the way it steps an element that binds, and read the
+step result's `value` as well. A getter on `value` therefore ran once for each hole, and one that threw failed a pattern
+that bound nothing from that step:
+
+```js
+const log = [];
+const it = {
+  [Symbol.iterator]() { return this; },
+  next() { return { done: false, get value() { log.push('value'); return 1; } }; },
+  return() { return {}; }
+};
+const [, a] = it;
+log.length
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+The rule holds wherever an array pattern is evaluated: a declaration, an assignment, a parameter list, a `for`-`of` head,
+a `catch` parameter, and a pattern with an `await` or a `yield` in it. An element that binds still reads `value`, and a
+hole the iterator has already finished at does not step it at all, as before. An array pattern over an unmodified array,
+and over a built-in iterator whose result has no `value` a script could observe, behaves as it did. There is no switch
+back.
+
+### 4.234 `Iterator.prototype.drop` skips its first `limit` elements without reading `value` ([#4558](https://github.com/sebastienros/jint/pull/4558))
+
+`drop(limit)` throws away the first `limit` elements of the iterator it wraps, and the spec steps each of them with
+IteratorStep, which calls `next` and reads `done` and nothing else. Only an element `drop` keeps is stepped with
+IteratorStepValue, which reads `value` after `done`. Jint stepped the skipped elements the way it steps the kept ones,
+and read the step result's `value` as well. A getter or a Proxy trap on `value` therefore ran once for each skipped
+element, and one that threw failed a `drop` that never kept that element:
+
+```js
+const log = [];
+const it = {
+  [Symbol.iterator]() { return this; },
+  next() { return { done: false, get value() { log.push('value'); return 1; } }; },
+  return() { return {}; }
+};
+Iterator.from(it).drop(1).next();
+log.length
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+The elements `drop` keeps still read `value`, an iterator that finishes while `drop` is skipping is still not closed, and
+`drop` over a built-in iterator (an array's, a `Set`'s, a `Map`'s, a string's, a generator's), whose results have no
+`value` a script could observe, behaves as it did. No other iterator helper changed: each already read `value` exactly
+where its steps perform IteratorStepValue, and `AsyncIterator.prototype.drop` already skipped without reading it. There
+is no switch back.
+
+### 4.235 A parameter's array pattern over an array reads only the elements it steps to ([#4559](https://github.com/sebastienros/jint/pull/4559))
+
+An array pattern in a parameter list, over an array whose iterator is the built-in one, stands for that iterator: each
+element makes one step, which reads the array's `length` and then the element at the next index, and it steps only
+after the element before it has bound. Jint copied the whole array before binding anything. A getter at an index past
+the pattern therefore ran, and one that threw failed a call that bound nothing from it; a getter inside the pattern ran
+before the initializers of the elements ahead of it; and an initializer that pushed to or popped from the array was
+invisible to the elements after it, a rest element included:
+
+```js
+const log = [];
+const arr = [1, 2];
+Object.defineProperty(arr, 2, { get() { log.push('get 2'); return 3; } });
+(function ([a]) {})(arr);
+log.length
+// 4.16.x / earlier 5.0: 1    5.x: 0
+
+const grow = [undefined];
+(function ([a = grow.push('pushed'), b]) { return b; })(grow)
+// 4.16.x / earlier 5.0: undefined    5.x: 'pushed'
+```
+
+This holds for every function a parameter list belongs to: a function, an arrow, a method, a class constructor, and
+the async and generator forms of each. A rest element reads the length again at each step, so a getter that grows or
+shrinks the array while the rest collects changes what it collects. A getter an array inherits from `Array.prototype`
+at an index past the pattern no longer runs either, and an array whose `length` is `2 ** 32 - 1`, over which any such
+pattern used to throw a CLR `OverflowException` out of `Execute`, now binds, a rest collecting it under the engine's
+constraints. Otherwise a parameter pattern over an array that holds no getter and that no initializer changes binds
+what it did, and declarations and assignments are unchanged. There is no switch back.
 
 ## 5. New in v5
 
