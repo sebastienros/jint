@@ -154,6 +154,19 @@ public class CapturedArgumentsTests
         engine.Evaluate(source).Should().BeUndefined();
     }
 
+    // 4.x only: GetOwnProperties is still a virtual that JsArguments overrides from the raw bag, so a host enumerating
+    // a mapped arguments object that outlived its call has to see the parameter's current value, as Get does.
+    [Fact]
+    public void AHostEnumeratingAMappedArgumentsObjectAfterItsCallSeesTheParametersValue()
+    {
+        var engine = new Engine();
+
+        var arguments = engine.Evaluate("function f(a) { var g = function () { return a; }; a = 5; return arguments; } f(1)").AsObject();
+
+        arguments.GetOwnProperties().First(p => p.Key == "0").Value.Value.Should().Be(5);
+        arguments.Get("0").Should().Be(5);
+    }
+
     [Fact]
     public void DefiningAMappedIndexKeepsTheRestOfItsRules()
     {

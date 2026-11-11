@@ -243,7 +243,22 @@ public sealed class JsArguments : ObjectInstance
     public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
         EnsureInitialized();
-        return base.GetOwnProperties();
+        return ParameterMap is null ? base.GetOwnProperties() : WithMappedValues(base.GetOwnProperties());
+    }
+
+    /// <summary>
+    /// The bag holds the value each mapped index was created with; the parameter's current value lives in the map
+    /// (https://tc39.es/ecma262/#sec-arguments-exotic-objects-getownproperty-p). The copy at return that used to
+    /// hide the difference is skipped for an arguments object a closure can still reach, so a host enumerating it
+    /// has to be answered through <see cref="GetOwnProperty"/> as every script-visible read is. That only writes
+    /// <c>Value</c> on the descriptor it already holds, so the bag is not modified while it is enumerated.
+    /// </summary>
+    private IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> WithMappedValues(IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> properties)
+    {
+        foreach (var pair in properties)
+        {
+            yield return new KeyValuePair<JsValue, PropertyDescriptor>(pair.Key, GetOwnProperty(pair.Key));
+        }
     }
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
