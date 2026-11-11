@@ -8697,10 +8697,9 @@ z
 A host `ArrayLikeObject` whose prototype gives it the array iterator is read the same way: its `length` at every
 step, and an element with one `[[Get]]` and no `[[HasProperty]]` before it. An array whose prototype chain holds a
 `Proxy` now sees the traps Jint's own array iterator causes, for a hole the proxy's `get` trap alone (4.237), where it
-saw a `has` trap before. A rest element over an
-array whose reads may run script, such as one whose length runs past its stored elements (`new Array(n)`), one with
-an accessor or a frozen one, now checks the engine's
-constraints as it collects, and a parameter's rest is now bounded by `MaxArraySize` as a declaration's always was.
+saw a `has` trap before. A rest element over an array whose reads may run script, such as one whose length runs past
+its stored elements (`new Array(n)`), one with an accessor or a frozen one, now checks the engine's constraints as it
+collects, and a parameter's rest is now bounded by `MaxArraySize` as a declaration's always was.
 Otherwise a pattern over an array that holds no getter and that nothing changes while it binds binds what it did.
 There is no switch back.
 

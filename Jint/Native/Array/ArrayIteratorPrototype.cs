@@ -130,7 +130,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 
         // for-of over a value-kind array iterator only needs the element, never the per-step
         // IteratorResult object TryIteratorStep allocates. Mirror that method exactly (live length
-        // read each step, same done/closed transition, TryGetValue leaves holes as undefined) but
+        // read each step, same done/closed transition, GetElement reads a hole through the prototype chain) but
         // hand the value back directly. Key/Entry kinds keep the wrapping path via base.
         internal override bool TryStepValue([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? value)
         {
