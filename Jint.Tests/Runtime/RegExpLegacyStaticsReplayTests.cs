@@ -46,6 +46,23 @@ public class RegExpLegacyStaticsReplayTests
             .AsString().Should().Be("""["b","b","x","xb"]""");
     }
 
+    // A replay that finds no match - the search it records always found one, so this cannot happen through a lane - must not
+    // cut the spans of an earlier match out of the new subject: the read throws, as for any other replay that cannot answer.
+    [Test]
+    public void AReplayThatMissesIsATypeErrorAndNotTheSpansOfAnEarlierMatch()
+    {
+        var engine = new Engine();
+        var regExp = (JsRegExp) engine.Evaluate("/(b)(c)/");
+        engine.Evaluate("/(a)(b)(c)(d)/.exec(\"xabcdxxxxxxxx\")");
+        // A start beyond the end of the subject: the search finds nothing.
+        engine.Realm.Intrinsics.RegExp.SetLegacyPending("yy", regExp, regExp.Matcher!, 99, find: false);
+
+        engine.Evaluate("RegExp.input").AsString().Should().Be("yy");
+        engine.Evaluate("try { RegExp.$3; \"no throw\" } catch (e) { e.constructor.name }").AsString().Should().Be("TypeError");
+        engine.Evaluate("try { RegExp.lastMatch; \"no throw\" } catch (e) { e.constructor.name }").AsString().Should().Be("TypeError");
+        engine.Evaluate("RegExp.input").AsString().Should().Be("yy");
+    }
+
     [Test]
     public void TheMatchAReplayFoundStaysWhileLaterMatchesFail()
     {

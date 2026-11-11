@@ -173,7 +173,7 @@ public sealed partial class RegExpConstructor : Constructor
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowLegacyInvalid()
     {
-        Throw.TypeError(_realm, "The legacy RegExp static properties are not available until the next successful match: the last one was made by an instance of a RegExp subclass");
+        Throw.TypeError(_realm, "The legacy RegExp static properties are not available until the next successful match: the last one was made by an instance of a RegExp subclass, or could not be read back");
     }
 
     private void EnsureLegacyMatch()
@@ -202,7 +202,9 @@ public sealed partial class RegExpConstructor : Constructor
         var groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[matcher.CaptureCount];
         if (!RegExpPrototype.ReplayLegacyMatch(regExp, matcher, _legacyContextInput, _legacyPendingStart, _legacyPendingFind, groups))
         {
-            return;
+            // The recorded search found a match, so its replay cannot miss; if it ever did, the spans held are an
+            // earlier match's, and this read must not cut them out of the new input.
+            ThrowLegacyInvalid();
         }
 
         _legacyMatchIndex = groups[0].Index;
