@@ -779,7 +779,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             completionType = CompletionType.Return;
                             close = false; // Prevent double-close in finally
                             suspendable.Data.Clear(this);
-                            iteratorRecord.Close(completionType);
+                            CloseOnReturnRequest(iteratorRecord);
                             var returnValue = suspendable.SuspendedValue ?? nextValue;
                             return new Completion(CompletionType.Return, returnValue, _statement!);
                         }
@@ -958,7 +958,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     completionType = CompletionType.Return;
                     close = false; // Prevent double-close in finally
                     suspendable.Data.Clear(this);
-                    iteratorRecord.Close(completionType);
+                    CloseOnReturnRequest(iteratorRecord);
                     var returnValue = suspendable.SuspendedValue ?? result.Value;
                     return new Completion(CompletionType.Return, returnValue, _statement!);
                 }
@@ -1088,6 +1088,34 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         completionType = CompletionType.Throw;
         suspendable?.Data.Clear(this);
         return false;
+    }
+
+    /// <summary>
+    /// IteratorClose with the return completion that a generator's <c>return()</c> resumption at a <c>yield</c> inside
+    /// the loop leaves it with (https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
+    /// step 8.m). That resumption travels as the generator's return request, which every statement list and block
+    /// around the loop tests after its statement. A <c>return</c> that throws, or answers a non-object, replaces the
+    /// return completion (https://tc39.es/ecma262/#sec-iteratorclose steps 6 and 7), so the request has to be gone
+    /// before that throw reaches them: left set, the first of them turned the throw back into the return, and a
+    /// <c>catch</c> or <c>finally</c> around the loop never saw it. Kept out of <see cref="BodyEvaluation"/>, so the
+    /// loop's own frame gains no protected region.
+    /// </summary>
+    /// <remarks>
+    /// A handler rather than an exception filter: a filter runs before the unwind has popped the execution context of
+    /// the <c>return</c> that threw, so it would find no generator to clear the request on.
+    /// </remarks>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void CloseOnReturnRequest(IteratorInstance iteratorRecord)
+    {
+        try
+        {
+            iteratorRecord.Close(CompletionType.Return);
+        }
+        catch
+        {
+            JintStatementList.ClearReturnRequest(iteratorRecord.Engine);
+            throw;
+        }
     }
 
     /// <summary>
@@ -1362,7 +1390,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         // itself are all discarded — which is precisely the synchronous IteratorClose.
         if (completion.Type == CompletionType.Throw)
         {
-            TryCloseIterator(iteratorRecord, CompletionType.Throw);
+            iteratorRecord.Close(CompletionType.Throw);
             return completion;
         }
 
@@ -1705,11 +1733,16 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             v = result.Value;
         }
 
-        // Post-dispose abrupt handling — mirrors the inline code in BodyEvaluation.
+        // Post-dispose abrupt handling — mirrors the inline code in BodyEvaluation, closing the iterator with the
+        // completion the dispose left (step 8.m): https://tc39.es/ecma262/#sec-iteratorclose swallows what return()
+        // does only for a throw completion, and propagates it for every other.
         if (result.Type == CompletionType.Throw)
         {
             suspendable.Data.Clear(this);
-            TryCloseIterator(iteratorRecord, CompletionType.Throw);
+
+            // The close discards what `return` raises itself, and propagates only what must end the run, a constraint
+            // that tripped inside `return` among them.
+            iteratorRecord.Close(CompletionType.Throw);
             Throw.JavaScriptException(engine, result.Value, _statement!.Location);
             return default;
         }
@@ -1724,7 +1757,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 return CloseAsyncIterator(context, iteratorRecord, breakCompletion);
             }
 
-            TryCloseIterator(iteratorRecord, CompletionType.Normal);
+            iteratorRecord.Close(CompletionType.Normal);
             return breakCompletion;
         }
 
@@ -1736,11 +1769,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 return CloseAsyncIterator(context, iteratorRecord, result);
             }
 
-            TryCloseIterator(iteratorRecord, CompletionType.Return);
+            iteratorRecord.Close(CompletionType.Return);
             return result;
         }
 
-        if (result.IsAbrupt() && result.Type != CompletionType.Continue)
+        // Step 8.m: LoopContinues is false for a continue naming a label this loop does not carry as well, which
+        // continues an enclosing loop and so leaves this one, exactly as BodyEvaluation treats it.
+        if (result.IsAbrupt()
+            && (result.Type != CompletionType.Continue
+                || (result.Target is not null && !string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal))))
         {
             suspendable.Data.Clear(this);
             if (iteratorKind == IteratorKind.Async)
@@ -1748,7 +1785,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 return CloseAsyncIterator(context, iteratorRecord, result);
             }
 
-            TryCloseIterator(iteratorRecord, result.Type);
+            iteratorRecord.Close(result.Type);
             return result;
         }
 
@@ -1812,19 +1849,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             data.OuterEnv = oldEnv;
             data.AccumulatedValue = v;
             data.DisposeInProgress = true;
-        }
-    }
-
-    private static void TryCloseIterator(IteratorInstance iterator, CompletionType completionType)
-    {
-        try
-        {
-            iterator.Close(completionType);
-        }
-        catch (Exception e) when (!Throw.MustPropagateHostException(e))
-        {
-            // Best-effort close on abrupt — main path already has its own completion. An exception that ends the run, a
-            // constraint that tripped inside `return`, is no completion of the script's and propagates.
         }
     }
 

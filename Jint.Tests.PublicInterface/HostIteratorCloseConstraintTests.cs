@@ -187,9 +187,7 @@ public class HostIteratorCloseConstraintTests
         {
             foreach (var (site, context) in Placements())
             {
-                // A parameter pattern's close on 4.x lets what a throwing return() raises replace the error that closed it, a
-                // separate defect from the bound this file pins, which that close does propagate.
-                if (SiteOf(site).Caught is not null && site != "parameter destructuring")
+                if (SiteOf(site).Caught is not null)
                 {
                     rows.Add(control, site, context);
                 }
