@@ -8545,6 +8545,32 @@ hole the iterator has already finished at does not step it at all, as before. An
 and over a built-in iterator whose result has no `value` a script could observe, behaves as it did. There is no switch
 back.
 
+### 4.234 `Iterator.prototype.drop` skips its first `limit` elements without reading `value` ([#4558](https://github.com/sebastienros/jint/pull/4558))
+
+`drop(limit)` throws away the first `limit` elements of the iterator it wraps, and the spec steps each of them with
+IteratorStep, which calls `next` and reads `done` and nothing else. Only an element `drop` keeps is stepped with
+IteratorStepValue, which reads `value` after `done`. Jint stepped the skipped elements the way it steps the kept ones,
+and read the step result's `value` as well. A getter or a Proxy trap on `value` therefore ran once for each skipped
+element, and one that threw failed a `drop` that never kept that element:
+
+```js
+const log = [];
+const it = {
+  [Symbol.iterator]() { return this; },
+  next() { return { done: false, get value() { log.push('value'); return 1; } }; },
+  return() { return {}; }
+};
+Iterator.from(it).drop(1).next();
+log.length
+// 4.16.x / earlier 5.0: 2    5.x: 1
+```
+
+The elements `drop` keeps still read `value`, an iterator that finishes while `drop` is skipping is still not closed, and
+`drop` over a built-in iterator (an array's, a `Set`'s, a `Map`'s, a string's, a generator's), whose results have no
+`value` a script could observe, behaves as it did. No other iterator helper changed: each already read `value` exactly
+where its steps perform IteratorStepValue, and `AsyncIterator.prototype.drop` already skipped without reading it. There
+is no switch back.
+
 ### 4.235 A parameter's array pattern over an array reads only the elements it steps to ([#4559](https://github.com/sebastienros/jint/pull/4559))
 
 An array pattern in a parameter list, over an array whose iterator is the built-in one, stands for that iterator: each
