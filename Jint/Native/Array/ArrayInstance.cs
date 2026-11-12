@@ -1894,8 +1894,24 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     }
 
     /// <summary>
-    /// Fast path for concatenating sane-sized arrays, we assume size has been calculated.
+    /// Copies <paramref name="length"/> elements of <paramref name="source"/>, starting at
+    /// <paramref name="sourceStartIndex"/>, to <paramref name="targetStartIndex"/> onward, skipping every index
+    /// the source does not have: the <c>HasProperty</c> then <c>Get</c> loop of
+    /// https://tc39.es/ecma262/#sec-array.prototype.slice and https://tc39.es/ecma262/#sec-array.prototype.concat.
+    /// <c>HasProperty</c> asks the prototype chain too, so a hole is only a hole when nothing inherited fills it,
+    /// and a hole adds no property to the target, so whatever the target already holds at that index stays.
+    /// The caller sizes the result and sets its length; this never does.
     /// </summary>
+    /// <remarks>
+    /// The dense lane copies the backing store as it stands, which answers every index of it without asking
+    /// anyone, so it is sound only while no prototype holds an index and no element is an accessor: exactly
+    /// <see cref="CanUseFastAccess"/>, tested once up front because nothing in the lane can run script. Under it
+    /// the part of the range past the backing is nothing but holes, so it is neither visited nor given room, and
+    /// a null slot inside it is skipped rather than written: a target that was not freshly allocated (a species
+    /// constructor can return an array it filled) keeps its element there. A source that fails the test is read
+    /// an index at a time through <see cref="TryGetValue(uint, out JsValue)"/>, which resolves a hole against the
+    /// chain afresh each turn, so an accessor that mutates the source is observed by the indices after it.
+    /// </remarks>
     internal void CopyValues(JsArray source, uint sourceStartIndex, uint targetStartIndex, uint length)
     {
         if (length == 0)
@@ -1907,43 +1923,69 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         if (sourceDense is not null)
         {
-            EnsureCapacity((uint) (targetStartIndex + sourceDense.LongLength));
-        }
+            var fastAccess = source.CanUseFastAccess;
 
-        var dense = _dense;
-        if (dense != null
-            && sourceDense != null
-            && (uint) dense.Length >= targetStartIndex + length
-            && dense[targetStartIndex] is null)
-        {
-            uint j = 0;
-            for (var i = sourceStartIndex; i < sourceStartIndex + length; ++i, j++)
+            // the part of the range the backing store holds; everything after it is a hole
+            var backing = (uint) sourceDense.Length;
+            var count = sourceStartIndex < backing ? System.Math.Min(length, backing - sourceStartIndex) : 0u;
+            if (fastAccess && count == 0)
             {
-                JsValue? sourceValue;
-                if (i < (uint) sourceDense.Length)
+                return;
+            }
+
+            var needed = (ulong) targetStartIndex + count;
+            if (needed <= MaxDenseArrayLength)
+            {
+                EnsureCapacity((uint) needed);
+            }
+
+            var dense = _dense;
+            if (fastAccess && dense is not null && (ulong) dense.Length >= needed)
+            {
+                var targetIndex = targetStartIndex;
+                for (var i = sourceStartIndex; i < sourceStartIndex + count; ++i, ++targetIndex)
                 {
-                    sourceValue = sourceDense[i];
-                }
-                else
-                {
-                    source.TryGetValue(i, out sourceValue);
+                    var sourceValue = sourceDense[i];
+                    if (sourceValue is not null)
+                    {
+                        dense[targetIndex] = sourceValue;
+                    }
                 }
 
-                dense[targetStartIndex + j] = sourceValue;
+                return;
             }
         }
-        else
-        {
-            // slower version
-            for (uint k = sourceStartIndex; k < length; k++)
-            {
-                if (source.TryGetValue(k, out var subElement))
-                {
-                    SetIndexValue(targetStartIndex, subElement, updateLength: false);
-                }
 
-                targetStartIndex++;
+        // slower version: counted rather than bounded by an end index, so the range is `length` elements
+        // whatever the start, and the end cannot wrap
+        for (uint c = 0; c < length; c++)
+        {
+            if (source.TryGetValue(sourceStartIndex + c, out var subElement))
+            {
+                SetIndexValue(targetStartIndex, subElement, updateLength: false);
             }
+
+            targetStartIndex++;
+        }
+    }
+
+    /// <summary>
+    /// The copy of https://tc39.es/ecma262/#sec-array.prototype.slice into this result: <paramref name="length"/>
+    /// elements of <paramref name="source"/> from <paramref name="sourceStartIndex"/> to index 0, and then the length
+    /// its closing <c>Set(A, "length", n, true)</c> gives it. <c>ArrayCreate(count)</c> already gave a default result
+    /// that length, so the fresh case pays one comparison; a species constructor can return an array of any other,
+    /// which the <c>Set</c> grows or truncates.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal void CopySlice(JsArray source, uint sourceStartIndex, uint length)
+    {
+        CopyValues(source, sourceStartIndex, 0, length);
+
+        // a length that is not writable refuses the Set whatever the value (OrdinarySetWithOwnDescriptor), so it is
+        // asked even when the length already matches
+        if (!LengthIsWritable || GetJsNumberLength()._value != length)
+        {
+            Set(CommonProperties.Length, JsNumber.Create(length), true);
         }
     }
 
