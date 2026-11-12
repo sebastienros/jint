@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1344
+anchors: 1348
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -298,6 +298,7 @@ ecma262 sec-finalization-registry-cleanup-callback
 ecma262 sec-finalization-registry-constructor
 ecma262 sec-finalization-registry.prototype.register
 ecma262 sec-finalization-registry.prototype.unregister
+ecma262 sec-findviapredicate
 ecma262 sec-flattenintoarray
 ecma262 sec-for-in-and-for-of-statements
 ecma262 sec-forbidden-extensions
@@ -379,6 +380,7 @@ ecma262 sec-global-environment-records-createimmutablebinding-n-s
 ecma262 sec-global-environment-records-createmutablebinding-n-d
 ecma262 sec-global-environment-records-hasbinding-n
 ecma262 sec-globaldeclarationinstantiation
+ecma262 sec-hasproperty
 ecma262 sec-host-cleanup-finalization-registry
 ecma262 sec-host-promise-rejection-tracker
 ecma262 sec-hostcalljobcallback
@@ -560,6 +562,7 @@ ecma262 sec-object.setprototypeof
 ecma262 sec-object.values
 ecma262 sec-objectdefineproperties
 ecma262 sec-optional-chaining-evaluation
+ecma262 sec-ordinary-object-internal-methods-and-internal-slots-get-p-receiver
 ecma262 sec-ordinary-object-internal-methods-and-internal-slots-hasproperty-p
 ecma262 sec-ordinarycallbindthis
 ecma262 sec-ordinarycallevaluatebody
@@ -835,6 +838,7 @@ ecma262 sec-try-statement
 ecma262 sec-try-statement-runtime-semantics-evaluation
 ecma262 sec-typedarray-constructors
 ecma262 sec-typedarray-defineownproperty
+ecma262 sec-typedarray-get
 ecma262 sec-typedarraybytelength
 ecma262 sec-typedarraylength
 ecma262 sec-updateempty

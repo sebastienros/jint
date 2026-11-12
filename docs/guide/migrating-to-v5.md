@@ -8696,12 +8696,62 @@ z
 
 A host `ArrayLikeObject` whose prototype gives it the array iterator is read the same way: its `length` at every
 step, and an element with one `[[Get]]` and no `[[HasProperty]]` before it. An array whose prototype chain holds a
-`Proxy` now sees the traps Jint's own array iterator causes, where it saw a `has` trap before. A rest element over an
-array whose reads may run script, such as one whose length runs past its stored elements (`new Array(n)`), one with
-an accessor or a frozen one, now checks the engine's
-constraints as it collects, and a parameter's rest is now bounded by `MaxArraySize` as a declaration's always was.
+`Proxy` now sees the traps Jint's own array iterator causes, for a hole the proxy's `get` trap alone (4.237), where it
+saw a `has` trap before. A rest element over an array whose reads may run script, such as one whose length runs past
+its stored elements (`new Array(n)`), one with an accessor or a frozen one, now checks the engine's constraints as it
+collects, and a parameter's rest is now bounded by `MaxArraySize` as a declaration's always was.
 Otherwise a pattern over an array that holds no getter and that nothing changes while it binds binds what it did.
 There is no switch back.
+
+### 4.237 A hole in an array is read through an exotic prototype's own `[[Get]]` ([#4566](https://github.com/sebastienros/jint/pull/4566))
+
+A read of an index an array does not hold, a hole or an index past the end, goes on to the array's prototype chain,
+and the spec asks the prototype's `[[Get]]` with the array as the receiver. Jint walked the chain itself, asking each
+object on it for an own property. That is the same thing only while every object on the chain reads like an ordinary
+one. With a Proxy on the chain the read ran the proxy's `getOwnPropertyDescriptor` and `getPrototypeOf` traps instead
+of its `get` trap. With a typed array on the chain, whose `[[Get]]` answers every numeric key itself, an index on
+`Object.prototype` showed through it:
+
+```js
+const log = [];
+const arr = [1, , 3];
+Object.setPrototypeOf(arr, new Proxy(Array.prototype, {
+  get(t, k, r) { log.push('get ' + String(k)); return k === '1' ? 'P' : Reflect.get(t, k, r); },
+  getOwnPropertyDescriptor(t, k) { log.push('gopd ' + String(k)); return Reflect.getOwnPropertyDescriptor(t, k); },
+  getPrototypeOf(t) { log.push('getPrototypeOf'); return Reflect.getPrototypeOf(t); }
+}));
+log.length = 0; arr[1]; log.join()
+// 4.16.x / earlier 5.0: 'gopd 1,getPrototypeOf,get 1'    5.x: 'get 1'
+log.length = 0; [...arr].join()
+// 4.16.x / earlier 5.0: '1,,3'    5.x: '1,P,3'
+
+const typed = [1, , 3];
+Object.setPrototypeOf(typed, Object.create(new Int8Array(0)));
+Object.prototype[1] = 'o';
+typed[1]
+// 4.16.x / earlier 5.0: 'o'    5.x: undefined
+```
+
+These readers now ask an exotic prototype its `[[Get]]` and nothing else:
+
+- a computed member read and `Reflect.get`;
+- the array iterator's values and entries, which is what `for`-`of`, spread and `Array.from` over an array use;
+- `join`, `at`, `find`, `findIndex`, `findLast` and `findLastIndex`;
+- an array pattern: a parameter's, a declaration's and an assignment's (4.235, 4.236);
+- from C#, the `JsArray` indexer, its enumerator and `ToArray()`.
+
+A host `ObjectInstance` on the chain that overrides `Get` is now asked for the index, with the array as the receiver,
+instead of being probed for an own property and passed over. A getter on an ordinary prototype runs with the array as
+its receiver, as before.
+
+The array iterator's keys (`arr.keys()`) no longer read the element at each step, which they never needed to. A getter
+at an index, own or inherited, therefore no longer runs while the keys are listed.
+
+The `Array.prototype` methods whose spec asks `HasProperty` before `Get` (`forEach`, `map`, `filter`, `some`, `every`,
+`reduce`, `indexOf` and the rest) still ask both, so a Proxy prototype sees its `has` trap first. So does
+`ArrayInstance.TryGetValue(uint, out JsValue)`, which stays hole-aware: it reports `false` when `HasProperty` does, and
+otherwise returns what `Get` returns. An array whose prototype chain is the intrinsic `Array.prototype` and
+`Object.prototype`, with no index on either, reads what it did. There is no switch back.
 
 ## 5. New in v5
 
