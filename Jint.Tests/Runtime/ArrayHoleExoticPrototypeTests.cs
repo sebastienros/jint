@@ -182,6 +182,15 @@ public class ArrayHoleExoticPrototypeTests
         ("In",
             "Object.setPrototypeOf(arr, proxy); result = report(1 in arr);",
             "has 1 => true"),
+        ("Slice",
+            "Object.setPrototypeOf(arr, proxy); var s = Array.prototype.slice.call(arr); result = report(s.join(',') + ' own1=' + Object.prototype.hasOwnProperty.call(s, 1));",
+            "get constructor (arr) has 1 get 1 (arr) => 1,P,3 own1=true"),
+        ("SliceRange",
+            "Object.setPrototypeOf(arr, proxy); var s = Array.prototype.slice.call(arr, 1, 2); result = report(s.length + ':' + s[0]);",
+            "get constructor (arr) has 1 get 1 (arr) => 1:P"),
+        ("ConcatArgument",
+            "Object.setPrototypeOf(arr, proxy); var c = [0].concat(arr); result = report(c.length + ':' + Object.prototype.hasOwnProperty.call(c, 2) + ':' + c[2]);",
+            "get Symbol(Symbol.isConcatSpreadable) (arr) has 1 get 1 (arr) => 4:true:P"),
 
         // The prototype changes after the algorithm chose the array's own lane.
         ("SwappedDuringJoin",
