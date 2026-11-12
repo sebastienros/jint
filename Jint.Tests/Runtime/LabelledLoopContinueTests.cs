@@ -27,7 +27,10 @@ public class LabelledLoopContinueTests
 {
     private static string Run(string script)
     {
-        var engine = new Engine();
+        // An engine with the bug can leave a loop spinning forever (a `continue` that should leave it does not), so every
+        // script runs under a statement budget far above what any of these needs: a regression fails instead of hanging.
+        // A lone statement limit is charged inline and keeps the tight-loop lane armed, so the lanes stay under test.
+        var engine = new Engine(options => options.LimitStatements(100_000));
         var value = engine.Evaluate(script);
 
         // Evaluate drains the event loop before it returns, so a promise still pending here never settles.
