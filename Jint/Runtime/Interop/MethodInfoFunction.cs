@@ -444,7 +444,7 @@ internal sealed class MethodInfoFunction : Function
                 var result = new JsValue[len];
                 for (uint k = 0; k < len; k++)
                 {
-                    result[k] = arrayInstance.TryGetValue(k, out var value) ? value : Undefined;
+                    result[k] = arrayInstance.GetElement(k);
                 }
 
                 parameters[i] = result;

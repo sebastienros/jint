@@ -203,8 +203,7 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
             {
                 if (index < array.GetLength())
                 {
-                    array.TryGetValue(index, out var value);
-                    return value;
+                    return array.GetElement(index);
                 }
             }
             else if (index < operations!.GetLongLength())
@@ -274,7 +273,7 @@ internal sealed partial class DestructuringPatternAssignmentExpression : JintExp
                 engine.Constraints.Check();
             }
 
-            array.TryGetValue(position++, out var item);
+            var item = array.GetElement(position++);
             rest.SetIndexValue(index++, item, updateLength: false);
             length = array.GetLength();
         }
