@@ -29,7 +29,7 @@ public class LabelledLoopContinueTests
     {
         // An engine with the bug can leave a loop spinning forever (a `continue` that should leave it does not), so every
         // script runs under a statement budget far above what any of these needs: a regression fails instead of hanging.
-        // A lone statement limit is charged inline and keeps the tight-loop lane armed, so the lanes stay under test.
+        // A lone statement limit is charged inline, so every loop still takes the path a default engine takes.
         var engine = new Engine(options => options.LimitStatements(100_000));
         var value = engine.Evaluate(script);
 
@@ -233,8 +233,8 @@ public class LabelledLoopContinueTests
         };
         var inner = innerKind == "while" ? InnerWhile : InnerDoWhile;
 
-        // Were the continue to leave the inner loop it would reach the outer one instead, which would skip
-        // 'after-inner' and push 'i4' only once per outer iteration at best.
+        // Were the continue to leave the inner loop at j === 2 it would reach the outer one instead, which would skip
+        // 'after-inner' and never push 'i3' or 'i4'.
         Run($$"""
             (function () {
               var log = [], o = 0;
@@ -302,6 +302,8 @@ public class LabelledLoopContinueTests
 
     // An unlabelled continue carries no value, so the loop's value is the last one the body produced (UpdateEmpty).
     // A break after an if is undefined, because an if statement completes with undefined when its condition is false.
+    // The rows that give the continue branch a value of its own also tell the fix apart: a continue escaping the loop
+    // would carry that 10 out as the script's value.
     public static TestCases<string, string> CompletionValues => new()
     {
         { "var i = 0; a: while (i < 3) { i++; i * 10; continue; }", "30" },
@@ -319,6 +321,10 @@ public class LabelledLoopContinueTests
         { "var i = 0; a: while (i < 3) { i++; if (i < 3) { i * 10; continue; } else { i * 100; break a; } }", "300" },
         { "var i = 0; a: while (i < 3) { i++; i * 10; if (i < 2) continue; break a; } 'after'", "after" },
         { """eval("var i = 0; a: while (i < 3) { i++; i * 10; if (i < 2) continue; break a; }")""", "undefined" },
+        { "var i = 0; a: while (i < 3) { i++; if (i < 2) { i * 10; continue; } break a; }", "undefined" },
+        { "var i = 0; a: do { i++; if (i < 2) { i * 10; continue; } break a; } while (i < 3);", "undefined" },
+        { "var i = 0; a: b: while (i < 3) { i++; if (i < 2) { i * 10; continue; } break a; }", "undefined" },
+        { """eval("var i = 0; a: while (i < 3) { i++; if (i < 2) { i * 10; continue; } break a; }")""", "undefined" },
     };
 
     [TestCaseSource(nameof(CompletionValues))]
