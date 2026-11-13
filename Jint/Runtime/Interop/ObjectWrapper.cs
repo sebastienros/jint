@@ -388,7 +388,29 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     // index-reading fast path this enables (array destructuring) is indistinguishable from running that
     // iterator only where index reads reproduce what enumeration yields. For a countable but non-indexable
     // collection they do not: [...queue] yields the elements while every index reads undefined.
-    internal override bool HasOriginalIterator => IsArrayLike && HasIndexedElements;
+    // Index reads stand in for the wrapper's iterator only while that iterator is the one the wrapper materializes:
+    // not once a script has given the wrapper a Symbol.iterator of its own, which GetIterator reads and calls
+    // (sebastienros/jint#4427). Until anything has stored a symbol on the wrapper, that is one null test.
+    internal override bool HasOriginalIterator => IsArrayLike && HasIndexedElements && (_symbols is null || OwnIteratorIsMaterialized());
+
+    /// <summary>
+    /// Whether the <c>@@iterator</c> GetIterator (https://tc39.es/ecma262/#sec-getiterator) would read off this wrapper
+    /// is the one <see cref="GetOwnProperty(JsValue)"/> materializes: none is stored, so the read would materialize it,
+    /// or a data property holds a function over <see cref="Iterator"/>, which enumerates whatever wrapper it is called
+    /// on. An accessor answers false without being run. Out of line: only a wrapper already holding a symbol gets here.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool OwnIteratorIsMaterialized()
+    {
+        if (!_symbols!.TryGetValue(GlobalSymbolRegistry.Iterator, out var descriptor))
+        {
+            return true;
+        }
+
+        return !descriptor.IsAccessorDescriptor()
+               && descriptor.Value is ClrFunction function
+               && ReferenceEquals(function._func, _iteratorFunction);
+    }
 
     internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexed;
 
@@ -1217,7 +1239,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 var iteratorFunction = new ClrFunction(
                     Engine,
                     "iterator",
-                    Iterator,
+                    _iteratorFunction,
                     1,
                     PropertyFlag.Configurable);
 
@@ -1483,6 +1505,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         return type;
     }
+
+    // One delegate instance, so OwnIteratorIsMaterialized can tell the materialized @@iterator by reference.
+    private static readonly JsCallDelegate _iteratorFunction = Iterator;
 
     private static JsValue Iterator(JsValue thisObject, JsCallArguments arguments)
     {
