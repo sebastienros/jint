@@ -284,7 +284,7 @@ internal sealed partial class JsSegments : ObjectInstance
         private readonly JsSegments _segments;
         private readonly IEnumerator<SegmentData> _enumerator;
 
-        public SegmentIterator(Engine engine, JsSegments segments, SegmentIteratorPrototype prototype) : base(engine, prototype)
+        public SegmentIterator(Engine engine, JsSegments segments, SegmentIteratorPrototype prototype) : base(engine, prototype, IteratorBrand.Segment)
         {
             _segments = segments;
             _enumerator = segments.GetSegments().GetEnumerator();

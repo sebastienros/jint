@@ -34,7 +34,7 @@ internal sealed partial class UrlSearchParamsIteratorPrototype : IteratorPrototy
     internal UrlSearchParamsIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.UrlSearchParams)
     {
     }
 
@@ -58,7 +58,7 @@ internal sealed partial class UrlSearchParamsIteratorPrototype : IteratorPrototy
     /// WebIDL too.
     /// </remarks>
     [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable, CaptureField = nameof(_originalNextFunction))]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.UrlSearchParams);
 
     internal IteratorInstance ConstructEntryIterator(JsUrlSearchParams parameters)
         => new UrlSearchParamsIterator(_engine, parameters, IteratorKind.KeyAndValue) { _prototype = this };
@@ -82,7 +82,7 @@ internal sealed partial class UrlSearchParamsIteratorPrototype : IteratorPrototy
         private readonly IteratorKind _kind;
         private int _index;
 
-        public UrlSearchParamsIterator(Engine engine, JsUrlSearchParams parameters, IteratorKind kind) : base(engine)
+        public UrlSearchParamsIterator(Engine engine, JsUrlSearchParams parameters, IteratorKind kind) : base(engine, IteratorBrand.UrlSearchParams)
         {
             _parameters = parameters;
             _kind = kind;

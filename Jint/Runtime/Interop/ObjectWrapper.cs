@@ -44,6 +44,42 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// </summary>
     private PropertyDictionary? _crossingMemo;
 
+    /// <summary>
+    /// Whether the script has ever created a property on this wrapper: a key that no CLR member, element, entry or
+    /// wrapper projection answered for when it was defined. Each such property's descriptor carries
+    /// <see cref="PropertyDescriptor.ScriptDefinedOnWrapper"/>, and a wrapper the script never extends pays this one
+    /// test in <see cref="GetOwnPropertyKeys"/>. Never cleared: a deleted property takes its descriptor, and so its
+    /// mark, with it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The mark is needed because <c>_properties</c> holds the script's properties beside entries the wrapper stores
+    /// itself: the descriptor of every CLR member <see cref="GetOwnProperty(JsValue)"/> resolves, cached under
+    /// whatever name the script spelled, and the wrapper's projections (the <c>length</c> forwarder, <c>toJSON</c>,
+    /// <c>@@iterator</c>, <c>@@dispose</c>, <c>@@asyncDispose</c>). Listing those would make the key list depend on
+    /// which members happened to be read. Nothing else tells the two apart: a method and a script property are both
+    /// plain <see cref="PropertyDescriptor"/>s. Asking the CLR side again at enumeration time would answer a
+    /// different question, about now rather than about the moment of creation, and would get three cases wrong:
+    /// <list type="bullet">
+    /// <item>A projection the wrapper never rebuilds, if the script deleted it and then defined it again, is the
+    /// script's. Those are <c>@@dispose</c>, <c>@@asyncDispose</c>, and a <c>length</c> forwarder no member of that
+    /// name answers.</item>
+    /// <item>A host's <c>DefineOwnPropertyUnchecked</c> store is not the script's.</item>
+    /// <item>Under <c>PreferJsPrototypeMethods</c>, telling a callable from a getter on the prototype would mean running
+    /// the getter.</item>
+    /// </list>
+    /// The other projections come back on the read the define itself makes, through <c>SetProperty</c>, unmarked:
+    /// <c>@@iterator</c> is materialized again, and <c>toJSON</c> or any other reflected member is resolved and cached
+    /// again. A define after a delete therefore redefines the wrapper's projection, which stays unmarked.
+    /// </para>
+    /// <para>
+    /// A flag in padding and a bit on the descriptor, rather than a list, because every CLR object that crosses into
+    /// script gets a wrapper. A reference field would add 8 bytes to each, and a side table would cost each extended
+    /// wrapper a dependent handle and a list, which every instance of a JS class extending a CLR type is.
+    /// </para>
+    /// </remarks>
+    private bool _hasScriptDefinedKeys;
+
     internal ObjectWrapper(
         Engine engine,
         object obj,
@@ -767,7 +803,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 // CanPut logic
                 if (!accessor.Writable || !_engine.Options.Interop.AllowWrite)
                 {
-                    return false;
+                    // a name the dictionary cannot hold as a key resolves to an indexer that writes nothing
+                    return accessor is IndexerAccessor { KeyCannotBeAnEntry: true }
+                           && _engine.Options.Interop.AllowWrite
+                           && SetKeyTheDictionaryCannotHold(property, member, value, receiver);
                 }
 
                 if (!Extensible)
@@ -776,8 +815,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     return false;
                 }
 
-                accessor.SetValue(_engine, Target, member, value);
-                return true;
+                // false when a dictionary refused the entry as read-only
+                return accessor.SetValue(_engine, Target, member, value);
             }
         }
         else if (property is JsSymbol jsSymbol)
@@ -826,6 +865,36 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     }
 
     /// <summary>
+    /// [[Set]] under <see cref="Options.InteropOptions.AllowWrite"/> for a name a non-string-keyed dictionary
+    /// cannot hold as a key, such as <c>"expando"</c> on a <c>Dictionary&lt;int, string&gt;</c> (#4518). It
+    /// cannot be an entry, so it is what a name the CLR type has no member for is on any wrapper: a property of
+    /// the wrapper itself, through the ordinary algorithm
+    /// (https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor). That is also what a symbol key is on the same
+    /// wrapper, and what the name is on a dictionary that implements only the generic contract.
+    /// </summary>
+    /// <remarks>
+    /// Two things differ from the <see cref="ConstantValueAccessor.NullAccessor"/> lane in <see cref="Set"/>.
+    /// It is reached only under <c>AllowWrite</c>, so without it the write stays refused, as every write to a
+    /// string-keyed dictionary is. And <see cref="Options.InteropOptions.ThrowOnUnresolvedMember"/> raises
+    /// nothing, as it raises nothing for the same name's read on a dictionary.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool SetKeyTheDictionaryCannotHold(JsValue property, string member, JsValue value, JsValue receiver)
+    {
+        // The writable-filtered resolution passes over a CLR member that cannot be written and lands on the
+        // indexer, so ask again without the requirement, as the NullAccessor lane does: a member answering
+        // the name (Count) refuses the write like a non-writable property would.
+        var answering = ResolveMemberAccessor(member, MemberResolutionRequirement.None);
+        if (answering is not IndexerAccessor { KeyCannotBeAnEntry: true }
+            && !ReferenceEquals(answering, ConstantValueAccessor.NullAccessor))
+        {
+            return false;
+        }
+
+        return base.Set(property, value, receiver);
+    }
+
+    /// <summary>
     /// Resolves the accessor the write lane in <see cref="Set"/> consults, under the given
     /// <paramref name="requirement"/>. Falls back to the runtime type when the exposed type differs,
     /// mirroring <see cref="GetOwnProperty(JsValue, MemberResolutionRequirement, bool)"/>.
@@ -868,6 +937,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         var ownDesc = GetOwnProperty(property);
+        if (ownDesc is ReflectionDescriptor reflected)
+        {
+            // a read stores an indexer's descriptor here, and the dictionary behind it may refuse the write as
+            // read-only, which the Value setter below cannot report (#4518)
+            return reflected.TrySetValue(value);
+        }
+
         ownDesc.Value = value;
         return true;
     }
@@ -899,10 +975,61 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         // same reason as DefineOwnProperty: a descriptor in _properties outranks the memo from now on
         DropCrossingMemo();
+
+        // ValidateAndApplyPropertyDescriptor stores through here for two things: a property GetOwnProperty did not
+        // answer, which it is creating, and one it did, which a redefinition replaces (data to accessor and back, or an
+        // accessor given a new get or set, which arrives as a copy). Only the first is a key of the script's own, so
+        // only a creation is marked. A replacement keeps whatever the entry it replaces was: the script's stays the
+        // script's, because the copy constructors carry the attributes and nothing else; and a CLR member, element,
+        // entry or projection stays the wrapper's. Each of those is stored before anything can redefine it:
+        // GetOwnProperty caches a member it resolves, DefineOwnProperty stores a dictionary entry first, and a
+        // projection is stored when it is made, all through SetProperty, which never reaches here.
+        if (TryGetProperty(property, out var current))
+        {
+            desc._flags |= current._flags & PropertyDescriptor.ScriptDefinedOnWrapper;
+        }
+        else
+        {
+            desc._flags |= PropertyDescriptor.ScriptDefinedOnWrapper;
+            _hasScriptDefinedKeys = true;
+        }
+
         base.SetOwnProperty(property, desc);
     }
 
-    public override void RemoveOwnProperty(JsValue property)
+    /// <summary>
+    /// Deletes the property as an ordinary object does, and refuses an entry the wrapped dictionary will not remove.
+    /// </summary>
+    public override bool Delete(JsValue property)
+    {
+        // https://tc39.es/ecma262/#sec-ordinarydelete, except that an entry a read-only dictionary refuses to
+        // remove is refused rather than reported deleted
+        var descriptor = GetOwnProperty(property);
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            return true;
+        }
+
+        // ObjectInstance.Delete calls RemoveOwnProperty virtually. This calls its body directly, which skips
+        // nothing because RemoveOwnProperty is sealed here, and the body can report a refusal.
+        return descriptor.Configurable && RemoveOwnPropertyUnlessRefused(property);
+    }
+
+    /// <summary>
+    /// Removes the property, and under <see cref="Options.InteropOptions.AllowWrite"/> the dictionary entry it
+    /// names. Nothing is removed when the dictionary holds the entry and refuses to remove it.
+    /// </summary>
+    /// <remarks>
+    /// Sealed so that <see cref="Delete"/> may call the body directly: no subclass outside the assembly can
+    /// exist, the constructor being internal, and none inside it overrides this.
+    /// </remarks>
+    public sealed override void RemoveOwnProperty(JsValue property) => RemoveOwnPropertyUnlessRefused(property);
+
+    /// <summary>
+    /// <see cref="RemoveOwnProperty"/>, answering <see langword="false"/>, with nothing removed, when the
+    /// dictionary holds the entry and refuses to remove it.
+    /// </summary>
+    private bool RemoveOwnPropertyUnlessRefused(JsValue property)
     {
         ForgetResolvedProperty(property);
 
@@ -910,21 +1037,43 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             if (property is JsString jsString && _typeDescriptor.IsStringKeyedGenericDictionary)
             {
-                _typeDescriptor.TryRemoveDictionaryValue(Target, jsString.ToString());
+                var key = jsString.ToString();
+                var removed = _typeDescriptor.TryRemoveDictionaryValue(Target, key);
                 _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (!removed && HoldsDictionaryKey(key))
+                {
+                    return false;
+                }
             }
             else if (!property.IsString()
                 && !property.IsSymbol()
                 && _typeDescriptor.IsNonStringKeyedGenericDictionary
                 && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
             {
-                _typeDescriptor.TryRemoveDictionaryValue(Target, clrKey!);
+                var removed = _typeDescriptor.TryRemoveDictionaryValue(Target, clrKey!);
                 _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (!removed && HoldsDictionaryKey(clrKey!))
+                {
+                    return false;
+                }
             }
         }
 
         // also remove from _properties cache to avoid stale entries
         base.RemoveOwnProperty(property);
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a dictionary that refused a removal holds <paramref name="key"/>: only an entry is refused, and a
+    /// property the script defined on the wrapper is removed as on any object.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool HoldsDictionaryKey(object key)
+    {
+        var contains = _typeDescriptor.ContainsDictionaryKey(Target, key);
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
+        return contains;
     }
 
     /// <summary>
@@ -1132,9 +1281,199 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return protoResult;
     }
 
+    /// <summary>
+    /// The target's keys (its members, a collection's positions or a dictionary's entries), then the keys of the
+    /// properties the script created on the wrapper itself.
+    /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
+        => _hasScriptDefinedKeys ? GetOwnPropertyKeysWithScriptDefinedKeys(types) : [.. EnumerateOwnPropertyKeys(types)];
+
+    /// <summary>
+    /// <see cref="GetOwnPropertyKeys"/> for a wrapper the script has created a property on, out of line. Nearly every
+    /// wrapper never gets one, and for those <see cref="GetOwnPropertyKeys"/> is the body it had before the script's
+    /// properties were listed plus a single test, with no local kept live across a call.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private List<JsValue> GetOwnPropertyKeysWithScriptDefinedKeys(Types types)
+        => AddScriptDefinedKeys([.. EnumerateOwnPropertyKeys(types)], types);
+
+    /// <summary>
+    /// Adds the keys the script created on this wrapper to <paramref name="targetKeys"/>, in
+    /// <see href="https://tc39.es/ecma262/#sec-ordinaryownpropertykeys">OrdinaryOwnPropertyKeys</see> order over
+    /// both lists, with the target's keys taken as the older ones.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The target's own keys are never reordered. When they are already in that order the result is exactly that
+    /// order: an array-like view's positions, a plain wrapper's member names (never an array index), and a
+    /// dictionary that enumerates its numeric keys first and ascending. The script's array indices join the
+    /// target's leading run of ascending indices, and lead the list when it has none. Its other strings follow the
+    /// target's keys, and its symbols come last, each in creation order. A dictionary that enumerates its keys in
+    /// some other order keeps it.
+    /// </para>
+    /// <para>
+    /// A view never contributes an index of the script's: its positions are its elements, and
+    /// <see cref="ArrayLikeWrapper.DefineOwnProperty"/> refuses every other index. No key is listed twice: one the
+    /// target reports as well, such as an entry a host added to a dictionary after the script defined that key,
+    /// keeps the target's place. Every key listed is one <see cref="GetOwnProperty(JsValue)"/> answers, which is
+    /// what lets <c>Object.seal</c> and <c>Object.freeze</c> redefine each of them.
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private List<JsValue> AddScriptDefinedKeys(List<JsValue> targetKeys, Types types)
     {
-        return [.. EnumerateOwnPropertyKeys(types)];
+        var includeStrings = (types & Types.String) != Types.Empty;
+        var includeSymbols = (types & Types.Symbol) != Types.Empty;
+
+        // The marked entries, strings then symbols, each store in its insertion order, which is creation order: a
+        // deleted entry leaves no slot an add would reuse, so a property defined again comes after every one it now
+        // follows. Collected before anything below asks GetOwnProperty, so no store is walked while it is read.
+        List<JsValue>? scriptDefinedKeys = null;
+        if (includeStrings && _properties is not null)
+        {
+            foreach (var pair in _properties)
+            {
+                if ((pair.Value._flags & PropertyDescriptor.ScriptDefinedOnWrapper) != PropertyFlag.None)
+                {
+                    (scriptDefinedKeys ??= []).Add(JsString.Create(pair.Key.Name));
+                }
+            }
+        }
+
+        if (includeSymbols && _symbols is not null)
+        {
+            foreach (var pair in _symbols)
+            {
+                if ((pair.Value._flags & PropertyDescriptor.ScriptDefinedOnWrapper) != PropertyFlag.None)
+                {
+                    (scriptDefinedKeys ??= []).Add(pair.Key);
+                }
+            }
+        }
+
+        if (scriptDefinedKeys is null)
+        {
+            // every property the script created has been deleted again
+            return targetKeys;
+        }
+
+        // A view reports the positions 0..n-1 and nothing else, unless the host replaced its key set, so a key of the
+        // script's can repeat one only by being such a position, and the view needs no set of its keys to tell.
+        var targetReportsOnlyPositions = this is ArrayLikeWrapper
+                                         && !_typeDescriptor.IsDictionary
+                                         && ReferenceEquals(_engine.Options.Interop.ObjectWrapperReportedPropertyKeys, Options.InteropOptions._defaultReportedPropertyKeys);
+        HashSet<JsValue>? reported = null;
+
+        List<uint>? indices = null;
+        List<JsValue>? names = null;
+        List<JsValue>? symbols = null;
+
+        foreach (var key in scriptDefinedKeys)
+        {
+            var isSymbol = key.IsSymbol();
+            if (isSymbol ? !includeSymbols : !includeStrings)
+            {
+                continue;
+            }
+
+            var index = isSymbol ? uint.MaxValue : ArrayInstance.ParseArrayIndex(key.ToString());
+            if (targetReportsOnlyPositions)
+            {
+                if (index < (uint) targetKeys.Count)
+                {
+                    continue;
+                }
+            }
+            else if ((reported ??= [.. targetKeys]).Contains(key))
+            {
+                continue;
+            }
+
+            if (ReferenceEquals(GetOwnProperty(key), PropertyDescriptor.Undefined))
+            {
+                // a position of the script's on a view that has since shrunk below it
+                continue;
+            }
+
+            if (isSymbol)
+            {
+                (symbols ??= []).Add(key);
+            }
+            else if (index != uint.MaxValue)
+            {
+                (indices ??= []).Add(index);
+            }
+            else
+            {
+                (names ??= []).Add(key);
+            }
+        }
+
+        var keys = targetKeys;
+        if (indices is not null)
+        {
+            keys = MergeScriptDefinedIndices(targetKeys, indices);
+        }
+
+        if (names is not null)
+        {
+            keys.AddRange(names);
+        }
+
+        if (symbols is not null)
+        {
+            keys.AddRange(symbols);
+        }
+
+        return keys;
+    }
+
+    /// <summary>
+    /// Merges the script's array <paramref name="indices"/> into the leading run of ascending indices
+    /// <paramref name="targetKeys"/> starts with, leaving every target key where the target put it.
+    /// </summary>
+    private static List<JsValue> MergeScriptDefinedIndices(List<JsValue> targetKeys, List<uint> indices)
+    {
+        indices.Sort();
+
+        var run = 0;
+        var previous = -1L;
+        while (run < targetKeys.Count)
+        {
+            var index = targetKeys[run] is JsString key ? ArrayInstance.ParseArrayIndex(key.ToString()) : uint.MaxValue;
+            if (index == uint.MaxValue || index <= previous)
+            {
+                break;
+            }
+
+            previous = index;
+            run++;
+        }
+
+        var merged = new List<JsValue>(targetKeys.Count + indices.Count);
+        var next = 0;
+        for (var i = 0; i < run; i++)
+        {
+            var targetIndex = ArrayInstance.ParseArrayIndex(targetKeys[i].ToString());
+            while (next < indices.Count && indices[next] < targetIndex)
+            {
+                merged.Add(JsString.Create(indices[next++]));
+            }
+
+            merged.Add(targetKeys[i]);
+        }
+
+        while (next < indices.Count)
+        {
+            merged.Add(JsString.Create(indices[next++]));
+        }
+
+        for (var i = run; i < targetKeys.Count; i++)
+        {
+            merged.Add(targetKeys[i]);
+        }
+
+        return merged;
     }
 
     private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types)
@@ -1159,7 +1498,12 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         if (includeStrings && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
         {
-            var keys = (ICollection<string>) _typeDescriptor.KeysAccessor!.GetValue(Target)!;
+            // IReadOnlyDictionary<,>.Keys is the one the descriptor may have found, and what ImmutableDictionary and
+            // ImmutableSortedDictionary return through it is an iterator, not a collection. The collection test comes
+            // first because IEnumerable<out T> is variant, so a cast to it costs a CastCache probe where the exact
+            // ICollection<T> test is an interface-map scan, and a Dictionary's keys are a collection.
+            var keysValue = _typeDescriptor.KeysAccessor!.GetValue(Target)!;
+            IEnumerable<string> keys = keysValue as ICollection<string> ?? (IEnumerable<string>) keysValue;
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             // each step pulls from the user dictionary's key enumerator
             foreach (var key in keys)
@@ -1538,7 +1882,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <item>the target is a dictionary (member values are dynamic; descriptors are created fresh per access),</item>
     /// <item>a custom <see cref="Options.InteropOptions.MemberAccessor"/> is configured (stay conservative),</item>
     /// <item>the name is <c>length</c> on an <see cref="ICollection"/> target (<see cref="Get"/> serves the live count ahead of any stored descriptor),</item>
-    /// <item>the member has not been resolved-and-stored yet — the caller's slow path performs the store (bumping the version) so a later populate succeeds.</item>
+    /// <item>the member has not been resolved-and-stored yet — the caller's slow path performs the store (bumping the version) so a later populate succeeds,</item>
+    /// <item>the descriptor's write can be refused (a dictionary's indexer, see <see cref="ReflectionDescriptor.WriteCanBeRefused"/>), which only <see cref="Set"/> can report.</item>
     /// </list>
     /// </remarks>
     internal PropertyDescriptor? TryGetInlineCacheableDescriptor(JsString property)
@@ -1556,14 +1901,33 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return null;
         }
 
-        if (!_properties.TryGetValue(property.ToString(), out var descriptor)
-            || ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        if (!_properties.TryGetValue(property.ToString(), out var descriptor))
         {
             return null;
         }
 
-        return descriptor;
+        return CacheableOrNull(descriptor);
     }
+
+    /// <summary>
+    /// <paramref name="descriptor"/>, or <see langword="null"/> when it is <see cref="PropertyDescriptor.Undefined"/>
+    /// or a write through it can be refused, which the member lane, writing through <c>Value</c>, cannot report.
+    /// </summary>
+    /// <remarks>
+    /// A dictionary is declined before this, but a member resolved against the runtime type (the exposed type
+    /// having none) can still be a dictionary's indexer, so the descriptor is asked as well. This runs when the
+    /// lane populates: once per call site and wrapper, or per access at a site that sees a different stored
+    /// wrapper each time. The read lane populates through here too, so reads of that rare shape also go uncached;
+    /// they still answer correctly, through <see cref="Get"/>. Out of line, and with the <c>Undefined</c> test
+    /// that used to be inline, because <see cref="TryGetInlineCacheableDescriptor"/> is inlined into the
+    /// interpreter's member read lane, which every wrapper read runs, a dictionary's included: the inlined copy
+    /// stays no larger than before the refusal test, so that lane keeps its size and its code placement (#4518).
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static PropertyDescriptor? CacheableOrNull(PropertyDescriptor descriptor)
+        => ReferenceEquals(descriptor, PropertyDescriptor.Undefined) || descriptor is ReflectionDescriptor { WriteCanBeRefused: true }
+            ? null
+            : descriptor;
 
     // need to be public for advanced cases like RavenDB yielding properties from CLR objects
     public static PropertyDescriptor GetPropertyDescriptor(Engine engine, object target, MemberInfo member)

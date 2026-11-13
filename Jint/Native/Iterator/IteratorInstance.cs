@@ -10,14 +10,28 @@ namespace Jint.Native.Iterator;
 
 internal abstract partial class IteratorInstance : ObjectInstance
 {
+    /// <summary>
+    /// Which concrete prototype's <c>next</c> may step this iterator (sebastienros/jint#4451), fixed at creation. That
+    /// <c>next</c> compares it (<see cref="IteratorPrototype.Next"/>), and so does the native lane, which stands in for a
+    /// call to it (<see cref="IteratorPrototype.ToIteratorRecord"/>).
+    /// </summary>
+    internal readonly IteratorBrand _brand;
+
+    // An iterator that inherits %ArrayIteratorPrototype% carries its brand, IteratorBrand.Array, the zero value.
     protected IteratorInstance(Engine engine) : base(engine)
     {
         _prototype = engine.Realm.Intrinsics.ArrayIteratorPrototype;
     }
 
-    private protected IteratorInstance(Engine engine, ObjectInstance prototype) : base(engine)
+    private protected IteratorInstance(Engine engine, IteratorBrand brand) : this(engine)
+    {
+        _brand = brand;
+    }
+
+    private protected IteratorInstance(Engine engine, ObjectInstance prototype, IteratorBrand brand) : base(engine)
     {
         _prototype = prototype;
+        _brand = brand;
     }
 
     public override object ToObject()
@@ -74,10 +88,10 @@ internal abstract partial class IteratorInstance : ObjectInstance
             && prototype.InheritsOriginalIteratorMethod())
         {
             // The prototype's check, not the virtual ToIteratorRecord(): this skips the ArrayIterator and
-            // ArrayLikeIterator overrides, which wrap an iterator whose prototype is not %ArrayIteratorPrototype%.
-            // Native stepping is still the same answer only because no built-in `next` brand-checks its receiver, so
-            // another kind's untouched `next` steps this iterator exactly as the native lane does. A built-in `next`
-            // that starts brand-checking must make this lane check the prototype's kind too.
+            // ArrayLikeIterator overrides, which read `next` where the prototype's cached answer needs no read. That
+            // check compares this iterator's brand with the prototype's own, so an iterator moved onto another kind's
+            // prototype is wrapped, as the overrides wrap it: that kind's `next` refuses it, and native stepping would
+            // skip the TypeError (sebastienros/jint#4451).
             iterator = prototype.ToIteratorRecord(this);
             return true;
         }
@@ -140,6 +154,42 @@ internal abstract partial class IteratorInstance : ObjectInstance
 
         return true;
     }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iteratorstep
+    /// Steps the iterator for a consumer that discards the result and maintains <see cref="Done"/> exactly as
+    /// <see cref="TryIteratorStepValue"/> does, but never reads the result's <c>value</c>: an array pattern's
+    /// elision performs IteratorStep, not IteratorStepValue
+    /// (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation). Returns
+    /// <c>false</c> for the spec's ~done~ result.
+    /// </summary>
+    internal bool TryIteratorStepWithoutValue()
+    {
+        try
+        {
+            if (!TryStepWithoutValue())
+            {
+                // IteratorStep step 5.a: a done result sets [[Done]] as well.
+                Done = true;
+                return false;
+            }
+        }
+        catch
+        {
+            Done = true;
+            throw;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// <see cref="TryStepValue"/> for a step whose value nobody wants. A built-in iterator's result has no observable
+    /// <c>value</c> to skip, so the default is the step it already makes without an <c>IteratorResult</c>; only an
+    /// iterator the script drives through its own <c>next</c> has a result whose <c>value</c> can be a getter or a
+    /// Proxy trap, and that one overrides this to read <c>done</c> alone.
+    /// </summary>
+    internal virtual bool TryStepWithoutValue() => TryStepValue(out _);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iteratorclose
@@ -263,12 +313,18 @@ internal abstract partial class IteratorInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iteratorclose steps 3-7 for <paramref name="iterator"/>, with the
     /// <paramref name="completion"/> the consumer leaves with. Under a throw completion nothing the close raises
-    /// replaces it (step 5); otherwise what <c>return</c> throws propagates, and an answer that is not an object is a
+    /// replaces it (step 5) — except an exception that ends the run, an execution constraint tripping inside
+    /// <c>return</c> among them (<see cref="Throw.MustPropagateHostException"/>), which is no completion of the script's
+    /// and always propagates; otherwise what <c>return</c> throws propagates, and an answer that is not an object is a
     /// <c>TypeError</c> (step 7). A built-in iterator's native state is released last, whatever happened
     /// (<see cref="CloseNativeState"/>), and is told a throw completion whenever a throw is leaving the close, so that a
     /// host's <c>Dispose</c> cannot replace it. Out of line: a natively stepped record reaches it only once a script has
     /// added a <c>return</c> somewhere.
     /// </summary>
+    /// <remarks>
+    /// So a close under a throw completion raises nothing but what must end the run, which is what lets a caller close
+    /// with one and propagate whatever comes out, with no <c>catch</c> of its own.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void IteratorClose(ObjectInstance iterator, CompletionType completion)
     {
@@ -283,7 +339,7 @@ internal abstract partial class IteratorInstance : ObjectInstance
             {
                 callable = iterator.GetMethod(CommonProperties.Return);
             }
-            catch when (completion == CompletionType.Throw)
+            catch (Exception e) when (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e))
             {
                 // Step 5: If completion is a throw completion, return ? completion.
                 return;
@@ -297,9 +353,10 @@ internal abstract partial class IteratorInstance : ObjectInstance
                 {
                     innerResult = callable.Call(iterator, Arguments.Empty);
                 }
-                catch when (completion == CompletionType.Throw)
+                catch (Exception e) when (completion == CompletionType.Throw && !Throw.MustPropagateHostException(e))
                 {
-                    // Step 5: If completion is a throw completion, return ? completion.
+                    // Step 5: If completion is a throw completion, return ? completion. A constraint that tripped inside
+                    // `return` is not that completion's to discard: the filter declines it, and it ends the run.
                     return;
                 }
 
@@ -373,7 +430,8 @@ internal abstract partial class IteratorInstance : ObjectInstance
     /// <para>
     /// An abrupt completion of either step propagates. Step 5 — the one that would swallow it —
     /// applies only when the caller's own completion is a throw completion, and a caller holding one
-    /// catches it there and skips the Await (<c>JintForInForOfStatement.TryStartAsyncCloseDiscardingAbrupt</c>).
+    /// catches it there and skips the Await (<c>JintForInForOfStatement.TryStartAsyncCloseDiscardingAbrupt</c>) —
+    /// all of it but what <see cref="Throw.MustPropagateHostException"/> says must end the run.
     /// </para>
     /// <para>
     /// This record is a built-in iterator stepped natively, the loop's record when a script's <c>@@asyncIterator</c>
@@ -507,6 +565,13 @@ internal abstract partial class IteratorInstance : ObjectInstance
         }
 
         /// <summary>
+        /// IteratorStep's <c>next</c> call and <c>done</c> read (https://tc39.es/ecma262/#sec-iteratorstep) without the
+        /// <c>value</c> read that follows them in IteratorStepValue. The result is the script's own object here, so
+        /// the read is observable.
+        /// </summary>
+        internal override bool TryStepWithoutValue() => TryIteratorStep(out _);
+
+        /// <summary>
         /// https://tc39.es/ecma262/#sec-iteratornext
         /// Uses the cached [[NextMethod]] and forwards the optional value argument.
         /// </summary>
@@ -571,7 +636,7 @@ internal abstract partial class IteratorInstance : ObjectInstance
         // stands in for the CreateStringIterator object (https://tc39.es/ecma262/#sec-createstringiterator), so closing
         // it finds a `return` where that object's close would - on %StringIteratorPrototype% or above it, never on the
         // %ArrayIteratorPrototype% the base constructor assigns (sebastienros/jint#4406).
-        public StringIterator(Engine engine, string str, ObjectInstance prototype) : base(engine, prototype)
+        public StringIterator(Engine engine, string str, ObjectInstance prototype) : base(engine, prototype, IteratorBrand.String)
         {
             _iterator = StringInfo.GetTextElementEnumerator(str);
         }
@@ -598,7 +663,7 @@ internal abstract partial class IteratorInstance : ObjectInstance
 
         private bool _done;
 
-        public RegExpStringIterator(Engine engine, ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode) : base(engine)
+        public RegExpStringIterator(Engine engine, ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode) : base(engine, IteratorBrand.RegExpString)
         {
             var r = iteratingRegExp as JsRegExp;
             if (r is null)
