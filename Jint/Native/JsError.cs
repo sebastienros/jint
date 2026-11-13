@@ -53,14 +53,6 @@ public sealed class JsError : ErrorInstance
         _message = message;
     }
 
-    /// <summary>
-    /// Forces the virtual <c>message</c> into real storage. Callers that add another own property through a
-    /// raw store (bypassing <see cref="DefineOwnProperty"/>) — notably the host-side <c>stack</c> property
-    /// installed by <see cref="Jint.Runtime.JavaScriptException"/> — must call this first so the message
-    /// keeps its construction-time position as the earliest own key.
-    /// </summary>
-    internal void EnsureMessageMaterialized() => MaterializeMessage();
-
     public override JsValue Get(JsValue property, JsValue receiver)
     {
         // Fast path for the hot `error.message` read: serve from the field, no descriptor allocation.
