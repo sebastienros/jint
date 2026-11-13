@@ -97,4 +97,152 @@ saved();").AsString();
         var result = engine.Evaluate("try { throw 'x'; } catch (e) { let y = e + '!'; y; }").AsString();
         result.Should().Be("x!");
     }
+
+    // https://tc39.es/ecma262/#sec-try-statement-runtime-semantics-evaluation: a catch parameter whose binding
+    // throws makes the catch clause's completion abrupt, and the finally block still runs before it propagates.
+
+    [Fact]
+    public void FinallyRunsWhenDestructuringTheCatchParameterThrows()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+try {
+  try { throw null; }
+  catch ({ x }) { log.push('catch'); }
+  finally { log.push('finally'); }
+} catch (e) {
+  log.push(e.constructor.name);
+}
+log.join(',');").AsString();
+        result.Should().Be("finally,TypeError");
+    }
+
+    [Fact]
+    public void FinallyRunsWhenACatchParameterDefaultInitializerThrows()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+try {
+  try { throw {}; }
+  catch ({ x = (() => { throw new RangeError('default'); })() }) { log.push('catch'); }
+  finally { log.push('finally'); }
+} catch (e) {
+  log.push(e.constructor.name + ':' + e.message);
+}
+log.join(',');").AsString();
+        result.Should().Be("finally,RangeError:default");
+    }
+
+    [Fact]
+    public void FinallyRunsWhenACatchParameterGetterThrows()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+try {
+  try { throw { get x() { throw 'getter'; } }; }
+  catch ({ x }) { log.push('catch'); }
+  finally { log.push('finally'); }
+} catch (e) {
+  log.push(e);
+}
+log.join(',');").AsString();
+        result.Should().Be("finally,getter");
+    }
+
+    [Fact]
+    public void FinallyCompletionOverridesTheCatchParameterThrow()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+function f() {
+  try { throw null; }
+  catch ([a]) { return 'catch'; }
+  finally { return 'finally'; }
+}
+f();").AsString();
+        result.Should().Be("finally");
+    }
+
+    [Fact]
+    public void NestedTryStatementsRunEveryFinallyWhenTheCatchParameterThrows()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+try {
+  try {
+    try { throw undefined; }
+    catch ({ x }) { log.push('inner catch'); }
+    finally { log.push('inner finally'); }
+  } catch ({ y: { z } }) {
+    log.push('middle catch');
+  } finally {
+    log.push('middle finally');
+  }
+} catch (e) {
+  log.push(e.constructor.name);
+}
+log.join(',');").AsString();
+        result.Should().Be("inner finally,middle finally,TypeError");
+    }
+
+    [Fact]
+    public void CatchEnvironmentIsLeftWhenTheCatchParameterThrows()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+var x = 'outer';
+let seen;
+try {
+  try { throw { get y() { throw 'boom'; } }; }
+  catch ({ x = 'inner', y }) { }
+  finally { seen = typeof x === 'string' ? x : 'tdz'; }
+} catch (e) { }
+seen;").AsString();
+        result.Should().Be("outer");
+    }
+
+    [Fact]
+    public void GeneratorRunsFinallyWhenTheCatchParameterThrows()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+function* g() {
+  try { yield 1; throw null; }
+  catch ({ x }) { log.push('catch'); }
+  finally { log.push('finally'); yield 2; }
+}
+const it = g();
+log.push(it.next().value);
+log.push(it.next().value);
+try { it.next(); } catch (e) { log.push(e.constructor.name); }
+log.join(',');").AsString();
+        result.Should().Be("1,finally,2,TypeError");
+    }
+
+    // A catch parameter pattern holding an await, whose binding throws before it reaches the await.
+
+    [Fact]
+    public void FinallyRunsWhenTheCatchParameterThrowsBeforeItsSuspensionPoint()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+const log = [];
+async function f() {
+  try {
+    try { throw {}; }
+    catch ({ b = (() => { throw new RangeError('before'); })(), a = await 1 }) { log.push('catch'); }
+    finally { log.push('finally'); }
+  } catch (e) {
+    log.push(e.constructor.name + ':' + e.message);
+  }
+  return log.join(',');
+}
+f();").UnwrapIfPromise().AsString();
+        result.Should().Be("finally,RangeError:before");
+    }
 }
