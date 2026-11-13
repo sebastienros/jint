@@ -51,7 +51,9 @@ overloads all make it (`ArrayConstructor.ValidateElementCount` or the `ArrayInst
 it take ownership of a finished array and do **not**, so a built-in that reaches for them with a list whose length the
 script chose hands out an array the host forbade. `Promise.all` did exactly that through `ConstructFast` until it
 checked ([#4493](https://github.com/sebastienros/jint/issues/4493)). Prefer `ConstructFast` or `ConstructFromBuilder`
-for a finished list: one compare, then a single copy, where `CreateArrayFromList` writes element by element.
+for a finished list: one compare, then a single copy, where `CreateArrayFromList` writes element by element. A
+built-in that fills a `new JsValue[n]` of its own and hands it to the ownership-taking constructor calls
+`ArrayConstructor.ValidateElementCount(n)` first, before allocating the store, as `split("")` does.
 
 **An argument list is bounded where it is built, never where it lands.** The rest parameter
 (`FunctionEnvironment.HandleRestElementArray`) and the `arguments` object take the list unchecked, so a call without a

@@ -1254,17 +1254,57 @@ internal sealed partial class StringPrototype : StringInstance
         return SplitWithStringSeparator(_engine, _realm, separator, s, lim);
     }
 
+    /// <summary>
+    /// Writes one single-character string per code unit of <paramref name="s"/> into <paramref name="items"/>, which
+    /// the caller allocated as exactly <c>new JsValue[n]</c>, checking the constraints once per
+    /// <see cref="ConstraintCheckInterval"/> elements.
+    /// </summary>
+    private static void FillWithCodeUnits(Engine engine, string s, JsValue[] items)
+    {
+        for (var start = 0; start < items.Length; start += ConstraintCheckInterval)
+        {
+            if (start > 0)
+            {
+                engine.Constraints.Check();
+            }
+
+            var end = System.Math.Min(start + ConstraintCheckInterval, items.Length);
+            for (var i = start; i < end; i++)
+            {
+                Arguments.WriteNoTypeCheck(items, i, JsString.Create(s[i]));
+            }
+        }
+    }
+
     internal static JsValue SplitWithStringSeparator(Engine engine, Realm realm, JsValue separator, string s, uint lim)
     {
         var sep = TypeConverter.ToString(separator);
 
         if (sep.Length == 0)
         {
-            // split("") yields the individual UTF-16 code units. Build the result array directly at
-            // exact capacity from the cached single-char JsStrings (JsString.Create(char)), skipping
-            // the intermediate segment list and its per-char string allocations for cached chars.
+            // https://tc39.es/ecma262/#sec-string.prototype.split step 10: with an empty separator the result holds
+            // the first lim UTF-16 code units of the subject, one element each. A surrogate pair is two elements and
+            // a lone surrogate is one. The elements are the cached single-character JsStrings
+            // (JsString.Create(char)), written straight into the exact-size store the result array then owns.
             var count = (uint) System.Math.Min((long) s.Length, lim);
-            var emptyResult = realm.Intrinsics.Array.ArrayCreate(count);
+            var arrayConstructor = realm.Intrinsics.Array;
+            if (count == 0)
+            {
+                return arrayConstructor.ArrayCreate(0);
+            }
+
+            if (count < Jint.Native.Array.ArrayInstance.MaxDenseArrayLengthInternal)
+            {
+                // The ownership-taking constructor does not validate its length, so the MaxArraySize check ArrayCreate
+                // makes is made here, before the store is allocated.
+                arrayConstructor.ValidateElementCount(count);
+                var items = new JsValue[count];
+                FillWithCodeUnits(engine, s, items);
+                return new JsArray(arrayConstructor, items);
+            }
+
+            // Past the dense limit the array has to be sparse-backed, which only element writes through ArrayCreate give.
+            var emptyResult = arrayConstructor.ArrayCreate(count);
             for (var i = 0; i < count; i++)
             {
                 if (i > 0 && i % ConstraintCheckInterval == 0)
