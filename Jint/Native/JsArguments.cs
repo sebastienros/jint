@@ -29,10 +29,10 @@ public sealed class JsArguments : ObjectInstance
     // which clears the flag, so every materializing path stays consistent.
     private bool _virtualMode;
 
-    // Set when the owning call returned: the parameter map is detached, so mapped index reads
-    // switch from live bindings to the escaped snapshot (which write-syncs while mapped), and a
-    // later materialization must not rebuild the map — matching the long-standing behavior of
-    // nulling ParameterMap in FunctionWasCalled.
+    // Set when the owning call returned into an environment that may be reused (see FunctionWasCalled):
+    // the parameter map is detached, so mapped index reads switch from live bindings to the escaped
+    // snapshot (which write-syncs while mapped), and a later materialization must not rebuild the map.
+    // An environment a closure may hold keeps the map, as the spec does for every mapped object.
     private bool _mapDetached;
 
     internal JsArguments(Engine engine)
@@ -61,8 +61,8 @@ public sealed class JsArguments : ObjectInstance
         _mapDetached = false;
 
         // Materialization can now be deferred past the owning call (even cross-realm queries),
-        // so pin the creating realm: %ThrowTypeError%, %Array.prototype.values% and the map's
-        // prototype are per-realm intrinsics.
+        // so pin the creating realm: %ThrowTypeError% and %Array.prototype.values% are per-realm
+        // intrinsics.
         _realm = _engine.Realm;
 
         ClearProperties();
@@ -113,11 +113,14 @@ public sealed class JsArguments : ObjectInstance
             if (args.Length > 0)
             {
                 // index properties always materialize; the live-binding parameter map is only
-                // built while the owning call is still running (post-return the mapping is
-                // detached and the snapshot values are authoritative)
+                // built while the mapping is live (once FunctionWasCalled detached it, the snapshot
+                // values are authoritative). https://tc39.es/ecma262/#sec-createmappedargumentsobject
+                // makes the map with OrdinaryObjectCreate(null): [[GetOwnProperty]] reads it with Get,
+                // and an inherited %Object.prototype% member would answer for an index, `length` or
+                // `callee` the map does not hold, a getter there seeing the map as its receiver.
                 if (!_mapDetached)
                 {
-                    map = _realm.Intrinsics.Object.Construct(Arguments.Empty);
+                    map = OrdinaryObjectCreate(_engine, proto: null);
                 }
 
                 for (uint i = 0; i < (uint) args.Length; i++)
@@ -250,7 +253,10 @@ public sealed class JsArguments : ObjectInstance
                 return desc;
             }
 
-            if (ParameterMap.TryGetValue(property, out var jsValue) && !jsValue.IsUndefined())
+            // https://tc39.es/ecma262/#sec-arguments-exotic-objects-getownproperty-p: a mapped index takes its
+            // value from the map, whatever the parameter holds. Skipping undefined left the value the property
+            // was created with showing through. The map has no prototype, so this finds only what it maps.
+            if (ParameterMap.TryGetValue(property, out var jsValue))
             {
                 desc.Value = jsValue;
             }
@@ -385,8 +391,11 @@ public sealed class JsArguments : ObjectInstance
                 }
                 else
                 {
+                    // https://tc39.es/ecma262/#sec-arguments-exotic-objects-defineownproperty-p-desc: a descriptor
+                    // that has a [[Value]] field sets it through the map, and undefined is such a value; only an
+                    // absent field (a null Value) leaves the parameter alone.
                     var descValue = desc.Value;
-                    if (descValue is not null && !descValue.IsUndefined())
+                    if (descValue is not null)
                     {
                         map.Set(property, descValue, false);
                     }
@@ -500,20 +509,34 @@ public sealed class JsArguments : ObjectInstance
         }
     }
 
-    internal void FunctionWasCalled()
+    /// <summary>
+    /// The owning call returned: an object nothing claimed goes back to the pool, and a mapped one detaches
+    /// from the call's environment where that environment may be reused.
+    /// </summary>
+    /// <param name="environmentOutlivesCall">
+    /// Whether a closure or a direct eval may have captured the call's environment, so that it is never handed
+    /// to a later call (<c>JintFunctionDefinition.State.EnvironmentMayEscape</c>).
+    /// </param>
+    internal void FunctionWasCalled(bool environmentOutlivesCall)
     {
-        // Freeze the final mapped-binding values into the snapshot while the map is still live, then
-        // detach: post-call reads see the captured snapshot, not live bindings, and a later
-        // materialization must not rebuild the map.
-        if (!_mapDetached && _func is not null)
+        // https://tc39.es/ecma262/#sec-createmappedargumentsobject: nothing ends the mapping when the call
+        // returns, and a closure over the environment can still write the parameter or the index afterwards.
+        // Only an environment no closure can reach is reused by the next call, so only then must an escaped
+        // object stop reading it; nothing else can see that binding any more, which is what makes the detach
+        // unobservable. Freeze the final binding values into the snapshot while the map is still live, then
+        // detach, so a later materialization does not rebuild the map either.
+        if (!environmentOutlivesCall)
         {
-            FreezeMappedBindings();
+            if (!_mapDetached && _func is not null)
+            {
+                FreezeMappedBindings();
+            }
+
+            _mapDetached = true;
+
+            // should no longer expose arguments which is special name
+            ParameterMap = null;
         }
-
-        _mapDetached = true;
-
-        // should no longer expose arguments which is special name
-        ParameterMap = null;
 
         if (_canReturnToPool)
         {

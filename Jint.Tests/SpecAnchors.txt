@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-17
-anchors: 1335
+anchors: 1348
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -40,8 +40,11 @@ ecma262 sec-%iteratorhelperprototype%.next
 ecma262 sec-%iteratorhelperprototype%.return
 ecma262 sec-%iteratorprototype%-object
 ecma262 sec-%mapiteratorprototype%-object
+ecma262 sec-%mapiteratorprototype%.next
 ecma262 sec-%regexpstringiteratorprototype%-object
+ecma262 sec-%regexpstringiteratorprototype%.next
 ecma262 sec-%setiteratorprototype%-object
+ecma262 sec-%setiteratorprototype%.next
 ecma262 sec-%stringiteratorprototype%-object
 ecma262 sec-%stringiteratorprototype%.next
 ecma262 sec-%typedarray%-intrinsic-object
@@ -96,6 +99,8 @@ ecma262 sec-allocatetypedarray
 ecma262 sec-allocatetypedarraybuffer
 ecma262 sec-applystringornumericbinaryoperator
 ecma262 sec-arguments-exotic-objects
+ecma262 sec-arguments-exotic-objects-defineownproperty-p-desc
+ecma262 sec-arguments-exotic-objects-getownproperty-p
 ecma262 sec-arguments-exotic-objects-set-p-v-receiver
 ecma262 sec-array.from
 ecma262 sec-array.fromasync
@@ -214,6 +219,7 @@ ecma262 sec-createintrinsics
 ecma262 sec-createiterresultobject
 ecma262 sec-createlistfromarraylike
 ecma262 sec-createmapiterator
+ecma262 sec-createmappedargumentsobject
 ecma262 sec-createmethodproperty
 ecma262 sec-createnonenumerabledatapropertyorthrow
 ecma262 sec-createperiterationenvironment
@@ -292,6 +298,7 @@ ecma262 sec-finalization-registry-cleanup-callback
 ecma262 sec-finalization-registry-constructor
 ecma262 sec-finalization-registry.prototype.register
 ecma262 sec-finalization-registry.prototype.unregister
+ecma262 sec-findviapredicate
 ecma262 sec-flattenintoarray
 ecma262 sec-for-in-and-for-of-statements
 ecma262 sec-forbidden-extensions
@@ -373,6 +380,7 @@ ecma262 sec-global-environment-records-createimmutablebinding-n-s
 ecma262 sec-global-environment-records-createmutablebinding-n-d
 ecma262 sec-global-environment-records-hasbinding-n
 ecma262 sec-globaldeclarationinstantiation
+ecma262 sec-hasproperty
 ecma262 sec-host-cleanup-finalization-registry
 ecma262 sec-host-promise-rejection-tracker
 ecma262 sec-hostcalljobcallback
@@ -445,6 +453,7 @@ ecma262 sec-let-and-const-declarations-runtime-semantics-evaluation
 ecma262 sec-line-terminators
 ecma262 sec-literals-numeric-literals
 ecma262 sec-localtime
+ecma262 sec-loopcontinues
 ecma262 sec-makedataviewwithbufferwitnessrecord
 ecma262 sec-makematchindicesindexpairarray
 ecma262 sec-makemethod
@@ -553,6 +562,7 @@ ecma262 sec-object.setprototypeof
 ecma262 sec-object.values
 ecma262 sec-objectdefineproperties
 ecma262 sec-optional-chaining-evaluation
+ecma262 sec-ordinary-object-internal-methods-and-internal-slots-get-p-receiver
 ecma262 sec-ordinary-object-internal-methods-and-internal-slots-hasproperty-p
 ecma262 sec-ordinarycallbindthis
 ecma262 sec-ordinarycallevaluatebody
@@ -701,6 +711,7 @@ ecma262 sec-runtime-semantics-iteratorbindinginitialization
 ecma262 sec-runtime-semantics-iteratordestructuringassignmentevaluation
 ecma262 sec-runtime-semantics-keyedbindinginitialization
 ecma262 sec-runtime-semantics-keyeddestructuringassignmentevaluation
+ecma262 sec-runtime-semantics-labelledevaluation
 ecma262 sec-runtime-semantics-methoddefinitionevaluation
 ecma262 sec-runtime-semantics-propertydefinitionevaluation
 ecma262 sec-runtime-semantics-repeatmatcher-abstract-operation
@@ -827,6 +838,7 @@ ecma262 sec-try-statement
 ecma262 sec-try-statement-runtime-semantics-evaluation
 ecma262 sec-typedarray-constructors
 ecma262 sec-typedarray-defineownproperty
+ecma262 sec-typedarray-get
 ecma262 sec-typedarraybytelength
 ecma262 sec-typedarraylength
 ecma262 sec-updateempty
@@ -1070,6 +1082,7 @@ proposal-async-iterator-helpers sec-asynciterator-constructor
 proposal-async-iterator-helpers sec-asynciterator.from
 proposal-async-iterator-helpers sec-asynciteratorprototype-@@tostringtag
 proposal-async-iterator-helpers sec-asynciteratorprototype.constructor
+proposal-async-iterator-helpers sec-asynciteratorprototype.drop
 proposal-async-iterator-helpers sec-asynciteratorprototype.every
 proposal-async-iterator-helpers sec-asynciteratorprototype.find
 proposal-async-iterator-helpers sec-asynciteratorprototype.flatmap
