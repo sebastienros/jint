@@ -84,7 +84,6 @@ public sealed class SelectorInteractionStateTests
         Match("col:has(|| td > :active)", col, environment).Should().BeTrue();
     }
 
-    [TestCase(":hover")]
     [TestCase(":focus-visible")]
     [TestCase(":autofill")]
     [TestCase(":-webkit-autofill")]
@@ -204,6 +203,31 @@ public sealed class SelectorInteractionStateTests
         root.InsertBefore(duplicate, separate);
         outer.SetAttribute("for", "control");
         Match(":active", control, environment).Should().BeFalse();
+    }
+
+    [Test]
+    public void HoverIsTheSeedItsAncestorsAndAHoveredLabelsControl()
+    {
+        var document = Document.CreateHtml();
+        var root = Add(document, "main");
+        var label = Add(root, "label");
+        label.SetAttribute("for", "control");
+        var text = Add(label, "span");
+        var control = Add(root, "input", "control");
+        var other = Add(root, "div");
+        var environment = new SelectorEnvironment(document, null, null, null, HoverTarget: text);
+        Match(":hover", text, environment).Should().BeTrue();
+        Match(":hover", label, environment).Should().BeTrue();
+        Match(":hover", root, environment).Should().BeTrue();
+        Match(":hover", control, environment).Should().BeTrue();
+        Match(":hover", other, environment).Should().BeFalse();
+        Match(":active", text, environment).Should().BeFalse();
+        Match(":hover", text, new SelectorEnvironment(document, null, text, null)).Should().BeFalse();
+        SelectorMatcher.Matches(Parse(":hover"), text).Should().BeFalse();
+        label.RemoveChild(text);
+        Match(":hover", root, environment).Should().BeFalse("a detached seed designates nothing");
+        Assert.Throws<ArgumentException>(() => Match(":hover", other,
+            new SelectorEnvironment(document, null, null, null, HoverTarget: Document.CreateHtml().CreateElement("p"))));
     }
 
     [TestCase(":is(#hit, :valid)")]

@@ -29,6 +29,7 @@ internal static class CssCascade
         private static readonly ConditionalWeakTable<Document, Traversal> Shared = new();
 
         private readonly Dictionary<Element, NativeCssComputedStyle> _views = new();
+        private readonly Dictionary<(Element, SelectorPseudoElement), NativeCssComputedStyle> _pseudoViews = new();
         private SelectorMatchWork _matching = matching;
         private DomRealm? _realm;
         private Func<bool>? _witnessIsCurrent;
@@ -67,6 +68,7 @@ internal static class CssCascade
             var events = runtime is null ? null : BrowserEventRealm.Of(runtime.Engine);
             var focus = events?.FocusedElement;
             var press = events?.MousePressTarget;
+            var hover = events?.MouseHoverTarget;
             var url = DomDocumentState.Of(document).Url;
             var target = DomDocumentState.Of(document).TargetElement;
             var input = NativeCssStyleSheets.RealmOf(document) is { } realm
@@ -79,6 +81,7 @@ internal static class CssCascade
                 ReferenceEquals(DomBrowsingContext.Of(runtime.Document), displayedContext) &&
                 ReferenceEquals(PageRuntime.FindBrowsingContext(runtime.Engine, document), runtime) && runtime.Media == media && runtime.Layout.Version == layoutRevision &&
                 ReferenceEquals(events!.FocusedElement, focus) && ReferenceEquals(events.MousePressTarget, press) &&
+                ReferenceEquals(events.MouseHoverTarget, hover) &&
                 DomDocumentState.Of(document).Url == url && ReferenceEquals(DomDocumentState.Of(document).TargetElement, target);
             Action? readWitness = witnessIsCurrent is null ? null : () =>
             {
@@ -101,6 +104,18 @@ internal static class CssCascade
             // Matching is separate from computation; coverage observes real matched rule identities.
             if (CssRuleUsage.IsTrackingDocument(element.OwnerDocument)) CssRuleUsage.Observe(element, view.MatchedRules());
             _views.Add(element, view);
+            return view;
+        }
+
+        // CSS Pseudo-Elements 4 §4: the ::before/::after view of element, shared like the element's own view.
+        internal NativeCssComputedStyle Of(Element element, SelectorPseudoElement pseudo)
+        {
+            _matching.VerifyRead();
+            if (_pseudoViews.TryGetValue((element, pseudo), out var cached)) return cached;
+            var view = new NativeCssComputedStyle(query, element, _matching, witness, ReadContext) { Pseudo = pseudo };
+            // A pseudo-element's rules are used once they apply, as the element's are.
+            if (CssRuleUsage.IsTrackingDocument(element.OwnerDocument)) CssRuleUsage.Observe(element, view.MatchedRules());
+            _pseudoViews.Add((element, pseudo), view);
             return view;
         }
 

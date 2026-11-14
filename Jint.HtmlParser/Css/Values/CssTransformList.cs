@@ -59,9 +59,9 @@ internal readonly struct CssTransformFunction
 /// <remarks>
 /// <para>
 /// https://drafts.csswg.org/css-transforms-1/#transform-property and
-/// https://drafts.csswg.org/css-transforms-2/#transform-functions. The only consumer is Geometry's
-/// <c>DOMMatrix</c> string initializer (https://drafts.fxtf.org/geometry/#create-a-dommatrix-from-the-2d-dictionary),
-/// which refuses any length not in an absolute unit — resolving one needs a box, and there is none — so this
+/// https://drafts.csswg.org/css-transforms-2/#transform-functions. Its consumers are Geometry's
+/// <c>DOMMatrix</c> string initializer (https://drafts.fxtf.org/geometry/#create-a-dommatrix-from-the-2d-dictionary)
+/// and Browser's resolved <c>transform</c> value. The initializer refuses any length not in an absolute unit — resolving one needs a box, and there is none — so this
 /// reader refuses them too, together with percentages in a translation and math functions. Unitless zero is
 /// accepted wherever a length or angle is, as the grammar's legacy <c>&lt;zero&gt;</c> allowance says.
 /// </para>
