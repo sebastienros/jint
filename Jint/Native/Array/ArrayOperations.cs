@@ -571,27 +571,28 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
     }
 
     /// <summary>
-    /// Read-only lane over a dense <see cref="JsArray"/>: length and backing store are taken once, so an
-    /// element read is an array index rather than a property lookup.
+    /// Read-only lane over a dense <see cref="JsArray"/>: the length is taken once, as LengthOfArrayLike is,
+    /// and an element read is an index into the array's dense store rather than a property lookup.
     /// <para>
-    /// The snapshot is authoritative only for the elements it <em>contains</em>. A <see langword="null"/> slot
-    /// is a hole — the absence of an own element, not the value <c>undefined</c> — and resolving it is
-    /// <c>Get(O, ToString(k))</c> on the array itself, which is what <c>JsArray.Get(uint)</c> performs. That
-    /// has to happen when the element's turn comes, because a generic that runs user code per element (an
-    /// element's <c>toString</c> under <c>Array.prototype.join</c>, most visibly) can install the index on
-    /// the prototype chain between the snapshot and the read.
+    /// The store is read from the array on every access, never kept: a generic that runs user code per
+    /// element (a <c>forEach</c> callback, an element's <c>toString</c> under <c>join</c>) can replace it —
+    /// <c>unshift</c> and a <c>push</c> past capacity reallocate it, and a far write moves the array to sparse
+    /// storage — and a copy taken when the lane was made then answers about elements the array no longer has
+    /// (sebastienros/jint#4579). A <see langword="null"/> slot is a hole, the absence of an own element and
+    /// not the value <c>undefined</c>; while <c>CanUseFastAccess</c> holds nothing on the
+    /// prototype chain can fill it, and once it does not, or once the array has no dense store, the read is
+    /// the array's own chain-walking one. The flag is re-read on every hole because a side effect during
+    /// the walk is exactly what can clear it.
     /// </para>
     /// </summary>
     private sealed class ArrayReadOperations : ArrayOperations
     {
         private readonly JsArray _target;
-        private readonly JsValue?[] _data;
         private readonly uint _length;
 
         public ArrayReadOperations(JsArray target)
         {
             _target = target;
-            _data = target._dense ?? [];
             _length = target.Length;
         }
 
@@ -609,24 +610,20 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override JsValue Get(ulong index)
         {
-            if (index < (ulong) _data.Length)
+            var data = _target._dense;
+            if (data is not null)
             {
-                var value = _data[(int) index];
-                if (value is not null)
+                if (index < (ulong) data.Length && data[(int) index] is { } value)
                 {
                     return value;
                 }
-            }
 
-            // Hole, or past the snapshot: while CanUseFastAccess still holds nothing can shadow the
-            // hole, so the answer is undefined and is given inline - JsArray.Get(uint) would conclude
-            // the same after re-probing the dense store, and its non-inlined call was measured at +55%
-            // on a hole-heavy join. The flag is re-read on every hole because a side effect during this
-            // very join is exactly what can clear it; once it is gone, ask the array for the spec's
-            // real chain-walking read.
-            if (_target.CanUseFastAccess)
-            {
-                return JsValue.Undefined;
+                // Answered inline rather than through JsArray.Get(uint), which would conclude the same after
+                // re-probing the store: its non-inlined call was measured at +55% on a hole-heavy join.
+                if (_target.CanUseFastAccess)
+                {
+                    return JsValue.Undefined;
+                }
             }
 
             return index <= uint.MaxValue ? _target.Get((uint) index) : JsValue.Undefined;
@@ -634,17 +631,49 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override bool TryGetValue(ulong index, out JsValue value)
         {
-            if (index < _length)
+            var data = _target._dense;
+            if (data is not null)
             {
-                value = _data[(int) index]!;
-                return value is not null;
+                if (index < (ulong) data.Length && data[(int) index] is { } element)
+                {
+                    value = element;
+                    return true;
+                }
+
+                if (_target.CanUseFastAccess)
+                {
+                    value = JsValue.Undefined;
+                    return false;
+                }
+            }
+
+            if (index <= uint.MaxValue)
+            {
+                return _target.TryGetValue((uint) index, out value);
             }
 
             value = JsValue.Undefined;
             return false;
         }
 
-        public override bool HasProperty(ulong index) => index < _length && _data[index] is not null;
+        public override bool HasProperty(ulong index)
+        {
+            var data = _target._dense;
+            if (data is not null)
+            {
+                if (index < (ulong) data.Length && data[(int) index] is not null)
+                {
+                    return true;
+                }
+
+                if (_target.CanUseFastAccess)
+                {
+                    return false;
+                }
+            }
+
+            return _target.HasProperty(index);
+        }
 
         public override void CreateDataPropertyOrThrow(ulong index, JsValue value) => throw new NotSupportedException();
 

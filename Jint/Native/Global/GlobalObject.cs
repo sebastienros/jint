@@ -185,9 +185,10 @@ public sealed partial class GlobalObject : ObjectInstance
 
             if (c == '.')
             {
-                if (dotFound)
+                // StrDecimalLiteral has one point and it comes before the exponent: "1e5.5" is the prefix
+                // "1e5" followed by something that is not part of it.
+                if (dotFound || exponentFound)
                 {
-                    // does not look right
                     break;
                 }
 
