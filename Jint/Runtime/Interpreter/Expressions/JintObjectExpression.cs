@@ -119,8 +119,12 @@ internal sealed class JintObjectExpression : JintExpression
                 else if (!p.Computed && p.Key is Identifier identifier)
                 {
                     propName = identifier.Name;
-                    _canBuildFast &= !string.Equals(propName, "__proto__", StringComparison.Ordinal);
                 }
+
+                // `__proto__: v` and `"__proto__": v` both set [[Prototype]] rather than define a property
+                // (https://tc39.es/ecma262/#sec-runtime-semantics-propertydefinitionevaluation, the
+                // isProtoSetter step), and only BuildObjectNormal does that.
+                _canBuildFast &= !string.Equals(propName, "__proto__", StringComparison.Ordinal);
 
                 _properties[i] = new ObjectProperty(propName, p);
 
