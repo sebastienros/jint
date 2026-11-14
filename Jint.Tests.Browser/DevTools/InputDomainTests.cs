@@ -316,6 +316,36 @@ public class InputDomainTests
         (await Evaluate(session, attachment, "window.seen")).Should().Be("BODY:Escape:true");
     }
 
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/semantics-other.html#selector-hover — a <c>mouseMoved</c> is
+    /// how a client designates an element with the pointer, so <c>:hover</c> and the rules it gates follow
+    /// it (issue #4598, Playwright's <c>page.hover</c>).
+    /// </summary>
+    [Test]
+    public async Task MouseMovedMakesTheElementUnderThePointerMatchHover()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+
+        await Content(
+            session,
+            attachment,
+            "<style>#h{width:100px;height:40px} #h:hover{background-color:rgb(1,2,3)}</style><div id=h>h</div>");
+
+        const string State = "(() => { const h = document.getElementById('h'); return h.matches(':hover') + ' / ' + getComputedStyle(h).backgroundColor; })()";
+        var centre = await Evaluate(session, attachment,
+            "(() => { const r = document.getElementById('h').getBoundingClientRect(); return (r.x + r.width / 2) + ',' + (r.y + r.height / 2); })()");
+        var point = centre!.Split(',');
+
+        await session.ResultAsync("Input.dispatchMouseEvent",
+            $$"""{"type":"mouseMoved","x":{{point[0]}},"y":{{point[1]}},"button":"none"}""", attachment);
+        (await Evaluate(session, attachment, State)).Should().Be("true / rgb(1, 2, 3)");
+
+        await session.ResultAsync("Input.dispatchMouseEvent",
+            """{"type":"mouseMoved","x":5,"y":300,"button":"none"}""", attachment);
+        (await Evaluate(session, attachment, State)).Should().Be("false / rgba(0, 0, 0, 0)");
+    }
+
     private static Task Key(PageSession session, string attachment, string parameters)
         => session.ResultAsync("Input.dispatchKeyEvent", parameters, attachment);
 

@@ -276,7 +276,8 @@ public sealed partial class Page
     /// events</b> — no <c>mouseover</c>, <c>mouseenter</c>, <c>mouseout</c> or <c>mouseleave</c> — because
     /// those need the pointer's previous position and the ancestor chains of both elements, which this model
     /// does not keep. A hover menu written against <c>mouseenter</c> therefore does not open; one written
-    /// against <c>mousemove</c> does.
+    /// against <c>mousemove</c> does. The element under the pointer, and its ancestors, match <c>:hover</c>
+    /// until the next mouse event moves it.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<bool> HoverAsync(string target) => HoverAsync(target, 0);

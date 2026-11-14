@@ -1,6 +1,7 @@
 using Jint.Browser.Runtime;
 using Jint.Browser.Styling;
 using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Selectors;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
 
@@ -12,11 +13,13 @@ internal sealed class ReadOnlyStyleDeclaration : NativeCssDeclaration
 {
     private readonly PageRuntime _runtime;
     private readonly Element _element;
+    private readonly SelectorPseudoElement? _pseudo;
 
-    internal ReadOnlyStyleDeclaration(PageRuntime runtime, Element element)
+    internal ReadOnlyStyleDeclaration(PageRuntime runtime, Element element, SelectorPseudoElement? pseudo = null)
     {
         _runtime = runtime;
         _element = element;
+        _pseudo = pseudo;
     }
 
     internal override string Item(int index) => Current()[index];
@@ -55,7 +58,8 @@ internal sealed class ReadOnlyStyleDeclaration : NativeCssDeclaration
         var document = _element.OwnerDocument ?? throw new ArgumentException("Element needs a document.");
         var realm = NativeCssStyleSheets.RealmOf(document) ?? _runtime.Dom.RealmOfDocument(document);
         NativeCssStyleSheets.Associate(realm, document);
-        return CssCascade.Traversal.Current(document).Of(_element);
+        var traversal = CssCascade.Traversal.Current(document);
+        return _pseudo is { } pseudo ? traversal.Of(_element, pseudo) : traversal.Of(_element);
     }
 
     private void Refuse(string member)

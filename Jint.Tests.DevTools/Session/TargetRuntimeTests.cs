@@ -286,6 +286,71 @@ public class TargetRuntimeTests
         work();
         """;
 
+    /// <summary>
+    /// A command awaiting a promise has reached the engine, which is pumping; the command timeout says
+    /// nothing is, so it must not end the wait (https://github.com/sebastienros/jint/issues/4590). Chrome
+    /// waits for as long as the promise takes.
+    /// </summary>
+    [Test]
+    public async Task AwaitPromiseOutlivesTheCommandTimeoutOnceTheEngineHasStartedIt()
+    {
+        await using var session = ProtocolSession.Create(options: new DevToolsServerOptions
+        {
+            CommandTimeout = TimeSpan.FromMilliseconds(300),
+        });
+
+        var target = new NavigableTarget(NewEngine());
+        session.Server.AddTarget(target);
+        var attachment = await session.AttachAsync(target);
+
+        var pending = session.SendAsync(
+            "Runtime.evaluate",
+            """{"expression":"new Promise(function (resolve) { globalThis.settle = resolve; })","awaitPromise":true,"returnByValue":true}""",
+            attachment);
+
+        // Well past the command timeout, with the engine idle in between.
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        pending.IsCompleted.Should().BeFalse("the promise has not settled, and the engine is being pumped");
+
+        await target.PostAsync(engine => engine.Evaluate("settle('ok')")).WaitAsync(TimeSpan.FromSeconds(30));
+
+        var reply = await pending.WaitAsync(TimeSpan.FromSeconds(30));
+        reply.TryGetProperty("error", out var error).Should().BeFalse(error.ToString());
+        reply.GetProperty("result").GetProperty("result").GetProperty("value").GetString().Should().Be("ok");
+    }
+
+    /// <summary>
+    /// What still ends that wait: the engine whose promise it was being replaced. A promise of a realm that
+    /// is gone never settles, so the client is told its context was destroyed rather than left waiting.
+    /// </summary>
+    [Test]
+    public async Task AwaitPromiseIsAnsweredWhenTheEngineIsReplacedUnderIt()
+    {
+        await using var session = ProtocolSession.Create(options: new DevToolsServerOptions
+        {
+            CommandTimeout = TimeSpan.FromMilliseconds(300),
+        });
+
+        var target = new NavigableTarget(NewEngine());
+        session.Server.AddTarget(target);
+        var attachment = await session.AttachAsync(target);
+
+        var pending = session.SendAsync(
+            "Runtime.evaluate",
+            """{"expression":"new Promise(function () { })","awaitPromise":true}""",
+            attachment);
+
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        pending.IsCompleted.Should().BeFalse();
+
+        await target.NavigateAsync(NewEngine).WaitAsync(TimeSpan.FromSeconds(30));
+
+        var reply = await pending.WaitAsync(TimeSpan.FromSeconds(30));
+        var failure = reply.GetProperty("error");
+        failure.GetProperty("code").GetInt32().Should().Be(-32000);
+        failure.GetProperty("message").GetString().Should().Be("Execution context was destroyed.");
+    }
+
     private static Engine NewEngine() => new(options => options.UseDevTools());
 
     /// <summary>Where one event sits among everything the connection has sent, for an ordering assertion.</summary>

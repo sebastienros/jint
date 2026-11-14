@@ -78,6 +78,56 @@ public class StyleSheetLoadingTests
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task AnInsertedInlineStyleFiresLoadOrErrorAfterItsSheetIsProcessed(bool missingImport)
+    {
+        // Playwright's page.addStyleTag({ content }) awaits this event (#4596).
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/child.css", _ => LoopbackResponse.Css("p { font-size: 33px; }"))
+            .MapHtml("/", "<!doctype html><html><head></head><body><p>x</p></body></html>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("window.importUrl = '" + (missingImport ? "/missing.css" : "/child.css") + "';");
+
+        await loopback.Page.EvaluateAsync("""
+            window.events = [];
+            const style = document.createElement('style');
+            style.textContent = "@import '" + importUrl + "'; p { color: red }";
+            style.onload = e => {
+              const p = getComputedStyle(document.querySelector('p'));
+              events.push('load:' + style.sheet.cssRules.length + ':' + e.isTrusted + ':' + p.color + ':' + p.fontSize);
+            };
+            style.onerror = e => events.push('error:' + e.isTrusted);
+            document.head.append(style);
+            events.push('inserted');
+            """);
+        await loopback.Page.WaitForIdleAsync(Timeout);
+
+        (await loopback.Page.EvaluateAsync<string>("events.join(',')")).Should().Be(missingImport
+            ? "inserted,error:true"
+            : "inserted,load:2:true:rgb(255, 0, 0):33px");
+    }
+
+    [Test]
+    public async Task AParsedInlineStyleFiresLoadBeforeWindowLoad()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """
+                <!doctype html><html><head>
+                <script>
+                  window.events = [];
+                  window.addEventListener('load', () => events.push('window'));
+                </script>
+                <style onload="events.push('style:' + this.sheet.cssRules.length)">p { color: red }</style>
+                </head><body></body></html>
+                """));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        (await loopback.Page.EvaluateAsync<string>("events.join(',')")).Should().Be("style:1,window");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
     [Test]
     public async Task AStyleSheetInsertedByANestedScriptWaitsForTheOutermostScript()
     {

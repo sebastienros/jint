@@ -111,6 +111,17 @@ internal sealed class BrowserEventRealm
     /// </remarks>
     internal Element? MousePressTarget { get; set; }
 
+    /// <summary>
+    /// The element the pointer was last over, which is what <c>:hover</c> matches with its ancestors.
+    /// </summary>
+    /// <remarks>
+    /// https://html.spec.whatwg.org/multipage/semantics-other.html#selector-hover — the user designates an
+    /// element with a pointing device; for a headless page the pointer is wherever the client's last mouse
+    /// event put it. Per engine, like <see cref="MousePressTarget"/>, so a navigation starts with nothing
+    /// hovered until the next mouse event.
+    /// </remarks>
+    internal Element? MouseHoverTarget { get; set; }
+
     /// <summary>The button awaiting Space's keyup activation; changing focus abandons the press.</summary>
     internal Element? SpacePressTarget { get; set; }
 
