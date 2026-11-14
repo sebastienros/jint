@@ -115,7 +115,15 @@ internal static class CssPropertyRegistry
             Add("padding-" + side, "0px");
             Add("border-" + side + "-width", "0px");
             Add("border-" + side + "-style", "none");
+            Add("border-" + side + "-color", "currentcolor");
         }
+        Add("background-position-x", "0%");
+        Add("background-position-y", "0%");
+        Add("background-size", "auto");
+        Add("background-repeat", "repeat");
+        Add("background-attachment", "scroll");
+        Add("background-origin", "padding-box");
+        Add("background-clip", "border-box");
         Shorthand("overflow", "visible", ["overflow-x", "overflow-y"]);
         Shorthand("flex", "0 1 auto", ["flex-grow", "flex-shrink", "flex-basis"]);
         Shorthand("flex-flow", "row nowrap", ["flex-direction", "flex-wrap"]);
@@ -125,6 +133,15 @@ internal static class CssPropertyRegistry
         Shorthand("padding", "0px", ["padding-top", "padding-right", "padding-bottom", "padding-left"]);
         Shorthand("border-width", "0px", ["border-top-width", "border-right-width", "border-bottom-width", "border-left-width"]);
         Shorthand("border-style", "none", ["border-top-style", "border-right-style", "border-bottom-style", "border-left-style"]);
+        Shorthand("border-color", "currentcolor", ["border-top-color", "border-right-color", "border-bottom-color", "border-left-color"]);
+        foreach (var side in CssBoxShorthands.Sides)
+            Shorthand("border-" + side, "", ["border-" + side + "-width", "border-" + side + "-style", "border-" + side + "-color"]);
+        Shorthand("border", "", [
+            "border-top-width", "border-right-width", "border-bottom-width", "border-left-width",
+            "border-top-style", "border-right-style", "border-bottom-style", "border-left-style",
+            "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"]);
+        Shorthand("background-position", "0% 0%", ["background-position-x", "background-position-y"]);
+        Shorthand("background", "", CssBoxShorthands.BackgroundLonghands);
         return entries;
 
         void Add(string name, string initial, bool inherited = false) =>

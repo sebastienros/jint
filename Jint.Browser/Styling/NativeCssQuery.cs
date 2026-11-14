@@ -146,6 +146,9 @@ internal sealed partial class NativeCssQuery
             if (!custom && text is not null && text.Contains("var(", StringComparison.Ordinal))
             {
                 text = Substitute(current, text, ref matching);
+                // CSS Variables 1 §3.2: a pending shorthand expands only once its text is substituted.
+                if (text is not null && candidate!.Declaration.PendingShorthand is { } shorthand)
+                    text = CssDeclarationBlock.PendingLonghandValue(shorthand, name, text, _work);
                 if (text is not null) text = CssLayoutValues.AcceptsText(name, text, _work, out var normalized) ? normalized : null;
                 if (text is null) disposition = NativeCssDisposition.InvalidAtComputedValue;
             }
