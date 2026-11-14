@@ -18,6 +18,7 @@ namespace Jint.DevTools.Session;
 internal sealed class CommandContext
 {
     private List<IDisposable>? _held;
+    private int _awaitingScript;
 
     internal CommandContext(DevToolsSession session, string? sessionId, CancellationToken cancellationToken)
     {
@@ -36,6 +37,31 @@ internal sealed class CommandContext
 
     /// <summary>Gets the token cancelled when the client disconnects.</summary>
     internal CancellationToken CancellationToken { get; }
+
+    /// <summary>
+    /// Gets whether the command's answer waits on a promise reaction of the engine that ran it.
+    /// </summary>
+    /// <remarks>Read by the transport thread waiting on the reply, so it is a volatile read.</remarks>
+    internal bool AwaitsScript => Volatile.Read(ref _awaitingScript) != 0;
+
+    /// <summary>
+    /// Says that the command's answer now waits on a promise reaction of the engine that ran it, such as
+    /// <c>Runtime.evaluate</c> with <c>awaitPromise</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only a wait on script.</b> Such a command is answered by a later job of a loop that is demonstrably
+    /// being pumped, so <see cref="DevToolsServerOptions.CommandTimeout"/> — which diagnoses a loop nobody
+    /// pumps — no longer bounds the client's wait, as Chrome sets no bound on it; and it is answered
+    /// <c>Execution context was destroyed.</c> when that engine is replaced, because a promise of a realm
+    /// that is gone never settles.
+    /// </para>
+    /// <para>
+    /// A command that awaits host work — <c>Page.navigate</c> awaiting the commit that replaces the engine —
+    /// must not say this: the swap is how it completes, not what destroys it.
+    /// </para>
+    /// </remarks>
+    internal void MarkAwaitingScript() => Volatile.Write(ref _awaitingScript, 1);
 
     /// <summary>Gets whether anything is holding memory until this command's reply has been written.</summary>
     internal bool HoldsUntilReplyWritten => _held is { Count: > 0 };

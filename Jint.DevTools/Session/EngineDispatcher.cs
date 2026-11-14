@@ -47,6 +47,7 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
     private readonly Action _drain;
     private readonly ConcurrentQueue<CommandItem> _commands = new();
     private readonly ConcurrentQueue<Action<Engine>> _hostWork = new();
+    private readonly ConcurrentDictionary<CommandItem, byte> _awaiting = new();
     private readonly ManualResetEventSlim _arrivals = new(initialState: false);
 
     private int _draining;
@@ -96,6 +97,16 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         try
         {
             return await item.Completion.Task.WaitAsync(CommandTimeout, context.CancellationToken).ConfigureAwait(false);
+        }
+        catch (TimeoutException) when (item.IsAwaiting)
+        {
+            // The engine ran the command and it is now waiting on a promise of that engine -- Runtime.evaluate
+            // with awaitPromise -- which settles from a later job on a loop that is demonstrably being pumped.
+            // The command timeout diagnoses a loop nobody pumps, so it has nothing left to say here; Chrome
+            // waits for as long as the promise takes (#4590). What still ends the wait is the client going
+            // away or the engine being replaced, which Abandon answers. Any other asynchronous command keeps
+            // the bound.
+            return await item.Completion.Task.WaitAsync(context.CancellationToken).ConfigureAwait(false);
         }
         catch (TimeoutException)
         {
@@ -157,6 +168,17 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
             item.Abandon();
         }
 
+        // A command already waiting on a promise of this engine will never hear from it again: the realm is
+        // gone and nothing will run its reactions. Without the command timeout bounding that wait, this is
+        // what answers it.
+        foreach (var item in _awaiting.Keys)
+        {
+            if (Forget(item))
+            {
+                item.Abandon();
+            }
+        }
+
         while (_hostWork.TryDequeue(out _))
         {
             // Host work for an engine that will never run again. It is dropped rather than answered: the
@@ -194,7 +216,7 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         {
             if (_commands.TryDequeue(out var item))
             {
-                item.Run();
+                Run(item);
                 return;
             }
 
@@ -244,7 +266,7 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         {
             if (IsPauseSafe(item.Method))
             {
-                item.Run();
+                Run(item);
             }
             else
             {
@@ -335,6 +357,37 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         }
     }
 
+    /// <summary>Runs one command, and tracks it while it waits on a promise of this engine.</summary>
+    private void Run(CommandItem item)
+    {
+        if (!item.Run() || !item.IsAwaiting)
+        {
+            // Answered already, or waiting on host work -- Page.navigate awaiting the very commit that
+            // replaces this engine -- which the swap completes rather than destroys.
+            return;
+        }
+
+        _awaiting.TryAdd(item, 0);
+        item.Completion.Task.ContinueWith(
+            static (_, state) =>
+            {
+                var (dispatcher, awaiting) = ((EngineDispatcher, CommandItem)) state!;
+                dispatcher.Forget(awaiting);
+            },
+            (this, item),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+        if (Volatile.Read(ref _abandoned) != 0 && Forget(item))
+        {
+            // Abandoned between the run and the registration; nothing else will answer it now.
+            item.Abandon();
+        }
+    }
+
+    private bool Forget(CommandItem item) => _awaiting.TryRemove(item, out _);
+
     /// <summary>
     /// Whether a command may be answered while the engine is paused.
     /// </summary>
@@ -422,6 +475,11 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         /// <summary>Whether the engine thread has begun answering this command.</summary>
         internal bool HasStarted => Volatile.Read(ref _started) != 0;
 
+        /// <summary>
+        /// Whether the engine ran this command and its answer waits on a promise reaction of that engine.
+        /// </summary>
+        internal bool IsAwaiting => _context.AwaitsScript;
+
         /// <summary>Gets the qualified method the client asked for, which is what a paused drain filters on.</summary>
         internal string Method => _request.Method;
 
@@ -445,17 +503,22 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
                 "the command re-enters a public engine entry, and the engine is suspended inside the debugger; resume first"));
         }
 
-        internal void Run()
+        /// <summary>Answers the command, or starts answering it.</summary>
+        /// <returns>
+        /// <see langword="true"/> when the answer is still pending, and <see langword="false"/> when it has
+        /// been given.
+        /// </returns>
+        internal bool Run()
         {
             Volatile.Write(ref _started, 1);
 
             try
             {
                 var pending = _session.DispatchAsync(in _request, _context);
-                if (pending.IsCompletedSuccessfully)
+                if (pending.IsCompleted)
                 {
-                    Completion.TrySetResult(pending.Result);
-                    return;
+                    Complete(pending.AsTask(), Completion);
+                    return false;
                 }
 
                 // A command that answers later — Runtime.evaluate awaiting a promise — completes from the
@@ -467,12 +530,15 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
                     CancellationToken.None,
                     TaskContinuationOptions.ExecuteSynchronously,
                     TaskScheduler.Default);
+
+                return true;
             }
             catch (Exception exception)
             {
                 // Everything the drain runs has to come back as a completion rather than as a throw: this
                 // runs inside an event-loop job, and an exception here erupts out of the host's pump.
                 Completion.TrySetException(exception);
+                return false;
             }
         }
 
