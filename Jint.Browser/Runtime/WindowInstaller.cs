@@ -625,9 +625,11 @@ internal static class WindowInstaller
         List<JsValue>? transfers;
         if (arguments.Length < 3 && (second is ObjectInstance || second.IsNullOrUndefined()))
         {
+            // WindowPostMessageOptions inherits StructuredSerializeOptions, whose transfer is read (and
+            // converted) before targetOrigin (https://webidl.spec.whatwg.org/#es-dictionary step 4).
+            transfers = StructuredSerializeOptions.ReadTransferOption(realm, second, "postMessage");
             var origin = second is ObjectInstance options ? options.Get("targetOrigin") : JsValue.Undefined;
             targetOrigin = origin.IsUndefined() ? "/" : TypeConverter.ToString(origin);
-            transfers = StructuredSerializeOptions.ReadTransferOption(realm, second, "postMessage");
         }
         else
         {
