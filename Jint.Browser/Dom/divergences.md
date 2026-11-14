@@ -162,14 +162,21 @@ winner. Inline-only extraction uses the same declaration filtering and importanc
 See [CSS Cascade §4.1](https://drafts.csswg.org/css-cascade-5/#declared) and
 [CSS Variables §3.1](https://drafts.csswg.org/css-variables-1/#invalid-variables).
 Recognized math/sizing functions retain text without full argument validation or evaluation; other
-catalog properties still accept nonempty text. Only the small layout shorthand set expands. Named/generic CSSOM accessors still share one
+catalog properties still accept nonempty text. Only the layout shorthands plus `background`, `background-position`,
+`border`, `border-{top,right,bottom,left}` and `border-color` expand
+([CSS Backgrounds §2.11, §4.4-§4.5](https://drafts.csswg.org/css-backgrounds-3/#background)). Their components are
+classified by token shape (anything that is not a width, style, position, size, box, repeat or image is taken as the
+color) and keep declared text; `border` does not reset `border-image`, and an omitted border width is `medium`
+text, not `3px`. A shorthand holding `var()` keeps its text on every longhand until the cascade substitutes and
+expands it ([CSS Variables §3.2](https://drafts.csswg.org/css-variables-1/#variables-in-shorthands)); its specified
+longhands read as empty. Named/generic CSSOM accessors still share one
 store, receiver checks, null removal, readonly computed views and live invalidation.
 CSS.supports checks known/custom names and nonempty values; it is not proof of a value grammar.
 Custom properties inherit raw text; small bounded textual var() substitution supports ordinary values.
 Whitespace keywords remain usable by text extraction. The cascade keeps colors as declared text; only the
 CSSOM resolved value (`getComputedStyle`) and DevTools' computed style serialize absolute sRGB colors and
-`currentcolor` as `rgb()`/`rgba()`. Shorthands such as `border-color` and `background` and system colors
-stay declared text. A `transform` in absolute units resolves to one `matrix()`/`matrix3d()`; one needing
+`currentcolor` as `rgb()`/`rgba()`. A computed shorthand such as `background` or `border-color`, and system
+colors, stay declared text. A `transform` in absolute units resolves to one `matrix()`/`matrix3d()`; one needing
 a box (relative lengths, percentages, math) stays text.
 `getComputedStyle(element, '::before' | '::after')` (and the legacy `:before`/`:after`) answers from the
 rules whose subject is that [pseudo-element](https://drafts.csswg.org/css-pseudo-4/#treelike), inheriting

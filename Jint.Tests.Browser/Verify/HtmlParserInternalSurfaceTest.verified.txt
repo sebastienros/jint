@@ -54,6 +54,7 @@ internal Jint.HtmlParser.Css.Model.CssDeclaration
     (constructor)
     get_IsImportant
     get_Name
+    get_PendingShorthand
     get_Value
 internal Jint.HtmlParser.Css.Model.CssDeclarationBlock
     Copy
@@ -63,6 +64,7 @@ internal Jint.HtmlParser.Css.Model.CssDeclarationBlock
     GetPropertyValue
     HasPropertyInput
     Parse
+    PendingLonghandValue
     RemoveProperty
     ReplaceText
     ResolveAll
