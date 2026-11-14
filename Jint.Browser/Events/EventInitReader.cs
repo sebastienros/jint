@@ -18,6 +18,13 @@ namespace Jint.Browser.Events;
 /// assume the value is an object or absent.
 /// </para>
 /// <para>
+/// Every reader takes its members in lexicographic order of their names, the order
+/// <a href="https://webidl.spec.whatwg.org/#es-dictionary">step 4</a> prescribes, and a derived
+/// dictionary's constructor reads its inherited members first — <c>EventInit</c>, then <c>UIEventInit</c>,
+/// then <c>EventModifierInit</c>, then its own. The order is observable through getters on the dictionary and
+/// through which of two failing members throws (sebastienros/jint#4530).
+/// </para>
+/// <para>
 /// The names are interned once. A page constructing a <c>MouseEvent</c> per pointer move would otherwise
 /// allocate one <see cref="JsString"/> per member per event.
 /// </para>
@@ -158,7 +165,13 @@ internal static class EventInitReader
     /// honoured as given.
     /// </remarks>
     internal static (JsValue View, double Detail, double? Which) UiInit(Engine engine, ObjectInstance? init)
-        => (View(engine, init), Long(init, _detail), OptionalUnsignedLong(init, _which));
+    {
+        // Lexicographic: detail, view, which.
+        var detail = Long(init, _detail);
+        var view = View(engine, init);
+        var which = OptionalUnsignedLong(init, _which);
+        return (view, detail, which);
+    }
 
     /// <summary>
     /// The <c>view</c> member on its own — https://w3c.github.io/uievents/#dom-uievent-view, whose IDL type is
@@ -200,10 +213,10 @@ internal static class EventInitReader
             return EventModifiers.None;
         }
 
+        // Lexicographic, which puts shiftKey last.
         var modifiers = EventModifiers.None;
-        Add(ref modifiers, init, _ctrlKey, EventModifiers.Control);
-        Add(ref modifiers, init, _shiftKey, EventModifiers.Shift);
         Add(ref modifiers, init, _altKey, EventModifiers.Alt);
+        Add(ref modifiers, init, _ctrlKey, EventModifiers.Control);
         Add(ref modifiers, init, _metaKey, EventModifiers.Meta);
         Add(ref modifiers, init, _modifierAltGraph, EventModifiers.AltGraph);
         Add(ref modifiers, init, _modifierCapsLock, EventModifiers.CapsLock);
@@ -215,6 +228,7 @@ internal static class EventInitReader
         Add(ref modifiers, init, _modifierSuper, EventModifiers.Super);
         Add(ref modifiers, init, _modifierSymbol, EventModifiers.Symbol);
         Add(ref modifiers, init, _modifierSymbolLock, EventModifiers.SymbolLock);
+        Add(ref modifiers, init, _shiftKey, EventModifiers.Shift);
         return modifiers;
 
         static void Add(ref EventModifiers modifiers, ObjectInstance init, JsString name, EventModifiers flag)
@@ -226,17 +240,46 @@ internal static class EventInitReader
         }
     }
 
-    /// <summary>https://w3c.github.io/uievents/#dictdef-mouseevent-init.</summary>
+    /// <summary>
+    /// https://w3c.github.io/uievents/#dictdef-mouseevent-init, with the <c>EventModifierInit</c> members it
+    /// inherits read first.
+    /// </summary>
+    /// <remarks>
+    /// <c>movementX</c> and <c>movementY</c> (Pointer Lock's partial dictionary) are not read: this package
+    /// reports zero for both, so a getter on either is the one member a browser would run and this does not.
+    /// </remarks>
     internal static MouseEventState MouseInit(Engine engine, ObjectInstance? init)
-        => new(
-            Long(init, _screenX),
-            Long(init, _screenY),
-            Long(init, _clientX),
-            Long(init, _clientY),
-            init is null ? 0 : (short) TypeConverter.ToUint16(Any(init, _button, JsNumber.PositiveZero)),
-            UnsignedShort(init, _buttons),
-            Modifiers(init),
-            Target(engine, init, _relatedTarget));
+    {
+        var modifiers = Modifiers(init);
+
+        // Lexicographic: button, buttons, clientX, clientY, relatedTarget, screenX, screenY.
+        var button = init is null ? (short) 0 : (short) TypeConverter.ToUint16(Any(init, _button, JsNumber.PositiveZero));
+        var buttons = UnsignedShort(init, _buttons);
+        var clientX = Long(init, _clientX);
+        var clientY = Long(init, _clientY);
+        var relatedTarget = Target(engine, init, _relatedTarget);
+        var screenX = Long(init, _screenX);
+        var screenY = Long(init, _screenY);
+        return new MouseEventState(screenX, screenY, clientX, clientY, button, buttons, modifiers, relatedTarget);
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/uievents/#dictdef-keyboardeventinit — the <c>EventModifierInit</c> members it
+    /// inherits, then its own in lexicographic order: charCode, code, isComposing, key, keyCode, location,
+    /// repeat.
+    /// </summary>
+    internal static KeyboardEventState KeyboardInit(ObjectInstance? init)
+    {
+        var modifiers = Modifiers(init);
+        var charCode = OptionalUnsignedLong(init, _charCode);
+        var code = Text(init, _code);
+        var isComposing = Bool(init, _isComposing);
+        var key = Text(init, _key);
+        var keyCode = OptionalUnsignedLong(init, _keyCode);
+        var location = Long(init, _location);
+        var repeat = Bool(init, _repeat);
+        return new KeyboardEventState(key, code, location, repeat, isComposing, modifiers, charCode, keyCode);
+    }
 
     /// <summary>The <c>relatedTarget</c> member on its own, for <c>FocusEventInit</c>.</summary>
     internal static JsEventTarget? RelatedTarget(Engine engine, ObjectInstance? init)
@@ -312,28 +355,39 @@ internal static class EventInitReader
             return default;
         }
 
-        RequireTouchMember(principal, init, _identifier, "identifier");
-        RequireTouchMember(principal, init, _target, "target");
-
-        var target = TargetOf(realm.Engine, init.Get(_target));
+        // Lexicographic, each member read once: a required member is refused at its own turn, after every
+        // member that sorts before it has been read (https://webidl.spec.whatwg.org/#es-dictionary step 4).
+        var clientX = Number(init, _clientX);
+        var clientY = Number(init, _clientY);
+        var force = Number(init, _force);
+        var identifierValue = RequiredTouchMember(principal, init, _identifier, "identifier");
+        var identifier = TypeConverter.ToInt32(identifierValue);
+        var pageX = Number(init, _pageX);
+        var pageY = Number(init, _pageY);
+        var radiusX = Number(init, _radiusX);
+        var radiusY = Number(init, _radiusY);
+        var rotationAngle = Number(init, _rotationAngle);
+        var screenX = Number(init, _screenX);
+        var screenY = Number(init, _screenY);
+        var target = TargetOf(realm.Engine, RequiredTouchMember(principal, init, _target, "target"));
         if (target is null)
         {
             Throw.TypeError(principal, "Failed to construct 'Touch': member target is not of type 'EventTarget'.");
         }
 
         return new TouchState(
-            Long(init, _identifier),
+            identifier,
             target,
-            Number(init, _screenX),
-            Number(init, _screenY),
-            Number(init, _clientX),
-            Number(init, _clientY),
-            Number(init, _pageX),
-            Number(init, _pageY),
-            Number(init, _radiusX),
-            Number(init, _radiusY),
-            Number(init, _rotationAngle),
-            Number(init, _force));
+            screenX,
+            screenY,
+            clientX,
+            clientY,
+            pageX,
+            pageY,
+            radiusX,
+            radiusY,
+            rotationAngle,
+            force);
     }
 
     /// <summary>
@@ -376,14 +430,24 @@ internal static class EventInitReader
         return realm.NewTouchList([.. touches]);
     }
 
-    private static void RequireTouchMember(Realm realm, ObjectInstance init, JsString name, string member)
+    private static JsValue RequiredTouchMember(Realm realm, ObjectInstance init, JsString name, string member)
     {
-        if (init.Get(name).IsUndefined())
+        var value = init.Get(name);
+        if (value.IsUndefined())
         {
             Throw.TypeError(realm, "Failed to construct 'Touch': required member " + member + " is undefined.");
         }
+
+        return value;
     }
 
+    private static readonly JsString _charCode = new("charCode");
+    private static readonly JsString _code = new("code");
+    private static readonly JsString _isComposing = new("isComposing");
+    private static readonly JsString _key = new("key");
+    private static readonly JsString _keyCode = new("keyCode");
+    private static readonly JsString _location = new("location");
+    private static readonly JsString _repeat = new("repeat");
     private static readonly JsString _x = new("x");
     private static readonly JsString _y = new("y");
     private static readonly JsString _z = new("z");

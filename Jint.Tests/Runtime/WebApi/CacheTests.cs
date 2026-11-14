@@ -240,6 +240,25 @@ public class CacheTests
             """)).AsString().Should().Be("stored|https://example.org/a#one");
     }
 
+    /// <summary>
+    /// <c>CacheQueryOptions</c> is read in lexicographic order of its member names
+    /// (https://webidl.spec.whatwg.org/#es-dictionary step 4): <c>ignoreMethod</c> before <c>ignoreSearch</c>,
+    /// which is what Chromium logs (sebastienros/jint#4530).
+    /// </summary>
+    [Test]
+    public void CacheQueryOptionsAreReadInLexicographicOrder()
+    {
+        var result = Run(Async("""
+            const cache = await caches.open('v1');
+            const log = [];
+            const options = new Proxy({}, { get(target, key) { if (typeof key === 'string') { log.push(key); } return undefined; } });
+            await cache.match('https://example.com/', options);
+            return log.join();
+            """));
+
+        result.AsString().Should().Be("ignoreMethod,ignoreSearch,ignoreVary");
+    }
+
     [Test]
     public void IgnoreMethodDecidesWhetherANonGetQueryMatchesAnything()
     {
