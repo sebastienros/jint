@@ -23,11 +23,13 @@ internal sealed partial class NativeCssQuery
     }
 
     // CSS Display 3 §2.7: preserve the box kinds used by renderless visibility and flex placement.
-    private string Display(Element element, string value, ref SelectorMatchWork matching)
+    // A pseudo-element is never the root, and its parent box is its originating element's.
+    private string Display(State state, string value, ref SelectorMatchWork matching)
     {
-        var root = element.ParentNode is Document;
+        var element = state.Element;
+        var root = state.Pseudo is null && element.ParentNode is Document;
         if (value == "none" || value == "contents" && !root) return value;
-        var parent = InheritanceParent(element);
+        var parent = state.Pseudo is null ? InheritanceParent(element) : element;
         string? parentDisplay = null;
         while (parent is not null)
         {
@@ -36,7 +38,7 @@ internal sealed partial class NativeCssQuery
             if (parentDisplay != "contents") break;
             parent = InheritanceParent(parent);
         }
-        var positioned = GetProperty(element, "position", ref matching).Text is "absolute" or "fixed";
+        var positioned = GetProperty(element, state.Pseudo, "position", ref matching).Text is "absolute" or "fixed";
         if (!root && !positioned && parentDisplay is not ("flex" or "grid" or "inline-flex" or "inline-grid")) return value;
         return value switch
         {

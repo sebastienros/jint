@@ -21,7 +21,16 @@ internal static class ResolvedStyle
             style.VerifyRead();
             return value;
         }
-        if (name is not ("width" or "height") || runtime is null ||
+        // CSSOM §9: transform's resolved value is its matrix. A list that needs a box to resolve stays text.
+        if (name == "transform" && value != "none" &&
+            Geometry.GeometryConversion.TryParse(value, style.Work, out var matrix, out var is2D))
+        {
+            value = Geometry.GeometryConversion.SerializeResolved(matrix, is2D);
+            style.VerifyRead();
+            return value;
+        }
+        // A pseudo-element has no box in the flat model, so its width and height stay computed values.
+        if (name is not ("width" or "height") || runtime is null || style.Pseudo is not null ||
             !ReferenceEquals(runtime.Document, element.OwnerDocument)) return value;
         var sizes = style.ReadContext is { } context ? runtime.Layout.MeasureSizes(context) : runtime.Layout.MeasureSizes();
         if (sizes.HasBox(element))
@@ -46,7 +55,8 @@ internal static class ResolvedStyle
         if (text.Equals("currentcolor", StringComparison.OrdinalIgnoreCase))
         {
             if (name != "color") return Color("color", style.GetNormalizedProperty("color").Text, style);
-            return ParentOf(style.Element) is { } parent
+            // A pseudo-element's parent is its originating element.
+            return (style.Pseudo is not null ? style.Element : ParentOf(style.Element)) is { } parent
                 ? Color("color", style.For(parent).GetNormalizedProperty("color").Text, style.For(parent))
                 : "rgb(0, 0, 0)";
         }
