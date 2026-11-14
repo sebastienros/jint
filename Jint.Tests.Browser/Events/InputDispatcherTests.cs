@@ -40,6 +40,58 @@ public sealed class InputDispatcherTests
             .Should().BeTrue();
     }
 
+    // https://github.com/sebastienros/jint/issues/4597 — Space presses a checkbox or radio button, and both
+    // keys press a summary; Enter on a checkbox is not a toggle.
+    [TestCase("<input type=checkbox id=target checked>", " ", "target.checked", false, "keydown,keypress,keyup,click,input,change")]
+    [TestCase("<input type=checkbox id=target checked>", "Enter", "target.checked", true, "keydown,keyup")]
+    [TestCase("<input type=radio name=r id=target>", " ", "target.checked", true, "keydown,keypress,keyup,click,input,change")]
+    [TestCase("<input type=radio name=r id=target>", "Enter", "target.checked", false, "keydown,keyup")]
+    [TestCase("<details id=d><summary id=target>S</summary>x</details>", "Enter", "d.open", true, "keydown,click,keyup")]
+    [TestCase("<details id=d><summary id=target>S</summary>x</details>", " ", "d.open", true, "keydown,keypress,keyup,click")]
+    [TestCase("<details id=d open><summary id=target>S</summary>x</details>", "Enter", "d.open", false, "keydown,click,keyup")]
+    [TestCase("<details id=d><summary>S</summary><summary id=target>T</summary>x</details>", "Enter", "d.open", false, "keydown,keyup")]
+    [TestCase("<summary id=target>S</summary>", "Enter", "true", true, "keydown,keyup")]
+    public async Task FocusedCheckablesAndSummariesActivateFromTheKeyboard(string markup, string key, string state, bool expected, string order)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(markup);
+        await page.EvaluateAsync("""
+            window.events=[];
+            for(const type of ['keydown','keypress','keyup','click','input','change'])
+                target.addEventListener(type,e=>events.push(e.type));
+            target.focus();
+            """);
+
+        await page.PressAsync(key);
+
+        (await page.EvaluateAsync<bool>(state)).Should().Be(expected);
+        (await page.EvaluateAsync<string>("events.join(',')")).Should().Be(order);
+    }
+
+    [Test]
+    public async Task SpaceDoesNotToggleACheckboxDisabledBetweenPressAndRelease()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input type=checkbox id=target checked>");
+        await page.EvaluateAsync("window.clicks=0;target.onclick=()=>clicks++;target.focus();");
+        await page.RunOnLoopAsync(engine =>
+        {
+            InputDispatcher.DispatchKey(Jint.Browser.Runtime.PageRuntime.Find(engine)!, KeyOptions.For(" "), KeyInputKind.KeyDown);
+            return true;
+        });
+        await page.EvaluateAsync("target.disabled=true");
+        await page.RunOnLoopAsync(engine =>
+        {
+            InputDispatcher.DispatchKey(Jint.Browser.Runtime.PageRuntime.Find(engine)!, KeyOptions.For(" "), KeyInputKind.KeyUp);
+            return true;
+        });
+
+        (await page.EvaluateAsync<int>("clicks")).Should().Be(0);
+        (await page.EvaluateAsync<bool>("target.checked")).Should().BeTrue();
+    }
+
     [TestCase("Enter", "keydown")]
     [TestCase("Enter", "click")]
     [TestCase(" ", "keydown")]
