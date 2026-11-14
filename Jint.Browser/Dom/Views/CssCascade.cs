@@ -67,6 +67,7 @@ internal static class CssCascade
             var events = runtime is null ? null : BrowserEventRealm.Of(runtime.Engine);
             var focus = events?.FocusedElement;
             var press = events?.MousePressTarget;
+            var hover = events?.MouseHoverTarget;
             var url = DomDocumentState.Of(document).Url;
             var target = DomDocumentState.Of(document).TargetElement;
             var input = NativeCssStyleSheets.RealmOf(document) is { } realm
@@ -79,6 +80,7 @@ internal static class CssCascade
                 ReferenceEquals(DomBrowsingContext.Of(runtime.Document), displayedContext) &&
                 ReferenceEquals(PageRuntime.FindBrowsingContext(runtime.Engine, document), runtime) && runtime.Media == media && runtime.Layout.Version == layoutRevision &&
                 ReferenceEquals(events!.FocusedElement, focus) && ReferenceEquals(events.MousePressTarget, press) &&
+                ReferenceEquals(events.MouseHoverTarget, hover) &&
                 DomDocumentState.Of(document).Url == url && ReferenceEquals(DomDocumentState.Of(document).TargetElement, target);
             Action? readWitness = witnessIsCurrent is null ? null : () =>
             {

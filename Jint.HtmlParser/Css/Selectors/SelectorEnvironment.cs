@@ -8,4 +8,5 @@ internal readonly record struct SelectorEnvironment(
     Element? TargetElement,
     ISelectorControlFactsFactory? ControlFactsFactory = null,
     object? ControlFactsContext = null,
-    ulong ControlFactsRevision = 0);
+    ulong ControlFactsRevision = 0,
+    Element? HoverTarget = null);

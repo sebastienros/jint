@@ -112,11 +112,12 @@ internal struct SelectorMatchWork
         if (environment.Document is null)
         {
             if (environment.FocusedElement is not null || environment.PointerPressTarget is not null ||
-                environment.TargetElement is not null) throw new ArgumentException("Environment seeds require a document.");
+                environment.TargetElement is not null || environment.HoverTarget is not null) throw new ArgumentException("Environment seeds require a document.");
         }
         else if (environment.FocusedElement is { } focus && focus.OwnerDocument != environment.Document ||
                  environment.PointerPressTarget is { } press && press.OwnerDocument != environment.Document ||
-                 environment.TargetElement is { } target && target.OwnerDocument != environment.Document)
+                 environment.TargetElement is { } target && target.OwnerDocument != environment.Document ||
+                 environment.HoverTarget is { } hover && hover.OwnerDocument != environment.Document)
             throw new ArgumentException("Environment seeds must belong to its document.");
         BindControlSeed(environment);
         Observe(node);
@@ -285,6 +286,7 @@ internal struct SelectorMatchWork
         internal HashSet<Element>? Focus;
         internal HashSet<Element>? FocusWithin;
         internal HashSet<Element>? ActiveElements;
+        internal HashSet<Element>? HoverElements;
         internal bool TargetResolved;
         internal Element? Target;
         internal Cell(Node root, Document? document, ulong stamp, Action? checkpoint, CancellationToken token)
