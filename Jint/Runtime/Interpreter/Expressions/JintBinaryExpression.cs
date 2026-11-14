@@ -1105,13 +1105,14 @@ internal abstract class JintBinaryExpression : JintExpression
         return null;
     }
 
-    // The identifier `undefined` matches the same compile-time folding the identifier itself
-    // evaluates through (Environment.BindingName.CalculatedValue), so the fused semantics are
-    // exactly the unfused ones. `null` is a literal; ConvertToJsValue screens out the literals
+    // The identifier `undefined` is a singleton exactly when the static analysis folded it
+    // (Environment.BindingName.CalculatedValue), which is what the identifier itself evaluates
+    // through, so the fused semantics are exactly the unfused ones; an unanalyzed or shadowable
+    // `undefined` is an ordinary operand. `null` is a literal; ConvertToJsValue screens out the literals
     // that don't convert statically (regex).
     private static InternalTypes? GetKnownSingletonType(Expression expression) => expression switch
     {
-        Identifier { Name: "undefined" } => InternalTypes.Undefined,
+        Identifier { UserData: Jint.Runtime.Environments.Environment.BindingName { CalculatedValue: JsUndefined } } => InternalTypes.Undefined,
         Literal literal when JintLiteralExpression.ConvertToJsValue(literal) is JsNull => InternalTypes.Null,
         _ => null,
     };
