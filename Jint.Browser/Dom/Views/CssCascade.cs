@@ -29,6 +29,7 @@ internal static class CssCascade
         private static readonly ConditionalWeakTable<Document, Traversal> Shared = new();
 
         private readonly Dictionary<Element, NativeCssComputedStyle> _views = new();
+        private readonly Dictionary<(Element, SelectorPseudoElement), NativeCssComputedStyle> _pseudoViews = new();
         private SelectorMatchWork _matching = matching;
         private DomRealm? _realm;
         private Func<bool>? _witnessIsCurrent;
@@ -103,6 +104,18 @@ internal static class CssCascade
             // Matching is separate from computation; coverage observes real matched rule identities.
             if (CssRuleUsage.IsTrackingDocument(element.OwnerDocument)) CssRuleUsage.Observe(element, view.MatchedRules());
             _views.Add(element, view);
+            return view;
+        }
+
+        // CSS Pseudo-Elements 4 §4: the ::before/::after view of element, shared like the element's own view.
+        internal NativeCssComputedStyle Of(Element element, SelectorPseudoElement pseudo)
+        {
+            _matching.VerifyRead();
+            if (_pseudoViews.TryGetValue((element, pseudo), out var cached)) return cached;
+            var view = new NativeCssComputedStyle(query, element, _matching, witness, ReadContext) { Pseudo = pseudo };
+            // A pseudo-element's rules are used once they apply, as the element's are.
+            if (CssRuleUsage.IsTrackingDocument(element.OwnerDocument)) CssRuleUsage.Observe(element, view.MatchedRules());
+            _pseudoViews.Add((element, pseudo), view);
             return view;
         }
 

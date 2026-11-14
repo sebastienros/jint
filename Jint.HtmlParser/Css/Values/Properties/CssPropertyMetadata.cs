@@ -69,6 +69,7 @@ internal static class CssPropertyRegistry
         Add("color", "rgb(0, 0, 0)", true);
         Add("background-color", "transparent");
         Add("opacity", "1");
+        Add("content", "normal");
         Add("pointer-events", "auto", true);
         Add("position", "static");
         Add("box-sizing", "content-box");
