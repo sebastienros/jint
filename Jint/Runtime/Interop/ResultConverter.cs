@@ -88,8 +88,10 @@ internal static class ResultConverter
                     return null!;
                 case NumberInstance numberInstance:
                     return numberInstance.NumberData._value;
+                // A host-supplied Regex round-trips as itself. A pattern written in script has no .NET
+                // equivalent - .NET Regex is not an ECMAScript engine - so it reaches the host as the JsRegExp.
                 case JsRegExp regexp:
-                    return regexp.Value;
+                    return regexp.HostRegex ?? (object) regexp;
                 case BigIntInstance bigIntInstance:
                     return bigIntInstance.BigIntData._value;
                 case JsPromise promise

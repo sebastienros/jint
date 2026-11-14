@@ -498,75 +498,25 @@ public class RegExpTests
         result.Should().BeTrue();
     }
 
-    // Engine routing tests for RegExpConstructor.NeedCustomEngine: .NET Regex is preferred
-    // for performance whenever it can reproduce ECMAScript semantics, the custom
-    // (QuickJS-port) engine is the fallback. A quantified group needs the custom engine when
-    // its body contains a capturing group or lookaround assertion, or when its body can match
-    // the empty string. The empty-body case diverges two ways: for a capturing body .NET
-    // retains captures from earlier iterations and records empty-iteration captures, whereas
-    // ECMAScript clears captures per iteration and rejects empty iterations; for a
-    // non-capturing body .NET's empty-subexpression loop protection stops the repetition at
-    // the first empty/zero-width alternative, whereas ECMAScript's RepeatMatcher prunes the
-    // empty iteration and backtracks into a later consuming alternative (so the match itself
-    // diverges). Nullable non-capturing bodies are routed conservatively — some, like a single
-    // greedy-nullable alternative, would in fact agree with .NET
-    // (https://tc39.es/ecma262/#sec-runtime-semantics-repeatmatcher-abstract-operation).
-
-    // string-tagcloud.js parseJSON patterns (hot in benchmarks)
+    // Routing pin: every pattern written in script runs on the ECMAScript matcher, whatever its shape or flags.
+    // Only a host-supplied .NET Regex reaches the .NET lanes (see HostRegexKeepsDotNetSemanticsByDefault).
+    // The cases are the ones the retired .NET adaptation used to keep for itself, plus ones it handed over.
     [TestCase(@"""[^""\\\n\r]*""|true|false|null|-?\d+(?:\.\d*)?(:?[eE][+\-]?\d+)?", "g")]
-    [TestCase(@"(?:^|:|,)(?:\s*\[)+", "g")]
-    // string-unpack-code.js pattern
     [TestCase(@"\b\w+\b", "g")]
-    // quantified non-capturing groups without captures/lookarounds whose body cannot match
-    // the empty string are .NET-safe
     [TestCase(@"(?:ab)+", "")]
-    // quantified capturing groups whose body cannot match the empty string are .NET-safe
-    [TestCase(@"(a+)+", "")]
-    [TestCase(@"((?:a|b)c)*", "")]
-    [TestCase(@"(:?[eE][+\-]?\d+)?", "")]
-    public void UsesDotNetRegexWhenPatternIsTranslatable(string pattern, string flags)
-    {
-        var engine = new Engine();
-        var regExp = (JsRegExp) engine.Realm.Intrinsics.RegExp.Construct([pattern, flags]);
-
-        regExp.UsesDotNetEngine.Should().BeTrue();
-    }
-
-    // capturing group inside a quantified group: .NET retains captures across iterations
     [TestCase(@"((a)|b)+", "")]
-    [TestCase(@"(?:(a)|b)+", "")]
-    // quantified capturing group whose body can match the empty string: .NET records empty captures
-    [TestCase(@"(a*)*", "")]
-    [TestCase(@"(a|)*", "")]
-    [TestCase(@"(\b)*", "")]
-    [TestCase(@"(a{0,2})+", "")]
-    [TestCase(@"((?:a*))*", "")]
-    // quantified non-capturing group whose body can match the empty string: .NET's empty-loop
-    // protection stops at the first empty/zero-width alternative, ECMAScript backtracks into a
-    // later consuming alternative (the match itself diverges)
-    [TestCase(@"(?:|a)*", "")]
-    [TestCase(@"(?:a*|b)*", "")]
-    [TestCase(@"(?:a||b)*", "")]
-    [TestCase(@"(?:^|a)+", "")]
-    [TestCase(@"(?:a??)*", "")]
-    // conservatively routed to custom as well (nullable non-capturing body, though .NET agrees here)
     [TestCase(@"(?:a*)+", "")]
-    [TestCase(@"(?:a|)+b", "")]
-    // quantified lookaround assertions
-    [TestCase(@"(?=(a))+", "")]
-    [TestCase(@"(?:(?=a).)+", "")]
-    // forward backreference
     [TestCase(@"\1(a)", "")]
-    // unicode modes and case-insensitive matching of non-ASCII content
+    [TestCase("[a-z0-9]+", "i")]
     [TestCase("a", "u")]
     [TestCase("a", "v")]
-    [TestCase("ä", "i")]
-    public void UsesCustomEngineWhenDotNetSemanticsDiverge(string pattern, string flags)
+    public void ScriptPatternsRunOnTheEcmaScriptMatcher(string pattern, string flags)
     {
         var engine = new Engine();
         var regExp = (JsRegExp) engine.Realm.Intrinsics.RegExp.Construct([pattern, flags]);
 
         regExp.UsesDotNetEngine.Should().BeFalse();
+        regExp.Matcher.Should().NotBeNull();
     }
 
     [Test]
@@ -640,10 +590,8 @@ public class RegExpTests
 
     // Regression tests for https://github.com/sebastienros/jint/issues/2454
     //
-    // The TestRegex pattern triggers Jint's custom (QuickJS-port) regex engine via
-    // RegExpConstructor.NeedCustomEngine — that engine has no built-in match timeout
-    // (unlike .NET Regex which embeds MatchTimeout), so each prototype method must
-    // honor the prepare-time RegexTimeout when calling the custom engine.
+    // The ECMAScript matcher embeds no match timeout (unlike .NET Regex, which carries MatchTimeout), so each
+    // prototype method must honor the prepare-time RegexTimeout when it calls the matcher.
 
     // RegExp.prototype[@@match] without /g → slow path (RegExpExec → CustomEngineBuiltinExec).
     [TestCase("'{0}'.match(/{1}/)")]
@@ -1118,27 +1066,6 @@ public class RegExpTests
             """);
 
         result.AsString().Should().Be("""[["ab","cd"],["abcd"],["ab","cd"]]""");
-    }
-
-    // Routing pin. A case-insensitive pattern that merely mentions 'k', covers it with a range, or
-    // uses \w keeps the .NET engine and is diverted per subject; only the verdict that holds for
-    // every subject takes a pattern away from it. Losing this would put the most common
-    // case-insensitive patterns in real scripts on the bytecode interpreter for every match.
-    [TestCase("[a-z0-9]+", "i", false)]
-    [TestCase(@"\w+", "i", false)]
-    [TestCase("k", "i", false)]
-    [TestCase("check", "i", false)]
-    [TestCase(@"\bfoo\b", "i", false)]
-    [TestCase(@"\x6B", "i", false)]
-    // ... while non-ASCII pattern content and \W do, on every subject.
-    [TestCase(@"\xB5", "i", true)]
-    [TestCase(@"Μ", "i", true)]
-    [TestCase(@"\W", "i", true)]
-    [TestCase("[a-z]", "u", true)]
-    public void CaseInsensitivePatternsKeepTheDotNetEngineUnlessTheyDivergeOnEverySubject(
-        string pattern, string flags, bool needsCustomEngine)
-    {
-        Jint.Native.RegExp.RegExpConstructor.NeedCustomEngine(pattern, flags).Should().Be(needsCustomEngine);
     }
 
     private static string ToJsLiteral(string value)

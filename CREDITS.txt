@@ -40,6 +40,25 @@ Copyright:    Copyright (c) WHATWG (Apple, Google, Mozilla, Microsoft)
 License:      CC BY 4.0, and BSD 3-Clause for the portions incorporated into source code -
               https://github.com/whatwg/encoding/blob/main/LICENSE
 
+GregsEx
+-----
+Every regular expression written in script runs on the ECMAScript flavor of GregsEx, vendored under
+Jint/Runtime/RegExp/GregsEx/ (see the README.md there).
+
+Website:      https://github.com/sebastienros/gregsex
+Copyright:    Copyright (c) 2026 Sébastien Ros
+License:      MIT - Jint/Runtime/RegExp/GregsEx/GregsEx-LICENSE.txt
+
+Unicode Character Database
+-----
+The regular expression engine's property, case-folding and category tables are generated from the Unicode
+Character Database 17.0.0 (Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/), under the license reproduced
+below and in Unicode-LICENSE.txt beside them.
+
+Website:      https://www.unicode.org/ucd/
+Copyright:    Copyright © 1991-2026 Unicode, Inc.
+License:      Unicode License v3 - https://www.unicode.org/license.txt
+
 Unicode CLDR
 -----
 Jint's Intl implementation embeds data derived from the Unicode Common Locale Data Repository (CLDR):

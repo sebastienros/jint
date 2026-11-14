@@ -1,5 +1,4 @@
 using Jint.Native.Function;
-using Jint.Native.RegExp;
 
 namespace Jint;
 
@@ -22,42 +21,24 @@ public partial class Engine
     };
 
     /// <summary>
-    /// OnRegExp handler that leaves the match timeout to the engine executing the parsed source
-    /// (interpreted .NET Regex).
+    /// OnRegExp handler that leaves the match timeout to the engine executing the parsed source.
     /// </summary>
-    internal static OnRegExpHandler DeferredInterpretedRegExpHandler
-        => CreateRegExpHandler(RegexCompilation.Interpreted, timeout: null);
-
-    /// <summary>
-    /// OnRegExp handler that leaves the match timeout to the engine executing the parsed source
-    /// (eagerly compiled .NET Regex).
-    /// </summary>
-    internal static OnRegExpHandler DeferredCompiledRegExpHandler
-        => CreateRegExpHandler(RegexCompilation.Compiled, timeout: null);
-
-    /// <summary>
-    /// OnRegExp handler that leaves the match timeout to the engine executing the parsed source
-    /// (interpreted .NET Regex, upgraded to compiled on reuse; see <see cref="RegexCompilation.Adaptive"/>).
-    /// </summary>
-    internal static OnRegExpHandler DeferredAdaptiveRegExpHandler
-        => CreateRegExpHandler(RegexCompilation.Adaptive, timeout: null);
+    internal static readonly OnRegExpHandler DeferredRegExpHandler = CreateRegExpHandler(timeout: null);
 
     /// <summary>
     /// Creates an OnRegExp handler with a caller-specified timeout, or with none at all — see
     /// <see cref="RegexConversionOptions.Timeout"/>.
     /// </summary>
-    internal static OnRegExpHandler CreateRegExpHandler(RegexCompilation compilation, TimeSpan? timeout)
-        => new RegexConversionOptions(compilation, timeout).HandleOnRegExp;
+    internal static OnRegExpHandler CreateRegExpHandler(TimeSpan? timeout)
+        => new RegexConversionOptions(timeout).HandleOnRegExp;
 
     /// <summary>
-    /// Both halves of how one parsed source's regular expressions are adapted: how they are code-generated,
-    /// and how long a match of one may run. Hung off <see cref="ParserOptions.OnRegExp"/> and read back from
-    /// the parse result of every pattern that source produces, literal and run-time-built alike.
+    /// How long a match of one of a parsed source's regular expressions may run. Hung off
+    /// <see cref="ParserOptions.OnRegExp"/> and read back from the parse result of every pattern that source
+    /// produces, literal and run-time-built alike.
     /// </summary>
-    internal sealed class RegexConversionOptions(RegexCompilation compilation, TimeSpan? timeout)
+    internal sealed class RegexConversionOptions(TimeSpan? timeout)
     {
-        public RegexCompilation Compilation { get; } = compilation;
-
         /// <summary>
         /// The already-normalized match timeout this source's patterns run under, or <see langword="null"/>
         /// when nobody chose one and the engine executing the source decides through
@@ -73,15 +54,16 @@ public partial class Engine
         public TimeSpan? Timeout { get; } = timeout;
 
         /// <summary>
-        /// Resolves <see cref="Timeout"/> against the engine that is about to run the pattern.
+        /// The timeout a pattern from a source with <paramref name="options"/> (null for none) compiles and matches
+        /// under on <paramref name="engine"/>: the source's own, or the engine's constraint.
         /// </summary>
-        public TimeSpan ResolveTimeout(Engine engine)
-            => Timeout ?? Jint.Options.ConstraintOptions.NormalizeRegexTimeout(engine.Options.Constraints.RegexTimeout);
+        public static TimeSpan ResolveTimeout(RegexConversionOptions? options, Engine engine)
+            => options?.Timeout ?? Jint.Options.ConstraintOptions.NormalizeRegexTimeout(engine.Options.Constraints.RegexTimeout);
 
         internal RegExpParseResult HandleOnRegExp(in RegExpParsingContext ctx)
         {
-            // In the course of parsing, we only validate the pattern and defer conversion until execution
-            // (see JintLiteralExpression.ResolveValue).
+            // In the course of parsing, we only validate the pattern (early errors are parse-time errors) and
+            // defer compilation until execution (see JintLiteralExpression.ResolveValue).
 
             ctx.Validate();
 

@@ -1,0 +1,349 @@
+diff --git a/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs b/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs
+index 057eaa9f2..09120e696 100644
+--- a/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs
++++ b/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs
+@@ -1,124 +1,22 @@
+ #nullable enable
+ using System.Threading;
+-using Jint.Runtime.RegExp.GregsEx.IR;
+ 
+ namespace Jint.Runtime.RegExp.GregsEx.Contracts;
+ 
+-internal enum TextModel { UnicodeScalars, Utf16CodeUnits, RawBytes }
+-internal enum MatchPolicy { OrderedLeftmostFirst }
+ internal enum SearchOperation { Boolean, Range, Captures }
+ 
+-[Flags]
+-internal enum CoreFeatures
+-{
+-    None = 0, Literal = 1, CharacterClass = 2, Any = 4, Alternation = 8,
+-    Captures = 16, AbsoluteAnchors = 32
+-}
+-
+-// Normalized once, never based on ambient culture or runtime Unicode category data.
+-internal sealed record ProfileDescriptor
+-{
+-    internal RegexInputKind InputKind { get; }
+-    internal TextModel TextModel { get; }
+-    internal RegularCoreFlags Flags { get; }
+-    internal MatchPolicy MatchPolicy => MatchPolicy.OrderedLeftmostFirst;
+-    internal string Id => "RegularCore-1-experimental";
+-    internal string DataId => "GregsEx-ASCII-1";
+-    internal RegexOffsetUnit InputUnit => InputKind == RegexInputKind.Utf16
+-        ? RegexOffsetUnit.Utf16CodeUnits : RegexOffsetUnit.Bytes;
+-
+-    private ProfileDescriptor(RegexInputKind inputKind, TextModel model, RegularCoreFlags flags)
+-    {
+-        InputKind = inputKind;
+-        TextModel = model;
+-        Flags = flags;
+-    }
+-
+-    internal static bool TryCreate(RegexProfile profile, RegexInputKind inputKind,
+-        out ProfileDescriptor? descriptor, out RegexDiagnostic diagnostic)
+-    {
+-        ArgumentNullException.ThrowIfNull(profile);
+-        if (!Enum.IsDefined(inputKind))
+-        {
+-            throw new ArgumentOutOfRangeException(nameof(inputKind));
+-        }
+-
+-        descriptor = null;
+-        diagnostic = default;
+-        if (profile is not RegularCoreProfile core || !core.Supports(inputKind))
+-        {
+-            diagnostic = new(RegexDiagnosticCode.UnsupportedRepresentation, 0, 0, RegexOffsetUnit.Utf16CodeUnits);
+-            return false;
+-        }
+-        var model = core.Mode switch
+-        {
+-            RegularCoreMode.UnicodeScalars => TextModel.UnicodeScalars,
+-            RegularCoreMode.Utf16CodeUnits => TextModel.Utf16CodeUnits,
+-            _ => TextModel.RawBytes
+-        };
+-        descriptor = new(inputKind, model, core.Flags);
+-        return true;
+-    }
+-
+-    internal bool Contains(int value) => TextModel switch
+-    {
+-        TextModel.UnicodeScalars => (uint)value <= 0x10FFFF && value is not (>= 0xD800 and <= 0xDFFF),
+-        TextModel.Utf16CodeUnits => (uint)value <= 0xFFFF,
+-        _ => (uint)value <= 255
+-    };
+-}
+-
+-internal interface IFlavorCompiler
+-{
+-    // Char pattern locations are UTF-16 units even when the subject uses bytes.
+-    bool TryCompile(ReadOnlySpan<char> pattern, ProfileDescriptor profile, ref CompileBudget budget,
+-        out SemanticProgram? program, out RegexDiagnostic diagnostic);
+-    // RegularCore admits byte pattern syntax only with the RawBytes profile.
+-    bool TryCompile(ReadOnlySpan<byte> pattern, ProfileDescriptor profile, ref CompileBudget budget,
+-        out SemanticProgram? program, out RegexDiagnostic diagnostic);
+-}
+-
+-#if !GREGSEX_GENERATOR
+-// Reader specialization is static; no per-character virtual interface dispatch is required.
+-internal interface ITextReader<TUnit> where TUnit : unmanaged
+-{
+-    // Full-subject validity precedes a search. Charge each inspected input unit in state.Budget.
+-    // Validate start boundary only after full encoding validation succeeds.
+-    RegexSearchStatus Validate(ReadOnlySpan<TUnit> input, int startAt,
+-        ProfileDescriptor profile, ref RunState state);
+-    // On already validated input, decode exactly one element. End returns false, width=0.
+-    // The executor charges one read unit; the reader never retains the span.
+-    bool TryRead(ReadOnlySpan<TUnit> input, int offset, ProfileDescriptor profile,
+-        out int value, out int width);
+-}
+-
+-internal interface IRegularExecutor
+-{
+-    // A bound executor retains the validated program, never a caller's subject or workspace.
+-    RegexWorkspaceCapacity GetRequiredCapacity(SearchOperation operation);
+-
+-    // Runtime binds the profile's reader types; executor tests bind independent nonshipping readers.
+-    // One interface call per operation is permitted; the character loop is statically specialized.
+-    RegexSearchStatus Search<TUnit, TReader>(ReadOnlySpan<TUnit> input, int startAt,
+-        SearchOperation operation, ref RunState state, Span<RegexCapture> groups, out RegexMatchRange match)
+-        where TUnit : unmanaged where TReader : struct, ITextReader<TUnit>;
+-}
+-#endif
+-
+ internal readonly ref struct WorkspaceBuffers
+ {
+     internal Span<int> States { get; }
+     internal Span<int> Captures { get; }
+     internal Span<int> Scratch { get; }
+     internal RegexWorkspaceCapacity Capacity => new(States.Length, Captures.Length, Scratch.Length);
+-    internal Span<Pcre2OffsetPair> Pcre2Pairs { get; }
+ 
+-    internal WorkspaceBuffers(Span<int> states, Span<int> captures, Span<int> scratch, Span<Pcre2OffsetPair> pcre2Pairs = default)
++    internal WorkspaceBuffers(Span<int> states, Span<int> captures, Span<int> scratch)
+     {
+         States = states;
+         Captures = captures;
+         Scratch = scratch;
+-        Pcre2Pairs = pcre2Pairs;
+     }
+ }
+ 
+@@ -151,6 +49,14 @@ internal ref struct RunState
+         Failure = default;
+     }
+ 
++    // Jint: see RunBudget(long, CancellationToken, long).
++    internal RunState(WorkspaceBuffers buffers, long maxWork, long absoluteDeadline)
++    {
++        Buffers = buffers;
++        Budget = new(maxWork, default, absoluteDeadline);
++        Failure = default;
++    }
++
+     // One charge for a run of one-unit-per-offset work that is known to fit the remaining budget;
+     // otherwise per-unit charges reproduce the exact failing offset and consumed work.
+     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+diff --git a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
+index 75c3e9d22..0d48c89b3 100644
+--- a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
++++ b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
+@@ -1,4 +1,10 @@
+ #nullable enable
++// Jint: the StringSearchValues alias is file-local here (see Polyfills/StringSearchValues.cs).
++#if NET9_0_OR_GREATER
++using StringSearchValues = System.Buffers.SearchValues<string>;
++#else
++using StringSearchValues = Jint.Runtime.RegExp.GregsEx.StringSearchValuesFallback;
++#endif
+ using System.Threading;
+ using System.Buffers;
+ using System.Numerics;
+diff --git a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
+index 01ef35981..468e562e8 100644
+--- a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
++++ b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
+@@ -1,5 +1,4 @@
+ #nullable enable
+-using System.Threading;
+ using Jint.Runtime.RegExp.GregsEx.Contracts;
+ using Jint.Runtime.RegExp.GregsEx.Contracts.EcmaScript;
+ 
+diff --git a/Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs b/Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs
+index e91b95c6e..b110ca830 100644
+--- a/Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs
++++ b/Jint/Runtime/RegExp/GregsEx/Flavors/EcmaScript/Unicode/EcmaUnicodeData.cs
+@@ -27,16 +27,21 @@ internal sealed class EcmaUnicodeData : IEcmaUnicodeData
+ 
+     private static long ImageBytes(UnicodeVersion version) => version == UnicodeVersion.Unicode17_0
+         ? GeneratedUnicode17Tables.StaticImageBytes + GeneratedUnicode17Tables.LiteralBytes
+-        : GeneratedUnicodeTables.StaticImageBytes + GeneratedUnicodeTables.LiteralBytes;
++        : GeneratedUnicode17Tables.StaticImageBytes + GeneratedUnicode17Tables.LiteralBytes;
+ 
+     internal static bool TryCreate(ref CompileBudget budget, out EcmaUnicodeData? data,
+         out RegexDiagnostic diagnostic)
+-        => TryCreate(UnicodeVersion.Unicode16_0, ref budget, out data, out diagnostic);
++        => TryCreate(UnicodeVersion.Unicode17_0, ref budget, out data, out diagnostic);
+ 
+     internal static bool TryCreate(UnicodeVersion version, ref CompileBudget budget, out EcmaUnicodeData? data,
+         out RegexDiagnostic diagnostic)
+     {
+         UnicodeVersionPolicy.Validate(version);
++        // Jint retains only the Unicode 17.0 tables (the version the pinned test262 asserts).
++        if (version != UnicodeVersion.Unicode17_0)
++        {
++            throw new ArgumentOutOfRangeException(nameof(version));
++        }
+         data = null;
+         diagnostic = default;
+         var source = new SourceRange(0, 0, RegexOffsetUnit.Utf16CodeUnits);
+@@ -44,9 +49,9 @@ internal sealed class EcmaUnicodeData : IEcmaUnicodeData
+         {
+             ref var shared = ref (version == UnicodeVersion.Unicode17_0 ? ref _shared17 : ref _shared);
+             var fold = version == UnicodeVersion.Unicode17_0
+-                ? GeneratedUnicode17Tables.UnicodeFold : GeneratedUnicodeTables.UnicodeFold;
++                ? GeneratedUnicode17Tables.UnicodeFold : GeneratedUnicode17Tables.UnicodeFold;
+             var upper = version == UnicodeVersion.Unicode17_0
+-                ? GeneratedUnicode17Tables.LegacyUppercase : GeneratedUnicodeTables.LegacyUppercase;
++                ? GeneratedUnicode17Tables.LegacyUppercase : GeneratedUnicode17Tables.LegacyUppercase;
+             var bytes = ReferenceBytes;
+             if (shared is null)
+             {
+@@ -108,10 +113,10 @@ internal sealed class EcmaUnicodeData : IEcmaUnicodeData
+             canonical = CategoryAlias(name);
+             if (canonical is null)
+             { kind = EcmaPropertyKind.Binary; canonical = IsUnicode17
+-                ? GeneratedUnicode17Tables.BinaryAlias(name) : GeneratedUnicodeTables.BinaryAlias(name); }
++                ? GeneratedUnicode17Tables.BinaryAlias(name) : GeneratedUnicode17Tables.BinaryAlias(name); }
+             if (canonical is null && unicodeSets)
+             { kind = EcmaPropertyKind.String; canonical = IsUnicode17
+-                ? GeneratedUnicode17Tables.StringAlias(name) : GeneratedUnicodeTables.StringAlias(name); }
++                ? GeneratedUnicode17Tables.StringAlias(name) : GeneratedUnicode17Tables.StringAlias(name); }
+         }
+         if (canonical is null)
+         {
+@@ -125,7 +130,7 @@ internal sealed class EcmaUnicodeData : IEcmaUnicodeData
+     public ReadOnlySpan<EcmaInterval> GetIntervals(EcmaProperty property)
+     {
+         var (offset, count) = IntervalSlice(property);
+-        var intervals = IsUnicode17 ? GeneratedUnicode17Tables.Intervals : GeneratedUnicodeTables.Intervals;
++        var intervals = IsUnicode17 ? GeneratedUnicode17Tables.Intervals : GeneratedUnicode17Tables.Intervals;
+         return MemoryMarshal.Cast<int, EcmaInterval>(intervals).Slice(offset, count);
+     }
+ 
+@@ -134,8 +139,8 @@ internal sealed class EcmaUnicodeData : IEcmaUnicodeData
+         if (property.Kind != EcmaPropertyKind.String)
+         { _ = IntervalSlice(property); return []; }
+         var (offset, count) = IsUnicode17 ? GeneratedUnicode17Tables.StringSlice(property.CanonicalName)
+-            : GeneratedUnicodeTables.StringSlice(property.CanonicalName);
+-        var slices = IsUnicode17 ? GeneratedUnicode17Tables.StringSlices : GeneratedUnicodeTables.StringSlices;
++            : GeneratedUnicode17Tables.StringSlice(property.CanonicalName);
++        var slices = IsUnicode17 ? GeneratedUnicode17Tables.StringSlices : GeneratedUnicode17Tables.StringSlices;
+         return MemoryMarshal.Cast<int, EcmaStringSlice>(slices).Slice(offset, count);
+     }
+ 
+@@ -144,16 +149,16 @@ internal sealed class EcmaUnicodeData : IEcmaUnicodeData
+         _ = IntervalSlice(property);
+         // String slices use global offsets; consumers always access only their slices.
+         return property.Kind == EcmaPropertyKind.String
+-            ? IsUnicode17 ? GeneratedUnicode17Tables.StringCodePoints : GeneratedUnicodeTables.StringCodePoints
++            ? IsUnicode17 ? GeneratedUnicode17Tables.StringCodePoints : GeneratedUnicode17Tables.StringCodePoints
+             : [];
+     }
+ 
+     private string? CategoryAlias(ReadOnlySpan<char> name) => IsUnicode17
+-        ? GeneratedUnicode17Tables.CategoryAlias(name) : GeneratedUnicodeTables.CategoryAlias(name);
++        ? GeneratedUnicode17Tables.CategoryAlias(name) : GeneratedUnicode17Tables.CategoryAlias(name);
+     private string? ScriptAlias(ReadOnlySpan<char> name) => IsUnicode17
+-        ? GeneratedUnicode17Tables.ScriptAlias(name) : GeneratedUnicodeTables.ScriptAlias(name);
++        ? GeneratedUnicode17Tables.ScriptAlias(name) : GeneratedUnicode17Tables.ScriptAlias(name);
+     private (int Offset, int Count) IntervalSlice(EcmaProperty property) => IsUnicode17
+-        ? GeneratedUnicode17Tables.IntervalSlice(property) : GeneratedUnicodeTables.IntervalSlice(property);
++        ? GeneratedUnicode17Tables.IntervalSlice(property) : GeneratedUnicode17Tables.IntervalSlice(property);
+ 
+     public bool IsIdentifierStart(int codePoint) => codePoint is '$' or '_' ||
+         Contains(GetIntervals(new(EcmaPropertyKind.Binary, "ID_Start")), codePoint);
+diff --git a/Jint/Runtime/RegExp/GregsEx/Polyfills/StringSearchValues.cs b/Jint/Runtime/RegExp/GregsEx/Polyfills/StringSearchValues.cs
+index 760a53297..6fe4ace17 100644
+--- a/Jint/Runtime/RegExp/GregsEx/Polyfills/StringSearchValues.cs
++++ b/Jint/Runtime/RegExp/GregsEx/Polyfills/StringSearchValues.cs
+@@ -2,10 +2,11 @@
+ // Multi-string search sets. SearchValues<string> is .NET 9+: net10.0 binds it directly; net8.0 and netstandard2.0 (whose
+ // Meziantou.Polyfill copy stalls on long inputs) get the prefiltered StringSearchValuesFallback below. Only Create and
+ // IndexOfAny are used.
++// Jint: file-local, not global; a global alias would shadow Jint's own StringSearchValues (Jint/Native/Intl).
+ #if NET9_0_OR_GREATER
+-global using StringSearchValues = System.Buffers.SearchValues<string>;
++using StringSearchValues = System.Buffers.SearchValues<string>;
+ #else
+-global using StringSearchValues = Jint.Runtime.RegExp.GregsEx.StringSearchValuesFallback;
++using StringSearchValues = Jint.Runtime.RegExp.GregsEx.StringSearchValuesFallback;
+ #endif
+ 
+ using System.Buffers;
+diff --git a/Jint/Runtime/RegExp/GregsEx/Public/EcmaScript/EcmaScriptProfile.cs b/Jint/Runtime/RegExp/GregsEx/Public/EcmaScript/EcmaScriptProfile.cs
+index f1c666413..8e93c5697 100644
+--- a/Jint/Runtime/RegExp/GregsEx/Public/EcmaScript/EcmaScriptProfile.cs
++++ b/Jint/Runtime/RegExp/GregsEx/Public/EcmaScript/EcmaScriptProfile.cs
+@@ -43,11 +43,11 @@ internal sealed class EcmaScriptProfile : RegexProfile
+     public bool UsesAnnexB => !IsUnicodeAware;
+ 
+     /// <summary>Creates a descriptor; unknown bits and combined u/v are argument errors.</summary>
+-    public EcmaScriptProfile(EcmaScriptFlags flags) : this(flags, UnicodeVersion.Unicode16_0) { }
++    public EcmaScriptProfile(EcmaScriptFlags flags) : this(flags, UnicodeVersion.Unicode17_0) { }
+ 
+     /// <summary>Creates a descriptor with validated flags and an explicit, supported Unicode dataset.</summary>
+     public EcmaScriptProfile(EcmaScriptFlags flags = EcmaScriptFlags.None,
+-        UnicodeVersion unicodeVersion = UnicodeVersion.Unicode16_0)
++        UnicodeVersion unicodeVersion = UnicodeVersion.Unicode17_0)
+     {
+         UnicodeVersionPolicy.Validate(unicodeVersion);
+         if ((flags & ~(EcmaScriptFlags)255) != 0 ||
+@@ -67,7 +67,7 @@ internal sealed class EcmaScriptProfile : RegexProfile
+     /// <summary>Validates the original flag string with flag-domain diagnostics.</summary>
+     public static bool TryParseFlags(ReadOnlySpan<char> flags, out EcmaScriptProfile? profile,
+         out EcmaScriptDiagnostic diagnostic)
+-        => TryParseFlags(flags, out profile, out diagnostic, UnicodeVersion.Unicode16_0);
++        => TryParseFlags(flags, out profile, out diagnostic, UnicodeVersion.Unicode17_0);
+ 
+     /// <summary>Validates flags for the selected Unicode dataset; undefined versions are argument errors.</summary>
+     public static bool TryParseFlags(ReadOnlySpan<char> flags, out EcmaScriptProfile? profile,
+diff --git a/Jint/Runtime/RegExp/GregsEx/Text/ValueStringBuilder.cs b/Jint/Runtime/RegExp/GregsEx/Text/ValueStringBuilder.cs
+index 121b2c804..f53bb5870 100644
+--- a/Jint/Runtime/RegExp/GregsEx/Text/ValueStringBuilder.cs
++++ b/Jint/Runtime/RegExp/GregsEx/Text/ValueStringBuilder.cs
+@@ -202,7 +202,7 @@ internal struct ValueStringBuilder : IBufferWriter<char>, IDisposable
+     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+     public void Append(string? s)
+     {
+-        if (string.IsNullOrEmpty(s))
++        if (s is null || s.Length == 0)
+         {
+             return;
+         }
+@@ -244,7 +244,7 @@ internal struct ValueStringBuilder : IBufferWriter<char>, IDisposable
+         _pos = pos + value.Length;
+     }
+ 
+-#if !NETSTANDARD2_0
++#if NET6_0_OR_GREATER
+     /// <summary>
+     /// Formats a value directly into the underlying buffer using its <see cref="ISpanFormattable"/> implementation without intermediate string allocations.
+     /// </summary>
+@@ -365,7 +365,7 @@ internal struct ValueStringBuilder : IBufferWriter<char>, IDisposable
+             return "";
+         }
+ 
+-#if NETSTANDARD2_0
++#if NETFRAMEWORK || NETSTANDARD2_0
+         return new string(_arrayFromPool, 0, _pos);
+ #else
+         return new string(_arrayFromPool.AsSpan(0, _pos));
+@@ -384,7 +384,7 @@ internal struct ValueStringBuilder : IBufferWriter<char>, IDisposable
+             return "";
+         }
+ 
+-#if NETSTANDARD2_0
++#if NETFRAMEWORK || NETSTANDARD2_0
+         var s = new string(_arrayFromPool, 0, _pos);
+ #else
+         var s = new string(_arrayFromPool.AsSpan(0, _pos));
