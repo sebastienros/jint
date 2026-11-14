@@ -112,6 +112,96 @@ public sealed class ViewportObserverTests
             .Should().Be("SyntaxError");
     }
 
+    /// <summary>
+    /// IntersectionObserver v2's <c>delay</c> and <c>trackVisibility</c>, and <c>scrollMargin</c>, are read,
+    /// converted and reflected; every expectation was taken from headless Chromium (sebastienros/jint#4532).
+    /// </summary>
+    [Test]
+    public async Task DelayTrackVisibilityAndScrollMarginAreReadAndReflected()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync("<div id='a'></div>");
+
+        static string Attempt(string options, string read)
+            => "(() => { try { return String(new IntersectionObserver(() => {}, " + options + ")." + read + ") } catch (e) { return e.name } })()";
+
+        // The dictionary's members are read in lexicographic order, each converted as it is read.
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const log = [], options = {};
+              for (const k of ['root', 'rootMargin', 'scrollMargin', 'threshold', 'delay', 'trackVisibility'])
+                Object.defineProperty(options, k, { get() { log.push(k); return undefined; } });
+              new IntersectionObserver(() => {}, options);
+              return log.join();
+            })()
+            """)).Should().Be("delay,root,rootMargin,scrollMargin,threshold,trackVisibility");
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const log = [];
+              new IntersectionObserver(() => {}, {
+                get delay() { log.push('delay'); return { valueOf() { log.push('valueOf'); return 1; } }; },
+                get root() { log.push('root'); return null; },
+              });
+              return log.join();
+            })()
+            """)).Should().Be("delay,valueOf,root");
+
+        // The callback is converted before the options, and a primitive is not a dictionary.
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const log = [];
+              try { new IntersectionObserver(5, { get delay() { log.push('delay'); return 0; } }) } catch (e) { log.push(e.name) }
+              return log.join();
+            })()
+            """)).Should().Be("TypeError");
+        (await page.EvaluateAsync<string>(Attempt("5", "delay"))).Should().Be("TypeError");
+        (await page.EvaluateAsync<string>(Attempt("'x'", "delay"))).Should().Be("TypeError");
+        (await page.EvaluateAsync<string>(Attempt("null", "delay"))).Should().Be("0");
+
+        // Defaults.
+        (await page.EvaluateAsync<string>(
+            "(() => { const o = new IntersectionObserver(() => {}); return [o.delay, o.trackVisibility, o.scrollMargin].join('|') })()"))
+            .Should().Be("0|false|0px 0px 0px 0px");
+
+        // delay is a restricted double, truncated toward zero; a non-finite value or a Symbol fails the conversion.
+        (await page.EvaluateAsync<string>(Attempt("{ delay: 12.9 }", "delay"))).Should().Be("12");
+        (await page.EvaluateAsync<string>(Attempt("{ delay: -5.5 }", "delay"))).Should().Be("-5");
+        (await page.EvaluateAsync<string>(Attempt("{ delay: '7' }", "delay"))).Should().Be("7");
+        (await page.EvaluateAsync<string>(Attempt("{ delay: 2 ** 33 }", "delay"))).Should().Be("8589934592");
+        (await page.EvaluateAsync<string>(Attempt("{ delay: NaN }", "delay"))).Should().Be("TypeError");
+        (await page.EvaluateAsync<string>(Attempt("{ delay: Infinity }", "delay"))).Should().Be("TypeError");
+        (await page.EvaluateAsync<string>(Attempt("{ delay: Symbol() }", "delay"))).Should().Be("TypeError");
+
+        // trackVisibility is a boolean, and needs a delay of at least 100.
+        (await page.EvaluateAsync<string>(
+            "(() => { const o = new IntersectionObserver(() => {}, { trackVisibility: 1, delay: 100.7 }); return o.trackVisibility + '|' + o.delay })()"))
+            .Should().Be("true|100");
+        (await page.EvaluateAsync<string>(Attempt("{ trackVisibility: true }", "delay"))).Should().Be("NotSupportedError");
+        (await page.EvaluateAsync<string>(Attempt("{ trackVisibility: true, delay: 99.9 }", "delay"))).Should().Be("NotSupportedError");
+
+        // scrollMargin follows rootMargin's grammar and serialization.
+        (await page.EvaluateAsync<string>(Attempt("{ scrollMargin: '10px 5%' }", "scrollMargin"))).Should().Be("10px 5% 10px 5%");
+        (await page.EvaluateAsync<string>(Attempt("{ scrollMargin: '1px 2px 3px' }", "scrollMargin"))).Should().Be("1px 2px 3px 2px");
+        (await page.EvaluateAsync<string>(Attempt("{ scrollMargin: '1em' }", "scrollMargin"))).Should().Be("SyntaxError");
+        (await page.EvaluateAsync<string>(Attempt("{ scrollMargin: 'bogus' }", "scrollMargin"))).Should().Be("SyntaxError");
+
+        // After the conversion, the delay check runs first, then rootMargin, scrollMargin and the threshold range.
+        (await page.EvaluateAsync<string>(Attempt("{ trackVisibility: true, rootMargin: 'x', threshold: 5 }", "delay")))
+            .Should().Be("NotSupportedError");
+        (await page.EvaluateAsync<string>(Attempt("{ trackVisibility: true, root: 5 }", "delay"))).Should().Be("TypeError");
+        (await page.EvaluateAsync<string>(
+            "(() => { try { new IntersectionObserver(() => {}, { rootMargin: 'bad1', scrollMargin: 'bad2' }) } catch (e) { return e.message } })()"))
+            .Should().Contain("rootMargin");
+        (await page.EvaluateAsync<string>(
+            "(() => { try { new IntersectionObserver(() => {}, { scrollMargin: 'bad2', threshold: 5 }) } catch (e) { return e.name + ':' + e.message } })()"))
+            .Should().StartWith("SyntaxError:").And.Contain("scrollMargin");
+    }
+
     [Test]
     public async Task UnobserveAndDisconnectDropAWaitingNotification()
     {

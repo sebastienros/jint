@@ -24,9 +24,9 @@ namespace Jint.Browser.Observers;
 /// change.
 /// </para>
 /// <para>
-/// <c>root</c>, <c>rootMargin</c> and <c>thresholds</c> are parsed, validated and reflected exactly as the
-/// specification requires, because a page reads them back and because a wrong value is a page bug worth
-/// reporting. They have no effect on what is delivered. The rectangles are
+/// <c>root</c>, <c>rootMargin</c>, <c>scrollMargin</c>, <c>thresholds</c> and v2's <c>delay</c> and
+/// <c>trackVisibility</c> are converted, validated and reflected as headless Chromium does, because a page
+/// reads them back and because a wrong value is a page bug worth reporting. They have no effect on what is delivered. The rectangles are
 /// <see cref="ObserverGeometry">zeros</see>.
 /// </para>
 /// </remarks>
@@ -44,17 +44,18 @@ internal sealed class JsIntersectionObserver : ObjectInstance
         ObjectInstance prototype,
         ObjectInstance entryPrototype,
         ICallable callback,
-        JsValue root,
-        string rootMargin,
-        double[] thresholds)
+        IntersectionObserverOptions options)
         : base(runtime.Engine)
     {
         _runtime = runtime;
         _callback = callback;
         _entryPrototype = entryPrototype;
-        Root = root;
-        RootMargin = rootMargin;
-        Thresholds = thresholds;
+        Root = options.Root;
+        RootMargin = options.RootMargin;
+        ScrollMargin = options.ScrollMargin;
+        Thresholds = options.Thresholds;
+        Delay = options.Delay;
+        TrackVisibility = options.TrackVisibility;
         Prototype = prototype;
     }
 
@@ -64,8 +65,17 @@ internal sealed class JsIntersectionObserver : ObjectInstance
     /// <summary>https://w3c.github.io/IntersectionObserver/#dom-intersectionobserver-rootmargin, serialized.</summary>
     internal string RootMargin { get; }
 
+    /// <summary>https://w3c.github.io/IntersectionObserver/#dom-intersectionobserver-scrollmargin, serialized.</summary>
+    internal string ScrollMargin { get; }
+
     /// <summary>https://w3c.github.io/IntersectionObserver/#dom-intersectionobserver-thresholds, sorted.</summary>
     internal double[] Thresholds { get; }
+
+    /// <summary>https://w3c.github.io/IntersectionObserver/#dom-intersectionobserver-delay (v2), truncated.</summary>
+    internal double Delay { get; }
+
+    /// <summary>https://w3c.github.io/IntersectionObserver/#dom-intersectionobserver-trackvisibility (v2).</summary>
+    internal bool TrackVisibility { get; }
 
     /// <inheritdoc />
     public override string ToString() => "[object IntersectionObserver]";
@@ -172,12 +182,26 @@ internal sealed class JsIntersectionObserver : ObjectInstance
 
     /// <summary>
     /// https://w3c.github.io/IntersectionObserver/#dom-intersectionobserver-intersectionobserver — the
-    /// options dictionary, validated the way the constructor's steps 1-6 validate it.
+    /// options dictionary, converted and then validated by the constructor's steps.
     /// </summary>
-    internal static (JsValue Root, string RootMargin, double[] Thresholds) ReadOptions(Engine engine, JsValue value)
+    /// <remarks>
+    /// WebIDL converts the dictionary first (https://webidl.spec.whatwg.org/#es-dictionary), reading and converting
+    /// each member in lexicographic order: <c>delay</c>, <c>root</c>, <c>rootMargin</c>, <c>scrollMargin</c>,
+    /// <c>threshold</c>, <c>trackVisibility</c>. Only then do the constructor's checks run, in the order headless
+    /// Chromium runs them: the v2 <c>trackVisibility</c>/<c>delay</c> check, the two margin parses, the threshold range.
+    /// </remarks>
+    internal static IntersectionObserverOptions ReadOptions(Engine engine, JsValue value)
     {
         var realm = engine._mainRealm;
         var options = value as ObjectInstance;
+
+        // https://webidl.spec.whatwg.org/#es-dictionary step 1: only undefined, null or an object converts.
+        if (options is null && !value.IsNullOrUndefined())
+        {
+            Throw.TypeError(realm, "Failed to construct 'IntersectionObserver': The provided value is not of type 'IntersectionObserverInit'.");
+        }
+
+        var delay = ConvertDelay(realm, options?.Get("delay"));
 
         var root = options?.Get("root") ?? JsValue.Undefined;
         if (root.IsUndefined())
@@ -189,27 +213,72 @@ internal sealed class JsIntersectionObserver : ObjectInstance
             Throw.TypeError(realm, "Failed to construct 'IntersectionObserver': member root is not of type Element or Document.");
         }
 
-        var margin = options?.Get("rootMargin") is { } m && !m.IsUndefined() ? TypeConverter.ToString(m) : "0px";
+        var rootMargin = ConvertMargin(options?.Get("rootMargin"));
+        var scrollMargin = ConvertMargin(options?.Get("scrollMargin"));
 
-        // The whole dictionary is converted before the constructor's steps run, so threshold is iterated, and a
-        // non-finite one refused, before step 3 parses rootMargin and step 6 checks the range.
+        // threshold is iterated, and a non-finite one refused, as part of the conversion: before any check below.
         var thresholds = ConvertThreshold(realm, options?.Get("threshold"));
-        var rootMargin = SerializeMargin(engine, margin);
+        var trackVisibility = options?.Get("trackVisibility") is { } track && TypeConverter.ToBoolean(track);
 
-        return (root, rootMargin, CheckThresholds(realm, thresholds));
+        // https://w3c.github.io/IntersectionObserver/#dom-intersectionobserver-intersectionobserver (v2): visibility
+        // tracking is only offered to an observer that accepts being told about it at most every 100ms.
+        if (trackVisibility && delay < 100)
+        {
+            var error = realm.Intrinsics.DomException.CreateException(
+                Jint.WebApi.DomException.DomExceptionNames.NotSupported,
+                "Failed to construct 'IntersectionObserver': To enable the 'trackVisibility' option, you must also use a 'delay' option with a value of at least 100.");
+            Throw.JavaScriptException(engine, error, engine.GetLastSyntaxElement()?.Location ?? default);
+        }
+
+        return new IntersectionObserverOptions(
+            root,
+            SerializeMargin(engine, "rootMargin", rootMargin),
+            SerializeMargin(engine, "scrollMargin", scrollMargin),
+            CheckThresholds(realm, thresholds),
+            delay,
+            trackVisibility);
+    }
+
+    /// <summary>A <c>DOMString</c> margin member, defaulting to <c>"0px"</c>.</summary>
+    private static string ConvertMargin(JsValue? value)
+        => value is null || value.IsUndefined() ? "0px" : TypeConverter.ToString(value);
+
+    /// <summary>
+    /// <c>delay</c>. The v2 draft declares it a <c>long</c>; Chromium, which is what pages run against, converts it
+    /// as a restricted <c>double</c> (a non-finite value is a <c>TypeError</c>) and keeps it as a 64-bit integer, so
+    /// it is truncated toward zero, saturated, and never wraps the way <c>long</c>'s modulo conversion would.
+    /// </summary>
+    private static double ConvertDelay(Realm realm, JsValue? value)
+    {
+        if (value is null || value.IsUndefined())
+        {
+            return 0;
+        }
+
+        var number = TypeConverter.ToNumber(value);
+
+        if (!double.IsFinite(number))
+        {
+            Throw.TypeError(
+                realm,
+                "Failed to construct 'IntersectionObserver': Failed to read the 'delay' property from 'IntersectionObserverInit': The provided double value is non-finite.");
+        }
+
+        // + 0 turns a truncated -0 into the 0 a 64-bit integer reads back as.
+        return Math.Clamp(Math.Truncate(number), long.MinValue, long.MaxValue) + 0;
     }
 
     /// <summary>
     /// The margin is one to four <c>&lt;length-percentage&gt;</c> components, serialized back as four. Only
     /// <c>px</c> and <c>%</c> are units a margin may carry, and a zero may be written bare.
     /// </summary>
-    private static string SerializeMargin(Engine engine, string margin)
+    private static string SerializeMargin(Engine engine, string member, string margin)
     {
         var parts = margin.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries);
 
         if (parts.Length is 0 or > 4)
         {
-            BadMargin(engine, "rootMargin must be one to four length or percentage components");
+            BadMargin(engine, member + " must be one to four length or percentage components");
         }
 
         // CSS's one-to-four shorthand expansion, in the order top, right, bottom, left.
@@ -224,13 +293,13 @@ internal sealed class JsIntersectionObserver : ObjectInstance
                 _ => i,
             };
 
-            components[i] = Component(engine, parts[source]);
+            components[i] = Component(engine, member, parts[source]);
         }
 
         return string.Join(" ", components);
     }
 
-    private static string Component(Engine engine, string part)
+    private static string Component(Engine engine, string member, string part)
     {
         var value = part;
         var unit = "px";
@@ -247,14 +316,14 @@ internal sealed class JsIntersectionObserver : ObjectInstance
 
         if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
         {
-            BadMargin(engine, "rootMargin component '" + part + "' is not a length or a percentage");
+            BadMargin(engine, member + " component '" + part + "' is not a length or a percentage");
         }
 
         return number.ToString("0.####", CultureInfo.InvariantCulture) + unit;
     }
 
     /// <summary>
-    /// A malformed <c>rootMargin</c> is a <c>SyntaxError</c> <c>DOMException</c> rather than a
+    /// A malformed <c>rootMargin</c> or <c>scrollMargin</c> is a <c>SyntaxError</c> <c>DOMException</c> rather than a
     /// <c>TypeError</c>: the value crossed WebIDL's <c>DOMString</c> conversion cleanly and failed the
     /// interface's own parse, which is the distinction the two error types carry.
     /// </summary>
@@ -354,6 +423,15 @@ internal sealed class JsIntersectionObserver : ObjectInstance
         return [.. thresholds];
     }
 }
+
+/// <summary>The converted and validated <c>IntersectionObserverInit</c>.</summary>
+internal readonly record struct IntersectionObserverOptions(
+    JsValue Root,
+    string RootMargin,
+    string ScrollMargin,
+    double[] Thresholds,
+    double Delay,
+    bool TrackVisibility);
 
 /// <summary>
 /// One <c>IntersectionObserverEntry</c>: the target, the moment it was reported, and the zero rectangles a
