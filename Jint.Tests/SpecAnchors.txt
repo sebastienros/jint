@@ -14,8 +14,8 @@
 # The 'verified' date is the only thing bounding anchor rot: a clause renamed upstream keeps
 # resolving here until somebody re-runs that.
 #
-verified: 2026-10-17
-anchors: 1350
+verified: 2026-11-14
+anchors: 1352
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -114,6 +114,7 @@ ecma262 sec-array.prototype.find
 ecma262 sec-array.prototype.findindex
 ecma262 sec-array.prototype.flat
 ecma262 sec-array.prototype.flatmap
+ecma262 sec-array.prototype.foreach
 ecma262 sec-array.prototype.includes
 ecma262 sec-array.prototype.indexof
 ecma262 sec-array.prototype.join
@@ -843,6 +844,7 @@ ecma262 sec-typedarray-defineownproperty
 ecma262 sec-typedarray-get
 ecma262 sec-typedarraybytelength
 ecma262 sec-typedarraylength
+ecma262 sec-undefined
 ecma262 sec-updateempty
 ecma262 sec-validateandapplypropertydescriptor
 ecma262 sec-validateatomicaccess
