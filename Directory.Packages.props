@@ -17,12 +17,12 @@
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
     <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.5" />
     <PackageVersion Include="ICU4N" Version="60.1.0-alpha.440" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.321" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.340" />
     <PackageVersion Include="Microsoft.ClearScript.V8" Version="7.5.1.1" />
     <PackageVersion Include="Microsoft.ClearScript.V8.Native.win-x64" Version="7.5.1.1" />
     <PackageVersion Include="Microsoft.ClearScript.V8.Native.linux-x64" Version="7.5.1.1" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" PrivateAssets="all" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" PrivateAssets="all" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.12.0" PrivateAssets="all" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" PrivateAssets="all" />
     <PackageVersion Include="Verify.SourceGenerators" Version="2.5.0" />
     <PackageVersion Include="Verify.NUnit" Version="33.3.4" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
@@ -74,6 +74,6 @@
          [Microsoft.CodeAnalysis.Embedded], which Roslyn only accepts from 4.14 onwards; on an older
          compiler it fails with CS8336, and Jint.SourceGenerators (netstandard2.0 + IsRoslynComponent
          + Microsoft.CodeAnalysis.CSharp) is exactly the shape that trips it. -->
-    <GlobalPackageReference Include="PolySharp" Version="1.16.0" />
+    <GlobalPackageReference Include="PolySharp" Version="1.17.1" />
   </ItemGroup>
 </Project>
