@@ -9,7 +9,8 @@ namespace Jint.Browser.Dom.Views;
 
 internal static class ResolvedStyle
 {
-    // Renderless CSSOM: width/height use synthetic geometry and colors resolve to sRGB; other values stay text.
+    // Renderless CSSOM: width/height and grid column tracks use synthetic geometry, colors (also in gradients)
+    // resolve to sRGB; other values stay text.
     internal static string ValueOf(string propertyName, NativeCssComputedStyle style, Element element, PageRuntime? runtime)
     {
         style.VerifyRead();
@@ -21,21 +22,31 @@ internal static class ResolvedStyle
             style.VerifyRead();
             return value;
         }
-        if (name is not ("width" or "height") || runtime is null ||
+        if (ResolvedValueText.IsImage(name))
+        {
+            value = ResolvedValueText.Image(value, style);
+            style.VerifyRead();
+            return value;
+        }
+        if (name == "grid-template-columns" && !ResolvedValueText.IsGridContainer(style)) return value;
+        if (name is not ("width" or "height" or "grid-template-columns") || runtime is null ||
             !ReferenceEquals(runtime.Document, element.OwnerDocument)) return value;
         var sizes = style.ReadContext is { } context ? runtime.Layout.MeasureSizes(context) : runtime.Layout.MeasureSizes();
         if (sizes.HasBox(element))
         {
-            var number = name == "width" ? sizes.Width(element) : sizes.Height(element);
-            value = number.ToString("0.######", CultureInfo.InvariantCulture) + "px";
+            value = name == "grid-template-columns"
+                ? ResolvedValueText.GridColumns(value, style, sizes.Width(element))
+                : (name == "width" ? sizes.Width(element) : sizes.Height(element)).ToString("0.######", CultureInfo.InvariantCulture) + "px";
         }
         style.VerifyRead();
         return value;
     }
 
-    /// <summary>A settled property's resolved color, or its text unchanged when it is not color-valued.</summary>
+    /// <summary>A settled property's resolved color (gradient stops included), or its text unchanged otherwise.</summary>
     internal static string ColorOf(string name, string value, NativeCssComputedStyle style) =>
-        IsColor(name) ? Color(name, value, style) : value;
+        IsColor(name) ? Color(name, value, style)
+        : ResolvedValueText.IsImage(name) ? ResolvedValueText.Image(value, style)
+        : value;
 
     // CSSOM §9 (resolved value): color properties report the used color; CSS Color 4 §4.6 makes
     // currentcolor the element's color, and on 'color' itself the inherited one.
