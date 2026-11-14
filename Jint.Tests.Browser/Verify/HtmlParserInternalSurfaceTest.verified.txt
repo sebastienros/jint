@@ -134,6 +134,7 @@ internal Jint.HtmlParser.Css.Model.CssStyleRule
     (constructor)
     SetSelectorText
     TryMatch
+    TryMatchPseudoElement
     get_Selector
     get_SelectorText
     get_Style
@@ -229,6 +230,7 @@ internal Jint.HtmlParser.Css.Selectors.SelectorMatcher
     QuerySelector
     QuerySelectorAllSnapshot
     TryMatch
+internal Jint.HtmlParser.Css.Selectors.SelectorPseudoElement
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKey
     get_Kind
     get_Name

@@ -55,7 +55,7 @@ through `BrowserEventRealm.ActivationHost`. A colour or date picker has nothing 
 with and is honestly nothing rather than a guessed value. Focusability is computed from the element's kind and
 its `tabindex` content attribute, not the reflected `tabIndex` default.
 **DOM queries and stylesheet selectors consume Browser state.** `DomSelectors` and
-`NativeCssStyleSheets.CreateQuery` pass focus, pointer-press and fragment-target identities through the
+`NativeCssStyleSheets.CreateQuery` pass focus, pointer-press, pointer-hover and fragment-target identities through the
 native `SelectorEnvironment`, with `BrowserSelectorControlFacts` supplying control state. Do not introduce
 an independent focus model for selectors.
 

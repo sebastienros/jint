@@ -264,10 +264,10 @@ internal static partial class SelectorMatcher
             case PredicateKind.Focus:
             case PredicateKind.FocusWithin:
             case PredicateKind.Active:
+            case PredicateKind.Hover:
             case PredicateKind.Target:
                 return MatchEnvironment(predicate.Kind, element, ref work);
-            // Current headless profile has no hover, focus indicator, or UA autofill store.
-            case PredicateKind.Hover:
+            // Current headless profile has no focus indicator or UA autofill store.
             case PredicateKind.FocusVisible:
             case PredicateKind.Autofill:
                 return false;

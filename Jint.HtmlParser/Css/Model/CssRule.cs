@@ -132,6 +132,12 @@ internal sealed class CssStyleRule : CssRule
         in SelectorEnvironment environment, ref SelectorMatchWork work, ShadowRoot? shadowScope = null) =>
         SelectorMatcher.TryMatch(_selector, element, out specificity, scopingRoot, environment, ref work, shadowScope);
 
+    // Whether a branch of this rule's selector has the element's pseudoElement as its subject.
+    internal bool TryMatchPseudoElement(Element element, SelectorPseudoElement pseudoElement, out SelectorSpecificity specificity,
+        Node? scopingRoot, in SelectorEnvironment environment, ref SelectorMatchWork work, ShadowRoot? shadowScope = null) =>
+        SelectorMatcher.TryMatchPseudoElement(_selector, element, pseudoElement, out specificity, scopingRoot, environment,
+            ref work, shadowScope);
+
     internal void SetSelectorText(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
         => SetSelectorText(source, options, new CssValueWork(cancellationToken), cancellationToken);

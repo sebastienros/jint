@@ -27,6 +27,19 @@ public sealed class NativeCssScopeTests
     }
 
     [Test]
+    public async Task ScopedPseudoElementsFollowTheirOriginatingElement()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>@scope (.r) to (.stop) { .a::before { content:'x'; display:flex } }</style>" +
+            "<div class=r><span class=a id=in></span><div class=stop><span class=a id=limited></span></div></div>");
+        (await page.EvaluateAsync<string>("""
+            ['#in', '#limited'].map(s => getComputedStyle(document.querySelector(s), '::before').display).join()
+            """)).Should().Be("flex,inline");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ImplicitRootIsTheStyleElementsParent()
     {
         await using var browser = new Browser();

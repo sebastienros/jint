@@ -203,6 +203,11 @@ internal static partial class SelectorMatcher
                     SelectorStateTraversal.BuildActive(environment, ref work.Shared);
                 work.Step();
                 return cell.ActiveElements!.Contains(element);
+            case PredicateKind.Hover:
+                if (cell.HoverElements is null)
+                    SelectorStateTraversal.BuildHover(environment, ref work.Shared);
+                work.Step();
+                return cell.HoverElements!.Contains(element);
             default:
                 throw Unsupported(kind.ToString());
         }

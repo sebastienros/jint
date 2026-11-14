@@ -15,8 +15,9 @@ internal sealed partial class NativeCssQuery
     private Dictionary<(CssScopeRule Scope, Element Subject), int[]>? _scopeRoots;
     private Dictionary<Element, List<Element>>? _scopePaths;
 
-    private bool TryMatchScoped(Element element, CssStyleRule rule, CssScopeRule[] chain, ShadowRoot? shadow,
-        ref SelectorMatchWork matching, out SelectorSpecificity specificity, out int proximity)
+    // A pseudo-element is in scope exactly when its originating element is.
+    private bool TryMatchScoped(Element element, SelectorPseudoElement? pseudo, CssStyleRule rule, CssScopeRule[] chain,
+        ShadowRoot? shadow, ref SelectorMatchWork matching, out SelectorSpecificity specificity, out int proximity)
     {
         specificity = default;
         proximity = int.MaxValue;
@@ -24,7 +25,10 @@ internal sealed partial class NativeCssQuery
         foreach (var root in ScopeRoots(element, chain, path, shadow, ref matching))
         {
             _work.Charge(1);
-            if (!rule.TryMatch(element, out specificity, ScopeNode(path, root, shadow), _selectors, ref matching, shadow))
+            var scopingRoot = ScopeNode(path, root, shadow);
+            if (!(pseudo is { } target
+                    ? rule.TryMatchPseudoElement(element, target, out specificity, scopingRoot, _selectors, ref matching, shadow)
+                    : rule.TryMatch(element, out specificity, scopingRoot, _selectors, ref matching, shadow)))
                 continue;
             proximity = root;
             return true;
