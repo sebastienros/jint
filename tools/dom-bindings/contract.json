@@ -1274,6 +1274,41 @@
       "Unscopables": []
     },
     {
+      "DomName": "CSSScopeRule",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssScopeRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssScopeRule",
+      "Parent": "CSSGroupingRule",
+      "RootsAtEventTarget": false,
+      "HasInterfaceObject": true,
+      "Kind": 0,
+      "FieldName": "CSSScopeRule",
+      "Group": "Css",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "start",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssScopeRule>(thisObj, \"CSSScopeRule.start\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.Start);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSS Cascade 6 CSSScopeRule.start"
+        },
+        {
+          "DomName": "end",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssScopeRule>(thisObj, \"CSSScopeRule.end\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.End);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSS Cascade 6 CSSScopeRule.end"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": []
+    },
+    {
       "DomName": "CSSStyleDeclaration",
       "ClrTypeName": "Jint.Browser.Styling.NativeCssDeclaration",
       "ReceiverType": "global::Jint.Browser.Styling.NativeCssDeclaration",

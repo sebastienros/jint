@@ -227,8 +227,8 @@ internal sealed class CssStyleSheet
             {
                 frames.Push((style.Rules, 0, null));
             }
-            else if (rule is CssLayerBlockRule layer)
-                frames.Push((layer.Rules, 0, null));
+            else if (rule is CssLayerBlockRule or CssScopeRule)
+                frames.Push((rule.Rules, 0, null));
             else if (rule is CssMediaRule media && media.Media.Matches(environment, work))
                 frames.Push((media.Rules, 0, null));
             else if (rule is CssSupportsRule { Matches: true } supports)
@@ -270,26 +270,27 @@ internal sealed class CssStyleSheet
         => ParseSingle(source, options, new CssValueWork(cancellationToken), cancellationToken);
 
     internal static CssRule ParseSingle(string source, CssParseOptions? options, CssValueWork work,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, CssStyleRule? nestingContext = null)
     {
         using var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
         CssRuleSyntax syntax;
         try { syntax = parser.ParseRule(); }
         catch (CssParseException) { throw new DomException("SyntaxError", "Exactly one valid CSS rule is required."); }
-        var rule = BuildRule(source, syntax, parser, options, work, cancellationToken) ??
+        var rule = BuildRule(source, syntax, parser, options, work, cancellationToken, nestingContext) ??
             throw new DomException("SyntaxError", "The CSS rule is invalid or unknown.");
         work.CheckCancellation();
         return rule;
     }
 
     private static CssRule? BuildRule(string source, CssRuleSyntax syntax, CssSyntaxParser parser,
-        CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
+        CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken,
+        CssStyleRule? nestingContext = null)
     {
-        var root = BuildShallow(source, syntax, parser, options, work, cancellationToken, out var rootBody);
+        var root = BuildShallow(source, syntax, parser, options, work, cancellationToken, out var rootBody, nestingContext);
         if (root is not (CssGroupingRule or CssStyleRule) || syntax.Block is not { } rootBlock) return root;
         // A style rule's body was already parsed for its declarations; grouping rules parse theirs here.
         Stack<PendingBlock>? pending = null;
-        var item = new PendingBlock(root, rootBlock, rootBody);
+        var item = new PendingBlock(root, rootBlock, rootBody, CssScopeRule.ChildContext(root, nestingContext));
         while (true)
         {
             work.Charge(1);
@@ -299,18 +300,20 @@ internal sealed class CssStyleSheet
                 if (entry.Kind != CssBlockItemKind.Rule) continue;
                 if (entry.Rule.Kind == CssRuleKind.AtRule && CssAscii.EqualsIgnoreCase(entry.Rule.Name, "import")) continue;
                 var child = BuildShallow(source, entry.Rule, parser, options, work, cancellationToken,
-                    out var childBody, item.Owner as CssStyleRule);
+                    out var childBody, item.Context);
                 if (child is null) continue;
                 if (item.Owner is CssGroupingRule group) group.AddProjected(child);
                 else ((CssStyleRule) item.Owner).AddProjected(child);
                 if (child is CssGroupingRule or CssStyleRule && entry.Rule.Block is { } childBlock)
-                    (pending ??= new()).Push(new(child, childBlock, childBody));
+                    (pending ??= new()).Push(new(child, childBlock, childBody, CssScopeRule.ChildContext(child, item.Context)));
             }
             if (pending is null || !pending.TryPop(out item)) return root;
         }
     }
 
-    private readonly record struct PendingBlock(CssRule Owner, CssComponentValue Block, CssBlockSyntax? Body);
+    // Context is the nesting parent the block's children compile against (CssScopeRule.ChildContext).
+    private readonly record struct PendingBlock(CssRule Owner, CssComponentValue Block, CssBlockSyntax? Body,
+        CssStyleRule? Context);
 
     internal static CssRule? BuildShallow(string source, CssRuleSyntax syntax, CssSyntaxParser parser,
         CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken,
@@ -329,7 +332,9 @@ internal sealed class CssStyleSheet
             // CSS Nesting §3.3 https://drafts.csswg.org/css-nesting-1/#nesting-at-rules
             // Until grouping rules carry the parent selector context, retain their complete raw
             // contents without projecting descendants into the cascade.
-            if (nestingParent is not null && kind is CssAtRuleKind.Media or CssAtRuleKind.Supports or CssAtRuleKind.Layer)
+            // A scope anchor is not a parent selector: grouping rules inside @scope stay supported.
+            if (nestingParent is { IsScopeAnchor: false } &&
+                kind is CssAtRuleKind.Media or CssAtRuleKind.Supports or CssAtRuleKind.Layer or CssAtRuleKind.Scope)
             {
                 options?.Diagnostics?.Add("css/unsupported-nested-at-rule", syntax.Span.Start);
                 work.Charge(syntax.Span.Length);
@@ -354,7 +359,7 @@ internal sealed class CssStyleSheet
                     }
                 case CssAtRuleKind.FontFace:
                     {
-                        if (syntax.Block is not { } descriptorBlock || nestingParent is not null) return null;
+                        if (syntax.Block is not { } descriptorBlock || nestingParent is { IsScopeAnchor: false }) return null;
                         foreach (var value in syntax.Prelude)
                         {
                             work.Charge(1);
@@ -372,6 +377,8 @@ internal sealed class CssStyleSheet
                     }
                 case CssAtRuleKind.Media:
                     return syntax.Block is null ? null : new CssMediaRule(CssMediaList.FromComponents(source, syntax.Prelude, parser, work), syntax.Span);
+                case CssAtRuleKind.Scope:
+                    return CssScopeRule.Parse(source, syntax, parser, options, work, nestingParent, cancellationToken);
                 case CssAtRuleKind.Supports:
                     {
                         if (syntax.Block is null || !CssSupports.TryParseCondition(source, syntax.Prelude, options, work, out var matches))
@@ -420,7 +427,7 @@ internal sealed class CssStyleSheet
         try
         {
             return new SelectorCompiler.Worker(source,
-                new SelectorParseContext(limits: options?.Limits, nestingParent: nestingParent?.Selector),
+                SelectorParseContext.For(options?.Limits, nestingParent),
                 cancellationToken, work.CheckCancellation).Compile(syntax.Prelude);
         }
         catch (SelectorParseException) { return null; }

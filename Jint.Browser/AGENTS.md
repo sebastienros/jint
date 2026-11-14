@@ -76,13 +76,13 @@ Do not restore typed grammar engines or eagerly parse CSS during HTML constructi
 
 | Surface | Current implementation and boundary |
 | --- | --- |
-| Defaults and cascade | `NativeCssBrowserDefaults` supplies supported HTML UA rules. `NativeCssQuery` lazily selects text by origin/importance/layer/specificity/order and inline precedence, with inherited values and a small catalog default table. `NativeCssQuery.Index` buckets rules by their subject's id, class or type (LightPanda's StyleManager); the key filter must stay a superset of matcher case rules. |
+| Defaults and cascade | `NativeCssBrowserDefaults` supplies supported HTML UA rules. `NativeCssQuery` lazily selects text by origin/importance/layer/specificity/scope-proximity/order and inline precedence, with inherited values and a small catalog default table. `NativeCssQuery.Index` buckets rules by their subject's id, class or type (LightPanda's StyleManager); the key filter must stay a superset of matcher case rules. |
 | Resolved values | `Dom/Views/ResolvedStyle` returns synthetic width/height for elements with boxes, otherwise declaration text. No calc, color, font-unit, transform, border or URL computation. |
 | Computed declaration | `ReadOnlyStyleDeclaration` is a read-only Browser view, not a mutable detached stylesheet declaration. `CssCascade.Traversal.Current` shares one traversal per document across script reads while `NativeCssQuery.IsReusable` and the page witness hold; an input a query captures must retire it. |
 
 Custom properties inherit declared text; ordinary values optionally use depth-limited textual `var()`.
-Only layout-used shorthands expand, by whitespace splitting. Other than style/media/supports/layer/import/
-font-face, at-rules are opaque base `CSSRule` objects. Container queries, keyframes, registrations and
+Only layout-used shorthands expand, by whitespace splitting. Other than style/media/supports/layer/scope/
+import/font-face, at-rules are opaque base `CSSRule` objects. Container queries, keyframes, registrations and
 typed OM interfaces are removed by design. Retain query stamps, bounded work and CSSOM identity.
 
 **Rule-usage coverage observes the same native rule identities the cascade matched**, independently of

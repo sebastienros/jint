@@ -119,7 +119,7 @@ internal static class NativeCssParsing
                     end = i;
                     break;
                 }
-                var parsed = PreparedRules.Parse(item, input.Parent as CssStyleRule, guarded);
+                var parsed = PreparedRules.Parse(item, CssScopeRule.NestingContextOf(input.Parent, guarded), guarded);
                 if (parsed is not { } value) continue;
                 var rule = value.Rule;
                 if (rule is CssImportRule) hasImport = true;
@@ -258,7 +258,7 @@ internal static class NativeCssParsing
             result.Add(rule);
             switch (rule)
             {
-                case CssStyleRule or CssLayerBlockRule:
+                case CssStyleRule or CssLayerBlockRule or CssScopeRule:
                     frames.Push((ReadRules(rule.Rules, work), 0, null));
                     break;
                 case CssMediaRule media when ReadMedia(media.Media, work).Matches(environment, work):

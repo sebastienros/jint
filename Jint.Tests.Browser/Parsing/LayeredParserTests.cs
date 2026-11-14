@@ -8,7 +8,7 @@ public sealed class LayeredParserTests
     public async Task AnIgnoredLateImportDoesNotForceThePrecedingStyleBody()
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server
-            .MapHtml("/", "<style>p { @scope (.unused) {} } @import '/ignored.css';</style><p>ready</p>")
+            .MapHtml("/", "<style>p { @container (.unused) {} } @import '/ignored.css';</style><p>ready</p>")
             .Map("/ignored.css", _ => LoopbackResponse.Css("p { color:red }")));
         await fixture.Page.NavigateAsync(fixture.Url("/"));
         fixture.Page.Errors.Should().BeEmpty();
@@ -21,7 +21,7 @@ public sealed class LayeredParserTests
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server
             .MapHtml("/", "<style id=s>@import '/child.css';</style><p id=target>ready</p>")
-            .Map("/child.css", _ => LoopbackResponse.Css("@scope (.unused) { p { color:red } }")));
+            .Map("/child.css", _ => LoopbackResponse.Css("@container (.unused) { p { color:red } }")));
         await fixture.Page.NavigateAsync(fixture.Url("/"));
         fixture.Page.Errors.Should().BeEmpty();
         fixture.Server.Received.Count(request => request.Path == "/child.css").Should().Be(1);
@@ -38,7 +38,7 @@ public sealed class LayeredParserTests
     public async Task StyleQueriesSkipInactiveBodiesButCssomCanDemandThem(string condition)
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/",
-            "<style id=s>" + condition + " { @scope (.unused) {} } p { color:blue }</style><p id=target>ready</p>"));
+            "<style id=s>" + condition + " { @container (.unused) {} } p { color:blue }</style><p id=target>ready</p>"));
         await fixture.Page.NavigateAsync(fixture.Url("/"));
         (await fixture.Page.EvaluateAsync<string>("getComputedStyle(target).color")).Should().Be("rgb(0, 0, 255)");
         (await fixture.Page.EvaluateAsync<bool>("s.sheet.cssRules.length===2")).Should().BeTrue();
@@ -52,7 +52,7 @@ public sealed class LayeredParserTests
     public async Task ChangingMediaActivatesDeferredParsingAndReplacementDiscardsTheOldSource()
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/",
-            "<style id=s>@media print { @scope (.unused) {} } p { color:blue }</style><p id=target>ready</p>"));
+            "<style id=s>@media print { @container (.unused) {} } p { color:blue }</style><p id=target>ready</p>"));
         await fixture.Page.NavigateAsync(fixture.Url("/"));
         (await fixture.Page.EvaluateAsync<string>("getComputedStyle(target).color")).Should().Be("rgb(0, 0, 255)");
         (await fixture.Page.EvaluateAsync<string>(

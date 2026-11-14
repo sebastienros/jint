@@ -10,7 +10,7 @@ Historical implementation measurements in git history do not describe the curren
 | Area | Disposition |
 | --- | --- |
 | Syntax, selectors, media | Retained, including bounded work and existing selector specificity. |
-| Style/media/supports/layer/import/font-face CSSOM | Retained; declarations and font descriptors store text. |
+| Style/media/supports/layer/scope/import/font-face CSSOM | Retained; declarations and font descriptors store text. |
 | Other at-rules | Generic CSSRule with source cssText; no cascade effects or specialized interfaces. |
 | V0-V9 typed grammars, math, colors, transforms, all resets | Removed by design: parsing cost is not justified by renderless automation. Catalog names are data, not grammar obligations. |
 | Keyframes, property registrations, container queries, pages/counters/namespaces | Semantic models removed by design; opaque rule text remains. |

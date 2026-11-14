@@ -393,6 +393,25 @@ internal static partial class DomInterfaces
                 }))
             .Build();
 
+    /// <summary>The members of <c>CSSScopeRule</c>.</summary>
+    private static global::Jint.Native.JsObjectShape BuildCSSScopeRule()
+        => new global::Jint.Native.JsObjectShape.Builder()
+            .ToStringTag("CSSScopeRule")
+            .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("start",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSScopeRule.start", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssScopeRule>(thisObj, "CSSScopeRule.start");
+                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.Start);
+                }))
+            .Accessor("end",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSScopeRule.end", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssScopeRule>(thisObj, "CSSScopeRule.end");
+                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.End);
+                }))
+            .Build();
+
     /// <summary>The members of <c>CSSStyleDeclaration</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildCSSStyleDeclaration()
         => new global::Jint.Native.JsObjectShape.Builder()

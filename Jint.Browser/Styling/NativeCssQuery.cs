@@ -14,7 +14,7 @@ internal enum NativeCssDisposition { Cascaded, Initial, Inherited, InvalidAtComp
 internal sealed record NativeCssSheet(CssStyleSheet Sheet, NativeCssOrigin Origin, string? NamespaceUri = null);
 internal sealed record NativeCssSource(CssStyleRule? Rule, CssDeclarationBlock Block,
     NativeCssOrigin Origin, SelectorSpecificity Specificity, long Order, bool Inline, NativeCssLayer? Layer = null,
-    int EncapsulationDepth = 0);
+    int EncapsulationDepth = 0, int ScopeProximity = int.MaxValue);
 internal sealed record NativeCssProperty(string Name, string Text, NativeCssSource? Source, NativeCssDisposition Disposition);
 
 // CSS Cascade 5 §§6-7. One synchronous query, with text values and iterative inheritance.
@@ -255,11 +255,17 @@ internal sealed partial class NativeCssQuery
             var hostRule = ReferenceEquals(scope?.Host, element);
             if (origin == NativeCssOrigin.Author && !hostRule && !ReferenceEquals(scope, element.TreeShadowRoot)) continue;
             _diagnostics?.RuleAttempted(element, rule);
-            if (rule.TryMatch(element, out var specificity, null, _selectors, ref matching, scope))
+            SelectorSpecificity specificity = default;
+            var proximity = int.MaxValue;
+            var matched = _scopeChains is not null && _scopeChains.TryGetValue(rule, out var chain)
+                ? !hostRule && TryMatchScoped(element, rule, chain, scope, ref matching, out specificity, out proximity)
+                : rule.TryMatch(element, out specificity, null, _selectors, ref matching, scope);
+            if (matched)
             {
                 _diagnostics?.RuleMatched(element, rule);
                 state.Matches.Add(rule);
-                state.Sources.Add(new(rule, rule.Style, origin, specificity, order, false, layer, depth + (hostRule ? 1 : 0)));
+                state.Sources.Add(new(rule, rule.Style, origin, specificity, order, false, layer, depth + (hostRule ? 1 : 0),
+                    proximity));
             }
         }
         _candidateBuffer = candidates;
@@ -334,6 +340,9 @@ internal sealed partial class NativeCssQuery
         comparison = (left.Source.Layer?.Rank ?? int.MaxValue).CompareTo(right.Source.Layer?.Rank ?? int.MaxValue);
         if (comparison != 0) return important ? -comparison : comparison;
         comparison = left.Source.Specificity.CompareTo(right.Source.Specificity);
+        if (comparison != 0) return comparison;
+        // CSS Cascade 6 §3.6 scope proximity: fewer hops wins, for important declarations too.
+        comparison = right.Source.ScopeProximity.CompareTo(left.Source.ScopeProximity);
         return comparison != 0 ? comparison : left.Source.Order.CompareTo(right.Source.Order);
     }
 
