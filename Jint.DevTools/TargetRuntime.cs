@@ -70,8 +70,9 @@ internal sealed class TargetRuntime : IDisposable
             Scripts.Start();
         }
 
-        // Console records reach a client only if the engine was built with UseDevTools, which is what
-        // installed the sink this binds to. An engine built without it is attachable and evaluable and says
+        // Console records reach a client only if the engine was built with UseDevTools, or is a Jint.Browser
+        // page's (BrowserEngineFactory installs the same sink on every document), which is what installed the
+        // sink this binds to. An engine built without it is attachable and evaluable and says
         // nothing about what its scripts logged, which is stated rather than silently half-true.
         _console = engine.Options.WebApi.Console.Sink as DevToolsConsoleSink;
         if (_console?.TryBind(target, engine) == false)
