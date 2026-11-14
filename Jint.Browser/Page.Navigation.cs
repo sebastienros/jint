@@ -1116,6 +1116,7 @@ public sealed partial class Page
         try
         {
             _observer?.DocumentCreated(runtime, loaderId);
+            runtime.DocumentPhase = phase => Reached(runtime, phase, loaderId);
 
             // Before the parse, and the order is load-bearing rather than tidy. Every phase signal a caller of
             // NavigateAsync may be awaiting is raised *inside* the parse, so signalling afterwards would let a

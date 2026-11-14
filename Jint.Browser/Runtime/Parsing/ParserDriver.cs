@@ -850,7 +850,16 @@ internal sealed partial class ParserDriver : IDisposable
     // After the parse: modules, then the lifecycle.
     // ---------------------------------------------------------------------------------------------------
 
-    private void FinishLoad(Document document, Action<NavigationPhase>? onPhase)
+    /// <param name="document">The document whose parse ended.</param>
+    /// <param name="onPhase">Who hears <c>DOMContentLoaded</c> and <c>Loaded</c>.</param>
+    /// <param name="recordTiming">Whether the navigation-timing entry records the moments.</param>
+    /// <param name="isCurrent">
+    /// <see langword="null"/> for a navigation's parse, which waits for its resource events by pumping. A
+    /// <c>document.open()</c> parse ends in a task and never pumps: it finishes once its last resource event
+    /// is delivered, if this still answers <see langword="true"/> by then.
+    /// </param>
+    private void FinishLoad(Document document, Action<NavigationPhase>? onPhase, bool recordTiming = true,
+        Func<bool>? isCurrent = null)
     {
         if (_runtime.Document is { } nativeDocument) DomDocumentState.SelectNavigationTarget(_runtime.Dom, nativeDocument);
 
@@ -870,7 +879,7 @@ internal sealed partial class ParserDriver : IDisposable
 
         // https://html.spec.whatwg.org/multipage/parsing.html#the-end step 2. Browser owns readiness and
         // its events; native tree construction does not advance the page lifecycle.
-        SetReadyState("interactive");
+        SetReadyState("interactive", recordTiming);
 
         // Module execution is Browser work and must honor the same scripting policy as classic scripts.
         if (_runtime.ScriptingEnabled)
@@ -878,19 +887,18 @@ internal sealed partial class ParserDriver : IDisposable
             RunModules(document);
         }
 
-        var window = _runtime.Engine._webApi?.GlobalEventTarget;
         var wrapper = _runtime.DocumentWrapper;
 
         if (wrapper is not null)
         {
-            if (_runtime.NavigationTiming is { } start) start.DomContentLoadedEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+            if (recordTiming && _runtime.NavigationTiming is { } start) start.DomContentLoadedEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             PageEvents.Dispatch(
                 _runtime,
                 wrapper,
                 _runtime.Engine._mainRealm.Intrinsics.Event.CreateTrustedEvent(
                     JsString.Create("DOMContentLoaded"),
                     new EventInit(Bubbles: true, Cancelable: false, Composed: false)));
-            if (_runtime.NavigationTiming is { } end) end.DomContentLoadedEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+            if (recordTiming && _runtime.NavigationTiming is { } end) end.DomContentLoadedEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
         }
 
         onPhase?.Invoke(NavigationPhase.DomContentLoaded);
@@ -912,20 +920,59 @@ internal sealed partial class ParserDriver : IDisposable
 
         // A style sheet's or an image's completion handler can insert further subresources. Keep their
         // load-event delay until the entire chain has delivered, each event on its own budgeted task.
+        if (isCurrent is not null)
+        {
+            CompleteLoadAfterResourceEvents(onPhase, recordTiming, isCurrent);
+            return;
+        }
+
         while (_pendingResourceEvents > 0 && !_cancellationToken.IsCancellationRequested)
         {
             _baton.PumpUntil(_resourceEventsCompleted!.Task);
         }
 
+        CompleteLoad(onPhase, recordTiming);
+    }
+
+    /// <summary>
+    /// The end's steps 6 and 7 for a parse that may not pump: wait for the resource events as tasks, then
+    /// complete the load in a task of its own.
+    /// </summary>
+    private void CompleteLoadAfterResourceEvents(Action<NavigationPhase>? onPhase, bool recordTiming, Func<bool> isCurrent)
+    {
+        if (_cancellationToken.IsCancellationRequested || !isCurrent())
+        {
+            return;
+        }
+
+        if (_pendingResourceEvents > 0)
+        {
+            var tasks = _runtime.Engine.Tasks;
+            _resourceEventsCompleted!.Task.ContinueWith(
+                _ => tasks.Post(() => CompleteLoadAfterResourceEvents(onPhase, recordTiming, isCurrent)),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            return;
+        }
+
+        CompleteLoad(onPhase, recordTiming);
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/parsing.html#the-end steps 9 onward.</summary>
+    private void CompleteLoad(Action<NavigationPhase>? onPhase, bool recordTiming)
+    {
+        var window = _runtime.Engine._webApi?.GlobalEventTarget;
+
         // Step 9: readiness becomes "complete" and only then does load fire, which is why a load listener
         // reads "complete" rather than "interactive".
-        SetReadyState("complete");
+        SetReadyState("complete", recordTiming);
 
         if (window is not null)
         {
-            if (_runtime.NavigationTiming is { } start) start.LoadEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+            if (recordTiming && _runtime.NavigationTiming is { } start) start.LoadEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             PageEvents.Fire(_runtime, window, "load");
-            if (_runtime.NavigationTiming is { } end)
+            if (recordTiming && _runtime.NavigationTiming is { } end)
             {
                 end.LoadEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
                 _runtime.Engine._webApi.PerformanceObservers.QueuePerformanceEntry(end);
@@ -1022,7 +1069,12 @@ internal sealed partial class ParserDriver : IDisposable
     }
 
     /// <summary>Moves the page's <c>document.readyState</c> and fires <c>readystatechange</c> at the document.</summary>
-    internal void SetReadyState(string state)
+    /// <param name="state">The readiness to move to.</param>
+    /// <param name="recordTiming">
+    /// Whether the navigation-timing entry records the moment; <see langword="false"/> for the readiness a
+    /// <c>document.open()</c> moves, which belongs to no navigation.
+    /// </param>
+    internal void SetReadyState(string state, bool recordTiming = true)
     {
         if (string.Equals(_runtime.ReadyState, state, StringComparison.Ordinal))
         {
@@ -1030,7 +1082,7 @@ internal sealed partial class ParserDriver : IDisposable
         }
 
         _runtime.ReadyState = state;
-        if (_runtime.NavigationTiming is { } navigation)
+        if (recordTiming && _runtime.NavigationTiming is { } navigation)
         {
             if (state == "interactive") navigation.DomInteractive = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             else if (state == "complete") navigation.DomComplete = _runtime.Engine._webApi!.CurrentHighResolutionTime;

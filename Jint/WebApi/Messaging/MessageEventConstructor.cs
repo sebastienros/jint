@@ -153,7 +153,8 @@ internal sealed class MessageEventConstructor : Constructor
 
     /// <summary>
     /// The members https://html.spec.whatwg.org/multipage/comms.html#messageeventinit adds to
-    /// <c>EventInit</c>, read in declaration order.
+    /// <c>EventInit</c>, read in lexicographic order of their names as
+    /// https://webidl.spec.whatwg.org/#es-dictionary step 4 requires: data, lastEventId, origin, ports, source.
     /// </summary>
     private MessageEventInit ReadMessageEventInit(JsValue init)
     {
@@ -170,8 +171,9 @@ internal sealed class MessageEventConstructor : Constructor
             data = Null;
         }
 
-        var origin = ReadString(dictionary, _origin);
         var lastEventId = ReadString(dictionary, _lastEventId);
+        var origin = ReadString(dictionary, _origin);
+        var ports = ReadPorts(dictionary);
 
         // `MessageEventSource? source = null`, and the only member of that union Jint has is MessagePort.
         var sourceValue = dictionary.Get(_source);
@@ -186,7 +188,7 @@ internal sealed class MessageEventConstructor : Constructor
             source = sourceValue;
         }
 
-        return new MessageEventInit(data, origin, lastEventId, source, ReadPorts(dictionary));
+        return new MessageEventInit(data, origin, lastEventId, source, ports);
     }
 
     private static JsString ReadString(ObjectInstance dictionary, JsString member)
