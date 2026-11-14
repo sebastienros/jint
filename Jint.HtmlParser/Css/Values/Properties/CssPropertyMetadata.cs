@@ -107,6 +107,11 @@ internal static class CssPropertyRegistry
         Add("justify-content", "normal");
         Add("row-gap", "normal");
         Add("column-gap", "normal");
+        foreach (var name in new[] { "grid-template-columns", "grid-template-rows", "grid-template-areas", "mask-image" })
+            Add(name, "none");
+        Add("object-fit", "fill");
+        foreach (var side in new[] { "top", "right", "bottom", "left", "block-start", "block-end", "inline-start", "inline-end" })
+            Add("scroll-padding-" + side, "auto");
         Add("overflow-x", "visible");
         Add("overflow-y", "visible");
         foreach (var side in new[] { "top", "right", "bottom", "left" })
