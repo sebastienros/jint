@@ -102,8 +102,9 @@ internal static partial class InputDispatcher
     /// <b>A move fires no boundary events</b> — no <c>pointerover</c>, <c>mouseover</c>, <c>mouseout</c>,
     /// <c>mouseenter</c> or <c>mouseleave</c>. Those need the pointer's <i>previous</i> position and the
     /// ancestor chains of both elements, which is a second piece of state and a second algorithm; a client's
-    /// <c>hover</c> sends one move, so what it drives today is a <c>mousemove</c> listener and not a
-    /// hover menu written against <c>mouseenter</c>. Stated rather than approximated: firing <c>mouseover</c>
+    /// <c>hover</c> sends one move, so what it drives today is a <c>mousemove</c> listener and the
+    /// <c>:hover</c> pseudo-class (<see cref="BrowserEventRealm.MouseHoverTarget"/>), not a hover menu
+    /// written against <c>mouseenter</c>. Stated rather than approximated: firing <c>mouseover</c>
     /// on every move without the matching <c>mouseout</c> would be worse than firing neither.
     /// </para>
     /// </remarks>
@@ -126,6 +127,10 @@ internal static partial class InputDispatcher
 
         var target = dom.WrapNode(hit);
         var options = input.ToClickOptions();
+
+        // https://html.spec.whatwg.org/multipage/semantics-other.html#selector-hover — every mouse event
+        // tells the page where the pointer is, and :hover follows it before any listener runs.
+        events.MouseHoverTarget = hit;
 
         switch (input.Kind)
         {
