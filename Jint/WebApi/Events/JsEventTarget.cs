@@ -406,6 +406,24 @@ internal class JsEventTarget : ObjectInstance
     }
 
     /// <summary>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#erase-all-event-listeners-and-handlers — every
+    /// listener removed, event-handler attributes included, each through the removal algorithm so a dispatch
+    /// already in flight stops invoking it and an abort signal forgets it.
+    /// </summary>
+    internal void EraseEventListeners()
+    {
+        if (_listeners is not { Count: > 0 } listeners)
+        {
+            return;
+        }
+
+        foreach (var listener in listeners.ToArray())
+        {
+            RemoveListener(listener);
+        }
+    }
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#dom-eventtarget-removeeventlistener steps 2 and 3.
     /// </summary>
     internal void RemoveListener(string type, JsValue callback, bool capture)

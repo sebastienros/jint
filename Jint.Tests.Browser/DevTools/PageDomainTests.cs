@@ -214,6 +214,43 @@ public class PageDomainTests
         loaderIds[0].Should().Be(navigated.GetProperty("frame").GetProperty("loaderId").GetString());
     }
 
+    /// <summary>
+    /// <c>document.open()</c>, <c>write</c> and <c>close()</c> on a loaded document end in the
+    /// <c>DOMContentLoaded</c> and <c>load</c> lifecycle events of the same document, which is what Playwright's
+    /// <c>setContent</c> waits for after it runs exactly that sequence (#4595).
+    /// </summary>
+    [Test]
+    public async Task DocumentOpenWriteCloseAfterLoadEmitsTheLoadLifecycleAgain()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/one", "<html><body><p>original</p></body></html>");
+
+        await using var session = await PageSession.CreateAsync(Options(server));
+        var attachment = await session.OpenPageAsync();
+        await session.EnablePageAsync(attachment);
+
+        var navigated = await session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/one")}}"}""", attachment);
+        await session.EventAsync("Page.frameStoppedLoading", sessionId: attachment);
+        var before = session.EventsOf("Page.lifecycleEvent", attachment).Count;
+        var stops = session.EventsOf("Page.frameStoppedLoading", attachment).Count;
+
+        await session.EvaluateAsync(
+            "document.open(); document.write('<p>written</p>'); document.close();",
+            attachment);
+
+        (await session.EvaluateAsync("document.body.innerHTML", attachment)).GetProperty("value").GetString()
+            .Should().Be("<p>written</p>");
+        await session.EventAsync("Page.frameStoppedLoading", index: stops, sessionId: attachment);
+
+        var after = session.EventsOf("Page.lifecycleEvent", attachment)
+            .Skip(before)
+            .Select(e => e.GetProperty("params"))
+            .ToArray();
+        after.Select(p => p.GetProperty("name").GetString()).Should().ContainInOrder("DOMContentLoaded", "load");
+        after.Select(p => p.GetProperty("loaderId").GetString()).Distinct().Should().Equal(
+            navigated.GetProperty("loaderId").GetString());
+    }
+
     [Test]
     public async Task NavigateAnswersAtTheCommitWithTheFrameAndTheLoader()
     {

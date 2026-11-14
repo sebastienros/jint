@@ -371,12 +371,56 @@ public sealed class DocumentHostHookTests
     }
 
     /// <summary>
-    /// The displayed document keeps the refusal it has always had — the call does nothing and the page is
-    /// told why — because that page is one a host is watching and a throw would break a script that believes
-    /// it is still writing into a parse.
+    /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#document-open-steps on the page's
+    /// own loaded document: the tree is replaced in place, the document and window keep their identity, the
+    /// written markup's scripts run, and <c>close()</c> leaves the document <c>interactive</c> and queues
+    /// <c>DOMContentLoaded</c> and <c>load</c> as tasks (#4595).
     /// </summary>
     [Test]
-    public async Task TheDisplayedDocumentStillNoOpsAndRecordsAPageError()
+    public async Task OpenWriteAndCloseReplaceTheDisplayedDocumentInPlace()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p id='page'>original</p>");
+
+        (await page.EvaluateAndAwaitAsync<string>(
+                """
+                () => new Promise(resolve => {
+                  const before = document;
+                  window.marker = 'kept';
+                  window.addEventListener('load', () => { window.staleLoad = true; });
+                  document.addEventListener('click', () => { window.staleClick = true; });
+                  const opened = document.open();
+                  const events = [];
+                  document.addEventListener('DOMContentLoaded', () => events.push('dcl:' + document.readyState));
+                  const during = document.readyState;
+                  document.write('<p id="written">wri');
+                  document.write('tten</p><script>window.ran = document.getElementById("written").textContent;</scr' + 'ipt>');
+                  document.close();
+                  const closed = document.readyState;
+                  document.dispatchEvent(new Event('click'));
+                  window.addEventListener('load', () => {
+                    events.push('load:' + document.readyState);
+                    resolve([
+                      opened === before, document === before, window.marker, during, closed,
+                      document.getElementById('page') === null,
+                      document.body.innerHTML.startsWith('<p id="written">written</p>'),
+                      window.ran, events.join(','), window.staleLoad === undefined, window.staleClick === undefined,
+                    ].join('|'));
+                  });
+                })
+                """, argument: null))
+            .Should().Be("true|true|kept|loading|interactive|true|true|written|dcl:interactive,load:complete|true|true");
+
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A <c>write</c> with no insertion point runs the open steps first, so the document is replaced and stays
+    /// <c>loading</c> until somebody closes it — Chromium's answer, where this browser used to do nothing.
+    /// </summary>
+    [Test]
+    public async Task AWriteAfterLoadImpliesOpenAndLeavesTheDocumentLoading()
     {
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
@@ -385,15 +429,78 @@ public sealed class DocumentHostHookTests
         (await page.EvaluateAsync<string>(
                 """
                 (function () {
-                  let threw = 'no';
-                  try { document.write('<p id="late">late</p>'); } catch (e) { threw = e.name; }
-                  return [threw, document.getElementById('page') !== null, document.getElementById('late') === null]
+                  document.write('<p id="late">late</p>');
+                  const state = document.readyState;
+                  document.write('<p id="later">later</p>');
+                  return [document.getElementById('page') === null, document.getElementById('late') !== null,
+                    document.getElementById('later') !== null, state].join('|');
+                })()
+                """))
+            .Should().Be("true|true|true|loading");
+
+        (await page.EvaluateAndAwaitAsync<string>(
+                "() => { document.close(); return new Promise(resolve => addEventListener('load', () => resolve(document.readyState))); }",
+                argument: null))
+            .Should().Be("complete");
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A second <c>open()</c> abandons the first script-created parser and starts again from an empty tree.
+    /// </summary>
+    [Test]
+    public async Task ASecondOpenStartsAgainFromAnEmptyDocument()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p>page</p>");
+
+        (await page.EvaluateAsync<string>(
+                """
+                (function () {
+                  document.open();
+                  document.write('<p id="first">first');
+                  document.open();
+                  document.write('<p id="second">second</p>');
+                  document.close();
+                  return [document.getElementById('first') === null, document.getElementById('second').textContent]
                     .join('|');
                 })()
                 """))
-            .Should().Be("no|true|true");
+            .Should().Be("true|second");
 
-        page.Errors.Should().ContainSingle(error => error.Message.Contains("document.open()", StringComparison.Ordinal));
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Written markup's external script blocks the script-created parser without pumping the page, and a
+    /// written image delays <c>load</c> until its own event has been delivered.
+    /// </summary>
+    [Test]
+    public async Task WrittenSubresourcesLoadAndDelayTheLoadEvent()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/page", "<p>page</p>")
+            .Map("/written.js", _ => LoopbackResponse.Script(
+                "window.order.push('script:' + (document.getElementById('before') !== null));")));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/page"));
+
+        (await fixture.Page.EvaluateAndAwaitAsync<string>(
+                """
+                () => new Promise(resolve => {
+                  window.order = [];
+                  setTimeout(() => window.order.push('timer'), 0);
+                  document.open();
+                  document.write('<p id="before"></p><script src="/written.js"></scr' + 'ipt><img src="/missing.png">');
+                  window.order.push('written');
+                  document.close();
+                  window.order.push('closed');
+                  document.querySelector('img').addEventListener('error', () => window.order.push('img'));
+                  addEventListener('load', () => { window.order.push('load'); resolve(window.order.join(',')); });
+                })
+                """, argument: null))
+            .Should().StartWith("script:true,written,closed,").And.EndWith("img,load");
     }
 
     /// <summary>
