@@ -41,7 +41,7 @@ internal static class ResolvedOrigin
         if (IsVertical(x) || IsHorizontal(y)) return value;
 
         var z = 0d;
-        if (parts.Length == 3 && !TryPixels(parts[2], out z)) return value;
+        if (parts.Length == 3 && !ResolvedLengths.TryPixels(parts[2], out z)) return value;
 
         FlatLayout.SizeQuery? sizes = null;
         var measured = false;
@@ -60,7 +60,7 @@ internal static class ResolvedOrigin
             else if (component.Equals("center", StringComparison.OrdinalIgnoreCase)) fraction = 0.5;
             else if (component.EndsWith('%') && TryNumber(component.AsSpan(0, component.Length - 1), out var percent))
                 fraction = percent / 100;
-            else return TryPixels(component, out offset);
+            else return ResolvedLengths.TryPixels(component, out offset);
             if (fraction == 0) return true;
             if (!TryDimension(width, out var size)) return false;
             offset = size * fraction;
@@ -84,7 +84,7 @@ internal static class ResolvedOrigin
             }
             var dimension = width ? "width" : "height";
             var computed = ResolvedLengths.Resolve(dimension, style.GetNormalizedProperty(dimension), style, viewport);
-            return TryPixels(computed.Trim(), out size);
+            return ResolvedLengths.TryPixels(computed.Trim(), out size);
         }
     }
 
@@ -93,13 +93,6 @@ internal static class ResolvedOrigin
 
     private static bool IsVertical(string part) =>
         part.Equals("top", StringComparison.OrdinalIgnoreCase) || part.Equals("bottom", StringComparison.OrdinalIgnoreCase);
-
-    private static bool TryPixels(string text, out double pixels)
-    {
-        pixels = 0;
-        if (text == "0") return true;
-        return text.EndsWith("px", StringComparison.OrdinalIgnoreCase) && TryNumber(text.AsSpan(0, text.Length - 2), out pixels);
-    }
 
     private static bool TryNumber(ReadOnlySpan<char> text, out double number) =>
         double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number) && double.IsFinite(number);

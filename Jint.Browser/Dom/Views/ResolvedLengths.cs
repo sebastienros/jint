@@ -19,27 +19,29 @@ namespace Jint.Browser.Dom.Views;
 /// </remarks>
 internal static class ResolvedLengths
 {
-    /// <summary>The initial <c>font-size</c>, <c>medium</c> (CSS Fonts 4 §2.5: Chromium's default of 16px).</summary>
-    internal const double MediumFontSize = 16;
+    // The initial font-size, medium (CSS Fonts 4 §2.5: Chromium's default of 16px).
+    private const double MediumFontSize = 16;
 
     // Bounds a math expression's nesting, as the textual var() substitution is bounded.
     private const int MaxDepth = 32;
 
-    /// <summary>The lengths one computed value resolves against, computed only when a unit needs them.</summary>
-    internal sealed class Basis(NativeCssComputedStyle style, Viewport viewport, double? em = null, double? percent = null,
-        bool nonNegative = false)
+    // The lengths one computed value resolves against, computed only when a unit needs them. A percentage
+    // resolves only where it is relative to a font size (font-size's own, line-height's); otherwise it stays.
+    private sealed class Basis(NativeCssComputedStyle style, Viewport viewport, double? em = null,
+        PercentOf percentOf = PercentOf.None, bool nonNegative = false)
     {
         private double? _em = em;
-        private double? _rem;
 
         internal Viewport Viewport { get; } = viewport;
-        internal double? Percent { get; } = percent;
-        // CSS Values 4 §10.12: a math result outside the property's allowed range clamps to it.
+        // CSS Values 4 §10.12: a top-level math result outside the property's allowed range clamps to it.
         internal bool NonNegative { get; } = nonNegative;
         internal NativeCssComputedStyle Style { get; } = style;
         internal double Em => _em ??= FontSizeOf(Style, Viewport);
-        internal double Rem => _rem ??= RootFontSizeOf(Style, Viewport);
+        internal double Rem => RootFontSizeOf(Style, Viewport);
+        internal double? Percent => percentOf == PercentOf.None ? null : Em;
     }
+
+    private enum PercentOf { None, Em }
 
     /// <summary>
     /// The resolved value of a longhand or of a shorthand recomposed from its longhands; the property's text
@@ -74,7 +76,9 @@ internal static class ResolvedLengths
             declaring = parent;
             property = parent.GetNormalizedProperty(name);
         }
-        return Absolutize(property.Text, new Basis(declaring, viewport, nonNegative: IsNonNegative(name)));
+        // CSS Inline 3 §4.3: a line-height percentage computes against the element's own font-size.
+        return Absolutize(property.Text, new Basis(declaring, viewport,
+            percentOf: name == "line-height" ? PercentOf.Em : PercentOf.None, nonNegative: IsNonNegative(name)));
     }
 
     // CSS Variables 1 §3.1: an inherited property invalid at computed-value time inherits, like an unset one.
@@ -93,9 +97,11 @@ internal static class ResolvedLengths
         name.StartsWith("border-", StringComparison.Ordinal) && (name.EndsWith("-width", StringComparison.Ordinal) ||
             name.EndsWith("-radius", StringComparison.Ordinal));
 
-    /// <summary>The element's computed <c>font-size</c> in pixels (CSS Fonts 4 §2.5).</summary>
-    internal static double FontSizeOf(NativeCssComputedStyle style, Viewport viewport)
+    // The element's computed font-size in pixels (CSS Fonts 4 §2.5), memoized on the view, which lives no
+    // longer than the query snapshot whose cascaded text it was computed from.
+    private static double FontSizeOf(NativeCssComputedStyle style, Viewport viewport)
     {
+        if (style.ResolvedFontSize is { } known) return known;
         var chain = new List<NativeCssComputedStyle>();
         for (var current = style; current is not null; current = current.InheritanceParent())
         {
@@ -115,18 +121,23 @@ internal static class ResolvedLengths
                 : root ??= RootFontSizeOf(chain[i], viewport);
             size = OwnFontSize(property.Text.Trim(), size, rem, chain[i], viewport);
         }
+        style.ResolvedFontSize = size;
         return size;
     }
 
     private static double RootFontSizeOf(NativeCssComputedStyle style, Viewport viewport)
     {
+        if (style.ResolvedRootFontSize is { } known) return known;
         var root = style.Element.OwnerDocument?.DocumentElement;
-        if (root is null) return MediumFontSize;
-        var view = style.For(root);
-        var property = view.GetNormalizedProperty("font-size");
-        return InheritsText(property)
-            ? MediumFontSize
-            : OwnFontSize(property.Text.Trim(), MediumFontSize, MediumFontSize, view, viewport);
+        var size = MediumFontSize;
+        if (root is not null)
+        {
+            var view = style.For(root);
+            var property = view.GetNormalizedProperty("font-size");
+            if (!InheritsText(property)) size = OwnFontSize(property.Text.Trim(), MediumFontSize, MediumFontSize, view, viewport);
+        }
+        style.ResolvedRootFontSize = size;
+        return size;
     }
 
     // §2.5: an absolute-size keyword uses Chromium's medium-relative table; a relative size and a percentage
@@ -146,23 +157,22 @@ internal static class ResolvedLengths
             case "smaller": return parent / 1.2;
             case "larger": return parent * 1.2;
         }
-        var basis = new Basis(style, viewport, em: parent, percent: parent);
-        var resolved = Absolutize(text, basis, rem);
-        if (resolved.EndsWith("px", StringComparison.Ordinal) &&
-            double.TryParse(resolved.AsSpan(0, resolved.Length - 2), NumberStyles.Float, CultureInfo.InvariantCulture, out var px) &&
-            double.IsFinite(px))
-            return Math.Max(0, px);
-        if (resolved.EndsWith('%') &&
-            double.TryParse(resolved.AsSpan(0, resolved.Length - 1), NumberStyles.Float, CultureInfo.InvariantCulture, out var percent) &&
-            double.IsFinite(percent))
-            return Math.Max(0, parent * percent / 100);
-        return parent;
+        var basis = new Basis(style, viewport, em: parent, percentOf: PercentOf.Em);
+        return TryPixels(Absolutize(text, basis, rem), out var px) ? Math.Max(0, px) : parent;
     }
 
-    /// <summary>Rewrites every convertible length in <paramref name="text"/> to px and reduces resolvable math.</summary>
-    internal static string Absolutize(string text, Basis basis) => Absolutize(text, basis, rem: null);
+    /// <summary>A signed <c>px</c> length, or a bare zero.</summary>
+    internal static bool TryPixels(string text, out double pixels)
+    {
+        pixels = 0;
+        if (text == "0") return true;
+        return text.EndsWith("px", StringComparison.OrdinalIgnoreCase) &&
+            double.TryParse(text.AsSpan(0, text.Length - 2), NumberStyles.Float, CultureInfo.InvariantCulture, out pixels) &&
+            double.IsFinite(pixels);
+    }
 
-    private static string Absolutize(string text, Basis basis, double? rem, int depth = 0)
+    // Rewrites every convertible length in text to px and reduces resolvable math.
+    private static string Absolutize(string text, Basis basis, double? rem = null, int depth = 0)
     {
         if (depth > MaxDepth || !HasDigit(text)) return text;
         basis.Style.Work.Charge(text.Length);
@@ -201,7 +211,8 @@ internal static class ResolvedLengths
                 var parser = new Parser(text, i + 1, close, basis, rem);
                 string? replacement = null;
                 if (parser.TryFunction(function, out var value) && parser.AtEnd)
-                    replacement = Format(basis.NonNegative && value.Amount < 0 ? value with { Amount = 0 } : value);
+                    // §10.12 clamps only the top-level calculation, never an argument of an unreduced one.
+                    replacement = Format(depth == 0 && basis.NonNegative && value.Amount < 0 ? value with { Amount = 0 } : value);
                 else
                 {
                     var inner = text.Substring(i + 1, close - i - 1);
@@ -211,7 +222,7 @@ internal static class ResolvedLengths
                 if (replacement is not null)
                 {
                     builder ??= new StringBuilder(text.Length);
-                    builder.Append(text, copied, start - copied).Append(replacement);
+                    AppendTerm(builder, text, copied, start, replacement);
                     copied = close + 1;
                 }
                 i = close + 1;
@@ -221,8 +232,11 @@ internal static class ResolvedLengths
             {
                 var start = i;
                 var number = ReadNumber(text, ref i, out var unit);
-                if (unit.Length > 0 && unit != "%" && !unit.Equals("px", StringComparison.OrdinalIgnoreCase) &&
-                    TryFactor(unit, basis, rem, out var factor) && double.IsFinite(number * factor))
+                var factor = 0d;
+                var convert = unit == "%"
+                    ? TryPercentFactor(basis, out factor)
+                    : unit.Length > 0 && !unit.Equals("px", StringComparison.OrdinalIgnoreCase) && TryFactor(unit, basis, rem, out factor);
+                if (convert && double.IsFinite(number * factor))
                 {
                     builder ??= new StringBuilder(text.Length);
                     builder.Append(text, copied, start - copied).Append(Serialize(number * factor)).Append("px");
@@ -233,6 +247,28 @@ internal static class ResolvedLengths
             i++;
         }
         return builder is null ? text : Flush(builder, text, copied, text.Length);
+    }
+
+    // Appends text[from..start) and then a reduced term. Inside an unreduced sum, a negative term folds its sign
+    // into the preceding operator, as CSS Values 4 §10.13's serialization of a sum does: "+ -16px" is "- 16px".
+    private static void AppendTerm(StringBuilder builder, string text, int from, int start, string term)
+    {
+        var operand = start - 1;
+        while (operand >= from && char.IsWhiteSpace(text[operand])) operand--;
+        if (term.Length > 1 && term[0] == '-' && operand >= from && text[operand] is '+' or '-' &&
+            operand > from && char.IsWhiteSpace(text[operand - 1]))
+        {
+            builder.Append(text, from, operand - from).Append(text[operand] == '+' ? '-' : '+')
+                .Append(text, operand + 1, start - operand - 1).Append(term, 1, term.Length - 1);
+            return;
+        }
+        builder.Append(text, from, start - from).Append(term);
+    }
+
+    private static bool TryPercentFactor(Basis basis, out double factor)
+    {
+        factor = basis.Percent is { } percent ? percent / 100 : 0;
+        return basis.Percent is not null;
     }
 
     private static string Flush(StringBuilder builder, string text, int from, int to) =>

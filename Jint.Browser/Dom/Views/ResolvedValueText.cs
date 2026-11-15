@@ -108,14 +108,14 @@ internal static class ResolvedValueText
     // only an explicit list of <length>px, <percentage> and <flex> tracks (optionally in an integer repeat())
     // over an empty or text-free container is resolvable: fixed tracks keep their size and §12.7.1 shares the
     // leftover space by flex factor. Any other track list (minmax, auto, names, auto-fill) keeps its text.
-    internal static string GridColumns(string value, NativeCssComputedStyle style, double containerWidth, string columnGap)
+    internal static string GridColumns(string value, NativeCssComputedStyle style, double containerWidth, Func<string> columnGap)
     {
         if (!IsGridContainer(style)) return value;
         style.Work.Charge(value.Length);
 
         var tracks = new List<(double Size, bool Flexible)>();
         if (!Expand(value, tracks, containerWidth, allowRepeat: true) || tracks.Count == 0) return value;
-        if (!TryLength(columnGap.Trim(), containerWidth, out var gap, normalIsZero: true))
+        if (!TryLength(columnGap().Trim(), containerWidth, out var gap, normalIsZero: true))
             return value;
 
         var leftover = containerWidth - gap * (tracks.Count - 1);

@@ -135,6 +135,36 @@ public sealed class ComputedLengthResolutionTests
     }
 
     [Test]
+    public async Task LineHeightPercentagesComputeAgainstTheElementsFontSizeAndInherit()
+    {
+        // CSS Inline 3 §4.3: a percentage line-height computes to a length, which descendants inherit.
+        (await Read("""
+            #p { font-size: 10px; line-height: 150% }
+            #c { font-size: 40px }
+            #n { line-height: calc(100% + 1rem) }
+            """, "<div id=p><span id=c></span></div><p id=n></p>", """
+            (() => { const g = (id) => getComputedStyle(document.getElementById(id)).lineHeight; return [g('p'), g('c'), g('n')].join(' | '); })()
+            """)).Should().Be("15px | 15px | 32px");
+    }
+
+    [Test]
+    public async Task GradientLengthsAreAbsolutizedAlongsideTheirColors()
+    {
+        (await Read("#g { background-image: linear-gradient(red 1em, blue 50vw) }", "<div id=g></div>", """
+            getComputedStyle(document.getElementById('g')).backgroundImage
+            """)).Should().Be("linear-gradient(rgb(255, 0, 0) 16px, rgb(0, 0, 255) 640px)");
+    }
+
+    [Test]
+    public async Task OnlyTheTopLevelCalculationIsClamped()
+    {
+        // CSS Values 4 §10.12: an argument of an unreduced calc() is not clamped to the property's range.
+        (await Read("#a { min-width: calc(100% + min(-1rem, 0px)) }", "<div id=a></div>", """
+            getComputedStyle(document.getElementById('a')).minWidth
+            """)).Should().Be("calc(100% - 16px)");
+    }
+
+    [Test]
     public async Task ViewportUnitsFollowTheEmulatedViewport()
     {
         await using var browser = new Browser(new global::Jint.Browser.BrowserOptions { Viewport = new global::Jint.Browser.Viewport(400, 300) });

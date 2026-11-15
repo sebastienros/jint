@@ -183,13 +183,14 @@ CSSOM resolved value (`getComputedStyle`) and DevTools' computed style serialize
 `currentcolor` as `rgb()`/`rgba()`. A computed shorthand such as `background` or `border-color`, and system
 colors, stay declared text. A `transform` in absolute units resolves to one `matrix()`/`matrix3d()`; one needing
 a box (percentages, math over percentages) stays text.
-The resolved value absolutizes lengths ([CSS Values 4 §6](https://drafts.csswg.org/css-values-4/#lengths), #4615):
+The resolved value, and DevTools' computed style, absolutize lengths ([CSS Values 4 §6](https://drafts.csswg.org/css-values-4/#lengths), #4615):
 `Dom/Views/ResolvedLengths` turns font- and viewport-relative and absolute units into `px` from the computed
 `font-size` chain, the root's `font-size` and the page viewport, and reduces `calc()`/`min()`/`max()`/`clamp()`
 once `var()` is substituted, clamping at zero for properties that refuse negatives. Fonts are not measured, so
 `ex`/`ch` take the 0.5em fallback where Chromium measures the font (Times: `1ex` ≈ 0.45em), container units
 take their small-viewport fallback, and `lh`, `cap`, angles and times keep their text. A percentage stays a
-percentage (Chromium resolves `padding`/`margin` ones against a box), and a sum mixing one with a length keeps
+percentage (Chromium resolves `padding`/`margin` ones against a box) except in `font-size` and `line-height`, where it
+is relative to a font size, and a sum mixing one with a length keeps
 its `calc()` text with its units absolutized. An inherited value is absolutized where it was declared; the
 catalog marks only some properties inherited. `font-size`'s absolute keywords use Chromium's table; `monospace`'s
 13px default is not modeled. `transform-origin`/`perspective-origin` resolve keywords and percentages against the
