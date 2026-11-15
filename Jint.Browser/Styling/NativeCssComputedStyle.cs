@@ -29,6 +29,9 @@ internal sealed partial class NativeCssComputedStyle(NativeCssQuery query, Eleme
         return view;
     }
     partial void CopyBrowserReadContext(NativeCssComputedStyle view);
+    // The view a value inherits from: a pseudo-element's originating element, else the cascade's inheritance parent.
+    internal NativeCssComputedStyle? InheritanceParent() =>
+        Pseudo is not null ? For(Element) : query.InheritanceParent(Element) is { } parent ? For(parent) : null;
     internal string GetPropertyPriority(string name)
     {
         query.GetProperty(Element, Pseudo, name, ref _matching);
