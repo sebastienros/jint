@@ -19,8 +19,9 @@ namespace Jint.Runtime.Environments;
 /// FunctionDeclarationInstantiation binds the same names every time. The mutations that grow a pre-existing
 /// environment's name set — sloppy direct eval hoisting a var, Annex B copying a block function — bump
 /// <see cref="Engine._envBindingInjectionEpoch"/>, which the path carries, and mark the environment they grew
-/// (<see cref="DeclarativeEnvironment._hasInjectedBindings"/>), which then has no token: the epoch covers an
-/// injection after the path was built, the mark one before it. So when every environment on the
+/// (<see cref="DeclarativeEnvironment._hasInjectedBindings"/>), which then has no token. The mark is read on every
+/// validation, so it covers an injection on either side of the path's build; the epoch is a second, engine-wide
+/// guard on top of it. So when every environment on the
 /// current chain matches the token recorded for its hop, none of the passed ones can own the name (none did
 /// when the path was built), and the one at the last hop stores it at the recorded slot.
 /// </para>
@@ -36,21 +37,19 @@ namespace Jint.Runtime.Environments;
 /// </remarks>
 internal sealed class ScopePath
 {
-    internal const int MaxHops = 3;
+    private const int MaxHops = 3;
 
     private readonly object? _token0;
     private readonly object? _token1;
     private readonly object? _token2;
     private readonly Key[] _terminalLayout;
-    private readonly int _hops;
     private readonly int _injectionEpoch;
+    internal readonly int Hops;
     internal readonly int SlotIndex;
-
-    internal int Hops => _hops;
 
     private ScopePath(int hops, object? token0, object? token1, object? token2, Key[] terminalLayout, int slotIndex, int injectionEpoch)
     {
-        _hops = hops;
+        Hops = hops;
         _token0 = token0;
         _token1 = token1;
         _token2 = token2;
@@ -130,7 +129,7 @@ internal sealed class ScopePath
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal DeclarativeEnvironment? Resolve(Engine engine, Environment env)
     {
-        if (_hops != 0 && !TryFollow(engine, ref env))
+        if (Hops != 0 && !TryFollow(engine, ref env))
         {
             return null;
         }
@@ -149,7 +148,7 @@ internal sealed class ScopePath
         }
 
         var next = env._outerEnv;
-        if (_hops >= 2)
+        if (Hops >= 2)
         {
             if (next is null || !ReferenceEquals(LayoutToken(next), _token1))
             {
@@ -157,7 +156,7 @@ internal sealed class ScopePath
             }
 
             next = next._outerEnv;
-            if (_hops == 3)
+            if (Hops == 3)
             {
                 if (next is null || !ReferenceEquals(LayoutToken(next), _token2))
                 {

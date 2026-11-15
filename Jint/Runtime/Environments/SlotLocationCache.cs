@@ -206,16 +206,8 @@ internal struct SlotLocationCache
     /// the out-of-line walk, which re-publishes the memo on success.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool CanReachAtOuterHop(Engine engine, Environment env, DeclarativeEnvironment cached, Key key, ref SlotChainMemo? memoSlot)
-    {
-        var memo = memoSlot;
-        if (memo is not null && MemoStillPins(memo, engine, env, cached))
-        {
-            return true;
-        }
-
-        return WalkAndMemoize(engine, env, cached, key, ref memoSlot);
-    }
+    private static bool CanReachAtOuterHop(Engine engine, Environment env, DeclarativeEnvironment cached, Key key, ref SlotChainMemo? memoSlot)
+        => MemoPins(memoSlot, engine, env, cached) || WalkAndMemoize(engine, env, cached, key, ref memoSlot);
 
     /// <summary>
     /// The inline half of <see cref="CanReachAtOuterHop"/>: whether <paramref name="memo"/> still pins the chain from
@@ -235,8 +227,8 @@ internal struct SlotLocationCache
     /// an inserted environment, and a pooled link re-attached under a different outer fails here so
     /// the caller re-walks.
     /// <para>
-    /// Shared by the inline hit in <see cref="TryResolve"/> and by <see cref="CanReachAtOuterHop"/>
-    /// (the identifier read path calls the latter directly) so the soundness argument has exactly one
+    /// Shared by the inline hit in <see cref="TryResolve"/>, by <see cref="CanReachAtOuterHop"/> and, through
+    /// <see cref="MemoPins"/>, by the identifier read path, so the soundness argument has exactly one
     /// implementation.
     /// </para>
     /// </summary>
