@@ -46,6 +46,21 @@ internal static class FlexRow
     }
 
     internal static double[] Widths(IReadOnlyList<Element> children, double available, CssCascade.Traversal? cascade, Action? step = null, CancellationToken cancellationToken = default)
+        => Widths(children, available, cascade, autoBasis: null, step, cancellationToken);
+
+    /// <summary>
+    /// The main size an item with no definite basis or width starts from: its explicit flex-basis or width in
+    /// pixels, or <paramref name="autoBasis"/>'s content estimate, or one row.
+    /// </summary>
+    internal static double BaseSize(Element child, double available, CssCascade.Traversal? cascade, Func<Element, double>? autoBasis)
+    {
+        var style = cascade?.LayoutOf(child);
+        var basis = style is null ? null : CssCascade.ValueOf(style, "flex-basis");
+        var width = style is null ? null : CssCascade.ValueOf(style, "width");
+        return Length(basis, available) ?? Length(width, available) ?? autoBasis?.Invoke(child) ?? FlatLayout.RowHeight;
+    }
+
+    internal static double[] Widths(IReadOnlyList<Element> children, double available, CssCascade.Traversal? cascade, Func<Element, double>? autoBasis, Action? step = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var widths = new double[children.Count];
@@ -63,9 +78,7 @@ internal static class FlexRow
             step?.Invoke();
             if ((i & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
             var style = cascade?.LayoutOf(children[i]);
-            var basis = style is null ? null : CssCascade.ValueOf(style, "flex-basis");
-            var width = style is null ? null : CssCascade.ValueOf(style, "width");
-            widths[i] = Length(basis, available) ?? Length(width, available) ?? FlatLayout.RowHeight;
+            widths[i] = BaseSize(children[i], available, cascade, autoBasis);
 
             // https://drafts.csswg.org/css-flexbox/#min-size-auto: an item whose overflow is visible does not
             // shrink below its content's minimum width. There is no text measurement here, so the content is

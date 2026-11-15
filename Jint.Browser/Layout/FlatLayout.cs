@@ -601,7 +601,7 @@ internal sealed class FlatLayout
                 if (FlexRow.IsHorizontal(parent, cascade))
                 {
                     var children = Children(parent).Where(HasBox).ToArray();
-                    var widths = FlexRow.Widths(children, width, cascade, Step, token);
+                    var widths = FlexRow.Widths(children, width, cascade, child => ContentBasis(child, width, 0), Step, token);
                     for (var i = 0; i < children.Length; i++)
                     {
                         Step();
@@ -615,6 +615,31 @@ internal sealed class FlatLayout
             }
 
             return _widths[target];
+        }
+
+        /// <summary>
+        /// The content size a flex item with an automatic basis starts from (css-flexbox §9.2 step 3.E, max-content
+        /// without text measurement): a horizontal flex row is as wide as its rendered items' base sizes together,
+        /// so a tab strip or a toolbar holds its tabs; anything else is one row.
+        /// </summary>
+        private double ContentBasis(Element element, double available, int depth)
+        {
+            if (depth >= 8 || !FlexRow.IsHorizontal(element, cascade))
+            {
+                return RowHeight;
+            }
+
+            var sum = 0d;
+            foreach (var child in Children(element))
+            {
+                Step();
+                if (HasBox(child))
+                {
+                    sum += FlexRow.BaseSize(child, available, cascade, nested => ContentBasis(nested, available, depth + 1));
+                }
+            }
+
+            return Math.Max(RowHeight, sum);
         }
 
         private double HeightOf(Element target)

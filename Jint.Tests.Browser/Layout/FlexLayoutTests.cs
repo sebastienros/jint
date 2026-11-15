@@ -122,6 +122,30 @@ public class FlexLayoutTests
         page.Errors.Should().BeEmpty();
     }
 
+    [Test]
+    public async Task AnAutomaticBasisFlexRowIsAsWideAsItsItems()
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 600) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <div style="display:flex">
+              <ul id="tabs" style="display:flex;flex:0 0 auto;margin:0;padding:0">
+                <li><button id="one">One</button></li><li><button id="two">Two</button></li><li><button id="three">Three</button></li>
+              </ul>
+              <div id="rest" style="flex:1 1 auto">rest</div>
+            </div>
+            """);
+        (await page.EvaluateAsync<string>(
+            "['tabs','one','two','three','rest'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return r.x + ',' + r.width; }).join('|')"))
+            .Should().Be("0,48|0,16|16,16|32,16|48,752");
+        (await page.EvaluateAsync<string>(
+            "(() => { const r = three.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2).id; })()"))
+            .Should().Be("three");
+        page.Errors.Should().BeEmpty();
+    }
+
     [TestCase("flex-start", 48, 16)]
     [TestCase("center", 64, 16)]
     [TestCase("flex-end", 80, 16)]
