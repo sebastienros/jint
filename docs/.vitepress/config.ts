@@ -157,6 +157,7 @@ export default defineConfig({
             { text: "Content Extraction", link: "/packages/jint-browser/extraction" },
             { text: "Events and Workers", link: "/packages/jint-browser/events-and-workers" },
             { text: "DevTools Integration", link: "/packages/jint-browser/devtools" },
+            { text: "Automation Performance", link: "/packages/jint-browser/performance" },
             { text: "Resource Budgets", link: "/packages/jint-browser/budgets" },
             { text: "Untrusted Content", link: "/packages/jint-browser/untrusted-content" },
             { text: "Supported Features", link: "/packages/jint-browser/supported-features" },

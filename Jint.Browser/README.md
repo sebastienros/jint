@@ -25,6 +25,10 @@ with nothing to install. For the command line, see
 [`Jint.Browser.Mcp`](https://www.nuget.org/packages/Jint.Browser.Mcp) serves the same page over the Model
 Context Protocol.
 
+Driving it from Playwright or from a test suite has three settings worth knowing: the animation frame
+interval, the shared script parse and the test process's own JIT settings; see
+[automation performance](../docs/packages/jint-browser/performance.md).
+
 Requires .NET 10 or later. The Browser library does not currently declare trimming or NativeAOT
 compatibility. Native publication of the closed browser tool is a separate consumer contract.
 

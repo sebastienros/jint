@@ -59,6 +59,7 @@ namespace Jint.Browser
     public sealed class BrowserOptions
     {
         public BrowserOptions() { }
+        public System.TimeSpan AnimationFrameInterval { get; set; }
         public bool BlockPrivateNetwork { get; set; }
         public System.Func<Jint.WebApi.ConsoleSink, Jint.WebApi.ConsoleSink>? ConsoleSinkDecorator { get; set; }
         public System.TimeSpan FetchTimeout { get; set; }
@@ -82,6 +83,7 @@ namespace Jint.Browser
         public System.TimeSpan PumpIdle { get; set; }
         public bool RecordConsoleMessages { get; set; }
         public bool RecordErrors { get; set; }
+        public bool ShareParsedScripts { get; set; }
         public System.TimeSpan SubresourceTimeout { get; set; }
         public string UserAgent { get; set; }
         public Jint.Browser.Viewport Viewport { get; set; }

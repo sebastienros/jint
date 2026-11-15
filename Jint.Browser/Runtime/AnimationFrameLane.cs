@@ -5,8 +5,8 @@ using Jint.WebApi.Timers;
 namespace Jint.Browser.Runtime;
 
 /// <summary>
-/// <c>requestAnimationFrame</c>: callbacks collected into a batch that the engine's timer queue fires roughly
-/// sixty times a second.
+/// <c>requestAnimationFrame</c>: callbacks collected into a batch that the engine's timer queue fires
+/// <see cref="BrowserOptions.AnimationFrameInterval"/> after the batch was requested.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,14 +21,13 @@ namespace Jint.Browser.Runtime;
 /// for the reason <see cref="Engine.CleanUpAfterRunningScript"/> gives.
 /// </para>
 /// <para>
-/// The interval is fixed at 16 ms. A frame rate that tracked how long the callbacks took would be a rendering
-/// decision, and there is no rendering to make it from.
+/// The interval is the page's <see cref="BrowserOptions.AnimationFrameInterval"/>, 16 ms by default, and is
+/// not adjusted for how long the callbacks took: that would be a rendering decision, and there is no
+/// rendering to make it from. Automation clients wait for frames, which is why the interval is the host's.
 /// </para>
 /// </remarks>
 internal sealed class AnimationFrameLane
 {
-    private const long FrameIntervalMilliseconds = 16;
-
     private readonly PageRuntime _runtime;
     private readonly List<Entry> _pending = [];
     private readonly HashSet<int> _cancelledDuringFrame = [];
@@ -123,7 +122,7 @@ internal sealed class AnimationFrameLane
             _runtime.Engine.Realm,
             new Batch(this),
             [],
-            FrameIntervalMilliseconds,
+            (long) _runtime.Options.AnimationFrameInterval.TotalMilliseconds,
             repeat: false,
             _runtime.Engine.CaptureEventLoopRegistration()));
 

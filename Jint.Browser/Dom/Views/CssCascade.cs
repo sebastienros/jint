@@ -80,8 +80,7 @@ internal static class CssCascade
                 ReferenceEquals(DomBrowsingContext.Of(document), context) &&
                 ReferenceEquals(DomBrowsingContext.Of(runtime.Document), displayedContext) &&
                 ReferenceEquals(PageRuntime.FindBrowsingContext(runtime.Engine, document), runtime) && runtime.Media == media && runtime.Layout.Version == layoutRevision &&
-                ReferenceEquals(events!.FocusedElement, focus) && ReferenceEquals(events.MousePressTarget, press) &&
-                ReferenceEquals(events.MouseHoverTarget, hover) &&
+                InteractionsAreCurrent(input.Query, events!, focus, press, hover) &&
                 DomDocumentState.Of(document).Url == url && ReferenceEquals(DomDocumentState.Of(document).TargetElement, target);
             Action? readWitness = witnessIsCurrent is null ? null : () =>
             {
@@ -94,6 +93,21 @@ internal static class CssCascade
                 traversal.ReadContext = new NativeCssReadContext(input.Query, traversal, document,
                     runtime.Layout.Visibility, media!.Viewport.Width, readWitness!, input.Query.Work.Token);
             return traversal;
+        }
+
+        // A focus, press or hover change can only change a style a rule matches on it; until the rules have
+        // been read, any change retires the traversal.
+        private static bool InteractionsAreCurrent(NativeCssQuery query, BrowserEventRealm events,
+            Element? focus, Element? press, Element? hover)
+        {
+            var focusChanged = !ReferenceEquals(events.FocusedElement, focus);
+            var pressChanged = !ReferenceEquals(events.MousePressTarget, press);
+            var hoverChanged = !ReferenceEquals(events.MouseHoverTarget, hover);
+            if (!focusChanged && !pressChanged && !hoverChanged) return true;
+            query.TryGetInteractionDependencies(out var dependencies);
+            return !(focusChanged && (dependencies & CssInteractionDependencies.Focus) != 0
+                || pressChanged && (dependencies & CssInteractionDependencies.Active) != 0
+                || hoverChanged && (dependencies & CssInteractionDependencies.Hover) != 0);
         }
 
         internal NativeCssComputedStyle Of(Element element)
