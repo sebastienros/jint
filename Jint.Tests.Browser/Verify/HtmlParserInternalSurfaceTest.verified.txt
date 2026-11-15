@@ -280,6 +280,8 @@ internal Jint.HtmlParser.Css.Values.CssValueWork
     CheckCancellation
     Guard
     get_Token
+internal Jint.HtmlParser.Css.Values.Properties.CssBoxShorthands
+    ComputedPosition
 internal Jint.HtmlParser.Css.Values.Properties.CssDeclarationContext
 internal Jint.HtmlParser.Css.Values.Properties.CssLayoutValues
     AcceptsText

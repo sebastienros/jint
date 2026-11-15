@@ -50,7 +50,7 @@ the property rather than selecting an earlier declaration. Substitution-produced
 remain text. Simple display blockification stays; overflow axes no longer compute together.
 
 The data catalog supplies a small initial-value table and inherited flags; other known names have
-empty initial text. Layout-used shorthands expand by whitespace splitting; the background and border
+empty initial text. Layout-used shorthands expand by whitespace splitting; the background, border and mask
 shorthands, and `animation`/`transition`, classify their order-free components; the animation and transition
 `<time>` longhands compute to seconds. A shorthand with `var()` expands after substitution. `ResolvedStyle`
 returns synthetic box width/height where available and text otherwise. Text extraction interprets

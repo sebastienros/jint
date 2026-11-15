@@ -181,7 +181,14 @@ an unset `animation-duration` is Chromium's `0s`, not Level 2's `auto`. The comp
 seconds (`300ms` reads `0.3s`), but easing functions stay text (`step-start` is not `steps(1, start)`), and a
 computed shorthand repeats shorter longhand lists to the layer count. A shorthand holding `var()` keeps its text on every longhand until the cascade substitutes and
 expands it ([CSS Variables §3.2](https://drafts.csswg.org/css-variables-1/#variables-in-shorthands)); its specified
-longhands read as empty. Named/generic CSSOM accessors still share one
+longhands read as empty. `mask` (and its legacy alias `-webkit-mask`) expands the same way into its eight
+longhands ([CSS Masking §7.9](https://drafts.csswg.org/css-masking-1/#the-mask)) but does not reset `mask-border`;
+`-webkit-mask`, `-webkit-mask-{image,position,size,repeat,origin,clip}` are
+[legacy name aliases](https://compat.spec.whatwg.org/#css-properties) of the unprefixed properties, while
+`-webkit-mask-composite` and its legacy compositing operators are not supported. The resolved `mask-position`
+turns keywords into percentages and an offset from the right or bottom edge into `100%` minus it (a `calc()`
+for a length), as Chromium does; a math-function offset from those edges keeps declared text, since nothing folds
+it, and `background-position-x`/`-y` still report declared text. Named/generic CSSOM accessors still share one
 store, receiver checks, null removal, readonly computed views and live invalidation.
 CSS.supports checks known/custom names and nonempty values; it is not proof of a value grammar.
 Custom properties inherit raw text; small bounded textual var() substitution supports ordinary values.
