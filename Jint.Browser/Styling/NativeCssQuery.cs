@@ -442,7 +442,7 @@ internal sealed partial class NativeCssQuery
         return true;
     }
 
-    private Element? InheritanceParent(Element element)
+    internal Element? InheritanceParent(Element element)
     {
         _work.Charge(1);
         if (SlotAssignment.FindSlot(element, false, _work.Charge, _work.Token) is { } slot) return slot;
