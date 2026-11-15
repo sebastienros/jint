@@ -208,7 +208,7 @@ public sealed class PageFocusTests
     }
 
     [Test]
-    public async Task IndexAndSnapshotReferencesNameTheSameElements()
+    public async Task IndexSnapshotReferencesAndLocatorsNameTheSameElements()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -224,6 +224,13 @@ public sealed class PageFocusTests
         var reference = line[line.IndexOf("[ref=", StringComparison.Ordinal)..].Trim('[', ']', ' ', '\r');
         (await page.FocusAsync(reference)).Should().BeTrue();
         (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("one");
+
+        (await page.FocusAsync("role=button[name=\"Two\"]")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("two");
+        (await page.PressAsync("text=Three", "a")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("three");
+        (await page.BlurAsync("role=button[name=\"Three\"]")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("document.activeElement.localName")).Should().Be("body");
     }
 
     [Test]

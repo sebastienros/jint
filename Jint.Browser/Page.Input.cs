@@ -27,6 +27,23 @@ namespace Jint.Browser;
 /// role and name rather than having to invent a selector for it. A target that matches nothing answers
 /// <see langword="false"/> rather than throwing: "there is no Save button" is an answer, not a fault.
 /// </para>
+/// <para>
+/// <b>Or an element named by its role, its label or its text, as a Playwright locator names it.</b>
+/// <c>role=button[name="Next"]</c> asks the role and accessible-name computation
+/// <see cref="AccessibilitySnapshotAsync"/> prints from — so <c>aria-labelledby</c>, <c>&lt;label&gt;</c>,
+/// <c>aria-label</c>, <c>alt</c> and <c>title</c> all name it — in .NET, without the page's script and
+/// without a snapshot. The name is a case-insensitive substring; <c>[name="Next"s]</c> is an exact,
+/// case-sensitive match. <c>[level=2]</c>, <c>[checked]</c> / <c>[checked=false|mixed]</c>,
+/// <c>[pressed]</c>, <c>[expanded]</c>, <c>[selected]</c>, <c>[disabled]</c> and <c>[include-hidden]</c>
+/// narrow it further; an element the snapshot leaves out as hidden is found only with
+/// <c>[include-hidden]</c>. <c>label=Email</c> is a control by its label and <c>text=Save</c> the deepest
+/// element whose text contains it, both case-insensitive, and exact when quoted (<c>text="Save"</c>). The
+/// <c>internal:role=</c> / <c>internal:label=</c> / <c>internal:text=</c> forms a Playwright locator
+/// serializes to, <c>css=</c>, and Puppeteer's <c>aria/<i>name</i>[role="button"]</c> are accepted too.
+/// Parts chain with <c>&gt;&gt;</c>, each resolved inside the elements the part before it found:
+/// <c>[data-filter-group=type] &gt;&gt; role=checkbox[name="Integration"]</c>. A malformed locator, like
+/// an invalid selector, matches nothing.
+/// </para>
 /// </remarks>
 public sealed partial class Page
 {
@@ -42,7 +59,7 @@ public sealed partial class Page
     private static readonly TimeSpan DefaultActionTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>Clicks what <paramref name="target"/> names, and waits for any navigation it causes.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="options">How far to wait for a navigation the click causes; the defaults when omitted.</param>
     /// <returns><see langword="true"/> when an element matched and was clicked.</returns>
     /// <remarks>
@@ -69,7 +86,7 @@ public sealed partial class Page
     public Task<bool> ClickAsync(string target, NavigationOptions? options = null) => ClickAsync(target, 0, options);
 
     /// <summary>Clicks the indexed element that <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <param name="options">How far to wait for a navigation the click causes; the defaults when omitted.</param>
     /// <returns><see langword="true"/> when the indexed element matched and was clicked.</returns>
@@ -159,7 +176,7 @@ public sealed partial class Page
     }
 
     /// <summary>Taps what <paramref name="target"/> names, and waits for any navigation it causes.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="options">How far to wait for a navigation the tap causes; the defaults when omitted.</param>
     /// <returns><see langword="true"/> when an element matched and was tapped.</returns>
     /// <remarks>
@@ -185,7 +202,7 @@ public sealed partial class Page
     public Task<bool> TapAsync(string target, NavigationOptions? options = null) => TapAsync(target, 0, options);
 
     /// <summary>Taps the indexed element that <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <param name="options">How far to wait for a navigation the tap causes; the defaults when omitted.</param>
     /// <returns><see langword="true"/> when the indexed element matched and was tapped.</returns>
@@ -273,7 +290,7 @@ public sealed partial class Page
     }
 
     /// <summary>Moves the pointer over what <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <returns><see langword="true"/> when an element matched and had a box to move to.</returns>
     /// <remarks>
     /// One <c>pointermove</c> and one <c>mousemove</c> at the centre of the element's box. <b>No boundary
@@ -287,7 +304,7 @@ public sealed partial class Page
     public Task<bool> HoverAsync(string target) => HoverAsync(target, 0);
 
     /// <summary>Moves the pointer over the indexed element that <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <returns><see langword="true"/> when the indexed element matched and had a box to move to.</returns>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
@@ -317,7 +334,7 @@ public sealed partial class Page
     }
 
     /// <summary>Replaces the value of the control <paramref name="target"/> names with <paramref name="text"/>.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="text">The value to leave in the control.</param>
     /// <returns><see langword="true"/> when an editable element matched.</returns>
     /// <remarks>
@@ -334,7 +351,7 @@ public sealed partial class Page
     public Task<bool> FillAsync(string target, string text) => FillAsync(target, 0, text);
 
     /// <summary>Replaces the value of the indexed control that <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <param name="text">The value to leave in the control.</param>
     /// <returns><see langword="true"/> when the indexed editable element matched.</returns>
@@ -391,7 +408,7 @@ public sealed partial class Page
     }
 
     /// <summary>Types <paramref name="text"/> into what <paramref name="target"/> names, one key at a time.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="text">The characters to type.</param>
     /// <returns><see langword="true"/> when an element matched and was focused.</returns>
     /// <remarks>
@@ -406,7 +423,7 @@ public sealed partial class Page
     public Task<bool> TypeAsync(string target, string text) => TypeAsync(target, 0, text);
 
     /// <summary>Types into the indexed element that <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <param name="text">The characters to type.</param>
     /// <returns><see langword="true"/> when the indexed element matched and was focused.</returns>
@@ -478,7 +495,7 @@ public sealed partial class Page
     }
 
     /// <summary>Focuses what <paramref name="target"/> names, then presses one key at it.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="key">A <c>KeyboardEvent.key</c> value: a character, or a name such as <c>Escape</c> or <c>ArrowDown</c>.</param>
     /// <param name="modifiers">Modifiers carried by both the keydown and keyup events.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
@@ -524,11 +541,17 @@ public sealed partial class Page
         var wait = ActionTimeout(timeout);
         ObjectDisposedException.ThrowIf(_closed, this);
 
+        // Parsed once rather than on every look; a target that cannot be parsed matches nothing, ever.
+        if (ElementLocator.TryParse(target) is not { } locator)
+        {
+            return false;
+        }
+
         NavigationRequest? captured = null;
         var pressed = await WaitForAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime
-                || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element
+                || locator.TryFind(runtime.Dom, runtime.Document, index) is not { } element
                 || !FocusController.Focus(runtime.Dom, element))
             {
                 return false;
@@ -547,7 +570,7 @@ public sealed partial class Page
     }
 
     /// <summary>Focuses what <paramref name="target"/> names, as <c>element.focus()</c> would.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <param name="timeout">
     /// How long to wait for a focusable match; 30 seconds when omitted, <see cref="TimeSpan.Zero"/> to look
@@ -584,15 +607,20 @@ public sealed partial class Page
         var wait = ActionTimeout(timeout);
         ObjectDisposedException.ThrowIf(_closed, this);
 
+        if (ElementLocator.TryParse(target) is not { } locator)
+        {
+            return Task.FromResult(false);
+        }
+
         return WaitForAsync(
             engine => PageRuntime.Find(engine) is { } runtime
-                && ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is { } element
+                && locator.TryFind(runtime.Dom, runtime.Document, index) is { } element
                 && FocusController.Focus(runtime.Dom, element),
             wait);
     }
 
     /// <summary>Takes focus away from what <paramref name="target"/> names, as <c>element.blur()</c> would.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <param name="timeout">
     /// How long to wait for a match; 30 seconds when omitted, <see cref="TimeSpan.Zero"/> to look once,
@@ -616,10 +644,15 @@ public sealed partial class Page
         var wait = ActionTimeout(timeout);
         ObjectDisposedException.ThrowIf(_closed, this);
 
+        if (ElementLocator.TryParse(target) is not { } locator)
+        {
+            return Task.FromResult(false);
+        }
+
         return WaitForAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime
-                || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
+                || locator.TryFind(runtime.Dom, runtime.Document, index) is not { } element)
             {
                 return false;
             }
@@ -677,7 +710,7 @@ public sealed partial class Page
     }
 
     /// <summary>Selects the option of a <c>&lt;select&gt;</c> whose value or label is <paramref name="value"/>.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="value">The option's <c>value</c>, or its text when no option carries that value.</param>
     /// <returns><see langword="true"/> when a <c>&lt;select&gt;</c> matched and had such an option.</returns>
     /// <remarks>
@@ -689,7 +722,7 @@ public sealed partial class Page
     public Task<bool> SelectAsync(string target, string value) => SelectAsync(target, 0, value);
 
     /// <summary>Selects an option in the indexed <c>&lt;select&gt;</c> that <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <param name="value">The option's value, or its text when no option carries that value.</param>
     /// <returns><see langword="true"/> when the indexed select matched and had such an option.</returns>
@@ -754,7 +787,7 @@ public sealed partial class Page
     }
 
     /// <summary>Selects host files into the file input <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="paths">Paths on this machine, in the order they were chosen.</param>
     /// <returns><see langword="true"/> when an <c>&lt;input type=file&gt;</c> matched.</returns>
     /// <remarks>
@@ -786,7 +819,7 @@ public sealed partial class Page
         => SetInputFilesAsync(target, 0, paths);
 
     /// <summary>Selects host files into the indexed file input that <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <param name="paths">Paths on this machine, in the order they were chosen.</param>
     /// <returns><see langword="true"/> when the indexed match was an <c>&lt;input type=file&gt;</c>.</returns>
@@ -812,7 +845,7 @@ public sealed partial class Page
     }
 
     /// <summary>Selects files held in memory into the file input <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="files">The files, in the order they were chosen.</param>
     /// <returns><see langword="true"/> when an <c>&lt;input type=file&gt;</c> matched.</returns>
     /// <remarks>
@@ -825,7 +858,7 @@ public sealed partial class Page
         => SetInputFilesAsync(target, 0, files);
 
     /// <summary>Selects files held in memory into the indexed file input that <paramref name="target"/> names.</summary>
-    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <param name="files">The files, in the order they were chosen.</param>
     /// <returns><see langword="true"/> when the indexed match was an <c>&lt;input type=file&gt;</c>.</returns>
@@ -887,7 +920,7 @@ public sealed partial class Page
     }
 
     /// <summary>Waits until an element matching <paramref name="selector"/> is in the document.</summary>
-    /// <param name="selector">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="selector">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="timeout">The ceiling on the wait.</param>
     /// <returns><see langword="true"/> when it appeared, <see langword="false"/> when the timeout won.</returns>
     /// <remarks>
@@ -900,7 +933,7 @@ public sealed partial class Page
     public Task<bool> WaitForSelectorAsync(string selector, TimeSpan timeout) => WaitForSelectorAsync(selector, 0, timeout);
 
     /// <summary>Waits until the indexed element matching <paramref name="selector"/> is in the document.</summary>
-    /// <param name="selector">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="selector">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <param name="timeout">The ceiling on the wait.</param>
     /// <returns><see langword="true"/> when it appeared, <see langword="false"/> when the timeout won.</returns>
@@ -910,7 +943,8 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(selector);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return WaitForAsync(engine => ElementLocator.Find(DomRealm.Of(engine), PageRuntime.Find(engine)?.Document, selector, index) is not null, timeout);
+        var locator = ElementLocator.TryParse(selector);
+        return WaitForAsync(engine => locator?.TryFind(DomRealm.Of(engine), PageRuntime.Find(engine)?.Document, index) is not null, timeout);
     }
 
     /// <summary>Waits until <paramref name="text"/> appears in the document's rendered text.</summary>

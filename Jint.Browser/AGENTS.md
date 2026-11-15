@@ -81,7 +81,7 @@ Do not restore typed grammar engines or eagerly parse CSS during HTML constructi
 | Computed declaration | `ReadOnlyStyleDeclaration` is a read-only Browser view, not a mutable detached stylesheet declaration. `CssCascade.Traversal.Current` shares one traversal per document across script reads while `NativeCssQuery.IsReusable` and the page witness hold; an input a query captures must retire it. |
 
 Custom properties inherit declared text; ordinary values optionally use depth-limited textual `var()`.
-Layout-used shorthands expand by whitespace splitting, background/border/mask by component classification. Other than style/media/supports/layer/scope/
+Layout-used shorthands expand by whitespace splitting, background/border/mask/animation/transition by component classification. Other than style/media/supports/layer/scope/
 import/font-face, at-rules are opaque base `CSSRule` objects. Container queries, keyframes, registrations and
 typed OM interfaces are removed by design. Retain query stamps, bounded work and CSSOM identity.
 
@@ -268,7 +268,8 @@ The pressure to promote and the table of promoted seams are
 [`Jint.Browser.Tool/AGENTS.md`](../Jint.Browser.Tool/AGENTS.md). `Jint.Browser.Tool` and `Jint.Browser.Mcp`
 take **no** `InternalsVisibleTo` grant: what they cannot reach is what an embedder cannot reach. Publish a
 necessary `Page` seam over existing internals rather than granting either friend access. **A target is a
-selector or a `ref=`**; `Runtime/ElementLocator` decides.
+selector, a `ref=`, or a `role=`/`label=`/`text=` locator chained with `>>`**; `Runtime/ElementLocator`
+decides, and a role target asks the snapshot's own walk (`AccessibilityTree.Query`), never page script.
 
 `Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the reviewable public API baseline.
 **The public Browser API does not expose native DOM nodes**, which is why `Page.SubmitFormAsync` takes a
