@@ -51,9 +51,11 @@ internal static class CanvasPathOperations
     private static void RoundRect(CanvasRealm owner, double[] coordinates, JsValue value)
     {
         var radii = new List<(double X, double Y)>(4);
-        if (value is ObjectInstance obj && obj.GetMethod(GlobalSymbolRegistry.Iterator) is not null)
+        // (unrestricted double or DOMPointInit or sequence<...>): one read of @@iterator (https://webidl.spec.whatwg.org/#es-union),
+        // and the sequence is created from the method that read found.
+        if (value is ObjectInstance obj && obj.GetMethod(GlobalSymbolRegistry.Iterator) is { } iteratorMethod)
         {
-            var iterator = value.GetIterator(owner.Realm);
+            var iterator = value.GetIterator(owner.Realm, method: iteratorMethod);
             try
             {
                 while (iterator.TryIteratorStepValue(out var entry))
@@ -64,7 +66,9 @@ internal static class CanvasPathOperations
             }
             catch
             {
-                iterator.Close(Jint.Runtime.CompletionType.Throw);
+                // A failed conversion closes the iterator. A step that threw left the record done, so
+                // CloseIfNotDone closes nothing then (sebastienros/jint#4431).
+                iterator.CloseIfNotDone(Jint.Runtime.CompletionType.Throw);
                 throw;
             }
         }

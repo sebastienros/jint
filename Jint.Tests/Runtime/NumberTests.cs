@@ -55,6 +55,14 @@ public class NumberTests
     }
 
     [TestCase("1.7976931348623157e+308", double.MaxValue)]
+    // The longest prefix that is a StrDecimalLiteral: a point after the exponent ends it (sebastienros/jint#4579).
+    [TestCase("1e5.5", 100000d)]
+    [TestCase("1e-7123.456", 0d)]
+    [TestCase("1.5e3.2", 1500d)]
+    [TestCase("1e.5", 1d)]
+    [TestCase("1.e5", 100000d)]
+    [TestCase(".5e1.5", 5d)]
+    [TestCase("1e5e5", 100000d)]
     public void ParseFloat(string input, double result)
     {
         var value = _engine.Evaluate($"parseFloat('{input}')").AsNumber();
@@ -687,5 +695,73 @@ public class NumberTests
         Invoking(() => engine.Evaluate("(3).toFixed(-1)")).Should().Throw<JavaScriptException>();
         Invoking(() => engine.Evaluate("(3).toFixed(101)")).Should().Throw<JavaScriptException>();
         Invoking(() => engine.Evaluate("(3).toFixed(Infinity)")).Should().Throw<JavaScriptException>();
+    }
+
+    /// <summary>
+    /// Number::exponentiate only returns NaN for a negative finite base when the exponent is not an
+    /// integral Number. An integral exponent outside the int32 range used to be treated as non-integral.
+    /// </summary>
+    [TestCase("Math.pow(-0.5, -1e300)", double.PositiveInfinity)]
+    [TestCase("Math.pow(-0.5, 1e300)", 0d)]
+    [TestCase("Math.pow(-2, 2 ** 53)", double.PositiveInfinity)]
+    [TestCase("Math.pow(-2, -(2 ** 53))", 0d)]
+    [TestCase("Math.pow(-2, 2147483648)", double.PositiveInfinity)]
+    [TestCase("Math.pow(-2, 0.5)", double.NaN)]
+    [TestCase("Math.pow(-2, 3)", -8d)]
+    public void MathPowNegativeBaseWithLargeIntegralExponent(string source, double expected)
+    {
+        var actual = _engine.Evaluate(source).AsNumber();
+        BitConverter.DoubleToInt64Bits(actual).Should().Be(
+            BitConverter.DoubleToInt64Bits(expected),
+            $"{source} should be {expected:R} but was {actual:R}");
+    }
+
+    /// <summary>
+    /// A Number with magnitude 2^52 or more is already integral, so Math.round must return it as is.
+    /// Even integers in [2^52, 2^53) used to come back as x + 1.
+    /// </summary>
+    [TestCase("Math.round(4503599627370498)", 4503599627370498d)]
+    [TestCase("Math.round(-4503599627370498)", -4503599627370498d)]
+    [TestCase("Math.round(9007199254740990)", 9007199254740990d)]
+    [TestCase("Math.round(4503599627370496)", 4503599627370496d)]
+    [TestCase("Math.round(4503599627370497)", 4503599627370497d)]
+    [TestCase("Math.round(4503599627370495.5)", 4503599627370496d)]
+    [TestCase("Math.round(-4503599627370495.5)", -4503599627370495d)]
+    [TestCase("Math.round(0.5)", 1d)]
+    [TestCase("Math.round(-0.5)", -0d)]
+    [TestCase("Math.round(-0)", -0d)]
+    [TestCase("Math.round(2.5)", 3d)]
+    [TestCase("Math.round(-2.5)", -2d)]
+    [TestCase("Math.round(Infinity)", double.PositiveInfinity)]
+    [TestCase("Math.round(-Infinity)", double.NegativeInfinity)]
+    [TestCase("Math.round(NaN)", double.NaN)]
+    public void MathRoundKeepsLargeIntegers(string source, double expected)
+    {
+        var actual = _engine.Evaluate(source).AsNumber();
+        BitConverter.DoubleToInt64Bits(actual).Should().Be(
+            BitConverter.DoubleToInt64Bits(expected),
+            $"{source} should be {expected:R} but was {actual:R}");
+    }
+
+    // Number::toString spells an integral Number by its shortest round-tripping digits, which above 2^53 is not
+    // its exact value (https://tc39.es/ecma262/#sec-numeric-types-number-tostring, sebastienros/jint#4579).
+    // The expected strings are Node's.
+    [TestCase("String(2 ** 60)", "1152921504606847000")]
+    [TestCase("String(-(2 ** 60))", "-1152921504606847000")]
+    [TestCase("String(0xFFFFFFFFFFFFF8)", "72057594037927930")]
+    [TestCase("(0xFFFFFFFFFFFFF8).toString()", "72057594037927930")]
+    [TestCase("'' + 0xFFFFFFFFFFFFF8", "72057594037927930")]
+    [TestCase("var o = {}; o[0xFFFFFFFFFFFFF8] = 1; Object.keys(o)[0]", "72057594037927930")]
+    [TestCase("Object.keys({ 0xFFFFFFFFFFFFF8: 1 })[0]", "72057594037927930")]
+    [TestCase("JSON.stringify([2 ** 60, 0xFFFFFFFFFFFFF8])", "[1152921504606847000,72057594037927930]")]
+    [TestCase("String(2 ** 53)", "9007199254740992")]
+    [TestCase("String(2 ** 53 + 2)", "9007199254740994")]
+    [TestCase("String(9007199254740991)", "9007199254740991")]
+    [TestCase("String(-9007199254740991)", "-9007199254740991")]
+    [TestCase("String(1e20)", "100000000000000000000")]
+    [TestCase("String(-0)", "0")]
+    public void IntegralNumbersUseTheShortestSpelling(string source, string expected)
+    {
+        _engine.Evaluate(source).AsString().Should().Be(expected);
     }
 }

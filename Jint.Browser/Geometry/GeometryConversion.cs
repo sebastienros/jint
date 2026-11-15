@@ -153,19 +153,30 @@ internal static class GeometryConversion
 
     /// <summary>
     /// https://drafts.fxtf.org/geometry/#dom-dommatrixreadonly-dommatrixreadonly — the
-    /// <c>(DOMString or sequence&lt;unrestricted double&gt;)</c> union: an object with an <c>@@iterator</c> is the
-    /// sequence, anything else the string (https://webidl.spec.whatwg.org/#es-union).
+    /// <c>(DOMString or sequence&lt;unrestricted double&gt;)</c> union: an object whose <c>@@iterator</c> is a method is
+    /// the sequence, anything else the string (https://webidl.spec.whatwg.org/#es-union). <c>@@iterator</c> is read
+    /// once, and the sequence is created from the method that read found.
     /// </summary>
     internal static (double[] Elements, bool Is2D) MatrixConstructorInit(DomRealm realm, JsValue value, string interfaceName)
     {
         var owning = realm.OwningRealm;
-        if (value is ObjectInstance instance && instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is not null)
+        if (value is ObjectInstance instance && instance.GetMethod(Native.Symbol.GlobalSymbolRegistry.Iterator) is { } iteratorMethod)
         {
-            var iterator = value.GetIterator(owning);
+            var iterator = value.GetIterator(owning, method: iteratorMethod);
             var values = new List<double>(16);
-            while (iterator.TryIteratorStepValue(out var item))
+            try
             {
-                values.Add(TypeConverter.ToNumber(item));
+                while (iterator.TryIteratorStepValue(out var item))
+                {
+                    values.Add(TypeConverter.ToNumber(item));
+                }
+            }
+            catch
+            {
+                // An element whose conversion threw closes the iterator; a step that threw left the record done
+                // (sebastienros/jint#4431).
+                iterator.CloseIfNotDone(CompletionType.Throw);
+                throw;
             }
 
             return FromSequence(owning, values, "Failed to construct '" + interfaceName + "'");
@@ -214,20 +225,54 @@ internal static class GeometryConversion
             return (GeometryMatrix.Identity(), true);
         }
 
-        if (!CssTransformList.TryParse(transformList, new CssValueWork(realm.CancellationToken), out var functions))
+        if (!TryParse(transformList, new CssValueWork(realm.CancellationToken), out var elements, out var is2D))
         {
             DomFailures.Refuse(realm, member, "SyntaxError", "Failed to parse '" + transformList + "'.");
         }
 
-        var elements = GeometryMatrix.Identity();
-        var is2D = true;
+        return (elements, is2D);
+    }
+
+    /// <summary>
+    /// The abstract matrix of a transform list in absolute units, or <see langword="false"/> when the list does
+    /// not parse or needs a box to resolve (relative lengths, percentages, math functions).
+    /// </summary>
+    internal static bool TryParse(string transformList, CssValueWork work, out double[] elements, out bool is2D)
+    {
+        elements = GeometryMatrix.Identity();
+        is2D = true;
+        if (!CssTransformList.TryParse(transformList, work, out var functions)) return false;
         foreach (var function in functions)
         {
+            work.Charge(1);
             is2D &= function.Is2D;
             Apply(elements, function);
         }
 
-        return (elements, is2D);
+        return true;
+    }
+
+    /// <summary>
+    /// CSS Transforms 2 §6 (https://drafts.csswg.org/css-transforms-2/#serialization-of-the-computed-value):
+    /// a resolved transform serializes as one <c>matrix()</c>, or <c>matrix3d()</c> when it is not 2D, with
+    /// each number at the six significant digits browsers print.
+    /// </summary>
+    internal static string SerializeResolved(double[] m, bool is2D)
+    {
+        ReadOnlySpan<int> twoD = [GeometryMatrix.M11, GeometryMatrix.M12, GeometryMatrix.M21, GeometryMatrix.M22, GeometryMatrix.M41, GeometryMatrix.M42];
+        var builder = new System.Text.StringBuilder(is2D ? "matrix(" : "matrix3d(");
+        var count = is2D ? 6 : 16;
+        for (var i = 0; i < count; i++)
+        {
+            if (i > 0) builder.Append(", ");
+            var value = m[is2D ? twoD[i] : i];
+            if (value == 0) value = 0; // -0 prints as 0
+            builder.Append(Math.Abs(value) < 1e6
+                ? value.ToString("G6", System.Globalization.CultureInfo.InvariantCulture)
+                : value.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        return builder.Append(')').ToString();
     }
 
     /// <summary>https://drafts.csswg.org/css-transforms-2/#mathematical-description, post-multiplied in list order.</summary>

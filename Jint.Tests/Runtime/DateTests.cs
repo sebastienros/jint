@@ -248,17 +248,29 @@ public class DateTests
     [TestCase("December 31 1970 12:00:00 +0300", 31)]
     public void CanParseDate(string input, int expectedDate)
     {
-        TimeZoneInfo timeZoneInfo;
-        try
+        var engine = new Engine(options => options.TimeZone = FindKyivTimeZone());
+        engine.Evaluate($"new Date('{input}').getDate()").AsNumber().Should().Be(expectedDate);
+    }
+
+    /// <summary>
+    /// A zone east of UTC, where the bug in #1746 showed. The current IANA name comes first: tzdata 2022b
+    /// renamed Europe/Kiev to Europe/Kyiv, and a system without the legacy names (Ubuntu 26.04 by default)
+    /// has only the new one, while Windows resolves "FLE Standard Time".
+    /// </summary>
+    private static TimeZoneInfo FindKyivTimeZone()
+    {
+        foreach (var id in new[] { "Europe/Kyiv", "Europe/Kiev", "FLE Standard Time" })
         {
-            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kiev");
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(id);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
         }
-        catch
-        {
-            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("FLE Standard Time");
-        }
-        var engine = new Engine(options => options.TimeZone = timeZoneInfo);
-        _engine.Evaluate($"new Date('{input}').getDate()").AsNumber().Should().Be(expectedDate);
+
+        throw new TimeZoneNotFoundException("None of Europe/Kyiv, Europe/Kiev or FLE Standard Time is known to this system.");
     }
 
     [Test]

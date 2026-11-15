@@ -17,7 +17,25 @@ namespace Jint.Runtime.Interop;
 /// </summary>
 internal abstract class ArrayLikeWrapperFactory
 {
-    public abstract ArrayLikeWrapper Create(Engine engine, object target, Type type);
+    /// <summary>
+    /// Builds the view, or answers <see langword="null"/> for a type that must not have one, which the caller then
+    /// wraps as an ordinary object.
+    /// </summary>
+    public abstract ArrayLikeWrapper? Create(Engine engine, object target, Type type);
+}
+
+/// <summary>
+/// What the resolution cache holds for a list that script addresses by its string keys alone
+/// (<see cref="TypeDescriptor.IsAddressedByKeyOnly"/>, such as Newtonsoft's <c>JObject</c>): no view, not even the
+/// non-generic <see cref="ListWrapper"/> an <see cref="IList"/> target otherwise falls back to, so the target is
+/// wrapped as the ordinary object a dictionary is (#4501). A cached answer like the others, so a crossing pays
+/// the one virtual call it already made.
+/// </summary>
+internal sealed class NoArrayLikeViewFactory : ArrayLikeWrapperFactory
+{
+    internal static readonly NoArrayLikeViewFactory Instance = new();
+
+    public override ArrayLikeWrapper? Create(Engine engine, object target, Type type) => null;
 }
 
 internal sealed class ArrayWrapperFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : ArrayLikeWrapperFactory
@@ -148,9 +166,9 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     /// <see href="https://tc39.es/ecma262/#sec-ordinaryhasproperty">OrdinaryHasProperty</see> is defined in terms
     /// of <c>[[GetOwnProperty]]</c> (#3423).
     /// <para>
-    /// A dictionary-shaped target (Newtonsoft's <c>JObject</c> is both <c>IDictionary&lt;string,_&gt;</c> and
-    /// <c>IList&lt;_&gt;</c>) answers a string key from its own keys, exactly as <see cref="HasProperty"/>
-    /// defers for it.
+    /// A dictionary-shaped target (a host type that is both <c>IDictionary&lt;string, T&gt;</c> and a list of its
+    /// values) answers a string key from its own keys, exactly as <see cref="HasProperty"/> defers for it. A list of
+    /// entries, such as Newtonsoft's <c>JObject</c>, never reaches a view at all (#4501).
     /// </para>
     /// <para>
     /// When the host's member filter rejects the indexer, <em>every</em> index-shaped key names an absent
@@ -228,8 +246,8 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public sealed override bool HasProperty(JsValue property)
     {
-        // dictionary-shaped targets (e.g. Newtonsoft's JObject: both IDictionary<string,_> and IList<_>)
-        // answer membership by key, not by index range
+        // dictionary-shaped targets (both IDictionary<string,_> and a list of its values) answer membership by
+        // key, not by index range
         if (_typeDescriptor.IsDictionary)
         {
             return base.HasProperty(property);
@@ -265,38 +283,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
         if (!CanWrite || !Extensible)
         {
-            if (property is JsString dictionaryKey
-                && _typeDescriptor.IsStringKeyedGenericDictionary
-                && _typeDescriptor.CanTestDictionaryKey)
-            {
-                var contains = _typeDescriptor.ContainsDictionaryKey(Target, dictionaryKey.ToString());
-                _engine.CheckAmortizedConstraintsAtHostBoundary();
-                if (contains)
-                {
-                    return false;
-                }
-
-                if (ArrayInstance.ParseArrayIndex(dictionaryKey.ToString()) != uint.MaxValue)
-                {
-                    return true;
-                }
-            }
-
-            if (!_typeDescriptor.IsDictionary)
-            {
-                var frozenKey = ClassifyElementKey(property, out var frozenIndex);
-                if (frozenKey == ElementKey.Position)
-                {
-                    return (uint) frozenIndex >= (uint) Length;
-                }
-
-                if (frozenKey == ElementKey.OutOfBand)
-                {
-                    return true;
-                }
-            }
-
-            return ProbeOwnPropertyChecked(property) == OwnPropertyProbe.Missing;
+            return DeleteWithoutChangingTheCollection(property);
         }
 
         var key = ClassifyElementKey(property, out var index);
@@ -334,6 +321,87 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         }
 
         return base.Delete(property);
+    }
+
+    /// <summary>
+    /// <c>[[Delete]]</c> for a view that may not change its collection: writes are off, the collection is
+    /// read-only, or the view is non-extensible.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// What is refused here is the collection's contents: an element in range, and an entry a dictionary-shaped
+    /// target holds. An element's descriptor is non-configurable, so refusing it is OrdinaryDelete's own answer.
+    /// An entry is refused because writes are off or the target is read-only, or because the view is
+    /// non-extensible: the same deliberate divergence the element-write lane in <see cref="Set"/> makes, so that a
+    /// frozen view's contents stay fixed.
+    /// </para>
+    /// <para>
+    /// Every other key follows
+    /// <see href="https://tc39.es/ecma262/#sec-ordinarydelete">OrdinaryDelete</see>, as it does on a plain
+    /// <see cref="ObjectWrapper"/> and on a writable view: a property the script defined, a method's descriptor,
+    /// the <c>length</c> forwarder. OrdinaryDelete does not read extensibility, so a configurable one is removed
+    /// and a non-configurable one is refused (#4457). The removal goes through
+    /// <see cref="ObjectWrapper.RemoveOwnPropertyFromWrapper"/>, so this lane never calls the target's
+    /// <c>Remove</c>, even for a key the dictionary does not hold.
+    /// </para>
+    /// </remarks>
+    private bool DeleteWithoutChangingTheCollection(JsValue property)
+    {
+        if (!property.IsSymbol())
+        {
+            if (_typeDescriptor.IsDictionary)
+            {
+                if (property is not JsString dictionaryKey
+                    || !_typeDescriptor.IsStringKeyedGenericDictionary
+                    || !_typeDescriptor.CanTestDictionaryKey)
+                {
+                    // a key this view cannot test against the dictionary may be an entry: refuse whatever exists
+                    return ProbeOwnPropertyChecked(property) == OwnPropertyProbe.Missing;
+                }
+
+                var name = dictionaryKey.ToString();
+                var contains = _typeDescriptor.ContainsDictionaryKey(Target, name);
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (contains)
+                {
+                    return false;
+                }
+
+                if (ArrayInstance.ParseArrayIndex(name) != uint.MaxValue)
+                {
+                    // the reflected indexer reports a descriptor for any index-shaped key, entry or not
+                    return true;
+                }
+            }
+            else
+            {
+                var key = ClassifyElementKey(property, out var index);
+                if (key == ElementKey.Position)
+                {
+                    return (uint) index >= (uint) Length;
+                }
+
+                if (key == ElementKey.OutOfBand)
+                {
+                    return true;
+                }
+            }
+        }
+
+        // https://tc39.es/ecma262/#sec-ordinarydelete
+        var descriptor = GetOwnProperty(property);
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            return true;
+        }
+
+        if (!descriptor.Configurable)
+        {
+            return false;
+        }
+
+        RemoveOwnPropertyFromWrapper(property);
+        return true;
     }
 
     public abstract object? GetAt(int index);
@@ -414,8 +482,8 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     {
         // The length and fixed-size index lanes below never reach base.Set, which is where a crossing memo
         // is otherwise evicted per key. Dropping it here keeps that guarantee for the one target shape that
-        // can carry both a memo and these lanes — a dictionary-shaped array-like such as JObject, where a
-        // length write can invalidate arbitrary keys. Everywhere else the memo is already null.
+        // can carry both a memo and these lanes — a dictionary-shaped array-like, where a length write can
+        // invalidate arbitrary keys. Everywhere else the memo is already null.
         DropCrossingMemo();
 
         if (ReferenceEquals(receiver, this) && CommonProperties.Length.Equals(property))

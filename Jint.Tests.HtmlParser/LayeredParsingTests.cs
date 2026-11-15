@@ -8,7 +8,7 @@ public sealed class LayeredParsingTests
     [Test]
     public void HtmlBuildsStructureWithoutInterpretingEmbeddedLanguagesOrInputValues()
     {
-        const string css = "@media future(foo) { @scope (???) { x { unknown:invalid() } } }";
+        const string css = "@media future(foo) { @container (???) { x { unknown:invalid() } } }";
         const string script = "this is not valid JavaScript";
         var document = MarkupParser.ParseHtml(
             "<style id=s>" + css + "</style><script id=j>" + script + "</script>" +

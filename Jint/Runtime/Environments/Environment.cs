@@ -123,6 +123,12 @@ internal abstract class Environment : JsValue
     internal virtual Completion DisposeResources(Completion c) => c;
 
     /// <summary>
+    /// <see cref="DisposeResources(Completion)"/> for a caller that has already left the execution context whose
+    /// resources these are, so the running realm is not the one a <c>SuppressedError</c> belongs to.
+    /// </summary>
+    internal virtual Completion DisposeResources(Completion c, Realm realm) => c;
+
+    /// <summary>
     /// Fast bool check for whether this environment has any disposable resources to
     /// process. Lets callers skip allocating a continueWith closure when there's no
     /// dispose work to do — the dispose hot path on every async function/generator exit.
@@ -134,6 +140,12 @@ internal abstract class Environment : JsValue
     /// environments that don't track disposable resources.
     /// </summary>
     internal virtual DisposeStepResult BeginDisposeResources(Completion c) => DisposeStepResult.Done(c);
+
+    /// <summary>
+    /// <see cref="BeginDisposeResources(Completion)"/> for a caller whose running realm is not the one that is
+    /// disposing: the realm of the function, generator or module whose body has finished.
+    /// </summary>
+    internal virtual DisposeStepResult BeginDisposeResources(Completion c, Realm realm) => DisposeStepResult.Done(c);
 
     /// <summary>
     /// Continue dispose after an awaited promise settled. Must not be called on
@@ -153,29 +165,34 @@ internal abstract class Environment : JsValue
     {
         public readonly Key Key;
         public readonly JsString Value;
-        public readonly JsValue? CalculatedValue;
+
+        /// <summary>
+        /// The value every read of this name evaluates to without resolving it, or <see langword="null"/> when a
+        /// read has to resolve. Only the static analysis sets it, for the identifier <c>undefined</c> of a program
+        /// that cannot shadow the global one; see <see cref="SetFoldsToUndefined"/>.
+        /// </summary>
+        public JsValue? CalculatedValue { get; private set; }
 
         public BindingName(string value)
         {
-            var key = (Key) value;
-            Key = key;
+            Key = (Key) value;
             Value = JsString.Create(value);
-            if (key == KnownKeys.Undefined)
-            {
-                CalculatedValue = Undefined;
-            }
         }
 
         public BindingName(JsString value)
         {
-            var key = (Key) value.ToString();
-            Key = key;
+            Key = (Key) value.ToString();
             Value = value;
-            if (key == KnownKeys.Undefined)
-            {
-                CalculatedValue = Undefined;
-            }
         }
+
+        /// <summary>
+        /// Says whether reads of this name may be answered by the global <c>undefined</c>, which is non-writable and
+        /// non-configurable (https://tc39.es/ecma262/#sec-undefined), so only a binding between the read and the
+        /// global environment can give it another value. The analysis sets it while it has seen nothing in the
+        /// program that could create one and clears it on the first thing that could, which is safe because every
+        /// identifier node of one program shares this instance.
+        /// </summary>
+        internal void SetFoldsToUndefined(bool folds) => CalculatedValue = folds ? Undefined : null;
     }
 
     private sealed class EnvironmentDebugView

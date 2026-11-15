@@ -12,6 +12,12 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
 
     private static readonly JsBigInt[] _bigIntegerToJsValue;
 
+    /// <summary>
+    /// The widest BigInt, in bits, an operation whose result outgrows its operands may build before it throws
+    /// <c>RangeError: Maximum BigInt size exceeded</c>.
+    /// </summary>
+    internal const int MaxBitLength = 1_000_000;
+
     static JsBigInt()
     {
         var bigIntegers = new JsBigInt[1024];

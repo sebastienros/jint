@@ -46,6 +46,8 @@ internal static class DomMarkupApis
             {
                 if (item is not IDomWrapper { DomTarget: ShadowRoot root })
                 {
+                    // An element that is not a ShadowRoot closes the iterator first (sebastienros/jint#4431).
+                    iterator.Close(CompletionType.Throw);
                     Throw.TypeError(realm.OwningRealm, "Failed to execute '" + member
                         + "': Failed to convert value to 'ShadowRoot'.");
                     return JsValue.Undefined;

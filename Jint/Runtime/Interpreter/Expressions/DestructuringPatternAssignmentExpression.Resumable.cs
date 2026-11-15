@@ -166,8 +166,8 @@ internal sealed partial class DestructuringPatternAssignmentExpression
 
                 if (left is null)
                 {
-                    // An elision consumes a step and discards it.
-                    StepValue(iterator, ref done);
+                    // An elision consumes a step and discards it, without reading its value.
+                    StepElision(iterator, ref done);
                 }
                 else if (left is Identifier identifier)
                 {

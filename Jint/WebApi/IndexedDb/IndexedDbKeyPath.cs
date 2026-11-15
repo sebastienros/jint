@@ -20,11 +20,13 @@ internal sealed class IndexedDbKeyPath(string[] paths, bool sequence)
 
     internal static IndexedDbKeyPath Read(Engine engine, Realm realm, JsValue value)
     {
-        var sequence = value is ObjectInstance obj && obj.GetMethod(GlobalSymbolRegistry.Iterator) is not null;
+        // (DOMString or sequence<DOMString>): one read of @@iterator, and the sequence is created from what it found.
+        var iteratorMethod = value is ObjectInstance obj ? obj.GetMethod(GlobalSymbolRegistry.Iterator) : null;
+        var sequence = iteratorMethod is not null;
         var paths = new List<string>();
-        if (sequence)
+        if (iteratorMethod is not null)
         {
-            var iterator = value.GetIterator(realm);
+            var iterator = value.GetIterator(realm, method: iteratorMethod);
             try
             {
                 while (iterator.TryIteratorStepValue(out var item))
@@ -35,7 +37,8 @@ internal sealed class IndexedDbKeyPath(string[] paths, bool sequence)
             }
             catch
             {
-                iterator.Close(CompletionType.Throw);
+                // A step that threw left the record done, and closes nothing (sebastienros/jint#4431).
+                iterator.CloseIfNotDone(CompletionType.Throw);
                 throw;
             }
         }
@@ -76,7 +79,16 @@ internal sealed class IndexedDbKeyPath(string[] paths, bool sequence)
     }
 
     internal JsValue ToValue(Engine engine)
-        => IsSequence ? new JsArray(engine, Paths.Select(static p => (JsValue) JsString.Create(p)).ToArray()) : JsString.Create(Paths[0]);
+    {
+        if (!IsSequence)
+        {
+            return JsString.Create(Paths[0]);
+        }
+
+        // As long as the array the writing engine was given, which need not be this one (sebastienros/jint#4505).
+        ArrayInstance.ValidateListLength(engine, (uint) Paths.Length);
+        return new JsArray(engine, Paths.Select(static p => (JsValue) JsString.Create(p)).ToArray());
+    }
 
     /// <summary>https://w3c.github.io/IndexedDB/#evaluate-a-key-path-on-a-value.</summary>
     internal bool TryEvaluate(SerializedValue root, out SerializedValue value)

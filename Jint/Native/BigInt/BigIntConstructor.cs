@@ -37,12 +37,19 @@ internal sealed partial class BigIntConstructor : Constructor
     {
         var bits = TypeConverter.ToIndex(_realm, bitsValue);
         var bigint = bigintValue.ToBigInteger(_engine);
-        var supportedBits = ToSupportedBitCount(bits);
 
-        var mod = TypeConverter.BigIntegerModulo(bigint, BigInteger.Pow(2, supportedBits));
-        if (supportedBits > 0 && mod >= BigInteger.Pow(2, supportedBits - 1))
+        // A value that already fits in that many signed bits is its own result, whatever the count. One that does
+        // not is wider than bits, so bits fits in an int and 2^bits is never larger than the value itself.
+        if ((ulong) bigint.GetBitLength() < bits)
         {
-            return (mod - BigInteger.Pow(2, supportedBits));
+            return bigint;
+        }
+
+        var modulus = BigInteger.One << (int) bits;
+        var mod = bigint & (modulus - BigInteger.One);
+        if (bits > 0 && mod >= modulus >> 1)
+        {
+            return mod - modulus;
         }
 
         return mod;
@@ -56,21 +63,22 @@ internal sealed partial class BigIntConstructor : Constructor
     {
         var bits = TypeConverter.ToIndex(_realm, bitsValue);
         var bigint = bigintValue.ToBigInteger(_engine);
-        var supportedBits = ToSupportedBitCount(bits);
 
-        var result = TypeConverter.BigIntegerModulo(bigint, BigInteger.Pow(2, supportedBits));
-
-        return result;
-    }
-
-    private int ToSupportedBitCount(ulong bits)
-    {
-        if (bits > int.MaxValue)
+        // A non-negative value that already fits is its own result, and a wider one is cut down to its low bits.
+        // Only a negative value grows: its result is bits wide whatever its own size.
+        if (bigint.Sign >= 0)
         {
-            Throw.RangeError(_realm, "Invalid bit count");
+            if ((ulong) bigint.GetBitLength() <= bits)
+            {
+                return bigint;
+            }
+        }
+        else if (bits > JsBigInt.MaxBitLength)
+        {
+            Throw.RangeError(_realm, "Maximum BigInt size exceeded");
         }
 
-        return (int) bits;
+        return bigint & ((BigInteger.One << (int) bits) - BigInteger.One);
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)

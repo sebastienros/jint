@@ -147,7 +147,8 @@ internal sealed class JintFunctionDefinition
             result = (_bodyStatementList ?? BuildBodyStatementList(context)).Execute(context);
         }
 
-        argumentsInstance?.FunctionWasCalled();
+        // The argument is evaluated only when there is an arguments object to tell.
+        argumentsInstance?.FunctionWasCalled(environmentOutlivesCall: state.EnvironmentMayEscape);
         return result;
     }
 
@@ -582,6 +583,17 @@ internal sealed class JintFunctionDefinition
         public bool IsSimpleParameterList;
         public bool HasParameterExpressions;
         public bool ArgumentsObjectNeeded;
+
+        /// <summary>
+        /// True when something a synchronous call creates can resolve this function's <c>arguments</c> binding
+        /// after the call has returned: an arrow naming it, or a direct eval, whose code can leave such an arrow
+        /// behind (<see cref="ArgumentsCaptureAstVisitor"/>). A read that late cannot mark the object as escaping in
+        /// time, so instantiation takes the snapshot up front and the object never returns to the pool. Never set
+        /// for a generator or an async function: neither releases its arguments object, and both already own the
+        /// array behind it (<see cref="RequiresInputArgumentsOwnership"/>).
+        /// </summary>
+        public bool ArgumentsMayOutliveCall;
+
         public bool RequiresInputArgumentsOwnership;
         public List<Key>? VarNames;
         public FunctionToInitialize[]? FunctionsToInitialize;
@@ -816,6 +828,14 @@ internal sealed class JintFunctionDefinition
         if (argumentsObjectReachable && !state.ArgumentsObjectNeeded)
         {
             state.ArgumentsObjectNeeded = (evalUsage & EvalContextAstVisitor.Usage.ArgumentsReachingEval) != EvalContextAstVisitor.Usage.None;
+        }
+
+        // The arguments object is pooled, and reads straight out of the caller's argument array, until a read
+        // hands it on; a call that ends with it unclaimed releases both. A closure's read comes after that, so
+        // the functions that can have one are found here, once, and their calls take the snapshot up front.
+        if (state.ArgumentsObjectNeeded && !function.Async && !function.Generator)
+        {
+            state.ArgumentsMayOutliveCall = ArgumentsCaptureAstVisitor.MayCapture(function);
         }
 
         var parameterBindings = new HashSet<Key>(state.ParameterNames);
@@ -1067,6 +1087,11 @@ internal sealed class JintFunctionDefinition
         {
             state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscape(function);
         }
+
+        // An arrow or a direct eval is a capturing node to the escape analysis as well, so a captured arguments
+        // object always sits in an environment that is never reused — which is what lets it stay mapped to that
+        // environment after the call returns (JsArguments.FunctionWasCalled).
+        System.Diagnostics.Debug.Assert(!state.ArgumentsMayOutliveCall || state.EnvironmentMayEscape);
 
         // This-binding elision: a non-arrow function that never references this/super/new.target
         // and creates no closures (escape analysis; also excludes generators/async/direct eval)
@@ -1581,6 +1606,66 @@ Start:
                     {
                         return true;
                     }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Whether something a call creates can resolve the function's own <c>arguments</c> binding after the call
+    /// has returned. An arrow has no binding of its own — it is created with the lexical this mode
+    /// (https://tc39.es/ecma262/#sec-ordinaryfunctioncreate), and that is what makes
+    /// https://tc39.es/ecma262/#sec-functiondeclarationinstantiation decline to make one — so the name in it
+    /// resolves to the enclosing function's, at whatever time the arrow runs. A direct eval resolves the name
+    /// in the function's scope too, and its code can leave such an arrow behind
+    /// (https://tc39.es/ecma262/#sec-performeval), so any one of them counts, inside an arrow or not. A nested
+    /// non-arrow function has a binding of its own, and nothing it names is this function's.
+    /// </summary>
+    /// <remarks>
+    /// Over-approximates in the safe direction, which costs a snapshot per call and never a wrong answer: a
+    /// property key spelled <c>arguments</c>, an arrow's own parameter of that name, and a call to something
+    /// named <c>eval</c> that is not the intrinsic all count.
+    /// </remarks>
+    private static class ArgumentsCaptureAstVisitor
+    {
+        public static bool MayCapture(IFunction function)
+        {
+            foreach (var parameter in function.Params.AsSpan())
+            {
+                if (Visit(parameter, insideArrow: false))
+                {
+                    return true;
+                }
+            }
+
+            return Visit(function.Body, insideArrow: false);
+        }
+
+        private static bool Visit(Node node, bool insideArrow)
+        {
+            switch (node.Type)
+            {
+                case NodeType.Identifier:
+                    return insideArrow && string.Equals(((Identifier) node).Name, "arguments", StringComparison.Ordinal);
+                case NodeType.FunctionDeclaration:
+                case NodeType.FunctionExpression:
+                    return false;
+                case NodeType.ArrowFunctionExpression:
+                    insideArrow = true;
+                    break;
+                case NodeType.CallExpression when ((CallExpression) node).Callee is Identifier { Name: "eval" }:
+                    return true;
+            }
+
+            using var nesting = SyntaxNesting.Enter();
+
+            foreach (var childNode in node.ChildNodes)
+            {
+                if (Visit(childNode, insideArrow))
+                {
+                    return true;
                 }
             }
 

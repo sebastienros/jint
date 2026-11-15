@@ -481,16 +481,16 @@ public class ScriptLoadingTests
     }
 
     [Test]
-    public async Task DocumentWriteAfterTheParseIsRefusedWithAReason()
+    public async Task DocumentWriteAfterTheParseReplacesTheDocument()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
             .MapHtml("/", "<!doctype html><html><body><p id='p'>kept</p></body></html>"));
 
         await loopback.Page.NavigateAsync(loopback.Url("/"));
-        await loopback.Page.EvaluateAsync("document.write('<p id=\"late\">late</p>')");
+        await loopback.Page.EvaluateAsync("document.write('<p id=\"late\">late</p>'); document.close()");
 
-        (await loopback.Page.EvaluateAsync("document.getElementById('p').textContent")).Should().Be("kept");
-        (await loopback.Page.EvaluateAsync("document.getElementById('late')")).Should().BeNull();
-        loopback.Page.Errors.Should().ContainSingle(error => error.Message.Contains("document.open()", StringComparison.Ordinal));
+        (await loopback.Page.EvaluateAsync("document.getElementById('p')")).Should().BeNull();
+        (await loopback.Page.EvaluateAsync("document.getElementById('late').textContent")).Should().Be("late");
+        loopback.Page.Errors.Should().BeEmpty();
     }
 }

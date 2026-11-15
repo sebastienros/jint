@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-forbodyevaluation
 /// </summary>
-internal sealed class JintForStatement : JintStatement<ForStatement>
+internal sealed class JintForStatement : JintIterationStatement<ForStatement>
 {
     private readonly JintVariableDeclaration? _initStatement;
     private readonly JintExpression? _initExpression;
@@ -900,7 +900,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                     return new Completion(CompletionType.Normal, result.Value, ((JintStatement) this)._statement);
                 }
 
-                if (result.Type != CompletionType.Continue || (result.Target != null && !string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
+                if (result.Type != CompletionType.Continue || (result.Target is { } target && !LabelSetContains(target)))
                 {
                     if (result.Type != CompletionType.Normal)
                     {

@@ -68,12 +68,13 @@ internal sealed partial class IdbDatabasePrototype : Prototype
 
     private string[] ReadNames(JsValue thisObject)
     {
-        if (thisObject is not ObjectInstance obj || obj.GetMethod(GlobalSymbolRegistry.Iterator) is null)
+        // (DOMString or sequence<DOMString>): one read of @@iterator, and the sequence is created from what it found.
+        if (thisObject is not ObjectInstance obj || obj.GetMethod(GlobalSymbolRegistry.Iterator) is not { } iteratorMethod)
         {
             return [TypeConverter.ToString(thisObject)];
         }
         var names = new List<string>();
-        var iterator = thisObject.GetIterator(_realm);
+        var iterator = thisObject.GetIterator(_realm, method: iteratorMethod);
         try
         {
             while (iterator.TryIteratorStepValue(out var item))
@@ -82,7 +83,12 @@ internal sealed partial class IdbDatabasePrototype : Prototype
                 names.Add(TypeConverter.ToString(item));
             }
         }
-        catch { iterator.Close(CompletionType.Throw); throw; }
+        catch
+        {
+            // A step that threw left the record done, and closes nothing (sebastienros/jint#4431).
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
+        }
         return names.ToArray();
     }
 

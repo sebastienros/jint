@@ -9,7 +9,8 @@ namespace Jint.Browser.Dom.Views;
 
 internal static class ResolvedStyle
 {
-    // Renderless CSSOM: width/height use synthetic geometry and colors resolve to sRGB; other values stay text.
+    // Renderless CSSOM: width/height and grid column tracks use synthetic geometry, colors (also in gradients)
+    // resolve to sRGB; other values stay text.
     internal static string ValueOf(string propertyName, NativeCssComputedStyle style, Element element, PageRuntime? runtime)
     {
         style.VerifyRead();
@@ -21,21 +22,40 @@ internal static class ResolvedStyle
             style.VerifyRead();
             return value;
         }
-        if (name is not ("width" or "height") || runtime is null ||
+        if (ResolvedValueText.IsImage(name))
+        {
+            value = ResolvedValueText.Image(value, style);
+            style.VerifyRead();
+            return value;
+        }
+        // CSSOM §9: transform's resolved value is its matrix. A list that needs a box to resolve stays text.
+        if (name == "transform" && value != "none" &&
+            Geometry.GeometryConversion.TryParse(value, style.Work, out var matrix, out var is2D))
+        {
+            value = Geometry.GeometryConversion.SerializeResolved(matrix, is2D);
+            style.VerifyRead();
+            return value;
+        }
+        if (name == "grid-template-columns" && !ResolvedValueText.IsGridContainer(style)) return value;
+        // A pseudo-element has no box in the flat model, so its width, height and tracks stay computed values.
+        if (name is not ("width" or "height" or "grid-template-columns") || runtime is null || style.Pseudo is not null ||
             !ReferenceEquals(runtime.Document, element.OwnerDocument)) return value;
         var sizes = style.ReadContext is { } context ? runtime.Layout.MeasureSizes(context) : runtime.Layout.MeasureSizes();
         if (sizes.HasBox(element))
         {
-            var number = name == "width" ? sizes.Width(element) : sizes.Height(element);
-            value = number.ToString("0.######", CultureInfo.InvariantCulture) + "px";
+            value = name == "grid-template-columns"
+                ? ResolvedValueText.GridColumns(value, style, sizes.Width(element))
+                : (name == "width" ? sizes.Width(element) : sizes.Height(element)).ToString("0.######", CultureInfo.InvariantCulture) + "px";
         }
         style.VerifyRead();
         return value;
     }
 
-    /// <summary>A settled property's resolved color, or its text unchanged when it is not color-valued.</summary>
+    /// <summary>A settled property's resolved color (gradient stops included), or its text unchanged otherwise.</summary>
     internal static string ColorOf(string name, string value, NativeCssComputedStyle style) =>
-        IsColor(name) ? Color(name, value, style) : value;
+        IsColor(name) ? Color(name, value, style)
+        : ResolvedValueText.IsImage(name) ? ResolvedValueText.Image(value, style)
+        : value;
 
     // CSSOM §9 (resolved value): color properties report the used color; CSS Color 4 §4.6 makes
     // currentcolor the element's color, and on 'color' itself the inherited one.
@@ -46,7 +66,8 @@ internal static class ResolvedStyle
         if (text.Equals("currentcolor", StringComparison.OrdinalIgnoreCase))
         {
             if (name != "color") return Color("color", style.GetNormalizedProperty("color").Text, style);
-            return ParentOf(style.Element) is { } parent
+            // A pseudo-element's parent is its originating element.
+            return (style.Pseudo is not null ? style.Element : ParentOf(style.Element)) is { } parent
                 ? Color("color", style.For(parent).GetNormalizedProperty("color").Text, style.For(parent))
                 : "rgb(0, 0, 0)";
         }

@@ -264,10 +264,10 @@ internal static partial class SelectorMatcher
             case PredicateKind.Focus:
             case PredicateKind.FocusWithin:
             case PredicateKind.Active:
+            case PredicateKind.Hover:
             case PredicateKind.Target:
                 return MatchEnvironment(predicate.Kind, element, ref work);
-            // Current headless profile has no hover, focus indicator, or UA autofill store.
-            case PredicateKind.Hover:
+            // Current headless profile has no focus indicator or UA autofill store.
             case PredicateKind.FocusVisible:
             case PredicateKind.Autofill:
                 return false;
@@ -552,11 +552,16 @@ internal static partial class SelectorMatcher
         internal ref SelectorMatchWork Shared;
         internal readonly SelectorEnvironment Environment;
         internal readonly ShadowRoot? ShadowScope;
-        internal Work(ref SelectorMatchWork shared, in SelectorEnvironment environment, ShadowRoot? shadowScope = null)
+        // CSS Cascade 6 §3.5.1: an @scope whose scoping root is the shadow host makes :scope match the
+        // featureless host, which an ordinary shadow-tree selector reaches only through :host.
+        internal readonly bool ScopesShadowRoot;
+        internal Work(ref SelectorMatchWork shared, in SelectorEnvironment environment, ShadowRoot? shadowScope = null,
+            bool scopesShadowRoot = false)
         {
             Shared = ref shared;
             Environment = environment;
             ShadowScope = shadowScope;
+            ScopesShadowRoot = scopesShadowRoot && shadowScope is not null;
         }
         private Dictionary<CompiledSelector, bool>? _featurelessEligibility;
         private Dictionary<Element, HtmlTableGrid>? _tableGrids;

@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -135,6 +136,8 @@ internal sealed partial class UrlSearchParamsPrototype : Prototype
         {
             if (string.Equals(entry.Name, target, StringComparison.Ordinal))
             {
+                // As many values as the script appended under the name (sebastienros/jint#4505).
+                ArrayInstance.ValidateListLength(_engine, (ulong) values.Count + 1);
                 values.Add(JsString.Create(entry.Value));
             }
         }

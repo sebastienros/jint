@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Jint.Native.Generator;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -53,85 +54,153 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
         }
         catch (JavaScriptException ex)
         {
+            // A step that fails synchronously is one IfAbruptCloseAsyncIterator guards, flatMap's inner IteratorNext and
+            // the Await of what it answered: the source's own step rejects through CallIteratorNext without throwing, and
+            // leaves the source open.
             State = GeneratorState.Completed;
-            if (!Exhausted)
-            {
-                Exhausted = true;
-                try { Iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
-            }
-            promiseCapability.Reject(ex.Error);
+            CloseSource(promiseCapability, CompletionType.Throw, ex.Error);
         }
 
         return promiseCapability.PromiseInstance;
     }
 
     /// <summary>
-    /// Called by AsyncIteratorHelperPrototype.return() to close the helper.
+    /// Called by AsyncIteratorHelperPrototype.return() to close the helper: the body's
+    /// IfAbruptCloseAsyncIterator(completion, iterated) on the return completion its Yield received
+    /// (https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.map), an AsyncIteratorClose that
+    /// awaits what <c>return</c> answered, so a rejection or an answer that is not an object fails the
+    /// <c>return()</c>. A source already done, failed or closed is not closed again.
     /// </summary>
     public virtual JsValue Return()
     {
         State = GeneratorState.Completed;
 
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
+        CloseSource(promiseCapability, CompletionType.Return, CreateIteratorResult(Undefined, done: true));
+        return promiseCapability.PromiseInstance;
+    }
 
-        if (!Exhausted)
+    /// <summary>
+    /// AsyncIteratorClose(iterated, <paramref name="completion"/>) (https://tc39.es/ecma262/#sec-asynciteratorclose),
+    /// which awaits what <c>return</c> answered before <paramref name="promiseCapability"/> settles: rejected with what
+    /// the close raises, or else with <paramref name="value"/>, rejected for a throw completion and resolved for any other.
+    /// A source that is already <see cref="Exhausted"/> is not closed again, and the capability settles at once. It used to
+    /// be a synchronous IteratorClose inside a <c>try</c> that swallowed everything, so the helper settled before the
+    /// close had and a <c>return</c> that threw, rejected or answered a primitive went unnoticed (sebastienros/jint#4500).
+    /// </summary>
+    protected void CloseSource(PromiseCapability promiseCapability, CompletionType completion, JsValue value)
+    {
+        if (Exhausted)
         {
-            Exhausted = true;
-            try
+            if (completion == CompletionType.Throw)
             {
-                var iterator = Iterated.Instance;
-                var returnMethod = iterator.GetMethod(CommonProperties.Return);
-                if (returnMethod is not null)
-                {
-                    var returnResult = returnMethod.Call(iterator, Arguments.Empty);
-                    var returnPromise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(returnResult);
-
-                    var onFulfilled = new ClrFunction(_engine, "", (_, _) =>
-                    {
-                        promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
-                        return Undefined;
-                    }, 1, PropertyFlag.Configurable);
-
-                    var onRejected = new ClrFunction(_engine, "", (_, args) =>
-                    {
-                        promiseCapability.Reject(args.At(0));
-                        return Undefined;
-                    }, 1, PropertyFlag.Configurable);
-
-                    PromiseOperations.PerformPromiseThen(_engine, returnPromise, onFulfilled, onRejected, null!);
-                    return promiseCapability.PromiseInstance;
-                }
+                promiseCapability.Reject(value);
             }
-            catch (JavaScriptException ex)
+            else
             {
-                promiseCapability.Reject(ex.Error);
-                return promiseCapability.PromiseInstance;
+                promiseCapability.Resolve(value);
             }
+
+            return;
         }
 
-        var doneResult = CreateIteratorResult(Undefined, done: true);
-        promiseCapability.Resolve(doneResult);
-        return promiseCapability.PromiseInstance;
+        Exhausted = true;
+        Iterated.AsyncIteratorClose(completion, value, promiseCapability);
     }
 
     protected abstract void ExecuteStep(PromiseCapability promiseCapability);
 
     /// <summary>
-    /// The helper's <c>Await(? IteratorNext(iterated))</c>
+    /// The helper's <c>? Await(? IteratorNext(iterated))</c>
     /// (https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.map): calls the [[NextMethod]] that
     /// GetIteratorDirect read once (https://tc39.es/ecma262/#sec-getiteratordirect) and normalizes the result as a
     /// promise. It never reads <c>next</c> again, so a getter on it runs once and a <c>next</c> replaced mid-iteration is
-    /// not called (sebastienros/jint#4419).
+    /// not called (sebastienros/jint#4419). Answers null when the call threw, having rejected the capability through
+    /// <see cref="RejectSourceStep"/>.
+    /// <para>
+    /// A host exception from the step, such as a CLR collection's <c>MoveNext</c>, is a failed step too when the engine's
+    /// interop exception handler converts it (<see cref="IteratorInstance.TryConvertHostException"/>). A step taken
+    /// inside a promise reaction would otherwise hand the conversion to a reaction with no capability, and the helper's
+    /// promise would stay pending (sebastienros/jint#4500). Declined by the handler, it propagates as it is.
+    /// </para>
     /// </summary>
-    protected JsPromise CallIteratorNext()
+    protected JsPromise? CallIteratorNext(PromiseCapability promiseCapability)
     {
-        var result = Iterated.CallNextMethod();
-        return (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(result);
+        try
+        {
+            var result = Iterated.CallNextMethod();
+            return (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(result);
+        }
+        catch (JavaScriptException ex)
+        {
+            RejectSourceStep(promiseCapability, ex.Error);
+            return null;
+        }
+        catch (Exception e) when (!Throw.MustPropagateHostException(e))
+        {
+            if (!IteratorInstance.TryConvertHostException(_engine, e, out var error))
+            {
+                throw;
+            }
+
+            RejectSourceStep(promiseCapability, error);
+            return null;
+        }
     }
 
-    protected void CloseIterator(CompletionType completionType)
+    /// <summary>
+    /// The helper's <c>? IteratorComplete(next)</c> on what the source's step settled to. Answers true, with the result,
+    /// when the source has a value. Otherwise the helper is over: a done result completes it, and one that is not an
+    /// object, or whose <c>done</c> throws, rejects it through <see cref="RejectSourceStep"/>.
+    /// </summary>
+    protected bool TryCompleteStep(JsValue next, PromiseCapability promiseCapability, [NotNullWhen(true)] out ObjectInstance? result)
     {
-        Iterated.Close(completionType);
+        result = next as ObjectInstance;
+        if (result is null)
+        {
+            RejectSourceStep(promiseCapability, _engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
+            return false;
+        }
+
+        bool done;
+        try
+        {
+            done = TypeConverter.ToBoolean(result.Get(CommonProperties.Done));
+        }
+        catch (JavaScriptException ex)
+        {
+            RejectSourceStep(promiseCapability, ex.Error);
+            result = null;
+            return false;
+        }
+
+        if (done)
+        {
+            ResolveDone(promiseCapability);
+            result = null;
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The helper's <c>? IteratorValue(next)</c>. Answers false when the <c>value</c> getter threw, having rejected the
+    /// capability through <see cref="RejectSourceStep"/>.
+    /// </summary>
+    protected bool TryGetStepValue(ObjectInstance result, PromiseCapability promiseCapability, out JsValue value)
+    {
+        try
+        {
+            value = result.Get(CommonProperties.Value);
+            return true;
+        }
+        catch (JavaScriptException ex)
+        {
+            RejectSourceStep(promiseCapability, ex.Error);
+            value = Undefined;
+            return false;
+        }
     }
 
     protected ObjectInstance CreateIteratorResult(JsValue value, bool done)
@@ -149,11 +218,18 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
 
     /// <summary>
     /// Helper to resolve promiseCapability with an iterator result {value, done: false},
-    /// setting state to SuspendedYield.
+    /// setting state to SuspendedYield. A helper that is already completed stays completed: a <c>return()</c> that came
+    /// in while the step was in flight has closed the source, so the step still answers its value, and a later
+    /// <c>next()</c> answers done rather than stepping the closed source again. The state used to go back to
+    /// SuspendedYield (sebastienros/jint#4500).
     /// </summary>
     protected void ResolveYield(PromiseCapability promiseCapability, JsValue value)
     {
-        State = GeneratorState.SuspendedYield;
+        if (State != GeneratorState.Completed)
+        {
+            State = GeneratorState.SuspendedYield;
+        }
+
         promiseCapability.Resolve(CreateIteratorResult(value, done: false));
     }
 
@@ -169,14 +245,41 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
     }
 
     /// <summary>
-    /// Helper to reject promiseCapability with an error.
+    /// IfAbruptCloseAsyncIterator(value, iterated)
+    /// (https://tc39.es/proposal-async-iterator-helpers/#sec-ifabruptcloseasynciterator), for a failure of what the
+    /// helper calls with a value — the mapper or predicate, the await of what it answered, flatMap's inner iterator:
+    /// closes the source with the throw completion and, once what <c>return</c> answered has settled, rejects with the
+    /// error, which nothing the close does replaces. The helper is completed.
     /// </summary>
     protected void RejectWithError(PromiseCapability promiseCapability, JsValue error)
     {
         State = GeneratorState.Completed;
+        CloseSource(promiseCapability, CompletionType.Throw, error);
+    }
+
+    /// <summary>
+    /// A failure of the source's own step — its <c>next</c> throwing, the promise it answered rejecting or settling to
+    /// something other than an object, its <c>done</c> or <c>value</c> throwing. Those are <c>?</c> steps, so the error
+    /// completes the helper as it is, and the source is not closed, then or by a later <c>return()</c>
+    /// (sebastienros/jint#4439).
+    /// </summary>
+    protected void RejectSourceStep(PromiseCapability promiseCapability, JsValue error)
+    {
+        State = GeneratorState.Completed;
         Exhausted = true;
-        try { Iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
         promiseCapability.Reject(error);
+    }
+
+    /// <summary>
+    /// The reaction to the source's step promise rejecting: <see cref="RejectSourceStep"/>.
+    /// </summary>
+    protected ClrFunction CreateSourceStepRejectedHandler(PromiseCapability promiseCapability)
+    {
+        return new ClrFunction(_engine, "", (_, args) =>
+        {
+            RejectSourceStep(promiseCapability, args.At(0));
+            return Undefined;
+        }, 1, PropertyFlag.Configurable);
     }
 }
 
@@ -194,28 +297,24 @@ internal sealed class AsyncMapIterator : AsyncIteratorHelper
 
     protected override void ExecuteStep(PromiseCapability promiseCapability)
     {
-        var nextPromise = CallIteratorNext();
+        var nextPromise = CallIteratorNext(promiseCapability);
+        if (nextPromise is null)
+        {
+            return;
+        }
+
         var self = this;
 
         var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
         {
+            if (!self.TryCompleteStep(args.At(0), promiseCapability, out var iterResultObj)
+                || !self.TryGetStepValue(iterResultObj, promiseCapability, out var value))
+            {
+                return Undefined;
+            }
+
             try
             {
-                var iterResult = args.At(0);
-                if (iterResult is not ObjectInstance iterResultObj)
-                {
-                    self.RejectWithError(promiseCapability, self._engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
-                    return Undefined;
-                }
-
-                var done = TypeConverter.ToBoolean(iterResultObj.Get(CommonProperties.Done));
-                if (done)
-                {
-                    self.ResolveDone(promiseCapability);
-                    return Undefined;
-                }
-
-                var value = iterResultObj.Get(CommonProperties.Value);
                 var counter = self.Counter;
                 self.Counter++;
 
@@ -255,13 +354,7 @@ internal sealed class AsyncMapIterator : AsyncIteratorHelper
             }
         }, 1, PropertyFlag.Configurable);
 
-        var onRejected = new ClrFunction(_engine, "", (_, args) =>
-        {
-            self.RejectWithError(promiseCapability, args.At(0));
-            return Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        PromiseOperations.PerformPromiseThen(_engine, nextPromise, onFulfilled, onRejected, null!);
+        PromiseOperations.PerformPromiseThen(_engine, nextPromise, onFulfilled, CreateSourceStepRejectedHandler(promiseCapability), null!);
     }
 }
 
@@ -284,28 +377,24 @@ internal sealed class AsyncFilterIterator : AsyncIteratorHelper
 
     private void FilterNextStep(PromiseCapability promiseCapability)
     {
-        var nextPromise = CallIteratorNext();
+        var nextPromise = CallIteratorNext(promiseCapability);
+        if (nextPromise is null)
+        {
+            return;
+        }
+
         var self = this;
 
         var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
         {
+            if (!self.TryCompleteStep(args.At(0), promiseCapability, out var iterResultObj)
+                || !self.TryGetStepValue(iterResultObj, promiseCapability, out var value))
+            {
+                return Undefined;
+            }
+
             try
             {
-                var iterResult = args.At(0);
-                if (iterResult is not ObjectInstance iterResultObj)
-                {
-                    self.RejectWithError(promiseCapability, self._engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
-                    return Undefined;
-                }
-
-                var done = TypeConverter.ToBoolean(iterResultObj.Get(CommonProperties.Done));
-                if (done)
-                {
-                    self.ResolveDone(promiseCapability);
-                    return Undefined;
-                }
-
-                var value = iterResultObj.Get(CommonProperties.Value);
                 var counter = self.Counter;
                 self.Counter++;
 
@@ -353,13 +442,7 @@ internal sealed class AsyncFilterIterator : AsyncIteratorHelper
             }
         }, 1, PropertyFlag.Configurable);
 
-        var onRejected = new ClrFunction(_engine, "", (_, args) =>
-        {
-            self.RejectWithError(promiseCapability, args.At(0));
-            return Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        PromiseOperations.PerformPromiseThen(_engine, nextPromise, onFulfilled, onRejected, null!);
+        PromiseOperations.PerformPromiseThen(_engine, nextPromise, onFulfilled, CreateSourceStepRejectedHandler(promiseCapability), null!);
     }
 }
 
@@ -381,53 +464,35 @@ internal sealed class AsyncTakeIterator : AsyncIteratorHelper
     {
         if (_taken >= _limit)
         {
+            // https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.take step 6.b.i: Return
+            // ? AsyncIteratorClose(iterated, NormalCompletion(undefined)). The step finishes once what `return` answered
+            // has settled, and fails if it threw, rejected or answered something other than an object.
             State = GeneratorState.Completed;
-            Exhausted = true;
-            try { Iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
-            promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
+            CloseSource(promiseCapability, CompletionType.Normal, CreateIteratorResult(Undefined, done: true));
             return;
         }
 
-        var nextPromise = CallIteratorNext();
+        var nextPromise = CallIteratorNext(promiseCapability);
+        if (nextPromise is null)
+        {
+            return;
+        }
+
         var self = this;
 
         var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
         {
-            try
+            if (self.TryCompleteStep(args.At(0), promiseCapability, out var iterResultObj)
+                && self.TryGetStepValue(iterResultObj, promiseCapability, out var value))
             {
-                var iterResult = args.At(0);
-                if (iterResult is not ObjectInstance iterResultObj)
-                {
-                    self.RejectWithError(promiseCapability, self._engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
-                    return Undefined;
-                }
-
-                var done = TypeConverter.ToBoolean(iterResultObj.Get(CommonProperties.Done));
-                if (done)
-                {
-                    self.ResolveDone(promiseCapability);
-                    return Undefined;
-                }
-
-                var value = iterResultObj.Get(CommonProperties.Value);
                 self._taken++;
                 self.ResolveYield(promiseCapability, value);
-                return Undefined;
             }
-            catch (JavaScriptException ex)
-            {
-                self.RejectWithError(promiseCapability, ex.Error);
-                return Undefined;
-            }
-        }, 1, PropertyFlag.Configurable);
 
-        var onRejected = new ClrFunction(_engine, "", (_, args) =>
-        {
-            self.RejectWithError(promiseCapability, args.At(0));
             return Undefined;
         }, 1, PropertyFlag.Configurable);
 
-        PromiseOperations.PerformPromiseThen(_engine, nextPromise, onFulfilled, onRejected, null!);
+        PromiseOperations.PerformPromiseThen(_engine, nextPromise, onFulfilled, CreateSourceStepRejectedHandler(promiseCapability), null!);
     }
 }
 
@@ -452,57 +517,43 @@ internal sealed class AsyncDropIterator : AsyncIteratorHelper
 
     private void DropStep(PromiseCapability promiseCapability)
     {
-        var nextPromise = CallIteratorNext();
+        var nextPromise = CallIteratorNext(promiseCapability);
+        if (nextPromise is null)
+        {
+            return;
+        }
+
         var self = this;
 
         var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
         {
-            try
+            if (!self.TryCompleteStep(args.At(0), promiseCapability, out var iterResultObj))
             {
-                var iterResult = args.At(0);
-                if (iterResult is not ObjectInstance iterResultObj)
+                return Undefined;
+            }
+
+            if (self._dropping)
+            {
+                self._remaining--;
+                if (self._remaining <= 0)
                 {
-                    self.RejectWithError(promiseCapability, self._engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
-                    return Undefined;
+                    self._dropping = false;
                 }
 
-                var done = TypeConverter.ToBoolean(iterResultObj.Get(CommonProperties.Done));
-                if (done)
-                {
-                    self.ResolveDone(promiseCapability);
-                    return Undefined;
-                }
+                // Skip this value, continue dropping: a dropped step reads only `done`.
+                self.DropStep(promiseCapability);
+                return Undefined;
+            }
 
-                if (self._dropping)
-                {
-                    self._remaining--;
-                    if (self._remaining <= 0)
-                    {
-                        self._dropping = false;
-                    }
-                    // Skip this value, continue dropping
-                    self.DropStep(promiseCapability);
-                    return Undefined;
-                }
-
-                var value = iterResultObj.Get(CommonProperties.Value);
+            if (self.TryGetStepValue(iterResultObj, promiseCapability, out var value))
+            {
                 self.ResolveYield(promiseCapability, value);
-                return Undefined;
             }
-            catch (JavaScriptException ex)
-            {
-                self.RejectWithError(promiseCapability, ex.Error);
-                return Undefined;
-            }
-        }, 1, PropertyFlag.Configurable);
 
-        var onRejected = new ClrFunction(_engine, "", (_, args) =>
-        {
-            self.RejectWithError(promiseCapability, args.At(0));
             return Undefined;
         }, 1, PropertyFlag.Configurable);
 
-        PromiseOperations.PerformPromiseThen(_engine, nextPromise, onFulfilled, onRejected, null!);
+        PromiseOperations.PerformPromiseThen(_engine, nextPromise, onFulfilled, CreateSourceStepRejectedHandler(promiseCapability), null!);
     }
 }
 
@@ -519,55 +570,51 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
         _mapper = mapper;
     }
 
+    /// <summary>
+    /// return() with an inner iterator open closes that one first, with the return completion, and awaits what its
+    /// <c>return</c> answered; only then is the source closed. When the inner close completes, the source is closed with
+    /// the return completion as the base <see cref="AsyncIteratorHelper.Return"/> does; when it raises an error, the
+    /// source is closed with that throw completion, and the error is what return() rejects with. That is the order
+    /// tc39/proposal-async-iterator-helpers#30 settled on, and what a nested <c>for await</c> does, since the proposal's
+    /// own text for this step is stale (it calls the sync IteratorClose with its arguments swapped). The inner iterator
+    /// used to be closed synchronously, so a rejection or an answer that is not an object from its <c>return</c> was
+    /// lost, and the source was closed before the inner close had settled (sebastienros/jint#4500).
+    /// </summary>
     public override JsValue Return()
     {
         State = GeneratorState.Completed;
 
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
+        var doneResult = CreateIteratorResult(Undefined, done: true);
 
-        try
+        // An inner iterator on a source that is already Exhausted belongs to a step that was in flight when an earlier
+        // return() closed the source: the helper was completed then, so it closes nothing now, the source a second time
+        // least of all.
+        var inner = _innerIterator;
+        if (inner is null || Exhausted)
         {
-            if (_innerIterator is not null)
-            {
-                var inner = _innerIterator;
-                _innerIterator = null;
-                inner.Close(CompletionType.Return);
-            }
-
-            if (!Exhausted)
-            {
-                Exhausted = true;
-                var iterator = Iterated.Instance;
-                var returnMethod = iterator.GetMethod(CommonProperties.Return);
-                if (returnMethod is not null)
-                {
-                    var returnResult = returnMethod.Call(iterator, Arguments.Empty);
-                    var returnPromise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(returnResult);
-
-                    var onFulfilled = new ClrFunction(_engine, "", (_, _) =>
-                    {
-                        promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
-                        return Undefined;
-                    }, 1, PropertyFlag.Configurable);
-
-                    var onRejected = new ClrFunction(_engine, "", (_, args) =>
-                    {
-                        promiseCapability.Reject(args.At(0));
-                        return Undefined;
-                    }, 1, PropertyFlag.Configurable);
-
-                    PromiseOperations.PerformPromiseThen(_engine, returnPromise, onFulfilled, onRejected, null!);
-                    return promiseCapability.PromiseInstance;
-                }
-            }
-        }
-        catch (JavaScriptException ex)
-        {
-            promiseCapability.Reject(ex.Error);
+            _innerIterator = null;
+            CloseSource(promiseCapability, CompletionType.Return, doneResult);
             return promiseCapability.PromiseInstance;
         }
 
-        promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
+        // The source is spoken for from here: a second return() while the inner close is in flight finds it Exhausted
+        // and resolves at once, as a completed helper does, rather than closing the source ahead of this one.
+        _innerIterator = null;
+        Exhausted = true;
+        var self = this;
+        inner.AsyncIteratorClose(CompletionType.Return, innerError =>
+        {
+            if (innerError is null)
+            {
+                self.Iterated.AsyncIteratorClose(CompletionType.Return, doneResult, promiseCapability);
+            }
+            else
+            {
+                self.Iterated.AsyncIteratorClose(CompletionType.Throw, innerError, promiseCapability);
+            }
+        });
+
         return promiseCapability.PromiseInstance;
     }
 
@@ -584,20 +631,38 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
             // IteratorNext(innerIterator) (https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.flatmap)
             // calls the [[NextMethod]] GetIteratorFlattenable read once, never `next` read again; one that was not
             // callable fails the step with a TypeError (sebastienros/jint#4419).
-            JsValue innerResult;
+            JsPromise innerPromise;
             try
             {
-                innerResult = _innerIterator.CallNextMethod();
+                var innerResult = _innerIterator.CallNextMethod();
+                innerPromise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(innerResult);
             }
             catch (JavaScriptException)
             {
-                // IfAbruptCloseAsyncIterator(innerNextPromise, iterated): whoever catches this closes the outer iterator
-                // and completes the helper. The inner iterator is not closed, then or by a later return().
+                // IfAbruptCloseAsyncIterator(innerNextPromise, iterated), and the same for innerNext, whose Await reads a
+                // promise's constructor in PromiseResolve: whoever catches this closes the outer iterator and completes
+                // the helper. The inner iterator is not closed, then or by a later return(); a throwing PromiseResolve
+                // used to leave it set, so a return() afterwards called its `return` (sebastienros/jint#4500).
                 _innerIterator = null;
                 throw;
             }
+            catch (Exception e) when (!Throw.MustPropagateHostException(e))
+            {
+                // A host exception from the inner step, such as a CLR collection's MoveNext behind the async-from-sync
+                // wrapper, which lets it through: converted as its function would convert it, it fails the step as a
+                // JavaScript throw does. The step usually runs in a promise reaction with no capability to reject, which
+                // left the helper's promise pending (sebastienros/jint#4500). Declined by the handler, it propagates as it
+                // is.
+                _innerIterator = null;
+                if (!IteratorInstance.TryConvertHostException(_engine, e, out var error))
+                {
+                    throw;
+                }
 
-            var innerPromise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(innerResult);
+                RejectWithError(promiseCapability, error);
+                return;
+            }
+
             var self = this;
 
             var onInnerFulfilled = new ClrFunction(_engine, "", (_, args) =>
@@ -607,8 +672,11 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
                     var iterResult = args.At(0);
                     if (iterResult is not ObjectInstance iterResultObj)
                     {
+                        // IteratorComplete(innerNext) on something other than an object fails the step, as for await's
+                        // check does, and IfAbruptCloseAsyncIterator closes the outer iterator. It used to count as the
+                        // inner iterator's end (sebastienros/jint#4439).
                         self._innerIterator = null;
-                        self.FlatMapStep(promiseCapability);
+                        self.RejectWithError(promiseCapability, self._engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
                         return Undefined;
                     }
 
@@ -644,28 +712,24 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
         }
 
         // Get next from outer iterator
-        var nextPromise = CallIteratorNext();
+        var nextPromise = CallIteratorNext(promiseCapability);
+        if (nextPromise is null)
+        {
+            return;
+        }
+
         var outerSelf = this;
 
         var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
         {
+            if (!outerSelf.TryCompleteStep(args.At(0), promiseCapability, out var iterResultObj)
+                || !outerSelf.TryGetStepValue(iterResultObj, promiseCapability, out var value))
+            {
+                return Undefined;
+            }
+
             try
             {
-                var iterResult = args.At(0);
-                if (iterResult is not ObjectInstance iterResultObj)
-                {
-                    outerSelf.RejectWithError(promiseCapability, outerSelf._engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
-                    return Undefined;
-                }
-
-                var done = TypeConverter.ToBoolean(iterResultObj.Get(CommonProperties.Done));
-                if (done)
-                {
-                    outerSelf.ResolveDone(promiseCapability);
-                    return Undefined;
-                }
-
-                var value = iterResultObj.Get(CommonProperties.Value);
                 var counter = outerSelf.Counter;
                 outerSelf.Counter++;
 
@@ -686,47 +750,15 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
                 {
                     try
                     {
-                        var resolvedMapped = innerArgs.At(0);
-
-                        if (resolvedMapped is not ObjectInstance mappedObj)
-                        {
-                            outerSelf.RejectWithError(promiseCapability, outerSelf._engine.Realm.Intrinsics.TypeError.Construct("flatMap mapper must return an iterable or iterator"));
-                            return Undefined;
-                        }
-
-                        // Try @@asyncIterator first, then @@iterator, then use directly
-                        ObjectInstance innerIteratorObj;
-                        var asyncMethod = mappedObj.GetMethod(Symbol.GlobalSymbolRegistry.AsyncIterator);
-                        if (asyncMethod is not null)
-                        {
-                            var asyncResult = asyncMethod.Call(mappedObj);
-                            if (asyncResult is not ObjectInstance asyncObj)
-                            {
-                                outerSelf.RejectWithError(promiseCapability, outerSelf._engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
-                                return Undefined;
-                            }
-                            innerIteratorObj = asyncObj;
-                        }
-                        else
-                        {
-                            var syncMethod = mappedObj.GetMethod(Symbol.GlobalSymbolRegistry.Iterator);
-                            if (syncMethod is not null)
-                            {
-                                var syncResult = syncMethod.Call(mappedObj);
-                                if (syncResult is not ObjectInstance syncObj)
-                                {
-                                    outerSelf.RejectWithError(promiseCapability, outerSelf._engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
-                                    return Undefined;
-                                }
-                                innerIteratorObj = syncObj;
-                            }
-                            else
-                            {
-                                innerIteratorObj = mappedObj;
-                            }
-                        }
-
-                        outerSelf._innerIterator = new IteratorInstance.ObjectIterator(innerIteratorObj);
+                        // GetIteratorFlattenable(mapped, async): a TypeError for anything that is not an object, a
+                        // string included; then @@asyncIterator, else @@iterator behind CreateAsyncFromSyncIterator, so
+                        // that each value a sync iterable answers is awaited (sebastienros/jint#4439), else the object
+                        // itself. IfAbruptCloseAsyncIterator(innerIterator, iterated) is the catch below.
+                        outerSelf._innerIterator = AsyncIteratorConstructor.GetIteratorFlattenable(
+                            outerSelf._engine,
+                            outerSelf._engine.Realm,
+                            innerArgs.At(0),
+                            "flatMap mapper must return an iterable or iterator");
                         outerSelf.FlatMapStep(promiseCapability);
                         return Undefined;
                     }
@@ -753,12 +785,6 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
             }
         }, 1, PropertyFlag.Configurable);
 
-        var onRejected = new ClrFunction(_engine, "", (_, args) =>
-        {
-            outerSelf.RejectWithError(promiseCapability, args.At(0));
-            return Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        PromiseOperations.PerformPromiseThen(_engine, nextPromise, onFulfilled, onRejected, null!);
+        PromiseOperations.PerformPromiseThen(_engine, nextPromise, onFulfilled, CreateSourceStepRejectedHandler(promiseCapability), null!);
     }
 }

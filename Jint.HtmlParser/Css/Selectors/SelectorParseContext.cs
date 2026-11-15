@@ -7,8 +7,9 @@ internal sealed class SelectorParseContext
 {
     internal SelectorParseContext(
         IEnumerable<KeyValuePair<string, string>>? namespaceBindings = null,
-        ParseLimits? limits = null, CompiledSelector? nestingParent = null)
+        ParseLimits? limits = null, CompiledSelector? nestingParent = null, bool scopedStyle = false)
     {
+        ScopedStyle = scopedStyle && nestingParent is not null;
         var bindings = new Dictionary<string, string>(StringComparer.Ordinal);
         if (namespaceBindings is not null)
         {
@@ -33,4 +34,11 @@ internal sealed class SelectorParseContext
     internal IReadOnlyDictionary<string, string> NamespaceBindings { get; }
     internal ParseLimits Limits { get; }
     internal CompiledSelector? NestingParent { get; }
+
+    // CSS Cascade 6 §3.5.3: in a scoped style rule (or <scope-end>), :scope as well as & makes a
+    // selector non-relative, so it is not prefixed with the implied `:where(:scope) `.
+    internal bool ScopedStyle { get; }
+
+    internal static SelectorParseContext For(ParseLimits? limits, Model.CssStyleRule? nestingParent) =>
+        new(limits: limits, nestingParent: nestingParent?.Selector, scopedStyle: nestingParent?.IsScopeAnchor == true);
 }

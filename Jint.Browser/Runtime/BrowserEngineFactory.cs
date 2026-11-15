@@ -1,6 +1,7 @@
 using Jint.Browser.Dom;
 using Jint.Browser.Workers;
 using Jint.Constraints;
+using Jint.DevTools;
 using Jint.WebApi;
 
 namespace Jint.Browser.Runtime;
@@ -170,6 +171,17 @@ internal static class BrowserEngineFactory
             foreach (var configure in options.EngineConfiguration)
             {
                 configure(o);
+            }
+
+            // https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#event-consoleAPICalled: a page
+            // target is adopted after its engine is built and re-adopts every document's engine, so the sink
+            // a target binds to has to be there already, wrapping whatever the page and the host installed.
+            // Outermost and last, so that it sees what every decorator and host callback produced, and
+            // skipped when a host's own callback already called UseDevTools. Until a client attaches it only
+            // forwards, and asks the engine for no stack trace the inner sink did not want (#4589).
+            if (o.WebApi.Console.Sink is not DevToolsConsoleSink)
+            {
+                o.WebApi.Console.Sink = new DevToolsConsoleSink(o.WebApi.Console.Sink);
             }
         });
 

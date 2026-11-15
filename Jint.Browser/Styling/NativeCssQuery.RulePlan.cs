@@ -26,7 +26,7 @@ internal sealed partial class NativeCssQuery
     private sealed record RulePlan(NativeCssSheet[] Sheets, CssStyleSheetRevisionSnapshot Revisions,
         CssMediaEnvironment Media, ShadowRoot?[] Scopes,
         List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri, NativeCssLayer Layer)> Rules,
-        RuleIndex Index, MeasurementDependencies Dependencies);
+        RuleIndex Index, MeasurementDependencies Dependencies, Dictionary<CssStyleRule, CssScopeRule[]>? ScopeChains);
 
     private void PrepareRules()
     {
@@ -36,6 +36,7 @@ internal sealed partial class NativeCssQuery
             Verify();
             _rules = cached.Rules;
             _index = cached.Index;
+            _scopeChains = cached.ScopeChains;
             _plan = cached;
             _diagnostics?.RulePlanReused();
         }
@@ -53,7 +54,9 @@ internal sealed partial class NativeCssQuery
             var dependencies = new MeasurementDependencies();
             foreach (var item in rules)
                 dependencies.Include(item.Rule.Selector, _work);
-            _plan = new(_sheets, _sheetRevisions, _media, scopes, rules, index, dependencies);
+            // Scoping roots and limits are matched against ancestors; no retained row is safe.
+            if (_scopeChains is not null) dependencies.IncludeUnknown();
+            _plan = new(_sheets, _sheetRevisions, _media, scopes, rules, index, dependencies, _scopeChains);
             Plans.AddOrUpdate(_document, _plan);
             _rules = rules;
             _index = index;
@@ -91,6 +94,8 @@ internal sealed partial class NativeCssQuery
             || kind == NativeMutationKind.Attributes && (
                 _relational && (name is null || _attributes.Contains(name))
                 || _semantic && name is not ("style" or "class"));
+
+        internal void IncludeUnknown() => _unknown = true;
 
         internal void Include(CompiledSelector selector, CssValueWork work)
         {

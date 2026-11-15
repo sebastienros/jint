@@ -449,25 +449,25 @@ public class ArrayLaneReplacedNextTests
         // `next`.
         foreach (var subject in subjects)
         {
-            subject.HasOriginalIterator.Should().BeTrue(subject.GetType().Name);
+            subject.HasOriginalIterator(out _).Should().BeTrue(subject.GetType().Name);
         }
 
         engine.Execute("[...[0]];");
         foreach (var subject in subjects)
         {
-            subject.HasOriginalIterator.Should().BeTrue(subject.GetType().Name);
+            subject.HasOriginalIterator(out _).Should().BeTrue(subject.GetType().Name);
         }
 
         engine.Execute($"var restore = applyRoute('{route}', function () {{ return {{ done: true, value: undefined }}; }});");
         foreach (var subject in subjects)
         {
-            subject.HasOriginalIterator.Should().Be(!Routes[route], subject.GetType().Name);
+            subject.HasOriginalIterator(out _).Should().Be(!Routes[route], subject.GetType().Name);
         }
 
         engine.Execute("restore();");
         foreach (var subject in subjects)
         {
-            subject.HasOriginalIterator.Should().BeTrue(subject.GetType().Name);
+            subject.HasOriginalIterator(out _).Should().BeTrue(subject.GetType().Name);
         }
     }
 

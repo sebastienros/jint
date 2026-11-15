@@ -575,8 +575,21 @@ internal static class WindowInstaller
             return JsValue.Undefined;
         }
 
-        // The pseudo-element argument remains outside the native cascade's implemented surface.
-        return dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(runtime, element));
+        return dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(runtime, element, PseudoElementArgument(arguments.At(1))));
+    }
+
+    // CSSOM §9 getComputedStyle() step 4: a pseudoElt that is provided, non-empty and starts with ':' names a
+    // pseudo-element. ::before and ::after (and their legacy single-colon forms) answer from their own cascade;
+    // any other string keeps answering for the element, the renderless divergence for other pseudo-elements.
+    private static Jint.HtmlParser.Css.Selectors.SelectorPseudoElement? PseudoElementArgument(JsValue value)
+    {
+        if (value.IsNullOrUndefined()) return null;
+        var text = TypeConverter.ToString(value);
+        if (text.Length == 0 || text[0] != ':') return null;
+        var name = text.Substring(text.Length > 1 && text[1] == ':' ? 2 : 1);
+        if (Jint.HtmlParser.Css.Syntax.CssAscii.EqualsIgnoreCase(name, "before")) return Jint.HtmlParser.Css.Selectors.SelectorPseudoElement.Before;
+        if (Jint.HtmlParser.Css.Syntax.CssAscii.EqualsIgnoreCase(name, "after")) return Jint.HtmlParser.Css.Selectors.SelectorPseudoElement.After;
+        return null;
     }
 
     private static JsValue PostMessage(PageRuntime runtime, JsValue[] arguments)
@@ -625,9 +638,11 @@ internal static class WindowInstaller
         List<JsValue>? transfers;
         if (arguments.Length < 3 && (second is ObjectInstance || second.IsNullOrUndefined()))
         {
+            // WindowPostMessageOptions inherits StructuredSerializeOptions, whose transfer is read (and
+            // converted) before targetOrigin (https://webidl.spec.whatwg.org/#es-dictionary step 4).
+            transfers = StructuredSerializeOptions.ReadTransferOption(realm, second, "postMessage");
             var origin = second is ObjectInstance options ? options.Get("targetOrigin") : JsValue.Undefined;
             targetOrigin = origin.IsUndefined() ? "/" : TypeConverter.ToString(origin);
-            transfers = StructuredSerializeOptions.ReadTransferOption(realm, second, "postMessage");
         }
         else
         {

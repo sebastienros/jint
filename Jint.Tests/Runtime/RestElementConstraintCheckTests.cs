@@ -38,6 +38,35 @@ public class RestElementConstraintCheckTests
         (constraint.Count - baseline).Should().BeGreaterThanOrEqualTo(Length / Engine.ConstraintCheckInterval - 1);
     }
 
+    /// <summary>
+    /// A pattern over an array reads the array by index, as its iterator would, instead of stepping an iterator object:
+    /// a parameter's (#4559), a declaration's and an assignment's. An array whose elements cannot be copied in one pass -
+    /// one with holes, a frozen one - is collected a step at a time, and that loop checks the constraints too.
+    /// </summary>
+    [TestCase("new Array({0})", "(function ([...r]) { })(source);")]
+    [TestCase("new Array({0})", "(function ([a, , ...r]) { })(source);")]
+    [TestCase("Object.freeze(Array.from({{ length: {0} }}))", "(function ([...r]) { })(source);")]
+    [TestCase("Object.freeze(Array.from({{ length: {0} }}))", "(function ([a, , ...r]) { })(source);")]
+    [TestCase("new Array({0})", "var [...r] = source;")]
+    [TestCase("new Array({0})", "var a, r; [a, , ...r] = source;")]
+    [TestCase("Object.freeze(Array.from({{ length: {0} }}))", "{ const [...r] = source; }")]
+    [TestCase("Object.freeze(Array.from({{ length: {0} }}))", "var r; for ([...r] of [source]) { }")]
+    public void ARestOverAnArrayCollectedStepByStepChecksTheConstraints(string source, string script)
+    {
+        var constraint = new CountingConstraint();
+        var engine = new Engine(options => options.AddConstraint(constraint));
+        engine.Execute($"var small = {string.Format(source, 1)}; var big = {string.Format(source, Length)};");
+
+        constraint.Count = 0;
+        engine.Execute("var source = small; " + script);
+        var baseline = constraint.Count;
+
+        constraint.Count = 0;
+        engine.Execute("var source = big; " + script);
+
+        (constraint.Count - baseline).Should().BeGreaterThanOrEqualTo(Length / Engine.ConstraintCheckInterval - 1);
+    }
+
     private sealed class CountingConstraint : Constraint
     {
         public int Count;

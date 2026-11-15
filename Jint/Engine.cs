@@ -1795,9 +1795,7 @@ public sealed partial class Engine : IDisposable
     {
         var filter = TypeConverterTargetFilter.Create(converter, declaredTargetTypes);
         _typeConverterTargetFilter = filter;
-        _typeConverter = HostContractVerification.Enabled && filter is { IsRestricted: true }
-            ? new VerifyingClrTypeConverter(converter, filter, new DefaultTypeConverter(this))
-            : converter;
+        _typeConverter = HostInterop.Instance.WrapTypeConverter(this, converter, filter);
     }
 
     // cache of types used when resolving CLR type names
@@ -1820,6 +1818,11 @@ public sealed partial class Engine : IDisposable
     // WebIDL callback interfaces need the object's creation realm, including null-prototype objects and
     // revoked proxies. Keep secondary-realm records weakly, without another pointer on every JS object.
     internal ConditionalWeakTable<ObjectInstance, Realm>? _secondaryObjectRealms;
+
+    // The call stack a thrown object that is not an Error was given where it was thrown, carried to each later
+    // boundary it crosses (a new JavaScriptException per function body it leaves). Kept here, weakly keyed by the
+    // object, so the thrown object itself is never written to (issue #4430); an Error keeps it in [[ErrorData]].
+    internal ConditionalWeakTable<ObjectInstance, string>? _thrownObjectStacks;
 
     // bounded cache of most recently wrapped CLR objects, see Options.Interop.CacheRecentObjectWrappers
     internal RecentObjectWrapperCache? _recentObjectWrapperCache;
@@ -1904,7 +1907,7 @@ public sealed partial class Engine : IDisposable
     private Engine(Options? options, Action<Engine, Options>? configure)
     {
         Constraints = new ConstraintOperations(this);
-        TypeConverter = new DefaultTypeConverter(this);
+        TypeConverter = HostInterop.Instance.CreateTypeConverter(this);
 
         _executionContexts = new ExecutionContextStack(2);
 
@@ -2014,6 +2017,7 @@ public sealed partial class Engine : IDisposable
             && ReferenceEquals(_referenceResolver, NullPropagatingReferenceResolver.Instance);
 
         _maxRecursionDepth = Options.Constraints.EffectiveMaxRecursionDepth;
+        _hasMaxArraySize = Options.Constraints.MaxArraySize != uint.MaxValue;
 
         _operatorOverloadingAllowed = Options.Interop.AllowOperatorOverloading;
 
@@ -2245,6 +2249,15 @@ public sealed partial class Engine : IDisposable
     // brand-new-key lane of ObjectInstance.CreateDataProperty all exclude a built-in-shape object, so by the time one of
     // them can reach this prototype, this field is already set.
     internal bool _arrayIteratorNextMayBeReplaced;
+
+    // Whether Options.Constraints.MaxArraySize is set (it is not uint.MaxValue), for the lists a run-time count lengthens:
+    // a spread, an array-like handed to apply/Reflect.apply/Reflect.construct, a script ownKeys trap's result, a bound
+    // function's arguments (sebastienros/jint#4505). Taken beside _maxRecursionDepth, after Options.Apply, and read only
+    // by code that runs script; the limit itself is read from the option behind it, on an engine that has one. A bool
+    // so that a default engine pays one byte test, and declared after the other flags so that it lands in the padding
+    // before the struct fields: an 8-byte snapshot moved every primitive field after it, the hot flags and counters
+    // among them, by 8 bytes.
+    internal readonly bool _hasMaxArraySize;
 
     /// <summary>
     /// The block-level function declarations of the sloppy direct or indirect eval whose body is
@@ -2951,7 +2964,7 @@ public sealed partial class Engine : IDisposable
 
             if (result.Type == CompletionType.Throw)
             {
-                var ex = new JavaScriptException(result.GetValueOrDefault()).SetJavaScriptCallstack(this, result.Location);
+                var ex = Throw.ThrowCompletionException(this, result.GetValueOrDefault(), in result);
                 CallStack.TrimTo(callStackDepthOnEntry);
                 throw ex;
             }
@@ -4987,6 +5000,14 @@ public sealed partial class Engine : IDisposable
                 ao = CreateMappedArgumentsObject(function, parameterNames, argumentsList, env);
             }
 
+            if (configuration.ArgumentsMayOutliveCall)
+            {
+                // An arrow (or what a direct eval leaves behind) can read this binding after the call returns,
+                // which is too late for that read to keep the caller's argument array or the pooled object, so
+                // copy the values now and keep the object out of the pool.
+                ao.Materialize();
+            }
+
             if (strict)
             {
                 env.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao, DisposeHint.Normal);
@@ -5800,6 +5821,7 @@ public sealed partial class Engine : IDisposable
         _recentObjectWrapperCache?.Clear();
         _recentObjectWrapperCache = null;
         _secondaryObjectRealms = null;
+        _thrownObjectStacks = null;
 
 #if NET8_0_OR_GREATER
         // A host CancellationToken bridged to an AbortSignal holds a registration that reaches this engine, and

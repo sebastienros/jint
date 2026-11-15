@@ -1,5 +1,6 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
+using System.Runtime.CompilerServices;
 using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -176,7 +177,9 @@ internal sealed partial class FunctionPrototype : Function
             return thisObject.Call(thisArg, Arguments.Empty);
         }
 
-        var argList = CreateListFromArrayLike(_realm, argArray);
+        var argList = _engine._hasMaxArraySize
+            ? CreateListFromArrayLikeWithinLimit(_realm, argArray, AnyElementType)
+            : CreateListFromArrayLike(_realm, argArray);
 
         var result = thisObject.Call(thisArg, argList);
 
@@ -198,6 +201,32 @@ internal sealed partial class FunctionPrototype : Function
             ? operations.GetAll(errorRealm: realm)
             : operations.GetAll(elementTypes.Value, errorRealm: realm);
         return argList;
+    }
+
+    /// <summary>
+    /// Every element type, the list <see cref="CreateListFromArrayLike"/> builds when it is given none.
+    /// </summary>
+    internal const Types AnyElementType = Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.BigInt | Types.Object;
+
+    /// <summary>
+    /// <see cref="CreateListFromArrayLike"/> on an engine with a <c>MaxArraySize</c> (sebastienros/jint#4505): the list is
+    /// as long as the array-like's <c>"length"</c> says, which a script can make anything, so the length is checked
+    /// against the limit after its one read and before the list is allocated or any element is read. A default engine
+    /// never calls this; <c>apply</c>, <c>Reflect.apply</c>, <c>Reflect.construct</c> and a script <c>ownKeys</c> trap
+    /// test <see cref="Engine._hasMaxArraySize"/> and take the original. It is a separate method so that the original,
+    /// which <c>JsProxy.ValidateOwnKeysTrapResult</c> inlines, compiles exactly as it did.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static JsValue[] CreateListFromArrayLikeWithinLimit(Realm realm, JsValue argArray, Types elementTypes)
+    {
+        var argArrayObj = argArray as ObjectInstance;
+        if (argArrayObj is null)
+        {
+            Throw.TypeError(realm, "CreateListFromArrayLike called on non-object");
+        }
+
+        return ArrayOperations.For(argArrayObj, forWrite: false)
+            .GetAllWithinLimit(argArrayObj.Engine.Options.Constraints.MaxArraySize, elementTypes, realm);
     }
 
     /// <summary>

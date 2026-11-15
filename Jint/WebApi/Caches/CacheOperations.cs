@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.WebApi.Abort;
@@ -270,6 +271,13 @@ internal static class CacheOperations
             if (!selected)
             {
                 continue;
+            }
+
+            // matchAll() hands out as many responses as the script stored; match() takes the first only
+            // (sebastienros/jint#4505).
+            if (!stopAtFirst)
+            {
+                ArrayInstance.ValidateListLength(engine, (ulong) responses.Count + 1);
             }
 
             responses.Add(HydrateResponse(engine, realm, entry.Response));

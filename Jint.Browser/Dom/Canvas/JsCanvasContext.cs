@@ -1,6 +1,7 @@
 using Jint.Browser.Geometry;
 using Jint.HtmlParser;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -81,6 +82,8 @@ internal sealed class JsCanvasContext : ObjectInstance
             case "setTransform":
                 Transform(name, args); break;
             case "getLineDash":
+                // As long as the sequence setLineDash was given, twice that for an odd count (sebastienros/jint#4505).
+                ArrayInstance.ValidateListLength(Engine, (uint) State.LineDash.Length);
                 return new JsArray(Engine, State.LineDash.Select(JsNumber.Create).Cast<JsValue>().ToArray());
             case "setLineDash": SetLineDash(args); break;
             case "createLinearGradient":
@@ -191,7 +194,9 @@ internal sealed class JsCanvasContext : ObjectInstance
         }
         catch
         {
-            iterator.Close(CompletionType.Throw);
+            // A failed conversion closes the iterator. A step that threw left the record done, so
+            // CloseIfNotDone closes nothing then (sebastienros/jint#4431).
+            iterator.CloseIfNotDone(CompletionType.Throw);
             throw;
         }
         foreach (var value in values)

@@ -158,6 +158,8 @@ internal sealed partial class CachePrototype : Prototype
                 var hydrated = CacheOperations.HydrateRequest(_engine, _realm, entry.Request);
                 if (hydrated is not null)
                 {
+                    // As many requests as the script stored (sebastienros/jint#4505).
+                    ArrayInstance.ValidateListLength(_engine, (ulong) requests.Count + 1);
                     requests.Add(hydrated);
                 }
             }

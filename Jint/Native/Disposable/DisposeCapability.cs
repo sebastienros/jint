@@ -46,6 +46,11 @@ internal sealed class DisposeCapability
     private Completion _disposeCompletion;
     private DisposeResumePoint _disposeResume;
 
+    // The Realm Record that was current when this dispose began, which is the realm DisposeResources's "newly created
+    // SuppressedError object" belongs to: later steps run in the reaction job of an await, where the running realm is
+    // whichever the job found, not the one of the code being disposed. Meaningful only while a dispose is in flight.
+    private Realm _disposeRealm = null!;
+
     public DisposeCapability(Engine engine)
     {
         _engine = engine;
@@ -110,14 +115,21 @@ internal sealed class DisposeCapability
     /// sync-waiting via <see cref="JsValue.UnwrapIfPromise(TimeSpan)"/>
     /// on every suspension. Used by callers that can't suspend their own context
     /// (sync function bodies, module loading). After all async-context call sites
-    /// migrated to <see cref="BeginDispose"/> / <see cref="ContinueDispose"/>, this
+    /// migrated to <see cref="BeginDispose(Completion)"/> / <see cref="ContinueDispose"/>, this
     /// only runs for contexts where await-using is syntactically illegal, so no
     /// async-dispose resource can actually be in the stack and the loop exits in
     /// a single Done step without ever calling UnwrapIfPromise.
     /// </summary>
-    public Completion DisposeResources(Completion c)
+    public Completion DisposeResources(Completion c) => DisposeResources(c, _engine.Realm);
+
+    /// <summary>
+    /// <see cref="DisposeResources(Completion)"/> for a caller whose running realm is not the one that is disposing,
+    /// such as <c>DisposableStack.prototype.dispose</c> reached from another realm: <paramref name="realm"/> is the
+    /// realm a <c>SuppressedError</c> it builds belongs to.
+    /// </summary>
+    public Completion DisposeResources(Completion c, Realm realm)
     {
-        var step = BeginDispose(c);
+        var step = BeginDispose(c, realm);
         while (!step.IsDone)
         {
             var pending = step.PendingPromise!;
@@ -145,8 +157,15 @@ internal sealed class DisposeCapability
     /// <summary>
     /// Initialize the dispose state machine and run until the first suspension or completion.
     /// </summary>
-    public DisposeStepResult BeginDispose(Completion c)
+    public DisposeStepResult BeginDispose(Completion c) => BeginDispose(c, _engine.Realm);
+
+    /// <summary>
+    /// <see cref="BeginDispose(Completion)"/> for a caller that knows the realm it is disposing for, which the
+    /// running realm is not once the function, generator, module or built-in has been left or is resumed from a job.
+    /// </summary>
+    public DisposeStepResult BeginDispose(Completion c, Realm realm)
     {
+        _disposeRealm = realm;
         _disposeIndex = _disposableResourceStack.Count - 1;
         _disposeHasAwaited = false;
         _disposeNeedsAwait = false;
@@ -257,6 +276,8 @@ internal sealed class DisposeCapability
         var result = _disposeCompletion;
         _disposableResourceStack.Clear();
         _disposeResume = DisposeResumePoint.None;
+        // a long-lived stack must not keep the realm that disposed it alive
+        _disposeRealm = null!;
         return DisposeStepResult.Done(result);
     }
 
@@ -264,8 +285,9 @@ internal sealed class DisposeCapability
     {
         if (_disposeCompletion.Type == CompletionType.Throw)
         {
-            var suppressed = _engine.Intrinsics.SuppressedError.Construct(
-                _engine.Intrinsics.SuppressedError, "", error, _disposeCompletion.Value);
+            // Step 4.e.iii.1.c-e: a newly created SuppressedError object, given error and suppressed and nothing
+            // else, so it has no own message (https://tc39.es/ecma262/#sec-disposeresources).
+            var suppressed = _disposeRealm.Intrinsics.SuppressedError.CreateForDisposal(error, _disposeCompletion.Value);
             _disposeCompletion = new Completion(CompletionType.Throw, suppressed, _disposeCompletion._source);
         }
         else

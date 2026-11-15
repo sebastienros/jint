@@ -20,6 +20,7 @@ internal sealed partial class PageLayout
     private string? _cachedUrl;
     private Element? _cachedFocus;
     private Element? _cachedPress;
+    private Element? _cachedHover;
     private bool? _supportedStyles;
     private CssMutationStamp _cachedResources;
     private CssStyleSheetRevisionSnapshot? _cachedSheetRevisions;
@@ -63,6 +64,7 @@ internal sealed partial class PageLayout
         _cachedDocument = null;
         _cachedFocus = null;
         _cachedPress = null;
+        _cachedHover = null;
         _supportedStyles = null;
         _cachedSheetRevisions = null;
         _cachedSheetWork = null;
@@ -113,13 +115,15 @@ internal sealed partial class PageLayout
             || document is not null && (!_cachedResources.CanReuse || _cachedResources != NativeCssStyleSheets.Stamp(document)) || stylesChanged
             || controlRevision == ulong.MaxValue || _cachedControlRevision != controlRevision
             || _cachedUrl != url || !ReferenceEquals(_cachedFocus, events.FocusedElement)
-            || !ReferenceEquals(_cachedPress, events.MousePressTarget);
+            || !ReferenceEquals(_cachedPress, events.MousePressTarget)
+            || !ReferenceEquals(_cachedHover, events.MouseHoverTarget);
         if (globalChange || _cachedNativeStamp != document?.MutationStamp)
         {
             if (globalChange || !ReferenceEquals(_observedDocument, document) || _observedStamp != document?.MutationStamp)
                 ResetMeasurements(stylesChanged ? "stylesheet" : _cachedControlRevision != controlRevision ? "control-state"
                     : !ReferenceEquals(_cachedFocus, events.FocusedElement) ? "focus"
                     : !ReferenceEquals(_cachedPress, events.MousePressTarget) ? "press"
+                    : !ReferenceEquals(_cachedHover, events.MouseHoverTarget) ? "hover"
                     : "global-witness");
             RetireQueries();
             _supportedStyles = null;
@@ -133,6 +137,7 @@ internal sealed partial class PageLayout
             _cachedUrl = url;
             _cachedFocus = events.FocusedElement;
             _cachedPress = events.MousePressTarget;
+            _cachedHover = events.MouseHoverTarget;
         }
 
         // Source installation and CSSOM edits are independent of the native DOM revision.

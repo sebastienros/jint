@@ -544,8 +544,11 @@ internal sealed partial class ParserDriver
                     () => ReferenceEquals(style.OwnerDocument, document) && IsResourceConnected(style) &&
                         NativeCssStyleSheets.EligibleOwner(style, new DomReadWork(work.Charge, work.Token), work),
                     mayPump: !_runtime.Engine.IsEvaluationInProgress);
-                if (result == CssImportLoadResult.Failed)
-                    QueueResourceEvent(style, "error", afterParse: false,
+                // Once the sheet is processed and its critical subresources (its imports) are obtained, a style
+                // block fires load, or error if one of them failed; a stale result belongs to a later update.
+                // https://html.spec.whatwg.org/multipage/semantics.html#update-a-style-block
+                if (result != CssImportLoadResult.Stale)
+                    QueueResourceEvent(style, result == CssImportLoadResult.Failed ? "error" : "load", afterParse: false,
                         () => ReferenceEquals(style.OwnerDocument, document) && IsResourceConnected(style));
             }
         }

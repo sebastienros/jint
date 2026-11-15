@@ -132,7 +132,10 @@ internal sealed class JsIdbFactory : ObjectInstance
         }
         Agent.Post(() =>
         {
-            var result = Agent.Store.Databases().Select(info =>
+            // As many databases as the origin's scripts created (sebastienros/jint#4505).
+            var databases = Agent.Store.Databases();
+            ArrayInstance.ValidateListLength(_engine, (uint) databases.Length);
+            var result = databases.Select(info =>
             {
                 var item = new JsObject(_engine);
                 item.CreateDataPropertyOrThrow("name", JsString.Create(info.Name));

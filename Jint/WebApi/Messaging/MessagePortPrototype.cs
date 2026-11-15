@@ -160,9 +160,9 @@ internal sealed partial class MessagePortPrototype : Prototype
     {
         const string Operation = "postMessage' on 'MessagePort";
 
-        if (argument is ObjectInstance && GetMethod(_realm, argument, GlobalSymbolRegistry.Iterator) is not null)
+        if (argument is ObjectInstance && GetMethod(_realm, argument, GlobalSymbolRegistry.Iterator) is { } iteratorMethod)
         {
-            return StructuredSerializeOptions.ReadTransferSequence(_realm, argument, Operation);
+            return StructuredSerializeOptions.ReadTransferSequence(_realm, argument, Operation, iteratorMethod);
         }
 
         return StructuredSerializeOptions.ReadTransferOption(_realm, argument, Operation);

@@ -2347,6 +2347,7 @@ namespace Jint.Runtime.Interop
         public System.Type ClrType { get; }
         public object Target { get; }
         public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override bool Delete(Jint.Native.JsValue property) { }
         public override bool Equals(Jint.Native.JsValue? other) { }
         public bool Equals(Jint.Runtime.Interop.ObjectWrapper? other) { }
         public override bool Equals(object? obj) { }
@@ -2356,7 +2357,7 @@ namespace Jint.Runtime.Interop
         public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         public override bool HasProperty(Jint.Native.JsValue property) { }
         protected override Jint.Native.Object.OwnPropertyProbe ProbeOwnProperty(Jint.Native.JsValue property) { }
-        public override void RemoveOwnProperty(Jint.Native.JsValue property) { }
+        public override sealed void RemoveOwnProperty(Jint.Native.JsValue property) { }
         public override bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
         protected override void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
         public override object ToObject() { }

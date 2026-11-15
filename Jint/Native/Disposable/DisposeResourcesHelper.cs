@@ -16,7 +16,9 @@ namespace Jint.Native.Disposable;
 /// The <c>realm</c> a caller passes is that of the function, generator, module or stack whose resources are disposed:
 /// each Await resolves against its <c>%Promise%</c>. Only the first step can run inside that body's execution
 /// context; every later one runs in the reaction job of the await before it, where the running realm is whatever
-/// that job found.
+/// that job found. The same realm is the one a <c>SuppressedError</c> built along the way belongs to
+/// (https://tc39.es/ecma262/#sec-disposeresources, "a newly created SuppressedError object"), so it is handed to the
+/// state machine at the start and kept there for the steps that follow.
 /// </para>
 /// </summary>
 internal static class DisposeResourcesHelper
@@ -28,7 +30,7 @@ internal static class DisposeResourcesHelper
         Completion initial,
         Action<Completion> continueWith)
     {
-        Drive(engine, realm.Intrinsics.Promise, env.BeginDisposeResources(initial), continueWith, env.ContinueDisposeResources);
+        Drive(engine, realm.Intrinsics.Promise, env.BeginDisposeResources(initial, realm), continueWith, env.ContinueDisposeResources);
     }
 
     public static void DisposeAndThen(
@@ -38,7 +40,7 @@ internal static class DisposeResourcesHelper
         Completion initial,
         Action<Completion> continueWith)
     {
-        Drive(engine, realm.Intrinsics.Promise, capability.BeginDispose(initial), continueWith, capability.ContinueDispose);
+        Drive(engine, realm.Intrinsics.Promise, capability.BeginDispose(initial, realm), continueWith, capability.ContinueDispose);
     }
 
     private static void Drive(

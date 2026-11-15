@@ -380,6 +380,12 @@ internal sealed class JsNavigation : JsEventTarget
         if (_ongoing is { } operation && operation.Id == id) Abort(operation, Error(DomExceptionNames.Network, message));
     }
 
+    /// <summary>https://html.spec.whatwg.org/multipage/nav-history-apis.html#inform-the-navigation-api-about-aborting-navigation.</summary>
+    internal void AbortOngoing()
+    {
+        if (_ongoing is { } operation) Abort(operation, Error(DomExceptionNames.Abort, "The navigation was aborted."));
+    }
+
     internal void TraversalUnavailable(string key)
     {
         if (!_upcoming.Remove(key, out var tracker)) return;

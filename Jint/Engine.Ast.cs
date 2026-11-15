@@ -187,7 +187,7 @@ public partial class Engine
                 new SuppliedAstNodeCounter(maxNodeCount).Visit(program);
             }
 
-            var analyzer = staticAnalysis ? new AstAnalyzer(options, null) : null;
+            var analyzer = staticAnalysis ? new AstAnalyzer(options, null, seesScopes: false) : null;
             new SuppliedAstVisitor(analyzer).Visit(program);
             return new Prepared<TProgram>(program, parserOptions, parsingConstraints: constraints);
         }
@@ -315,11 +315,17 @@ public partial class Engine
         private readonly ReferencedGlobalsCollector? _referencedGlobals;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
 
-        public AstAnalyzer(IPreparationOptions<IParsingOptions> preparationOptions, ReferencedGlobalsCollector? referencedGlobals)
+        // The identifier `undefined` folds to the global value until the program shows something that could bind
+        // the name between a read and the global environment (see MayShadowUndefined). Only the parser's callback
+        // sees scopes, so an AST a host supplied, which is visited without them, never folds.
+        private bool _undefinedMayBeShadowed;
+
+        public AstAnalyzer(IPreparationOptions<IParsingOptions> preparationOptions, ReferencedGlobalsCollector? referencedGlobals, bool seesScopes = true)
         {
             _preparationOptions = preparationOptions;
             _retainSourceText = preparationOptions.ParsingOptions.RetainFunctionSourceText;
             _referencedGlobals = referencedGlobals;
+            _undefinedMayBeShadowed = !seesScopes;
         }
 
         /// <summary>
@@ -335,7 +341,76 @@ public partial class Engine
         }
 
         private void NodeVisitor(Node node, in OnNodeContext ctx)
-            => Analyze(node, _retainSourceText ? ctx.Input : null);
+        {
+            if (!_undefinedMayBeShadowed && MayShadowUndefined(node, in ctx))
+            {
+                // Every identifier node of this program shares one binding name, so clearing it reaches the reads
+                // already visited, which a declaration later in the same scope shadows all the same.
+                _undefinedMayBeShadowed = true;
+                if (_bindingNames.TryGetValue("undefined", out var undefinedName))
+                {
+                    undefinedName.SetFoldsToUndefined(false);
+                }
+            }
+
+            Analyze(node, _retainSourceText ? ctx.Input : null);
+        }
+
+        /// <summary>
+        /// Whether <paramref name="node"/> can put a binding named <c>undefined</c> between a read of it and the global
+        /// environment: a declaration of the name in the scope the node closes (a parameter, a <c>var</c>, a lexical
+        /// declaration, a function, a catch parameter), the self-name of a function or class expression, a
+        /// <c>with</c> statement's object environment, or a call to <c>eval</c>, which in sloppy code can declare a
+        /// <c>var</c> in the calling function.
+        /// </summary>
+        private static bool MayShadowUndefined(Node node, in OnNodeContext ctx)
+        {
+            switch (node.Type)
+            {
+                case NodeType.WithStatement:
+                    return true;
+                case NodeType.CallExpression:
+                    if (((CallExpression) node).Callee is Identifier { Name: "eval" })
+                    {
+                        return true;
+                    }
+                    break;
+                case NodeType.FunctionExpression:
+                    if (((IFunction) node).Id is { Name: "undefined" })
+                    {
+                        return true;
+                    }
+                    break;
+                case NodeType.ClassDeclaration:
+                case NodeType.ClassExpression:
+                    if (((IClass) node).Id is { Name: "undefined" })
+                    {
+                        return true;
+                    }
+                    break;
+            }
+
+            if (!ctx.HasScope)
+            {
+                return false;
+            }
+
+            ref readonly var scope = ref ctx.Scope;
+            return Declares(scope.VarVariables) || Declares(scope.LexicalVariables) || Declares(scope.Functions);
+
+            static bool Declares(ReadOnlySpan<Identifier> declarations)
+            {
+                foreach (var declaration in declarations)
+                {
+                    if (string.Equals(declaration.Name, "undefined", StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
 
         public void Analyze(Node node, string? sourceText)
         {
@@ -354,6 +429,10 @@ public partial class Engine
                         // cache here would substitute string instances from unrelated parses
                         // and force every lookup onto the memcmp path.
                         _bindingNames[name] = bindingName = new Environment.BindingName(name);
+                        if (!_undefinedMayBeShadowed && string.Equals(name, "undefined", StringComparison.Ordinal))
+                        {
+                            bindingName.SetFoldsToUndefined(true);
+                        }
                     }
 
                     node.UserData = bindingName;

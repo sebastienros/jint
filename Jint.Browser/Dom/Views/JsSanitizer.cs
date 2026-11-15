@@ -2,6 +2,7 @@ using Jint.Browser.Runtime;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Sanitization;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -271,6 +272,7 @@ internal static class SanitizerConversion
         if (config.DataAttributes is { } dataAttributes) Put(result, "dataAttributes", dataAttributes);
         if (config.Elements is { } elements)
         {
+            ArrayInstance.ValidateListLength(engine, (uint) elements.Count);
             var items = new JsValue[elements.Count];
             for (var i = 0; i < items.Length; i++)
             {
@@ -326,7 +328,10 @@ internal static class SanitizerConversion
         return dictionary;
     }
 
-    /// <summary>https://webidl.spec.whatwg.org/#es-sequence — iterated through the iterator protocol.</summary>
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#es-sequence — iterated through the iterator protocol. An item whose conversion
+    /// throws closes the iterator; a step that threw left the record done (sebastienros/jint#4431).
+    /// </summary>
     private static List<T> List<T>(Realm realm, JsValue value, Func<Realm, JsValue, T> convert)
     {
         if (value is not ObjectInstance)
@@ -336,9 +341,17 @@ internal static class SanitizerConversion
 
         var iterator = value.GetIterator(realm);
         var list = new List<T>();
-        while (iterator.TryIteratorStepValue(out var item))
+        try
         {
-            list.Add(convert(realm, item));
+            while (iterator.TryIteratorStepValue(out var item))
+            {
+                list.Add(convert(realm, item));
+            }
+        }
+        catch
+        {
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return list;
@@ -352,8 +365,10 @@ internal static class SanitizerConversion
         return item;
     }
 
+    // A configuration's lists grow with every allow and remove call a script makes (sebastienros/jint#4505).
     private static JsArray Names(Engine engine, List<SanitizerName> names)
     {
+        ArrayInstance.ValidateListLength(engine, (uint) names.Count);
         var items = new JsValue[names.Count];
         for (var i = 0; i < items.Length; i++)
         {
@@ -365,6 +380,7 @@ internal static class SanitizerConversion
 
     private static JsArray Targets(Engine engine, List<string> targets)
     {
+        ArrayInstance.ValidateListLength(engine, (uint) targets.Count);
         var items = new JsValue[targets.Count];
         for (var i = 0; i < items.Length; i++)
         {

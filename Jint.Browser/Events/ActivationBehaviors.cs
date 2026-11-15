@@ -369,10 +369,12 @@ internal static class ActivationBehaviors
     /// </remarks>
     private static void RunSummary(DomNodeObject wrapper, Element summary)
     {
-        if (summary.ParentNode is not Element details || !EventDom.IsHtml(details, "details") || !ReferenceEquals(FirstSummaryOf(details), summary))
+        if (!IsSummaryForItsParentDetails(summary))
         {
             return;
         }
+
+        var details = (Element) summary.ParentNode!;
 
         if (details.HasContentAttribute("open"))
         {
@@ -420,6 +422,13 @@ internal static class ActivationBehaviors
     {
         internal string OldState { get; } = oldState;
     }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/interactive-elements.html#summary-for-its-parent-details — the
+    /// one <c>&lt;summary&gt;</c> whose activation behaviour toggles anything, and so the one a key presses.
+    /// </summary>
+    internal static bool IsSummaryForItsParentDetails(Element summary)
+        => summary.ParentNode is Element details && EventDom.IsHtml(details, "details") && ReferenceEquals(FirstSummaryOf(details), summary);
 
     /// <summary>
     /// The first <c>&lt;summary&gt;</c> child, which is the only one that is "the summary for" a details —

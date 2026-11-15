@@ -71,12 +71,14 @@ internal static class DomSelectors
         var events = BrowserEventRealm.Of(realm.Engine);
         var focused = events.FocusedElement;
         var pressed = events.MousePressTarget;
+        var hovered = events.MouseHoverTarget;
         if (focused?.OwnerDocument != document) focused = null;
         if (pressed?.OwnerDocument != document) pressed = null;
+        if (hovered?.OwnerDocument != document) hovered = null;
         var target = DomDocumentState.Of(document).TargetElement;
         if (target?.OwnerDocument != document) target = null;
         return new SelectorEnvironment(document, focused, pressed, target, BrowserSelectorControlFacts.Factory,
-            realm, BrowserSelectorSemanticRevision.Read(document));
+            realm, BrowserSelectorSemanticRevision.Read(document), hovered);
     }
 
 }

@@ -612,6 +612,8 @@ internal class DeclarativeEnvironment : Environment
 
     internal sealed override Completion DisposeResources(Completion c) => _disposeCapability?.DisposeResources(c) ?? c;
 
+    internal sealed override Completion DisposeResources(Completion c, Realm realm) => _disposeCapability?.DisposeResources(c, realm) ?? c;
+
     internal sealed override bool HasDisposeResources => _disposeCapability?.HasResources == true;
 
     /// <summary>
@@ -622,6 +624,9 @@ internal class DeclarativeEnvironment : Environment
     /// </summary>
     internal sealed override DisposeStepResult BeginDisposeResources(Completion c)
         => _disposeCapability?.BeginDispose(c) ?? DisposeStepResult.Done(c);
+
+    internal sealed override DisposeStepResult BeginDisposeResources(Completion c, Realm realm)
+        => _disposeCapability?.BeginDispose(c, realm) ?? DisposeStepResult.Done(c);
 
     /// <summary>
     /// Continue dispose after a suspended Await settles. Returns either Done or the next Suspend.

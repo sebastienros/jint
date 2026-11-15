@@ -212,8 +212,8 @@ internal sealed class WorkerGlobalScope
         const string Operation = "postMessage' on 'DedicatedWorkerGlobalScope";
         var argument = arguments.At(1);
 
-        var transferList = argument is ObjectInstance && JsValue.GetMethod(_realm, argument, GlobalSymbolRegistry.Iterator) is not null
-            ? StructuredSerializeOptions.ReadTransferSequence(_realm, argument, Operation)
+        var transferList = argument is ObjectInstance && JsValue.GetMethod(_realm, argument, GlobalSymbolRegistry.Iterator) is { } iteratorMethod
+            ? StructuredSerializeOptions.ReadTransferSequence(_realm, argument, Operation, iteratorMethod)
             : StructuredSerializeOptions.ReadTransferOption(_realm, argument, Operation);
 
         _link!.PostFromWorker(_realm, arguments[0], transferList);

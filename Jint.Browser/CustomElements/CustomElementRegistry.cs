@@ -391,7 +391,11 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
         return null;
     }
 
-    /// <summary>A WebIDL <c>sequence&lt;DOMString&gt;</c>, or an empty one when the member was absent.</summary>
+    /// <summary>
+    /// A WebIDL <c>sequence&lt;DOMString&gt;</c> (https://webidl.spec.whatwg.org/#es-sequence), or an empty one when the
+    /// member was absent. A value that is not an Object, a string included, is a <c>TypeError</c> rather than being
+    /// iterated by code point, so <c>observedAttributes</c> of <c>'abc'</c> fails <c>define</c>.
+    /// </summary>
     private string[] Sequence(JsValue value)
     {
         if (value.IsUndefined())
@@ -400,7 +404,7 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
         }
 
         var names = new List<string>();
-        var iterator = value.GetIterator(_runtime.Engine._mainRealm);
+        var iterator = DomConvert.SequenceIterator(_runtime.Engine._mainRealm, value, "Failed to execute 'define' on 'CustomElementRegistry'");
 
         try
         {

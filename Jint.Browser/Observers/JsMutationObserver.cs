@@ -75,18 +75,23 @@ internal sealed class JsMutationObserver : ObjectInstance, IDisposable
             return JsValue.Undefined;
         }
 
+        // https://webidl.spec.whatwg.org/#es-dictionary step 4: the members are read in lexicographic order
+        // of their names, which is what decides whose getter runs first and which failure throws first
+        // (sebastienros/jint#4530).
         var options = arguments.At(1) as ObjectInstance;
+        var filter = Filter(realm, options);
+        var attributeOldValue = Flag(options, "attributeOldValue");
+        var attributesMember = Flag(options, "attributes");
+        var characterDataMember = Flag(options, "characterData");
+        var characterDataOldValue = Flag(options, "characterDataOldValue");
         var childList = Flag(options, "childList") ?? false;
         var subtree = Flag(options, "subtree") ?? false;
-        var attributeOldValue = Flag(options, "attributeOldValue");
-        var characterDataOldValue = Flag(options, "characterDataOldValue");
-        var filter = Filter(options);
 
         // Steps 2-4: an option that only makes sense with attributes (or with characterData) turns that one
         // on when the dictionary left it out. "Left out" and "present and false" are different: { attributes:
         // false, attributeOldValue: false } is a TypeError, { attributeOldValue: false } is not.
-        var attributes = Flag(options, "attributes") ?? (attributeOldValue is not null || filter is not null);
-        var characterData = Flag(options, "characterData") ?? characterDataOldValue is not null;
+        var attributes = attributesMember ?? (attributeOldValue is not null || filter is not null);
+        var characterData = characterDataMember ?? characterDataOldValue is not null;
 
         if (!childList && !attributes && !characterData)
         {
@@ -200,30 +205,42 @@ internal sealed class JsMutationObserver : ObjectInstance, IDisposable
     }
 
     /// <summary>
-    /// <c>attributeFilter</c>, a <c>sequence&lt;DOMString&gt;</c>. <see langword="null"/> means absent, which
-    /// is what turns <c>attributes</c> on by itself.
+    /// <c>attributeFilter</c>, a <c>sequence&lt;DOMString&gt;</c> member with no default, converted as WebIDL converts a
+    /// sequence (https://webidl.spec.whatwg.org/#es-sequence): any iterable, read through its <c>@@iterator</c>, and
+    /// nothing array-like. The answer is <see langword="null"/> only when the member is absent (<c>undefined</c>), which
+    /// is what turns <c>attributes</c> on by itself; <c>null</c> is a value that is not an Object, so it is a
+    /// <c>TypeError</c>, as it is in Chromium.
     /// </summary>
-    private static string[]? Filter(ObjectInstance? options)
+    private static string[]? Filter(Realm realm, ObjectInstance? options)
     {
-        if (options?.Get("attributeFilter") is not { } value || value.IsUndefined() || value.IsNull())
+        if (options?.Get("attributeFilter") is not { } value || value.IsUndefined())
         {
             return null;
         }
 
-        if (value is not ObjectInstance list)
+        var iterator = DomConvert.SequenceIterator(
+            realm,
+            value,
+            "Failed to execute 'observe' on 'MutationObserver'",
+            "attributeFilter",
+            "MutationObserverInit");
+        var names = new List<string>();
+
+        try
         {
-            Throw.TypeErrorNoEngine("Failed to execute 'observe' on 'MutationObserver': The provided value cannot be converted to a sequence.");
-            return null;
+            while (iterator.TryIteratorStepValue(out var item))
+            {
+                names.Add(TypeConverter.ToString(item));
+            }
+        }
+        catch
+        {
+            // A name whose conversion threw closes the iterator; a step that threw left the record done
+            // (sebastienros/jint#4431).
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
-        var length = (int) TypeConverter.ToUint32(list.Get("length"));
-        var names = new string[length];
-
-        for (var i = 0; i < length; i++)
-        {
-            names[i] = TypeConverter.ToString(list.Get(i.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-        }
-
-        return names;
+        return [.. names];
     }
 }

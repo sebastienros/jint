@@ -76,13 +76,13 @@ Do not restore typed grammar engines or eagerly parse CSS during HTML constructi
 
 | Surface | Current implementation and boundary |
 | --- | --- |
-| Defaults and cascade | `NativeCssBrowserDefaults` supplies supported HTML UA rules. `NativeCssQuery` lazily selects text by origin/importance/layer/specificity/order and inline precedence, with inherited values and a small catalog default table. `NativeCssQuery.Index` buckets rules by their subject's id, class or type (LightPanda's StyleManager); the key filter must stay a superset of matcher case rules. |
-| Resolved values | `Dom/Views/ResolvedStyle` returns synthetic width/height for elements with boxes, otherwise declaration text. No calc, color, font-unit, transform, border or URL computation. |
+| Defaults and cascade | `NativeCssBrowserDefaults` supplies supported HTML UA rules. `NativeCssQuery` lazily selects text by origin/importance/layer/specificity/scope-proximity/order and inline precedence, with inherited values and a small catalog default table. `NativeCssQuery.Index` buckets rules by their subject's id, class or type (LightPanda's StyleManager); the key filter must stay a superset of matcher case rules. |
+| Resolved values | `Dom/Views/ResolvedStyle` returns synthetic width/height for elements with boxes, sRGB colors and absolute-unit `transform` matrices; `ResolvedValueText` resolves gradient color stops and a grid container's definite column tracks over that same synthetic width. Otherwise declaration text. No calc, font-unit, border or URL computation. `::before`/`::after` reads use `NativeCssQuery`'s pseudo-element states, whose inheritance parent is the originating element. |
 | Computed declaration | `ReadOnlyStyleDeclaration` is a read-only Browser view, not a mutable detached stylesheet declaration. `CssCascade.Traversal.Current` shares one traversal per document across script reads while `NativeCssQuery.IsReusable` and the page witness hold; an input a query captures must retire it. |
 
 Custom properties inherit declared text; ordinary values optionally use depth-limited textual `var()`.
-Only layout-used shorthands expand, by whitespace splitting. Other than style/media/supports/layer/import/
-font-face, at-rules are opaque base `CSSRule` objects. Container queries, keyframes, registrations and
+Layout-used shorthands expand by whitespace splitting, background/border by component classification. Other than style/media/supports/layer/scope/
+import/font-face, at-rules are opaque base `CSSRule` objects. Container queries, keyframes, registrations and
 typed OM interfaces are removed by design. Retain query stamps, bounded work and CSSOM identity.
 
 **Rule-usage coverage observes the same native rule identities the cascade matched**, independently of
@@ -117,6 +117,11 @@ members are explicit binding-contract bodies. The htmx fixture exercises both XP
 The checked-in contract, conversion rules, wrapper identity and shape discipline are
 [`Dom/AGENTS.md`](Dom/AGENTS.md). The rule to carry across: **never hand-edit `Dom/Generated/`**; regenerate
 from the contract, and record supported behavior and remaining divergences against the native implementation.
+A hand-written sequence conversion anywhere in the package (Animations, CustomElements, Cookies, Geometry, Observers, Events and SystemState as
+well as `Dom/`) refuses a value that is not an object, a string included, and reads `@@iterator` once, never `length`
+and indices (#4492): `Dom/DomConvert.SequenceIterator` does both, and a union with a sequence arm reads `GetMethod`
+itself and passes the method on. It closes its iterator only when an element fails to convert:
+[the rule](../Jint/WebApi/AGENTS.md#when-a-sequence-conversion-closes-its-iterator).
 
 ### The events bridge has a file of its own
 
@@ -152,9 +157,10 @@ to run unrelated page tasks; resource waits use the pump described in
   These rendering-adjacent callbacks must follow the turn's promises, and be visible to
   `Page.WaitForIdleAsync`.
 - **`IntersectionObserver` reports each observed target once, fully intersecting.** Never intersecting
-  would leave lazy lists permanently empty. `root`, `rootMargin` and `thresholds` are parsed and reflected
-  but do not change that policy. Entries use the same flat boxes as `getBoundingClientRect`, through
-  `Layout/DomRects`; the rectangles are `DOMRectReadOnly` instances from `Geometry/GeometryRealm`.
+  would leave lazy lists permanently empty. `root`, `rootMargin`, `scrollMargin`, `thresholds`, `delay` and
+  `trackVisibility` are converted in lexicographic order, validated and reflected, but do not change that
+  policy. Entries use the same flat boxes as `getBoundingClientRect`, through `Layout/DomRects`; the
+  rectangles are `DOMRectReadOnly` instances from `Geometry/GeometryRealm`.
 - **`ResizeObserver` tracks changes in the flat model**, not just initial size. `ResizeObserverLane`
   checks at page-turn boundaries and in nested pumps, shares a size-only query per check/delivery, and
   schedules a task only for changed dimensions. Queries visit observed subtrees, visibility ancestors

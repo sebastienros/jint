@@ -58,9 +58,16 @@ internal static class StructuredSerializeOptions
     /// element must be an object, which is all WebIDL checks here — whether it is <i>transferable</i> is a
     /// <c>DataCloneError</c> decided later, in the order the serialization algorithm specifies.
     /// </summary>
-    internal static List<JsValue> ReadTransferSequence(Realm realm, JsValue transfer, string operation)
+    /// <param name="realm">The realm whose <c>TypeError</c> is raised for a malformed argument.</param>
+    /// <param name="transfer">The value to convert.</param>
+    /// <param name="operation">How the operation names itself in an error message.</param>
+    /// <param name="iteratorMethod">
+    /// The <c>@@iterator</c> method overload resolution already read (https://webidl.spec.whatwg.org/#es-overloads),
+    /// which the sequence is created from without a second read; or <see langword="null"/> to read it here.
+    /// </param>
+    internal static List<JsValue> ReadTransferSequence(Realm realm, JsValue transfer, string operation, ICallable? iteratorMethod = null)
     {
-        var iterator = transfer.GetIterator(realm);
+        var iterator = transfer.GetIterator(realm, method: iteratorMethod);
         var list = new List<JsValue>();
         while (iterator.TryIteratorStepValue(out var item))
         {

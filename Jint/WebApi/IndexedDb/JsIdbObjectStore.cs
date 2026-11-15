@@ -318,6 +318,8 @@ internal sealed class JsIdbObjectStore : ObjectInstance
                 var value = operation is "getKey" or "getAllKeys"
                     ? IndexedDbKeyConverter.ToValue(_engine, _realm, entry.PrimaryKey) : ReadValue(entry.PrimaryKey);
                 if (operation is "get" or "getKey") return value;
+                // getAll and getAllKeys hold as many records as the scripts stored (sebastienros/jint#4505).
+                ArrayInstance.ValidateListLength(_engine, (ulong) values.Count + 1);
                 values.Add(value);
                 if (count != 0 && values.Count >= count) break;
             }
