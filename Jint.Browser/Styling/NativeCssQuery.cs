@@ -50,6 +50,7 @@ internal sealed partial class NativeCssQuery
         _documentStamp = document.MutationStamp;
         _resourceStamp = NativeCssStyleSheets.Stamp(document);
         _media = media;
+        _forcedColors = string.Equals(media.ForcedColors, "active", StringComparison.OrdinalIgnoreCase);
         _selectors = selectors;
         _work = work;
         _readInlineAttributes = readInlineAttributes;
@@ -190,6 +191,7 @@ internal sealed partial class NativeCssQuery
             else if (currentPseudo is not null && name == "content" && text == "normal") text = "none";
             else if (CssMotionShorthands.IsTimeList(name)) text = CssMotionShorthands.ComputedTimes(text, _work);
             result = new(name, text, candidate?.Source, disposition);
+            if (_forcedColors) result = ForcedColors(state, result, ref matching);
             state.Computed.Add(name, result);
             _diagnostics?.ComputedPublished(current, name);
             break;
@@ -203,6 +205,8 @@ internal sealed partial class NativeCssQuery
                 Source = item.Source,
                 Disposition = item.Disposition
             };
+            // An inheriting descendant takes its parent's computed value, forced or not, and is then forced itself.
+            if (_forcedColors) result = ForcedColors(item.State, result, ref matching);
             item.State.Computed.Add(name, result);
             _diagnostics?.ComputedPublished(item.State.Element, name);
         }

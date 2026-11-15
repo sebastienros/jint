@@ -255,6 +255,44 @@ public class EmulationDomainTests
         (await Flag(session, attachment, "matchMedia('(color-gamut: rec2020)').matches")).Should().BeFalse();
     }
 
+    /// <summary>
+    /// #4641 over the protocol, as Playwright's <c>emulateMedia({ forcedColors: 'active' })</c> sends it: the
+    /// cascade forces a gradient <c>background-image</c> to <c>none</c>, on a <c>::before</c> too, and keeps a
+    /// <c>url()</c>; clearing the feature restores the gradient.
+    /// </summary>
+    [Test]
+    public async Task ForcedColorsForceAGradientBackgroundImageToNone()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+        await SetContentAsync(
+            session,
+            attachment,
+            """
+            <style>
+              #g, #p::before { background-image: linear-gradient(red, blue) }
+              #p::before { content: '' }
+              #u { background-image: url("data:image/gif;base64,R0lGODlhAQABAAAAACw=") }
+            </style>
+            <div id="g"></div><div id="p"></div><div id="u"></div>
+            """);
+        const string Images =
+            "['#g', '#u'].map(s => getComputedStyle(document.querySelector(s)).backgroundImage.slice(0, 16))" +
+            ".concat(getComputedStyle(document.querySelector('#p'), '::before').backgroundImage.slice(0, 16)).join('|')";
+
+        await session.ResultAsync(
+            "Emulation.setEmulatedMedia",
+            """{"media":"","features":[{"name":"forced-colors","value":"active"}]}""",
+            attachment);
+        (await Text(session, attachment, Images)).Should().Be("none|url(\"data:image/|none");
+
+        await session.ResultAsync(
+            "Emulation.setEmulatedMedia",
+            """{"media":"","features":[{"name":"forced-colors","value":""}]}""",
+            attachment);
+        (await Text(session, attachment, Images)).Should().Be("linear-gradient(|url(\"data:image/|linear-gradient(");
+    }
+
     [Test]
     public async Task TheEmulatedMediaTypeIsWhatABareTypeInAQueryIsMatchedAgainst()
     {
