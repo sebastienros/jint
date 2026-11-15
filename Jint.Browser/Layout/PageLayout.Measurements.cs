@@ -66,6 +66,7 @@ internal sealed partial class PageLayout
         {
             context.Verify();
             var plan = context.Query.MeasurementPlan;
+            NoteInteractions(context.Query);
             if (_unknownMeasurementWrite || !ReferenceEquals(_measurementPlan, plan))
             {
                 if (_measurements is not null)
@@ -90,13 +91,13 @@ internal sealed partial class PageLayout
                     if (root is not null)
                     {
                         if (dirty.Kind == NativeMutationKind.ChildList)
-                            measurements.InvalidateChildren(root, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+                            measurements.InvalidateChildren(root, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
                         else
-                            measurements.Invalidate(root, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+                            measurements.Invalidate(root, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
                     }
                     context.Verify();
                     if (dirty.ChangedChild is Element changed)
-                        measurements.Invalidate(changed, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+                        measurements.Invalidate(changed, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
                     context.Verify();
                 }
             }

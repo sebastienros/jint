@@ -25,6 +25,7 @@ public sealed class BrowserOptions
     private Action<BrowserContextOptions>? _contextConfiguration;
     private string _userAgent = DefaultUserAgent;
     private TimeSpan _pumpIdle = TimeSpan.FromMilliseconds(50);
+    private TimeSpan _animationFrameInterval = TimeSpan.FromMilliseconds(16);
     private int _maxRecordedEvents = 1000;
     private long _maxDocumentBytes = 32 * 1024 * 1024;
     private long _maxSubresourceBytes = 8 * 1024 * 1024;
@@ -99,6 +100,25 @@ public sealed class BrowserOptions
     /// </para>
     /// </remarks>
     public bool HasTouch { get; set; }
+
+    /// <summary>The media type and preferences every page opens with; <see langword="null"/> emulates nothing.</summary>
+    /// <remarks>
+    /// <para>
+    /// The media counterpart of <see cref="HasTouch"/>: applied before a page's <b>first</b> document parses,
+    /// so a stylesheet's <c>@media (prefers-color-scheme: dark)</c> and an inline script's
+    /// <c>matchMedia('(prefers-reduced-motion: reduce)')</c> are answered in it from the start, which
+    /// <see cref="Page.EmulateMediaAsync"/> — called once the page exists — cannot promise of a blank document
+    /// that has already been answered.
+    /// </para>
+    /// <para>
+    /// <see cref="BrowserContextOptions.MediaEmulation"/> is applied over it, property by property, for the
+    /// pages of one context. Together they are the page's <i>default</i>, which stands where an operating
+    /// system's preference stands in a real browser: <see cref="Page.EmulateMediaAsync"/> and a protocol
+    /// client's <c>Emulation.setEmulatedMedia</c> override it, and clearing those overrides goes back to it.
+    /// Read when each page is created, so changing it afterwards reaches only pages opened later.
+    /// </para>
+    /// </remarks>
+    public MediaEmulation? MediaEmulation { get; set; }
 
     /// <summary>Gets or sets the default Cache Storage quota per context and origin; defaults to five mebibytes.</summary>
     /// <remarks>
@@ -213,7 +233,8 @@ public sealed class BrowserOptions
     /// <para>
     /// A <see cref="Page"/> call that exhausts its budget fails with <see cref="TimeoutException"/>.
     /// A pumped task or inline script records <see cref="PageErrorKind.BudgetExceeded"/> in
-    /// <see cref="Page.Errors"/>; a protocol command reports failure to its client. The page continues.
+    /// <see cref="Page.Errors"/>; a protocol evaluation answers a thrown error naming this budget, and any other
+    /// command a server error naming it. The page and its execution context continue.
     /// </para>
     /// <para>
     /// <see cref="Timeout.InfiniteTimeSpan"/>, zero and any negative value all mean no time bound at all,
@@ -468,6 +489,37 @@ public sealed class BrowserOptions
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxRedirects cannot be negative.");
     }
+
+    /// <summary>How long after a <c>requestAnimationFrame</c> call its frame runs; 16 ms by default.</summary>
+    /// <remarks>
+    /// <para>
+    /// Nothing is painted, so a frame is only a scheduling point. Automation waits for frames: Playwright's
+    /// actionability check waits for two animation frames before every click, so over CDP each click costs
+    /// two intervals. A shorter interval makes such clients faster. A page that animates continuously then
+    /// runs its frames that much more often.
+    /// </para>
+    /// <para>
+    /// Whole milliseconds; zero runs the frame once the current task and its microtasks are done.
+    /// <c>jint-browser serve</c> uses 1 ms.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public TimeSpan AnimationFrameInterval
+    {
+        get => _animationFrameInterval;
+        set => _animationFrameInterval = value >= TimeSpan.Zero
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "AnimationFrameInterval cannot be negative.");
+    }
+
+    /// <summary>Whether pages share one parse per process of a classic script with the same text; true by default.</summary>
+    /// <remarks>
+    /// A script of at least 1 KiB is parsed once and the parse is reused by every page of every browser in the
+    /// process, up to about 30 MB of parsed scripts, least recently used first out. Pages whose engines set
+    /// parsing limits or a regular-expression timeout parse for themselves. Turning it off parses every
+    /// script in every page, as a page with no cache would.
+    /// </remarks>
+    public bool ShareParsedScripts { get; set; } = true;
 
     /// <summary>How long a page loop parks when it has nothing due; 50 ms by default.</summary>
     /// <remarks>

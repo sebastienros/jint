@@ -280,7 +280,13 @@ public sealed class HostRealmScopeTests
     {
         var host = new RealmHost();
         var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var engine = new Engine(options => options.UseHostFactory(_ => host));
+        // The settlement is released by a host Task whose continuation runs on the thread pool, so the default
+        // ten-second PromiseTimeout let a saturated runner decide the outcome; nothing here asserts a duration.
+        using var engine = new Engine(options =>
+        {
+            options.UseHostFactory(_ => host);
+            options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
+        });
         var principalGlobal = engine.Global;
         var realm = host.CreateAdditionalRealm();
         var foreignHost = new RealmHost();

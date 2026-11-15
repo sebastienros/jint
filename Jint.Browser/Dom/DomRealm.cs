@@ -594,6 +594,40 @@ internal sealed class DomRealm
     // Trusted host-only checks. Native read work owns polling and never retains this callback.
     internal Action<int> NativeReadCheckpoint => _nativeReadCheckpoint ??= _ => Engine.Constraints.Check();
 
+    /// <summary>
+    /// The selectors <c>matches</c>, <c>closest</c> and the query methods compiled, by their text; see
+    /// <see cref="DomSelectors.Compile"/>.
+    /// </summary>
+    internal Dictionary<string, Jint.HtmlParser.Css.Selectors.CompiledSelector>? CompiledSelectors;
+
+    private Action? _cssCheckpoint;
+    private int _cssChecks;
+
+    /// <summary>
+    /// The engine's constraints as the native cascade's host checkpoint, on the interpreter's own partition.
+    /// </summary>
+    /// <remarks>
+    /// The native cascade polls its host at every rule, sheet and name it visits, around a hundred thousand
+    /// times for one automation click. Constraints whose call frequency is observable (the engine's exact
+    /// partition: a host's own, a memory limit) are checked on every poll, as the interpreter checks them on
+    /// every statement. The observation-only ones (the turn's deadline, whose check is a clock read, and
+    /// cancellation) ride a cadence of 64 polls shared by every query of the realm, as they ride the
+    /// interpreter's amortized cadence.
+    /// </remarks>
+    internal Action CssCheckpoint => _cssCheckpoint ??= () =>
+    {
+        if ((_cssChecks++ & 63) == 0)
+        {
+            Engine.Constraints.Check();
+            return;
+        }
+
+        foreach (var constraint in Engine._exactConstraints)
+        {
+            constraint.Check();
+        }
+    };
+
     internal CancellationToken CancellationToken
         => Engine.Constraints.Find<Jint.Constraints.CancellationConstraint>()?.Token ?? default;
 

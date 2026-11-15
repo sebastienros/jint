@@ -714,6 +714,9 @@ internal class DomHostHooks
             case MarkupInsertion.Local:
                 DynamicMarkupInsertion.Write(realm, document, Join(arguments));
                 break;
+            case MarkupInsertion.Openable or MarkupInsertion.ScriptCreated:
+                WriteDisplayed(realm, document, Join(arguments));
+                break;
             default:
                 RecordDisplayedRefusal(realm, document, "write");
                 break;
@@ -730,6 +733,9 @@ internal class DomHostHooks
                 break;
             case MarkupInsertion.Local:
                 DynamicMarkupInsertion.Write(realm, document, Join(arguments) + "\n");
+                break;
+            case MarkupInsertion.Openable or MarkupInsertion.ScriptCreated:
+                WriteDisplayed(realm, document, Join(arguments) + "\n");
                 break;
             default:
                 RecordDisplayedRefusal(realm, document, "writeln");
@@ -767,6 +773,19 @@ internal class DomHostHooks
 
                 DynamicMarkupInsertion.Open(realm, document);
                 break;
+            case MarkupInsertion.Openable or MarkupInsertion.ScriptCreated:
+                // The three-argument form is window.open(), which this document's window answers.
+                if (arguments.Length >= 3)
+                {
+                    var window = realm.OwningRealm.GlobalObject;
+                    return window.Get("open") is Jint.Native.Function.Function open
+                        ? open.Call(window, arguments)
+                        : JsValue.Undefined;
+                }
+
+                RefuseWhileDriving(realm, document, "open");
+                Runtime.PageRuntime.Find(realm.Engine)!.Parser!.OpenDisplayedDocument(document);
+                break;
             default:
                 RecordDisplayedRefusal(realm, document, "open");
                 break;
@@ -783,9 +802,15 @@ internal class DomHostHooks
     /// </remarks>
     internal virtual void Close(DomRealm realm, Document document, JsValue[] arguments)
     {
-        if (TargetOf(realm, document, "close") == MarkupInsertion.Local)
+        switch (TargetOf(realm, document, "close"))
         {
-            DynamicMarkupInsertion.Close(realm, document);
+            case MarkupInsertion.Local:
+                DynamicMarkupInsertion.Close(realm, document);
+                break;
+            case MarkupInsertion.ScriptCreated:
+                RefuseWhileDriving(realm, document, "close");
+                Runtime.Parsing.ParserDriver.CloseScriptCreated(document);
+                break;
         }
     }
 
@@ -1114,7 +1139,22 @@ internal class DomHostHooks
         /// </summary>
         Local,
 
-        /// <summary>The document the page is displaying, or a frame of it: the call does nothing.</summary>
+        /// <summary>
+        /// The page's own document, which finished parsing: <c>open</c>, and a <c>write</c> implying it,
+        /// associate a script-created parser with it in place.
+        /// </summary>
+        Openable,
+
+        /// <summary>
+        /// The page's own document while a parser <c>document.open()</c> created reads it, with no script of
+        /// that parser running: a write appends at its insertion point, and <c>close</c> ends it.
+        /// </summary>
+        ScriptCreated,
+
+        /// <summary>
+        /// A frame's document, or the page's own while its navigation parse runs outside a script: the call
+        /// does nothing.
+        /// </summary>
         Displayed,
     }
 
@@ -1136,11 +1176,14 @@ internal class DomHostHooks
     /// </list>
     /// <para>
     /// So the steps are owned here, and how far they go depends on the target. An XML document is HTML's own
-    /// first step and an <c>InvalidStateError</c>. The <b>displayed</b> document — the page's, or a frame's,
-    /// which is why the browsing-context tree and not the one document decides — is the one case left
-    /// unimplemented: replacing it means unloading a document, swapping the engine the page runs on and
-    /// re-committing a navigation, so the call does nothing and the host is told why, because a throw would
-    /// break scripts that write into a document they think is still parsing. Anything else is a
+    /// first step and an <c>InvalidStateError</c>. The page's own document, once its navigation parse has
+    /// finished, gets HTML's open steps from the page's parser driver: since whatwg/html#3946 they keep the
+    /// document, its window and its engine and only empty the tree under a new script-created parser, so
+    /// nothing unloads or navigates (<see cref="Runtime.Parsing.ParserDriver.OpenDisplayedDocument"/>).
+    /// A <b>frame's</b> document — which is why the browsing-context tree and not the one document decides —
+    /// and the page's while its own parse runs outside a script are the cases left unimplemented: the call
+    /// does nothing and the host is told why, because a throw would break scripts that write into a document
+    /// they think is still parsing. Anything else is a
     /// <b>secondary</b> document — <c>DOMParser</c>'s, <c>createHTMLDocument</c>'s — which has no page loop,
     /// no engine to swap and no navigation gate, and there
     /// <see cref="DynamicMarkupInsertion"/> performs HTML's steps in place.
@@ -1163,9 +1206,52 @@ internal class DomHostHooks
             return MarkupInsertion.Local;
         }
 
-        return Runtime.Parsing.ParserDriver.HasInsertionPoint(document)
-            ? MarkupInsertion.Parser
-            : MarkupInsertion.Displayed;
+        if (Runtime.Parsing.ParserDriver.HasInsertionPoint(document))
+        {
+            return MarkupInsertion.Parser;
+        }
+
+        if (Runtime.Parsing.ParserDriver.HasScriptCreatedParser(document))
+        {
+            return MarkupInsertion.ScriptCreated;
+        }
+
+        return Runtime.PageRuntime.Find(realm.Engine) is { Parser: not null } runtime
+            && ReferenceEquals(runtime.Document, document)
+            && !Runtime.Parsing.ParserDriver.IsParsing(document)
+                ? MarkupInsertion.Openable
+                : MarkupInsertion.Displayed;
+    }
+
+    /// <summary>
+    /// A write to the page's own loaded document: the open steps first when no script-created parser is
+    /// reading it (write steps step 5), then the append at its insertion point.
+    /// </summary>
+    private static void WriteDisplayed(DomRealm realm, Document document, string text)
+    {
+        if (!Runtime.Parsing.ParserDriver.HasScriptCreatedParser(document))
+        {
+            Runtime.PageRuntime.Find(realm.Engine)!.Parser!.OpenDisplayedDocument(document);
+        }
+
+        Runtime.Parsing.ParserDriver.WriteScriptCreated(document, text);
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#throw-on-dynamic-markup-insertion-counter
+    /// — open and close steps step 2, for the moments the counter covers here: a custom-element reaction or a
+    /// checkpoint the script-created parser yielded to while it is being driven.
+    /// </summary>
+    private static void RefuseWhileDriving(DomRealm realm, Document document, string member)
+    {
+        if (Runtime.Parsing.ParserDriver.IsDrivingScriptCreatedParser(document))
+        {
+            DomFailures.Refuse(
+                realm,
+                "Document." + member,
+                DomExceptionNames.InvalidState,
+                "the document's parser is running and cannot be re-entered.");
+        }
     }
 
     /// <summary>The page error the one unimplemented case records, and the no-op that goes with it.</summary>

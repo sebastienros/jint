@@ -41,7 +41,14 @@ public sealed class BrowserContext : IAsyncDisposable
             maxStorage = browser.Options.MaxTotalStorageBytes;
         Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault,
             browser.Options.MaxCacheStorageBytes, browser.Options.MaxIndexedDbBytes, maxStorage);
+        MediaEmulation = options.MediaEmulation;
     }
+
+    /// <summary>
+    /// <see cref="BrowserContextOptions.MediaEmulation"/>, read once when the context was created and applied
+    /// over the browser's own to every page the context opens.
+    /// </summary>
+    internal MediaEmulation? MediaEmulation { get; }
 
     /// <summary>The browser this context belongs to.</summary>
     public Browser Browser { get; }
@@ -78,6 +85,87 @@ public sealed class BrowserContext : IAsyncDisposable
     internal PageNetwork Network { get; }
 
     internal SharedWorkerRegistry SharedWorkers { get; } = new();
+
+    /// <summary>The routes this context registered, consulted after a page's own.</summary>
+    internal PageRouteTable Routes { get; } = new();
+
+    /// <summary>
+    /// Routes every request of every page in this context — open now or opened later — whose URL
+    /// <paramref name="match"/> accepts to <paramref name="handler"/>.
+    /// </summary>
+    /// <param name="match">Which URLs to route; called off the page's loop for every hop.</param>
+    /// <param name="handler">What to do with a matching request; see <see cref="RoutedRequest"/>.</param>
+    /// <returns>A task that completes once the route applies to every request sent after it.</returns>
+    /// <remarks>
+    /// A page's own routes (<see cref="Page.RouteAsync"/>) are asked first; a context route is asked when none
+    /// of them decided the request. Shared workers' loads are routed here too, since they belong to no page.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="match"/> or <paramref name="handler"/> is null.</exception>
+    public Task RouteAsync(Func<Uri, bool> match, Func<RoutedRequest, Task> handler)
+    {
+        ArgumentNullException.ThrowIfNull(match);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        if (_closed)
+        {
+            return Task.FromException(new ObjectDisposedException(nameof(BrowserContext)));
+        }
+
+        Routes.Add(new PageRoute(match, handler));
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Removes the routes this context registered with <paramref name="match"/>, or only the one with
+    /// <paramref name="handler"/> as well when it is named.
+    /// </summary>
+    /// <param name="match">The predicate a route was registered with, compared as a delegate.</param>
+    /// <param name="handler">The handler to remove, or <see langword="null"/> for every handler of <paramref name="match"/>.</param>
+    /// <returns>A task that completes once no request sent afterwards reaches the removed routes.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="match"/> is null.</exception>
+    public Task UnrouteAsync(Func<Uri, bool> match, Func<RoutedRequest, Task>? handler = null)
+    {
+        ArgumentNullException.ThrowIfNull(match);
+        Routes.Remove(match, handler);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The init scripts every page of this context runs before its own, in each new document.</summary>
+    internal NewDocumentScripts NewDocumentScripts { get; } = new();
+
+    /// <summary>Adds a script that runs in every new document of every page of this context, before the document's own scripts.</summary>
+    /// <param name="script">The script source.</param>
+    /// <returns>A task that completes once the script is installed.</returns>
+    /// <remarks>
+    /// It reaches pages already open as well as later ones and popups, from their next document onwards,
+    /// including the <c>about:blank</c> a new page starts on. A context's scripts run before a page's own
+    /// <see cref="Page.AddInitScriptAsync(string)"/> scripts, with the same timing and error handling.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The context has been closed.</exception>
+    public Task AddInitScriptAsync(string script)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        ObjectDisposedException.ThrowIf(_closed, this);
+        NewDocumentScripts.Add(this, "BrowserContext.AddInitScriptAsync", script);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Adds a function invoked with one JSON-data argument in every new document of every page of this context.</summary>
+    /// <param name="function">A JavaScript function expression.</param>
+    /// <param name="argument">The argument, snapshotted as JSON data now and bound in each document.</param>
+    /// <returns>A task that completes once the script is installed.</returns>
+    /// <remarks>
+    /// The argument is bound as <see cref="Page.EvaluateAsync(string, object?)"/> binds one. Otherwise this
+    /// runs where and when <see cref="AddInitScriptAsync(string)"/> does.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The context has been closed.</exception>
+    public Task AddInitScriptAsync(string function, object? argument)
+    {
+        ArgumentNullException.ThrowIfNull(function);
+        ObjectDisposedException.ThrowIf(_closed, this);
+        NewDocumentScripts.Add(this, "BrowserContext.AddInitScriptAsync", function, System.Text.Json.JsonSerializer.SerializeToElement(argument));
+        return Task.CompletedTask;
+    }
 
     /// <summary>Opens a new page on <c>about:blank</c>, with its own engine and its own thread.</summary>
     /// <returns>The page, once its thread is running and the blank document has loaded.</returns>

@@ -58,10 +58,13 @@ public class InputDuringNavigationTests
         reply.TryGetProperty("error", out var error).Should().BeFalse(
             "an Input command is addressed to the page and it answered {0}", error);
 
-        // And the page is the new document, still driveable: a key sent now reaches it, which is what says
-        // the command ran against the target's current runtime rather than against a captured one.
+        // And the page is the new document, still driveable: the queued key was answered after the commit, so
+        // the new document heard it, and a key sent now reaches it too — which is what says each command ran
+        // against the target's current runtime rather than against a captured one. The new-document script
+        // that records them runs with the task drain deferred, as an inline script does, so no queued command
+        // runs inside the commit against a document that does not exist yet.
         await session.ResultAsync("Input.dispatchKeyEvent", KeyUp("a"), attachment);
-        (await Seen(session, attachment)).Should().Be("a");
+        (await Seen(session, attachment)).Should().Be("Entera");
         (await Evaluate(session, attachment, "location.pathname")).Should().Be("/next.html");
     }
 

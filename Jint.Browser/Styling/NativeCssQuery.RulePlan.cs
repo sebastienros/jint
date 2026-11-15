@@ -15,6 +15,16 @@ internal sealed partial class NativeCssQuery
 
     internal object MeasurementPlan { get { PrepareRules(); return _plan!; } }
 
+    /// <summary>
+    /// Which of the page's interaction witnesses the document's rules can observe, once the rule plan has
+    /// been prepared; <see langword="false"/> before then, when the caller must assume all of them.
+    /// </summary>
+    internal bool TryGetInteractionDependencies(out CssInteractionDependencies dependencies)
+    {
+        dependencies = _plan?.Dependencies.Interactions ?? CssInteractionDependencies.All;
+        return _plan is not null;
+    }
+
     internal bool RequiresGlobalMeasurements(NativeMutationKind kind, string? attributeName)
     {
         PrepareRules();
@@ -26,7 +36,7 @@ internal sealed partial class NativeCssQuery
     private sealed record RulePlan(NativeCssSheet[] Sheets, CssStyleSheetRevisionSnapshot Revisions,
         CssMediaEnvironment Media, ShadowRoot?[] Scopes,
         List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri, NativeCssLayer Layer)> Rules,
-        RuleIndex Index, MeasurementDependencies Dependencies);
+        RuleIndex Index, MeasurementDependencies Dependencies, Dictionary<CssStyleRule, CssScopeRule[]>? ScopeChains);
 
     private void PrepareRules()
     {
@@ -36,6 +46,7 @@ internal sealed partial class NativeCssQuery
             Verify();
             _rules = cached.Rules;
             _index = cached.Index;
+            _scopeChains = cached.ScopeChains;
             _plan = cached;
             _diagnostics?.RulePlanReused();
         }
@@ -53,7 +64,9 @@ internal sealed partial class NativeCssQuery
             var dependencies = new MeasurementDependencies();
             foreach (var item in rules)
                 dependencies.Include(item.Rule.Selector, _work);
-            _plan = new(_sheets, _sheetRevisions, _media, scopes, rules, index, dependencies);
+            // Scoping roots and limits are matched against ancestors; no retained row is safe.
+            if (_scopeChains is not null) dependencies.IncludeUnknown();
+            _plan = new(_sheets, _sheetRevisions, _media, scopes, rules, index, dependencies, _scopeChains);
             Plans.AddOrUpdate(_document, _plan);
             _rules = rules;
             _index = index;
@@ -85,6 +98,10 @@ internal sealed partial class NativeCssQuery
         private bool _relational;
         private bool _semantic;
         private bool _unknown;
+        private CssInteractionDependencies _interactions;
+
+        /// <summary>The interaction pseudo-classes any rule's selector names, including pseudo-element branches.</summary>
+        internal CssInteractionDependencies Interactions => _unknown ? CssInteractionDependencies.All : _interactions;
 
         internal bool RequiresGlobal(NativeMutationKind kind, string? name) =>
             _unknown || kind != NativeMutationKind.Attributes && (_relational || _semantic)
@@ -92,8 +109,11 @@ internal sealed partial class NativeCssQuery
                 _relational && (name is null || _attributes.Contains(name))
                 || _semantic && name is not ("style" or "class"));
 
+        internal void IncludeUnknown() => _unknown = true;
+
         internal void Include(CompiledSelector selector, CssValueWork work)
         {
+            IncludeInteractions(selector, work);
             var pending = new Stack<CompiledSelector>();
             pending.Push(selector);
             var attributes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -209,5 +229,46 @@ internal sealed partial class NativeCssQuery
             _relational |= relational;
             _semantic |= semantic;
         }
+
+        // Selectors 4 §§11-12: :hover, :active, :focus, :focus-visible and :focus-within match against the
+        // page's pointer and focus state. Every branch counts, a pseudo-element's too: a rule such as
+        // a:hover::after never sizes a box, but getComputedStyle(a, '::after') reads it.
+        private void IncludeInteractions(CompiledSelector selector, CssValueWork work)
+        {
+            var pending = new Stack<CompiledSelector>();
+            pending.Push(selector);
+            while (pending.TryPop(out var program))
+            {
+                foreach (var branch in program.BranchArray)
+                {
+                    foreach (var compound in branch.CompoundArray)
+                    {
+                        foreach (var predicate in compound.PredicateArray)
+                        {
+                            work.Charge(1);
+                            _interactions |= predicate.Kind switch
+                            {
+                                PredicateKind.Hover => CssInteractionDependencies.Hover,
+                                PredicateKind.Active => CssInteractionDependencies.Active,
+                                PredicateKind.Focus or PredicateKind.FocusVisible or PredicateKind.FocusWithin => CssInteractionDependencies.Focus,
+                                _ => CssInteractionDependencies.None,
+                            };
+                            if (predicate.Arguments is { } nested) pending.Push(nested);
+                        }
+                    }
+                }
+            }
+        }
     }
+}
+
+/// <summary>The page interaction state a document's style rules can observe.</summary>
+[Flags]
+internal enum CssInteractionDependencies
+{
+    None = 0,
+    Hover = 1,
+    Active = 2,
+    Focus = 4,
+    All = Hover | Active | Focus,
 }

@@ -96,7 +96,8 @@ internal sealed partial class UrlPatternConstructor : Constructor
 
     /// <summary>
     /// https://urlpattern.spec.whatwg.org/#dictdef-urlpatterninit read per
-    /// https://webidl.spec.whatwg.org/#es-dictionary: the members are read in declaration order, and a member
+    /// https://webidl.spec.whatwg.org/#es-dictionary: the members are read in lexicographic order of their names
+    /// (<c>baseURL</c> first, its capital sorting before every lowercase letter), and a member
     /// whose value is <see langword="undefined"/> — including one that is simply absent — does not exist.
     /// </summary>
     private static UrlPatternInit ReadInit(JsValue value)
@@ -107,15 +108,15 @@ internal sealed partial class UrlPatternConstructor : Constructor
             return init;
         }
 
-        init.Protocol = ReadMember(dictionary, UrlPatternProperties.Protocol);
-        init.Username = ReadMember(dictionary, UrlPatternProperties.Username);
-        init.Password = ReadMember(dictionary, UrlPatternProperties.Password);
-        init.Hostname = ReadMember(dictionary, UrlPatternProperties.Hostname);
-        init.Port = ReadMember(dictionary, UrlPatternProperties.Port);
-        init.Pathname = ReadMember(dictionary, UrlPatternProperties.Pathname);
-        init.Search = ReadMember(dictionary, UrlPatternProperties.Search);
-        init.Hash = ReadMember(dictionary, UrlPatternProperties.Hash);
         init.BaseUrl = ReadMember(dictionary, UrlPatternProperties.BaseUrl);
+        init.Hash = ReadMember(dictionary, UrlPatternProperties.Hash);
+        init.Hostname = ReadMember(dictionary, UrlPatternProperties.Hostname);
+        init.Password = ReadMember(dictionary, UrlPatternProperties.Password);
+        init.Pathname = ReadMember(dictionary, UrlPatternProperties.Pathname);
+        init.Port = ReadMember(dictionary, UrlPatternProperties.Port);
+        init.Protocol = ReadMember(dictionary, UrlPatternProperties.Protocol);
+        init.Search = ReadMember(dictionary, UrlPatternProperties.Search);
+        init.Username = ReadMember(dictionary, UrlPatternProperties.Username);
         return init;
     }
 

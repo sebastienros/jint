@@ -201,6 +201,21 @@ public sealed class JsArguments : ObjectInstance
                 // spec identity: %Array.prototype.values%
                 return _realm.Intrinsics.Array.PrototypeObject.Get("values");
             }
+
+            // A key the virtual object does not own -- an index at or past `length`, `hasOwnProperty`,
+            // @@toStringTag -- is an own miss, and https://tc39.es/ecma262/#sec-ordinaryget steps 2-3 send an
+            // own miss to the prototype. Answering it there rather than through base.Get keeps the object
+            // virtual: base.Get asks GetOwnProperty, which materializes a descriptor per argument plus the
+            // parameter map and three slots, and unpools the object, only to find the key absent. The
+            // default-parameter idiom `arguments[1] !== undefined` on a one-argument call did exactly that
+            // tens of thousands of times in an axe-core scan (#4619). The miss is the same one
+            // ProbeOwnProperty answers, under the same empty-bag premise.
+            if (_properties is null or { Count: 0 }
+                && _symbols is null or { Count: 0 }
+                && ProbeOwnProperty(property) == OwnPropertyProbe.Missing)
+            {
+                return Prototype is { } prototype ? prototype.Get(property, receiver) : Undefined;
+            }
         }
 
         return base.Get(property, receiver);

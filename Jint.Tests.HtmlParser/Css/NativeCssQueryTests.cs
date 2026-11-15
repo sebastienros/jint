@@ -45,7 +45,7 @@ public sealed class NativeCssQueryTests
         var result = query.GetProperty(target, "display", ref matching);
         result.Text.Should().Be("block");
         sheet.Stamp.Should().Be(stamp);
-        query.GetProperty(target, "background-color", ref matching).Text.Should().Be("transparent");
+        query.GetProperty(target, "background-color", ref matching).Text.Should().Be("red");
         query.GetProperty(target, "text-wrap", ref matching).Text.Should().Be("balance");
         query.GetProperty(target, "display", ref matching).Should().BeSameAs(result);
         ((CssStyleRule) sheet.Rules[1]).Style.SetProperty("display", "none");
@@ -196,7 +196,7 @@ public sealed class NativeCssQueryTests
         var display = query.GetProperty(target, "display", ref matching);
         display.Text.Should().Be("block");
         query.GetProperty(target, "display", ref matching).Should().BeSameAs(display);
-        query.GetProperty(target, "background", ref matching).Text.Should().BeEmpty();
+        query.GetProperty(target, "background", ref matching).Text.Should().Be("none");
         query.GetProperty(target, "display", ref matching).Should().BeSameAs(display);
     }
 

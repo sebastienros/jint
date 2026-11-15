@@ -14,6 +14,8 @@ await server.AddBrowser(browser);
 server.Start();
 ```
 
+Playwright waits for two animation frames before every click, so a browser published for it is faster with a short `BrowserOptions.AnimationFrameInterval`; [Automation Performance](performance.md) has the setting and what it costs.
+
 Puppeteer and Playwright attach with their **connect** APIs, not launch APIs. Existing and newly opened pages become CDP page targets; target commands can create contexts and pages.
 
 The implementation covers the page, DOM, input, network, fetch interception, storage, accessibility, and selected emulation paths needed by supported clients. Unsupported protocol commands report protocol errors rather than silently succeeding.

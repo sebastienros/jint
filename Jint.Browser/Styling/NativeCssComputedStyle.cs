@@ -16,10 +16,12 @@ internal sealed partial class NativeCssComputedStyle(NativeCssQuery query, Eleme
         witness?.Invoke();
     }
     internal Element Element { get; } = element;
-    internal string GetPropertyValue(string name) => query.GetProperty(Element, name, ref _matching).Text;
-    internal NativeCssProperty GetProperty(string name) => query.GetProperty(Element, name, ref _matching);
-    internal NativeCssProperty GetNormalizedProperty(string name) => query.GetNormalizedProperty(Element, name, ref _matching);
-    internal bool HasPropertyInput(string name) => query.HasPropertyInput(Element, name, ref _matching);
+    // Set when this view answers for a pseudo-element of Element (its originating element) rather than Element.
+    internal SelectorPseudoElement? Pseudo { get; init; }
+    internal string GetPropertyValue(string name) => query.GetProperty(Element, Pseudo, name, ref _matching).Text;
+    internal NativeCssProperty GetProperty(string name) => query.GetProperty(Element, Pseudo, name, ref _matching);
+    internal NativeCssProperty GetNormalizedProperty(string name) => query.GetNormalizedProperty(Element, Pseudo, name, ref _matching);
+    internal bool HasPropertyInput(string name) => query.HasPropertyInput(Element, Pseudo, name, ref _matching);
     internal NativeCssComputedStyle For(Element target)
     {
         var view = new NativeCssComputedStyle(query, target, _matching, witness);
@@ -27,9 +29,12 @@ internal sealed partial class NativeCssComputedStyle(NativeCssQuery query, Eleme
         return view;
     }
     partial void CopyBrowserReadContext(NativeCssComputedStyle view);
+    // The view a value inherits from: a pseudo-element's originating element, else the cascade's inheritance parent.
+    internal NativeCssComputedStyle? InheritanceParent() =>
+        Pseudo is not null ? For(Element) : query.InheritanceParent(Element) is { } parent ? For(parent) : null;
     internal string GetPropertyPriority(string name)
     {
-        query.GetProperty(Element, name, ref _matching);
+        query.GetProperty(Element, Pseudo, name, ref _matching);
         return "";
     }
     // CSSOM's computed flag makes cssText empty, even though individual values are readable.
@@ -50,7 +55,7 @@ internal sealed partial class NativeCssComputedStyle(NativeCssQuery query, Eleme
             return (uint) index < (uint) properties.Count ? properties[index].Name : "";
         }
     }
-    internal IReadOnlyList<NativeCssProperty> Enumerate() => query.Enumerate(Element, ref _matching);
+    internal IReadOnlyList<NativeCssProperty> Enumerate() => query.Enumerate(Element, Pseudo, ref _matching);
     internal IReadOnlyList<Jint.HtmlParser.Css.Model.CssStyleRule> MatchedRules() =>
-        query.MatchedRules(Element, ref _matching);
+        query.MatchedRules(Element, Pseudo, ref _matching);
 }

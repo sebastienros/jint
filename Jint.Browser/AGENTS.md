@@ -76,13 +76,13 @@ Do not restore typed grammar engines or eagerly parse CSS during HTML constructi
 
 | Surface | Current implementation and boundary |
 | --- | --- |
-| Defaults and cascade | `NativeCssBrowserDefaults` supplies supported HTML UA rules. `NativeCssQuery` lazily selects text by origin/importance/layer/specificity/order and inline precedence, with inherited values and a small catalog default table. `NativeCssQuery.Index` buckets rules by their subject's id, class or type (LightPanda's StyleManager); the key filter must stay a superset of matcher case rules. |
-| Resolved values | `Dom/Views/ResolvedStyle` returns synthetic width/height for elements with boxes, otherwise declaration text. No calc, color, font-unit, transform, border or URL computation. |
+| Defaults and cascade | `NativeCssBrowserDefaults` supplies supported HTML UA rules. `NativeCssQuery` lazily selects text by origin/importance/layer/specificity/scope-proximity/order and inline precedence, with inherited values and a small catalog default table. `NativeCssQuery.Index` buckets rules by their subject's id, class or type (LightPanda's StyleManager); the key filter must stay a superset of matcher case rules. |
+| Resolved values | `Dom/Views/ResolvedStyle` returns synthetic width/height for elements with boxes, sRGB colors and `transform` matrices; `ResolvedLengths` absolutizes font/viewport units and reduces math from the `font-size` chain and viewport, `ResolvedOrigin` resolves transform/perspective origins over the synthetic box, and `ResolvedValueText` resolves gradient color stops and a grid container's definite column tracks. Percentages stay; no border or URL computation. `::before`/`::after` reads use `NativeCssQuery`'s pseudo-element states, whose inheritance parent is the originating element. |
 | Computed declaration | `ReadOnlyStyleDeclaration` is a read-only Browser view, not a mutable detached stylesheet declaration. `CssCascade.Traversal.Current` shares one traversal per document across script reads while `NativeCssQuery.IsReusable` and the page witness hold; an input a query captures must retire it. |
 
 Custom properties inherit declared text; ordinary values optionally use depth-limited textual `var()`.
-Only layout-used shorthands expand, by whitespace splitting. Other than style/media/supports/layer/import/
-font-face, at-rules are opaque base `CSSRule` objects. Container queries, keyframes, registrations and
+Layout-used shorthands expand by whitespace splitting, background/border/mask/animation/transition by component classification. Other than style/media/supports/layer/scope/
+import/font-face, at-rules are opaque base `CSSRule` objects. Container queries, keyframes, registrations and
 typed OM interfaces are removed by design. Retain query stamps, bounded work and CSSOM identity.
 
 **Rule-usage coverage observes the same native rule identities the cascade matched**, independently of
@@ -157,9 +157,10 @@ to run unrelated page tasks; resource waits use the pump described in
   These rendering-adjacent callbacks must follow the turn's promises, and be visible to
   `Page.WaitForIdleAsync`.
 - **`IntersectionObserver` reports each observed target once, fully intersecting.** Never intersecting
-  would leave lazy lists permanently empty. `root`, `rootMargin` and `thresholds` are parsed and reflected
-  but do not change that policy. Entries use the same flat boxes as `getBoundingClientRect`, through
-  `Layout/DomRects`; the rectangles are `DOMRectReadOnly` instances from `Geometry/GeometryRealm`.
+  would leave lazy lists permanently empty. `root`, `rootMargin`, `scrollMargin`, `thresholds`, `delay` and
+  `trackVisibility` are converted in lexicographic order, validated and reflected, but do not change that
+  policy. Entries use the same flat boxes as `getBoundingClientRect`, through `Layout/DomRects`; the
+  rectangles are `DOMRectReadOnly` instances from `Geometry/GeometryRealm`.
 - **`ResizeObserver` tracks changes in the flat model**, not just initial size. `ResizeObserverLane`
   checks at page-turn boundaries and in nested pumps, shares a size-only query per check/delivery, and
   schedules a task only for changed dimensions. Queries visit observed subtrees, visibility ancestors
@@ -201,7 +202,10 @@ change-event scheduling rather than replacing the evaluator on the assumption th
 An `Emulation` command writes the page's `Runtime/EmulationState`, not protocol-target state: overrides
 outlive the document. Viewport, media, touch, focus, geolocation, user agent and hardware concurrency can
 affect the loaded document; time zone, locale and script execution affect the next document. Each command
-states its boundary, including accepted no-ops.
+states its boundary, including accepted no-ops. The public `Page.EmulateMediaAsync` and the
+`MediaEmulation` defaults on `BrowserOptions`/`BrowserContextOptions` write that same state through
+`EmulationState`: `EmulateMedia` **merges** (Playwright's shape) where `ReplaceMedia` (CDP) replaces, and
+the host defaults are a layer beneath both overrides, as `DefaultViewport` is beneath `Viewport`.
 
 `NavigatorInstaller` and `TouchEmulation` add accessors without discarding the engine's shared shapes.
 Touch emulation controls detection; `Input.dispatchTouchEvent` can deliver input regardless.
@@ -267,7 +271,8 @@ The pressure to promote and the table of promoted seams are
 [`Jint.Browser.Tool/AGENTS.md`](../Jint.Browser.Tool/AGENTS.md). `Jint.Browser.Tool` and `Jint.Browser.Mcp`
 take **no** `InternalsVisibleTo` grant: what they cannot reach is what an embedder cannot reach. Publish a
 necessary `Page` seam over existing internals rather than granting either friend access. **A target is a
-selector or a `ref=`**; `Runtime/ElementLocator` decides.
+selector, a `ref=`, or a `role=`/`label=`/`text=` locator chained with `>>`**; `Runtime/ElementLocator`
+decides, and a role target asks the snapshot's own walk (`AccessibilityTree.Query`), never page script.
 
 `Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the reviewable public API baseline.
 **The public Browser API does not expose native DOM nodes**, which is why `Page.SubmitFormAsync` takes a

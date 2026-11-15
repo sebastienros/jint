@@ -54,6 +54,7 @@ internal Jint.HtmlParser.Css.Model.CssDeclaration
     (constructor)
     get_IsImportant
     get_Name
+    get_PendingShorthand
     get_Value
 internal Jint.HtmlParser.Css.Model.CssDeclarationBlock
     Copy
@@ -63,6 +64,7 @@ internal Jint.HtmlParser.Css.Model.CssDeclarationBlock
     GetPropertyValue
     HasPropertyInput
     Parse
+    PendingLonghandValue
     RemoveProperty
     ReplaceText
     ResolveAll
@@ -121,6 +123,12 @@ internal Jint.HtmlParser.Css.Model.CssRuleList
     get_Item
     get_Stamp
 internal Jint.HtmlParser.Css.Model.CssRuleType
+internal Jint.HtmlParser.Css.Model.CssScopeRule
+    NestingContextOf
+    get_End
+    get_EndSelector
+    get_Start
+    get_StartSelector
 internal Jint.HtmlParser.Css.Model.CssSerializationSnapshot
     get_Ranges
     get_Text
@@ -128,6 +136,7 @@ internal Jint.HtmlParser.Css.Model.CssStyleRule
     (constructor)
     SetSelectorText
     TryMatch
+    TryMatchPseudoElement
     get_Selector
     get_SelectorText
     get_Style
@@ -222,6 +231,8 @@ internal Jint.HtmlParser.Css.Selectors.SelectorMatcher
     Matches
     QuerySelector
     QuerySelectorAllSnapshot
+    TryMatch
+internal Jint.HtmlParser.Css.Selectors.SelectorPseudoElement
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKey
     get_Kind
     get_Name
@@ -269,9 +280,14 @@ internal Jint.HtmlParser.Css.Values.CssValueWork
     CheckCancellation
     Guard
     get_Token
+internal Jint.HtmlParser.Css.Values.Properties.CssBoxShorthands
+    ComputedPosition
 internal Jint.HtmlParser.Css.Values.Properties.CssDeclarationContext
 internal Jint.HtmlParser.Css.Values.Properties.CssLayoutValues
     AcceptsText
+internal Jint.HtmlParser.Css.Values.Properties.CssMotionShorthands
+    ComputedTimes
+    IsTimeList
 internal Jint.HtmlParser.Css.Values.Properties.CssPropertyCatalog
     get_Names
 internal Jint.HtmlParser.Css.Values.Properties.CssPropertyMetadata

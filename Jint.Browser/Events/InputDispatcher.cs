@@ -102,8 +102,9 @@ internal static partial class InputDispatcher
     /// <b>A move fires no boundary events</b> — no <c>pointerover</c>, <c>mouseover</c>, <c>mouseout</c>,
     /// <c>mouseenter</c> or <c>mouseleave</c>. Those need the pointer's <i>previous</i> position and the
     /// ancestor chains of both elements, which is a second piece of state and a second algorithm; a client's
-    /// <c>hover</c> sends one move, so what it drives today is a <c>mousemove</c> listener and not a
-    /// hover menu written against <c>mouseenter</c>. Stated rather than approximated: firing <c>mouseover</c>
+    /// <c>hover</c> sends one move, so what it drives today is a <c>mousemove</c> listener and the
+    /// <c>:hover</c> pseudo-class (<see cref="BrowserEventRealm.MouseHoverTarget"/>), not a hover menu
+    /// written against <c>mouseenter</c>. Stated rather than approximated: firing <c>mouseover</c>
     /// on every move without the matching <c>mouseout</c> would be worse than firing neither.
     /// </para>
     /// </remarks>
@@ -126,6 +127,10 @@ internal static partial class InputDispatcher
 
         var target = dom.WrapNode(hit);
         var options = input.ToClickOptions();
+
+        // https://html.spec.whatwg.org/multipage/semantics-other.html#selector-hover — every mouse event
+        // tells the page where the pointer is, and :hover follows it before any listener runs.
+        events.MouseHoverTarget = hit;
 
         switch (input.Kind)
         {
@@ -532,7 +537,7 @@ internal static partial class InputDispatcher
             {
                 var pressed = realm.SpacePressTarget;
                 realm.SpacePressTarget = null;
-                if (allowed && ReferenceEquals(pressed, focused) && IsKeyboardButton(dom, focused)
+                if (allowed && ReferenceEquals(pressed, focused) && ActivatesFromKey(dom, focused, options.Key)
                     && ReferenceEquals(FocusController.InteractionTarget(realm, document), focused))
                 {
                     DispatchClickEvent(dom.WrapNode(focused),
@@ -568,7 +573,7 @@ internal static partial class InputDispatcher
 
         // https://w3c.github.io/uievents/#event-type-keydown — keyboard activation uses the same click
         // default action as a pointer, without hit testing. Enter activates on down; Space waits for up.
-        if (options.Key is "Enter" or " " && IsKeyboardButton(dom, focused)
+        if (ActivatesFromKey(dom, focused, options.Key)
             && ReferenceEquals(FocusController.InteractionTarget(realm, document), focused))
         {
             if (options.Key == "Enter")
@@ -582,10 +587,38 @@ internal static partial class InputDispatcher
         RunDefaultAction(dom, document, focused, options, allowInsertion: kind == KeyInputKind.KeyDown);
     }
 
-    private static bool IsKeyboardButton(DomRealm dom, Element element)
-        => (EventDom.IsHtml(element, "button")
-            || EventDom.IsHtml(element, "input") && EventDom.InputType(element) is "button" or "submit" or "reset" or "image")
-            && !EventDom.Disabled(dom, element);
+    /// <summary>
+    /// Whether <paramref name="key"/> runs the focused element's activation behaviour through a click — the
+    /// keyboard activation every engine gives a control the user can press.
+    /// </summary>
+    /// <remarks>
+    /// <kbd>Enter</kbd> and <kbd>Space</kbd> both press a button and the summary for its parent
+    /// <c>&lt;details&gt;</c>; only <kbd>Space</kbd> presses a checkbox or a radio button, as in every engine —
+    /// <kbd>Enter</kbd> there is not a toggle. Any other <c>&lt;summary&gt;</c> has no activation behaviour, so
+    /// it is not pressed and its keys keep their ordinary default action.
+    /// </remarks>
+    private static bool ActivatesFromKey(DomRealm dom, Element element, string key)
+    {
+        if (key is not ("Enter" or " ") || element.NamespaceUri != Namespaces.Html)
+        {
+            return false;
+        }
+
+        var activates = element.LocalName switch
+        {
+            "button" => true,
+            "summary" => ActivationBehaviors.IsSummaryForItsParentDetails(element),
+            "input" => EventDom.InputType(element) switch
+            {
+                "button" or "submit" or "reset" or "image" => true,
+                "checkbox" or "radio" => key == " ",
+                _ => false,
+            },
+            _ => false,
+        };
+
+        return activates && !EventDom.Disabled(dom, element);
+    }
 
     /// <summary>Dispatches <c>keypress</c>, answering whether nothing cancelled it.</summary>
     private static bool Keypress(DomRealm dom, BrowserEventRealm realm, Element focused, in KeyOptions options)
@@ -653,11 +686,20 @@ internal static partial class InputDispatcher
     /// https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation — <kbd>Tab</kbd>,
     /// and <kbd>Shift</kbd>+<kbd>Tab</kbd> the other way.
     /// </summary>
+    /// <remarks>
+    /// Past the last element (or before the first) focus leaves the document, as Chromium hands it to its own
+    /// controls: the element loses focus with its <c>blur</c> and <c>focusout</c>, <c>activeElement</c> is the
+    /// body, and the next <kbd>Tab</kbd> starts over from the first element.
+    /// </remarks>
     private static void MoveFocus(DomRealm dom, Document document, Element from, bool backwards)
     {
         if (FocusController.NextInTabOrder(dom, document, from, backwards) is { } next)
         {
             FocusController.Focus(dom, next);
+        }
+        else
+        {
+            FocusController.Blur(dom, from);
         }
     }
 

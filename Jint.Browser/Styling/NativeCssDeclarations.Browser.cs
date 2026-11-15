@@ -21,7 +21,7 @@ internal static class NativeCssDeclarations
     internal static NativeCssFontFaceDescriptors Of(DomRealm realm, CssFontFaceRule rule) =>
         FontFaces.GetValue(rule.Style, block => new(realm, rule, block));
 
-    private static CssValueWork Work(DomRealm realm) => new(realm.CancellationToken, realm.Engine.Constraints.Check);
+    private static CssValueWork Work(DomRealm realm) => new(realm.CancellationToken, realm.CssCheckpoint);
 
     internal class RuleDeclaration(DomRealm realm, CssRule rule, CssDeclarationBlock block) : NativeCssDeclaration
     {

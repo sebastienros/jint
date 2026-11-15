@@ -47,7 +47,7 @@ public sealed class CssSupportsRuleTests
     [TestCase("(color:red) or )")]
     public void InvalidPreludesDropTheirBodiesAndInsertionFailsAtomically(string condition)
     {
-        var source = "@supports " + condition + " { @scope unknown {} }";
+        var source = "@supports " + condition + " { @container unknown {} }";
         var sheet = CssStyleSheet.Parse(source + " a {}");
         sheet.Rules.Count.Should().Be(1);
         var old = sheet.Rules[0];
@@ -62,7 +62,7 @@ public sealed class CssSupportsRuleTests
     [Test]
     public void UnsupportedNestedRulesRemainOpaqueEvenInConditionGroups()
     {
-        var sheet = CssStyleSheet.Parse("@supports (unknown-property:none) { @scope unknown {} }");
+        var sheet = CssStyleSheet.Parse("@supports (unknown-property:none) { @container unknown {} }");
         sheet.Rules[0].Rules.Single().Should().BeOfType<CssGenericRule>();
         var nested = CssStyleSheet.Parse("a { @supports (color:red) { & {} } }");
         nested.Rules[0].Rules.Single().Should().BeOfType<CssGenericRule>();
@@ -141,7 +141,7 @@ public sealed class CssSupportsRuleTests
         foreach (var group in sheet.Rules.Cast<CssGroupingRule>())
         {
             var work = new CssValueWork(cancellation.Token);
-            Assert.Throws<DomException>(() => group.InsertRule("@scope unknown {}", -1, null, work, cancellation.Token))!
+            Assert.Throws<DomException>(() => group.InsertRule("@container unknown {}", -1, null, work, cancellation.Token))!
                 .Name.Should().Be("IndexSizeError");
             Assert.Throws<DomException>(() => group.DeleteRule(0, work))!.Name.Should().Be("IndexSizeError");
             group.Stamp.Value.Should().Be(0);

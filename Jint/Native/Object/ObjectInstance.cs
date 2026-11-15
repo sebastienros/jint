@@ -3276,6 +3276,35 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     public override bool Equals(JsValue? other) => Equals(other as ObjectInstance);
 
+    private static readonly ConcurrentDictionary<Type, bool> _identityEquality = new();
+
+    /// <summary>
+    /// Whether strict equality with this object is reference identity, which is what the specification says of
+    /// every object (https://tc39.es/ecma262/#sec-isstrictlyequal) and what a type that does not override
+    /// <see cref="Equals(JsValue)"/> has.
+    /// </summary>
+    /// <remarks>
+    /// <c>ObjectWrapper</c>, <c>ClrFunction</c> and <c>TypeReference</c> override it, so two wrappers of one CLR
+    /// object are <c>===</c>, and a host subclass may too; for those a scan has to ask <c>Equals</c> per element.
+    /// Decided once per runtime type, the way <see cref="PropertyAccessSemantics"/> is, and an inconclusive probe
+    /// answers <see langword="false"/>, which costs the scan its shortcut and never its answer.
+    /// </remarks>
+    internal bool EqualityIsIdentity => _identityEquality.GetOrAdd(GetType(), static type => ProbeIdentityEquality(type));
+
+    [UnconditionalSuppressMessage("Trimming", "IL2070",
+        Justification = "Reads a well-known virtual member of this very type's own hierarchy, which the trimmer keeps because the engine calls it virtually. If the metadata is unavailable the probe answers false, the conservative outcome, and preserves observable behaviour.")]
+    private static bool ProbeIdentityEquality(Type type)
+    {
+        var equals = type.GetMethod(
+            nameof(Equals),
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            types: [typeof(JsValue)],
+            modifiers: null);
+
+        return equals is not null && equals.DeclaringType == typeof(ObjectInstance);
+    }
+
     public bool Equals(ObjectInstance? other)
     {
         if (other is null)

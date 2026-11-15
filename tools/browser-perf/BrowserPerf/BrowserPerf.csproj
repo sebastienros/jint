@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Jint.Browser\Jint.Browser.csproj" />
+    <ProjectReference Include="..\..\..\Jint.DevTools\Jint.DevTools.csproj" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.64.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="site\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
