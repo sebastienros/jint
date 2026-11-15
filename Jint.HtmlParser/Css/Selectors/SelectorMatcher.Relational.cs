@@ -78,6 +78,29 @@ internal static partial class SelectorMatcher
             Program = program,
             NeedSpecificity = true
         };
+        var result = Run(root, ref work);
+        specificity = root.Best;
+        return result;
+    }
+
+    // Selectors §4.5: whether `anchor` matches :has(<relative>), the allocation-free matcher's entry into the
+    // frames below. The answer is kept for the rest of the traversal: a rule such as
+    // `:root:not(:has(.x)) .y` asks it of the same anchor for every element it is tried on.
+    private static bool MatchRelative(CompiledSelector relative, Element anchor, Node? scope, ref Work work)
+    {
+        var key = RelativeMatchKey(relative, anchor, scope, ref work);
+        var cell = work.Shared.EnsureCell();
+        work.Step();
+        if (cell.RelativeMatches is { } known && known.TryGetValue(key, out var cached)) return cached;
+        var matched = Run(new EvaluationFrame(EvaluationKind.Has, anchor, scope) { Program = relative }, ref work);
+        // As with the filtered positions, an answer is stored only once the walk it summarizes is verified.
+        work.Shared.VerifyRead();
+        (cell.RelativeMatches ??= new())[key] = matched;
+        return matched;
+    }
+
+    private static bool Run(EvaluationFrame root, ref Work work)
+    {
         var stack = new List<EvaluationFrame> { root };
         // Parent programs form a DAG. Memoize only typed nesting references, for this read.
         // The environment/work is fixed for the invocation; DOM invalidation is verified by it.
@@ -383,6 +406,16 @@ internal static partial class SelectorMatcher
                         frame.RelativeHasColumn = null;
                         break;
                     }
+                    if (TryMatchRelativeCompound(relative, candidate, frame.Scope, ref work, out var candidateMatched))
+                    {
+                        if (candidateMatched)
+                        {
+                            result = true;
+                            stack.RemoveAt(stack.Count - 1);
+                            continue;
+                        }
+                        break;
+                    }
                     frame.Waiting = true;
                     stack.Add(new EvaluationFrame(EvaluationKind.Branch, candidate, frame.Scope)
                     {
@@ -442,7 +475,6 @@ internal static partial class SelectorMatcher
                     break;
             }
         }
-        specificity = root.Best;
         return result;
     }
 
