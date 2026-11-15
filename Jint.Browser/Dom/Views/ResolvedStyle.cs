@@ -9,13 +9,14 @@ namespace Jint.Browser.Dom.Views;
 
 internal static class ResolvedStyle
 {
-    // Renderless CSSOM: width/height and grid column tracks use synthetic geometry, colors (also in gradients)
-    // resolve to sRGB; other values stay text.
+    // Renderless CSSOM: width/height, grid column tracks and transform/perspective origins use synthetic geometry,
+    // colors (also in gradients) resolve to sRGB, and lengths are absolutized; other values stay text.
     internal static string ValueOf(string propertyName, NativeCssComputedStyle style, Element element, PageRuntime? runtime)
     {
         style.VerifyRead();
         var name = CssPropertyRegistry.NormalizeName(propertyName, style.Work);
-        var value = style.GetNormalizedProperty(name).Text;
+        var property = style.GetNormalizedProperty(name);
+        var value = property.Text;
         if (IsColor(name))
         {
             value = Color(name, value, style);
@@ -28,11 +29,20 @@ internal static class ResolvedStyle
             style.VerifyRead();
             return value;
         }
+        // CSSOM §9: a computed value holds absolute lengths and reduced math (CSS Values 4 §6, §10.13).
+        var viewport = runtime?.Viewport ?? Viewport.Default;
+        value = ResolvedLengths.Resolve(name, property, style, viewport);
         // CSSOM §9: transform's resolved value is its matrix. A list that needs a box to resolve stays text.
         if (name == "transform" && value != "none" &&
             Geometry.GeometryConversion.TryParse(value, style.Work, out var matrix, out var is2D))
         {
             value = Geometry.GeometryConversion.SerializeResolved(matrix, is2D);
+            style.VerifyRead();
+            return value;
+        }
+        if (name is "transform-origin" or "perspective-origin")
+        {
+            value = ResolvedOrigin.Resolve(name, value, style, element, runtime, viewport);
             style.VerifyRead();
             return value;
         }
@@ -44,7 +54,8 @@ internal static class ResolvedStyle
         if (sizes.HasBox(element))
         {
             value = name == "grid-template-columns"
-                ? ResolvedValueText.GridColumns(value, style, sizes.Width(element))
+                ? ResolvedValueText.GridColumns(value, style, sizes.Width(element),
+                    ResolvedLengths.Resolve("column-gap", style.GetNormalizedProperty("column-gap"), style, viewport))
                 : (name == "width" ? sizes.Width(element) : sizes.Height(element)).ToString("0.######", CultureInfo.InvariantCulture) + "px";
         }
         style.VerifyRead();
