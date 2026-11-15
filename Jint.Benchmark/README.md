@@ -53,12 +53,11 @@ Notes:
 * The `--` separator is required so the arguments are forwarded to BenchmarkDotNet instead of being
   consumed by `dotnet run`.
 * Select `-f net10.0` or `-f net11.0` explicitly.
-  BenchmarkDotNet 0.15.8 does not recognize .NET 11 in its runtime selector or out-of-process
-  SDK validator. For an exploratory CLR async comparison, use
-  `--inProcess --filter "*AsyncHostEntryBenchmark*"` on each framework, without `--runtimes`.
-  This retains the normal warmup and measurement counts but not per-row process isolation.
-  The suspended row includes a
-  thread-pool round trip, and runtime comparisons also include JIT and BCL differences.
+  BenchmarkDotNet 0.16 (first preview) is the first release that knows .NET 11, so both targets run
+  out of process with per-row isolation; do not add `--inProcess`, which also drops the configured
+  blocking GC and makes rows that load `Scripts/*.js` resolve them against the project directory.
+  For a CLR async comparison, `--filter "*AsyncHostEntryBenchmark*"` on each framework. The suspended
+  row includes a thread-pool round trip, and runtime comparisons also include JIT and BCL differences.
 * `--allCategories EngineComparison` runs both the script suite and the interop suite; use
   `--allCategories EngineComparisonInterop` for the interop suite alone, or
   `--filter "*EngineComparisonBenchmark*"` for the script suite alone.
