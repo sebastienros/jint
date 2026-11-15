@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Perf form</title>
+<style>body{font-family:sans-serif} .hidden{display:none}</style></head>
+<body>
+  <h1 id="heading">Hello</h1>
+  <form id="f" onsubmit="event.preventDefault(); document.getElementById('out').textContent = 'Saved ' + document.getElementById('name').value;">
+    <label for="name">Name</label> <input id="name" type="text">
+    <label><input id="agree" type="checkbox"> Agree</label>
+    <select id="color"><option>red</option><option>green</option><option>blue</option></select>
+    <button id="save" type="submit">Save</button>
+  </form>
+  <p id="out"></p>
+  <button id="inc" onclick="this.dataset.n = (+(this.dataset.n||0)+1); document.getElementById('count').textContent = this.dataset.n">Increment</button>
+  <span id="count">0</span>
+  <ul id="list"></ul>
+  <script>
+    const ul = document.getElementById('list');
+    for (let i = 0; i < 50; i++) { const li = document.createElement('li'); li.textContent = 'Item ' + i; ul.appendChild(li); }
+  </script>
+</body>
+</html>
