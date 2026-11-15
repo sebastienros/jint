@@ -97,4 +97,19 @@ public sealed class ComputedStyleCatalogAccessorTests
             .Should().Be(expected);
         page.Errors.Should().BeEmpty();
     }
+
+    [TestCase("display:grid;grid-template-rows:repeat(3, 240px)", "240px 240px 240px")]
+    [TestCase("display:grid;--rows:2;grid-template-rows:repeat(var(--rows), 10px) 1em", "10px 10px 16px")]
+    [TestCase("display:grid;grid-template-rows:1fr 20px", "1fr 20px")]
+    [TestCase("display:grid;grid-template-rows:50% 20px", "50% 20px")]
+    [TestCase("display:block;grid-template-rows:20px", "20px")]
+    public async Task GridRowsResolveOnlyWhenEveryTrackIsAnAbsoluteLength(string style, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<div id=x style='{style}'></div>");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('x')).gridTemplateRows"))
+            .Should().Be(expected);
+        page.Errors.Should().BeEmpty();
+    }
 }

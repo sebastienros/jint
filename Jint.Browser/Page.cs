@@ -131,6 +131,8 @@ public sealed partial class Page : IAsyncDisposable
     /// </remarks>
     private void ReportTitleAtEndOfTurn(Engine engine)
     {
+        SignalTurnEnded();
+
         if (_observer is null)
         {
             return;

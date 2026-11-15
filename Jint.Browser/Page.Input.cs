@@ -1096,10 +1096,18 @@ public sealed partial class Page
 
         while (true)
         {
+            // Taken before the look, so a turn that ends while it is posted or running still wakes the wait.
+            var turned = Volatile.Read(ref _turnEnded).Task;
+
             T reading;
             try
             {
-                reading = await _loop.PostAsync(read).ConfigureAwait(false);
+                reading = await _loop.PostAsync(engine =>
+                {
+                    // The look is a turn of its own, and the end of it must not wake the wait that made it.
+                    _waitLooking = true;
+                    return read(engine);
+                }).ConfigureAwait(false);
             }
             catch (ObjectDisposedException) when (_closed)
             {
@@ -1126,8 +1134,29 @@ public sealed partial class Page
                 return false;
             }
 
-            await Task.Delay(WaitPoll).ConfigureAwait(false);
+            // The document only changes in a turn of the loop — a task, a timer, a fetch's completion, a host
+            // call — so the next look waits for one to end rather than sleeping a fixed interval. The poll is
+            // the ceiling, for what changes off the loop: the request log, a navigation committing.
+            await turned.WaitAsync(WaitPoll).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
+    }
+
+    /// <summary>Completed, and replaced, at the end of every turn of the loop that was not a wait's own look.</summary>
+    private TaskCompletionSource _turnEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Whether the turn now ending was a wait's look; written and read on the loop thread only.</summary>
+    private bool _waitLooking;
+
+    /// <summary>Wakes every wait parked on the turn that just ended; called on the loop thread.</summary>
+    private void SignalTurnEnded()
+    {
+        if (_waitLooking)
+        {
+            _waitLooking = false;
+            return;
+        }
+
+        Interlocked.Exchange(ref _turnEnded, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).TrySetResult();
     }
     /// <summary>
     /// Runs an action's attempt, and repeats it while it answers <see langword="false"/> and the context's
@@ -1154,7 +1183,9 @@ public sealed partial class Page
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         while (!_closed && (timeout == System.Threading.Timeout.InfiniteTimeSpan || System.Diagnostics.Stopwatch.GetElapsedTime(started) < timeout))
         {
-            await Task.Delay(WaitPoll).ConfigureAwait(false);
+            // Taken after the attempt, whose own turn has ended by now, so only the page's next turn wakes it.
+            var turned = Volatile.Read(ref _turnEnded).Task;
+            await turned.WaitAsync(WaitPoll).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             try
             {
                 if (await attempt().ConfigureAwait(false))

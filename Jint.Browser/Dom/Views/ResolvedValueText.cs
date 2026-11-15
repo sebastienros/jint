@@ -137,6 +137,32 @@ internal static class ResolvedValueText
         return builder.ToString();
     }
 
+    /// <summary>
+    /// CSS Grid 2 §7.2.6 for rows: a row track list made only of absolute lengths, optionally in an integer
+    /// <c>repeat()</c>, has used sizes equal to those lengths whatever the container's height, so it resolves
+    /// without a layout. Percentages and flexible tracks need a definite height the flat model does not
+    /// have, and keep their text, as every other track list does.
+    /// </summary>
+    internal static string GridRows(string value, NativeCssComputedStyle style)
+    {
+        if (!IsGridContainer(style)) return value;
+        style.Work.Charge(value.Length);
+
+        var tracks = new List<(double Size, bool Flexible)>();
+        if (!Expand(value, tracks, double.NaN, allowRepeat: true) || tracks.Count == 0) return value;
+
+        var builder = new StringBuilder();
+        foreach (var (size, flexible) in tracks)
+        {
+            if (flexible || double.IsNaN(size)) return value;
+            if (builder.Length > 0) builder.Append(' ');
+            builder.Append(size.ToString("0.######", CultureInfo.InvariantCulture)).Append("px");
+        }
+
+        style.Work.Charge(tracks.Count * 8);
+        return builder.ToString();
+    }
+
     internal static bool IsGridContainer(NativeCssComputedStyle style)
     {
         var display = style.GetNormalizedProperty("display").Text.Trim();
