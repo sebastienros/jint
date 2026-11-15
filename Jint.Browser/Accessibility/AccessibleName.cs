@@ -30,10 +30,17 @@ internal sealed class AccessibleName
     }
 
     /// <summary>Computes the accessible name of <paramref name="element"/>, or the empty string.</summary>
-    internal string Compute(Element element, string role)
+    /// <param name="element">The element the computation starts on.</param>
+    /// <param name="role">The element's computed role.</param>
+    /// <param name="hiddenRoot">
+    /// Whether the element is named even when it is hidden, the way a reference names its hidden target —
+    /// what a role query that includes hidden elements needs, since step 2A would otherwise name every one
+    /// of them the empty string. Hidden descendants still contribute nothing.
+    /// </param>
+    internal string Compute(Element element, string role, bool hiddenRoot = false)
     {
         var context = new Context(new HashSet<Node>());
-        var name = Flatten(FromElement(element, role, context, referenced: false, descendant: false));
+        var name = Flatten(FromElement(element, role, context, referenced: hiddenRoot, descendant: false));
 
         // Step 2I: a title is the last resort, and only for the element the computation started on.
         if (name.Length == 0)
@@ -364,7 +371,7 @@ internal sealed class AccessibleName
     /// the same standing <c>Dom/Views/CssCascade</c> has, so this file's "neither touches an engine" holds.
     /// The idref path below is untouched, and a relationship written as ids still resolves through it.
     /// </remarks>
-    private static List<Node> References(Element element, string attribute)
+    internal static List<Node> References(Element element, string attribute)
     {
         if (Dom.AriaElementReferences.Explicit(element, attribute) is { } associated)
         {

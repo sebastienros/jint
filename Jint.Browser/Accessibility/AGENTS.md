@@ -27,7 +27,10 @@ elements by reference, so an accessible name computed from the attribute alone w
 page went out of its way to express. What that file must never grow is a realm: `DomRealm.Of(engine)` creates
 one if there is none, so asking the binding proper would let a name computation **construct a realm**, and
 `Jint.Tests.Browser/Accessibility/PageFixture` has no engine on purpose. The consumers are the CDP `Accessibility` domain,
-the custom `Jint.getMarkdown`/`getText`/`getAccessibilitySnapshot` domain, and the MCP server's `snapshot`.
+the custom `Jint.getMarkdown`/`getText`/`getAccessibilitySnapshot` domain, the MCP server's `snapshot`, and
+every `Page` target written `role=…`: `AccessibilityTree.Query` is the builder's own element walk — same role,
+name and hidden verdict, no identifiers assigned, a name computed only for a candidate — so **a change to what
+the snapshot prints changes what a role target finds**, and the two must not grow separate walks.
 
 **Three things a browser answers from its layout tree are answered from somewhere else, and every one is a
 place where this can be wrong.**

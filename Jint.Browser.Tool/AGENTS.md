@@ -34,8 +34,9 @@ two different things, or be told different things about one document:
 | `serve --http-cache`, including protocol-created contexts | `BrowserOptions.ConfigureContext` | context construction before its network position is created | reaching into `PageNetwork`, or sharing one persistent identity across incognito contexts |
 | `click`, `fill`, `type`, `press`, `select`, `hover`, `scroll` | `Page.ClickAsync` and its siblings | `Events/InputDispatcher`, `Layout/`, `ActivationBehaviors.SelectOption` — the `Input` domain's own paths | a third input implementation, or `element.click()`, which is untrusted |
 | `back`, `forward`, `reload` | `Page.GoBackAsync`, `GoForwardAsync`, `ReloadAsync` | `Runtime/SessionHistory` and the navigation gate | `evaluate("history.back()")`, which answers before the traversal commits |
+| `getByRole`/`getByLabel`/`getByText` in a ported suite (#4624) | `role=`, `label=`, `text=`, `aria/` and `>>` in every `Page` target | `AccessibilityTree.Query` — the snapshot's own role, name and hidden walk — and `Accessibility/TextQuery` | a snapshot per lookup, or a JavaScript search on `aria-label`/`textContent` through `WaitForAsync` |
 
-**A target is a selector or a `ref=`**, and `Runtime/ElementLocator` is the one place that decides: an agent
+**A target is a selector, a `ref=` or a role/label/text locator**, and `Runtime/ElementLocator` is the one place that decides: an agent
 reading `- button "Save" [ref=42]` out of a snapshot has no selector to write. The number is the
 accessibility tree's own identifier and **deliberately not the protocol's `backendNodeId`** — that one is
 `DevTools/DomNodeTracker`'s, which belongs to a page *target*, and a caller with no client attached has none.

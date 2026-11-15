@@ -3,27 +3,33 @@ using Jint.Browser.Extraction;
 using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 using Jint.HtmlParser;
-using Jint.HtmlParser.Css.Selectors;
 
 namespace Jint.Browser;
 
 public sealed partial class Page
 {
-    /// <summary>Counts selector matches, optionally requiring checkVisibility with visibilityProperty enabled.</summary>
-    /// <remarks>No script or DOM wrappers are needed. Invalid selectors throw; opacity and occlusion do not affect visibility.</remarks>
+    /// <summary>Counts target matches, optionally requiring checkVisibility with visibilityProperty enabled.</summary>
+    /// <param name="selector">
+    /// A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>,
+    /// <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.
+    /// </param>
+    /// <param name="visibleOnly">Whether only matches that pass checkVisibility are counted.</param>
+    /// <remarks>
+    /// No script or DOM wrappers are needed. An invalid selector or malformed locator throws a
+    /// <c>SyntaxError</c> <see cref="DomException"/>; opacity and occlusion do not affect visibility.
+    /// </remarks>
     public Task<int> CountAsync(string selector, bool visibleOnly = false)
     {
         ArgumentNullException.ThrowIfNull(selector);
         ObjectDisposedException.ThrowIf(_closed, this);
-        return _loop.PostAsync(engine =>
-        {
-            var runtime = PageRuntime.Find(engine)!;
-            return Count(runtime, DomSelectors.Compile(runtime.Dom, selector), visibleOnly);
-        });
+        return _loop.PostAsync(engine => Count(PageRuntime.Find(engine)!, ElementLocator.Parse(selector), visibleOnly));
     }
 
     /// <summary>Reports whether the indexed target passes checkVisibility with visibilityProperty enabled.</summary>
-    /// <remarks>A target is a CSS selector or snapshot reference. A missing target is not visible.</remarks>
+    /// <remarks>
+    /// A target is a CSS selector, a snapshot reference, or a <c>role=</c>, <c>label=</c> or <c>text=</c>
+    /// locator, optionally chained with <c>&gt;&gt;</c>. A missing or malformed target is not visible.
+    /// </remarks>
     public Task<bool> IsVisibleAsync(string target, int index = 0)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -40,11 +46,16 @@ public sealed partial class Page
         return _loop.PostAsync(engine => InnerText(PageRuntime.Find(engine)!, target, index));
     }
 
-    /// <summary>Snapshots each selector match's textContent in document order in one page-loop request.</summary>
+    /// <summary>Snapshots each target match's textContent in document order in one page-loop request.</summary>
+    /// <param name="selector">
+    /// A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>,
+    /// <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.
+    /// </param>
+    /// <param name="visibleOnly">Whether only matches that pass checkVisibility are read.</param>
     /// <remarks>
     /// Text is not trimmed or rendered: hidden descendant text is included. visibleOnly filters the matched
     /// elements using checkVisibility with visibilityProperty enabled, not their text descendants.
-    /// Invalid selectors throw. The returned array contains only detached CLR strings.
+    /// Invalid selectors and malformed locators throw. The returned array contains only detached CLR strings.
     /// </remarks>
     public Task<string[]> TextsAsync(string selector, bool visibleOnly = false)
     {
@@ -54,7 +65,7 @@ public sealed partial class Page
         {
             var runtime = PageRuntime.Find(engine)!;
             if (runtime.Document is not { } document) return [];
-            var elements = DomSelectors.QuerySelectorAll(runtime.Dom, document, selector);
+            var elements = ElementLocator.Parse(selector).FindAll(runtime.Dom, document);
             var texts = new List<string>(elements.Length);
             foreach (var element in elements)
             {
@@ -72,12 +83,11 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(selector);
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         ObjectDisposedException.ThrowIf(_closed, this);
-        CompiledSelector? program = null;
+        ElementLocator? locator = null;
         return WaitForAsync(engine =>
         {
-            var runtime = PageRuntime.Find(engine)!;
-            program ??= DomSelectors.Compile(runtime.Dom, selector);
-            return Count(runtime, program, visibleOnly) == count;
+            locator ??= ElementLocator.Parse(selector);
+            return Count(PageRuntime.Find(engine)!, locator, visibleOnly) == count;
         }, timeout);
     }
 
@@ -86,7 +96,8 @@ public sealed partial class Page
     {
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_closed, this);
-        return WaitForAsync(engine => IsVisible(PageRuntime.Find(engine)!, target, index) == visible, timeout);
+        var locator = ElementLocator.TryParse(target);
+        return WaitForAsync(engine => IsVisible(PageRuntime.Find(engine)!, locator, index) == visible, timeout);
     }
 
     /// <summary>Waits for literal ordinal text within the indexed target's rendered innerText.</summary>
@@ -95,13 +106,14 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(text);
         ObjectDisposedException.ThrowIf(_closed, this);
-        return WaitForAsync(engine => InnerText(PageRuntime.Find(engine)!, target, index)?.Contains(text, StringComparison.Ordinal) == true, timeout);
+        var locator = ElementLocator.TryParse(target);
+        return WaitForAsync(engine => InnerText(PageRuntime.Find(engine)!, locator, index)?.Contains(text, StringComparison.Ordinal) == true, timeout);
     }
 
-    private static int Count(PageRuntime runtime, CompiledSelector program, bool visibleOnly)
+    private static int Count(PageRuntime runtime, ElementLocator locator, bool visibleOnly)
     {
         if (runtime.Document is not { } document) return 0;
-        var matches = DomSelectors.QuerySelectorAll(runtime.Dom, document, program);
+        var matches = locator.FindAll(runtime.Dom, document);
         if (!visibleOnly) return matches.Length;
         var count = 0;
         foreach (var element in matches)
@@ -113,13 +125,20 @@ public sealed partial class Page
     }
 
     private static bool IsVisible(PageRuntime runtime, string target, int index)
-        => ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is { } element && IsVisible(runtime, element);
+        => IsVisible(runtime, ElementLocator.TryParse(target), index);
+
+    // A wait parses its target once, before it starts polling, and resolves the parsed form on every look.
+    private static bool IsVisible(PageRuntime runtime, ElementLocator? locator, int index)
+        => locator?.TryFind(runtime.Dom, runtime.Document, index) is { } element && IsVisible(runtime, element);
 
     private static bool IsVisible(PageRuntime runtime, Element element)
         => LayoutMembers.IsCheckVisible(runtime.Dom, element, checkOpacity: false, checkVisibility: true);
 
     private static string? InnerText(PageRuntime runtime, string target, int index)
-        => ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is { } element
+        => InnerText(runtime, ElementLocator.TryParse(target), index);
+
+    private static string? InnerText(PageRuntime runtime, ElementLocator? locator, int index)
+        => locator?.TryFind(runtime.Dom, runtime.Document, index) is { } element
             ? TextExtractor.InnerText(element, useComputedStyle: true, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken)
             : null;
 }
