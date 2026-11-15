@@ -35,10 +35,16 @@ public sealed class HostBrowserMediaEmulationTests
 
         await page.EvaluateAsync(
             "window.heard = []; matchMedia('print').addEventListener('change', e => heard.push(e.matches));");
-        await page.EmulateMediaAsync(new MediaEmulation { Media = "print", ColorScheme = "" });
+        await page.EmulateMediaAsync(new MediaEmulation { Media = "print", ColorScheme = "light" });
 
         (await page.EvaluateAsync<string>(Probe)).Should().Be("""{"dark":false,"reduce":true,"print":true}""");
         (await page.EvaluateAsync<string>("heard.join()")).Should().Be("true");
+
+        // Clearing an override goes back to the default the page opened with, not past it.
+        await page.EmulateMediaAsync(new MediaEmulation { Media = "", ColorScheme = "" });
+
+        (await page.EvaluateAsync<string>(Probe)).Should().Be("""{"dark":true,"reduce":true,"print":false}""");
+        (await page.EvaluateAsync<string>("heard.join()")).Should().Be("true,false");
         page.Errors.Should().BeEmpty();
     }
 }
