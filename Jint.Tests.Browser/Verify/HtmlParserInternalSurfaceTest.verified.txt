@@ -30,6 +30,7 @@ internal Jint.HtmlParser.Css.CssSourceText
     get_Text
 internal Jint.HtmlParser.Css.Media.CssMediaEnvironment
     (constructor)
+    get_ForcedColors
     op_Inequality
     set_AnyHover
     set_AnyPointer

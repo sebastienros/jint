@@ -106,6 +106,14 @@ internal static class CssPropertyRegistry
         Add("cursor", "auto", true);
         Add("fill", "black", true);
         Add("stroke", "none", true);
+        // The properties forced colors mode forces (CSS Color Adjustment 1 §3.1), with their initial values and
+        // inheritance: Color Adjustment 1 §2.1 and §3.2, CSS UI 4 §6.2, CSS Scrollbars 1 §2, Backgrounds 3 §7.1, Text Decoration 3 §4.
+        Add("color-scheme", "normal", true);
+        Add("forced-color-adjust", "auto", true);
+        Add("accent-color", "auto", true);
+        Add("scrollbar-color", "auto", true);
+        Add("box-shadow", "none");
+        Add("text-shadow", "none", true);
         foreach (var name in new[] { "transform", "translate", "rotate", "scale", "background-image", "clip-path" })
             Add(name, "none");
         foreach (var name in new[] { "width", "height", "min-width", "min-height" }) Add(name, "auto");
