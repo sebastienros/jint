@@ -8753,7 +8753,7 @@ The `Array.prototype` methods whose spec asks `HasProperty` before `Get` (`forEa
 otherwise returns what `Get` returns. An array whose prototype chain is the intrinsic `Array.prototype` and
 `Object.prototype`, with no index on either, reads what it did. There is no switch back.
 
-### 4.238 A CDP evaluation stopped by an execution limit is a thrown error naming it, and `jint-browser serve` has no task ceiling ([#4619](https://github.com/sebastienros/jint/issues/4619))
+### 4.238 A CDP evaluation stopped by an execution limit is a thrown error naming it, and `jint-browser serve` allows two minutes per task ([#4619](https://github.com/sebastienros/jint/issues/4619))
 
 **What a client is told.** `Runtime.evaluate`, `Runtime.callFunctionOn` and `Runtime.runScript` answer a script that
 an execution limit stopped — a page's `BrowserOptions.MaxTaskDuration` or `MemoryLimit`, or an engine's
