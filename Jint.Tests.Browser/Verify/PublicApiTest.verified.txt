@@ -20,6 +20,8 @@ namespace Jint.Browser
         public bool IsClosed { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.Page> Pages { get; }
         public Jint.Browser.StoragePartitionProvider StoragePartition { get; }
+        public System.Threading.Tasks.Task AddInitScriptAsync(string script) { }
+        public System.Threading.Tasks.Task AddInitScriptAsync(string function, object? argument) { }
         public void ClearHttpCache() { }
         public System.Threading.Tasks.Task CloseAsync() { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
@@ -180,6 +182,8 @@ namespace Jint.Browser
         public event System.EventHandler<Jint.Browser.DialogEventArgs>? DialogOpened;
         public event System.EventHandler<Jint.Browser.Page>? Popup;
         public System.Threading.Tasks.Task<string> AccessibilitySnapshotAsync(bool mainContentOnly = false, int maxLength = 0, bool includeReferences = false) { }
+        public System.Threading.Tasks.Task AddInitScriptAsync(string script) { }
+        public System.Threading.Tasks.Task AddInitScriptAsync(string function, object? argument) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, int index, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task CloseAsync() { }

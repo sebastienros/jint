@@ -76,13 +76,14 @@ internal sealed partial class ParserDriver : IDisposable
         string contentType,
         Action<NavigationPhase>? onPhase,
         DateTimeOffset? lastModified = null,
-        string? defaultStyle = null)
+        string? defaultStyle = null,
+        Action<ParserDriver>? beforeParse = null)
     {
         using var construction = runtime.Layout.BeginMutation();
         var driver = new ParserDriver(runtime, url, runtime.Cancellation?.Token ?? CancellationToken.None);
         runtime.Parser = driver;
         runtime.Engine.Disposed += (_, _) => driver.Dispose();
-        try { return driver.Run(markup, contentType, onPhase, lastModified, defaultStyle); }
+        try { return driver.Run(markup, contentType, onPhase, lastModified, defaultStyle, beforeParse); }
         catch { driver.Dispose(); runtime.Parser = null; throw; }
     }
 
@@ -109,7 +110,7 @@ internal sealed partial class ParserDriver : IDisposable
     }
 
     private PageLoad Run(string markup, string contentType, Action<NavigationPhase>? onPhase,
-        DateTimeOffset? lastModified, string? defaultStyle)
+        DateTimeOffset? lastModified, string? defaultStyle, Action<ParserDriver>? beforeParse)
     {
         var document = new Document(DomContentType.IsXml(contentType) ? DocumentKind.Xml : DocumentKind.Html, contentType, new CustomElementRegistryIdentity(isScoped: false));
         DomDocumentMetadata.Initialize(document, _runtime.DocumentCreationOrigin ?? DomDocumentOrigin.FromUrl(_url), lastModified);
@@ -121,6 +122,9 @@ internal sealed partial class ParserDriver : IDisposable
         _runtime.Document = document;
         try
         {
+            // The document exists, is empty and is loading, which is where Chromium runs a client's
+            // new-document scripts: after the window object is cleared and before the parser reads a byte.
+            if (beforeParse is not null) RunBeforeParse(document, beforeParse);
             Parse(document, markup);
             // Parsed nodes default to the document's realm; adoption captures the brand lazily.
             _runtime.Dom.CreationRealmOf(document);
@@ -140,6 +144,58 @@ internal sealed partial class ParserDriver : IDisposable
             _runtime.Document = null;
             context.Dispose();
             throw;
+        }
+    }
+
+    /// <summary>Runs the init scripts into the empty document, which counts as being parsed while they run.</summary>
+    /// <remarks>
+    /// Registered as parsing so a <c>document.write</c> or <c>document.open</c> from one is refused and
+    /// recorded, as it is during this document's own parse outside a script, rather than taking HTML's open
+    /// steps on the document the parse below is about to fill.
+    /// </remarks>
+    private void RunBeforeParse(Document document, Action<ParserDriver> beforeParse)
+    {
+        ActiveParsers.AddOrUpdate(document, this);
+        try
+        {
+            beforeParse(this);
+        }
+        finally
+        {
+            ActiveParsers.Remove(document);
+        }
+    }
+
+    /// <summary>Runs one init script the way an inline classic script runs, before the document is parsed.</summary>
+    /// <param name="run">What runs the script in the engine.</param>
+    /// <param name="location">What a page error names the script by.</param>
+    /// <remarks>
+    /// A turn of its own, so each script is bounded and a script that exhausts its budget does not fail the
+    /// parse that follows; a throw is reported as HTML reports one, the global <c>error</c> event first.
+    /// Cancellation is not a script failure, and ends the load.
+    /// </remarks>
+    internal void RunInitScript(Action<Engine> run, string location)
+    {
+        try
+        {
+            using (_runtime.Budget.BeginTurn())
+            {
+                RecoverNativeMutationNotifications();
+                using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
+                run(_runtime.Engine);
+            }
+        }
+        catch (JavaScriptException exception)
+        {
+            ReportException(exception, location);
+        }
+        catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))
+        {
+            Report(PageErrorKind.BudgetExceeded, exception.Message, location);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Report(PageErrorKind.ScriptError, exception.Message, location);
         }
     }
 

@@ -100,6 +100,43 @@ public sealed class BrowserContext : IAsyncDisposable
 
     internal SharedWorkerRegistry SharedWorkers { get; } = new();
 
+    /// <summary>The init scripts every page of this context runs before its own, in each new document.</summary>
+    internal NewDocumentScripts NewDocumentScripts { get; } = new();
+
+    /// <summary>Adds a script that runs in every new document of every page of this context, before the document's own scripts.</summary>
+    /// <param name="script">The script source.</param>
+    /// <returns>A task that completes once the script is installed.</returns>
+    /// <remarks>
+    /// It reaches pages already open as well as later ones and popups, from their next document onwards,
+    /// including the <c>about:blank</c> a new page starts on. A context's scripts run before a page's own
+    /// <see cref="Page.AddInitScriptAsync(string)"/> scripts, with the same timing and error handling.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The context has been closed.</exception>
+    public Task AddInitScriptAsync(string script)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        ObjectDisposedException.ThrowIf(_closed, this);
+        NewDocumentScripts.Add(this, "BrowserContext.AddInitScriptAsync", script);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Adds a function invoked with one JSON-data argument in every new document of every page of this context.</summary>
+    /// <param name="function">A JavaScript function expression.</param>
+    /// <param name="argument">The argument, snapshotted as JSON data now and bound in each document.</param>
+    /// <returns>A task that completes once the script is installed.</returns>
+    /// <remarks>
+    /// The argument is bound as <see cref="Page.EvaluateAsync(string, object?)"/> binds one. Otherwise this
+    /// runs where and when <see cref="AddInitScriptAsync(string)"/> does.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The context has been closed.</exception>
+    public Task AddInitScriptAsync(string function, object? argument)
+    {
+        ArgumentNullException.ThrowIfNull(function);
+        ObjectDisposedException.ThrowIf(_closed, this);
+        NewDocumentScripts.Add(this, "BrowserContext.AddInitScriptAsync", function, System.Text.Json.JsonSerializer.SerializeToElement(argument));
+        return Task.CompletedTask;
+    }
+
     /// <summary>Opens a new page on <c>about:blank</c>, with its own engine and its own thread.</summary>
     /// <returns>The page, once its thread is running and the blank document has loaded.</returns>
     /// <exception cref="ObjectDisposedException">The context or its browser has been closed.</exception>

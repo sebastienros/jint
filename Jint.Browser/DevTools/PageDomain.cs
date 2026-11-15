@@ -221,7 +221,7 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
         AddScriptToEvaluateOnNewDocumentRequest parameters,
         CommandContext context)
     {
-        var identifier = _target.NewDocumentScripts.Add(parameters.Source);
+        var identifier = _target.NewDocumentScripts.Add(_target, "Page.addScriptToEvaluateOnNewDocument", parameters.Source);
         return new ValueTask<AddScriptToEvaluateOnNewDocumentResponse>(new AddScriptToEvaluateOnNewDocumentResponse { Identifier = identifier });
     }
 
@@ -231,7 +231,8 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
         CommandContext context)
     {
         // A script nobody knows about is not an error: a client removing what it already removed is tidying.
-        _target.NewDocumentScripts.Remove(parameters.Identifier);
+        // Only a script a client added is removable here; the page's own init scripts are the host's.
+        _target.NewDocumentScripts.Remove(_target, parameters.Identifier);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
