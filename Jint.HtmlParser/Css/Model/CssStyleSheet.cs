@@ -327,7 +327,7 @@ internal sealed class CssStyleSheet
         body = null;
         if (syntax.Kind == CssRuleKind.AtRule)
         {
-            var name = CssPropertyRegistry.NormalizeName(syntax.Name, work);
+            var name = CssPropertyRegistry.LowerAscii(syntax.Name, work);
             var kind = CssAtRuleLookup.Match(name);
             // CSS Nesting §3.3 https://drafts.csswg.org/css-nesting-1/#nesting-at-rules
             // Until grouping rules carry the parent selector context, retain their complete raw

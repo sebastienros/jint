@@ -77,7 +77,7 @@ internal sealed partial class CssDomain : CSSDomainBase
             properties.Add(new ProtocolCss.CSSComputedStyleProperty
             {
                 Name = name,
-                Value = ResolvedStyle.ColorOf(name, property.Text, computed),
+                Value = ResolvedStyle.ResolvedText(name, property.Text, computed),
             });
         }
 
