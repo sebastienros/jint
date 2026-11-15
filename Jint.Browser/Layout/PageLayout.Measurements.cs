@@ -66,6 +66,7 @@ internal sealed partial class PageLayout
         {
             context.Verify();
             var plan = context.Query.MeasurementPlan;
+            NoteInteractions(context.Query);
             if (_unknownMeasurementWrite || !ReferenceEquals(_measurementPlan, plan))
             {
                 if (_measurements is not null)

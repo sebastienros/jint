@@ -30,6 +30,9 @@ internal sealed class BrowserSettings
     /// <summary>Whether loopback and private addresses are refused, or <see langword="null"/> for the posture's own answer.</summary>
     internal bool? BlockPrivateNetwork { get; private init; }
 
+    /// <summary>How long after a <c>requestAnimationFrame</c> its frame runs, or <see langword="null"/> for the command's default.</summary>
+    internal TimeSpan? AnimationFrameInterval { get; private init; }
+
     /// <summary>Whether no image is fetched at all, which is <see cref="BrowserOptions.MaxImageRequests"/> at zero.</summary>
     internal bool NoImages { get; private init; }
 
@@ -45,6 +48,7 @@ internal sealed class BrowserSettings
         syntax["block-private-network"] = OptionKind.Flag;
         syntax["allow-private-network"] = OptionKind.Flag;
         syntax["no-images"] = OptionKind.Flag;
+        syntax["animation-frame-interval"] = OptionKind.Value;
         HttpCacheSettings.Declare(syntax);
     }
 
@@ -71,14 +75,26 @@ internal sealed class BrowserSettings
                 : null,
             BlockPrivateNetwork = block ? true : allow ? false : null,
             NoImages = line.Flag("no-images"),
+            AnimationFrameInterval = line.Value("animation-frame-interval") is { } interval
+                ? ValueSyntax.Duration("animation-frame-interval", interval)
+                : null,
             HttpCache = HttpCacheSettings.Read(line),
         };
     }
 
     /// <summary>Builds what every page of the browser is made from.</summary>
-    internal BrowserOptions ToBrowserOptions()
+    /// <param name="defaultAnimationFrameInterval">
+    /// The frame interval when <c>--animation-frame-interval</c> is not given, or <see langword="null"/> for the
+    /// package's own.
+    /// </param>
+    internal BrowserOptions ToBrowserOptions(TimeSpan? defaultAnimationFrameInterval = null)
     {
         var options = new BrowserOptions();
+
+        if ((AnimationFrameInterval ?? defaultAnimationFrameInterval) is { } frameInterval)
+        {
+            options.AnimationFrameInterval = frameInterval;
+        }
 
         if (UserAgent is not null)
         {

@@ -116,6 +116,12 @@ console.log(await page.title());
 unauthenticated**, exactly as it is in Chrome: anything that can reach it can run script in this process, so
 `--host` defaults to `127.0.0.1` and should stay there.
 
+`--animation-frame-interval` is how long after `requestAnimationFrame` a frame runs. Nothing is painted, so
+a frame is only a scheduling point, and automation waits for them: Playwright's actionability check waits for
+two animation frames before every click. `serve` therefore defaults to `1ms`, against `16ms` for `fetch` and
+`eval`; a page that animates continuously runs its frames that much more often, and `--animation-frame-interval 16ms`
+restores the 60 Hz cadence.
+
 `--no-images` fetches no image at all, which is what a crawler that only reads the DOM wants: each `<img>`
 is still listed among the page's requests with the reason it was not fetched, but no socket is opened and
 the element fires neither `load` nor `error`, so `img.complete` stays `false`. `fetch` and `eval` take it too.

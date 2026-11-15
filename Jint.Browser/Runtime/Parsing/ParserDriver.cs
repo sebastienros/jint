@@ -786,28 +786,7 @@ internal sealed partial class ParserDriver : IDisposable
             {
                 RecoverNativeMutationNotifications();
                 using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
-                if (text.Length >= Jint.DevTools.Domains.SharedPreparedScripts.MinimumLength
-                    && _runtime.Options.UntrustedContent is null && _runtime.Options.EngineConfiguration.Count == 0)
-                {
-                    // Parsed once per process: a bundle every page loads is the same program every time.
-                    Prepared<Acornima.Ast.Script> prepared;
-                    try
-                    {
-                        prepared = Jint.DevTools.Domains.SharedPreparedScripts.GetOrPrepare(
-                            text, source, line, _runtime.Engine.Options.Strict, _runtime.Engine.Options.RetainFunctionSourceText);
-                    }
-                    catch (ScriptPreparationException)
-                    {
-                        prepared = default;
-                    }
-
-                    if (prepared.IsValid) _runtime.Engine.Execute(prepared);
-                    else _runtime.Engine.Execute(text, source, ParsingFrom(line));
-                }
-                else
-                {
-                    _runtime.Engine.Execute(text, source, ParsingFrom(line));
-                }
+                ExecuteClassic(text, source, line);
             }
         }
         catch (JavaScriptException exception)
@@ -1423,6 +1402,41 @@ internal sealed partial class ParserDriver : IDisposable
 
     private string BaseUrlOf(Document document)
         => DomDocumentState.BaseUri(document, _runtime.Engine.Constraints.Check, _cancellationToken);
+
+    /// <summary>
+    /// Runs a classic script's text, through the process's parse of it when <see cref="BrowserOptions.ShareParsedScripts"/>
+    /// allows and the engine parses with the defaults.
+    /// </summary>
+    /// <remarks>
+    /// A bundle every page of a test suite loads is the same program every time, and a prepared script is
+    /// shareable between engines; React's two files were parsed again for every page. A script that does not
+    /// parse is handed to the engine's own parse, which reports the <c>SyntaxError</c> the way it always has.
+    /// </remarks>
+    private void ExecuteClassic(string text, string? source, int line)
+    {
+        var engine = _runtime.Engine;
+        if (text.Length >= Jint.DevTools.PreparedScriptCache.MinimumLength && _runtime.Options.ShareParsedScripts
+            && Jint.DevTools.PreparedScriptCache.Suits(engine.Options))
+        {
+            Prepared<Acornima.Ast.Script> prepared = default;
+            try
+            {
+                prepared = Jint.DevTools.PreparedScriptCache.GetOrPrepare(
+                    text, source, line, engine.Options.Strict, engine.Options.RetainFunctionSourceText);
+            }
+            catch (ScriptPreparationException)
+            {
+            }
+
+            if (prepared.IsValid)
+            {
+                engine.Execute(prepared);
+                return;
+            }
+        }
+
+        engine.Execute(text, source, ParsingFrom(line));
+    }
 
     /// <summary>
     /// The parsing options an inline script gets: the engine's own, plus the position in the document its

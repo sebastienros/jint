@@ -17,7 +17,9 @@ namespace Jint.DevTools.Domains;
 /// The declaration cache is what makes the client path cheap rather than merely correct: a recorded
 /// Puppeteer or Playwright run sends <c>Runtime.callFunctionOn</c> between 32 and 53 times, and the same
 /// handful of declarations over and over. A <see cref="Prepared{TProgram}"/> is reusable and thread-safe, so
-/// caching one is exactly what the engine asks callers to do.
+/// caching one is exactly what the engine asks callers to do. A miss here is answered by
+/// <see cref="PreparedScriptCache"/>, so a client's declarations are parsed once per process rather than once
+/// per page it opens.
 /// </para>
 /// <para>
 /// Locked rather than engine-thread-only: both dictionaries are ordinary CLR state, and a target may be
@@ -78,7 +80,7 @@ internal sealed class CompiledScriptRegistry
         // Parenthesised so that `function () {}` is an expression rather than a declaration, and with the
         // closing parenthesis on its own line so that a declaration ending in `//# sourceURL=` -- which is
         // what every one of the recorded clients appends -- does not comment it out.
-        var prepared = SharedPreparedScripts.GetOrPrepare("(" + declaration + "\n)", null, 0, strict: false, retainSourceText: false);
+        var prepared = PreparedScriptCache.GetOrPrepare("(" + declaration + "\n)", null, 0, strict: false, retainSourceText: false);
 
         lock (_gate)
         {

@@ -487,12 +487,13 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         if (!_target.IsPaused)
         {
             var engine = _target.Runtime.Engine;
-            if (expression.Length >= SharedPreparedScripts.MinimumLength)
+            // A large expression is an automation client's injected script, sent to every page it opens.
+            if (expression.Length >= PreparedScriptCache.MinimumLength && PreparedScriptCache.Suits(engine.Options))
             {
                 Prepared<Acornima.Ast.Script> prepared;
                 try
                 {
-                    prepared = SharedPreparedScripts.GetOrPrepare(expression, null, 0, engine.Options.Strict, engine.Options.RetainFunctionSourceText);
+                    prepared = PreparedScriptCache.GetOrPrepare(expression, null, 0, engine.Options.Strict, engine.Options.RetainFunctionSourceText);
                 }
                 catch (ScriptPreparationException)
                 {

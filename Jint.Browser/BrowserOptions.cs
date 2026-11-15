@@ -470,13 +470,20 @@ public sealed class BrowserOptions
             : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxRedirects cannot be negative.");
     }
 
-    /// <summary>How long after a <c>requestAnimationFrame</c> its frame runs; 16 ms by default.</summary>
+    /// <summary>How long after a <c>requestAnimationFrame</c> call its frame runs; 16 ms by default.</summary>
     /// <remarks>
-    /// There is nothing to paint, so a frame is a scheduling concept only. Automation clients wait for
-    /// frames — Playwright's actionability check waits for two before every click — so a shorter interval
-    /// is directly a faster client, at the cost of a page's continuous animation loop running more often.
-    /// Zero runs the frame as soon as the current task and its microtasks are done.
+    /// <para>
+    /// Nothing is painted, so a frame is only a scheduling point. Automation waits for frames: Playwright's
+    /// actionability check waits for two animation frames before every click, so over CDP each click costs
+    /// two intervals. A shorter interval makes such clients faster. A page that animates continuously then
+    /// runs its frames that much more often.
+    /// </para>
+    /// <para>
+    /// Whole milliseconds; zero runs the frame once the current task and its microtasks are done.
+    /// <c>jint-browser serve</c> uses 1 ms.
+    /// </para>
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
     public TimeSpan AnimationFrameInterval
     {
         get => _animationFrameInterval;
@@ -484,6 +491,15 @@ public sealed class BrowserOptions
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "AnimationFrameInterval cannot be negative.");
     }
+
+    /// <summary>Whether pages share one parse per process of a classic script with the same text; true by default.</summary>
+    /// <remarks>
+    /// A script of at least 1 KiB is parsed once and the parse is reused by every page of every browser in the
+    /// process, up to about 30 MB of parsed scripts, least recently used first out. Pages whose engines set
+    /// parsing limits or a regular-expression timeout parse for themselves. Turning it off parses every
+    /// script in every page, as a page with no cache would.
+    /// </remarks>
+    public bool ShareParsedScripts { get; set; } = true;
 
     /// <summary>How long a page loop parks when it has nothing due; 50 ms by default.</summary>
     /// <remarks>
