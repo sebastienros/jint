@@ -14,6 +14,9 @@ await page.FillAsync("#email", "ada@example.org");
 await page.TypeAsync("#search", "jint");
 await page.PressAsync("Enter");
 await page.PressAsync("k", KeyModifiers.Control); // Meta for Command on macOS
+await page.FocusAsync("#menu summary");
+await page.PressAsync("#menu summary", "ArrowDown"); // focus the target, then press at it
+await page.BlurAsync("#search");
 await page.ClickAsync("#save");
 await page.SelectAsync("#country", "FR");
 await page.SetInputFilesAsync("#avatar", ["/tmp/portrait.png"]);
@@ -31,9 +34,12 @@ await page.ClickAsync("ref=42");
 
 References belong to one document and stop resolving after navigation.
 
+- `FillAsync`, `TypeAsync` and `SelectAsync` return `false` for a target inside an `inert` or `hidden` subtree rather than editing whatever had focus.
 - `FillAsync` focuses, selects all, and inserts one replacement in text controls. Date, month, week, time and local date-time inputs commit a native sanitized value and fire trusted `input` then `change` events when it changes. Invalid picker values throw `ArgumentException`; disabled, readonly and unsupported controls return `false`.
 - `TypeAsync` preserves the current value and dispatches keys one Unicode scalar at a time, including supplementary characters represented by UTF-16 surrogate pairs. Each scalar follows the trusted keyboard and cancelable input sequence for text controls and contenteditable hosts.
 - `PressAsync` targets the focused element, or the body when nothing is focused. Its modifier overload accepts the `KeyModifiers` flags `Alt`, `Control`, `Meta` and `Shift` on both keydown and keyup.
+- `FocusAsync(target)` runs the focusing steps `element.focus()` runs, without the interpreter: trusted `blur`/`focusout` at the element losing focus, then `focus`/`focusin` at the target. It waits — 30 seconds unless `timeout` says otherwise, `TimeSpan.Zero` to look once — for a *focusable* match: a link with `href`, a control, a `<summary>`, an editing host, or anything with a valid `tabindex` (negative included), that is not disabled and not inside an `inert` or `hidden` subtree — the element's own attribute, an ancestor's, or an enclosing `<iframe>`'s. It returns `false` when none matched in time. `BlurAsync(target)` waits for a match and, if it has focus, moves focus to the body with `blur`/`focusout`.
+- `PressAsync(target, key)` is `locator.press`: it waits for a focusable target the same way, focuses it and presses the key in one turn of the page loop, so the key reaches the target rather than the body. It returns `false` and presses nothing when no focusable match appears, and awaits a navigation `Enter` causes as `PressAsync(key)` does.
 - Focused buttons and button-state inputs activate with a trusted click on Enter's keydown or Space's keyup, without pointer events or hit testing. Canceling the key default or click prevents activation; moving focus abandons a pending Space press. Submit buttons retain their name/value and run validation and submit listeners.
 - `ClickAsync` scrolls the target into view and runs link, button, checkbox, radio, label, summary, and option activation.
 - `SelectAsync` matches an option by value, then by visible text, and fires `input` followed by `change`.

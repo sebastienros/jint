@@ -136,12 +136,16 @@ internal static class FocusController
     /// gaining it. <c>blur</c> and <c>focus</c> do not bubble; <c>focusout</c> and <c>focusin</c> do. Each
     /// carries the other element as its <c>relatedTarget</c>.
     /// </remarks>
-    internal static void Focus(DomRealm dom, Element element)
+    /// <returns>
+    /// <see langword="true"/> when the focusing steps ran — <paramref name="element"/> passed their guard and
+    /// was given focus or already had it — whatever a listener then did with focus; <see langword="false"/>
+    /// when the element is not a focusable area of a page document and nothing happened.
+    /// </returns>
+    internal static bool Focus(DomRealm dom, Element element)
     {
-        if (!IsInAPageDocument(dom, element) || element.OwnerDocument is not { } document
-            || !IsConnectedTo(element, document) || !IsFocusable(dom, element))
+        if (!CanFocus(dom, element))
         {
-            return;
+            return false;
         }
 
         var realm = BrowserEventRealm.Of(dom.Engine);
@@ -156,12 +160,25 @@ internal static class FocusController
 
         if (ReferenceEquals(previous, element))
         {
-            return;
+            return true;
         }
 
         realm.FocusedElement = element;
         RunFocusUpdateSteps(dom, previous, element, ++Updates.GetOrCreateValue(realm).Revision);
+        return true;
     }
+
+    /// <summary>
+    /// Whether <see cref="Focus"/> would move focus to <paramref name="element"/>: it is connected to a
+    /// document this page shows, and it is a focusable area.
+    /// </summary>
+    /// <remarks>
+    /// The focusing steps' own guard. A caller that has to answer whether it focused something reads
+    /// <see cref="Focus"/>'s result instead of asking this first and paying for the question twice.
+    /// </remarks>
+    private static bool CanFocus(DomRealm dom, Element element)
+        => IsInAPageDocument(dom, element) && element.OwnerDocument is { } document
+            && IsConnectedTo(element, document) && IsFocusable(dom, element);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#dom-blur — the unfocusing steps. HTML notes
@@ -247,7 +264,7 @@ internal static class FocusController
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#focusable-area, decided without a rendering: an
     /// element is focusable when its kind makes it so or when it carries a valid <c>tabindex</c>, and when it
-    /// is neither disabled nor hidden by the <c>hidden</c> content attribute.
+    /// is not disabled and not inside a subtree an <c>inert</c> or <c>hidden</c> content attribute excludes.
     /// </summary>
     internal static bool IsFocusable(DomRealm dom, Element element) => IsFocusableCore(dom, element, null);
 
@@ -261,30 +278,61 @@ internal static class FocusController
     }
 
     private static bool IsFocusableCore(DomRealm dom, Element element, DomReadWork? work)
+        => IsFocusableKind(dom, element, work) && !IsInInertOrHiddenSubtree(element, work);
+
+    /// <summary>
+    /// The half of the focusable-area question the element answers alone: its kind or a valid
+    /// <c>tabindex</c> makes it a candidate, and it is not disabled.
+    /// </summary>
+    private static bool IsFocusableKind(DomRealm dom, Element element, DomReadWork? work)
+        => !EventDom.Disabled(dom, element)
+            && (TabIndexAttribute(element, work) is not null || IsInherentlyFocusable(element, work));
+
+    /// <summary>
+    /// The other half: whether <paramref name="node"/> is inside a subtree no focusable area can be in —
+    /// one rooted at an element with the <c>inert</c> attribute
+    /// (https://html.spec.whatwg.org/multipage/interaction.html#the-inert-attribute), or at one with the
+    /// <c>hidden</c> attribute, which the UA style sheet takes out of the rendering.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Asked after <see cref="IsFocusableKind"/>, so the ancestor walk is paid only by elements that would
+    /// otherwise be focusable; <see cref="TabOrder"/> prunes excluded subtrees instead and never asks it.
+    /// The walk is the shadow-including ancestor chain — a shadow root continues at its host — and a
+    /// child navigable's document continues at its container, so an <c>inert</c> or <c>hidden</c>
+    /// <c>&lt;iframe&gt;</c> excludes the document inside it. A slotted element follows its light-tree
+    /// parents rather than the slot's flat-tree chain.
+    /// </para>
+    /// </remarks>
+    internal static bool IsInInertOrHiddenSubtree(Node node) => IsInInertOrHiddenSubtree(node, null);
+
+    private static bool IsInInertOrHiddenSubtree(Node node, DomReadWork? work)
     {
-        if (EventDom.Disabled(dom, element)
-            || Attribute(element, "hidden", work) is not null || Attribute(element, "inert", work) is not null) return false;
-        return TabIndexAttribute(element, work) is not null || IsInherentlyFocusable(element, work);
+        for (Node? current = node; current is not null; current = ContainingNode(current))
+        {
+            work?.Step();
+            if (current is Element element && ExcludesSubtree(element, work))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
+
+    private static bool ExcludesSubtree(Element element, DomReadWork? work)
+        => Attribute(element, "inert", work) is not null || Attribute(element, "hidden", work) is not null;
+
+    private static Node? ContainingNode(Node node)
+        => node.ParentNode ?? (node switch
+        {
+            ShadowRoot root => root.Host,
+            Document document => DomBrowsingContext.Of(document)?.FrameElement,
+            _ => null,
+        });
 
     private static string? Attribute(Element element, string name, DomReadWork? work)
         => work is null ? element.GetAttributeNS(null, name) : work.Attribute(element, name);
-
-    /// <summary>
-    /// https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation — whether the
-    /// element takes part in <kbd>Tab</kbd> traversal, which a negative <c>tabindex</c> opts out of while
-    /// leaving the element focusable by other means.
-    /// </summary>
-    internal static bool IsTabbable(DomRealm dom, Element element)
-    {
-        if (!IsFocusable(dom, element))
-        {
-            return false;
-        }
-
-        var tabIndex = TabIndexAttribute(element);
-        return tabIndex is null ? IsInherentlyFocusable(element) : tabIndex >= 0;
-    }
 
     /// <summary>
     /// The element after <paramref name="from"/> in sequential focus navigation order, or the first one when
@@ -320,25 +368,49 @@ internal static class FocusController
         var zero = new List<Element>();
         var position = 0;
 
-        foreach (var element in NodeTraversal.DescendantElements(document, () => dom.NativeReadCheckpoint(256), dom.CancellationToken))
+        // A pre-order walk that skips an inert or hidden subtree whole, so each element is asked about its
+        // own kind once and nobody walks back up to the root: Tab stays linear in the document's size.
+        var work = new DomReadWork(dom.NativeReadCheckpoint, dom.CancellationToken);
+        work.Check();
+        Node? current = DomBrowsingContext.Of(document)?.FrameElement is { } frame && IsInInertOrHiddenSubtree(frame, work)
+            ? null
+            : document.FirstChild;
+
+        while (current is not null)
         {
-            if (!IsTabbable(dom, element))
+            work.Step();
+            var descend = true;
+            if (current is Element element)
             {
-                continue;
+                if (ExcludesSubtree(element, null))
+                {
+                    descend = false;
+                }
+                else if (IsFocusableKind(dom, element, null))
+                {
+                    // https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation — a
+                    // negative tabindex opts out of Tab traversal while leaving the element focusable otherwise.
+                    var tabIndex = TabIndexAttribute(element);
+                    if (tabIndex is null ? IsInherentlyFocusable(element) : tabIndex >= 0)
+                    {
+                        if (tabIndex is > 0)
+                        {
+                            positive.Add((tabIndex.Value, position, element));
+                        }
+                        else
+                        {
+                            zero.Add(element);
+                        }
+
+                        position++;
+                    }
+                }
             }
 
-            var tabIndex = TabIndexAttribute(element);
-            if (tabIndex is > 0)
-            {
-                positive.Add((tabIndex.Value, position, element));
-            }
-            else
-            {
-                zero.Add(element);
-            }
-
-            position++;
+            current = NextInPreOrder(current, document, descend, work);
         }
+
+        work.Check();
 
         if (positive.Count == 0)
         {
@@ -355,6 +427,26 @@ internal static class FocusController
 
         order.AddRange(zero);
         return order;
+    }
+
+    /// <summary>The node after <paramref name="node"/> in tree order within <paramref name="root"/>, optionally skipping its subtree.</summary>
+    private static Node? NextInPreOrder(Node node, Node root, bool descend, DomReadWork work)
+    {
+        if (descend && node.FirstChild is { } child)
+        {
+            return child;
+        }
+
+        for (Node? current = node; current is not null && !ReferenceEquals(current, root); current = current.ParentNode)
+        {
+            work.Step();
+            if (current.NextSibling is { } sibling)
+            {
+                return sibling;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

@@ -602,6 +602,23 @@ internal static class AccessibilityTree
             return HtmlDisabledness.GetState(element, CancellationToken.None) == HtmlDisabledState.Disabled;
         }
 
+        /// <summary>
+        /// https://html.spec.whatwg.org/multipage/interaction.html#the-inert-attribute — an inert subtree has
+        /// no focusable area, which is the answer <c>Events/FocusController</c> gives the same element.
+        /// </summary>
+        private static bool IsInert(Element element)
+        {
+            for (Node? node = element; node is not null; node = node.ParentNode ?? (node as ShadowRoot)?.Host)
+            {
+                if (node is Element ancestor && ancestor.HasAttribute("inert"))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool IsRequired(Element element) =>
             string.Equals(element.GetAttribute("aria-required"), "true", StringComparison.OrdinalIgnoreCase)
             || element.HasAttribute("required");
@@ -612,7 +629,7 @@ internal static class AccessibilityTree
 
         private static bool IsFocusable(Element element, bool disabled)
         {
-            if (disabled)
+            if (disabled || IsInert(element))
             {
                 return false;
             }

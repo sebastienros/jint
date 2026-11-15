@@ -37,6 +37,10 @@ public sealed partial class Page
     /// </remarks>
     private static readonly TimeSpan WaitPoll = TimeSpan.FromMilliseconds(25);
 
+    /// <summary>How long an action waits for its target when the caller names no ceiling.</summary>
+    /// <remarks>The same 30 seconds <see cref="NavigationOptions.Timeout"/> allows a navigation by default.</remarks>
+    private static readonly TimeSpan DefaultActionTimeout = TimeSpan.FromSeconds(30);
+
     /// <summary>Clicks what <paramref name="target"/> names, and waits for any navigation it causes.</summary>
     /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
     /// <param name="options">How far to wait for a navigation the click causes; the defaults when omitted.</param>
@@ -323,7 +327,8 @@ public sealed partial class Page
     /// when the page is listening for the
     /// keys. Date, month, week, time and local date-time controls instead commit a sanitized whole value
     /// and fire <c>input</c> then <c>change</c>; invalid values throw <see cref="ArgumentException"/>.
-    /// Disabled, readonly and unsupported controls answer <see langword="false"/>.
+    /// Disabled, readonly and unsupported controls answer <see langword="false"/>, as does a control inside an
+    /// <c>inert</c> or <c>hidden</c> subtree, which no user could reach.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<bool> FillAsync(string target, string text) => FillAsync(target, 0, text);
@@ -352,7 +357,8 @@ public sealed partial class Page
                 && element.GetHtmlState()!.GetInputValueState(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken) is { } state
                 && state.Type is HtmlInputType.Date or HtmlInputType.Month or HtmlInputType.Week or HtmlInputType.Time or HtmlInputType.DateTimeLocal)
             {
-                FocusController.Focus(runtime.Dom, element);
+                if (!FocusController.Focus(runtime.Dom, element) && FocusController.IsInInertOrHiddenSubtree(element))
+                    return false;
                 var previous = state.GetValue(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
                 if (!state.ApplyPickerUserValue(text, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken))
                     return false;
@@ -367,7 +373,10 @@ public sealed partial class Page
             if (!TextEditing.IsEditable(runtime.Dom, element) && ContentEditing.HostOf(element) is null)
                 return false;
 
-            FocusController.Focus(runtime.Dom, element);
+            // A control no user could reach — inert, or under a hidden ancestor — is refused rather than
+            // filled, because a focus that did not move would send the edit to whatever had focus before.
+            if (!FocusController.Focus(runtime.Dom, element) && FocusController.IsInInertOrHiddenSubtree(element))
+                return false;
 
             // The dispatcher's own select-all, which is what a client sends as commands: ["selectAll"], so a
             // fill and a client's fill clear the control the same way rather than two ways.
@@ -391,6 +400,7 @@ public sealed partial class Page
     /// autocomplete listening for <c>input</c> and a form's <c>maxlength</c> all see what they would see from
     /// a user. It does <b>not</b> clear the control first; <see cref="FillAsync(string, string)"/> is the one
     /// that does.
+    /// A target inside an <c>inert</c> or <c>hidden</c> subtree answers <see langword="false"/> and receives nothing.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<bool> TypeAsync(string target, string text) => TypeAsync(target, 0, text);
@@ -414,7 +424,11 @@ public sealed partial class Page
                 return false;
             }
 
-            FocusController.Focus(runtime.Dom, element);
+            // As FillAsync: a target no user could reach is refused rather than typed at whatever had focus.
+            if (!FocusController.Focus(runtime.Dom, element) && FocusController.IsInInertOrHiddenSubtree(element))
+            {
+                return false;
+            }
 
             foreach (var rune in text.EnumerateRunes())
             {
@@ -449,39 +463,11 @@ public sealed partial class Page
     public async Task<bool> PressAsync(string key, KeyModifiers modifiers, NavigationOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(key);
-        if ((modifiers & ~(KeyModifiers.Alt | KeyModifiers.Control | KeyModifiers.Meta | KeyModifiers.Shift)) != 0)
-            throw new ArgumentOutOfRangeException(nameof(modifiers));
+        var input = KeyInputFor(key, modifiers);
         ObjectDisposedException.ThrowIf(_closed, this);
-        var input = KeyOptions.For(key) with
-        {
-            Modifiers = ((modifiers & KeyModifiers.Alt) != 0 ? EventModifiers.Alt : EventModifiers.None)
-                | ((modifiers & KeyModifiers.Control) != 0 ? EventModifiers.Control : EventModifiers.None)
-                | ((modifiers & KeyModifiers.Meta) != 0 ? EventModifiers.Meta : EventModifiers.None)
-                | ((modifiers & KeyModifiers.Shift) != 0 ? EventModifiers.Shift : EventModifiers.None),
-        };
 
         var captured = await _loop.PostAsync(NavigationRequest? (engine) =>
-        {
-            if (PageRuntime.Find(engine) is not { } runtime)
-            {
-                return null;
-            }
-
-            _capturingNavigation = true;
-            _capturedNavigation = null;
-
-            try
-            {
-                InputDispatcher.DispatchKey(runtime, input, KeyInputKind.KeyDown);
-                InputDispatcher.DispatchKey(runtime, input, KeyInputKind.KeyUp);
-                return _capturedNavigation;
-            }
-            finally
-            {
-                _capturingNavigation = false;
-                _capturedNavigation = null;
-            }
-        }).ConfigureAwait(false);
+            PageRuntime.Find(engine) is { } runtime ? PressOnLoop(runtime, input) : null).ConfigureAwait(false);
 
         if (captured is { } navigation)
         {
@@ -489,6 +475,205 @@ public sealed partial class Page
         }
 
         return true;
+    }
+
+    /// <summary>Focuses what <paramref name="target"/> names, then presses one key at it.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="key">A <c>KeyboardEvent.key</c> value: a character, or a name such as <c>Escape</c> or <c>ArrowDown</c>.</param>
+    /// <param name="modifiers">Modifiers carried by both the keydown and keyup events.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="options">How far to wait for a navigation the key causes; the defaults when omitted.</param>
+    /// <param name="timeout">
+    /// How long to wait for a focusable match; 30 seconds when omitted, <see cref="TimeSpan.Zero"/> to look
+    /// once, <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> for no ceiling.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> when a focusable element matched and the key was pressed;
+    /// <see langword="false"/> when none did before the timeout, in which case no key is pressed at all.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// What a client library's <c>locator.press</c> does: <see cref="FocusAsync(string, int, TimeSpan?)"/>,
+    /// then <see cref="PressAsync(string, KeyModifiers, NavigationOptions)"/> — in <b>one</b> turn of the
+    /// page's loop, so no timer or promise of the page's can move focus between the two. A <c>focus</c> or
+    /// <c>focusin</c> listener that moves focus itself still can, and the key then goes where the page sent
+    /// focus, as it would for a user.
+    /// </para>
+    /// <para>
+    /// A match that is not focusable — disabled, inside an <c>inert</c> or <c>hidden</c> subtree, or an element
+    /// with neither an interactive kind nor a <c>tabindex</c> — is waited past rather than pressed at, because
+    /// the key would otherwise reach the body, which is the one thing a caller naming a target did not ask for.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="modifiers"/> carries an undefined bit, or <paramref name="timeout"/> is negative and not
+    /// infinite.
+    /// </exception>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public async Task<bool> PressAsync(
+        string target,
+        string key,
+        KeyModifiers modifiers = KeyModifiers.None,
+        int index = 0,
+        NavigationOptions? options = null,
+        TimeSpan? timeout = null)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(key);
+        var input = KeyInputFor(key, modifiers);
+        var wait = ActionTimeout(timeout);
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        NavigationRequest? captured = null;
+        var pressed = await WaitForAsync(engine =>
+        {
+            if (PageRuntime.Find(engine) is not { } runtime
+                || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element
+                || !FocusController.Focus(runtime.Dom, element))
+            {
+                return false;
+            }
+
+            captured = PressOnLoop(runtime, input);
+            return true;
+        }, wait).ConfigureAwait(false);
+
+        if (captured is { } navigation)
+        {
+            await NavigateCoreAsync(navigation with { Options = options ?? NavigationOptions.Default }).ConfigureAwait(false);
+        }
+
+        return pressed;
+    }
+
+    /// <summary>Focuses what <paramref name="target"/> names, as <c>element.focus()</c> would.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="timeout">
+    /// How long to wait for a focusable match; 30 seconds when omitted, <see cref="TimeSpan.Zero"/> to look
+    /// once, <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> for no ceiling.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> when a focusable element matched and was focused; <see langword="false"/> when
+    /// none did before the timeout.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>The focusing steps <c>element.focus()</c> runs, without the interpreter.</b> Focus moves, and the
+    /// focus update steps fire <c>blur</c> and <c>focusout</c> at the element losing it, then <c>focus</c> and
+    /// <c>focusin</c> at this one — each trusted, each carrying the other as its <c>relatedTarget</c> — and a
+    /// text control the user had edited fires <c>change</c> on the way out. Focusing the element that already
+    /// has focus fires nothing and answers <see langword="true"/>.
+    /// </para>
+    /// <para>
+    /// <b>The wait is for a focusable match, not merely a present one.</b> An element is focusable when its kind
+    /// makes it so (a link with <c>href</c>, a control, a <c>&lt;summary&gt;</c>, an editing host) or when it
+    /// carries a valid <c>tabindex</c> — a negative one included, which only removes it from <kbd>Tab</kbd>
+    /// order — and when it is not disabled and not inside an <c>inert</c> or <c>hidden</c> subtree (its own
+    /// attribute or an ancestor's, an enclosing <c>&lt;iframe&gt;</c> included). So a
+    /// control a framework renders disabled and enables later is focused once it is enabled, and one behind an
+    /// <c>inert</c> backdrop is focused once the backdrop goes. The page is looked at from off the loop, so it
+    /// goes on running its timers, its promises and its fetches while the wait lasts.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is negative and not infinite.</exception>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> FocusAsync(string target, int index = 0, TimeSpan? timeout = null)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        var wait = ActionTimeout(timeout);
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        return WaitForAsync(
+            engine => PageRuntime.Find(engine) is { } runtime
+                && ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is { } element
+                && FocusController.Focus(runtime.Dom, element),
+            wait);
+    }
+
+    /// <summary>Takes focus away from what <paramref name="target"/> names, as <c>element.blur()</c> would.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="timeout">
+    /// How long to wait for a match; 30 seconds when omitted, <see cref="TimeSpan.Zero"/> to look once,
+    /// <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> for no ceiling.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> when an element matched; <see langword="false"/> when none did before the timeout.
+    /// </returns>
+    /// <remarks>
+    /// HTML's unfocusing steps: when the element has focus, focus leaves it for the viewport —
+    /// <c>document.activeElement</c> becomes the body — and <c>blur</c> then <c>focusout</c> fire at it, with no
+    /// <c>relatedTarget</c>. An element that does not have focus is left alone and still answers
+    /// <see langword="true"/>, as <c>element.blur()</c> does nothing for it: what a caller is told is that the
+    /// element no longer holds focus, unless a listener gave it back.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is negative and not infinite.</exception>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> BlurAsync(string target, int index = 0, TimeSpan? timeout = null)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        var wait = ActionTimeout(timeout);
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        return WaitForAsync(engine =>
+        {
+            if (PageRuntime.Find(engine) is not { } runtime
+                || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
+            {
+                return false;
+            }
+
+            FocusController.Blur(runtime.Dom, element);
+            return true;
+        }, wait);
+    }
+
+    private static TimeSpan ActionTimeout(TimeSpan? timeout)
+    {
+        var value = timeout ?? DefaultActionTimeout;
+        return value >= TimeSpan.Zero || value == System.Threading.Timeout.InfiniteTimeSpan
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(timeout), value, "Timeout must not be negative unless it is infinite.");
+    }
+
+    /// <summary>The dispatcher's description of <paramref name="key"/> held with <paramref name="modifiers"/>.</summary>
+    private static KeyOptions KeyInputFor(string key, KeyModifiers modifiers)
+    {
+        if ((modifiers & ~(KeyModifiers.Alt | KeyModifiers.Control | KeyModifiers.Meta | KeyModifiers.Shift)) != 0)
+            throw new ArgumentOutOfRangeException(nameof(modifiers));
+
+        return KeyOptions.For(key) with
+        {
+            Modifiers = ((modifiers & KeyModifiers.Alt) != 0 ? EventModifiers.Alt : EventModifiers.None)
+                | ((modifiers & KeyModifiers.Control) != 0 ? EventModifiers.Control : EventModifiers.None)
+                | ((modifiers & KeyModifiers.Meta) != 0 ? EventModifiers.Meta : EventModifiers.None)
+                | ((modifiers & KeyModifiers.Shift) != 0 ? EventModifiers.Shift : EventModifiers.None),
+        };
+    }
+
+    /// <summary>One key down and up at whatever has focus, on the loop, answering the navigation it caused.</summary>
+    /// <remarks>
+    /// Captured rather than started, for the reason <see cref="ClickAsync(string, int, NavigationOptions)"/>
+    /// captures: <kbd>Enter</kbd>'s implicit submission is a navigation this caller can be handed instead of
+    /// one that runs off on its own.
+    /// </remarks>
+    private NavigationRequest? PressOnLoop(PageRuntime runtime, KeyOptions input)
+    {
+        _capturingNavigation = true;
+        _capturedNavigation = null;
+
+        try
+        {
+            InputDispatcher.DispatchKey(runtime, input, KeyInputKind.KeyDown);
+            InputDispatcher.DispatchKey(runtime, input, KeyInputKind.KeyUp);
+            return _capturedNavigation;
+        }
+        finally
+        {
+            _capturingNavigation = false;
+            _capturedNavigation = null;
+        }
     }
 
     /// <summary>Selects the option of a <c>&lt;select&gt;</c> whose value or label is <paramref name="value"/>.</summary>
@@ -556,7 +741,10 @@ public sealed partial class Page
                 return false;
             }
 
-            FocusController.Focus(runtime.Dom, select);
+            if (!FocusController.Focus(runtime.Dom, select) && FocusController.IsInInertOrHiddenSubtree(select))
+            {
+                return false;
+            }
 
             // The option's own activation behaviour, so a selection made here and one made by clicking the
             // option change the same state and fire the same two events at the same element.
