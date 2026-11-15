@@ -9,8 +9,10 @@ namespace Jint.Browser.Dom;
 internal static class DomSelectors
 {
     internal static Element? QuerySelector(DomRealm realm, Node root, string text)
+        => QuerySelector(realm, root, Compile(realm, text));
+
+    internal static Element? QuerySelector(DomRealm realm, Node root, CompiledSelector program)
     {
-        var program = Compile(realm, text);
         var work = Work(realm, root);
         var environment = Environment(realm, root);
         return SelectorMatcher.QuerySelector(program, root, environment, ref work);
