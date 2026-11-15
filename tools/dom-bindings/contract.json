@@ -10568,6 +10568,14 @@
           "Origin": "IValidation.SetCustomValidity"
         },
         {
+          "DomName": "setRangeText",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.setRangeText\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetRangeText(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTML text control selection API"
+        },
+        {
           "DomName": "setSelectionRange",
           "Kind": 0,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.setSelectionRange\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetSelectionRange(self.Realm, self.Target, args);",
@@ -13611,6 +13619,14 @@
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
+        },
+        {
+          "DomName": "setRangeText",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.setRangeText\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetRangeText(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTML text control selection API"
         },
         {
           "DomName": "setSelectionRange",
