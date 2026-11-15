@@ -1571,15 +1571,27 @@ internal sealed partial class ParserDriver : IDisposable
     /// aborting one.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// It is the same debt <c>PageLoop.Pump</c> pays to its own <c>onPumpError</c>: the pump must not end
     /// the load, and what it swallows must not vanish. A constraint abort in particular is the whole reason
     /// this exists — a page bounded by a budget that fires into nothing is a page nobody can debug.
+    /// </para>
+    /// <para>
+    /// A budget stop is also told to the page's watcher, as <c>Page</c>'s own pump tells it: a protocol command
+    /// drained by this pump while the parse waits on the network is a task like any other, and one awaiting a
+    /// promise of the turn that stopped would otherwise wait for ever (#4619).
+    /// </para>
     /// </remarks>
     private void OnPumpError(Exception exception)
-        => Report(
-            PageBudget.IsBudgetFailure(exception) ? PageErrorKind.BudgetExceeded : PageErrorKind.UncaughtCallbackError,
-            exception.Message,
-            "ParserDriver");
+    {
+        var budget = PageBudget.IsBudgetFailure(exception);
+        Report(budget ? PageErrorKind.BudgetExceeded : PageErrorKind.UncaughtCallbackError, exception.Message, "ParserDriver");
+
+        if (budget)
+        {
+            _runtime.Page.Observer?.TaskStopped(exception);
+        }
+    }
 
     // Primary parser coordinates are exact. Inserted or mixed text is script-relative.
     private static int LineOf(Element element, string text)

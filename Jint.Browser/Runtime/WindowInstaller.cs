@@ -103,6 +103,7 @@ internal static class WindowInstaller
         var namedProperties = new WindowNamedProperties(runtime)
         {
             Prototype = realm.Intrinsics.EventTarget.PrototypeObject,
+            Global = realm.GlobalObject,
         };
 
         var windowPrototype = _windowShape.Instantiate(engine, namedProperties);
@@ -229,7 +230,7 @@ internal static class WindowInstaller
         var target = engine._webApi!.GlobalEventTargetFor(realm);
         dom.WindowTarget = target;
         target.IsWindow = true;
-        var named = new WindowNamedProperties(runtime, document) { Prototype = realm.Intrinsics.EventTarget.PrototypeObject };
+        var named = new WindowNamedProperties(runtime, document) { Prototype = realm.Intrinsics.EventTarget.PrototypeObject, Global = realm.GlobalObject };
         var prototype = _frameWindowShape.Instantiate(engine, named);
         var constructor = new WindowInterfaceObject(engine, realm, prototype);
         prototype.DefineOwnPropertyUnchecked("constructor", new PropertyDescriptor(constructor, PropertyFlag.NonEnumerable));

@@ -121,7 +121,11 @@ public sealed class PageTaskBudgetTests
             var reply = replies[i];
             if (firstCommandOverruns && i == 0)
             {
-                reply.GetProperty("error").GetProperty("message").GetString().Should().Be("Command timed out");
+                // The overrun is the evaluation's thrown error, never the mailbox's own timeout (#4619). This
+                // test's clock is its own, which is the clock the turn's deadline is asked about.
+                reply.TryGetProperty("error", out var overrun).Should().BeFalse("a stop is the evaluation's answer: {0}", overrun);
+                reply.GetProperty("result").GetProperty("exceptionDetails").GetProperty("exception")
+                    .GetProperty("description").GetString().Should().StartWith("Error: Task exceeded MaxTaskDuration");
                 continue;
             }
 
@@ -315,6 +319,46 @@ public sealed class PageTaskBudgetTests
         engine.Tasks.ProcessTasks();
 
         calls.Should().Equal("fresh");
+    }
+
+    /// <summary>
+    /// Every turn is numbered, a nested one too, and a stop is attributed to the page's budget only when that
+    /// turn's own deadline — on its own clock — has passed (#4619).
+    /// </summary>
+    [Test]
+    public void TurnsAreNumberedAndAStopIsAttributedByItsOwnDeadline()
+    {
+        var clock = new BudgetClock();
+        var engine = new Engine(options => options.AddConstraint(() => new OperationDeadlineConstraint(clock)));
+        var budget = global::Jint.Browser.Runtime.PageBudget.For(engine, new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(5) });
+        var timeout = new TimeoutException("whichever constraint threw it");
+
+        budget.Turn.Should().Be(0);
+        long outer, inner;
+        using (budget.BeginTurn())
+        {
+            outer = budget.Turn;
+            budget.Describe(timeout).Should().BeNull("the turn's deadline has not passed, so another limit threw this");
+
+            using (budget.BeginTurn())
+            {
+                inner = budget.Turn;
+                inner.Should().NotBe(outer);
+                clock.Advance();
+                clock.Advance();
+                budget.Describe(timeout).Should().StartWith("Task exceeded MaxTaskDuration (5s)");
+            }
+
+            budget.LastEndedTurn.Should().Be(inner, "the nested turn is the one that ended");
+            budget.Turn.Should().Be(outer, "and the enclosing one is current again");
+            budget.Describe(timeout, ended: true).Should().StartWith("Task exceeded MaxTaskDuration", "as it stood when the nested turn ended");
+            budget.Describe(timeout).Should().BeNull("the enclosing turn was handed a full budget back");
+        }
+
+        budget.LastEndedTurn.Should().Be(outer);
+        budget.Turn.Should().Be(0);
+        budget.Describe(timeout, ended: true).Should().BeNull();
+        budget.Describe(new MemoryLimitExceededException("MaxArraySize's, not the budget's")).Should().BeNull();
     }
 
     private static BrowserOptions Options(BudgetClock clock)

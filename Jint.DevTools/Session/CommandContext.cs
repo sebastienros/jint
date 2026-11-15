@@ -19,6 +19,7 @@ internal sealed class CommandContext
 {
     private List<IDisposable>? _held;
     private int _awaitingScript;
+    private Action<string>? _stopped;
 
     internal CommandContext(DevToolsSession session, string? sessionId, CancellationToken cancellationToken)
     {
@@ -60,8 +61,21 @@ internal sealed class CommandContext
     /// A command that awaits host work — <c>Page.navigate</c> awaiting the commit that replaces the engine —
     /// must not say this: the swap is how it completes, not what destroys it.
     /// </para>
+    /// <para>
+    /// <paramref name="stopped"/> is how the command is answered when an execution limit ends the turn it
+    /// ran in before the promise settled: the reaction it waits on was queued in that turn's checkpoint and is
+    /// gone with it. It is handed the sentence naming the limit, and it is called on the engine thread.
+    /// </para>
     /// </remarks>
-    internal void MarkAwaitingScript() => Volatile.Write(ref _awaitingScript, 1);
+    internal void MarkAwaitingScript(Action<string>? stopped = null)
+    {
+        _stopped = stopped;
+        Volatile.Write(ref _awaitingScript, 1);
+    }
+
+    /// <summary>Gets what answers this command when an execution limit stops the turn it awaited in.</summary>
+    /// <remarks><see langword="null"/> unless <see cref="MarkAwaitingScript"/> was handed one.</remarks>
+    internal Action<string>? Stopped => _stopped;
 
     /// <summary>Gets whether anything is holding memory until this command's reply has been written.</summary>
     internal bool HoldsUntilReplyWritten => _held is { Count: > 0 };

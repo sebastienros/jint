@@ -1,3 +1,4 @@
+using System.Globalization;
 using Jint.Constraints;
 using Jint.Runtime;
 
@@ -50,13 +51,27 @@ internal sealed class PageBudget : IEventLoopTaskBudget
     private readonly OperationDeadlineConstraint? _deadline;
     private readonly MemoryLimitConstraint? _memory;
     private readonly TimeSpan _turn;
+    private readonly long _memoryLimit;
     private int _depth;
 
-    private PageBudget(OperationDeadlineConstraint? deadline, MemoryLimitConstraint? memory, TimeSpan turn)
+    // Every turn is numbered, a nested one too, so a stop names the turn it ended rather than the outermost
+    // one around it: a parser network wait pumps whole tasks as nested turns of the navigation's request.
+    private long _serial;
+    private long _current;
+    private Stack<long>? _enclosing;
+
+    // What the turn that ended last ran out of, read before its constraints were re-armed or ended. A stop
+    // reported after its turn closed is described from these, against the constraints' own clocks.
+    private long _lastEnded;
+    private bool _lastDeadlineExpired;
+    private bool _lastMemoryExceeded;
+
+    private PageBudget(OperationDeadlineConstraint? deadline, MemoryLimitConstraint? memory, TimeSpan turn, long memoryLimit)
     {
         _deadline = deadline;
         _memory = memory;
         _turn = turn;
+        _memoryLimit = memoryLimit;
     }
 
     /// <summary>The budget bracketing every turn of <paramref name="engine"/>, or a disabled one.</summary>
@@ -75,7 +90,7 @@ internal sealed class PageBudget : IEventLoopTaskBudget
             ? engine.Constraints.Find<MemoryLimitConstraint>()
             : null;
 
-        var budget = new PageBudget(deadline, memory, turn);
+        var budget = new PageBudget(deadline, memory, turn, options.MemoryLimit);
         engine.Tasks.ConfigureTaskBudget(budget);
         return budget;
     }
@@ -99,6 +114,78 @@ internal sealed class PageBudget : IEventLoopTaskBudget
         }
     }
 
+    /// <summary>Gets the number of the innermost turn open now, or zero outside every turn.</summary>
+    /// <remarks>
+    /// What a protocol command awaiting a promise is tagged with when it runs, so that a stop of that very
+    /// turn — its own microtask checkpoint — can answer it (<c>EngineDispatcher.StopAwaiting</c>).
+    /// </remarks>
+    internal long Turn => _current;
+
+    /// <summary>Gets the number of the turn that ended last, which is the one a stop that reached a pump ended.</summary>
+    /// <remarks>
+    /// Read on the loop after the failure has left the turn's bracket and before anything opens another, which
+    /// is when <c>IPageObserver.TaskStopped</c> runs.
+    /// </remarks>
+    internal long LastEndedTurn => _lastEnded;
+
+    /// <summary>
+    /// The sentence naming the budget that stopped a turn, or <see langword="null"/> when
+    /// <paramref name="exception"/> is not one of this bracket's.
+    /// </summary>
+    /// <param name="exception">What the engine threw.</param>
+    /// <param name="ended">
+    /// Whether the turn that threw has already closed — a stop reported from a pump — rather than still being
+    /// the innermost open one, as it is for a command that caught the stop itself.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>Which of the page's options to raise is the whole message.</b> The constraint says "the operation's
+    /// time budget elapsed", which a reader of a Playwright failure cannot act on: the budget is
+    /// <see cref="BrowserOptions.MaxTaskDuration"/>, which <c>jint-browser</c> spells
+    /// <c>--max-task-duration</c>, and the page goes on running after it (#4619).
+    /// </para>
+    /// <para>
+    /// <b>An exception is this bracket's only when its own constraint says so.</b> Under
+    /// <see cref="BrowserOptions.ForUntrustedContent"/> a per-entry <c>LimitExecutionTime</c> raises the same
+    /// <see cref="TimeoutException"/>, and <c>MaxArraySize</c> the same <see cref="MemoryLimitExceededException"/>;
+    /// naming the turn budget for either would send the reader to an option that cannot help. So the deadline is
+    /// asked whether it has passed, on the clock it is armed from — a host's own, if it supplied one — and the
+    /// allocation budget whether it is the one exceeded, and anything else keeps the constraint's message.
+    /// </para>
+    /// </remarks>
+    internal string? Describe(Exception exception, bool ended = false)
+    {
+        if (exception is TimeoutException && (ended ? _lastDeadlineExpired : DeadlineExpired()))
+        {
+            return $"Task exceeded MaxTaskDuration ({Format(_turn)}): one task and its microtasks may run for at most "
+                + $"{Format(_turn)}. Raise BrowserOptions.MaxTaskDuration (jint-browser --max-task-duration); 0 removes the ceiling.";
+        }
+
+        if (exception is MemoryLimitExceededException && _memoryLimit > 0 && (ended ? _lastMemoryExceeded : MemoryExceeded()))
+        {
+            return $"Task exceeded MemoryLimit ({_memoryLimit.ToString(CultureInfo.InvariantCulture)} bytes): one task and its "
+                + "microtasks allocated more than that. Raise BrowserOptions.MemoryLimit (jint-browser --memory-limit).";
+        }
+
+        return null;
+    }
+
+    /// <summary>A duration the way the command line takes one: <c>5s</c>, <c>250ms</c>, <c>1.5s</c>, <c>2m</c>.</summary>
+    internal static string Format(TimeSpan duration)
+    {
+        if (duration.TotalSeconds < 1)
+        {
+            return duration.TotalMilliseconds.ToString("0.###", CultureInfo.InvariantCulture) + "ms";
+        }
+
+        if (duration.TotalMinutes >= 1 && duration.Ticks % TimeSpan.TicksPerMinute == 0)
+        {
+            return duration.TotalMinutes.ToString("0", CultureInfo.InvariantCulture) + "m";
+        }
+
+        return duration.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture) + "s";
+    }
+
     /// <summary>Whether anything is actually bounded, which is what makes a turn worth bracketing.</summary>
     internal bool IsArmed => _deadline is not null || _memory is not null;
 
@@ -111,6 +198,13 @@ internal sealed class PageBudget : IEventLoopTaskBudget
         }
 
         var depth = ++_depth;
+
+        if (depth > 1)
+        {
+            (_enclosing ??= new Stack<long>()).Push(_current);
+        }
+
+        _current = ++_serial;
 
         // Deliberately no cancellation token: the engine already carries a CancellationConstraint over the
         // page's own token (BrowserEngineFactory registers it), and handing the same token here as well
@@ -129,10 +223,16 @@ internal sealed class PageBudget : IEventLoopTaskBudget
 
     private void EndTurn()
     {
+        _lastEnded = _current;
+        _lastDeadlineExpired = DeadlineExpired();
+        _lastMemoryExceeded = MemoryExceeded();
+
         var depth = --_depth;
 
         if (depth > 0)
         {
+            _current = _enclosing!.Pop();
+
             // Back to the enclosing turn, which gets a full budget rather than what is left of its own: the
             // time the nested turn spent was charged to a bound of its own, and a document is not failed for
             // containing more than one script.
@@ -141,9 +241,38 @@ internal sealed class PageBudget : IEventLoopTaskBudget
         }
 
         _depth = 0;
+        _current = 0;
+        _enclosing?.Clear();
         _deadline?.End();
         _memory?.End();
     }
+
+    /// <summary>Whether the turn's own deadline has passed, by the clock that deadline is armed from.</summary>
+    /// <remarks>
+    /// <see cref="OperationDeadlineConstraint"/> publishes no "has elapsed" of its own, and its check is that
+    /// question exactly: it is armed with no token, so the only thing it can throw is the timeout. An unexpired
+    /// deadline costs one clock read; an expired one is a turn that has already failed.
+    /// </remarks>
+    private bool DeadlineExpired()
+    {
+        if (_deadline is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            _deadline.Check();
+            return false;
+        }
+        catch (TimeoutException)
+        {
+            return true;
+        }
+    }
+
+    /// <summary>Whether the allocation budget is the one that has been exceeded in the current operation.</summary>
+    private bool MemoryExceeded() => _memory?.HasExceeded == true;
 
     /// <summary>Whether <paramref name="exception"/> is a budget this bracket armed running out.</summary>
     /// <remarks>
