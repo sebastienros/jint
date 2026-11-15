@@ -49,8 +49,8 @@ internal sealed class DomChildHtmlCollection(Node root) : DomHtmlCollection<Elem
     /// <b>Only a cursor the tree vouches for is followed.</b> It is used when the document is the same one and
     /// its <see cref="Document.MutationStamp"/> has not moved since it was taken, which is the witness the
     /// collection's cached <c>length</c> already rests on, and it holds its element weakly so a removed child
-    /// is never kept alive by a collection that read it once. The record is replaced, never mutated, because
-    /// one collection per node is shared process-wide.
+    /// is never kept alive by a collection that read it once. Its two weak references are retargeted rather
+    /// than reallocated, so an indexed loop allocates nothing per read; a node is read only on its page loop.
     /// </para>
     /// </remarks>
     internal override Element? GetItem(DomRealm realm, uint index)
@@ -73,14 +73,14 @@ internal sealed class DomChildHtmlCollection(Node root) : DomHtmlCollection<Elem
         Element? current = null;
         uint position = 0;
 
-        if (witnessed && _cursor is { } cursor && cursor.Stamp == stamp
-            && cursor.Owner.TryGetTarget(out var cursorOwner) && ReferenceEquals(cursorOwner, owner)
-            && cursor.Element.TryGetTarget(out var remembered)
+        if (witnessed && _cursorElement is not null && _cursorStamp == stamp
+            && _cursorOwner!.TryGetTarget(out var cursorOwner) && ReferenceEquals(cursorOwner, owner)
+            && _cursorElement.TryGetTarget(out var remembered)
             // Behind the cursor and nearer the start than the cursor: walk from the start instead.
-            && (index >= cursor.Index || cursor.Index - index <= index))
+            && (index >= _cursorIndex || _cursorIndex - index <= index))
         {
             current = remembered;
-            position = cursor.Index;
+            position = _cursorIndex;
         }
         else
         {
@@ -104,16 +104,29 @@ internal sealed class DomChildHtmlCollection(Node root) : DomHtmlCollection<Elem
         if (current is not null && witnessed && TryGetCountWitness(out var after, out var afterStamp)
             && ReferenceEquals(after, owner) && afterStamp == stamp)
         {
-            _cursor = new Cursor(new WeakReference<Element>(current), position, new WeakReference<Document>(owner!), stamp);
+            if (_cursorElement is null)
+            {
+                _cursorElement = new WeakReference<Element>(current);
+                _cursorOwner = new WeakReference<Document>(owner!);
+            }
+            else
+            {
+                _cursorElement.SetTarget(current);
+                _cursorOwner!.SetTarget(owner!);
+            }
+
+            _cursorIndex = position;
+            _cursorStamp = stamp;
         }
 
         return current;
     }
 
-    private Cursor? _cursor;
-
-    /// <summary>The last child read, its position among the element children, and the tree it was read in.</summary>
-    private sealed record Cursor(WeakReference<Element> Element, uint Index, WeakReference<Document> Owner, ulong Stamp);
+    // The last child read, its position among the element children, and the tree it was read in.
+    private WeakReference<Element>? _cursorElement;
+    private WeakReference<Document>? _cursorOwner;
+    private uint _cursorIndex;
+    private ulong _cursorStamp;
 
     private static Element? NextElement(Node? node, DomReadWork work)
     {

@@ -8767,10 +8767,11 @@ command runs in the same document. A command awaiting a promise whose reaction t
 checkpoint is answered the same way rather than never. Every other command stopped by a limit is a `-32000` whose
 message names it.
 
-**`serve`'s default.** Trusted pages under `jint-browser serve` have no per-task ceiling unless
-`--max-task-duration` gives one, as Chromium has none: a protocol client bounds what it drives, and closing a target
-ends a running task whatever the ceiling. `--untrusted` keeps its profile's ceiling; `fetch` and `eval` keep five
-seconds; `BrowserOptions.MaxTaskDuration`'s own default is unchanged. Pass `--max-task-duration 5s` for the old one.
+**`serve`'s default.** Trusted pages under `jint-browser serve` get two minutes per task unless
+`--max-task-duration` says otherwise: past any protocol client's own timeout, since Chromium has no per-task
+ceiling, and still finite so a page a killed client left running cannot spin for ever. `--untrusted` keeps its
+profile's ceiling; `fetch` and `eval` keep five seconds; `BrowserOptions.MaxTaskDuration`'s own default is
+unchanged. Pass `--max-task-duration 5s` for the old one, or `0` for none.
 
 **Named access on the window.** A name that `EventTarget.prototype` or `Object.prototype` owns is no longer looked
 up among the document's elements, which is WebIDL's named property visibility: `<div id="hasOwnProperty">` no longer

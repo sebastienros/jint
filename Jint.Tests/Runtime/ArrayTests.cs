@@ -36,6 +36,26 @@ public class ArrayTests
             """).AsString().Should().Be("0,3,-1,5,3,2,1,-1,1,-1");
     }
 
+    /// <summary>
+    /// Two wrappers of one CLR object are <c>===</c> in Jint, so the identity shortcut must not apply to them:
+    /// <c>indexOf</c> answers what a <c>===</c> loop over the array answers.
+    /// </summary>
+    [Test]
+    public void IndexOfAWrappedHostObjectAgreesWithStrictEquality()
+    {
+        var target = new IndexOfHost();
+        var engine = new Engine(options => options.Interop.TrackObjectWrapperIdentity = false);
+        engine.SetValue("first", target).SetValue("second", target);
+
+        engine.Evaluate("first === second").AsBoolean().Should().BeTrue("both wrap the same CLR object");
+        engine.Evaluate("[{}, first].indexOf(second)").AsNumber().Should().Be(1);
+    }
+
+    private sealed class IndexOfHost
+    {
+        public int Value { get; } = 1;
+    }
+
     [Test]
     public void FilterSkipsHoles()
     {

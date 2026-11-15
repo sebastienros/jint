@@ -23,21 +23,25 @@ internal static class ServeCommand
     /// <summary>The frame interval <c>serve</c> gives its pages when <c>--animation-frame-interval</c> is not given.</summary>
     internal static readonly TimeSpan ServeAnimationFrameInterval = TimeSpan.FromMilliseconds(1);
 
-    /// <summary>The turn ceiling <c>serve</c> gives trusted pages when <c>--max-task-duration</c> is not given: none.</summary>
+    /// <summary>The turn ceiling <c>serve</c> gives trusted pages when <c>--max-task-duration</c> is not given.</summary>
     /// <remarks>
     /// <para>
-    /// <b>A protocol client owns the timeout.</b> Playwright gives a test 30 seconds, Puppeteer a call 30 more,
-    /// and both end a stuck page by closing its target — which ends a running turn whatever the ceiling,
-    /// because the page's own cancellation is registered with its engine separately. Chromium has no per-task
-    /// ceiling at all, so a five-second one here failed what Chromium runs: one synchronous <c>axe.run</c> over
-    /// a large page is a single task (#4619).
+    /// <b>A protocol client owns the timeout, so this one sits above it.</b> Playwright gives a whole test 30
+    /// seconds and Puppeteer a call 30 more; Chromium has no per-task ceiling at all, so a five-second one here
+    /// failed what Chromium runs — one synchronous <c>axe.run</c> over a large page is a single task (#4619).
+    /// Two minutes is past every client's own bound, so a client's timeout is what a slow task meets first.
     /// </para>
     /// <para>
-    /// <c>fetch</c> and <c>eval</c> keep the package's five seconds, because nothing else bounds a page they
-    /// drive; <c>--untrusted</c> keeps its profile's ceiling; and the banner says which applies.
+    /// <b>Not none, because nothing else would stop a page a client walked away from.</b> Closing a target ends
+    /// a running turn whatever the ceiling, but a client that is killed mid-test closes nothing, and a
+    /// <c>while (true)</c> it left running would hold a core for the life of the process.
+    /// </para>
+    /// <para>
+    /// <c>fetch</c> and <c>eval</c> keep the package's five seconds; <c>--untrusted</c> keeps its profile's
+    /// ceiling; <c>--max-task-duration 0</c> removes it; and the banner says which applies.
     /// </para>
     /// </remarks>
-    internal static readonly TimeSpan ServeMaxTaskDuration = Timeout.InfiniteTimeSpan;
+    internal static readonly TimeSpan ServeMaxTaskDuration = TimeSpan.FromMinutes(2);
 
     /// <summary>Every option <c>serve</c> accepts.</summary>
     internal static Dictionary<string, OptionKind> Syntax()
@@ -129,7 +133,7 @@ internal static class ServeCommand
             : "  Pages run with no hardened profile; pass --untrusted for content nobody vouches for.");
         output.WriteLine(maxTaskDuration > TimeSpan.Zero
             ? $"  One task may run for at most {ValueSyntax.FormatDuration(maxTaskDuration)} (--max-task-duration)."
-            : "  Tasks have no time ceiling, as in Chromium; the client's own timeouts bound them (--max-task-duration sets one).");
+            : "  Tasks have no time ceiling (--max-task-duration 0).");
         output.WriteLine("  The endpoint is unauthenticated: anything that reaches it can run script in this process.");
         output.WriteLine();
         output.WriteLine("  Ctrl+C to stop.");

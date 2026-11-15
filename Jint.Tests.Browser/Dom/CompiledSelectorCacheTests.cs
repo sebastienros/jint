@@ -71,4 +71,14 @@ public sealed class CompiledSelectorCacheTests
 
         DomRealm.Of(fixture.Engine).CompiledSelectors!.Count.Should().BeLessThanOrEqualTo(DomSelectors.MaxCompiledSelectors);
     }
+
+    [Test]
+    public void ALongSelectorIsAnsweredButNotRemembered()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+        var selector = "li" + string.Concat(Enumerable.Repeat(":not(.z)", DomSelectors.MaxCompiledSelectorLength / 8 + 1));
+
+        fixture.Bool($"document.getElementById('a').matches('{selector}')").Should().BeTrue();
+        DomRealm.Of(fixture.Engine).CompiledSelectors?.ContainsKey(selector).Should().NotBe(true);
+    }
 }

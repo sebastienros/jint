@@ -6,18 +6,20 @@ using ServeCommand = global::Jint.Browser.Tool.ServeCommand;
 namespace Jint.Tests.Browser.Tool;
 
 /// <summary>
-/// <c>--max-task-duration</c>: <c>serve</c> gives trusted pages no ceiling, because a protocol client owns its
-/// timeouts and Chromium has none (#4619); every other command, and <c>--untrusted</c>, keeps a finite one.
+/// <c>--max-task-duration</c>: <c>serve</c> gives trusted pages two minutes, past any protocol client's own timeout
+/// (#4619); every other command keeps five seconds, and <c>--untrusted</c> its profile's.
 /// </summary>
 public sealed class MaxTaskDurationSettingTests
 {
     [Test]
-    public void ServeGivesTrustedPagesNoCeiling()
-    {
-        var options = Settings().ToBrowserOptions(ServeCommand.ServeAnimationFrameInterval, ServeCommand.ServeMaxTaskDuration);
+    public void ServeGivesTrustedPagesTwoMinutes()
+        => Settings().ToBrowserOptions(ServeCommand.ServeAnimationFrameInterval, ServeCommand.ServeMaxTaskDuration)
+            .MaxTaskDuration.Should().Be(TimeSpan.FromMinutes(2));
 
-        options.MaxTaskDuration.Should().BeLessThanOrEqualTo(TimeSpan.Zero, "a non-positive duration is the package's 'no time bound'");
-    }
+    [Test]
+    public void ZeroStillRemovesServesCeiling()
+        => Settings("--max-task-duration", "0").ToBrowserOptions(ServeCommand.ServeAnimationFrameInterval, ServeCommand.ServeMaxTaskDuration)
+            .MaxTaskDuration.Should().Be(TimeSpan.Zero);
 
     [Test]
     public void TheOtherCommandsKeepThePackagesCeiling()

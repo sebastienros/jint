@@ -1166,8 +1166,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             // IsStrictlyEqual of an object is identity (https://tc39.es/ecma262/#sec-isstrictlyequal step 2 ->
             // SameValueNonNumber step 7), so searching for one needs no virtual Equals per element. Searching
-            // an array of DOM nodes for a node is how axe-core deduplicates, and this loop is the scan.
-            if (searchElement is ObjectInstance)
+            // an array of DOM nodes for a node is how axe-core deduplicates, and this loop is the scan. Not for
+            // a type whose Equals says more than identity: two ObjectWrappers of one CLR object are ===. An
+            // element of such a type compares itself to an identity-equal search value by identity too.
+            if (searchElement is ObjectInstance { EqualityIsIdentity: true })
             {
                 for (var i = (int) k; i < actualLen; i++)
                 {

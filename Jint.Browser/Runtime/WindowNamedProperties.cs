@@ -65,6 +65,9 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
         _document = document;
     }
 
+    /// <summary>The window whose prototype chain this object sits on, which the visibility algorithm starts from.</summary>
+    internal ObjectInstance? Global { get; init; }
+
     /// <inheritdoc />
     /// <remarks>
     /// Read only by an enumeration — <c>for..in</c> over the window, <c>Object.getOwnPropertyNames</c> of this
@@ -141,22 +144,24 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
     /// </summary>
     /// <remarks>
     /// <para>
-    /// https://webidl.spec.whatwg.org/#dfn-named-property-visibility — step 4: walking the global's prototype
-    /// chain, a prototype that is not a named properties object and has an own property named P hides it.
-    /// The global object and <c>Window.prototype</c> come before this object, so an ordinary lookup has already
-    /// found anything they own; what is left to ask is the part of the chain after it.
+    /// https://webidl.spec.whatwg.org/#dfn-named-property-visibility — run with the global object: an own
+    /// property of the window hides P (step 3), and so does an own property of any prototype on its chain that
+    /// is not a named properties object (step 4). That is the window, <c>Window.prototype</c>,
+    /// <c>EventTarget.prototype</c> and <c>Object.prototype</c>, skipping this object itself.
     /// </para>
     /// <para>
-    /// Those are <c>EventTarget.prototype</c> and <c>Object.prototype</c> — two own-property probes, no getter
-    /// run and no script, against a walk of the document. A page that adds a property to either of them hides
-    /// an element of that name from then on, which is what the algorithm says too.
+    /// For an identifier read the first two have already been asked by the time this object is, so what saves
+    /// the document walk is the last two; asking all four is what keeps a direct read of this object and its
+    /// listed names consistent with the identifier. Four own-property probes, no getter run and no script, in
+    /// place of a walk of every element. A page that adds a property to any of them hides an element of that
+    /// name from then on, which is what the algorithm says too.
     /// </para>
     /// </remarks>
     private bool IsOwnedFurtherUp(string name)
     {
-        for (var prototype = Prototype; prototype is not null; prototype = prototype.Prototype)
+        for (var holder = Global ?? Prototype; holder is not null; holder = holder.Prototype)
         {
-            if (prototype is not NamedPropertyObject && prototype.HasOwnProperty(name))
+            if (holder is not NamedPropertyObject && holder.HasOwnProperty(name))
             {
                 return true;
             }

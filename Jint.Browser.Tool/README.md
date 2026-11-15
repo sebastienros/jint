@@ -176,10 +176,12 @@ of the event loop, one inline `<script>` — rather than the run as a whole, whi
 allows anyone to bound.
 
 The ceiling is five seconds for `fetch` and `eval`, and the hardened profile's own under `--untrusted` (and for
-`mcp`, which hardens by default). **`serve` has none unless `--untrusted` is given**,
-as Chromium has none: a protocol client already bounds what it drives (Playwright gives a test 30 seconds),
-and closing a page ends a running task whatever the ceiling. A task stopped by the ceiling is reported to
-the client as an error naming it — `Task exceeded MaxTaskDuration (5s)` — and the page stays usable.
+`mcp`, which hardens by default). **`serve` gives trusted pages two minutes**, past any protocol client's
+own bound (Playwright gives a whole test 30 seconds), because Chromium has no per-task ceiling and a slow task
+such as one `axe.run` over a large page should meet the client's timeout first; it is still finite so that a
+runaway script a killed client left behind cannot hold a core for ever. A task stopped by the ceiling is
+reported to the client as an error naming it — `Task exceeded MaxTaskDuration (2m)` — and the page stays
+usable.
 
 ## HTTP response caching
 

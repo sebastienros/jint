@@ -100,11 +100,12 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         }
         catch (TimeoutException) when (item.Completion.Task.IsFaulted)
         {
-            // Not the wait running out: the command itself failed with a TimeoutException, which WaitAsync
-            // rethrows as it is. Reading that as the client's bound is what answered a page's five-second turn
-            // budget with "Command timed out" at exactly five seconds (#4619). Run translates an execution
-            // stop before it gets here; anything else that throws one is the command's own failure.
-            throw;
+            // Not the wait running out: the command itself failed, possibly with a TimeoutException that
+            // WaitAsync rethrows as it is. Reading that as the client's bound is what answered a page's
+            // five-second turn budget with "Command timed out" at exactly five seconds (#4619). Run translates
+            // an execution stop before it gets here; what is left is the command's own failure, and awaiting
+            // the faulted completion surfaces that one even when the wait's own timeout won the race to here.
+            return await item.Completion.Task.ConfigureAwait(false);
         }
         catch (TimeoutException) when (item.IsAwaiting)
         {

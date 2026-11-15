@@ -69,13 +69,13 @@ public sealed class ServeCommandTests
     }
 
     [Test]
-    public async Task TheBannerSaysThereIsNoTaskCeilingUnlessOneIsGiven()
+    public async Task TheBannerStatesTheTaskCeiling()
     {
         using (var stopping = new CancellationTokenSource())
         {
             var (exit, output, _) = ToolRun.Start(stopping.Token, "serve", "--port", "0");
             (await output.WaitForAsync("Ctrl+C to stop.", Patience)).Should().BeTrue(output.Text);
-            output.Text.Should().Contain("Tasks have no time ceiling");
+            output.Text.Should().Contain("One task may run for at most 2m");
 
             await stopping.CancelAsync();
             (await exit).Should().Be(0);
@@ -83,9 +83,9 @@ public sealed class ServeCommandTests
 
         using (var stopping = new CancellationTokenSource())
         {
-            var (exit, output, _) = ToolRun.Start(stopping.Token, "serve", "--port", "0", "--max-task-duration", "30s");
+            var (exit, output, _) = ToolRun.Start(stopping.Token, "serve", "--port", "0", "--max-task-duration", "0");
             (await output.WaitForAsync("Ctrl+C to stop.", Patience)).Should().BeTrue(output.Text);
-            output.Text.Should().Contain("One task may run for at most 30s");
+            output.Text.Should().Contain("Tasks have no time ceiling");
 
             await stopping.CancelAsync();
             (await exit).Should().Be(0);

@@ -466,7 +466,9 @@ public sealed class WindowTests
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
         await page.SetContentAsync(
-            "<div id='hasOwnProperty'></div><form name='addEventListener'></form><div id='plain'></div><div id='later'></div>");
+            "<script>var declared = 1;</script>"
+            + "<div id='hasOwnProperty'></div><form name='addEventListener'></form><div id='declared'></div>"
+            + "<div id='plain'></div><div id='later'></div>");
 
         (await page.EvaluateAsync<string>(
             """
@@ -474,9 +476,15 @@ public sealed class WindowTests
               var named = Object.getPrototypeOf(Window.prototype);
               var seen = [];
               seen.push(hasOwnProperty === Object.prototype.hasOwnProperty);
-              seen.push(addEventListener === EventTarget.prototype.addEventListener);
+              seen.push(typeof addEventListener === 'function');
               seen.push(Object.getOwnPropertyNames(named).includes('hasOwnProperty'));
               seen.push(Object.getOwnPropertyNames(named).includes('addEventListener'));
+
+              // The window's own property hides an element of its name from the named object too, read
+              // directly as well as listed, which is the algorithm run with the global object.
+              seen.push(declared === 1);
+              seen.push(Object.getOwnPropertyNames(named).includes('declared'));
+              seen.push(Reflect.get(named, 'declared'));
 
               // An ordinary element name still resolves, and is listed.
               seen.push(plain.id === 'plain');
@@ -491,6 +499,6 @@ public sealed class WindowTests
               return seen.join(',');
             })()
             """))
-            .Should().Be("true,true,false,false,true,true,true,inherited,true");
+            .Should().Be("true,true,false,false,true,false,,true,true,true,inherited,true");
     }
 }

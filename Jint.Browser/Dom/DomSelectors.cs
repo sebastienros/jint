@@ -50,6 +50,14 @@ internal static class DomSelectors
     /// </remarks>
     internal const int MaxCompiledSelectors = 512;
 
+    /// <summary>The longest selector text a realm remembers; a longer one is compiled for every call.</summary>
+    /// <remarks>
+    /// The table holds each text for the life of the realm and outside any turn's allocation budget, so it is
+    /// bounded in size as well as count: 512 entries of at most this many characters. A selector this long is
+    /// one a page assembled from data, and is the least likely to be asked again.
+    /// </remarks>
+    internal const int MaxCompiledSelectorLength = 256;
+
     /// <summary>
     /// The compiled form of <paramref name="text"/>, compiled once per realm and reused.
     /// </summary>
@@ -60,7 +68,9 @@ internal static class DomSelectors
     /// reused. Recompiling it for every <c>element.matches(s)</c> was 4% of an axe-core scan (#4619).
     /// </para>
     /// <para>
-    /// A selector that does not parse is not remembered, so every call raises its own <c>SyntaxError</c>.
+    /// A selector that does not parse is not remembered, so every call raises its own <c>SyntaxError</c>. When the
+    /// table is full it starts again rather than evicting one entry: a page cycling through more distinct
+    /// selectors than it holds recompiles them, which is what every call cost before the table existed.
     /// </para>
     /// </remarks>
     internal static CompiledSelector Compile(DomRealm realm, string text)
@@ -79,6 +89,11 @@ internal static class DomSelectors
             // forgiving lists, escapes and CSS Syntax's EOF recovery; no text rewriting is needed.
             var program = SelectorCompiler.Compile(text, null, realm.CancellationToken);
             realm.Engine.Constraints.Check();
+
+            if (text.Length > MaxCompiledSelectorLength)
+            {
+                return program;
+            }
 
             cache ??= realm.CompiledSelectors = new Dictionary<string, CompiledSelector>(StringComparer.Ordinal);
             if (cache.Count >= MaxCompiledSelectors)

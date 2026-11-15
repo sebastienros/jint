@@ -56,8 +56,8 @@ which is the opposite of every other command here and is why it takes `--trusted
 (the plugin is [`tools/wpt-scoreboard/`](../tools/wpt-scoreboard/README.md)). It needed no new seam — but it
 did need two options to *not* be defaults, and the reasons are worth knowing before either is changed.
 `--max-task-duration 0` is passed because a five-second turn cuts a legitimately slow conformance file
-mid-script — it is `serve`'s trusted default now too (#4619: a protocol client owns its timeouts, Chromium has
-no per-task ceiling, and closing a target ends a running turn), so the flag only pins it — and `--untrusted` is deliberately **not**, because `ForUntrustedContent` applies
+mid-script, even past `serve`'s own two-minute default (#4619: above any client's timeout, finite so a killed
+client cannot leave a page spinning for ever) — and `--untrusted` is deliberately **not**, because `ForUntrustedContent` applies
 `UntrustedCodeLimits.Default` — one second per engine entry, 50 000 statements, 10 000-element arrays,
 recursion depth 64, and four more — and no option here can move any of the eight it sets. A measurement taken under that profile
 would be a report on the profile.

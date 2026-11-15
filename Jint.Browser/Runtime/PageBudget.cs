@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using Jint.Constraints;
 using Jint.Runtime;
@@ -54,8 +53,18 @@ internal sealed class PageBudget : IEventLoopTaskBudget
     private readonly TimeSpan _turn;
     private readonly long _memoryLimit;
     private int _depth;
+
+    // Every turn is numbered, a nested one too, so a stop names the turn it ended rather than the outermost
+    // one around it: a parser network wait pumps whole tasks as nested turns of the navigation's request.
     private long _serial;
-    private long _deadlineArmedAt;
+    private long _current;
+    private Stack<long>? _enclosing;
+
+    // What the turn that ended last ran out of, read before its constraints were re-armed or ended. A stop
+    // reported after its turn closed is described from these, against the constraints' own clocks.
+    private long _lastEnded;
+    private bool _lastDeadlineExpired;
+    private bool _lastMemoryExceeded;
 
     private PageBudget(OperationDeadlineConstraint? deadline, MemoryLimitConstraint? memory, TimeSpan turn, long memoryLimit)
     {
@@ -105,18 +114,29 @@ internal sealed class PageBudget : IEventLoopTaskBudget
         }
     }
 
-    /// <summary>Gets the number of the outermost turn opened most recently, or zero before the first.</summary>
+    /// <summary>Gets the number of the innermost turn open now, or zero outside every turn.</summary>
     /// <remarks>
-    /// Read on the loop, after a turn's failure has reached the pump: the turn that failed is still the latest
-    /// one, because nothing has opened another yet. It is what a protocol command awaiting a promise is tagged
-    /// with, so that the stop of its own task can answer it (<c>EngineDispatcher.StopAwaiting</c>).
+    /// What a protocol command awaiting a promise is tagged with when it runs, so that a stop of that very
+    /// turn — its own microtask checkpoint — can answer it (<c>EngineDispatcher.StopAwaiting</c>).
     /// </remarks>
-    internal long Turn => _serial;
+    internal long Turn => _current;
+
+    /// <summary>Gets the number of the turn that ended last, which is the one a stop that reached a pump ended.</summary>
+    /// <remarks>
+    /// Read on the loop after the failure has left the turn's bracket and before anything opens another, which
+    /// is when <c>IPageObserver.TaskStopped</c> runs.
+    /// </remarks>
+    internal long LastEndedTurn => _lastEnded;
 
     /// <summary>
     /// The sentence naming the budget that stopped a turn, or <see langword="null"/> when
     /// <paramref name="exception"/> is not one of this bracket's.
     /// </summary>
+    /// <param name="exception">What the engine threw.</param>
+    /// <param name="ended">
+    /// Whether the turn that threw has already closed — a stop reported from a pump — rather than still being
+    /// the innermost open one, as it is for a command that caught the stop itself.
+    /// </param>
     /// <remarks>
     /// <para>
     /// <b>Which of the page's options to raise is the whole message.</b> The constraint says "the operation's
@@ -125,24 +145,23 @@ internal sealed class PageBudget : IEventLoopTaskBudget
     /// <c>--max-task-duration</c>, and the page goes on running after it (#4619).
     /// </para>
     /// <para>
-    /// A <see cref="TimeoutException"/> is this bracket's only when the turn's own deadline has actually
-    /// passed. Under <see cref="BrowserOptions.ForUntrustedContent"/> the profile's per-entry
-    /// <c>LimitExecutionTime</c> raises the same type, and naming the turn budget for that one would send the
-    /// reader to the wrong option. The check is against the clock the deadline is armed from, read before it
-    /// is armed, so it can only err towards the constraint's own message.
+    /// <b>An exception is this bracket's only when its own constraint says so.</b> Under
+    /// <see cref="BrowserOptions.ForUntrustedContent"/> a per-entry <c>LimitExecutionTime</c> raises the same
+    /// <see cref="TimeoutException"/>, and <c>MaxArraySize</c> the same <see cref="MemoryLimitExceededException"/>;
+    /// naming the turn budget for either would send the reader to an option that cannot help. So the deadline is
+    /// asked whether it has passed, on the clock it is armed from — a host's own, if it supplied one — and the
+    /// allocation budget whether it is the one exceeded, and anything else keeps the constraint's message.
     /// </para>
     /// </remarks>
-    internal string? Describe(Exception exception)
+    internal string? Describe(Exception exception, bool ended = false)
     {
-        if (exception is TimeoutException
-            && _deadline is not null
-            && Stopwatch.GetElapsedTime(Volatile.Read(ref _deadlineArmedAt)) >= _turn)
+        if (exception is TimeoutException && (ended ? _lastDeadlineExpired : DeadlineExpired()))
         {
             return $"Task exceeded MaxTaskDuration ({Format(_turn)}): one task and its microtasks may run for at most "
                 + $"{Format(_turn)}. Raise BrowserOptions.MaxTaskDuration (jint-browser --max-task-duration); 0 removes the ceiling.";
         }
 
-        if (exception is MemoryLimitExceededException && _memory is not null && _memoryLimit > 0)
+        if (exception is MemoryLimitExceededException && _memoryLimit > 0 && (ended ? _lastMemoryExceeded : MemoryExceeded()))
         {
             return $"Task exceeded MemoryLimit ({_memoryLimit.ToString(CultureInfo.InvariantCulture)} bytes): one task and its "
                 + "microtasks allocated more than that. Raise BrowserOptions.MemoryLimit (jint-browser --memory-limit).";
@@ -180,17 +199,19 @@ internal sealed class PageBudget : IEventLoopTaskBudget
 
         var depth = ++_depth;
 
-        if (depth == 1)
+        if (depth > 1)
         {
-            _serial++;
+            (_enclosing ??= new Stack<long>()).Push(_current);
         }
+
+        _current = ++_serial;
 
         // Deliberately no cancellation token: the engine already carries a CancellationConstraint over the
         // page's own token (BrowserEngineFactory registers it), and handing the same token here as well
         // would make a closing page's pending work fail with a bare OperationCanceledException from
         // whichever constraint was checked first instead of the ExecutionCanceledException it fails with
         // today.
-        ArmDeadline();
+        _deadline?.Begin(_turn);
 
         if (depth == 1)
         {
@@ -202,33 +223,56 @@ internal sealed class PageBudget : IEventLoopTaskBudget
 
     private void EndTurn()
     {
+        _lastEnded = _current;
+        _lastDeadlineExpired = DeadlineExpired();
+        _lastMemoryExceeded = MemoryExceeded();
+
         var depth = --_depth;
 
         if (depth > 0)
         {
+            _current = _enclosing!.Pop();
+
             // Back to the enclosing turn, which gets a full budget rather than what is left of its own: the
             // time the nested turn spent was charged to a bound of its own, and a document is not failed for
             // containing more than one script.
-            ArmDeadline();
+            _deadline?.Begin(_turn);
             return;
         }
 
         _depth = 0;
+        _current = 0;
+        _enclosing?.Clear();
         _deadline?.End();
         _memory?.End();
     }
 
-    /// <summary>Arms the turn's deadline, noting first when it was armed so a stop can be attributed to it.</summary>
-    private void ArmDeadline()
+    /// <summary>Whether the turn's own deadline has passed, by the clock that deadline is armed from.</summary>
+    /// <remarks>
+    /// <see cref="OperationDeadlineConstraint"/> publishes no "has elapsed" of its own, and its check is that
+    /// question exactly: it is armed with no token, so the only thing it can throw is the timeout. An unexpired
+    /// deadline costs one clock read; an expired one is a turn that has already failed.
+    /// </remarks>
+    private bool DeadlineExpired()
     {
         if (_deadline is null)
         {
-            return;
+            return false;
         }
 
-        Volatile.Write(ref _deadlineArmedAt, Stopwatch.GetTimestamp());
-        _deadline.Begin(_turn);
+        try
+        {
+            _deadline.Check();
+            return false;
+        }
+        catch (TimeoutException)
+        {
+            return true;
+        }
     }
+
+    /// <summary>Whether the allocation budget is the one that has been exceeded in the current operation.</summary>
+    private bool MemoryExceeded() => _memory?.HasExceeded == true;
 
     /// <summary>Whether <paramref name="exception"/> is a budget this bracket armed running out.</summary>
     /// <remarks>

@@ -646,6 +646,11 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
                 var details = _objects.Rejection(reason, NextExceptionId(), MainExecutionContextId);
                 completion.TrySetResult(build(_objects.Describe(reason, Thrown(request, reason)), details));
             }
+            catch (Exception exception) when (_target.DescribeExecutionStop(exception) is { } stop)
+            {
+                // Rendering the reason reads its `stack`, which may be a getter, inside the same turn.
+                completion.TrySetResult(Stopped(stop, build));
+            }
             catch (Exception exception)
             {
                 completion.TrySetException(exception);

@@ -282,7 +282,9 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         }
 
         var budget = page.Budget;
-        runtime.Dispatcher.StopAwaiting(budget.Turn, budget.Describe(exception) ?? base.DescribeExecutionStop(exception) ?? exception.Message);
+        runtime.Dispatcher.StopAwaiting(
+            budget.LastEndedTurn,
+            budget.Describe(exception, ended: true) ?? base.DescribeExecutionStop(exception) ?? exception.Message);
     }
 
     /// <summary>Registers one attachment's <c>Page</c> domain as a listener.</summary>
