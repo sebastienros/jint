@@ -314,6 +314,18 @@ internal sealed class FlatLayout
         return children;
     }
 
+    /// <summary>
+    /// Whether a block-level box says how wide it is — its width, max-width or min-width — which can make it
+    /// narrower than its parent (SizeQuery.BlockWidth), so the row division cannot answer for it.
+    /// </summary>
+    private static bool HasAuthoredWidth(Element element, CssCascade.Traversal? cascade)
+        => cascade?.LayoutOf(element) is { } style
+            && CssCascade.ValueOf(style, "display") is "block" or "flow-root" or "list-item" or "flex" or "grid"
+                or "inline-block" or "inline-flex" or "inline-grid"
+            && (CssCascade.ValueOf(style, "width") is not (null or "" or "auto")
+                || CssCascade.ValueOf(style, "max-width") is not (null or "" or "none")
+                || CssCascade.ValueOf(style, "min-width") is not (null or "" or "auto" or "0" or "0px"));
+
     /// <summary>Whether <paramref name="element"/> is absolutely positioned, out of its parent's flow.</summary>
     private static bool IsOutOfFlow(Element element, CssCascade.Traversal? cascade)
         => cascade?.LayoutOf(element) is { } style
@@ -337,7 +349,7 @@ internal sealed class FlatLayout
             // So can an invisible one, which the row division would hit, and a column whose height or growth
             // gives a box more rows than its descendants.
             hasFlexRows = hasFlexRows || invisible || FlexRow.IsHorizontal(element, cascade) || IsOutOfFlow(element, cascade)
-                || FlexRow.IsColumn(element, cascade);
+                || FlexRow.IsColumn(element, cascade) || HasAuthoredWidth(element, cascade);
 
             for (var child = element.LastChild; child is not null; child = child.PreviousSibling)
             {
@@ -683,7 +695,7 @@ internal sealed class FlatLayout
                 }
                 else
                 {
-                    _widths.Add(element, PositionedWidth(element, width) ?? GridItemWidth(element, parent, width) ?? width);
+                    _widths.Add(element, PositionedWidth(element, width) ?? GridItemWidth(element, parent, width) ?? BlockWidth(element, width) ?? width);
                 }
             }
 
@@ -767,6 +779,40 @@ internal sealed class FlatLayout
                 => value is not null && value.StartsWith("span ", StringComparison.Ordinal)
                     && int.TryParse(value.AsSpan(5).Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var count)
                     && count > 0 ? count : 1;
+        }
+
+        /// <summary>
+        /// The width of a block-level or inline-block box in normal flow
+        /// (https://www.w3.org/TR/CSS2/visudet.html#blockwidth): its own width, else its containing block's, clamped
+        /// by its min-width and max-width — a limited-width form row is a quarter of the form. Its horizontal margins
+        /// are not applied: it stays at its parent's left edge. <see langword="null"/> for a box that fills its
+        /// parent, and for an inline box, which width does not apply to.
+        /// </summary>
+        private double? BlockWidth(Element element, double available)
+        {
+            if (cascade?.LayoutOf(element) is not { } style
+                || CssCascade.ValueOf(style, "display") is not ("block" or "flow-root" or "list-item" or "flex" or "grid"
+                    or "inline-block" or "inline-flex" or "inline-grid"))
+            {
+                return null;
+            }
+
+            var viewport = ViewportOf();
+            double? Resolved(string name)
+                => FlexRow.Length(ResolvedLengths.Resolve(name, style.GetNormalizedProperty(name), style, viewport), available);
+
+            var authored = Resolved("width");
+            var maximum = Resolved("max-width");
+            var minimum = Resolved("min-width");
+            if (authored is null && maximum is null && minimum is null)
+            {
+                return null;
+            }
+
+            var width = authored ?? available;
+            if (maximum is { } max) width = Math.Min(width, max);
+            if (minimum is { } min) width = Math.Max(width, min);
+            return width;
         }
 
         /// <summary>

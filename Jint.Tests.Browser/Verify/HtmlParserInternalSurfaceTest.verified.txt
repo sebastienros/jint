@@ -412,6 +412,7 @@ internal Jint.HtmlParser.HtmlInputValueState
     ResetValue
     Select
     SetEditingSelection
+    SetRangeText
     SetSelectionDirection
     SetSelectionEnd
     SetSelectionRange
@@ -447,6 +448,7 @@ internal Jint.HtmlParser.HtmlOptionState
 internal Jint.HtmlParser.HtmlRadioGroupFacts
     get_CheckedCount
     get_RequiredCount
+internal Jint.HtmlParser.HtmlRangeTextMode
 internal Jint.HtmlParser.HtmlScriptState
     get_AlreadyStarted
     get_ForceAsync
@@ -492,6 +494,7 @@ internal Jint.HtmlParser.HtmlTextAreaState
     Select
     SetDefaultValue
     SetEditingSelection
+    SetRangeText
     SetSelectionEnd
     SetSelectionRange
     SetSelectionStart

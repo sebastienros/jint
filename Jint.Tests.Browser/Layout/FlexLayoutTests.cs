@@ -8,8 +8,6 @@ public class FlexLayoutTests
 {
     [TestCase("column", "nowrap")]
     [TestCase("column-reverse", "nowrap")]
-    [TestCase("row", "wrap")]
-    [TestCase("row", "wrap-reverse")]
     public async Task UnsupportedFlexDirectionsAndWrappingKeepTheFlatModel(string direction, string wrap)
     {
         await using var browser = new global::Jint.Browser.Browser(
@@ -30,6 +28,35 @@ public class FlexLayoutTests
             }))
             """)).Should().Be("[[0,48,800,16],[0,64,800,16]]");
         page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-flexbox/#algo-line-break — a wrapping row whose items fit on one line is that
+    /// line; items that do not fit wrap, one under the other.
+    /// </summary>
+    [TestCase("wrap", "flex:1", "[[0,48,400,16],[400,48,400,16]]")]
+    [TestCase("wrap-reverse", "flex:1", "[[0,48,400,16],[400,48,400,16]]")]
+    [TestCase("wrap", "width:25%", "[[0,48,200,16],[200,48,200,16]]")]
+    [TestCase("wrap", "width:100%", "[[0,48,800,16],[0,64,800,16]]")]
+    public async Task AWrappingRowIsOneLineWhenItsItemsFit(string wrap, string item, string expected)
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 600) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            $$"""
+            <div style="display:flex;flex-wrap:{{wrap}}">
+              <button id="a" style="{{item}}">A</button>
+              <button id="b" style="{{item}}">B</button>
+            </div>
+            """);
+        (await page.EvaluateAsync<string>(
+            """
+            JSON.stringify(['a','b'].map(id => {
+              const r = document.getElementById(id).getBoundingClientRect();
+              return [r.x,r.y,r.width,r.height];
+            }))
+            """)).Should().Be(expected);
     }
 
     [TestCase("row", "ltr", 0, 736)]

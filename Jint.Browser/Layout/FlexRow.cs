@@ -21,7 +21,48 @@ internal static class FlexRow
         var style = cascade.LayoutOf(element);
         return style is not null
             && CssCascade.ValueOf(style, "flex-direction") is not ("column" or "column-reverse")
-            && CssCascade.ValueOf(style, "flex-wrap") is not ("wrap" or "wrap-reverse");
+            && (CssCascade.ValueOf(style, "flex-wrap") is not ("wrap" or "wrap-reverse") || FitsOnOneLine(element, style, cascade));
+    }
+
+    /// <summary>
+    /// Whether a wrapping container's items fit on one line, which makes it the single-line row it is laid out as
+    /// (https://drafts.csswg.org/css-flexbox/#algo-line-break): their percentage bases share the container, their
+    /// other bases and the gaps the viewport, and an automatic basis is one row. A Bootstrap row of a 25% and a 75%
+    /// column, or a breadcrumb, stays on one line; three full-width columns wrap, one under the other.
+    /// </summary>
+    private static bool FitsOnOneLine(Element element, Styling.NativeCssComputedStyle style, CssCascade.Traversal cascade)
+    {
+        var width = cascade.ReadContext?.ViewportWidth ?? Viewport.Default.Width;
+        var share = 0d;
+        var pixels = 0d;
+        var items = 0;
+        for (var node = element.FirstChild; node is not null; node = node.NextSibling)
+        {
+            if (node is not Element child || cascade.Of(child) is not { } item || CssCascade.ValueOf(item, "display") is "none" || FlatLayout.IsMetadata(child)
+                || CssCascade.ValueOf(item, "position") is "absolute" or "fixed")
+            {
+                continue;
+            }
+
+            items++;
+            var basis = CssCascade.ValueOf(item, "flex-basis");
+            if (basis is null or "" or "auto" or "content")
+            {
+                basis = CssCascade.ValueOf(item, "width");
+            }
+
+            if (basis is not null && basis.EndsWith('%') && Number(basis[..^1]) is { } percent)
+            {
+                share += percent / 100;
+            }
+            else
+            {
+                pixels += Length(basis, width) ?? FlatLayout.RowHeight;
+            }
+        }
+
+        pixels += (Length(CssCascade.ValueOf(style, "column-gap"), width) ?? 0) * Math.Max(0, items - 1);
+        return share <= 1.0001 && pixels <= (1 - Math.Min(1, share)) * width;
     }
 
     /// <summary>Whether <paramref name="element"/> is a flex container laying its items out in a column.</summary>
