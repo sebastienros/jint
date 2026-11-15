@@ -313,6 +313,34 @@ public class PageDomainTests
     }
 
     [Test]
+    public async Task AClientAndTheHostShareOneInitScriptListButAClientRemovesOnlyItsOwn()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/one", "<html><body><script>window.order = (window.order || '') + 'document';</script></body></html>");
+
+        await using var session = await PageSession.CreateAsync(Options(server));
+        var page = await session.NewPageAsync();
+        var attachment = await session.AttachAsync(await session.TargetForAsync(page));
+        await session.EnablePageAsync(attachment);
+
+        await page.AddInitScriptAsync("window.order = (window.order || '') + 'host:';");
+        var added = await session.ResultAsync(
+            "Page.addScriptToEvaluateOnNewDocument",
+            """{"source":"window.order = (window.order || '') + 'client:';"}""",
+            attachment);
+        added.GetProperty("identifier").GetString().Should().Be("2", "the client's identifier comes from the page's one list");
+
+        // "1" is the host's, and a client tidying up must not be able to remove it.
+        await session.ResultAsync("Page.removeScriptToEvaluateOnNewDocument", """{"identifier":"1"}""", attachment);
+        await page.NavigateAsync(server.Url("/one"));
+        (await page.EvaluateAsync<string>("window.order")).Should().Be("host:client:document");
+
+        await session.ResultAsync("Page.removeScriptToEvaluateOnNewDocument", """{"identifier":"2"}""", attachment);
+        await page.NavigateAsync(server.Url("/one"));
+        (await page.EvaluateAsync<string>("window.order")).Should().Be("host:document");
+    }
+
+    [Test]
     public async Task AnExecutionContextIdentifierFromBeforeTheNavigationIsRefused()
     {
         using var server = new LoopbackServer();
