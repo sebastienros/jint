@@ -598,20 +598,27 @@ internal sealed class DomRealm
     private int _cssChecks;
 
     /// <summary>
-    /// The engine's constraints as the native cascade's host checkpoint: consulted on every 64th check.
+    /// The engine's constraints as the native cascade's host checkpoint, on the interpreter's own partition.
     /// </summary>
     /// <remarks>
     /// The native cascade polls its host at every rule, sheet and name it visits, around a hundred thousand
-    /// times for one automation click, and each constraint check reads the clock for the turn's deadline. A
-    /// budget is a bound rather than an instant, so the clock is read at a stride shared by every query of the
-    /// realm, the way the interpreter's own amortized checks read it. Callers still observe their cancellation
-    /// token on every check; only the constraint pass is strided.
+    /// times for one automation click. Constraints whose call frequency is observable (the engine's exact
+    /// partition: a host's own, a memory limit) are checked on every poll, as the interpreter checks them on
+    /// every statement. The observation-only ones (the turn's deadline, whose check is a clock read, and
+    /// cancellation) ride a cadence of 64 polls shared by every query of the realm, as they ride the
+    /// interpreter's amortized cadence.
     /// </remarks>
     internal Action CssCheckpoint => _cssCheckpoint ??= () =>
     {
         if ((_cssChecks++ & 63) == 0)
         {
             Engine.Constraints.Check();
+            return;
+        }
+
+        foreach (var constraint in Engine._exactConstraints)
+        {
+            constraint.Check();
         }
     };
 
