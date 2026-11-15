@@ -76,8 +76,9 @@ public sealed partial class Page
         return WaitForScriptAsync("(" + predicate + "\n)", snapshot, timeout);
     }
 
-    private static JsValue InvokeWithArgument(Engine engine, string function, JsonElement argument)
-        => engine.Call(engine.Evaluate("(" + function + "\n)"), JsValue.Undefined, [BindArgument(engine, argument)]);
+    /// <summary>Invokes a function expression with one JSON-data argument bound to this engine's values; also what an init script runs.</summary>
+    internal static JsValue InvokeWithArgument(Engine engine, string function, JsonElement argument, string? source = null)
+        => engine.Call(engine.Evaluate("(" + function + "\n)", source), JsValue.Undefined, [BindArgument(engine, argument)]);
 
     private async Task<bool> WaitForScriptAsync(string source, JsonElement? argument, TimeSpan timeout)
     {

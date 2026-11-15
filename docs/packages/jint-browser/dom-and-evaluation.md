@@ -96,6 +96,26 @@ timeout returns `false`; invalid script and final JavaScript errors remain excep
 budget failures are not retried. Closing an already-running wait ends it with `false`; starting an
 operation on a closed page throws.
 
+## Init scripts
+
+`AddInitScriptAsync` installs a script that runs in every **new** document before any of the document's
+own scripts, the in-process form of Playwright's `addInitScript`:
+
+```csharp
+await context.AddInitScriptAsync(
+    "seed => localStorage.setItem('theme', seed.theme)", new { theme = "dark" });
+await page.AddInitScriptAsync("Element.prototype.scrollIntoView = function () {}");
+await page.NavigateAsync("https://example.org/");
+```
+
+It runs once the empty document exists (`document.readyState` is `loading`) and before the parser reads
+any markup, on every navigation, reload, history traversal and `SetContentAsync` from then on — never
+in the document already showing. A context's scripts reach all of its pages, including ones already open
+and the `about:blank` a new page starts on, and run before a page's own. Scripts run in the order added;
+the argument overloads bind JSON data exactly as `EvaluateAsync(function, argument)` does. A script that
+throws is recorded in `Page.Errors` and the document loads anyway. CDP's
+`Page.addScriptToEvaluateOnNewDocument` adds to the same per-page list. Child frames run no init scripts.
+
 ## Native queries and waits
 
 For common DOM conditions, avoid JavaScript source and per-row page-loop calls:

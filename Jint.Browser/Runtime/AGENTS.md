@@ -328,8 +328,9 @@ the first call. Everything a client is told about a page is one of its calls; no
 
 - **`DocumentCreated` is the load-bearing one.** It fires in `LoadInto`, after the engine is built and its
   window installed and **before `ParserDriver.Load`**, on the loop — the only moment at which a watcher can
-  replace its engine, re-install what a client added and run what a client asked to run on every new
-  document, all of which must be in place before the document's first script.
+  replace its engine and re-install what a client added. The init scripts (`Runtime/NewDocumentScripts`: the
+  context's, then the page's, which CDP shares) run after it, from `ParserDriver.Run`'s `beforeParse`: the
+  empty document exists and is `loading`, and nothing is parsed. Child frames run none.
 - **A `loaderId` names one committed document**, minted when the navigation starts so that
   `NavigationStarted` and every `Phase` of that load agree, and carried by a same-document move because the
   document did not change. Each is prefixed per page, so two pages never mint the same.
