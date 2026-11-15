@@ -29,11 +29,8 @@ public sealed class CssMotionShorthandComputedStyleTests
             ['a1', 'a2'].map(id => {
                 const s = getComputedStyle(document.getElementById(id));
                 return id + ' ' + JSON.stringify([s.animation, s.animationName, s.animationDuration, s.animationTimingFunction, s.animationIterationCount]);
-            }).join('\n')
-            """)).Should().Be("""
-            a1 ["none","none","0s","ease","1"]
-            a2 ["2s linear infinite spin","spin","2s","linear","infinite"]
-            """);
+            }).join(' / ')
+            """)).Should().Be("""a1 ["none","none","0s","ease","1"] / a2 ["2s linear infinite spin","spin","2s","linear","infinite"]""");
     }
 
     [Test]
@@ -59,12 +56,11 @@ public sealed class CssMotionShorthandComputedStyleTests
                 const s = getComputedStyle(document.getElementById(id));
                 return id + ' ' + JSON.stringify([s.transition, s.transitionProperty, s.transitionDuration,
                     s.transitionTimingFunction, s.transitionDelay, s.transitionBehavior]);
-            }).join('\n')
-            """)).Should().Be("""
-            a ["all","all","0s","ease","0s","normal"]
-            b ["opacity 0.3s ease-in-out, transform 0.5s 0.1s","opacity, transform","0.3s, 0.5s","ease-in-out, ease","0s, 0.1s","normal, normal"]
-            c ["color 0.25s, background-color 0.25s","color, background-color","0.25s","ease, ease","0s, 0s","normal, normal"]
-            """);
+            }).join(' / ')
+            """)).Should().Be(
+            """a ["all","all","0s","ease","0s","normal"] / """ +
+            """b ["opacity 0.3s ease-in-out, transform 0.5s 0.1s","opacity, transform","0.3s, 0.5s","ease-in-out, ease","0s, 0.1s","normal, normal"] / """ +
+            """c ["color 0.25s, background-color 0.25s","color, background-color","0.25s","ease, ease","0s, 0s","normal, normal"]""");
     }
 
     [Test]
