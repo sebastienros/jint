@@ -194,4 +194,145 @@ public sealed class PageAutomationTests
         (await page.WaitForTextAsync("#count", new Regex("^3$"), Patience)).Should().BeTrue();
         (await page.WaitForTextAsync("#missing", new Regex(".*"), TimeSpan.FromMilliseconds(100))).Should().BeFalse();
     }
+
+    /// <summary>
+    /// A mouse event moves <c>:hover</c> before its listeners run, which ends the style query the hit test
+    /// ran on. The offsets every pointer event carries are measured from that hit test, so they are read
+    /// before the move: read after it, they were a read of a stale query, and the click threw
+    /// "The native CSS query was invalidated by mutation" instead of clicking.
+    /// </summary>
+    [Test]
+    public async Task AClickThatMovesHoverStillMeasuresItsOffsetsFromTheHitTest()
+    {
+        await using var browser = new NativeBrowser();
+        var page = await browser.NewPageAsync();
+        var rows = string.Concat(Enumerable.Range(0, 60).Select(i => $"<li><button id=b{i}>Item {i}</button></li>"));
+        await page.SetContentAsync($$"""
+            <!doctype html>
+            <style>button:hover { outline: 1px solid red } li:hover > button { color: blue }</style>
+            <ul>{{rows}}</ul>
+            <script>
+              window.offsets = [];
+              document.addEventListener('pointerdown', e => offsets.push(e.offsetY >= 0));
+            </script>
+            """);
+
+        for (var i = 59; i >= 0; i -= 7)
+        {
+            (await page.ClickAsync($"#b{i}")).Should().BeTrue();
+        }
+
+        (await page.EvaluateAsync<int>("offsets.filter(Boolean).length")).Should().Be(9);
+    }
+
+    /// <summary>
+    /// A mouse drag that starts on a draggable element runs HTML's drag-and-drop processing model: dragstart
+    /// once the pointer has moved, drag events instead of mouse events while it moves, a drop where the last
+    /// dragover was cancelled, then dragend — and no mouseup and no click. What a sortable list using native
+    /// drag and drop (SortableJS) needs to reorder at all.
+    /// </summary>
+    [Test]
+    public async Task AMouseDragOnADraggableElementRunsTheDragAndDropModel()
+    {
+        await using var browser = new NativeBrowser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html>
+            <div id=source draggable=true>source</div>
+            <div id=middle>middle</div>
+            <div id=zone>zone</div>
+            <script>
+              window.log = [];
+              for (const type of ['dragstart', 'drag', 'dragenter', 'dragleave', 'dragover', 'drop', 'dragend', 'mouseup', 'click']) {
+                document.addEventListener(type, e => {
+                  if (type !== 'drag') log.push(type + ':' + e.target.id);
+                  if (type === 'dragstart') e.dataTransfer.setData('text/plain', 'payload');
+                  if (type === 'dragover' && e.target.id === 'zone') e.preventDefault();
+                  if (type === 'drop') log.push('data:' + e.dataTransfer.getData('text/plain'));
+                });
+              }
+            </script>
+            """);
+
+        var source = (await page.BoundingBoxAsync("#source"))!.Value;
+        var middle = (await page.BoundingBoxAsync("#middle"))!.Value;
+        var zone = (await page.BoundingBoxAsync("#zone"))!.Value;
+
+        await page.MouseMoveAsync(source.X + 5, source.Y + 5);
+        await page.MouseDownAsync();
+        await page.MouseMoveAsync(source.X + 6, source.Y + 6); // under the threshold: still a press
+        await page.MouseMoveAsync(middle.X + 5, middle.Y + 5);
+        await page.MouseMoveAsync(zone.X + 5, zone.Y + 5);
+        await page.MouseUpAsync();
+
+        (await page.EvaluateAsync<string>("log.join(' ')")).Should().Be(
+            "dragstart:source dragenter:middle dragover:middle " +
+            "dragenter:zone dragleave:middle dragover:zone drop:zone data:payload dragend:source");
+
+        // A drag nobody accepts ends with a dragleave instead of a drop.
+        await page.EvaluateAsync("log.length = 0");
+        await page.MouseMoveAsync(source.X + 5, source.Y + 5);
+        await page.MouseDownAsync();
+        await page.MouseMoveAsync(middle.X + 5, middle.Y + 5);
+        await page.MouseUpAsync();
+        (await page.EvaluateAsync<string>("log.join(' ')")).Should().Be("dragstart:source dragenter:middle dragover:middle dragleave:middle dragend:source");
+
+        // A press and release without moving is still a click.
+        await page.EvaluateAsync("log.length = 0");
+        await page.MouseDownAsync();
+        await page.MouseUpAsync();
+        (await page.EvaluateAsync<string>("log.join(' ')")).Should().Be("mouseup:middle click:middle");
+    }
+
+    [Test]
+    public async Task TypingWithoutATargetTypesAtTheFocusedElement()
+    {
+        await using var browser = new NativeBrowser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html>
+            <div id=editor>click me</div><textarea id=hidden></textarea>
+            <script>editor.addEventListener('mousedown', e => { e.preventDefault(); hidden.focus(); });</script>
+            """);
+
+        (await page.ClickAsync("#editor")).Should().BeTrue();
+        (await page.TypeAsync("héllo")).Should().BeTrue();
+        (await page.InputValueAsync("#hidden")).Should().Be("héllo");
+    }
+
+    [Test]
+    public async Task ActionsWaitForTheirTargetWithAnActionTimeout()
+    {
+        await using var browser = new NativeBrowser();
+        var waiting = await (await browser.NewContextAsync(new BrowserContextOptions { ActionTimeout = Patience })).NewPageAsync();
+        var looking = await browser.NewPageAsync();
+        const string html = """
+            <!doctype html>
+            <button id=go hidden onclick="document.title = 'clicked'">Go</button>
+            <script>
+              setTimeout(() => {
+                go.hidden = false;
+                document.body.insertAdjacentHTML('beforeend', '<input id=late><select id=pick><option>a<option>b</select>');
+              }, 100);
+            </script>
+            """;
+
+        // Looking once, the default, answers false while the button is hidden and the controls are missing.
+        await looking.SetContentAsync(html);
+        (await looking.ClickAsync("#go")).Should().BeFalse();
+        (await looking.FillAsync("#late", "x")).Should().BeFalse();
+
+        await waiting.SetContentAsync(html);
+        (await waiting.ClickAsync("#go")).Should().BeTrue();
+        (await waiting.TitleAsync()).Should().Be("clicked");
+        (await waiting.FillAsync("#late", "x")).Should().BeTrue();
+        (await waiting.SelectAsync("#pick", "b")).Should().BeTrue();
+        (await waiting.InputValueAsync("#pick")).Should().Be("b");
+
+        // A target that never comes is false once the timeout is up.
+        var options = new BrowserContextOptions { ActionTimeout = TimeSpan.FromMilliseconds(200) };
+        var bounded = await (await browser.NewContextAsync(options)).NewPageAsync();
+        await bounded.SetContentAsync("<!doctype html>");
+        (await bounded.ClickAsync("#never")).Should().BeFalse();
+    }
 }

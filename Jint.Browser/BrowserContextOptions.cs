@@ -122,6 +122,37 @@ public sealed class BrowserContextOptions
     private string? _baseUrl;
 
     /// <summary>
+    /// How long a page's actions wait for their target to be actionable; <see cref="TimeSpan.Zero"/> — the
+    /// default — looks once.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Page.ClickAsync(string, NavigationOptions)"/>, <see cref="Page.FillAsync(string, string)"/>,
+    /// <see cref="Page.TypeAsync(string, string)"/>, <see cref="Page.SelectAsync(string, string)"/>,
+    /// <see cref="Page.HoverAsync(string)"/> and <see cref="Page.SetInputFilesAsync(string, IReadOnlyList{string})"/>
+    /// answer <see langword="false"/> when their target is missing, not being rendered, not editable or covered
+    /// by another element. With a timeout they look again, while the page goes on running, until the target is
+    /// ready or the time is up — Playwright's actionability wait, for a suite written against it. An attempt
+    /// that dispatched input is never repeated, so a click that started but landed elsewhere still answers
+    /// <see langword="false"/> at once.
+    /// </para>
+    /// <para>
+    /// <see cref="Page.FocusAsync"/> and the target form of <see cref="Page.PressAsync(string, string, KeyModifiers, int, NavigationOptions?, TimeSpan?)"/>
+    /// have a timeout of their own and do not read this one.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative and not infinite.</exception>
+    public TimeSpan ActionTimeout
+    {
+        get => _actionTimeout;
+        set => _actionTimeout = value >= TimeSpan.Zero || value == System.Threading.Timeout.InfiniteTimeSpan
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "ActionTimeout cannot be negative.");
+    }
+
+    private TimeSpan _actionTimeout;
+
+    /// <summary>
     /// Whether every page of this context opens as a touch device, or <see langword="null"/> — the default —
     /// for <see cref="BrowserOptions.HasTouch"/>.
     /// </summary>

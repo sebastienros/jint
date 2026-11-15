@@ -166,7 +166,21 @@ internal static class NativeCssParsing
         slot.Reading = true;
         try
         {
-            var parsed = CssParser.ParseMediaQueryList(input.Source, guarded);
+            CssMediaList parsed;
+            try
+            {
+                parsed = CssParser.ParseMediaQueryList(input.Source, guarded);
+            }
+            catch (CssIncompleteRuleGrammarException)
+            {
+                // A feature the parser knows but does not evaluate yet — color-gamut, update, scan,
+                // device-width, ... Media Queries 4 §3.2 makes a query on a feature the user agent does not
+                // support "unknown", which matches nothing, so the list is the one that never matches rather
+                // than an exception out of every style read on the page.
+                // https://drafts.csswg.org/mediaqueries-4/#evaluating
+                parsed = CssParser.ParseMediaQueryList("not all", guarded);
+            }
+
             guarded.CheckCancellation();
             media.Initialize(parsed);
             slot.Input = null;

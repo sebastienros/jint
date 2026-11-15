@@ -157,12 +157,19 @@ internal sealed class JsEventSource : JsEventTarget
         // OnRequest either.
         var observation = FetchObservation.Create(_state.FetchNetwork.Observer, FetchInitiator.EventSource);
 
+        // The same browsing position a fetch has: without the jar and the same-origin reference, a stream
+        // from the page's own origin went out with no cookies, and a server that authenticates its streams —
+        // a SignalR hub behind a login — answered it 401.
+        var network = _state.FetchNetwork;
         var policy = new FetchPolicy
         {
             AllowedSchemes = [.. _options.AllowedSchemes],
             UrlFilter = urlFilter,
             MaxResponseBytes = _options.MaxResponseBytes,
             MaxRedirects = _options.MaxRedirects,
+            Origin = network.Origin,
+            SameOriginReference = network.SameOriginReference,
+            CookieJar = network.CookieJar,
             UserAgent = _options.UserAgent,
         };
 
@@ -246,6 +253,11 @@ internal sealed class JsEventSource : JsEventTarget
             Headers = headers,
             Body = null,
             Redirect = JsRequest.RedirectFollow,
+
+            // https://html.spec.whatwg.org/multipage/server-sent-events.html#dom-eventsource step 6: the CORS
+            // settings attribute state is "use-credentials" with withCredentials and "anonymous" without, so
+            // the request's credentials mode is "include" or "same-origin".
+            Credentials = WithCredentials ? JsRequest.CredentialsInclude : JsRequest.CredentialsSameOrigin,
         };
     }
 

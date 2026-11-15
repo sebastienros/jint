@@ -96,24 +96,40 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        var captured = await _loop.PostAsync((bool Clicked, NavigationRequest? Navigation) (engine) =>
+        // An attempt that dispatched nothing — no match, no box, another element on top — may be retried while
+        // the context's action timeout lasts; one that dispatched input is never repeated.
+        (bool Clicked, NavigationRequest? Navigation, bool Dispatched) captured = default;
+        await ActAsync(async () =>
+        {
+            captured = await _loop.PostAsync(ClickOnce).ConfigureAwait(false);
+            return captured.Clicked || captured.Dispatched;
+        }).ConfigureAwait(false);
+
+        if (captured.Navigation is { } navigation)
+        {
+            await NavigateCoreAsync(navigation with { Options = options ?? NavigationOptions.Default }).ConfigureAwait(false);
+        }
+
+        return captured.Clicked;
+
+        (bool Clicked, NavigationRequest? Navigation, bool Dispatched) ClickOnce(Engine engine)
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
-                return (Clicked: false, Navigation: (NavigationRequest?) null);
+                return (false, null, false);
             }
 
             runtime.Layout.ScrollIntoView(element, "nearest");
 
             if (runtime.Layout.ClientBoxOf(element) is not { } box)
             {
-                return (false, null);
+                return (false, null, false);
             }
 
             var x = box.X + (box.Width / 2);
             var y = box.Y + (box.Height / 2);
             if (!InputDispatcher.IsWithin(engine, runtime.Layout.ReadPoint().ElementFromPoint(x, y), element))
-                return (false, null);
+                return (false, null, false);
 
             // Captured rather than started, for the reason SubmitFormAsync captures: the navigation a click
             // causes is one this caller can be handed instead of one that runs off on its own.
@@ -126,21 +142,14 @@ public sealed partial class Page
                 InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Pressed, x, y, 0, 1, 1, EventModifiers.None, 0, 0));
                 var clicked = InputDispatcher.DispatchMouse(runtime,
                     new MouseInput(MouseInputKind.Released, x, y, 0, 0, 1, EventModifiers.None, 0, 0), element);
-                return (clicked, _capturedNavigation);
+                return (clicked, _capturedNavigation, true);
             }
             finally
             {
                 _capturingNavigation = false;
                 _capturedNavigation = null;
             }
-        }).ConfigureAwait(false);
-
-        if (captured.Navigation is { } navigation)
-        {
-            await NavigateCoreAsync(navigation with { Options = options ?? NavigationOptions.Default }).ConfigureAwait(false);
         }
-
-        return captured.Clicked;
     }
 
     /// <summary>Makes the page report itself as a touch device, or stop reporting itself as one.</summary>
@@ -313,7 +322,7 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return _loop.PostAsync(engine =>
+        return ActAsync(() => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
@@ -330,7 +339,7 @@ public sealed partial class Page
                 new MouseInput(MouseInputKind.Moved, box.X + (box.Width / 2), box.Y + (box.Height / 2), 0, 0, 0, EventModifiers.None, 0, 0));
 
             return true;
-        });
+        }));
     }
 
     /// <summary>Replaces the value of the control <paramref name="target"/> names with <paramref name="text"/>.</summary>
@@ -363,7 +372,7 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(text);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return _loop.PostAsync(engine =>
+        return ActAsync(() => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
@@ -408,7 +417,7 @@ public sealed partial class Page
 
             InputDispatcher.InsertText(runtime, text);
             return true;
-        });
+        }));
     }
 
     /// <summary>Types <paramref name="text"/> into what <paramref name="target"/> names, one key at a time.</summary>
@@ -439,7 +448,7 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(text);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return _loop.PostAsync(engine =>
+        return ActAsync(() => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
@@ -452,6 +461,41 @@ public sealed partial class Page
             }
 
             FocusController.Focus(runtime.Dom, element);
+
+            foreach (var rune in text.EnumerateRunes())
+            {
+                var key = rune.ToString();
+                InputDispatcher.DispatchKey(runtime, KeyOptions.For(key), KeyInputKind.KeyDown);
+                InputDispatcher.DispatchKey(runtime, KeyOptions.For(key), KeyInputKind.KeyUp);
+            }
+
+            return true;
+        }));
+    }
+
+    /// <summary>Types <paramref name="text"/> at whatever the page has focused.</summary>
+    /// <param name="text">The characters to type.</param>
+    /// <returns><see langword="true"/> always, because keys always reach something — the body when nothing is focused.</returns>
+    /// <remarks>
+    /// The keyboard half of <see cref="TypeAsync(string, string)"/> without the focusing: each character is the
+    /// same <c>keydown</c>, <c>keypress</c>, insertion and <c>keyup</c>, dispatched at the focused element. It is
+    /// what a client library's <c>keyboard.type</c> does, for an editor that moves focus into an element of its
+    /// own on a click — CodeMirror's or Monaco's hidden input — so a caller clicks the editor and types, without
+    /// knowing which element took the focus.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> TypeAsync(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        return _loop.PostAsync(engine =>
+        {
+            if (PageRuntime.Find(engine) is not { } runtime)
+            {
+                return false;
+            }
 
             foreach (var rune in text.EnumerateRunes())
             {
@@ -740,7 +784,7 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(value);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return _loop.PostAsync(engine =>
+        return ActAsync(() => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not Element { NamespaceUri: Namespaces.Html, LocalName: "select" } select)
             {
@@ -793,7 +837,7 @@ public sealed partial class Page
             // option change the same state and fire the same two events at the same element.
             ActivationBehaviors.SelectOption(runtime.Dom, option);
             return true;
-        });
+        }));
     }
 
     /// <summary>Selects host files into the file input <paramref name="target"/> names.</summary>
@@ -897,7 +941,7 @@ public sealed partial class Page
 
     /// <summary>The one place a selection is made, whatever the files came from.</summary>
     private Task<bool> SelectFilesAsync(string target, int index, List<SelectedFile> files)
-        => _loop.PostAsync(engine =>
+        => ActAsync(() => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime
                 || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not Element { NamespaceUri: Namespaces.Html, LocalName: "input" } input
@@ -908,7 +952,7 @@ public sealed partial class Page
 
             FileSelection.Update(runtime, input, files);
             return true;
-        });
+        }));
 
     /// <summary>Scrolls the page to <paramref name="y"/>, clamped to the document.</summary>
     /// <param name="y">The offset from the top of the document, in CSS pixels.</param>
@@ -1059,4 +1103,46 @@ public sealed partial class Page
             await Task.Delay(WaitPoll).ConfigureAwait(false);
         }
     }
+    /// <summary>
+    /// Runs an action's attempt, and repeats it while it answers <see langword="false"/> and the context's
+    /// <see cref="BrowserContextOptions.ActionTimeout"/> lasts.
+    /// </summary>
+    /// <remarks>
+    /// An attempt answers <see langword="false"/> only when it did nothing — no match, a match that is not being
+    /// rendered or not editable, an element on top of it — so repeating it is what a user waiting for the page
+    /// to be ready does. Between two attempts the page runs: the look is posted to the loop like any other.
+    /// </remarks>
+    private async Task<bool> ActAsync(Func<Task<bool>> attempt)
+    {
+        if (await attempt().ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        var timeout = Context.ActionTimeout;
+        if (timeout <= TimeSpan.Zero)
+        {
+            return false;
+        }
+
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        while (!_closed && (timeout == System.Threading.Timeout.InfiniteTimeSpan || System.Diagnostics.Stopwatch.GetElapsedTime(started) < timeout))
+        {
+            await Task.Delay(WaitPoll).ConfigureAwait(false);
+            try
+            {
+                if (await attempt().ConfigureAwait(false))
+                {
+                    return true;
+                }
+            }
+            catch (ObjectDisposedException) when (_closed)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
 }

@@ -32,6 +32,7 @@ namespace Jint.Browser
     public sealed class BrowserContextOptions
     {
         public BrowserContextOptions() { }
+        public System.TimeSpan ActionTimeout { get; set; }
         public string? BaseUrl { get; set; }
         public bool BlockPrivateNetwork { get; set; }
         public Jint.WebApi.Fetch.CookieJar? CookieJar { get; set; }
@@ -260,6 +261,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<string> TextAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<string[]> TextsAsync(string selector, bool visibleOnly = false) { }
         public System.Threading.Tasks.Task<string> TitleAsync() { }
+        public System.Threading.Tasks.Task<bool> TypeAsync(string text) { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, string text) { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, int index, string text) { }
         public System.Threading.Tasks.Task UnrouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task>? handler = null) { }

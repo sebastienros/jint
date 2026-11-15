@@ -45,7 +45,11 @@ public sealed class BrowserContext : IAsyncDisposable
         HasTouch = options.HasTouch ?? browser.Options.HasTouch;
         MediaEmulation = options.MediaEmulation;
         BaseUrl = options.BaseUrl;
+        ActionTimeout = options.ActionTimeout;
     }
+
+    /// <summary><see cref="BrowserContextOptions.ActionTimeout"/>, read once when the context was created.</summary>
+    internal TimeSpan ActionTimeout { get; }
 
     /// <summary><see cref="BrowserContextOptions.BaseUrl"/>, read once when the context was created.</summary>
     internal string? BaseUrl { get; }
