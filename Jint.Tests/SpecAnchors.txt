@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-11-14
-anchors: 1350
+anchors: 1351
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -417,6 +417,7 @@ ecma262 sec-isintegralnumber
 ecma262 sec-islooselyequal
 ecma262 sec-ispropertyreference
 ecma262 sec-isregexp
+ecma262 sec-isstrictlyequal
 ecma262 sec-istypedarrayfixedlength
 ecma262 sec-istypedarrayoutofbounds
 ecma262 sec-isvalidintegerindex

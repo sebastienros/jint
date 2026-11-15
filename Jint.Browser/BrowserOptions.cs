@@ -241,7 +241,8 @@ public sealed class BrowserOptions
     /// <para>
     /// A <see cref="Page"/> call that exhausts its budget fails with <see cref="TimeoutException"/>.
     /// A pumped task or inline script records <see cref="PageErrorKind.BudgetExceeded"/> in
-    /// <see cref="Page.Errors"/>; a protocol command reports failure to its client. The page continues.
+    /// <see cref="Page.Errors"/>; a protocol evaluation answers a thrown error naming this budget, and any other
+    /// command a server error naming it. The page and its execution context continue.
     /// </para>
     /// <para>
     /// <see cref="Timeout.InfiniteTimeSpan"/>, zero and any negative value all mean no time bound at all,

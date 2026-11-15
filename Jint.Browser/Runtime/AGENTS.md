@@ -82,7 +82,9 @@ empty pass, not these potentially nested budget scopes. Four consequences are ea
 
 - **A request's bracket is outside `PostAsync`'s own `try`/`catch`**, which is what makes a budget failure the
   *caller's*: `Page.EvaluateAsync` faults with `TimeoutException`. A task's erupts into the pump, becomes a
-  `PageErrorKind.BudgetExceeded` entry, and the loop goes on — a page survives its scripts.
+  `PageErrorKind.BudgetExceeded` entry, and the loop goes on — a page survives its scripts. A protocol command
+  is told which budget stopped it (`PageBudget.Describe`), and one awaiting a promise of the stopped turn is
+  answered through `IPageObserver.TaskStopped` (#4619).
 - **A request that pumps is posted `bracketed: false`.** `WaitForIdleAsync` is one; the engine brackets each
   task, so bracketing the wait would charge unrelated tasks and parks to one budget. Page, parser and worker
   pumps use internal `ProcessTask`, returning after one task and its checkpoint so a busy task source cannot
