@@ -43,6 +43,7 @@ public sealed class BrowserContext : IAsyncDisposable
             browser.Options.MaxCacheStorageBytes, browser.Options.MaxIndexedDbBytes, maxStorage);
         Viewport = options.Viewport ?? browser.Options.Viewport;
         HasTouch = options.HasTouch ?? browser.Options.HasTouch;
+        MediaEmulation = options.MediaEmulation;
     }
 
     /// <summary>
@@ -56,6 +57,12 @@ public sealed class BrowserContext : IAsyncDisposable
     /// browser's when the context named none.
     /// </summary>
     internal bool HasTouch { get; }
+
+    /// <summary>
+    /// <see cref="BrowserContextOptions.MediaEmulation"/>, read once when the context was created and applied
+    /// over the browser's own to every page the context opens.
+    /// </summary>
+    internal MediaEmulation? MediaEmulation { get; }
 
     /// <summary>The browser this context belongs to.</summary>
     public Browser Browser { get; }

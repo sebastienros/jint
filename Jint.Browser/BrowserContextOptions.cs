@@ -130,6 +130,21 @@ public sealed class BrowserContextOptions
     /// </remarks>
     public StoragePartitionProvider? StoragePartition { get; set; }
 
+    /// <summary>
+    /// The media type and preferences this context's pages open with, over
+    /// <see cref="BrowserOptions.MediaEmulation"/>; <see langword="null"/> — the default — adds nothing to the
+    /// browser's.
+    /// </summary>
+    /// <remarks>
+    /// Playwright's <c>colorScheme</c>, <c>reducedMotion</c>, <c>forcedColors</c> and <c>contrast</c> context
+    /// options, in one value. It is merged property by property: a <see langword="null"/> property keeps the
+    /// browser's value and an empty one clears it for this context. Every page of the context — including a
+    /// popup one of them opens — parses its first document in it. It is a default beneath the page's
+    /// overrides: <see cref="Page.EmulateMediaAsync"/> and <c>Emulation.setEmulatedMedia</c> change one page
+    /// from there, and clearing what they set comes back to it.
+    /// </remarks>
+    public MediaEmulation? MediaEmulation { get; set; }
+
     /// <summary>The <see cref="System.Net.Http.HttpClient"/> every request of this context goes through.</summary>
     /// <remarks>
     /// <para>

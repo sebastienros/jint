@@ -99,6 +99,11 @@ public sealed partial class Page : IAsyncDisposable
         _options = options;
         _recorder = recorder;
         Emulation = new EmulationState(context.Viewport, options.UserAgent) { TouchEnabled = context.HasTouch };
+
+        // The browser's defaults, then the context's over them, before the loop builds the first engine — so
+        // the blank document and the first one navigated to both parse in the emulated media.
+        Emulation.ApplyMediaDefaults(options.MediaEmulation);
+        Emulation.ApplyMediaDefaults(context.MediaEmulation);
         _requests = new PageNetworkRecorder(options.MaxRecordedEvents, options.MaxCapturedResponseBytes, () => _loaderId, () => _url);
         _network = context.Network;
         _workers = new ThreadPerWorkerProvider(this, _network, _requests, options);
@@ -169,8 +174,10 @@ public sealed partial class Page : IAsyncDisposable
     /// <remarks>
     /// It outlives every document, because that is what an override means: the engine factory reads it when
     /// it builds the next one, and the window installer reads it on every access. The <c>Emulation</c>
-    /// domain writes it on the loop thread, and so do <see cref="SetViewportAsync(Jint.Browser.Viewport)"/> and
-    /// <see cref="SetTouchEmulationAsync"/>, through the same methods.
+    /// domain is what writes it, on the loop thread, and so do the public emulation members —
+    /// <see cref="SetViewportAsync(Jint.Browser.Viewport)"/>, <see cref="SetTouchEmulationAsync"/> and
+    /// <see cref="EmulateMediaAsync"/> — which are mailbox requests over the same state rather than a second
+    /// copy of it.
     /// </remarks>
     internal EmulationState Emulation { get; }
 

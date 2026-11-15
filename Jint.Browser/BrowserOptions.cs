@@ -109,6 +109,25 @@ public sealed class BrowserOptions
     /// </remarks>
     public bool HasTouch { get; set; }
 
+    /// <summary>The media type and preferences every page opens with; <see langword="null"/> emulates nothing.</summary>
+    /// <remarks>
+    /// <para>
+    /// The media counterpart of <see cref="HasTouch"/>: applied before a page's <b>first</b> document parses,
+    /// so a stylesheet's <c>@media (prefers-color-scheme: dark)</c> and an inline script's
+    /// <c>matchMedia('(prefers-reduced-motion: reduce)')</c> are answered in it from the start, which
+    /// <see cref="Page.EmulateMediaAsync"/> — called once the page exists — cannot promise of a blank document
+    /// that has already been answered.
+    /// </para>
+    /// <para>
+    /// <see cref="BrowserContextOptions.MediaEmulation"/> is applied over it, property by property, for the
+    /// pages of one context. Together they are the page's <i>default</i>, which stands where an operating
+    /// system's preference stands in a real browser: <see cref="Page.EmulateMediaAsync"/> and a protocol
+    /// client's <c>Emulation.setEmulatedMedia</c> override it, and clearing those overrides goes back to it.
+    /// Read when each page is created, so changing it afterwards reaches only pages opened later.
+    /// </para>
+    /// </remarks>
+    public MediaEmulation? MediaEmulation { get; set; }
+
     /// <summary>Gets or sets the default Cache Storage quota per context and origin; defaults to five mebibytes.</summary>
     /// <remarks>
     /// Counts cached bodies, UTF-16 metadata and fixed entry overhead across all live caches.

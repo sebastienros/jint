@@ -9,7 +9,7 @@
 - `document.write` during parsing
 - External style sheets and native CSS parsing with a browser-owned CSSOM
 - Image loading without a decoder: `complete`, `currentSrc`, `naturalWidth`/`naturalHeight`, the `load` and `error` events, `srcset`/`sizes`/`<picture>` selection, and `img.decode()`, all from the container header
-- Emulated viewport, media type, and supported preferences such as colour scheme, reduced motion, contrast, and pointer capabilities in both `matchMedia` and stylesheet `@media` rules
+- Emulated viewport, media type, and supported preferences such as colour scheme, reduced motion, contrast, and pointer capabilities in both `matchMedia` and stylesheet `@media` rules, set in process with `Page.EmulateMediaAsync` and the `MediaEmulation` browser and context defaults, or over CDP
 - `about:blank`, `data:text/html`, direct content, and HTTP(S) navigation
 - Custom elements, shadow DOM, templates, ranges, traversal, selection, DOMParser, and XMLSerializer
 - Geometry Interfaces: `DOMPoint`, `DOMRect`, `DOMQuad` and `DOMMatrix` with their read-only parents and `WebKitCSSMatrix`, including transform-list strings; layout answers such as `getBoundingClientRect` are `DOMRect` instances

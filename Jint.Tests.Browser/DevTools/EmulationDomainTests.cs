@@ -196,6 +196,35 @@ public class EmulationDomainTests
             .Should().Be("true:(prefers-color-scheme: dark)|false:(prefers-color-scheme: dark)");
     }
 
+    /// <summary>
+    /// An empty feature value is no override, which is how Chromium reads it — and what Playwright sends, on
+    /// every page, for each preference it is not emulating. Stored as a value, it made
+    /// <c>(prefers-reduced-motion)</c> true and the page match neither colour scheme.
+    /// </summary>
+    [Test]
+    public async Task AnEmptyFeatureValueIsNoOverride()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+
+        await session.ResultAsync(
+            "Emulation.setEmulatedMedia",
+            """
+            {"media":"","features":[
+              {"name":"prefers-color-scheme","value":""},
+              {"name":"prefers-reduced-motion","value":""},
+              {"name":"forced-colors","value":""},
+              {"name":"prefers-contrast","value":""}
+            ]}
+            """,
+            attachment);
+
+        (await Flag(session, attachment, "matchMedia('(prefers-color-scheme: light)').matches")).Should().BeTrue();
+        (await Flag(session, attachment, "matchMedia('(prefers-reduced-motion)').matches")).Should().BeFalse();
+        (await Flag(session, attachment, "matchMedia('(forced-colors)').matches")).Should().BeFalse();
+        (await Flag(session, attachment, "matchMedia('(prefers-contrast)').matches")).Should().BeFalse();
+    }
+
     [Test]
     public async Task EveryLevelFivePreferenceFeatureIsEmulatable()
     {

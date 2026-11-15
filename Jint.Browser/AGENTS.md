@@ -206,7 +206,10 @@ change-event scheduling rather than replacing the evaluator on the assumption th
 An `Emulation` command writes the page's `Runtime/EmulationState`, not protocol-target state: overrides
 outlive the document. Viewport, media, touch, focus, geolocation, user agent and hardware concurrency can
 affect the loaded document; time zone, locale and script execution affect the next document. Each command
-states its boundary, including accepted no-ops.
+states its boundary, including accepted no-ops. The public `Page.EmulateMediaAsync` and the
+`MediaEmulation` defaults on `BrowserOptions`/`BrowserContextOptions` write that same state through
+`EmulationState`: `EmulateMedia` **merges** (Playwright's shape) where `ReplaceMedia` (CDP) replaces, and
+the host defaults are a layer beneath both overrides, as `DefaultViewport` is beneath `Viewport`.
 
 `NavigatorInstaller` and `TouchEmulation` add accessors without discarding the engine's shared shapes.
 Touch emulation controls detection; `Input.dispatchTouchEvent` can deliver input regardless.
