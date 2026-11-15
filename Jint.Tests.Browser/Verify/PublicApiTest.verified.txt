@@ -186,6 +186,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<string> AccessibilitySnapshotAsync(bool mainContentOnly = false, int maxLength = 0, bool includeReferences = false) { }
         public System.Threading.Tasks.Task AddInitScriptAsync(string script) { }
         public System.Threading.Tasks.Task AddInitScriptAsync(string function, object? argument) { }
+        public System.Threading.Tasks.Task<bool> BlurAsync(string target, int index = 0, System.TimeSpan? timeout = default) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, int index, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task CloseAsync() { }
@@ -203,6 +204,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<T?> EvaluateAsync<T>(string function, object? argument) { }
         public System.Threading.Tasks.Task<bool> FillAsync(string target, string text) { }
         public System.Threading.Tasks.Task<bool> FillAsync(string target, int index, string text) { }
+        public System.Threading.Tasks.Task<bool> FocusAsync(string target, int index = 0, System.TimeSpan? timeout = default) { }
         public System.Threading.Tasks.Task<string?> GetAttributeAsync(string target, string name, int index = 0) { }
         public System.Threading.Tasks.Task<bool> GoBackAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> GoForwardAsync(System.TimeSpan timeout) { }
@@ -217,6 +219,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> NavigateAsync(string url, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> PressAsync(string key, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> PressAsync(string key, Jint.Browser.KeyModifiers modifiers, Jint.Browser.NavigationOptions? options = null) { }
+        public System.Threading.Tasks.Task<bool> PressAsync(string target, string key, Jint.Browser.KeyModifiers modifiers = 0, int index = 0, Jint.Browser.NavigationOptions? options = null, System.TimeSpan? timeout = default) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> ReloadAsync(Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task RouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task> handler) { }
         public System.Threading.Tasks.Task ScrollToAsync(double y) { }
