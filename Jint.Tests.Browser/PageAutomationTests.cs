@@ -415,4 +415,23 @@ public sealed class PageAutomationTests
         (await page.ClickAsync("#save")).Should().BeTrue();
         (await page.TitleAsync()).Should().Be("saved");
     }
+
+    [Test]
+    public async Task HidingACaretWithVisibilityMovesNothingAClickAimsAt()
+    {
+        await using var browser = new NativeBrowser();
+        var page = await browser.NewPageAsync();
+
+        // The blur the press causes hides a caret above the button; a visibility: hidden box keeps its place.
+        await page.SetContentAsync("""
+            <!doctype html>
+            <style>.caret { visibility: hidden } .editor:focus-within .caret { visibility: visible }</style>
+            <div class=editor><textarea id=input></textarea><div class=caret><p>a</p><p>b</p></div></div>
+            <button id=save onclick="document.title = 'saved'">Save</button>
+            """);
+
+        (await page.ClickAsync("#input")).Should().BeTrue();
+        (await page.ClickAsync("#save")).Should().BeTrue();
+        (await page.TitleAsync()).Should().Be("saved");
+    }
 }

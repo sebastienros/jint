@@ -131,7 +131,7 @@ internal static class FlexRow
         return widths;
     }
 
-    private static double? Length(string? value, double available)
+    internal static double? Length(string? value, double available)
     {
         if (value is null)
         {

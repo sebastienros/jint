@@ -52,6 +52,7 @@ internal sealed class FlatLayout
 
     private readonly List<Element> _elements = [];
     private readonly List<int> _depths = [];
+    private readonly List<bool> _invisible = [];
     private List<FlatBox>? _boxes;
 
     private FlatLayout(double viewportWidth, double viewportHeight, double scrollY, Action? checkpoint, CancellationToken token)
@@ -160,8 +161,17 @@ internal sealed class FlatLayout
             return false;
         }
 
-        return visibility.RenderingReasonFor(element, cascade) == AxIgnoredReason.None;
+        // A visibility: hidden box is still laid out, as CSS 2 §11.2 says, so hiding an editor's caret moves
+        // nothing; it is only not hit (IsInvisible).
+        return visibility.RenderingReasonFor(element, cascade) is AxIgnoredReason.None or AxIgnoredReason.NotVisible;
     }
+
+    /// <summary>
+    /// Whether <paramref name="element"/>'s box is <c>visibility: hidden</c> or <c>collapse</c>: laid out, but
+    /// never the target of a hit test, which goes to the visible box under it instead.
+    /// </summary>
+    internal static bool IsInvisible(Element element, ElementVisibility visibility, CssCascade.Traversal? cascade)
+        => visibility.RenderingReasonFor(element, cascade) == AxIgnoredReason.NotVisible;
 
     /// <summary>Whether <paramref name="element"/> is metadata content that a rendering never draws.</summary>
     internal static bool IsMetadata(Element element)
@@ -252,7 +262,7 @@ internal sealed class FlatLayout
             for (var i = _boxes.Count - 1; i >= 0; i--)
             {
                 var box = _boxes[i];
-                if (x >= box.X && x < box.Right && documentY >= box.Y && documentY < box.Bottom)
+                if (!_invisible[i] && x >= box.X && x < box.Right && documentY >= box.Y && documentY < box.Bottom)
                 {
                     return _elements[i];
                 }
@@ -304,6 +314,11 @@ internal sealed class FlatLayout
         return children;
     }
 
+    /// <summary>Whether <paramref name="element"/> is absolutely positioned, out of its parent's flow.</summary>
+    private static bool IsOutOfFlow(Element element, CssCascade.Traversal? cascade)
+        => cascade?.LayoutOf(element) is { } style
+            && CssCascade.ValueOf(style, "position") is "absolute" or "fixed";
+
     private bool Walk(Element root, ElementVisibility visibility, CssCascade.Traversal? cascade)
     {
         var hasFlexRows = false;
@@ -316,7 +331,11 @@ internal sealed class FlatLayout
             var (element, depth) = stack.Pop();
             _elements.Add(element);
             _depths.Add(depth);
-            hasFlexRows = hasFlexRows || FlexRow.IsHorizontal(element, cascade);
+            var invisible = IsInvisible(element, visibility, cascade);
+            _invisible.Add(invisible);
+            // A positioned box can be narrower than its parent, which the row division cannot answer either.
+            // So can an invisible one, which the row division would hit.
+            hasFlexRows = hasFlexRows || invisible || FlexRow.IsHorizontal(element, cascade) || IsOutOfFlow(element, cascade);
 
             for (var child = element.LastChild; child is not null; child = child.PreviousSibling)
             {
@@ -400,7 +419,7 @@ internal sealed class FlatLayout
                 if (y < box.Y || y >= box.Bottom) continue;
                 if (frame.Visited)
                 {
-                    if (x >= box.X && x < box.Right)
+                    if (x >= box.X && x < box.Right && !IsInvisible(frame.Element, visibility, cascade))
                     {
                         token.ThrowIfCancellationRequested();
                         checkpoint?.Invoke();
@@ -503,7 +522,37 @@ internal sealed class FlatLayout
 
             var position = _positions[target];
             var measured = Measure(target);
-            return measured with { X = position.X, Y = position.Y };
+            return Overlay(target, measured with { X = position.X, Y = position.Y });
+        }
+
+        /// <summary>
+        /// An absolutely positioned box with a pixel height of its own covers that height, as far as its
+        /// parent's box goes, or less than its row when nothing is inside it: a layer of an editor — Monaco's lines — is as tall as the editor, so a press
+        /// below the last line is still on it. It is out of flow, so its rows, and every other box, stay as
+        /// they are: its parent does not grow with it, which would feed back into an editor sizing its
+        /// layers from its container.
+        /// </summary>
+        private FlatBox Overlay(Element target, FlatBox box)
+        {
+            if (cascade?.LayoutOf(target) is not { } style
+                || CssCascade.ValueOf(style, "position") != "absolute"
+                || CssCascade.ValueOf(style, "height") is not { } height
+                || !height.EndsWith("px", StringComparison.Ordinal)
+                || FlexRow.Length(height, 0) is not { } pixels
+                || target.ParentNode is not Element parent
+                || !HasBox(parent))
+            {
+                return box;
+            }
+
+            // Shorter than its row only without boxes inside it, which have to stay inside it.
+            if (pixels < box.Height)
+            {
+                return Children(target).Any(HasBox) ? box : box with { Height = pixels };
+            }
+
+            var room = Place(parent).Bottom - box.Y;
+            return room > box.Height ? box with { Height = Math.Min(pixels, room) } : box;
         }
 
         internal FlatBox Measure(Element target)
@@ -521,7 +570,9 @@ internal sealed class FlatLayout
 
         internal double Width(Element target) => HasBox(target) ? WidthOf(target) : 0;
 
-        internal double Height(Element target) => HasBox(target) ? HeightOf(target) : 0;
+        // A positioned box's own height can differ from its rows (Overlay), which needs its place.
+        internal double Height(Element target)
+            => !HasBox(target) ? 0 : IsOutOfFlow(target, cascade) ? Place(target).Height : HeightOf(target);
 
         // CSS2 §10.1: ordinary inline/contents ancestors do not establish the normal-flow
         // containing block. Its available width is the same synthetic (including flex-assigned)
@@ -610,11 +661,80 @@ internal sealed class FlatLayout
                 }
                 else
                 {
-                    _widths.Add(element, width);
+                    _widths.Add(element, PositionedWidth(element, width) ?? width);
                 }
             }
 
             return _widths[target];
+        }
+
+        /// <summary>
+        /// The width of an absolutely positioned box, which does not fill its containing block
+        /// (https://www.w3.org/TR/CSS2/visudet.html#abs-non-replaced-width): its own width, or, when that is
+        /// <c>auto</c> and its left or right offset is too, the shrink-to-fit width — its content's preferred
+        /// width bounded by the available width. <see langword="null"/> for any other box, which is as wide as
+        /// its parent. A positioned box's offsets are not applied: it stays at its parent's left edge.
+        /// </summary>
+        private double? PositionedWidth(Element element, double available)
+        {
+            if (!IsOutOfFlow(element, cascade) || cascade!.LayoutOf(element) is not { } style)
+            {
+                return null;
+            }
+
+            var authored = FlexRow.Length(CssCascade.ValueOf(style, "width"), available);
+            if (authored is null)
+            {
+                if (CssCascade.ValueOf(style, "left") is not (null or "" or "auto")
+                    && CssCascade.ValueOf(style, "right") is not (null or "" or "auto"))
+                {
+                    return null;
+                }
+
+                authored = Math.Min(available, PreferredWidth(element, available, 0));
+            }
+
+            var width = authored.Value;
+            if (FlexRow.Length(CssCascade.ValueOf(style, "max-width"), available) is { } maximum) width = Math.Min(width, maximum);
+            if (FlexRow.Length(CssCascade.ValueOf(style, "min-width"), available) is { } minimum) width = Math.Max(width, minimum);
+            return width;
+        }
+
+        /// <summary>
+        /// The preferred (max-content) width of a box's content without text measurement: its own authored
+        /// width, a horizontal flex row's items side by side, else its widest in-flow child; one row for text.
+        /// </summary>
+        private double PreferredWidth(Element element, double available, int depth)
+        {
+            var style = cascade?.LayoutOf(element);
+            if (style is not null && FlexRow.Length(CssCascade.ValueOf(style, "width"), available) is { } authored)
+            {
+                return authored;
+            }
+
+            if (depth >= 8)
+            {
+                return RowHeight;
+            }
+
+            if (FlexRow.IsHorizontal(element, cascade))
+            {
+                return ContentBasis(element, available, depth);
+            }
+
+            var widest = 0d;
+            foreach (var child in Children(element))
+            {
+                Step();
+
+                // An absolutely positioned child is out of flow, and does not widen its parent.
+                if (HasBox(child) && !IsOutOfFlow(child, cascade))
+                {
+                    widest = Math.Max(widest, PreferredWidth(child, available, depth + 1));
+                }
+            }
+
+            return widest > 0 ? widest : RowHeight;
         }
 
         /// <summary>
@@ -773,6 +893,7 @@ internal sealed class FlatLayout
 
             return _rows[target];
         }
+
     }
 }
 

@@ -361,11 +361,10 @@ public class FlatLayoutTests
             <div id="shown">a</div>
             <div id="hidden" hidden><span id="child">b</span></div>
             <div id="none" style="display: none">c</div>
-            <div id="invisible" style="visibility: hidden">d</div>
             <script id="code">void 0;</script>
             """);
 
-        foreach (var id in new[] { "hidden", "child", "none", "invisible", "code" })
+        foreach (var id in new[] { "hidden", "child", "none", "code" })
         {
             (await Rect(page, $"document.getElementById('{id}')")).Should().Be("0,0,0,0", "'{0}' is not rendered", id);
             (await page.EvaluateAsync<int>($"document.getElementById('{id}').getClientRects().length"))
@@ -375,6 +374,33 @@ public class FlatLayoutTests
 
         // And the one that is rendered still is, on the row right after the body.
         (await Rect(page, "document.getElementById('shown')")).Should().Be($"0,{2 * Row},1280,{Row}");
+    }
+
+    /// <summary>
+    /// https://www.w3.org/TR/CSS2/visufx.html#visibility — a <c>visibility: hidden</c> box is invisible but
+    /// still affects layout, so hiding one moves nothing after it; a hit test passes through it.
+    /// </summary>
+    [Test]
+    public async Task AnInvisibleBoxKeepsItsPlaceAndIsNotHit()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <div id="wrapper"><div id="invisible" style="visibility: hidden">d</div></div>
+            <div id="after">e</div>
+            """);
+
+        (await Rect(page, "document.getElementById('invisible')")).Should().Be($"0,{3 * Row},1280,{Row}");
+        (await page.EvaluateAsync<int>("document.getElementById('invisible').getClientRects().length")).Should().Be(1);
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{4 * Row},1280,{Row}");
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {3.5 * Row}).id")).Should().Be("wrapper");
+
+        // Showing it again moves nothing either.
+        await page.EvaluateAsync("document.getElementById('invisible').style.visibility = 'visible'");
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{4 * Row},1280,{Row}");
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {3.5 * Row}).id")).Should().Be("invisible");
     }
 
     [Test]

@@ -70,7 +70,7 @@ public class EmulationDomainTests
             """
             <style>
               #t { position: relative }
-              @media (max-width: 600px) { #t { position: absolute } }
+              @media (max-width: 600px) { #t { position: sticky } }
             </style>
             <div id="t">g</div>
             """);
@@ -88,7 +88,7 @@ public class EmulationDomainTests
             attachment);
 
         (await Text(session, attachment, width)).Should().Be("390px", "the same document, against the emulated viewport");
-        (await Text(session, attachment, position)).Should().Be("absolute", "the @media rule is active now");
+        (await Text(session, attachment, position)).Should().Be("sticky", "the @media rule is active now");
         (await Flag(session, attachment, "matchMedia('(max-width: 600px)').matches")).Should().BeTrue();
     }
 

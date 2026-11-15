@@ -27,18 +27,32 @@ fall out of the row rule and every one of them is load-bearing:
   the leaf, the centre of a container hits a descendant — as a browser does — and the click bubbles back up.
 - **The rendered set is HTML's minus what a rendering would have needed.** `<head>` and its subtree, a
   `<script>`, `<style>`, `<template>` or `<noscript>` wherever it sits, and whatever R7's `ElementVisibility`
-  calls not rendered — the `hidden` content attribute, `display: none`, `visibility: hidden|collapse` from the
-  cascade. `aria-hidden` deliberately does **not** remove a box, which is why the question asked is
-  `RenderingReasonFor` and not `ReasonFor`. An element with no box answers zeros, no client rectangles, and
-  `-32000` rather than a box of zeros over the protocol: a client reads zeros as a real box at the origin.
-- **An excluded element takes its subtree with it**, which is right for `display: none` and wrong for
-  `visibility: hidden`, whose `visibility: visible` descendant CSS lets escape. A model whose boxes are rows
-  cannot give a descendant a row inside a parent that has none, and the nesting is what the hit test rests on.
+  calls not rendered — the `hidden` content attribute and `display: none` from the cascade. `aria-hidden`
+  deliberately does **not** remove a box, which is why the question asked is `RenderingReasonFor` and not
+  `ReasonFor`. An element with no box answers zeros, no client rectangles, and `-32000` rather than a box of
+  zeros over the protocol: a client reads zeros as a real box at the origin.
+- **An excluded element takes its subtree with it**, which is right for `display: none`.
+- **A `visibility: hidden|collapse` box is laid out and never hit**, as [CSS 2 §11.2](https://www.w3.org/TR/CSS2/visufx.html#visibility)
+  says: it keeps its rows, its rectangle and its client rectangles, so hiding an editor's caret or a hover
+  toolbar moves nothing after it, and a hit test passes through it to the visible box beneath. A
+  `visibility: visible` descendant is hit, since visibility is checked box by box. A document with an
+  invisible box takes the rectangle hit test, as one with a flex row does.
+
+**An absolutely or fixed positioned box is as wide as CSS 2 §10.3.7 makes it, and covers its own pixel height.**
+Its `width`, else, when its `left` or `right` is `auto`, its shrink-to-fit width: the preferred width of its
+in-flow content without text measurement (an authored width, a flex row's items side by side, the widest
+child, one row for text), bounded by the available width and clamped by `min-width`/`max-width`. A
+CodeMirror gutter is then as wide as its line numbers, not the editor. An `absolute` box with a pixel `height`
+covers it, up to its parent's bottom — Monaco's lines are as tall as the editor, so a press below the last
+line is on them — or less than its row when no box is inside it. It is out of flow, so its rows are its
+content's and nothing else moves: growing its parent would feed back into an editor that sizes its layers
+from its container. Its offsets are not applied: it stays at its parent's left edge, on its row. A document
+with a positioned box takes the rectangle hit test.
 
 **Single-line horizontal flex rows partition their containing width.** `Layout/FlexRow` reads the shared native cascade's
 computed display, direction, basis, growth, shrinkage and cross-axis alignment. The synthetic intrinsic
-size is still a row, not measured text; wrapping, gaps, margins, min/max sizes, main-axis justification, ordering and positioned
-layout remain unmodeled. A row shares vertical space instead of stacking full-width controls, so a trailing
+size is still a row, not measured text; wrapping, gaps, margins, main-axis justification, ordering and positioned
+offsets remain unmodeled. A row shares vertical space instead of stacking full-width controls, so a trailing
 button no longer owns its parent's centre. DOM rectangles, hit testing, offsets and resize measurements
 use the same boxes. Documents without these rows keep the existing ordinal hit-test path.
 
