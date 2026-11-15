@@ -197,11 +197,15 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<T?> EvaluateAsync<T>(string function, object? argument) { }
         public System.Threading.Tasks.Task<bool> FillAsync(string target, string text) { }
         public System.Threading.Tasks.Task<bool> FillAsync(string target, int index, string text) { }
+        public System.Threading.Tasks.Task<string?> GetAttributeAsync(string target, string name, int index = 0) { }
         public System.Threading.Tasks.Task<bool> GoBackAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> GoForwardAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> HoverAsync(string target) { }
         public System.Threading.Tasks.Task<bool> HoverAsync(string target, int index) { }
         public System.Threading.Tasks.Task<string?> InnerTextAsync(string target, int index = 0) { }
+        public System.Threading.Tasks.Task<string?> InputValueAsync(string target, int index = 0) { }
+        public System.Threading.Tasks.Task<bool?> IsCheckedAsync(string target, int index = 0) { }
+        public System.Threading.Tasks.Task<bool> IsFocusedAsync(string target, int index = 0) { }
         public System.Threading.Tasks.Task<bool> IsVisibleAsync(string target, int index = 0) { }
         public System.Threading.Tasks.Task<string> MarkdownAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> NavigateAsync(string url, Jint.Browser.NavigationOptions? options = null) { }
@@ -230,7 +234,11 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, int index, string text) { }
         public System.Threading.Tasks.Task<bool> WaitForAsync(string expression, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForAsync(string predicate, object? argument, System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForAttributeAsync(string target, string name, System.Text.RegularExpressions.Regex pattern, System.TimeSpan timeout, int index = 0) { }
+        public System.Threading.Tasks.Task<bool> WaitForAttributeAsync(string target, string name, string? value, System.TimeSpan timeout, int index = 0) { }
+        public System.Threading.Tasks.Task<bool> WaitForCheckedAsync(string target, System.TimeSpan timeout, bool isChecked = true, int index = 0) { }
         public System.Threading.Tasks.Task<bool> WaitForCountAsync(string selector, int count, System.TimeSpan timeout, bool visibleOnly = false) { }
+        public System.Threading.Tasks.Task<bool> WaitForFocusAsync(string target, System.TimeSpan timeout, bool focused = true, int index = 0) { }
         public System.Threading.Tasks.Task<bool> WaitForIdleAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNavigationAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNetworkIdleAsync(System.TimeSpan timeout) { }
@@ -238,6 +246,11 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> WaitForSelectorAsync(string selector, int index, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForTextAsync(string text, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForTextAsync(string target, string text, System.TimeSpan timeout, int index = 0) { }
+        public System.Threading.Tasks.Task<bool> WaitForUrlAsync(System.Func<System.Uri, bool> predicate, System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForUrlAsync(System.Text.RegularExpressions.Regex pattern, System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForUrlAsync(string url, System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForValueAsync(string target, System.Text.RegularExpressions.Regex pattern, System.TimeSpan timeout, int index = 0) { }
+        public System.Threading.Tasks.Task<bool> WaitForValueAsync(string target, string value, System.TimeSpan timeout, int index = 0) { }
         public System.Threading.Tasks.Task<bool> WaitForVisibleAsync(string target, System.TimeSpan timeout, bool visible = true, int index = 0) { }
     }
     public sealed class PageError
