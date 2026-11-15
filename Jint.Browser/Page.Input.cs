@@ -160,6 +160,18 @@ public sealed partial class Page
             try
             {
                 InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Moved, x, y, 0, 0, 0, EventModifiers.None, 0, 0));
+
+                // Moving the pointer moves :hover, and a rule keyed on it can show or hide content around the
+                // element - a toolbar revealed on hover above it - and move it. A user aims at where the element
+                // is once the pointer is over it, as Playwright re-checks its target before pressing, so the press
+                // goes to the element's box after the move, not before it.
+                if (runtime.Layout.ClientBoxOf(element) is { } moved && (moved.X != box.X || moved.Y != box.Y || moved.Width != box.Width || moved.Height != box.Height))
+                {
+                    x = moved.X + (moved.Width / 2);
+                    y = moved.Y + (moved.Height / 2);
+                    InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Moved, x, y, 0, 0, 0, EventModifiers.None, 0, 0));
+                }
+
                 var clicked = true;
                 for (var count = 1; count <= clickCount; count++)
                 {

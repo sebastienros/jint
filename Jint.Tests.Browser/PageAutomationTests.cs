@@ -393,4 +393,26 @@ public sealed class PageAutomationTests
         (await page.DoubleClickAsync("#node")).Should().BeTrue();
         (await page.EvaluateAsync<string>("log.join(' ')")).Should().Be("mousedown1 mouseup1 click1 mousedown2 mouseup2 click2 dblclick2");
     }
+
+    /// <summary>
+    /// The pointer moving onto an element moves :hover, which can hide content above it - a toolbar revealed
+    /// while another element was hovered - and move the element. The press goes where the element is once the
+    /// pointer is over it.
+    /// </summary>
+    [Test]
+    public async Task AClickAimsAtTheElementAfterThePointerMovedOverIt()
+    {
+        await using var browser = new NativeBrowser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html>
+            <style>.tools { display: none } #zone:hover .tools { display: block }</style>
+            <div id=zone>zone<div class=tools><p>a</p><p>b</p><p>c</p><p>d</p><p>e</p></div></div>
+            <button id=save onclick="document.title = 'saved'">Save</button>
+            """);
+
+        (await page.HoverAsync("#zone")).Should().BeTrue();
+        (await page.ClickAsync("#save")).Should().BeTrue();
+        (await page.TitleAsync()).Should().Be("saved");
+    }
 }
