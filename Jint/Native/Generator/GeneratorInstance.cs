@@ -54,8 +54,10 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     internal IteratorInstance? _delegatingIterator;
 
     /// <summary>
-    /// The cached [[NextMethod]] obtained once before the yield* delegation loop.
-    /// Per spec step 7.a.i, next must be fetched once, not per-iteration.
+    /// The [[NextMethod]] of <see cref="_delegatingIterator"/>, the record yield* delegates to, which every step of the
+    /// delegation calls and nothing reads again. <see langword="null"/> when the record holds no callable: one Jint steps
+    /// natively, whose step is <see cref="IteratorInstance.CallNextMethod"/>, or one whose <c>next</c> could not be
+    /// called, which that method rejects with a <c>TypeError</c> (sebastienros/jint#4424).
     /// </summary>
     internal ICallable? _delegatingNextMethod;
 
@@ -135,6 +137,18 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     }
 
     /// <summary>
+    /// Forgets the yield* delegation the generator was running, which has ended: the delegate is done, or the delegation
+    /// ended abruptly. Nothing may resume into it, and a later evaluation of the same yield* calls GetIterator afresh
+    /// (https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation, sebastienros/jint#4440).
+    /// </summary>
+    internal void EndDelegation()
+    {
+        _delegatingIterator = null;
+        _delegatingNextMethod = null;
+        _delegatingYieldNode = null;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-generatorstart
     /// </summary>
     public JsValue GeneratorStart(JintStatementList generatorBody)
@@ -165,6 +179,11 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         // 6. Suspend methodContext.
 
         _nextValue = value;
+
+        // A next() is a normal completion. Every resumption states its own type: one left over from a return() or
+        // throw() that a yield* delegation or a destructuring pattern consumed without reaching a yield would
+        // otherwise make the next yield resumed this way take the value as a return or a throw.
+        _resumeCompletionType = CompletionType.Normal;
 
         // Track if we're resuming from a yield (vs first call from SuspendedStart)
         // When resuming from SuspendedYield, the first yield encountered should return _nextValue
@@ -243,7 +262,8 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         // Dispose resources when generator body completes (not when yielding)
         if (_generatorState != GeneratorState.SuspendedYield)
         {
-            result = genContext.LexicalEnvironment.DisposeResources(result);
+            // The generator's context has been left, so the running realm is its caller's: name the generator's.
+            result = genContext.LexicalEnvironment.DisposeResources(result, genContext.Realm);
         }
 
         ObjectInstance? resultValue = null;

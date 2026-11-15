@@ -2,8 +2,8 @@
 
 /// <summary>
 /// Pins the build-time fused guard comparisons (`x === undefined`, `x === null`,
-/// `typeof x === "literal"` and the !== forms) against the semantics of the generic
-/// strict-equality path they replace.
+/// `typeof x === "literal"`, `x === true`, `x === "literal"` and the !== forms) against the
+/// semantics of the generic strict-equality path they replace.
 /// </summary>
 public class GuardFusionTests
 {
@@ -113,6 +113,143 @@ public class GuardFusionTests
             """).AsString();
 
         result.Should().Be("unso");
+    }
+
+    [Test]
+    public void BooleanAndStringLiteralGuardsMatchGenericSemantics()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var t = true, f = false, one = 1, s = 'abc', empty = '', o = {};
+            var boxedTrue = new Boolean(true), boxedString = new String('abc');
+            var built = ['a', 'b', 'c'].join(''), concatenated = 'ab' + s.slice(2);
+            [
+                t === true, true === t, f === false, t !== true, f !== true,
+                one === true, empty === false, o === true, boxedTrue === true, true !== boxedTrue,
+                s === 'abc', 'abc' === s, s !== 'abc', s === 'ABC', empty === '', '' === empty,
+                built === 'abc', concatenated === 'abc', 'abc' === concatenated,
+                boxedString === 'abc', one === '1', t === 'true', o !== 'abc'
+            ].join(',');
+            """).AsString();
+
+        result.Should().Be(
+            "true,true,true,false,true," +
+            "false,false,false,false,true," +
+            "true,true,false,false,true,true," +
+            "true,true,true," +
+            "false,false,false,true");
+    }
+
+    [Test]
+    public void LiteralGuardParityWithGenericPathAcrossOperandTypes()
+    {
+        // Cross-checks the fused `x === true` / `x === 'literal'` against the same comparison with the
+        // literal held in a variable, which is not fused.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var trueVar = true, falseVar = false, stringVar = 's1';
+            var samples = [undefined, null, 0, 1, '', 's1', 's10', true, false, NaN, {}, [], new Boolean(true), new String('s1')];
+            var ok = true;
+            for (var i = 0; i < samples.length; i++) {
+                var v = samples[i];
+                if ((v === true) !== (v === trueVar)) ok = false;
+                if ((true === v) !== (trueVar === v)) ok = false;
+                if ((v !== false) !== (v !== falseVar)) ok = false;
+                if ((v === 's1') !== (v === stringVar)) ok = false;
+                if (('s1' !== v) !== (stringVar !== v)) ok = false;
+            }
+            ok;
+            """).AsBoolean();
+
+        result.Should().BeTrue();
+    }
+
+    [Test]
+    public void LiteralGuardEvaluatesTheOperandOnce()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var calls = 0;
+            function probe(value) { calls++; return value; }
+            var a = probe(true) === true;
+            var b = 'x' !== probe('x');
+            var c = probe(1) === false;
+            [a, b, c, calls].join(',');
+            """).AsString();
+
+        result.Should().Be("true,false,false,3");
+    }
+
+    [Test]
+    public void FusedLiteralGuardsWorkAcrossSuspension()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function f() {
+                var a = (await Promise.resolve(true)) === true;
+                var b = 'yes' === (await Promise.resolve('yes'));
+                var c = (await Promise.resolve('no')) !== 'no';
+                return [a, b, c].join(',');
+            }
+            f();
+            """).UnwrapIfPromise().AsString();
+
+        result.Should().Be("true,true,false");
+
+        var generated = engine.Evaluate("""
+            function* g() {
+                var log = [];
+                log.push((yield 1) === true);
+                log.push('k' !== (yield 2));
+                return log.join(',');
+            }
+            var it = g();
+            it.next();
+            it.next(true);
+            it.next('k').value;
+            """).AsString();
+
+        generated.Should().Be("true,false");
+    }
+
+    [Test]
+    public void LiteralGuardsDriveIfStatementBooleanFastPath()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var log = [];
+            var vals = [true, false, 'on', 'off', 1, new Boolean(true), new String('on')];
+            for (var i = 0; i < vals.length; i++) {
+                var v = vals[i];
+                if (v === true) { log.push('t'); }
+                else if (false === v) { log.push('f'); }
+                else if (v === 'on') { log.push('1'); }
+                else if ('off' !== v) { log.push('x'); }
+                else { log.push('0'); }
+            }
+            log.join('') + (vals[0] !== true ? '!' : '.') + ('on' === vals[2] && vals[1] === false ? '+' : '-');
+            """).AsString();
+
+        result.Should().Be("tf10xxx.+");
+    }
+
+    [Test]
+    public void LiteralGuardsInBooleanContextsWorkAcrossSuspension()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function f() {
+                var log = [];
+                if ((await Promise.resolve(true)) === true) { log.push('a'); }
+                if ('x' !== (await Promise.resolve('x'))) { log.push('wrong'); } else { log.push('b'); }
+                var n = 0;
+                while ((await Promise.resolve(n)) !== 2 && 'go' === 'go' + '') { n++; }
+                return log.join('') + n;
+            }
+            f();
+            """).UnwrapIfPromise().AsString();
+
+        result.Should().Be("ab2");
     }
 
     [Test]

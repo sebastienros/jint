@@ -29,14 +29,15 @@ public partial class Engine
     // two requests for the same resolved specifier with different attributes
     // are distinct module records. Import phase (defer/source) does NOT create
     // distinct records — defer and evaluation share the same underlying module.
-    internal readonly record struct ModuleCacheKey(string Key, ModuleImportAttribute[] Attributes)
+    internal readonly record struct ModuleCacheKey(string Key, ModuleImportAttribute[] Attributes, Realm? Realm = null)
     {
-        public static ModuleCacheKey From(ResolvedSpecifier resolved)
-            => new(resolved.Key, resolved.ModuleRequest.Attributes ?? []);
+        public static ModuleCacheKey From(ResolvedSpecifier resolved, Realm? realm = null)
+            => new(resolved.Key, resolved.ModuleRequest.Attributes ?? [], realm);
 
         public bool Equals(ModuleCacheKey other)
         {
-            return string.Equals(Key, other.Key, StringComparison.Ordinal)
+            return ReferenceEquals(Realm, other.Realm)
+                   && string.Equals(Key, other.Key, StringComparison.Ordinal)
                    && ModuleRequest.AttributesEqual(Attributes, other.Attributes);
         }
 
@@ -44,7 +45,8 @@ public partial class Engine
         {
             unchecked
             {
-                return (StringComparer.Ordinal.GetHashCode(Key) * 397) ^ Attributes.Length;
+                return ((StringComparer.Ordinal.GetHashCode(Key) * 397) ^ Attributes.Length) * 397
+                    ^ (Realm?.GetHashCode() ?? 0);
             }
         }
     }
@@ -55,10 +57,11 @@ public partial class Engine
     /// list, so the engine keeps it, and the location is part of the key because two scripts at different
     /// locations may resolve one specifier to two different modules.
     /// </summary>
-    internal readonly record struct ScriptLoadedModuleKey(string? ReferrerLocation, ModuleRequest Request)
+    internal readonly record struct ScriptLoadedModuleKey(string? ReferrerLocation, ModuleRequest Request, Realm? Realm)
     {
         public bool Equals(ScriptLoadedModuleKey other)
-            => string.Equals(ReferrerLocation, other.ReferrerLocation, StringComparison.Ordinal)
+            => ReferenceEquals(Realm, other.Realm)
+               && string.Equals(ReferrerLocation, other.ReferrerLocation, StringComparison.Ordinal)
                && LoadedModuleRequestComparer.Instance.Equals(Request, other.Request);
 
         public override int GetHashCode()
@@ -66,7 +69,8 @@ public partial class Engine
             unchecked
             {
                 var locationHash = ReferrerLocation is null ? 0 : StringComparer.Ordinal.GetHashCode(ReferrerLocation);
-                return (locationHash * 397) ^ LoadedModuleRequestComparer.Instance.GetHashCode(Request);
+                return ((locationHash * 397) ^ LoadedModuleRequestComparer.Instance.GetHashCode(Request)) * 397
+                    ^ (Realm?.GetHashCode() ?? 0);
             }
         }
     }
@@ -74,6 +78,7 @@ public partial class Engine
     public sealed class ModuleOperations
     {
         private readonly Engine _engine;
+        private readonly IModuleLoader _moduleLoader;
         private readonly Dictionary<ModuleCacheKey, ModuleRecord> _modules = new();
         private readonly Dictionary<string, ModuleBuilder> _builders = new(StringComparer.Ordinal);
         private readonly Dictionary<ScriptLoadedModuleKey, ModuleRecord> _scriptLoadedModules = new();
@@ -128,18 +133,21 @@ public partial class Engine
 
         internal ModuleOperations(Engine engine, IModuleLoader moduleLoader)
         {
-            ModuleLoader = moduleLoader;
-            AsyncModuleLoader = moduleLoader as IAsyncModuleLoader;
+            _moduleLoader = moduleLoader;
             _engine = engine;
         }
 
-        internal IModuleLoader ModuleLoader { get; }
+        internal IModuleLoader ModuleLoader => _engine.Realm.ModuleLoader ?? _moduleLoader;
+
+        private Realm? ModuleMapRealm => _engine.Realm.ModuleLoader is null ? null : _engine.Realm;
+
+        internal ModuleCacheKey CacheKey(ResolvedSpecifier resolved) => ModuleCacheKey.From(resolved, ModuleMapRealm);
 
         /// <summary>
         /// The registered loader's asynchronous face, or null when it only loads synchronously. Non-null is
         /// what switches the engine onto the asynchronous load path.
         /// </summary>
-        internal IAsyncModuleLoader? AsyncModuleLoader { get; }
+        internal IAsyncModuleLoader? AsyncModuleLoader => ModuleLoader as IAsyncModuleLoader;
 
         internal Engine Engine => _engine;
 
@@ -268,7 +276,7 @@ public partial class Engine
                 referencingModuleLocation,
                 request,
                 new ModuleLoadBudget(_engine.Options.Modules));
-            var cacheKey = ModuleCacheKey.From(moduleResolution);
+            var cacheKey = CacheKey(moduleResolution);
 
             if (_modules.TryGetValue(cacheKey, out var module))
             {
@@ -352,7 +360,7 @@ public partial class Engine
                 return;
             }
 
-            var cacheKey = ModuleCacheKey.From(moduleResolution);
+            var cacheKey = CacheKey(moduleResolution);
 
             if (_modules.TryGetValue(cacheKey, out var module))
             {
@@ -489,7 +497,7 @@ public partial class Engine
                 return referrerModule.TryGetLoadedModule(request, out module);
             }
 
-            return _scriptLoadedModules.TryGetValue(new ScriptLoadedModuleKey(referrerLocation, request), out module!);
+            return _scriptLoadedModules.TryGetValue(new ScriptLoadedModuleKey(referrerLocation, request, ModuleMapRealm), out module!);
         }
 
         /// <summary>
@@ -503,7 +511,7 @@ public partial class Engine
                 return;
             }
 
-            var key = new ScriptLoadedModuleKey(referrerLocation, request);
+            var key = new ScriptLoadedModuleKey(referrerLocation, request, ModuleMapRealm);
             if (_scriptLoadedModules.TryGetValue(key, out var existing))
             {
                 if (!ReferenceEquals(existing, module))

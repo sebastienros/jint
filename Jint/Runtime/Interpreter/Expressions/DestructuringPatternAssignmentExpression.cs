@@ -1,20 +1,42 @@
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
+using Jint.Native.Object;
 using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
-internal sealed class DestructuringPatternAssignmentExpression : JintExpression
+/// <summary>
+/// A destructuring assignment, and the destructuring every other construct performs: binding patterns in
+/// declarations, <c>for</c>-<c>in</c>/<c>of</c> heads and <c>catch</c> parameters go through
+/// <see cref="ProcessPatterns"/> or <see cref="ProcessResumablePattern"/>.
+/// </summary>
+/// <remarks>
+/// There are two lanes, and the caller picks one when it is built. <see cref="ProcessPatterns"/> is for a
+/// pattern that cannot suspend the frame it runs in, which is nearly every pattern, and it carries no
+/// suspension bookkeeping at all. <see cref="ProcessResumablePattern"/> is for a pattern with an <c>await</c>
+/// or a <c>yield</c> of the enclosing frame somewhere inside it (<see cref="MaySuspendVisitor"/>), and it
+/// resumes at the element or property that suspended; see
+/// <c>DestructuringPatternAssignmentExpression.Resumable.cs</c>.
+/// </remarks>
+internal sealed partial class DestructuringPatternAssignmentExpression : JintExpression
 {
     private readonly DestructuringPattern _pattern;
     private readonly JintExpression _right;
+
+    /// <summary>
+    /// Whether the pattern contains an <c>await</c> or a <c>yield</c> of the enclosing frame, in a default, a
+    /// computed key, a member target or a nested pattern. Only such a pattern runs the resumable lane.
+    /// </summary>
+    private readonly bool _resumable;
 
     public DestructuringPatternAssignmentExpression(AssignmentExpression expression) : base(expression)
     {
         _pattern = (DestructuringPattern) expression.Left;
         _right = Build(expression.Right);
+        _resumable = MaySuspendVisitor.MaySuspend(_pattern);
     }
 
     /// <summary>
@@ -25,6 +47,11 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
     /// </summary>
     protected override object EvaluateInternal(EvaluationContext context)
     {
+        if (_resumable)
+        {
+            return EvaluateResumable(context);
+        }
+
         var rightValue = _right.GetValue(context);
 
         // `({ a } = await p)`: the right-hand side suspended, and what came back is the suspension
@@ -46,6 +73,11 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         return rightValue;
     }
 
+    /// <summary>
+    /// Destructures <paramref name="argument"/> with a pattern that cannot suspend: there is no <c>await</c> or
+    /// <c>yield</c> of the enclosing frame anywhere inside it, so nothing here tests for a suspension or parks
+    /// anything for a resume. A pattern that may suspend goes through <see cref="ProcessResumablePattern"/>.
+    /// </summary>
     internal static JsValue ProcessPatterns(
         EvaluationContext context,
         DestructuringPattern pattern,
@@ -102,6 +134,184 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         }
     }
 
+    /// <summary>
+    /// IteratorStep (https://tc39.es/ecma262/#sec-iteratorstep) under the same <c>If iteratorRecord.[[Done]] is false</c>
+    /// guard, for <c>Elision : ,</c> of IteratorDestructuringAssignmentEvaluation
+    /// (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation), which an array
+    /// pattern's holes all reach: the step is made and discarded, so the result's <c>value</c> is never read, where
+    /// <see cref="StepValue"/> reads it. An abrupt step sets <paramref name="done"/> as it does there.
+    /// </summary>
+    private static void StepElision(IteratorInstance it, ref bool done)
+    {
+        if (done)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!it.TryStepWithoutValue())
+            {
+                done = true;
+            }
+        }
+        catch
+        {
+            done = true;
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// The array lane reads elements by index in place of the iterator <c>%Array.prototype.values%</c> would create,
+    /// and the pattern closes that iterator unless it ran out ("If iteratorRecord.[[Done]] is false, return ?
+    /// IteratorClose(iteratorRecord, result)", https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization).
+    /// Leaving the iterator out is unobservable only while it would have no <c>return</c> to call
+    /// (sebastienros/jint#4406). It inherits the <c>%ArrayIteratorPrototype%</c> of the realm whose function the lane's
+    /// check finds: an array's own, and the running realm's for an array-like object, whose check compares against that
+    /// realm's, and for a CLR collection, whose iterator is created in it. Asked after that check, which makes
+    /// GetIterator's one read of <c>@@iterator</c>, since a getter can add a <c>return</c>; with one on the chain the
+    /// pattern takes GetIterator with what that read found (sebastienros/jint#4426). Reached only once
+    /// <see cref="Engine._builtinIteratorChainMayHaveReturn"/> is set; until then the lane's one load of that field
+    /// answers.
+    /// </summary>
+    private static bool IndexReadsCloseNothing(ObjectInstance obj, Realm realm)
+        => obj is JsArray array
+            ? array.OriginalIteratorInheritsNoReturnMethod
+            : realm.Intrinsics.ArrayIteratorPrototype.InstancesInheritNoReturnMethod();
+
+    /// <summary>
+    /// The step the array lane makes in place of the iterator's, under the same <c>If iteratorRecord.[[Done]] is
+    /// false</c> guard as <see cref="StepValue"/>: %ArrayIteratorPrototype%.next
+    /// (https://tc39.es/ecma262/#sec-%arrayiteratorprototype%.next) reads the length, then gets the element at the
+    /// next index, through a hole to the prototype chain, or reports done without reading anything. The next index is
+    /// the element's own, since every element and elision before it made one step while the iterator was not done;
+    /// once it is, <paramref name="done"/> stays set and nothing is read again, however an initializer, a getter or a
+    /// setter has grown the array since. An array is read as its own iterator reads it, anything else array-like as
+    /// its iterator reads it through <see cref="ArrayOperations"/>: a bare Get, with no HasProperty first.
+    /// <para>
+    /// Out of line, as the virtual read it replaced was: inlined into the pattern's element forms, it grew
+    /// <see cref="HandleArrayPattern"/> past the JIT's budget for the binding each form makes after its step.
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsValue StepIndexed(JsArray? array, ArrayOperations? operations, uint index, ref bool done)
+    {
+        if (!done)
+        {
+            if (array is not null)
+            {
+                if (index < array.GetLength())
+                {
+                    return array.GetElement(index);
+                }
+            }
+            else if (index < operations!.GetLongLength())
+            {
+                return operations.Get(index);
+            }
+
+            done = true;
+        }
+
+        return JsValue.Undefined;
+    }
+
+    /// <summary>
+    /// BindingRestElement and AssignmentRestElement over an array the lane reads by index, from the index its steps
+    /// reached (https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization,
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation): nothing once the
+    /// iterator is done, and otherwise one step per element until a step finds the index at the length, which each
+    /// step reads again, since a getter may grow or shrink the array. While its elements are dense and no prototype
+    /// holds an index, no read runs script, so the length cannot move, and what is left is copied in one pass into an
+    /// exact-size list the rest array takes. A parameter's pattern collects through this too. The ownership-taking
+    /// constructor validates no length, so the copy checks <c>MaxArraySize</c> itself, as every array the engine
+    /// creates is bounded.
+    /// </summary>
+    internal static JsArray CollectRestFromArray(Engine engine, JsArray array, uint position, bool done)
+    {
+        var length = array.GetLength();
+        if (!done && array.CanUseFastAccess && array._dense is { } dense && length <= (uint) dense.Length)
+        {
+            var count = position < length ? length - position : 0;
+            if (engine._hasMaxArraySize)
+            {
+                ArrayInstance.ValidateListLength(engine, count);
+            }
+
+            var items = new JsValue[count];
+            for (uint j = 0; j < count; j++)
+            {
+                array.TryGetValue(position + j, out var item);
+                items[j] = item;
+            }
+
+            return new JsArray(engine, items);
+        }
+
+        return CollectRestByStepping(engine, array, position, done);
+    }
+
+    /// <summary>
+    /// <see cref="CollectRestFromArray"/> once the iterator is done, or for an array whose reads may run script, which
+    /// it steps as the iterator would, reading the length at every step. The rest array starts at the size left before
+    /// the first step, which is what it ends at unless a getter moves the length.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsArray CollectRestByStepping(Engine engine, JsArray array, uint position, bool done)
+    {
+        var length = done ? 0 : array.GetLength();
+        var rest = engine.Realm.Intrinsics.Array.ArrayCreate(position < length ? length - position : 0);
+        uint index = 0;
+        var iterations = 0;
+        while (position < length)
+        {
+            // A step crosses no statement boundary, so the loop checks the constraints itself, as the iterator lane
+            // does.
+            if (++iterations % Engine.ConstraintCheckInterval == 0)
+            {
+                engine.Constraints.Check();
+            }
+
+            var item = array.GetElement(position++);
+            rest.SetIndexValue(index++, item, updateLength: false);
+            length = array.GetLength();
+        }
+
+        rest.SetLength(index);
+        return rest;
+    }
+
+    /// <summary>
+    /// <see cref="CollectRestByStepping"/> for an array-like object the lane reads through
+    /// <see cref="ArrayOperations"/>: a host <see cref="ArrayLikeObject"/> or a wrapped CLR collection. Its length is
+    /// read once per step, as the iterator reads it, and the read for the first step sizes the rest array. A wrapper's
+    /// length is whatever its CLR <c>Count</c> or <c>Length</c> answers, which nothing keeps in the array index range,
+    /// so it is clamped to it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsArray CollectRestFromArrayLike(Engine engine, ArrayOperations operations, uint position, bool done)
+    {
+        var length = done ? 0 : System.Math.Min(operations.GetLongLength(), ArrayOperations.MaxArrayLength);
+        var next = (ulong) position;
+        var rest = engine.Realm.Intrinsics.Array.ArrayCreate(next < length ? length - next : 0);
+        uint index = 0;
+        var iterations = 0;
+        while (next < length)
+        {
+            if (++iterations % Engine.ConstraintCheckInterval == 0)
+            {
+                engine.Constraints.Check();
+            }
+
+            rest.SetIndexValue(index++, operations.Get(next++), updateLength: false);
+            length = System.Math.Min(operations.GetLongLength(), ArrayOperations.MaxArrayLength);
+        }
+
+        rest.SetLength(index);
+        return rest;
+    }
+
     private static JsValue HandleArrayPattern(
         EvaluationContext context,
         ArrayPattern pattern,
@@ -111,81 +321,45 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
     {
         var engine = context.Engine;
         var realm = engine.Realm;
-        var generator = engine.ExecutionContext.Generator;
-        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
-        var suspendable = (ISuspendable?) generator ?? asyncGenerator;
-
-        // Check if we're resuming from a yield inside this destructuring pattern
-        DestructuringSuspendData? suspendData = null;
-        var resuming = false;
-        if (suspendable is { IsResuming: true })
-        {
-            if (suspendable.Data.TryGet(pattern, out suspendData))
-            {
-                resuming = true;
-            }
-        }
 
         var obj = TypeConverter.ToObject(realm, argument);
+        JsArray? array = null;
         ArrayOperations? arrayOperations = null;
         IteratorInstance? iterator = null;
 
-        if (resuming && suspendData is not null)
+        // read by index while GetIterator would be unobservable: @@iterator and the `next` of the iterator it answers both
+        // the built-ins (sebastienros/jint#4418), and no `return` for the pattern to call (sebastienros/jint#4406). The
+        // check makes GetIterator's one @@iterator read, and both questions are asked after it, which is what a getter
+        // that changes either needs; GetIterator then takes what the read found (sebastienros/jint#4426).
+        JsValue? iteratorMethod = null;
+        if (obj.IsArrayLike
+            && obj.HasOriginalIterator(out iteratorMethod)
+            && (!engine._builtinIteratorChainMayHaveReturn || IndexReadsCloseNothing(obj, realm)))
         {
-            // Reuse the saved iterator
-            iterator = suspendData.Iterator;
-
-            // If resuming with Return completion, close the iterator immediately
-            // This handles the case where generator.return() was called while
-            // suspended inside this destructuring pattern
-            var isReturn = generator?._resumeCompletionType == CompletionType.Return
-                           || asyncGenerator?._resumeCompletionType == CompletionType.Return;
-            if (isReturn)
+            // Each element makes the step the iterator would (StepIndexed): an array read directly, as its own
+            // iterator reads it, anything else array-like through the operations its iterator reads it through.
+            array = obj as JsArray;
+            if (array is null)
             {
-                if (!suspendData.Done)
-                {
-                    suspendData.Done = true;
-                    iterator?.Close(CompletionType.Return);
-                }
-                suspendable!.Data.Clear(pattern);
-                if (generator is not null)
-                {
-                    generator._returnRequested = true;
-                    generator._suspendedValue = generator._nextValue ?? JsValue.Undefined;
-                }
-                else if (asyncGenerator is not null)
-                {
-                    asyncGenerator._resumeCompletionType = CompletionType.Normal;
-                    asyncGenerator._returnRequested = true;
-                    asyncGenerator._suspendedValue = asyncGenerator._nextValue ?? JsValue.Undefined;
-                }
-                return JsValue.Undefined;
+                arrayOperations = ArrayOperations.For(obj, forWrite: false);
             }
         }
         else
         {
-            // optimize for array unless someone has touched the iterator
-            if (obj.IsArrayLike && obj.HasOriginalIterator)
+            // ArrayBindingPattern's step is GetIterator(value, sync) over the *value*, not over
+            // the object ToObject built from it (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization).
+            // The conversion above exists for the array fast path and for the null/undefined throw.
+            if (!argument.TryGetIteratorFromRead(realm, iteratorMethod, out iterator))
             {
-                arrayOperations = ArrayOperations.For(obj, forWrite: false);
-            }
-            else
-            {
-                // ArrayBindingPattern's step is GetIterator(value, sync) over the *value*, not over
-                // the object ToObject built from it (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization).
-                // The conversion above exists for the array fast path and for the null/undefined throw.
-                iterator = argument.GetIterator(realm);
-
-                // Save the iterator for potential yield inside this pattern
-                if (suspendable is not null && iterator is not null)
-                {
-                    suspendData = suspendable.Data.GetOrCreate<DestructuringSuspendData>(pattern, iterator);
-                }
+                Throw.TypeError(realm, "The value is not iterable");
             }
         }
 
+        // The pattern cannot suspend, so every way out of the loop below ends it: a normal completion closes the
+        // iterator with a normal completion and a throw with a throw completion, unless it is already done
+        // (DestructuringAssignmentEvaluation / BindingInitialization: "If iteratorRecord.[[Done]] is false, return
+        // ? IteratorClose(iteratorRecord, result)").
         var completionType = CompletionType.Normal;
-        var close = false;
         var done = false;
         uint i = 0;
         try
@@ -197,160 +371,87 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
 
                 if (left is null)
                 {
-                    if (arrayOperations != null)
+                    // An elision consumes a step and discards it; it never ends the pattern, so the elements after
+                    // it still bind (undefined, or their initializer). An array iterator's step reads the element even
+                    // so.
+                    if (iterator is null)
                     {
-                        arrayOperations.TryGetValue(i, out _);
+                        StepIndexed(array, arrayOperations, i, ref done);
                     }
                     else
                     {
-                        // An elision consumes a step and discards it; it never ends the pattern, so
-                        // the elements after it still bind (undefined, or their initializer).
-                        StepValue(iterator!, ref done);
+                        StepElision(iterator, ref done);
                     }
-                    // skip assignment
+
                     continue;
                 }
 
                 if (left is Identifier identifier)
                 {
-                    JsValue value;
-                    if (arrayOperations != null)
-                    {
-                        arrayOperations.TryGetValue(i, out value);
-                    }
-                    else
-                    {
-                        value = StepValue(iterator!, ref done);
-                    }
+                    var value = iterator is null
+                        ? StepIndexed(array, arrayOperations, i, ref done)
+                        : StepValue(iterator, ref done);
 
                     AssignToIdentifier(engine, identifier.Name, value, environment, checkReference);
                 }
                 else if (left is MemberExpression me)
                 {
-                    close = true;
                     var reference = GetReferenceFromMember(context, me);
 
-                    // Check for generator suspension after evaluating member expression
-                    if (context.IsSuspended())
-                    {
-                        close = false; // Don't close iterator, we'll resume later
-                        return JsValue.Undefined;
-                    }
-
-                    // Check for generator return request
-                    if (suspendable?.ReturnRequested == true)
-                    {
-                        if (!done && iterator is not null)
-                        {
-                            done = true;
-                            iterator.Close(CompletionType.Return);
-                        }
-                        suspendable?.Data.Clear(pattern);
-                        close = false; // Already closed
-                        return JsValue.Undefined;
-                    }
-
-                    JsValue value;
-                    if (arrayOperations != null)
-                    {
-                        arrayOperations.TryGetValue(i, out value);
-                    }
-                    else
-                    {
-                        value = StepValue(iterator!, ref done);
-                    }
+                    var value = iterator is null
+                        ? StepIndexed(array, arrayOperations, i, ref done)
+                        : StepValue(iterator, ref done);
 
                     AssignToReference(engine, reference, value, environment);
                 }
                 else if (left is DestructuringPattern dp)
                 {
-                    JsValue value;
-                    if (arrayOperations != null)
-                    {
-                        arrayOperations.TryGetValue(i, out value);
-                    }
-                    else
-                    {
-                        // BindingElement : BindingPattern binds the nested pattern to the value the
-                        // step produced, never to the { value, done } result object the step returned.
-                        value = StepValue(iterator!, ref done);
-                    }
+                    // BindingElement : BindingPattern binds the nested pattern to the value the
+                    // step produced, never to the { value, done } result object the step returned.
+                    var value = iterator is null
+                        ? StepIndexed(array, arrayOperations, i, ref done)
+                        : StepValue(iterator, ref done);
                     ProcessPatterns(context, dp, value, environment);
                 }
                 else if (left is RestElement restElement)
                 {
-                    close = true;
                     Reference? reference = null;
                     if (restElement.Argument is MemberExpression memberExpression)
                     {
                         reference = GetReferenceFromMember(context, memberExpression);
-
-                        // Check for generator suspension after evaluating member expression
-                        if (context.IsSuspended())
-                        {
-                            close = false; // Don't close iterator, we'll resume later
-                            return JsValue.Undefined;
-                        }
-
-                        // Check for generator return request
-                        if (suspendable?.ReturnRequested == true)
-                        {
-                            if (!done && iterator is not null)
-                            {
-                                done = true;
-                                iterator.Close(CompletionType.Return);
-                            }
-                            suspendable?.Data.Clear(pattern);
-                            close = false; // Already closed
-                            return JsValue.Undefined;
-                        }
                     }
 
-                    JsArray array;
-                    if (arrayOperations != null)
+                    JsArray rest;
+                    if (iterator is null)
                     {
-                        // This lane is gated on HasOriginalIterator, so the receiver is a JsArray, an
-                        // ArrayLikeObject or an array-like ObjectWrapper, and all three count elements in
-                        // the array index range. Clamp rather than cast all the same: a wrapper's "length"
-                        // is whatever its CLR Count/Length property returns, and nothing constrains that
-                        // property's type.
-                        var length = (uint) System.Math.Min(arrayOperations.GetLongLength(), ArrayOperations.MaxArrayLength);
-
-                        // A pattern with more leading elements than the source has already drove the
-                        // notional iterator to done, so the "Repeat, while iteratorRecord.[[Done]] is
-                        // false" of BindingRestElement
-                        // (https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization)
-                        // and AssignmentRestElement
-                        // (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation)
-                        // adds nothing, and the rest array is empty.
-                        // The subtraction is unsigned, so that case has to be clamped rather than left
-                        // to wrap: with i past length, an unclamped length - i produced a rest array
-                        // claiming close to 2^32 elements, which .length reported and which
-                        // JSON.stringify, a spread and concat all went on to consume. The clamp costs
-                        // the comparison the loop below already makes on its first iteration; the
-                        // subtraction inside that loop needs none, since j starts at i.
-                        var restLength = i < length ? length - i : 0;
-
-                        array = engine.Realm.Intrinsics.Array.ArrayCreate(restLength);
-                        for (uint j = i; j < length; ++j)
-                        {
-                            arrayOperations.TryGetValue(j, out var indexValue);
-                            array.SetIndexValue(j - i, indexValue, updateLength: false);
-                        }
+                        // Every element before the rest made one step while the iterator was not done, so the
+                        // steps reached the rest's own index; once done, the rest takes none and is empty.
+                        rest = array is not null
+                            ? CollectRestFromArray(engine, array, i, done)
+                            : CollectRestFromArrayLike(engine, arrayOperations!, i, done);
                     }
                     else
                     {
-                        array = engine.Realm.Intrinsics.Array.ArrayCreate(0);
+                        rest = engine.Realm.Intrinsics.Array.ArrayCreate(0);
                         uint index = 0;
+                        var iterations = 0;
                         // AssignmentRestElement / BindingRestElement: "Repeat, while
                         // iteratorRecord.[[Done]] is false". An iterator a preceding element already
                         // drove to done contributes nothing and is not stepped at all.
                         while (!done)
                         {
+                            // A built-in iterator's steps cross no statement boundary, so the loop checks the
+                            // constraints itself, as IteratorProtocol.Execute does; the pattern's finally closes the
+                            // iterator if one throws.
+                            if (++iterations % Engine.ConstraintCheckInterval == 0)
+                            {
+                                engine.Constraints.Check();
+                            }
+
                             JsValue value;
                             try
                             {
-                                if (!iterator!.TryIteratorStep(out var item))
+                                if (!iterator.TryIteratorStep(out var item))
                                 {
                                     done = true;
                                     break;
@@ -364,23 +465,23 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                                 throw;
                             }
 
-                            array.SetIndexValue(index++, value, updateLength: false);
+                            rest.SetIndexValue(index++, value, updateLength: false);
                         }
 
-                        array.SetLength(index);
+                        rest.SetLength(index);
                     }
 
                     if (restElement.Argument is Identifier leftIdentifier)
                     {
-                        AssignToIdentifier(engine, leftIdentifier.Name, array, environment, checkReference);
+                        AssignToIdentifier(engine, leftIdentifier.Name, rest, environment, checkReference);
                     }
                     else if (restElement.Argument is DestructuringPattern bp)
                     {
-                        ProcessPatterns(context, bp, array, environment);
+                        ProcessPatterns(context, bp, rest, environment);
                     }
                     else
                     {
-                        AssignToReference(engine, reference!, array, environment);
+                        AssignToReference(engine, reference!, rest, environment);
                     }
                 }
                 else if (left is AssignmentPattern assignmentPattern)
@@ -394,39 +495,12 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     Reference? memberReference = null;
                     if (assignmentPattern.Left is MemberExpression memberExpr)
                     {
-                        close = true;
                         memberReference = GetReferenceFromMember(context, memberExpr);
-
-                        // Check for generator suspension after evaluating member expression
-                        if (context.IsSuspended())
-                        {
-                            close = false;
-                            return JsValue.Undefined;
-                        }
-
-                        // Check for generator return request
-                        if (suspendable?.ReturnRequested == true)
-                        {
-                            if (!done && iterator is not null)
-                            {
-                                done = true;
-                                iterator.Close(CompletionType.Return);
-                            }
-                            suspendable?.Data.Clear(pattern);
-                            close = false;
-                            return JsValue.Undefined;
-                        }
                     }
 
-                    JsValue value;
-                    if (arrayOperations != null)
-                    {
-                        arrayOperations.TryGetValue(i, out value);
-                    }
-                    else
-                    {
-                        value = StepValue(iterator!, ref done);
-                    }
+                    var value = iterator is null
+                        ? StepIndexed(array, arrayOperations, i, ref done)
+                        : StepValue(iterator, ref done);
 
                     // Only an initializer the engine actually ran can be the subject of
                     // NamedEvaluation below; a supplied value is bound exactly as it came in.
@@ -435,26 +509,6 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     {
                         var jintExpression = Build(assignmentPattern.Right);
                         value = jintExpression.GetValue(context);
-
-                        // Check for generator suspension after evaluating default value
-                        if (context.IsSuspended())
-                        {
-                            close = false; // Don't close iterator, we'll resume later
-                            return JsValue.Undefined;
-                        }
-
-                        // Check for generator return request after evaluating default value
-                        if (suspendable?.ReturnRequested == true)
-                        {
-                            if (!done && iterator is not null)
-                            {
-                                done = true;
-                                iterator.Close(CompletionType.Return);
-                            }
-                            suspendable?.Data.Clear(pattern);
-                            close = false; // Already closed
-                            return JsValue.Undefined;
-                        }
                     }
 
                     if (memberReference is not null)
@@ -484,45 +538,16 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     Throw.ArgumentOutOfRangeException(nameof(pattern), $"Unable to determine how to handle array pattern element {left}");
                     break;
                 }
-
-                // Check for generator suspension after processing each element
-                if (context.IsSuspended())
-                {
-                    // Generator yield - don't close the iterator, we'll resume later
-                    close = false;
-                    return JsValue.Undefined;
-                }
-
-                // Check for generator return request
-                if (suspendable?.ReturnRequested == true)
-                {
-                    // Generator return() was called - close iterator with Return completion
-                    if (!done && iterator is not null)
-                    {
-                        done = true; // Prevent double-close in finally
-                        iterator.Close(CompletionType.Return);
-                    }
-                    suspendable?.Data.Clear(pattern);
-                    close = false; // Prevent double-close in finally
-                    return JsValue.Undefined;
-                }
             }
-
-            close = true;
-            // Clear suspend data on normal completion
-            suspendable?.Data.Clear(pattern);
         }
         catch
         {
             completionType = CompletionType.Throw;
-            close = true;
-            // Clear suspend data on error
-            suspendable?.Data.Clear(pattern);
             throw;
         }
         finally
         {
-            if (close && !done && iterator is not null)
+            if (!done && iterator is not null)
             {
                 iterator.Close(completionType);
             }
@@ -552,9 +577,8 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 if (identifier == null || p.Computed)
                 {
                     // Same per-node cache the object-literal and class-body key positions use: this
-                    // method is static and has no handler of its own to hang the key expression on, and a
-                    // freshly built one would lose the replay state a suspension inside the key parked
-                    // under it (`({ [f() + await g()]: v } = o)` called f twice).
+                    // method is static and has no handler of its own to hang the key expression on. The
+                    // resumable lane depends on the handler's identity as well; see HandleResumableObjectPattern.
                     var keyExpression = context.Engine.GetOrBuildPropertyKeyExpression(p.Key);
                     var value = keyExpression.GetValue(context);
                     sourceKey = TypeConverter.ToPropertyKey(value);
@@ -575,10 +599,6 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     if (assignmentPattern.Left is MemberExpression memberExpr)
                     {
                         memberReference = GetReferenceFromMember(context, memberExpr);
-                        if (context.IsSuspended())
-                        {
-                            return JsValue.Undefined;
-                        }
                     }
                     else if (assignmentPattern.Left is Identifier leftId)
                     {
@@ -594,13 +614,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     if (initializerEvaluated)
                     {
                         var jintExpression = Build(assignmentPattern.Right);
-                        var completion = jintExpression.GetValue(context);
-                        // Check for async/generator suspension after evaluating default value
-                        if (context.IsSuspended())
-                        {
-                            return JsValue.Undefined;
-                        }
-                        value = completion;
+                        value = jintExpression.GetValue(context);
                     }
 
                     if (memberReference is not null)
@@ -653,17 +667,6 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 else if (p.Value is MemberExpression memberExpression)
                 {
                     var reference = GetReferenceFromMember(context, memberExpression);
-
-                    // Check for suspension after evaluating the member expression, as every array-pattern
-                    // branch above already does: `({ q: (await p).a } = src)` hands back the suspension
-                    // sentinel, and writing through it threw inside the suspended frame - which also meant
-                    // the statement never reached the point where its resume position is recorded, so the
-                    // body replayed from the start (sebastienros/jint#4086). The resume re-runs the pattern.
-                    if (context.IsSuspended())
-                    {
-                        return JsValue.Undefined;
-                    }
-
                     var value = source.Get(sourceKey);
                     AssignToReference(context.Engine, reference, value, environment);
                 }
@@ -708,14 +711,6 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 else if (restElement.Argument is MemberExpression memberExpression)
                 {
                     var left = GetReferenceFromMember(context, memberExpression);
-
-                    // Same suspension check as the property branch above: `({ ...(await p).a } = src)` must
-                    // not copy into the suspension sentinel (sebastienros/jint#4086).
-                    if (context.IsSuspended())
-                    {
-                        return JsValue.Undefined;
-                    }
-
                     var rest = context.Engine.Realm.Intrinsics.Object.ConstructShapeBuilding();
                     source.CopyDataProperties(rest, processedProperties);
                     AssignToReference(context.Engine, left, rest, environment);

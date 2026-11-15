@@ -207,6 +207,8 @@ internal static class IndexedDbKeyConverter
                     result = buffer;
                     break;
                 default:
+                    // As long as the array the writing engine was given, which need not be this one (sebastienros/jint#4505).
+                    ArrayInstance.ValidateListLength(engine, (uint) current.Items.Length);
                     var values = new JsValue[current.Items.Length];
                     if (values.Length != 0)
                     {

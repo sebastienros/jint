@@ -33,10 +33,37 @@ public class PuppeteerSharpPageTests
 {
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(120);
 
+    /// <summary>What every context of this test's browser sends through, and what <see cref="NothingLeftTheMachine"/> reads.</summary>
+    private readonly LoopbackOnlyTransport _network = new();
+
+    /// <summary>
+    /// Fails a test whose browser was not built through <see cref="NewBrowser"/>, or whose page reached for a
+    /// host that is not loopback.
+    /// </summary>
+    [TearDown]
+    public void NothingLeftTheMachine()
+    {
+        try
+        {
+            _network.AssertNothingEscaped();
+        }
+        finally
+        {
+            _network.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// A browser every context of which loads only what <paramref name="filter"/> admits, through
+    /// <see cref="_network"/> — the default context included, which is where <c>browser.NewPageAsync()</c> opens
+    /// a page.
+    /// </summary>
+    private global::Jint.Browser.Browser NewBrowser(Func<Uri, bool> filter) => new(_network.Install(new BrowserOptions(), filter));
+
     [Test]
     public async Task PuppeteerBrowserSessionCoexistsWithPageAutomation()
     {
-        await using var pages = new global::Jint.Browser.Browser();
+        await using var pages = NewBrowser(static uri => uri.IsLoopback);
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
         await server.StartAsync();
@@ -63,8 +90,7 @@ public class PuppeteerSharpPageTests
         origin.MapHtml("/one", "<html><head><title>First</title></head><body><p id='greeting'>hello</p></body></html>");
         origin.MapHtml("/two", "<html><head><title>Second</title></head><body><p id='greeting'>again</p></body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -77,8 +103,11 @@ public class PuppeteerSharpPageTests
 
         browser.IsConnected.Should().BeTrue();
 
-        // The client's own newPage, which is Target.createBrowserContext + createTarget through the host.
+        // The client's own newPage, which is Target.createTarget with no browserContextId, so the page opens in
+        // the browser's default context, as it would in Chrome. That is why NewBrowser bounds every context
+        // rather than one created beside the default.
         var page = await browser.NewPageAsync().WaitAsync(Bound);
+        pages.DefaultContext.Pages.Should().ContainSingle("a createTarget that names no context opens its page in the default one");
 
         // The navigation runs and the client gets a response object back, which it builds out of the
         // Network.responseReceived for the document request -- the one whose requestId is the loaderId.
@@ -112,8 +141,6 @@ public class PuppeteerSharpPageTests
 
         browser.Disconnect();
         browser.IsConnected.Should().BeFalse();
-
-        await context.CloseAsync();
     }
 
     /// <summary>
@@ -156,8 +183,7 @@ public class PuppeteerSharpPageTests
 
         origin.MapHtml("/next", "<html><head><title>Next</title></head><body><p>arrived</p></body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -218,7 +244,6 @@ public class PuppeteerSharpPageTests
         refusal.Message.Should().Contain("Jint.getMarkdown");
 
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     /// <summary>
@@ -256,8 +281,7 @@ public class PuppeteerSharpPageTests
 
         origin.MapHtml("/done", "<html><head><title>Done</title></head><body><p>submitted</p></body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -316,7 +340,6 @@ public class PuppeteerSharpPageTests
         page.Url.Should().Contain("name=hel");
 
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     /// <summary>
@@ -346,8 +369,7 @@ public class PuppeteerSharpPageTests
             </body></html>
             """);
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -388,7 +410,6 @@ public class PuppeteerSharpPageTests
         (await page.EvaluateExpressionAsync<string>("document.title").WaitAsync(Bound)).Should().Be("Emulation");
 
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     /// <summary>
@@ -409,8 +430,7 @@ public class PuppeteerSharpPageTests
             </body></html>
             """);
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -437,7 +457,6 @@ public class PuppeteerSharpPageTests
         flattened.Should().Contain(node => node.Role == "heading" && node.Name == "Report");
 
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     private static IEnumerable<SerializedAXNode> Flatten(SerializedAXNode node)
@@ -460,8 +479,7 @@ public class PuppeteerSharpPageTests
         origin.Map("/rows.json", _ => LoopbackResponse.Json("""{"rows":[1,2,3]}"""));
         origin.MapHtml("/one", "<html><head><title>Requests</title></head><body>one</body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -489,7 +507,6 @@ public class PuppeteerSharpPageTests
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     [Test]
@@ -499,8 +516,7 @@ public class PuppeteerSharpPageTests
         origin.MapHtml("/one", "<html><head><title>Origin</title></head><body>from the server</body></html>");
         origin.Map("/blocked.js", _ => LoopbackResponse.Script("globalThis.__blocked = true;"));
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -551,7 +567,6 @@ public class PuppeteerSharpPageTests
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     [Test]
@@ -560,8 +575,7 @@ public class PuppeteerSharpPageTests
         using var origin = new LoopbackServer();
         origin.MapHtml("/one", "<html><head><title>Headers</title></head><body>one</body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -600,7 +614,6 @@ public class PuppeteerSharpPageTests
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     /// <summary>
@@ -616,12 +629,11 @@ public class PuppeteerSharpPageTests
     /// refused here, by the page's network conditions, with Chrome's <c>net::ERR_INTERNET_DISCONNECTED</c>.
     /// </para>
     /// <para>
-    /// The patterns are the URLPattern syntax the protocol names. <c>example.com</c> and <c>*.evil.com</c> are
-    /// not the loopback origin, so the context's <see cref="System.Net.Http.HttpClient"/> answers every such
-    /// host in-process: a blocked request that slipped through would be answered there rather than reach the
-    /// network, which is also what the test reads to prove that none did. It is the <i>default</i> context's
-    /// client, because that is where <c>browser.NewPageAsync()</c> opens a page: it names no
-    /// <c>browserContextId</c>, so a context created beside the default one would not be the page's.
+    /// The patterns are the URLPattern syntax the protocol names. The browser admits every host, so that what
+    /// refuses a blocked URL is the client's list and not a filter of ours, and the transport answers every
+    /// host that is not loopback in process (<see cref="LoopbackOnlyTransport.AnswerOtherHostsInProcess"/>): a
+    /// blocked request that slipped through would be answered there rather than reach the network, which is
+    /// also what the test reads to prove that none did.
     /// </para>
     /// </remarks>
     [Test]
@@ -631,11 +643,8 @@ public class PuppeteerSharpPageTests
         origin.MapHtml("/one", "<html><head><title>Allowed</title></head><body>one</body></html>");
         origin.Map("/data", _ => LoopbackResponse.Text("went"));
 
-        using var hosts = new LoopbackOnlyHandler(origin);
-        using var client = new HttpClient(hosts);
-
-        await using var pages = new global::Jint.Browser.Browser(
-            new BrowserOptions().ConfigureContext(options => options.HttpClient = client));
+        _network.AnswerOtherHostsInProcess = true;
+        await using var pages = NewBrowser(static _ => true);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -668,7 +677,7 @@ public class PuppeteerSharpPageTests
         failures.Should().BeEquivalentTo(
             "http://example.com/data net::ERR_INTERNET_DISCONNECTED",
             "https://cdn.evil.com/tracker.js net::ERR_INTERNET_DISCONNECTED");
-        hosts.Answered.Should().Equal(["http://evil.com/data"], "a blocked request opens no connection, so only the allowed one was answered");
+        _network.Answered.Should().Equal(["http://evil.com/data"], "a blocked request opens no connection, so only the allowed one was answered");
 
         // PuppeteerSharp logs and swallows a refused list, so the log is where a refusal would show. The page's
         // attachment accepted it; the tab's has no Network domain and answers -32601.
@@ -682,36 +691,6 @@ public class PuppeteerSharpPageTests
     /// <summary>Fetches <paramref name="url"/> from the page, answering its body or <c>refused</c>.</summary>
     private static Task<string> FetchAsync(IPage page, string url)
         => page.EvaluateFunctionAsync<string>("url => fetch(url, {cache: 'no-store'}).then(r => r.text(), () => 'refused')", url).WaitAsync(Bound);
-
-    /// <summary>
-    /// A handler that sends what is addressed to the loopback origin over a real socket and answers every other
-    /// host in-process, recording the URLs it answered — so a test can name hosts on the internet and reach none.
-    /// </summary>
-    private sealed class LoopbackOnlyHandler(LoopbackServer origin)
-        : DelegatingHandler(new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false })
-    {
-        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _answered = new();
-
-        /// <summary>Every URL answered in-process, in the order it was asked for.</summary>
-        internal IReadOnlyList<string> Answered => [.. _answered];
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            if (request.RequestUri is { } uri && origin.Owns(uri))
-            {
-                return base.SendAsync(request, cancellationToken);
-            }
-
-            _answered.Enqueue(request.RequestUri!.AbsoluteUri);
-            var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
-            {
-                Content = new StringContent("went"),
-                RequestMessage = request,
-            };
-            response.Headers.Add("Access-Control-Allow-Origin", "*");
-            return Task.FromResult(response);
-        }
-    }
 
     /// <summary>An <see cref="Microsoft.Extensions.Logging.ILoggerFactory"/> that keeps every error a client logged.</summary>
     private sealed class RecordingLoggerFactory : Microsoft.Extensions.Logging.ILoggerFactory
@@ -777,7 +756,7 @@ public class PuppeteerSharpPageTests
         using var origin = new LoopbackServer();
         origin.MapHtml("/one", "<html><head><title>Existing</title></head><body>one</body></html>");
 
-        await using var pages = new global::Jint.Browser.Browser();
+        await using var pages = NewBrowser(origin.Owns);
         var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
         var hosted = await context.NewPageAsync();
         await hosted.NavigateAsync(origin.Url("/one"));
@@ -826,8 +805,7 @@ public class PuppeteerSharpPageTests
             <body><p id="box" class="used">text</p></body></html>
             """);
 
-        await using var pages = new global::Jint.Browser.Browser();
-        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+        await using var pages = NewBrowser(origin.Owns);
 
         await using var server = new DevToolsServer();
         await server.AddBrowser(pages);
@@ -856,7 +834,6 @@ public class PuppeteerSharpPageTests
 
         await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
-        await context.CloseAsync();
     }
 
     /// <summary>Runs <paramref name="work"/> and answers what it threw, or <see langword="null"/>.</summary>

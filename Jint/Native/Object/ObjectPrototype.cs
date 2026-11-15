@@ -83,6 +83,13 @@ public sealed partial class ObjectPrototype : Prototype
         else
         {
             _objectChangeFlags |= property.IsSymbol() ? ObjectChangeFlags.Symbol : ObjectChangeFlags.Property;
+
+            // Object.prototype ends every built-in iterator's chain, so a `return` here is one every close would find
+            // (sebastienros/jint#4406).
+            if (CommonProperties.Return.Equals(property))
+            {
+                _engine._builtinIteratorChainMayHaveReturn = true;
+            }
         }
     }
 

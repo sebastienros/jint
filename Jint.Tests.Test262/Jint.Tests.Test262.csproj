@@ -51,6 +51,20 @@
     <Content Include=".config\dotnet-tools.json" />
   </ItemGroup>
 
+  <!-- The generator tool and the Test262Harness library its output compiles against ship from one
+       release, under one version. Dependabot bumps only the library (#4290 took it to 1.3.0 and left the
+       tool at 1.2.1), so fail the build while the two differ rather than compiling one release's
+       generated suite against another release's library. -->
+  <Target Name="CheckTest262HarnessLockstep" BeforeTargets="GenerateTestSuite">
+    <PropertyGroup>
+      <_Test262HarnessToolManifest>$([System.IO.File]::ReadAllText($([System.IO.Path]::Combine($(MSBuildThisFileDirectory), '.config', 'dotnet-tools.json'))))</_Test262HarnessToolManifest>
+      <_Test262HarnessToolVersion>$([System.Text.RegularExpressions.Regex]::Match($(_Test262HarnessToolManifest), '(?&lt;="test262harness\.console"\s*:\s*\{\s*"version"\s*:\s*")[^"]+'))</_Test262HarnessToolVersion>
+      <_Test262HarnessPackageVersion>@(PackageVersion->WithMetadataValue('Identity', 'Test262Harness')->'%(Version)')</_Test262HarnessPackageVersion>
+    </PropertyGroup>
+    <Error Condition="'$(_Test262HarnessToolVersion)' != '$(_Test262HarnessPackageVersion)'"
+           Text="Test262Harness is $(_Test262HarnessPackageVersion) in Directory.Packages.props, but its generator test262harness.console is '$(_Test262HarnessToolVersion)' in Jint.Tests.Test262/.config/dotnet-tools.json. They ship together: bump both to the same version (Jint.Tests.Test262/AGENTS.md, 'Updating Test262Harness itself')." />
+  </Target>
+
   <!-- Based on the idea presented at https://mhut.ch/journal/2015/06/30/build-time-code-generation-in-msbuild -->
 
   <!-- Check if settings file has changed by comparing hash and regenerate if needed -->

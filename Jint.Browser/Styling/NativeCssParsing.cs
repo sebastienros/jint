@@ -13,6 +13,8 @@ internal static class NativeCssParsing
 {
     private static readonly ConditionalWeakTable<CssRuleList, RuleSlot> RuleSources = new();
     private static readonly ConditionalWeakTable<CssMediaList, MediaSlot> MediaSources = new();
+    private static readonly NativeCssSyntaxCache Syntax = new();
+    private static readonly NativeCssRuleCache PreparedRules = new();
 
     private sealed class RuleSlot
     {
@@ -49,7 +51,7 @@ internal static class NativeCssParsing
 
     internal static CssStyleSheet CreateSheet(string source, CssValueWork work)
     {
-        var rules = CssParser.ParseRuleList(source, work);
+        var rules = Syntax.Parse(source, work);
         var sheet = new CssStyleSheet();
         var input = SheetInput(sheet, rules, work);
         var slot = RuleSources.GetValue(sheet.Rules, static _ => new());
@@ -60,7 +62,7 @@ internal static class NativeCssParsing
 
     internal static void ReplaceSource(CssStyleSheet sheet, string source, CssValueWork work)
     {
-        var rules = CssParser.ParseRuleList(source, work);
+        var rules = Syntax.Parse(source, work);
         var slot = RuleSources.GetValue(sheet.Rules, static _ => new());
         var input = SheetInput(sheet, rules, work);
         sheet.Replace(new CssStyleSheet(), work);
@@ -117,7 +119,7 @@ internal static class NativeCssParsing
                     end = i;
                     break;
                 }
-                var parsed = CssParser.ParseRule(item, guarded, input.Parent as CssStyleRule);
+                var parsed = PreparedRules.Parse(item, CssScopeRule.NestingContextOf(input.Parent, guarded), guarded);
                 if (parsed is not { } value) continue;
                 var rule = value.Rule;
                 if (rule is CssImportRule) hasImport = true;
@@ -256,7 +258,7 @@ internal static class NativeCssParsing
             result.Add(rule);
             switch (rule)
             {
-                case CssStyleRule or CssLayerBlockRule:
+                case CssStyleRule or CssLayerBlockRule or CssScopeRule:
                     frames.Push((ReadRules(rule.Rules, work), 0, null));
                     break;
                 case CssMediaRule media when ReadMedia(media.Media, work).Matches(environment, work):

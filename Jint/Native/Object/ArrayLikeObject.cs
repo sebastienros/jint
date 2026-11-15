@@ -803,15 +803,17 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
 
     // Identity-compare the resolved @@iterator against the realm's captured %Array.prototype.values%, exactly as
     // ArrayInstance does: a host that wired the original array iterator gets the destructuring fast path, one
-    // that installed its own (or none) keeps the full iterator protocol.
-    internal sealed override bool HasOriginalIterator
+    // that installed its own (or none) keeps the full iterator protocol. So does one whose array iterators no
+    // longer step with the built-in %ArrayIteratorPrototype%.next: one byte test until a script touches one, then the
+    // realm's Array.prototype (sebastienros/jint#4418). The read is the caller's GetIterator's only one, and `next` is
+    // asked after it, as ArrayInstance does (sebastienros/jint#4426).
+    internal sealed override bool HasOriginalIterator(out JsValue? iteratorMethod)
     {
-        get
-        {
-            var iterator = Get(GlobalSymbolRegistry.Iterator);
-            return !iterator.IsUndefined()
-                   && ReferenceEquals(iterator, _engine.Realm.Intrinsics.Array.PrototypeObject._originalIteratorFunction);
-        }
+        var method = Get(GlobalSymbolRegistry.Iterator);
+        iteratorMethod = method;
+        var arrayPrototype = _engine.Realm.Intrinsics.Array.PrototypeObject;
+        return ReferenceEquals(method, arrayPrototype._originalIteratorFunction)
+               && (!_engine._arrayIteratorNextMayBeReplaced || arrayPrototype.ArrayIteratorsStepNatively());
     }
 
     // Enumerating a collection materializes one key per element, so a hostile or buggy Length must not be able to

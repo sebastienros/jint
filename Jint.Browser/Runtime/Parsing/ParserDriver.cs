@@ -4,7 +4,9 @@ using Jint.Browser.Dom;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Html;
 using Jint.Native;
+using Jint.Native.Promise;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Jint.WebApi.Events;
 using Jint.WebApi.Fetch;
 using Jint.Runtime.Modules;
@@ -32,14 +34,13 @@ internal sealed partial class ParserDriver : IDisposable
     private readonly TimeSpan _timeout;
     private readonly CancellationToken _cancellationToken;
 
-    private bool _importMapRead;
-    private Element? _importMapElement;
     private DomBrowsingContext? _context;
     private int _frameDocuments;
     private bool _tokenizing;
     private int _pendingResourceEvents;
     private TaskCompletionSource? _resourceEventsCompleted;
     private Queue<(Element Element, string Type, bool AfterParse, Func<bool>? IsCurrent)>? _deferredResourceEvents;
+    private readonly HashSet<CancellationTokenSource> _pendingModuleWaits = new();
 
     // A supplied position can have an opaque (null) origin; omitted position uses the page default.
     private readonly record struct FetchSource(UrlRecord? Referrer, UrlRecord? Origin);
@@ -96,6 +97,8 @@ internal sealed partial class ParserDriver : IDisposable
         foreach (var weak in _scriptSubscriptions) if (weak.TryGetTarget(out var subscription)) subscription.Dispose();
         _scriptSubscriptions.Clear();
         _changedScripts.Clear();
+        foreach (var wait in _pendingModuleWaits) { wait.Cancel(); wait.Dispose(); }
+        _pendingModuleWaits.Clear();
         _resourceWatches.Clear();
         _resourceWatchReferences.Clear();
         _pendingStyleCompletions.Clear();
@@ -847,7 +850,16 @@ internal sealed partial class ParserDriver : IDisposable
     // After the parse: modules, then the lifecycle.
     // ---------------------------------------------------------------------------------------------------
 
-    private void FinishLoad(Document document, Action<NavigationPhase>? onPhase)
+    /// <param name="document">The document whose parse ended.</param>
+    /// <param name="onPhase">Who hears <c>DOMContentLoaded</c> and <c>Loaded</c>.</param>
+    /// <param name="recordTiming">Whether the navigation-timing entry records the moments.</param>
+    /// <param name="isCurrent">
+    /// <see langword="null"/> for a navigation's parse, which waits for its resource events by pumping. A
+    /// <c>document.open()</c> parse ends in a task and never pumps: it finishes once its last resource event
+    /// is delivered, if this still answers <see langword="true"/> by then.
+    /// </param>
+    private void FinishLoad(Document document, Action<NavigationPhase>? onPhase, bool recordTiming = true,
+        Func<bool>? isCurrent = null)
     {
         if (_runtime.Document is { } nativeDocument) DomDocumentState.SelectNavigationTarget(_runtime.Dom, nativeDocument);
 
@@ -867,7 +879,7 @@ internal sealed partial class ParserDriver : IDisposable
 
         // https://html.spec.whatwg.org/multipage/parsing.html#the-end step 2. Browser owns readiness and
         // its events; native tree construction does not advance the page lifecycle.
-        SetReadyState("interactive");
+        SetReadyState("interactive", recordTiming);
 
         // Module execution is Browser work and must honor the same scripting policy as classic scripts.
         if (_runtime.ScriptingEnabled)
@@ -875,19 +887,18 @@ internal sealed partial class ParserDriver : IDisposable
             RunModules(document);
         }
 
-        var window = _runtime.Engine._webApi?.GlobalEventTarget;
         var wrapper = _runtime.DocumentWrapper;
 
         if (wrapper is not null)
         {
-            if (_runtime.NavigationTiming is { } start) start.DomContentLoadedEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+            if (recordTiming && _runtime.NavigationTiming is { } start) start.DomContentLoadedEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             PageEvents.Dispatch(
                 _runtime,
                 wrapper,
                 _runtime.Engine._mainRealm.Intrinsics.Event.CreateTrustedEvent(
                     JsString.Create("DOMContentLoaded"),
                     new EventInit(Bubbles: true, Cancelable: false, Composed: false)));
-            if (_runtime.NavigationTiming is { } end) end.DomContentLoadedEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+            if (recordTiming && _runtime.NavigationTiming is { } end) end.DomContentLoadedEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
         }
 
         onPhase?.Invoke(NavigationPhase.DomContentLoaded);
@@ -909,20 +920,59 @@ internal sealed partial class ParserDriver : IDisposable
 
         // A style sheet's or an image's completion handler can insert further subresources. Keep their
         // load-event delay until the entire chain has delivered, each event on its own budgeted task.
+        if (isCurrent is not null)
+        {
+            CompleteLoadAfterResourceEvents(onPhase, recordTiming, isCurrent);
+            return;
+        }
+
         while (_pendingResourceEvents > 0 && !_cancellationToken.IsCancellationRequested)
         {
             _baton.PumpUntil(_resourceEventsCompleted!.Task);
         }
 
+        CompleteLoad(onPhase, recordTiming);
+    }
+
+    /// <summary>
+    /// The end's steps 6 and 7 for a parse that may not pump: wait for the resource events as tasks, then
+    /// complete the load in a task of its own.
+    /// </summary>
+    private void CompleteLoadAfterResourceEvents(Action<NavigationPhase>? onPhase, bool recordTiming, Func<bool> isCurrent)
+    {
+        if (_cancellationToken.IsCancellationRequested || !isCurrent())
+        {
+            return;
+        }
+
+        if (_pendingResourceEvents > 0)
+        {
+            var tasks = _runtime.Engine.Tasks;
+            _resourceEventsCompleted!.Task.ContinueWith(
+                _ => tasks.Post(() => CompleteLoadAfterResourceEvents(onPhase, recordTiming, isCurrent)),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            return;
+        }
+
+        CompleteLoad(onPhase, recordTiming);
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/parsing.html#the-end steps 9 onward.</summary>
+    private void CompleteLoad(Action<NavigationPhase>? onPhase, bool recordTiming)
+    {
+        var window = _runtime.Engine._webApi?.GlobalEventTarget;
+
         // Step 9: readiness becomes "complete" and only then does load fire, which is why a load listener
         // reads "complete" rather than "interactive".
-        SetReadyState("complete");
+        SetReadyState("complete", recordTiming);
 
         if (window is not null)
         {
-            if (_runtime.NavigationTiming is { } start) start.LoadEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+            if (recordTiming && _runtime.NavigationTiming is { } start) start.LoadEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             PageEvents.Fire(_runtime, window, "load");
-            if (_runtime.NavigationTiming is { } end)
+            if (recordTiming && _runtime.NavigationTiming is { } end)
             {
                 end.LoadEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
                 _runtime.Engine._webApi.PerformanceObservers.QueuePerformanceEntry(end);
@@ -960,37 +1010,52 @@ internal sealed partial class ParserDriver : IDisposable
     /// here because legacy frame documents are unavailable.
     /// </para>
     /// </remarks>
-    private void FireFrameLoads(Document document)
+    private bool FireFrameLoads(Document document)
     {
+        var completed = true;
         foreach (var element in NativeElements(document))
         {
-            if (IsHtml(element, "iframe") && DomBrowsingContext.OfFrame(element)?.Active is not null)
+            if (IsHtml(element, "iframe") && DomBrowsingContext.OfFrame(element)?.Active is { } child)
+            {
                 FinishFrame(element);
+                completed &= FrameWindows.DocumentRealm(_runtime, child).LoadCompleted;
+            }
         }
+        return completed;
     }
 
     private void FinishFrame(Element frame)
     {
         if (!ShadowTree.IsConnected(frame, _cancellationToken) || DomBrowsingContext.OfFrame(frame)?.Active is not { } document) return;
         var dom = FrameWindows.DocumentRealm(_runtime, document);
-        if (dom.LoadCompleted) return;
-        dom.LoadCompleted = true;
+        if (dom.LoadCompleted || ModulesFor(document)?.PendingScripts > 0) return;
         if (CanRunFrame(document))
         {
             FrameWindows.ForDocument(_runtime, document);
             using var scope = new RealmScope(_runtime.Engine, dom.OwningRealm);
-            if (_runtime.ScriptingEnabled) Events.EventHandlerContentAttributes.InstallBodyHandlers(dom, document);
-            SetFrameReadyState(dom, "interactive");
-            PageEvents.Fire(_runtime, dom.WrapNode(document), "DOMContentLoaded", bubbles: true);
-            FireFrameLoads(document);
+            if (!dom.DomContentLoaded)
+            {
+                dom.DomContentLoaded = true;
+                if (_runtime.ScriptingEnabled) Events.EventHandlerContentAttributes.InstallBodyHandlers(dom, document);
+                SetFrameReadyState(dom, "interactive");
+                PageEvents.Fire(_runtime, dom.WrapNode(document), "DOMContentLoaded", bubbles: true);
+            }
+            if (!FireFrameLoads(document) || dom.LoadCompleted) return;
+            dom.LoadCompleted = true;
             SetFrameReadyState(dom, "complete");
             PageEvents.Fire(_runtime, dom.WindowTarget!, "load");
             var shown = dom.OwningRealm.Intrinsics.Event.CreateTrustedEvent(JsString.Create("pageshow"), default);
             PageEvents.Member(shown, "persisted", JsBoolean.False);
             PageEvents.Dispatch(_runtime, dom.WindowTarget!, shown);
         }
-        else FireFrameLoads(document);
+        else
+        {
+            if (!FireFrameLoads(document) || dom.LoadCompleted) return;
+            dom.LoadCompleted = true;
+        }
         FireAt(frame, "load");
+        if (frame.OwnerDocument is { } parent && FrameWindows.ElementOf(parent) is { } parentFrame)
+            FinishFrame(parentFrame);
     }
 
     private void SetFrameReadyState(DomRealm dom, string state)
@@ -1004,7 +1069,12 @@ internal sealed partial class ParserDriver : IDisposable
     }
 
     /// <summary>Moves the page's <c>document.readyState</c> and fires <c>readystatechange</c> at the document.</summary>
-    internal void SetReadyState(string state)
+    /// <param name="state">The readiness to move to.</param>
+    /// <param name="recordTiming">
+    /// Whether the navigation-timing entry records the moment; <see langword="false"/> for the readiness a
+    /// <c>document.open()</c> moves, which belongs to no navigation.
+    /// </param>
+    internal void SetReadyState(string state, bool recordTiming = true)
     {
         if (string.Equals(_runtime.ReadyState, state, StringComparison.Ordinal))
         {
@@ -1012,7 +1082,7 @@ internal sealed partial class ParserDriver : IDisposable
         }
 
         _runtime.ReadyState = state;
-        if (_runtime.NavigationTiming is { } navigation)
+        if (recordTiming && _runtime.NavigationTiming is { } navigation)
         {
             if (state == "interactive") navigation.DomInteractive = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             else if (state == "complete") navigation.DomComplete = _runtime.Engine._webApi!.CurrentHighResolutionTime;
@@ -1030,7 +1100,7 @@ internal sealed partial class ParserDriver : IDisposable
     /// </summary>
     private void RunModules(Document document)
     {
-        var loader = _runtime.Modules;
+        var loader = ModulesFor(document);
         if (loader is null)
         {
             return;
@@ -1039,7 +1109,7 @@ internal sealed partial class ParserDriver : IDisposable
         loader.BaseUrl = BaseUrlOf(document);
 
         var modules = new List<Element>();
-        var mapSeen = _importMapRead;
+        var mapSeen = loader.ImportMapElement is not null;
 
         foreach (var element in NativeElements(document))
         {
@@ -1057,7 +1127,7 @@ internal sealed partial class ParserDriver : IDisposable
             {
                 if (mapSeen)
                 {
-                    if (!ReferenceEquals(script, _importMapElement))
+                    if (!ReferenceEquals(script, loader.ImportMapElement))
                     {
                         Report(
                             PageErrorKind.ReportedError,
@@ -1069,8 +1139,7 @@ internal sealed partial class ParserDriver : IDisposable
                 }
 
                 mapSeen = true;
-                _importMapRead = true;
-                _importMapElement = script;
+                loader.ImportMapElement = script;
                 loader.Map = ReadImportMap(script, loader.BaseUrl);
                 continue;
             }
@@ -1081,9 +1150,19 @@ internal sealed partial class ParserDriver : IDisposable
             }
         }
 
+        if (_runtime.Engine.Tasks.IsRunningJob)
+        {
+            RunNext(0);
+            return;
+        }
         foreach (var script in modules)
         {
             RunModule(loader, script);
+        }
+
+        void RunNext(int index)
+        {
+            if (index < modules.Count) RunModule(loader, modules[index], () => RunNext(index + 1));
         }
     }
 
@@ -1099,7 +1178,7 @@ internal sealed partial class ParserDriver : IDisposable
     /// </remarks>
     private void ReadImportMapEarly(Document document)
     {
-        if (_importMapRead || _runtime.Modules is not { } loader)
+        if (ModulesFor(document) is not { } loader || loader.ImportMapElement is not null)
         {
             return;
         }
@@ -1110,10 +1189,15 @@ internal sealed partial class ParserDriver : IDisposable
             return;
         }
 
-        _importMapRead = true;
-        _importMapElement = script;
+        loader.BaseUrl = BaseUrlOf(document);
+        loader.ImportMapElement = script;
         loader.Map = ReadImportMap(script, loader.BaseUrl);
     }
+
+    private PageModuleScriptLoader? ModulesFor(Document document)
+        => IsFrameDocument(document)
+            ? FrameWindows.DocumentRealm(_runtime, document).OwningRealm.ModuleLoader as PageModuleScriptLoader
+            : _runtime.Modules;
 
     private ImportMap? ReadImportMap(Element script, string baseUrl)
     {
@@ -1136,10 +1220,18 @@ internal sealed partial class ParserDriver : IDisposable
         return map;
     }
 
-    private void RunModule(PageModuleScriptLoader loader, Element script)
+    private void RunModule(PageModuleScriptLoader loader, Element script, Action? completed = null)
     {
+        var document = script.OwnerDocument!;
+        if (IsFrameDocument(document))
+        {
+            if (!CanRunFrame(document)) { completed?.Invoke(); return; }
+            FrameWindows.ForDocument(_runtime, document);
+        }
+        using var realm = new RealmScope(_runtime.Engine, _runtime.Dom.RealmOfDocument(document).OwningRealm);
+        loader.BaseUrl = BaseUrlOf(document);
         var state = _resourceSources.GetValue(script, static _ => new ResourceSource());
-        if (state.ModuleStarted) return;
+        if (state.ModuleStarted) { completed?.Invoke(); return; }
         state.ModuleStarted = true;
         string specifier;
 
@@ -1150,6 +1242,7 @@ internal sealed partial class ParserDriver : IDisposable
             if (resolved is null)
             {
                 FailSubresource(script, source, "The module script '" + source + "' is not a URL a page can load.");
+                completed?.Invoke();
                 return;
             }
 
@@ -1161,6 +1254,7 @@ internal sealed partial class ParserDriver : IDisposable
 
             if (string.IsNullOrWhiteSpace(text))
             {
+                completed?.Invoke();
                 return;
             }
 
@@ -1187,12 +1281,22 @@ internal sealed partial class ParserDriver : IDisposable
         {
             Report(PageErrorKind.BudgetExceeded, exception.Message, specifier);
             FireAt(script, "error");
+            completed?.Invoke();
             return;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Report(PageErrorKind.ScriptError, "The module script '" + specifier + "' failed: " + exception.Message, specifier);
             FireAt(script, "error");
+            completed?.Invoke();
+            return;
+        }
+
+        // A frame navigation or dynamic insertion can itself be a job. Its load must return before
+        // queued module completions can run; recursively pumping that job would strand the graph.
+        if (_runtime.Engine.Tasks.IsRunningJob)
+        {
+            AwaitModule(loader, script, specifier, operation, completed);
             return;
         }
 
@@ -1207,9 +1311,16 @@ internal sealed partial class ParserDriver : IDisposable
                 + _timeout.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " seconds.",
                 specifier);
             FireAt(script, "error");
+            completed?.Invoke();
             return;
         }
 
+        CompleteModule(script, specifier, operation);
+        completed?.Invoke();
+    }
+
+    private void CompleteModule(Element script, string specifier, ModuleImportOperation operation)
+    {
         if (operation.IsFaulted)
         {
             var message = operation.Error is { } error ? SafeDescribe(error) : "the module failed to load";
@@ -1219,6 +1330,62 @@ internal sealed partial class ParserDriver : IDisposable
         }
 
         FireAt(script, "load");
+    }
+
+    private void AwaitModule(PageModuleScriptLoader loader, Element script, string specifier,
+        ModuleImportOperation operation, Action? completed)
+    {
+        var engine = _runtime.Engine;
+        var document = script.OwnerDocument!;
+        var realm = engine.Realm;
+        var settled = false;
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
+        _pendingModuleWaits.Add(cancellation);
+        loader.PendingScripts++;
+        BeginResourceDelay();
+        var finish = new ClrFunction(engine, realm, "", (_, _) =>
+        {
+            Finish(timedOut: false);
+            return JsValue.Undefined;
+        }, 0);
+        PromiseOperations.PerformPromiseThen(engine, (JsPromise) operation.Promise, finish, finish, resultCapability: null!);
+        _ = Task.Delay(_timeout, cancellation.Token).ContinueWith(task =>
+        {
+            if (!task.IsCompletedSuccessfully) return;
+            try { engine.Tasks.Post(() => Finish(timedOut: true)); }
+            catch (ObjectDisposedException) { }
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+        void Finish(bool timedOut)
+        {
+            if (settled || _disposed) return;
+            settled = true;
+            _pendingModuleWaits.Remove(cancellation);
+            cancellation.Cancel();
+            cancellation.Dispose();
+            try
+            {
+                if (_disposed || _cancellationToken.IsCancellationRequested) return;
+                using var scope = new RealmScope(engine, realm);
+                if (IsFrameDocument(document) &&
+                    !ReferenceEquals(DomBrowsingContext.Of(document)?.Active, document)) return;
+                if (timedOut)
+                {
+                    Report(PageErrorKind.ScriptError, "The module script '" + specifier + "' did not finish loading within "
+                        + _timeout.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " seconds.", specifier);
+                    FireAt(script, "error");
+                }
+                else CompleteModule(script, specifier, operation);
+                completed?.Invoke();
+            }
+            finally
+            {
+                loader.PendingScripts--;
+                EndResourceDelay();
+            }
+            if (!_disposed && IsFrameDocument(document) && FrameWindows.ElementOf(document) is { } frame)
+                FinishFrame(frame);
+        }
     }
 
     private static string SafeDescribe(JsValue error)

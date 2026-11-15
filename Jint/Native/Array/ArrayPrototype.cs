@@ -1,6 +1,7 @@
 ﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Iterator;
@@ -33,6 +34,61 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
     private readonly ObjectTraverseStack _joinStack;
     internal JsValue? _originalIteratorFunction;
+
+    // What ArrayIteratorsStepNatively last validated: this realm's %ArrayIteratorPrototype%, its own `next` data
+    // descriptor with that prototype's own-property version, and the built-in `next`. _nextDescriptor is null while
+    // nothing is validated, which is also every `next` that is not a plain data property.
+    private ArrayIteratorPrototype? _arrayIteratorPrototype;
+    private PropertyDescriptor? _nextDescriptor;
+    private uint _nextDescriptorVersion;
+    private JsValue? _builtInNext;
+
+    /// <summary>
+    /// Whether an array iterator this realm's <c>Array.prototype.values</c> creates now
+    /// (https://tc39.es/ecma262/#sec-createarrayiterator) steps exactly as reading the array by index does: <c>next</c>,
+    /// read off it (https://tc39.es/ecma262/#sec-getiteratorfrommethod), finds the built-in
+    /// %ArrayIteratorPrototype%.next (https://tc39.es/ecma262/#sec-%arrayiteratorprototype%.next). A fresh iterator has
+    /// no own property, so that prototype's own <c>next</c> decides.
+    /// <para>
+    /// <see cref="ObjectInstance.HasOriginalIterator"/> asks it, after its <c>@@iterator</c> read, only once
+    /// <see cref="Engine._arrayIteratorNextMayBeReplaced"/> is set; until then that flag alone answers. The descriptor
+    /// validated last stays that <c>next</c> while the prototype's own-property version has not moved, which replacing,
+    /// deleting or redefining it as an accessor moves. An assignment writes the value in place, so the value is compared
+    /// every time. Anything else, including a first ask, goes through <see cref="ValidateNextDescriptor"/>
+    /// (sebastienros/jint#4418).
+    /// </para>
+    /// </summary>
+    internal bool ArrayIteratorsStepNatively()
+    {
+        var descriptor = _nextDescriptor;
+        if (descriptor is not null && _arrayIteratorPrototype!._propertiesVersion == _nextDescriptorVersion)
+        {
+            return ReferenceEquals(descriptor._value, _builtInNext);
+        }
+
+        return ValidateNextDescriptor();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool ValidateNextDescriptor()
+    {
+        // The realm's prototype is created here if nothing has created it yet, and GetOwnProperty initializes it on
+        // first use, capturing the built-in `next`; the version recorded is the one after that. Reading an own property
+        // of a built-in prototype runs no script.
+        var prototype = _arrayIteratorPrototype ??= _realm.Intrinsics.ArrayIteratorPrototype;
+        var descriptor = prototype.GetOwnProperty(CommonProperties.Next);
+        var builtInNext = prototype.BuiltInNext;
+        if (!descriptor.IsDataDescriptor() || (descriptor._flags & PropertyFlag.CustomJsValue) != PropertyFlag.None)
+        {
+            _nextDescriptor = null;
+            return false;
+        }
+
+        _builtInNext = builtInNext;
+        _nextDescriptorVersion = prototype._propertiesVersion;
+        _nextDescriptor = descriptor;
+        return ReferenceEquals(descriptor._value, builtInNext);
+    }
 
     internal ArrayPrototype(
         Engine engine,
@@ -1684,7 +1740,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // arguments are in range on this lane whatever the generic one above had to allow for.
         if (thisObject is JsArray ai && a is JsArray a2)
         {
-            a2.CopyValues(ai, (uint) k, 0, (uint) length);
+            a2.CopySlice(ai, (uint) k, (uint) length);
         }
         else
         {
@@ -2017,8 +2073,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
             {
                 if (e is JsArray eArray && a is JsArray a2)
                 {
-                    a2.CopyValues(eArray, 0, n, eArray.GetLength());
-                    n += eArray.GetLength();
+                    // the length is read once, before any element: an inherited getter the copy runs can change it
+                    var length = eArray.GetLength();
+                    a2.CopyValues(eArray, 0, n, length);
+                    n += length;
                 }
                 else
                 {
@@ -2090,7 +2148,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
         {
             if (arguments[i] is JsArray ja)
             {
-                if (ja._dense is null || ja.GetLength() > (ulong) ja._dense.Length + 50)
+                // CanUseFastAccess too: AppendConcatItem copies a null slot as a hole, which is right only while
+                // nothing inherited can fill it (HasProperty in https://tc39.es/ecma262/#sec-array.prototype.concat
+                // asks the prototype chain). The receiver passed that test at the call site.
+                if (ja._dense is null || ja.GetLength() > (ulong) ja._dense.Length + 50 || !ja.CanUseFastAccess)
                 {
                     return false;
                 }

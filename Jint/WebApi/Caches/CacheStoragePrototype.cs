@@ -124,6 +124,8 @@ internal sealed partial class CacheStoragePrototype : Prototype
             var storage = Brand(thisObject);
             var names = storage.Provider.Names;
 
+            // As many names as the script opened caches (sebastienros/jint#4505).
+            ArrayInstance.ValidateListLength(_engine, (uint) names.Count);
             var items = new JsValue[names.Count];
             for (var i = 0; i < names.Count; i++)
             {

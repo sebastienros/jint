@@ -109,18 +109,19 @@ platform-specific Native AOT tool format. Installation requires the .NET 10 SDK,
   osx-arm64, about 8% larger and up to 6% faster on extraction and script workloads. The instruction set is
   left at the RID default — `apple-m1` measured no gain, and a higher x64 level would drop older CPUs.
   Server GC was measured too and rejected: 2–5.6× the peak memory for at most 13% on the largest page.
-- **`browser-tool.yml` is reused by the build and release publishing workflows.** Each of the six OS/architecture
+- **`browser-tool.yml` is reused by the release workflow, and can be dispatched by hand.** Each of the six OS/architecture
   legs packs a RID implementation and the selection manifest, installs from a source-mapped local feed,
   and runs `Tool/PublishedToolTests` against the installed executable. The tests cover extraction, scripts,
   CSS, XML, XPath, globalization, CDP and MCP. Set `JINT_BROWSER_TOOL` and `JINT_BROWSER_TOOL_VERSION` to
   reproduce; without them those process tests are skipped rather than passed.
-  Pull requests do not run this six-leg native distribution matrix; publishing workflows validate the
-  packages and executables before they are pushed.
+  Neither pull requests nor pushes to `main` run this six-leg native distribution matrix; `release.yml`
+  validates the packages and executables before they are pushed.
   On Windows the SDK installs a **`.cmd` launcher**, not an `.exe` shim. The workflow checks that
   launcher's version and argument forwarding, then discovers the native `.exe` inside the installation
   for the process tests, so `cmd.exe` does not reparse their multiline JavaScript. The standalone download
   is still an `.exe`; its extension is not the installed command's extension.
-- **`build.yml` and `release.yml` publish the same seven tool packages**, at the libraries' version:
+- **`release.yml` publishes seven tool packages**, at the libraries' version (`build.yml`'s Feedz
+  previews instead pack the managed, framework-dependent tool — one package, no Native AOT):
   six RID packages first, then `Jint.Browser.Tool`'s manifest. The manifest alone is not an installable
   distribution. Publishing a GitHub release attaches the six single executables and `SHA256SUMS`, without
   publishing NuGet again. The nuget.org trusted-publishing policy for `release.yml` / environment `nuget`

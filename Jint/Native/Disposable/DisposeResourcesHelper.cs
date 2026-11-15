@@ -12,50 +12,70 @@ namespace Jint.Native.Disposable;
 /// suspend the function itself, only defer settlement of its return promise. Each
 /// state-machine Suspend is chained via <c>Promise.then</c>, and the caller-provided
 /// <c>continueWith</c> callback fires when the full dispose chain has completed.
+/// <para>
+/// The <c>realm</c> a caller passes is that of the function, generator, module or stack whose resources are disposed:
+/// each Await resolves against its <c>%Promise%</c>. Only the first step can run inside that body's execution
+/// context; every later one runs in the reaction job of the await before it, where the running realm is whatever
+/// that job found. The same realm is the one a <c>SuppressedError</c> built along the way belongs to
+/// (https://tc39.es/ecma262/#sec-disposeresources, "a newly created SuppressedError object"), so it is handed to the
+/// state machine at the start and kept there for the steps that follow.
+/// </para>
 /// </summary>
 internal static class DisposeResourcesHelper
 {
     public static void DisposeAndThen(
         Engine engine,
+        Realm realm,
         Environment env,
         Completion initial,
         Action<Completion> continueWith)
     {
-        Drive(engine, env.BeginDisposeResources(initial), continueWith, env.ContinueDisposeResources);
+        Drive(engine, realm.Intrinsics.Promise, env.BeginDisposeResources(initial, realm), continueWith, env.ContinueDisposeResources);
     }
 
     public static void DisposeAndThen(
         Engine engine,
+        Realm realm,
         DisposeCapability capability,
         Completion initial,
         Action<Completion> continueWith)
     {
-        Drive(engine, capability.BeginDispose(initial), continueWith, capability.ContinueDispose);
+        Drive(engine, realm.Intrinsics.Promise, capability.BeginDispose(initial, realm), continueWith, capability.ContinueDispose);
     }
 
     private static void Drive(
         Engine engine,
+        PromiseConstructor promiseConstructor,
         DisposeStepResult step,
         Action<Completion> continueWith,
         Func<JsValue, bool, DisposeStepResult> continueDispose)
     {
         while (!step.IsDone)
         {
-            var pending = step.PendingPromise!;
-            var promise = pending as JsPromise
-                ?? (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(pending);
+            // Await, step 2: PromiseResolve(%Promise%, value) reads a promise's constructor, which may throw. That is an
+            // abrupt await, whose throw completion is the dispose result's (DisposeResources, step 4.e.iii).
+            JsPromise promise;
+            try
+            {
+                promise = promiseConstructor.ResolveForAwaitToPromise(step.PendingPromise!);
+            }
+            catch (JavaScriptException e)
+            {
+                step = continueDispose(e.Error, true);
+                continue;
+            }
 
             var onFulfilled = new ClrFunction(engine, "", (_, args) =>
             {
                 var next = continueDispose(args.At(0), false);
-                Drive(engine, next, continueWith, continueDispose);
+                Drive(engine, promiseConstructor, next, continueWith, continueDispose);
                 return JsValue.Undefined;
             }, 1, PropertyFlag.Configurable);
 
             var onRejected = new ClrFunction(engine, "", (_, args) =>
             {
                 var next = continueDispose(args.At(0), true);
-                Drive(engine, next, continueWith, continueDispose);
+                Drive(engine, promiseConstructor, next, continueWith, continueDispose);
                 return JsValue.Undefined;
             }, 1, PropertyFlag.Configurable);
 

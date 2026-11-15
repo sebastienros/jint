@@ -157,8 +157,10 @@ public class DateTests
 
         var engine = new Engine(options => options.TimeZone = timeZoneInfo);
 
-        engine.Evaluate("new Date(2022,1,1).toString()").Should().Be("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)");
-        engine.Evaluate("new Date(2022,1,1)").ToString().Should().Be("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)");
+        // The zone's own name, which Windows gives in the OS display language (issue #4442).
+        var expected = $"Tue Feb 01 2022 00:00:00 GMT+0800 ({timeZoneInfo.StandardName})";
+        engine.Evaluate("new Date(2022,1,1).toString()").Should().Be(expected);
+        engine.Evaluate("new Date(2022,1,1)").ToString().Should().Be(expected);
     }
 
     [Test]
@@ -176,11 +178,16 @@ public class DateTests
 
         var engine = new Engine(options => options.TimeZone = timeZoneInfo);
 
+        // The zone's own names, which Windows gives in the OS display language ("Eastern Summer Time" on an
+        // English (Denmark) install), so the test checks which of the two is picked, not how one language spells
+        // them (issue #4442). They must differ, or the check below could not tell them apart.
+        timeZoneInfo.DaylightName.Should().NotBe(timeZoneInfo.StandardName);
+
         // July 4, 2022 is in summer (EDT = UTC-4, daylight saving time)
-        engine.Evaluate("new Date(2022, 6, 4).toString()").AsString().Should().Contain("(Eastern Daylight Time)");
+        engine.Evaluate("new Date(2022, 6, 4).toString()").AsString().Should().Contain($"({timeZoneInfo.DaylightName})");
 
         // January 4, 2022 is in winter (EST = UTC-5, standard time)
-        engine.Evaluate("new Date(2022, 0, 4).toString()").AsString().Should().Contain("(Eastern Standard Time)");
+        engine.Evaluate("new Date(2022, 0, 4).toString()").AsString().Should().Contain($"({timeZoneInfo.StandardName})");
     }
 
     [Test]
@@ -241,17 +248,29 @@ public class DateTests
     [TestCase("December 31 1970 12:00:00 +0300", 31)]
     public void CanParseDate(string input, int expectedDate)
     {
-        TimeZoneInfo timeZoneInfo;
-        try
+        var engine = new Engine(options => options.TimeZone = FindKyivTimeZone());
+        engine.Evaluate($"new Date('{input}').getDate()").AsNumber().Should().Be(expectedDate);
+    }
+
+    /// <summary>
+    /// A zone east of UTC, where the bug in #1746 showed. The current IANA name comes first: tzdata 2022b
+    /// renamed Europe/Kiev to Europe/Kyiv, and a system without the legacy names (Ubuntu 26.04 by default)
+    /// has only the new one, while Windows resolves "FLE Standard Time".
+    /// </summary>
+    private static TimeZoneInfo FindKyivTimeZone()
+    {
+        foreach (var id in new[] { "Europe/Kyiv", "Europe/Kiev", "FLE Standard Time" })
         {
-            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kiev");
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(id);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
         }
-        catch
-        {
-            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("FLE Standard Time");
-        }
-        var engine = new Engine(options => options.TimeZone = timeZoneInfo);
-        _engine.Evaluate($"new Date('{input}').getDate()").AsNumber().Should().Be(expectedDate);
+
+        throw new TimeZoneNotFoundException("None of Europe/Kyiv, Europe/Kiev or FLE Standard Time is known to this system.");
     }
 
     [Test]

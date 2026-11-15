@@ -14,7 +14,7 @@ internal enum NativeCssDisposition { Cascaded, Initial, Inherited, InvalidAtComp
 internal sealed record NativeCssSheet(CssStyleSheet Sheet, NativeCssOrigin Origin, string? NamespaceUri = null);
 internal sealed record NativeCssSource(CssStyleRule? Rule, CssDeclarationBlock Block,
     NativeCssOrigin Origin, SelectorSpecificity Specificity, long Order, bool Inline, NativeCssLayer? Layer = null,
-    int EncapsulationDepth = 0);
+    int EncapsulationDepth = 0, int ScopeProximity = int.MaxValue);
 internal sealed record NativeCssProperty(string Name, string Text, NativeCssSource? Source, NativeCssDisposition Disposition);
 
 // CSS Cascade 5 §§6-7. One synchronous query, with text values and iterative inheritance.
@@ -29,7 +29,10 @@ internal sealed partial class NativeCssQuery
     private readonly NativeCssSheet[] _sheets;
     private readonly CssStyleSheetRevisionSnapshot _sheetRevisions;
     private readonly Dictionary<Element, (CssDeclarationBlock Block, CssMutationStamp Stamp)> _inline = new();
+    private long _inlineVerifiedEpoch = -1;
+    private int _inlineVerifiedCount = -1;
     private readonly Dictionary<Element, State> _states = new();
+    private readonly Dictionary<(Element Element, SelectorPseudoElement Pseudo), State> _pseudoStates = new();
     private readonly CssMediaEnvironment _media;
     private readonly SelectorEnvironment _selectors;
     private readonly CssValueWork _work;
@@ -83,24 +86,33 @@ internal sealed partial class NativeCssQuery
     }
 
     internal NativeCssProperty GetProperty(Element element, string name, ref SelectorMatchWork matching) =>
-        GetNormalizedProperty(element, CssPropertyRegistry.NormalizeName(name, _work), ref matching);
+        GetNormalizedProperty(element, null, CssPropertyRegistry.NormalizeName(name, _work), ref matching);
 
-    internal NativeCssProperty GetNormalizedProperty(Element element, string name, ref SelectorMatchWork matching)
+    internal NativeCssProperty GetProperty(Element element, SelectorPseudoElement? pseudo, string name, ref SelectorMatchWork matching) =>
+        GetNormalizedProperty(element, pseudo, CssPropertyRegistry.NormalizeName(name, _work), ref matching);
+
+    internal NativeCssProperty GetNormalizedProperty(Element element, string name, ref SelectorMatchWork matching) =>
+        GetNormalizedProperty(element, null, name, ref matching);
+
+    internal NativeCssProperty GetNormalizedProperty(Element element, SelectorPseudoElement? pseudo, string name, ref SelectorMatchWork matching)
     {
         try
         {
             Verify();
-            var result = ReadProperty(element, name, ref matching);
+            var result = ReadProperty(element, pseudo, name, ref matching);
             matching.VerifyRead();
             Verify();
             return result;
         }
-        catch { _aborted = true; _states.Clear(); throw; }
+        catch { _aborted = true; _states.Clear(); _pseudoStates.Clear(); throw; }
     }
 
-    internal bool HasPropertyInput(Element element, string name, ref SelectorMatchWork matching)
+    internal bool HasPropertyInput(Element element, string name, ref SelectorMatchWork matching) =>
+        HasPropertyInput(element, null, name, ref matching);
+
+    internal bool HasPropertyInput(Element element, SelectorPseudoElement? pseudo, string name, ref SelectorMatchWork matching)
     {
-        var state = StateOf(element, ref matching);
+        var state = StateOf(element, pseudo, ref matching);
         foreach (var source in state.Sources)
         {
             _work.Charge(1);
@@ -109,7 +121,9 @@ internal sealed partial class NativeCssQuery
         return false;
     }
 
-    private NativeCssProperty ReadProperty(Element element, string name, ref SelectorMatchWork matching)
+    // A pseudo-element's state sits first in the inheritance chain; its parent is the originating element
+    // (CSS Pseudo-Elements 4 §4: ::before and ::after inherit from it like a first and last child would).
+    private NativeCssProperty ReadProperty(Element element, SelectorPseudoElement? pseudo, string name, ref SelectorMatchWork matching)
     {
         var custom = name.StartsWith("--", StringComparison.Ordinal);
         var metadata = CssPropertyRegistry.Find(name);
@@ -120,19 +134,24 @@ internal sealed partial class NativeCssQuery
             for (var i = 0; i < entries.Length; i++)
             {
                 _work.Charge(1);
-                var property = GetProperty(element, metadata.Longhands[i], ref matching);
+                var property = GetProperty(element, pseudo, metadata.Longhands[i], ref matching);
                 entries[i] = new(property.Name, property.Text, false, default);
             }
             return new(name, CssDeclarationBlock.ShorthandValue(entries, metadata, _work), null, NativeCssDisposition.Cascaded);
         }
-        if (name == "display") WarmParents(element, ref matching);
+        if (name == "display")
+        {
+            if (pseudo is null) WarmParents(element, ref matching);
+            else GetNormalizedProperty(element, null, name, ref matching);
+        }
         var pending = new Stack<(State State, NativeCssSource? Source, NativeCssDisposition Disposition)>();
         var current = element;
+        var currentPseudo = pseudo;
         NativeCssProperty result;
         while (true)
         {
             _work.Charge(1);
-            var state = StateOf(current, ref matching);
+            var state = currentPseudo is { } kind ? PseudoStateOf(current, kind, ref matching) : StateOf(current, ref matching);
             if (state.Computed.TryGetValue(name, out result!))
             {
                 _diagnostics?.CacheHit(current, name);
@@ -143,17 +162,21 @@ internal sealed partial class NativeCssQuery
             var disposition = NativeCssDisposition.Cascaded;
             if (!custom && text is not null && text.Contains("var(", StringComparison.Ordinal))
             {
-                text = Substitute(current, text, ref matching);
+                text = Substitute(current, currentPseudo, text, ref matching);
+                // CSS Variables 1 §3.2: a pending shorthand expands only once its text is substituted.
+                if (text is not null && candidate!.Declaration.PendingShorthand is { } shorthand)
+                    text = CssDeclarationBlock.PendingLonghandValue(shorthand, name, text, _work);
                 if (text is not null) text = CssLayoutValues.AcceptsText(name, text, _work, out var normalized) ? normalized : null;
                 if (text is null) disposition = NativeCssDisposition.InvalidAtComputedValue;
             }
             var inherited = custom || metadata!.Inherited;
             var inherit = text is null ? inherited : !custom && (text == "inherit" || text == "unset" && inherited);
-            if (inherit && InheritanceParent(current) is { } parent)
+            if (inherit && (currentPseudo is not null ? current : InheritanceParent(current)) is { } parent)
             {
                 pending.Push((state, candidate?.Source, disposition == NativeCssDisposition.InvalidAtComputedValue
                     ? disposition : NativeCssDisposition.Inherited));
                 current = parent;
+                currentPseudo = null;
                 continue;
             }
             if (text is null || inherit || !custom && text is "initial" or "unset")
@@ -161,7 +184,9 @@ internal sealed partial class NativeCssQuery
                 text = custom ? "" : metadata!.InitialValue;
                 if (disposition != NativeCssDisposition.InvalidAtComputedValue) disposition = NativeCssDisposition.Initial;
             }
-            if (name == "display") text = Display(current, text, ref matching);
+            if (name == "display") text = Display(state, text, ref matching);
+            // CSS Generated Content 3 §1.1: on ::before and ::after, content: normal computes to none.
+            else if (currentPseudo is not null && name == "content" && text == "normal") text = "none";
             result = new(name, text, candidate?.Source, disposition);
             state.Computed.Add(name, result);
             _diagnostics?.ComputedPublished(current, name);
@@ -172,7 +197,7 @@ internal sealed partial class NativeCssQuery
             _work.Charge(1);
             result = result with
             {
-                Text = name == "display" ? Display(item.State.Element, result.Text, ref matching) : result.Text,
+                Text = name == "display" ? Display(item.State, result.Text, ref matching) : result.Text,
                 Source = item.Source,
                 Disposition = item.Disposition
             };
@@ -182,16 +207,22 @@ internal sealed partial class NativeCssQuery
         return result;
     }
 
-    internal IReadOnlyList<CssStyleRule> MatchedRules(Element element, ref SelectorMatchWork matching)
+    internal IReadOnlyList<CssStyleRule> MatchedRules(Element element, ref SelectorMatchWork matching) =>
+        MatchedRules(element, null, ref matching);
+
+    internal IReadOnlyList<CssStyleRule> MatchedRules(Element element, SelectorPseudoElement? pseudo, ref SelectorMatchWork matching)
     {
-        var state = StateOf(element, ref matching);
+        var state = StateOf(element, pseudo, ref matching);
         Verify();
         return state.Matches.AsReadOnly();
     }
 
-    internal IReadOnlyList<NativeCssProperty> Enumerate(Element element, ref SelectorMatchWork matching)
+    internal IReadOnlyList<NativeCssProperty> Enumerate(Element element, ref SelectorMatchWork matching) =>
+        Enumerate(element, null, ref matching);
+
+    internal IReadOnlyList<NativeCssProperty> Enumerate(Element element, SelectorPseudoElement? pseudo, ref SelectorMatchWork matching)
     {
-        var own = StateOf(element, ref matching);
+        var own = pseudo is { } kind ? PseudoStateOf(element, kind, ref matching) : StateOf(element, ref matching);
         if (own.Enumeration is { } cached) return cached;
         var names = new HashSet<string>(new Names(_work));
         foreach (var entry in CssPropertyRegistry.Completed.Values)
@@ -199,7 +230,13 @@ internal sealed partial class NativeCssQuery
             _work.Charge(1);
             if (entry.Longhands.Count == 0) names.Add(entry.Name);
         }
-        for (Element? current = element; current is not null; current = InheritanceParent(current))
+        foreach (var source in own.Sources)
+            foreach (var name in source.Block.CustomPropertyNames(_work))
+            {
+                _work.Charge(1);
+                names.Add(name);
+            }
+        for (Element? current = pseudo is null ? InheritanceParent(element) : element; current is not null; current = InheritanceParent(current))
         {
             _work.Charge(1);
             foreach (var source in StateOf(current, ref matching).Sources)
@@ -219,49 +256,71 @@ internal sealed partial class NativeCssQuery
         foreach (var name in sorted)
         {
             _work.Charge(1);
-            result.Add(GetProperty(element, name, ref matching));
+            result.Add(GetProperty(element, pseudo, name, ref matching));
         }
         Verify();
         return own.Enumeration = result.AsReadOnly();
     }
 
-    private State StateOf(Element element, ref SelectorMatchWork matching)
+    private State StateOf(Element element, ref SelectorMatchWork matching) => StateOf(element, null, ref matching);
+
+    private State PseudoStateOf(Element element, SelectorPseudoElement pseudo, ref SelectorMatchWork matching) =>
+        StateOf(element, pseudo, ref matching);
+
+    // A pseudo-element's state holds the rules whose subject is that pseudo-element of the element; it has
+    // no style attribute of its own, so inline declarations never reach it.
+    private State StateOf(Element element, SelectorPseudoElement? pseudo, ref SelectorMatchWork matching)
     {
         Verify();
         if (!ReferenceEquals(element.OwnerDocument, _document)) throw new ArgumentException("Element belongs to another document.");
-        if (_states.TryGetValue(element, out var cached)) return cached;
+        if (pseudo is { } kind ? _pseudoStates.TryGetValue((element, kind), out var cached) : _states.TryGetValue(element, out cached))
+            return cached;
         matching.Observe(element);
-        var state = new State(element, _work);
-        _rules ??= BuildRules();
+        var state = new State(element, _work, pseudo);
+        PrepareRules();
         var depth = 0;
         for (var root = element.TreeShadowRoot; root is not null; root = root.Host.TreeShadowRoot)
         {
             _work.Charge(1);
             depth++;
         }
-        _index ??= new RuleIndex(_rules, _work);
         // Matching may re-enter this query for another element; that call then allocates its own buffer.
         var candidates = _candidateBuffer ?? [];
         _candidateBuffer = null;
-        _index.Collect(element, candidates, _work);
+        _index!.Collect(element, candidates, _seenCandidates!, ref _candidateGeneration, _work);
         foreach (var position in candidates)
         {
             _work.Charge(1);
-            var (rule, origin, order, namespaceUri, layer) = _rules[position];
+            var (rule, origin, order, namespaceUri, layer) = _rules![position];
             if (namespaceUri is not null && element.NamespaceUri != namespaceUri) continue;
             var scope = (rule.ParentStyleSheet?.Attachment.OwnerNode ??
                 rule.ParentStyleSheet?.EffectiveOwnerNode(_work))?.TreeShadowRoot;
             var hostRule = ReferenceEquals(scope?.Host, element);
             if (origin == NativeCssOrigin.Author && !hostRule && !ReferenceEquals(scope, element.TreeShadowRoot)) continue;
             _diagnostics?.RuleAttempted(element, rule);
-            if (rule.TryMatch(element, out var specificity, null, _selectors, ref matching, scope))
+            SelectorSpecificity specificity = default;
+            var proximity = int.MaxValue;
+            var matched = _scopeChains is not null && _scopeChains.TryGetValue(rule, out var chain)
+                ? !hostRule && TryMatchScoped(element, pseudo, rule, chain, scope, ref matching, out specificity, out proximity)
+                : pseudo is { } target
+                    ? rule.TryMatchPseudoElement(element, target, out specificity, null, _selectors, ref matching, scope)
+                    : rule.TryMatch(element, out specificity, null, _selectors, ref matching, scope);
+            if (matched)
             {
                 _diagnostics?.RuleMatched(element, rule);
                 state.Matches.Add(rule);
-                state.Sources.Add(new(rule, rule.Style, origin, specificity, order, false, layer, depth + (hostRule ? 1 : 0)));
+                state.Sources.Add(new(rule, rule.Style, origin, specificity, order, false, layer, depth + (hostRule ? 1 : 0),
+                    proximity));
             }
         }
         _candidateBuffer = candidates;
+        if (pseudo is { } owned)
+        {
+            matching.VerifyRead();
+            Verify();
+            _pseudoStates.Add((element, owned), state);
+            return state;
+        }
         if (_readInlineAttributes && !_inline.ContainsKey(element))
             for (uint i = 0; i < (uint) element.AttributeCount; i++)
             {
@@ -274,7 +333,7 @@ internal sealed partial class NativeCssQuery
                 break;
             }
         if (_inline.TryGetValue(element, out var inline))
-            state.Sources.Add(new(null, inline.Block, NativeCssOrigin.Author, default, _rules.Count, true,
+            state.Sources.Add(new(null, inline.Block, NativeCssOrigin.Author, default, _rules!.Count, true,
                 EncapsulationDepth: depth));
         matching.VerifyRead();
         Verify();
@@ -333,6 +392,9 @@ internal sealed partial class NativeCssQuery
         comparison = (left.Source.Layer?.Rank ?? int.MaxValue).CompareTo(right.Source.Layer?.Rank ?? int.MaxValue);
         if (comparison != 0) return important ? -comparison : comparison;
         comparison = left.Source.Specificity.CompareTo(right.Source.Specificity);
+        if (comparison != 0) return comparison;
+        // CSS Cascade 6 §3.6 scope proximity: fewer hops wins, for important declarations too.
+        comparison = right.Source.ScopeProximity.CompareTo(left.Source.ScopeProximity);
         return comparison != 0 ? comparison : left.Source.Order.CompareTo(right.Source.Order);
     }
 
@@ -360,6 +422,12 @@ internal sealed partial class NativeCssQuery
             _selectors.ControlFactsRevision == ulong.MaxValue ||
             factory.ReadRevision(_selectors.ControlFactsContext, _document) != _selectors.ControlFactsRevision))
             return false;
+        var epoch = CssMutationStamp.Epoch;
+        if (epoch != long.MaxValue && epoch == _inlineVerifiedEpoch && inlineCount == _inlineVerifiedCount)
+        {
+            _work.Token.ThrowIfCancellationRequested();
+            return true;
+        }
         var compared = 0;
         foreach (var inline in _inline.Values)
         {
@@ -367,6 +435,8 @@ internal sealed partial class NativeCssQuery
             if (!inline.Stamp.CanReuse || inline.Block.Stamp != inline.Stamp) return false;
         }
         _work.Token.ThrowIfCancellationRequested();
+        _inlineVerifiedEpoch = epoch;
+        _inlineVerifiedCount = inlineCount;
         return true;
     }
 
@@ -383,9 +453,10 @@ internal sealed partial class NativeCssQuery
     }
 
     private sealed record Candidate(CssDeclaration Declaration, NativeCssSource Source);
-    private sealed class State(Element element, CssValueWork work)
+    private sealed class State(Element element, CssValueWork work, SelectorPseudoElement? pseudo = null)
     {
         internal Element Element { get; } = element;
+        internal SelectorPseudoElement? Pseudo { get; } = pseudo;
         internal IReadOnlyList<NativeCssProperty>? Enumeration;
         internal Dictionary<string, NativeCssProperty> Computed { get; } = new(new Names(work));
         internal List<CssStyleRule> Matches { get; } = [];

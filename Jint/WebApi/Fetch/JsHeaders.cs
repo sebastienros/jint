@@ -1,6 +1,5 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
-using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -35,8 +34,10 @@ internal sealed class JsHeaders : ObjectInstance
     /// union's two arms.
     /// </summary>
     /// <remarks>
-    /// The union is resolved the way https://webidl.spec.whatwg.org/#es-union says: an object with a callable
-    /// <c>@@iterator</c> is the sequence arm, anything else the record arm. So a <c>Map</c> and a
+    /// The union is resolved the way https://webidl.spec.whatwg.org/#es-union says: <c>? GetMethod(V,
+    /// @@iterator)</c> (https://tc39.es/ecma262/#sec-getmethod), read once. A method is the sequence arm, created from
+    /// that method rather than from a second read (https://webidl.spec.whatwg.org/#create-sequence-from-iterable);
+    /// undefined or null is the record arm; anything else is GetMethod's TypeError. So a <c>Map</c> and a
     /// <c>Headers</c> both fill pairwise, while a plain object fills from its own enumerable string-keyed
     /// properties.
     /// </remarks>
@@ -48,10 +49,10 @@ internal sealed class JsHeaders : ObjectInstance
             return;
         }
 
-        var iteratorMethod = initObject.Get(GlobalSymbolRegistry.Iterator);
-        if (iteratorMethod is ICallable)
+        var iteratorMethod = GetMethod(realm, initObject, initObject, GlobalSymbolRegistry.Iterator);
+        if (iteratorMethod is not null)
         {
-            FillFromSequence(realm, initObject);
+            FillFromSequence(realm, initObject, iteratorMethod);
             return;
         }
 
@@ -62,41 +63,30 @@ internal sealed class JsHeaders : ObjectInstance
     /// "If init is a sequence, then for each header of init: if header's size is not 2, then throw a
     /// TypeError; append (header[0], header[1])."
     /// </summary>
-    private void FillFromSequence(Realm realm, ObjectInstance init)
+    /// <remarks>
+    /// The <c>sequence&lt;sequence&lt;ByteString&gt;&gt;</c> conversion completes first, every header read to its end and
+    /// each element converted as it is stepped (<see cref="WebIdlPairSequence"/>), and the fill then runs over the result.
+    /// So a header the fill refuses (its size, its name or its value) finds both iterators done and closes nothing,
+    /// while a conversion that fails closes the header's iterator and then this one (sebastienros/jint#4431).
+    /// </remarks>
+    private void FillFromSequence(Realm realm, ObjectInstance init, ICallable iteratorMethod)
     {
-        var outer = init.GetIterator(realm);
-        while (outer.TryIteratorStepValue(out var header))
-        {
-            var pair = ReadPair(realm, outer, header);
-            AppendChecked(realm, pair.Name, pair.Value);
-        }
-    }
+        var headers = WebIdlPairSequence.Convert(
+            _engine,
+            realm,
+            init.GetIterator(realm, method: iteratorMethod),
+            static (r, v) => FetchValues.ToByteString(r, v),
+            "Failed to construct 'Headers': The provided value cannot be converted to a sequence");
 
-    private static (JsValue Name, JsValue Value) ReadPair(Realm realm, IteratorInstance outer, JsValue header)
-    {
-        if (header is not ObjectInstance)
+        foreach (var header in headers)
         {
-            outer.Close(CompletionType.Throw);
-            Throw.TypeError(realm, "Failed to construct 'Headers': The provided value cannot be converted to a sequence");
-        }
+            if (header.Size != 2)
+            {
+                Throw.TypeError(realm, "Failed to construct 'Headers': Invalid value — each header must be a name/value pair");
+            }
 
-        var inner = header.GetIterator(realm);
-        if (!inner.TryIteratorStepValue(out var name) || !inner.TryIteratorStepValue(out var value))
-        {
-            outer.Close(CompletionType.Throw);
-            Throw.TypeError(realm, "Failed to construct 'Headers': Invalid value — each header must be a name/value pair");
-            return default;
+            AppendConverted(realm, header.Name!, header.Value!);
         }
-
-        // A third element makes the sequence's size not 2, which the fill step refuses outright.
-        if (inner.TryIteratorStepValue(out _))
-        {
-            inner.Close(CompletionType.Throw);
-            outer.Close(CompletionType.Throw);
-            Throw.TypeError(realm, "Failed to construct 'Headers': Invalid value — each header must be a name/value pair");
-        }
-
-        return (name, value);
     }
 
     /// <summary>

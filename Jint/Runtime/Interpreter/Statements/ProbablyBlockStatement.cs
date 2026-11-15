@@ -28,6 +28,14 @@ internal readonly struct ProbablyBlockStatement
         }
     }
 
+    /// <summary>
+    /// A statement that is not a block, already built.
+    /// </summary>
+    public ProbablyBlockStatement(JintStatement statement)
+    {
+        _statement = statement;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Completion Execute(EvaluationContext context)
     {

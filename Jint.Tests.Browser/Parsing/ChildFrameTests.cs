@@ -268,7 +268,7 @@ public class ChildFrameTests
     }
 
     [Test]
-    public async Task AFramesLocationReadsItsOwnUrlAndRefusesAWriteOutLoud()
+    public async Task AFramesLocationReadsItsOwnUrlAndRefusesUnsupportedComponentWrites()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
             .MapHtml("/child.html", """
@@ -312,10 +312,9 @@ public class ChildFrameTests
             + "&& !d.createDocumentFragment().appendChild(target.cloneNode()).matches(':target')"))
             .Should().BeTrue();
 
-        // And a write throws rather than doing nothing. A silent no-op is what turned a wpt document that
-        // navigates a frame into one that times out; a refusal a page can see fails it fast instead.
+        // Component setters remain unsupported; href, assign and replace use the frame navigation path.
         (await loopback.Page.EvaluateAsync<string>(
-            "(function () { try { document.getElementById('f').contentWindow.location.href = '/other'; return 'no throw'; } "
+            "(function () { try { document.getElementById('f').contentWindow.location.pathname = '/other'; return 'no throw'; } "
             + "catch (e) { return e.constructor.name; } })()"))
             .Should().Be("TypeError");
     }

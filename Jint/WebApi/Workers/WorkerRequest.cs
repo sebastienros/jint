@@ -88,8 +88,7 @@ public sealed class WorkerRequest
     public string? ReferencingLocation { get; }
 
     /// <summary>
-    /// The <c>type</c> option. <see cref="WorkerType.Module"/> is the only value — a classic worker is
-    /// refused with a <c>TypeError</c> before a provider is ever called.
+    /// The script type requested by the constructor.
     /// </summary>
     public WorkerType Type { get; }
 
@@ -276,16 +275,14 @@ public sealed class WorkerRequest
 public enum WorkerType
 {
     /// <summary>
-    /// An ES module, loaded by the worker engine's own <c>IModuleLoader</c> — <c>{ type: 'module' }</c>, and
-    /// the only kind Jint runs.
+    /// An ES module, loaded by the worker engine's own <c>IModuleLoader</c>.
     /// </summary>
     /// <remarks>
-    /// The HTML Standard's own default is <c>'classic'</c> and Jint refuses it, which is policy rather than a
-    /// licence the standard grants: there is no classic-script loader to run one with, a synchronous
-    /// fetch-and-execute inside a statement is the one thing this feature family refuses, and every
-    /// non-browser runtime that ships workers at all has converged on module workers. A host that must run a
-    /// legacy classic worker installs its own <c>importScripts</c> and owns the blocking read.
+    /// Module workers reject <c>importScripts</c>; their loader handles static and dynamic imports.
     /// </remarks>
     Module,
+
+    /// <summary>A classic global script, supported by the Browser worker provider.</summary>
+    Classic,
 }
 #endif

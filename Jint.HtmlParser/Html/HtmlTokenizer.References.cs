@@ -183,14 +183,13 @@ internal sealed partial class HtmlTokenizer
     // The Data or RCDATA state's '&' step and the named character reference state's run, in one
     // scanner iteration: one unit for the '&' (already charged by ReadCore) plus one per unit of
     // the name, the same text append, and the same offsets. The scalar states charge exactly that
-    // when the run that walks the name also sees the unit after it, so the reference ends inside
-    // the current slice and inside the quota; otherwise they are left to it.
+    // when the run that walks the name also sees the unit after it, so the '&', the name and that
+    // unit are inside the current slice, the quota and the token limit; otherwise they are left to it.
     private bool TryConsumeTextReference()
     {
         var source = _input.CurrentSpan;
         if (!TryScanTerminatedReference(source, 0, out var length, out var state)) return false;
-        if (length + 1 >= source.Length || length >= _remainingWork) return false;
-        if (_maxToken > 0 && length + 1 > _maxToken) return false;
+        if (length + 1 >= source.Length || length >= _remainingWork || length + 1 >= _batchLimit) return false;
         Text(HtmlEntities.Lookup.ValueAt(state)!, _input.Offset);
         _input.ConsumeOrdinaryRun(length + 1);
         ChargeCopy(length);

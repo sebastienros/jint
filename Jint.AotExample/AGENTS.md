@@ -18,7 +18,8 @@ codes. **The property is not evidence, and the `NoWarn` is why**: it is a proper
 *compilation* and reaches nothing downstream, since ILC re-derives the whole set over the closed program
 — so **an embedder publishing Native AOT sees every diagnostic it hides**, attributed to Jint's files.
 What makes the claim checkable instead is the CI leg that publishes `Jint.AotExample` with
-`PublishAot=true` and *runs the native binary* (`aot` in `.github/workflows/pr.yml` and `build.yml`).
+`PublishAot=true` and *runs the native binary* (`.github/workflows/aot.yml`, which `release.yml` gates
+publishing on and which can be dispatched by hand for a branch; pull requests and `main` do not run it).
 
 **A source `#pragma warning disable IL....` is Roslyn-only for the same reason, and `Jint` now has
 none** — the sixty-one that sat at the tops of the interop files bought Jint a green build and an
@@ -167,6 +168,16 @@ because both tokens are constants. The `ValueTask` half of that site wants the s
    reason.
 5. If what you added is an *annotation* rather than a lane, its subject goes in
    `Jint.AotExample.UnrootedHost`, not beside `Program.cs`. See below.
+
+**A new reflection-only lane also goes through `HostInterop`.** `Jint.Runtime.Interop.ReflectionEnabled=false`
+lets a fully trimmed host remove CLR reflection, and that holds only while
+`Jint/Runtime/Interop/HostInterop.cs` is the single place that chooses between `ReflectionHostInterop` and
+`NativeHostInterop`. Do not reach a reflection body from the engine directly and do not repeat the feature check
+at a call site: add a virtual to `HostInterop`, put the reflection body behind `ReflectionHostInterop`, and give
+`NativeHostInterop` a fail-closed answer whose message names the switch. Then cover the native answer in
+`Jint.Tests/Runtime/Interop/NativeHostInteropTests.cs`, and in `Jint.TrimmedExample` when a host can reach it.
+That example publishes with `TrimMode=full` and linker warnings as errors, so a lane that bypasses the boundary
+fails its publication before any test runs.
 
 The eight annotated members today are `OptionsExtensions.AllowClr` (two overloads),
 `OptionsExtensions.AddExtensionMethods`, `Engine.SetValue(string, object?)`,

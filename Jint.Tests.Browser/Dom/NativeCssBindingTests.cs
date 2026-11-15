@@ -103,6 +103,14 @@ public sealed class NativeCssBindingTests
     }
 
     [Test]
+    public void InsertRuleIndexDefaultsToZero()
+    {
+        using var dom = Create("a { color:red }");
+        dom.Text("sheet.insertRule.length+'|'+sheet.insertRule('b { color:blue }')+'|'+sheet.cssRules[0].selectorText")
+            .Should().Be("1|0|b");
+    }
+
+    [Test]
     public void MediaRuleMutationsUseActualLiveModelsAndParentLinks()
     {
         using var dom = Create("@media screen { a { color:red } }");

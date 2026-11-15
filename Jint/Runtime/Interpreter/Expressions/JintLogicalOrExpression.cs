@@ -9,8 +9,8 @@ internal sealed class JintLogicalOrExpression : JintExpression
 
     public JintLogicalOrExpression(LogicalExpression expression) : base(expression)
     {
-        _left = Build(expression.Left);
-        _right = Build(expression.Right);
+        _left = JintStackProbeExpression.BuildOperand(expression.Left);
+        _right = JintStackProbeExpression.BuildOperand(expression.Right);
     }
 
     protected override object EvaluateInternal(EvaluationContext context)

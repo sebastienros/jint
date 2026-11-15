@@ -11,6 +11,22 @@ public class PropertyDescriptor
 {
     public static readonly PropertyDescriptor Undefined = new UndefinedPropertyDescriptor();
 
+    /// <summary>
+    /// An internal bit, not a <see cref="PropertyFlag"/> member, on a data descriptor whose owner has to see every write
+    /// to it: the member-write cache, which otherwise stores into a writable data descriptor directly
+    /// (<c>JintMemberExpression.TryAssignFast</c>), leaves it to [[Set]], which ends in the owner's DefineOwnProperty. It
+    /// changes no attribute. %ArrayIteratorPrototype%'s own <c>next</c> carries it (sebastienros/jint#4418).
+    /// </summary>
+    internal const PropertyFlag WritesThroughDefineOwnProperty = (PropertyFlag) 64;
+
+    /// <summary>
+    /// An internal bit, not a <see cref="PropertyFlag"/> member, on a descriptor a script created on a CLR object's
+    /// wrapper, as opposed to one the wrapper stored itself (a resolved member, an entry, a projection). It is what
+    /// tells <c>ObjectWrapper.GetOwnPropertyKeys</c> which stored keys to list, and changes no attribute
+    /// (sebastienros/jint#4503).
+    /// </summary>
+    internal const PropertyFlag ScriptDefinedOnWrapper = (PropertyFlag) 128;
+
     internal PropertyFlag _flags;
     internal JsValue? _value;
 

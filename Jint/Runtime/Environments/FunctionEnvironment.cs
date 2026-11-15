@@ -286,33 +286,183 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             Throw.TypeError(_functionObject._realm, "Destructed parameter is null");
         }
 
-        JsArray? array;
-        if (argument is JsArray { HasOriginalIterator: true } ai)
+        // Read by index in place of the array's iterator while that is unobservable: the iterator is the original one, and
+        // it would have no `return` for the pattern's IteratorClose to call (sebastienros/jint#4406). The first check
+        // makes GetIterator's one @@iterator read; the second is asked after it, since a getter can add a `return`, and
+        // GetIterator then takes what the read found (sebastienros/jint#4426). Until a script touches a built-in
+        // iterator chain, one load of the engine's flag answers the second question.
+        JsValue? iteratorMethod = null;
+        if (argument is JsArray array
+            && array.HasOriginalIterator(out iteratorMethod)
+            && (!_engine._builtinIteratorChainMayHaveReturn || array.OriginalIteratorInheritsNoReturnMethod))
         {
-            array = ai;
+            BindArrayPatternFromArray(context, initiallyEmpty, arrayPattern, array);
+            return;
+        }
+
+        if (!argument.TryGetIteratorFromRead(_functionObject._realm, iteratorMethod, out var iterator))
+        {
+            Throw.TypeError(context.Engine.Realm, "object is not iterable");
+        }
+
+        BindArrayPatternFromIterator(context, initiallyEmpty, arrayPattern, iterator);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization for a parameter's array pattern over
+    /// an array whose iterator would be the built-in one, read by index in its place. Each element makes the step
+    /// %ArrayIteratorPrototype%.next would (https://tc39.es/ecma262/#sec-createarrayiterator): read the length, then
+    /// get the element at the next index, through a hole to the prototype chain, or find the iterator done, which it
+    /// then stays. An element steps only once the one before it has bound, so an initializer that pushes or pops is
+    /// seen by the steps after it, and nothing past the last element is read. Jint copied the whole array before
+    /// binding, which ran every getter past the pattern and bound against the length from before any initializer ran.
+    /// </summary>
+    private void BindArrayPatternFromArray(EvaluationContext context, bool initiallyEmpty, ArrayPattern arrayPattern, JsArray array)
+    {
+        ref readonly var elements = ref arrayPattern.Elements;
+        uint position = 0;
+        var done = false;
+        for (var i = 0; i < elements.Count; i++)
+        {
+            var element = elements[i];
+            if (element is RestElement restElement)
+            {
+                // The rest element is the last one, and takes every step left: none, once the iterator is done.
+                var rest = DestructuringPatternAssignmentExpression.CollectRestFromArray(_engine, array, position, done);
+                BindRestElement(context, restElement, rest, initiallyEmpty);
+                return;
+            }
+
+            var value = Undefined;
+            if (!done)
+            {
+                if (position < array.GetLength())
+                {
+                    value = array.GetElement(position);
+                    position++;
+                }
+                else
+                {
+                    done = true;
+                }
+            }
+
+            // An elision makes its step and binds nothing.
+            if (element is Identifier identifier)
+            {
+                SetItemSafely(identifier.Name, value, initiallyEmpty);
+            }
+            else if (element is not null)
+            {
+                BindPatternElement(context, element, value, initiallyEmpty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Binds an element of an array pattern that is a nested pattern or has an initializer to the value its step
+    /// produced: what <see cref="SetFunctionParameterUnlikely"/> does for one, without an argument list to read it from.
+    /// </summary>
+    private void BindPatternElement(EvaluationContext context, Node element, JsValue value, bool initiallyEmpty)
+    {
+        if (element is ArrayPattern arrayPattern)
+        {
+            HandleArrayPattern(context, initiallyEmpty, value, arrayPattern);
+        }
+        else if (element is ObjectPattern objectPattern)
+        {
+            HandleObjectPattern(context, initiallyEmpty, value, objectPattern);
+        }
+        else if (element is AssignmentPattern assignmentPattern)
+        {
+            HandleAssignmentPatternOrExpression(context, assignmentPattern.Left, assignmentPattern.Right, value, initiallyEmpty);
+        }
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization for a parameter's array pattern over
+    /// an iterator: each element steps the iterator, unless an earlier step found it done, and only then evaluates its
+    /// initializer and binds, and a rest element takes every value left. Once the elements are bound, the pattern closes
+    /// an iterator that is not done (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization), and an
+    /// element that throws closes it with that throw. Jint used to step every element first and close before any
+    /// initializer ran, and to close an iterator the elements had run out, which called a `return` it must not
+    /// (sebastienros/jint#4406). A parameter list cannot suspend, so nothing here is resumed.
+    /// </summary>
+    private void BindArrayPatternFromIterator(EvaluationContext context, bool initiallyEmpty, ArrayPattern arrayPattern, IteratorInstance iterator)
+    {
+        var value = new JsValue[1];
+        try
+        {
+            ref readonly var elements = ref arrayPattern.Elements;
+            for (var i = 0; i < elements.Count; i++)
+            {
+                var element = elements[i];
+                if (element is RestElement restElement)
+                {
+                    var rest = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
+                    uint count = 0;
+                    var iterations = 0;
+                    while (!iterator.Done)
+                    {
+                        // A built-in iterator's steps cross no statement boundary, so the loop checks the constraints
+                        // itself, as IteratorProtocol.Execute does; the catch below closes the iterator if one throws.
+                        if (++iterations % Engine.ConstraintCheckInterval == 0)
+                        {
+                            _engine.Constraints.Check();
+                        }
+
+                        if (!iterator.TryIteratorStepValue(out var next))
+                        {
+                            break;
+                        }
+
+                        rest.SetIndexValue(count++, next, updateLength: false);
+                    }
+
+                    rest.SetLength(count);
+                    BindRestElement(context, restElement, rest, initiallyEmpty);
+                    continue;
+                }
+
+                if (element is null)
+                {
+                    // An elision steps too, and binds nothing: IteratorStep, which never reads the result's `value`
+                    // (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation).
+                    if (!iterator.Done)
+                    {
+                        iterator.TryIteratorStepWithoutValue();
+                    }
+
+                    continue;
+                }
+
+                value[0] = !iterator.Done && iterator.TryIteratorStepValue(out var stepped) ? stepped : Undefined;
+                SetFunctionParameter(context, element, value, 0, initiallyEmpty);
+            }
+        }
+        catch
+        {
+            // A step that threw left the record done, and is not closed.
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
+        }
+
+        iterator.CloseIfNotDone(CompletionType.Normal);
+    }
+
+    private void BindRestElement(EvaluationContext context, RestElement restElement, JsArray rest, bool initiallyEmpty)
+    {
+        if (restElement.Argument is Identifier restIdentifier)
+        {
+            SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
+        }
+        else if (restElement.Argument is DestructuringPattern pattern)
+        {
+            SetFunctionParameter(context, pattern, [rest], 0, initiallyEmpty);
         }
         else
         {
-            if (!argument.TryGetIterator(_functionObject._realm, out var iterator))
-            {
-                Throw.TypeError(context.Engine.Realm, "object is not iterable");
-            }
-
-            array = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
-            var max = arrayPattern.Elements.Count;
-            if (max > 0 && arrayPattern.Elements[max - 1]?.Type == NodeType.RestElement)
-            {
-                // need to consume all
-                max = int.MaxValue;
-            }
-            var protocol = new ArrayPatternProtocol(_engine, array, iterator, max);
-            protocol.Execute();
-        }
-
-        var arrayContents = array.ToArray();
-        for (var i = 0; i < arrayPattern.Elements.Count; i++)
-        {
-            SetFunctionParameter(context, arrayPattern.Elements[i], arrayContents, i, initiallyEmpty);
+            Throw.SyntaxError(_functionObject._realm, "Rest parameters can only be identifiers or arrays");
         }
     }
 
@@ -420,40 +570,6 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             else
             {
                 Throw.TypeError(_functionObject._realm, "Can't update the value of an immutable binding.");
-            }
-        }
-    }
-
-    private sealed class ArrayPatternProtocol : IteratorProtocol
-    {
-        private readonly JsArray _instance;
-        private readonly int _max;
-        private long _index;
-
-        public ArrayPatternProtocol(
-            Engine engine,
-            JsArray instance,
-            IteratorInstance iterator,
-            int max) : base(engine, iterator, 0)
-        {
-            _instance = instance;
-            _max = max;
-        }
-
-        protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
-        {
-            _instance.SetIndexValue((uint) _index, currentValue, updateLength: false);
-            _index++;
-        }
-
-        protected override bool ShouldContinue => _index < _max;
-
-        protected override void IterationEnd()
-        {
-            if (_index > 0)
-            {
-                _instance.SetLength((uint) _index);
-                IteratorClose(CompletionType.Normal);
             }
         }
     }

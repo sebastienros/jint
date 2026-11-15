@@ -72,6 +72,7 @@ internal sealed class BrowserEventRealm
         get => _focusedElement;
         set
         {
+            if (!ReferenceEquals(_focusedElement, value)) SpacePressTarget = null;
             if (_focusDocument is { } previous && FocusStores.TryGetValue(previous, out var slot)
                 && slot.TryGetTarget(out var store) && ReferenceEquals(store, this)) FocusStores.Remove(previous);
             _focusedElement = value;
@@ -109,6 +110,20 @@ internal sealed class BrowserEventRealm
     /// navigation between a press and a release leaves the new document with no press outstanding.
     /// </remarks>
     internal Element? MousePressTarget { get; set; }
+
+    /// <summary>
+    /// The element the pointer was last over, which is what <c>:hover</c> matches with its ancestors.
+    /// </summary>
+    /// <remarks>
+    /// https://html.spec.whatwg.org/multipage/semantics-other.html#selector-hover — the user designates an
+    /// element with a pointing device; for a headless page the pointer is wherever the client's last mouse
+    /// event put it. Per engine, like <see cref="MousePressTarget"/>, so a navigation starts with nothing
+    /// hovered until the next mouse event.
+    /// </remarks>
+    internal Element? MouseHoverTarget { get; set; }
+
+    /// <summary>The button awaiting Space's keyup activation; changing focus abandons the press.</summary>
+    internal Element? SpacePressTarget { get; set; }
 
     /// <summary>
     /// The touch points currently on the surface, and what the sequence they belong to has already decided.

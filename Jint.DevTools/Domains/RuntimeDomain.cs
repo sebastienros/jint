@@ -210,7 +210,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
 
         if (parameters.AwaitPromise == true && value.IsPromise())
         {
-            return Settled(value, request, static (result, details) => new EvaluateResponse { Result = result, ExceptionDetails = details });
+            return Settled(value, request, context, static (result, details) => new EvaluateResponse { Result = result, ExceptionDetails = details });
         }
 
         return new ValueTask<EvaluateResponse>(new EvaluateResponse { Result = _objects.Describe(value, request) });
@@ -272,7 +272,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
 
         if (parameters.AwaitPromise == true && result.IsPromise())
         {
-            return Settled(result, request, static (value, details) => new CallFunctionOnResponse { Result = value, ExceptionDetails = details });
+            return Settled(result, request, context, static (value, details) => new CallFunctionOnResponse { Result = value, ExceptionDetails = details });
         }
 
         return new ValueTask<CallFunctionOnResponse>(new CallFunctionOnResponse { Result = _objects.Describe(result, request) });
@@ -290,7 +290,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         }
 
         var request = RemoteObjectRequest.From(parameters.ReturnByValue, parameters.GeneratePreview, group);
-        return Settled(promise, request, static (value, details) => new AwaitPromiseResponse { Result = value, ExceptionDetails = details });
+        return Settled(promise, request, context, static (value, details) => new AwaitPromiseResponse { Result = value, ExceptionDetails = details });
     }
 
     /// <inheritdoc/>
@@ -403,7 +403,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
 
         if (parameters.AwaitPromise == true && value.IsPromise())
         {
-            return Settled(value, request, static (result, details) => new RunScriptResponse { Result = result, ExceptionDetails = details });
+            return Settled(value, request, context, static (result, details) => new RunScriptResponse { Result = result, ExceptionDetails = details });
         }
 
         return new ValueTask<RunScriptResponse>(new RunScriptResponse { Result = _objects.Describe(value, request) });
@@ -553,6 +553,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     private ValueTask<TResponse> Settled<TResponse>(
         JsValue promise,
         RemoteObjectRequest request,
+        CommandContext context,
         Func<RemoteObject, ExceptionDetails?, TResponse> build)
     {
         if (_target.IsPaused)
@@ -605,6 +606,10 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         });
 
         engine.Call(then, promise, [onFulfilled, onRejected]);
+
+        // From here the answer depends on a reaction this engine runs, which is what lifts the command
+        // timeout off it and what has the mailbox answer it when the engine is replaced (#4590).
+        context.MarkAwaitingScript();
         return new ValueTask<TResponse>(completion.Task);
     }
 

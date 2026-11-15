@@ -1,7 +1,13 @@
 using System.Net.Http;
+using Acornima.Ast;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Constraints;
+using Jint.Native;
+using Jint.Runtime;
 using Jint.WebApi;
+using Jint.WebApi.DomException;
+using Jint.WebApi.Workers;
 
 namespace Jint.Browser.Workers;
 
@@ -43,7 +49,7 @@ namespace Jint.Browser.Workers;
 /// named again below.
 /// </para>
 /// </remarks>
-internal sealed class ThreadPerWorkerProvider : WorkerProvider
+internal sealed class ThreadPerWorkerProvider : WorkerProvider, IClassicWorkerProvider
 {
     private readonly Page _page;
     private readonly PageNetwork _network;
@@ -78,12 +84,45 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
 
     /// <inheritdoc />
     public override Engine? CreateWorkerEngine(WorkerRequest request)
-        => CreateEngine(request, sharedUrl: null, credentials: "same-origin");
+    {
+        Uri? classicUrl = null;
+        if (request.Type == WorkerType.Classic)
+        {
+            var runtime = PageRuntime.Find(request.Parent)!;
+            var parsed = PageUrl.Parse(request.Specifier, runtime.BaseUri);
+            if (parsed is null || PageUrl.ToUri(parsed) is not { } uri)
+            {
+                WorkerErrors.ThrowDomException(request.Parent, request.Parent.Realm, DomExceptionNames.Syntax,
+                    "Failed to construct 'Worker': invalid script URL.");
+                return null;
+            }
+            var origin = DomDocumentMetadata.CreatorOrigin(runtime.Dom).Serialized;
+            if (!PageUrl.IsNetworkScheme(parsed) || origin == PageUrl.OpaqueOrigin
+                || !string.Equals(PageUrl.OriginOf(uri.AbsoluteUri), origin, StringComparison.Ordinal))
+            {
+                WorkerErrors.ThrowDomException(request.Parent, request.Parent.Realm, DomExceptionNames.Security,
+                    "Failed to construct 'Worker': classic worker scripts require a same-origin HTTP(S) URL.");
+            }
+            classicUrl = uri;
+        }
+        return CreateEngine(request, sharedUrl: null, credentials: "same-origin", classicUrl: classicUrl);
+    }
+
+    Prepared<Script> IClassicWorkerProvider.LoadClassicScript(Engine worker)
+    {
+        var loader = (PageModuleLoader) worker.Options.Modules.ModuleLoader;
+        var url = worker.Options.WebApi.Fetch.BaseUrl!;
+        var source = loader.LoadScript(worker, url, "same-origin", classic: true);
+        return worker.ParseForExecution(source, worker.Options.WebApi.Fetch.BaseUrl!.AbsoluteUri, parsingOptions: null);
+    }
+
+    JsValue IClassicWorkerProvider.ImportScripts(Engine worker, JsValue[] arguments)
+        => ((PageModuleLoader) worker.Options.Modules.ModuleLoader).ImportScripts(worker, arguments);
 
     internal Engine? CreateSharedWorkerEngine(WorkerRequest request, Uri url, string credentials)
         => CreateEngine(request, url, credentials);
 
-    private Engine? CreateEngine(WorkerRequest request, Uri? sharedUrl, string credentials)
+    private Engine? CreateEngine(WorkerRequest request, Uri? sharedUrl, string credentials, Uri? classicUrl = null)
     {
         if (_closed)
         {
@@ -144,7 +183,13 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
 #pragma warning restore JINT0002
 
         Uri.TryCreate(_page.Url, UriKind.Absolute, out var documentUrl);
-        var baseUrl = sharedUrl ?? documentUrl;
+        var entryUrl = sharedUrl ?? classicUrl;
+        if (entryUrl is null && PageRuntime.Find(request.Parent) is { } parent
+            && PageUrl.Parse(request.Specifier, parent.BaseUri) is { } entry)
+        {
+            entryUrl = PageUrl.ToUri(entry);
+        }
+        var baseUrl = sharedUrl ?? classicUrl ?? documentUrl;
         if (baseUrl is not null && (baseUrl.Scheme == Uri.UriSchemeHttp || baseUrl.Scheme == Uri.UriSchemeHttps))
         {
             options.WebApi.Fetch.BaseUrl = baseUrl;
@@ -162,7 +207,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
                 options.WebApi.Fetch.Timeout,
                 options.WebApi.Fetch.UserAgent,
                 credentials,
-                sharedUrl,
+                entryUrl,
                 documentUrl,
                 request.Parent.Options.WebApi.Fetch.ReferrerPolicy);
         }
@@ -179,6 +224,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
             });
         }
         var engine = new Engine(options);
+        NavigatorInstaller.InstallWorker(engine, _page.Emulation.AcceptLanguage, request.Parent.Options.Culture);
         PageStorage.InstallCaches(engine, opaque: false);
         PageStorage.InstallIndexedDb(engine, _network,
             request.Parent.Options.WebApi.Fetch.Origin ?? PageUrl.OriginOf(_page.Url));
@@ -197,11 +243,12 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
             _live.Add(connection);
         }
 
-        StartPump(connection);
+        StartPump(connection, ownerCancellation: PageRuntime.Find(connection.Parent)?.Cancellation?.Token ?? default);
     }
 
     /// <summary>Uses the same pump for a context-owned worker, without enrolling it in page-wide termination.</summary>
-    internal void StartPump(WorkerConnection connection, Action<Exception, string>? reportError = null)
+    internal void StartPump(WorkerConnection connection, Action<Exception, string>? reportError = null,
+        CancellationToken ownerCancellation = default)
     {
         // Snapshot only the wait and a weak diagnostics destination: the thread must not
         // keep this provider (and its page, engine and request log) alive.
@@ -211,7 +258,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         {
             if (page.TryGetTarget(out var target)) target.RecordWorkerError(exception, name);
         };
-        var thread = new Thread(() => Pump(connection, idle, reportError))
+        var thread = new Thread(() => Pump(connection, idle, reportError, ownerCancellation))
         {
             IsBackground = true,
             Name = "Jint.Browser worker",
@@ -266,7 +313,8 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         }
     }
 
-    private static void Pump(WorkerConnection connection, TimeSpan idle, Action<Exception, string> reportError)
+    private static void Pump(WorkerConnection connection, TimeSpan idle, Action<Exception, string> reportError,
+        CancellationToken ownerCancellation)
     {
         var worker = connection.Worker;
 
@@ -307,6 +355,12 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
                     // terminate(), or the page closing. The loop leaves through IsEnded on the next turn.
                 }
             }
+        }
+        catch (Exception exception) when (exception is ExecutionCanceledException or OperationCanceledException
+            && (connection.TerminationToken.IsCancellationRequested || ownerCancellation.IsCancellationRequested))
+        {
+            // These tokens describe teardown, not a script failure. Other cancellations and all script
+            // errors still reach diagnostics, even if they happen to have the same message.
         }
         catch (Exception exception)
         {

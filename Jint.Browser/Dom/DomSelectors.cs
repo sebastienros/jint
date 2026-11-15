@@ -17,8 +17,10 @@ internal static class DomSelectors
     }
 
     internal static Element[] QuerySelectorAll(DomRealm realm, Node root, string text)
+        => QuerySelectorAll(realm, root, Compile(realm, text));
+
+    internal static Element[] QuerySelectorAll(DomRealm realm, Node root, CompiledSelector program)
     {
-        var program = Compile(realm, text);
         var work = Work(realm, root);
         var environment = Environment(realm, root);
         return SelectorMatcher.QuerySelectorAllSnapshot(program, root, environment, ref work);
@@ -40,7 +42,7 @@ internal static class DomSelectors
         return SelectorMatcher.Closest(program, element, environment, ref work);
     }
 
-    private static CompiledSelector Compile(DomRealm realm, string text)
+    internal static CompiledSelector Compile(DomRealm realm, string text)
     {
         realm.Engine.Constraints.Check();
         try
@@ -69,12 +71,14 @@ internal static class DomSelectors
         var events = BrowserEventRealm.Of(realm.Engine);
         var focused = events.FocusedElement;
         var pressed = events.MousePressTarget;
+        var hovered = events.MouseHoverTarget;
         if (focused?.OwnerDocument != document) focused = null;
         if (pressed?.OwnerDocument != document) pressed = null;
+        if (hovered?.OwnerDocument != document) hovered = null;
         var target = DomDocumentState.Of(document).TargetElement;
         if (target?.OwnerDocument != document) target = null;
         return new SelectorEnvironment(document, focused, pressed, target, BrowserSelectorControlFacts.Factory,
-            realm, BrowserSelectorSemanticRevision.Read(document));
+            realm, BrowserSelectorSemanticRevision.Read(document), hovered);
     }
 
 }

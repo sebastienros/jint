@@ -258,7 +258,8 @@ internal sealed partial class NetworkDomain
     /// <summary>One hop, as the protocol describes a request.</summary>
     private static Request Describe(PageNetworkRequest request) => new()
     {
-        Url = request.Url,
+        Url = RequestUrlParts.Split(request.Url, out var fragment),
+        UrlFragment = fragment,
         Method = request.Method,
         Headers = Map(request.Headers),
         PostData = request.PostData,

@@ -16,7 +16,7 @@ internal sealed partial class RegExpStringIteratorPrototype : IteratorPrototype
     internal RegExpStringIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.RegExpString)
     {
     }
 
@@ -26,8 +26,8 @@ internal sealed partial class RegExpStringIteratorPrototype : IteratorPrototype
         CreateSymbols_Generated();
     }
 
-    [JsFunction(Name = "next")]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.RegExpString);
 
     internal IteratorInstance Construct(ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode)
     {

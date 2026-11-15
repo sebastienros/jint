@@ -29,7 +29,7 @@ public sealed class NativeCssParsingTests
     [Test]
     public void ImportsDoNotDemandUnrelatedRuleGrammarsAndKeepTheirIdentity()
     {
-        var sheet = Parse("@import 'child.css' (width > 100px); @scope (.unused) {}");
+        var sheet = Parse("@import 'child.css' (width > 100px); @container (.unused) {}");
         sheet.Rules.Should().BeEmpty("model getters do not invoke parsers");
         var import = (CssImportRule) NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().Single();
         import.Href.Should().Be("child.css");
@@ -42,12 +42,12 @@ public sealed class NativeCssParsingTests
         NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().Single().Should().BeSameAs(import);
     }
 
-    [TestCase("p { @scope (.unused) {} }")]
-    [TestCase("@media print { @scope (.unused) {} }")]
-    [TestCase("@supports (color:red) { @scope (.unused) {} }")]
+    [TestCase("p { @container (.unused) {} }")]
+    [TestCase("@media print { @container (.unused) {} }")]
+    [TestCase("@supports (color:red) { @container (.unused) {} }")]
     public void ImportDiscoveryStopsAtTheFirstValidRuleInsteadOfInterpretingItsBody(string barrier)
     {
-        var sheet = Parse("@import 'valid.css'; " + barrier + " @scope (.unused) {} @import 'ignored.css';");
+        var sheet = Parse("@import 'valid.css'; " + barrier + " @container (.unused) {} @import 'ignored.css';");
         var imports = NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().ToArray();
         imports.Select(import => import.Href).Should().Equal("valid.css");
         NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().Should().Equal(imports);
@@ -57,7 +57,7 @@ public sealed class NativeCssParsingTests
     [TestCase("@supports (unknown-property:value)")]
     public void FalseConditionsLeaveTheirBodiesUnparsedUntilCssomDemandsThem(string condition)
     {
-        var sheet = Parse(condition + " { @scope (.unused) {} } p { color:red }");
+        var sheet = Parse(condition + " { @container (.unused) {} } p { color:red }");
         Applicable(sheet).Select(rule => rule.SelectorText).Should().Equal("p");
         var group = (CssGroupingRule) sheet.Rules[0];
         group.Rules.Should().BeEmpty();
@@ -70,7 +70,7 @@ public sealed class NativeCssParsingTests
     [Test]
     public void ChangedMediaDemandsTheBodyWithTheNewOperationsWork()
     {
-        var sheet = Parse("@media print { @scope (.unused) {} }");
+        var sheet = Parse("@media print { @container (.unused) {} }");
         Applicable(sheet).Should().BeEmpty();
         Applicable(sheet, "print").Should().BeEmpty();
         sheet.Rules[0].Rules.Single().Should().BeOfType<CssGenericRule>();
@@ -136,7 +136,7 @@ public sealed class NativeCssParsingTests
     [Test]
     public void ReplacementDetachesPreviouslyDiscoveredImportsWithoutParsingUndemandedRules()
     {
-        var sheet = Parse("@import 'old.css'; @scope (.unused) {}");
+        var sheet = Parse("@import 'old.css'; @container (.unused) {}");
         var list = sheet.Rules;
         var old = (CssImportRule) NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().Single();
         NativeCssParsing.ReplaceSource(sheet, "@import 'new.css'; p {}", Work());
@@ -148,17 +148,27 @@ public sealed class NativeCssParsingTests
         list.Count.Should().Be(2);
     }
 
-    [Test]
-    public void EveryRuleParsingCheckpointCanBeCanceledAndRetriedWithoutPublishingPartialLists()
+    [TestCase(false)]
+    [TestCase(true)]
+    [NonParallelizable]
+    public void EveryRuleParsingCheckpointCanBeCanceledAndRetriedWithoutPublishingPartialLists(bool warm)
     {
-        const string text = "@media screen { a {} b {} @supports (color:red) { c {} } }";
+        static string Source()
+        {
+            var name = Guid.NewGuid().ToString("N");
+            return $"@media screen {{ .a{name} {{}} .b{name} {{}} @supports (color:red) {{ c {{}} }} }}";
+        }
+        var text = Source();
+        if (warm) NativeCssParsing.ReadTree(Parse(text).Rules, Work());
         var baseline = (CssMediaRule) Read(Parse(text))[0];
         var calls = 0;
         NativeCssParsing.ReadRules(baseline.Rules, new CssValueWork(default, () => calls++));
         calls.Should().BeGreaterThan(0);
         for (var target = 1; target <= calls; target++)
         {
-            var sheet = Parse(text);
+            // Cold parses need distinct, same-shaped rules; warmed parses exercise every actual
+            // cache-hit checkpoint rather than assuming compilation and copying cost the same.
+            var sheet = Parse(warm ? text : Source());
             var root = (CssMediaRule) Read(sheet)[0];
             var stamp = sheet.Stamp;
             using var cancellation = new CancellationTokenSource();
@@ -203,11 +213,11 @@ public sealed class NativeCssParsingTests
     [Test]
     public void NegativeIndicesDoNotDemandUnparsedRuleGrammars()
     {
-        var sheet = Parse("@media print { @scope (.unused) {} } @scope (.unused) {}");
+        var sheet = Parse("@media print { @container (.unused) {} } @container (.unused) {}");
         Assert.Throws<DomException>(() => sheet.InsertRule("p {}", -1))!.Name.Should().Be("IndexSizeError");
         Assert.Throws<DomException>(() => sheet.DeleteRule(-1))!.Name.Should().Be("IndexSizeError");
         sheet.Rules.Should().BeEmpty();
-        var group = (CssGroupingRule) Read(Parse("@media print { @scope (.unused) {} }"))[0];
+        var group = (CssGroupingRule) Read(Parse("@media print { @container (.unused) {} }"))[0];
         Assert.Throws<DomException>(() => group.InsertRule("p {}", -1))!.Name.Should().Be("IndexSizeError");
         Assert.Throws<DomException>(() => group.DeleteRule(-1))!.Name.Should().Be("IndexSizeError");
         group.Rules.Should().BeEmpty();

@@ -248,12 +248,15 @@ is how that story breaks. Three things bite before that file is open. **An eleme
 zeros, no client rectangles, and `-32000` rather than a box of zeros over the protocol**, because a client
 reads zeros as a real box at the origin. **`PageLayout` owns Browser-local invalidation and may reuse measurements across unchanged reads.**
 Generated setters and operations other than classified reads enter a mutation scope; manual/native writes
-must enter the same scope through `DomRealm.MutateLayout()` or `PageLayout.BeginMutation()`. A scope clears
-retained work on entry and exit and disables reuse inside callbacks, including exceptional exits. Never
+must enter the same scope through `DomRealm.MutateLayout()` or `PageLayout.BeginMutation()`. A scope retires
+queries on entry and exit and disables reuse inside callbacks, including exceptional exits. Typed native
+dirty summaries may preserve unrelated rendered flags/rows/children, never old cascade/work/token ownership;
+unknown writes and unclassified callbacks discard them. Never
 add a native write without this bracket. Document replacement clears the cache; media, URL, focus and
 pointer-press state are also checked before reuse. Construction, unclassified `RunOnLoopAsync` callbacks,
-any `ConfigureEngine` customization, external stylesheet/frame loading, CSS imports and active CSS coverage
-keep query-local behavior. No document-wide layout mutation observer is installed. The complete contract
+any `ConfigureEngine` customization and active CSS coverage keep query-local behavior. External stylesheet
+attachment/import changes have independent resource and CSSOM witnesses. No document-wide layout mutation
+observer is installed; the first eligible geometry read installs only a bounded native dirty sink. The complete contract
 and fallback rationale are in [`docs/design/layout-invalidation.md`](../../docs/design/layout-invalidation.md).
 And the DOM-side members are explicit `contract.json` bodies calling `Layout/LayoutMembers`,
 so **never hand-edit a `.g.cs`**; regenerate with `JINT_DOM_BINDINGS=update`. **The row rule and the number

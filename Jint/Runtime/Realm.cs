@@ -2,11 +2,15 @@
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Modules;
 
 namespace Jint.Runtime;
 
 public sealed class Realm
 {
+    // HTML document settings can supply a module map without changing the engine's default loader.
+    internal IModuleLoader? ModuleLoader;
+
     /// <summary>
     /// The realm's [[TemplateMap]]: the template object canonicalized for each tagged-template Parse Node
     /// (https://tc39.es/ecma262/#sec-gettemplateobject). Weak on both ends, and it has to be.

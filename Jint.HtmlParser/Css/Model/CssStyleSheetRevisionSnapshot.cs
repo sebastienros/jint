@@ -8,6 +8,7 @@ internal sealed class CssStyleSheetRevisionSnapshot
 {
     private static readonly CssStyleSheetRevisionSnapshot Empty = new([]);
     private readonly Entry[] _entries;
+    private long _verifiedEpoch = -1;
 
     private readonly record struct Entry(CssStyleSheet Sheet, CssMutationStamp Stamp);
 
@@ -97,6 +98,9 @@ internal sealed class CssStyleSheetRevisionSnapshot
         // token; calling host code between comparisons could invalidate an already checked sheet.
         work.Charge(_entries.Length);
         work.CheckCancellation();
+        var epoch = CssMutationStamp.Epoch;
+        if (epoch != long.MaxValue && Volatile.Read(ref _verifiedEpoch) == epoch)
+            return true;
         var current = true;
         for (var i = 0; i < _entries.Length; i++)
         {
@@ -109,6 +113,7 @@ internal sealed class CssStyleSheetRevisionSnapshot
             }
         }
         work.Token.ThrowIfCancellationRequested();
+        if (current) Volatile.Write(ref _verifiedEpoch, epoch);
         return current;
     }
 }

@@ -10,7 +10,7 @@ internal sealed partial class NativeCssQuery
 
     // A bounded textual convenience for automation, not the CSS Variables token-substitution engine.
     // Custom properties themselves remain declared text, including unresolved var() calls.
-    private string? Substitute(Element element, string text, ref SelectorMatchWork matching, int depth = 0,
+    private string? Substitute(Element element, SelectorPseudoElement? pseudo, string text, ref SelectorMatchWork matching, int depth = 0,
         HashSet<string>? active = null, Dictionary<string, string?>? expanded = null)
     {
         if (depth == 32)
@@ -91,8 +91,8 @@ internal sealed partial class NativeCssQuery
                 // A name referenced repeatedly (var(--a)var(--a)) expands once per read; without this, a chain
                 // of such doublings costs 2^depth property reads before the output bound can reject it.
                 var dependent = _contextDependentExpansions;
-                var value = GetProperty(element, name, ref matching);
-                if (value.Text.Length != 0) replacement = Substitute(element, value.Text, ref matching, depth + 1, active, expanded);
+                var value = GetProperty(element, pseudo, name, ref matching);
+                if (value.Text.Length != 0) replacement = Substitute(element, pseudo, value.Text, ref matching, depth + 1, active, expanded);
                 active.Remove(name);
                 // Only a result that met no cycle and no depth cut is independent of where it was reached.
                 if (dependent == _contextDependentExpansions) expanded[name] = replacement;
@@ -102,7 +102,7 @@ internal sealed partial class NativeCssQuery
                 _contextDependentExpansions++;
             }
             if (replacement is null && comma >= 0)
-                replacement = Substitute(element, text[(comma + 1)..end].Trim(), ref matching, depth + 1, active, expanded);
+                replacement = Substitute(element, pseudo, text[(comma + 1)..end].Trim(), ref matching, depth + 1, active, expanded);
             if (replacement is null) return null;
             _work.Charge(replacement.Length);
             // Avoid exponential expansion even with short, depth-bounded chains.

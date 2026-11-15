@@ -300,6 +300,16 @@ internal sealed class PageRuntime
     /// <summary>The <c>&lt;script&gt;</c> whose text is running, for <c>document.currentScript</c>.</summary>
     internal Parsing.ParserDriver? Parser { get; set; }
 
+    /// <summary>
+    /// Tells the page's observer that the displayed document reached a lifecycle phase outside a navigation —
+    /// the <c>DOMContentLoaded</c> and <c>load</c> a <c>document.open()</c>/<c>close()</c> pair ends in.
+    /// </summary>
+    /// <remarks>
+    /// Set per committed document by the page, so it names that document's <c>loaderId</c>; never the
+    /// navigation's own phase callback, whose waiters already completed for the parse that committed it.
+    /// </remarks>
+    internal Action<NavigationPhase>? DocumentPhase { get; set; }
+
     internal Node? CurrentScript { get; set; }
 
     /// <summary><c>Window.prototype</c>, which is the global object's <c>[[Prototype]]</c>.</summary>

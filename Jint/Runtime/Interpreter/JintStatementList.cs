@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter;
@@ -73,6 +75,7 @@ internal sealed class JintStatementList
             var stmt = blockLevel
                 ? JintStatement.BuildBlockLevel(esprimaStatement)
                 : JintStatement.Build(esprimaStatement);
+            (stmt as JintExpressionStatement)?.MarkStatementPosition(YieldStatementPosition.StatementList);
             // FastResolve pre-evaluates literal return values.
             // Debug mode check moved to Execute loop to preserve stepping behavior.
             var value = JintStatement.FastResolve(esprimaStatement);
@@ -252,6 +255,42 @@ internal sealed class JintStatementList
     }
 
     /// <summary>
+    /// Runs a script's top-level list whose only statement is an expression statement, without the loop of
+    /// <see cref="Execute"/>: completion values observable, and an exception the statement raised handled
+    /// as the catch in <see cref="Execute"/> handles it. The statement always yields a value, so no empty
+    /// completion is left to update.
+    /// </summary>
+    internal Completion ExecuteOnlyStatement(EvaluationContext context)
+    {
+        Debug.Assert(_statement is null && _jintStatements!.Length == 1 && _jintStatements[0].Statement is JintExpressionStatement);
+
+        var statement = _jintStatements![0].Statement;
+        var oldCompletionValuesObservable = context.CompletionValuesObservable;
+        context.CompletionValuesObservable = true;
+        try
+        {
+            return statement.Execute(context);
+        }
+        // Keep in step with the catch in Execute above. A script's top level has no suspendable, so the
+        // filter is ShouldCatch alone: LeavingOnException would have no resume position to clear.
+        catch (Exception ex) when (ShouldCatch(ex))
+        {
+            if (ex is JintException)
+            {
+                return HandleException(context, ex, statement);
+            }
+
+            var locationNode = (Node?) context.Engine._lastSyntaxElement ?? statement._statement;
+            ExceptionDataHelper.TryAttachJavaScriptLocation(ex, context.Engine, locationNode.Location);
+            throw;
+        }
+        finally
+        {
+            context.CompletionValuesObservable = oldCompletionValuesObservable;
+        }
+    }
+
+    /// <summary>
     /// Exception filter for <see cref="Execute"/>. It does the bookkeeping every exception leaving this
     /// list owes — clearing the resume position, which the old catch-everything handler did — and then
     /// answers <see cref="ShouldCatch"/>, so that the exceptions this frame would only rethrow are never
@@ -297,31 +336,57 @@ internal sealed class JintStatementList
     /// </para>
     /// <para>
     /// The two <c>true</c> arms are the two things this frame really does, and both have to keep matching
-    /// their handler: the exceptions <see cref="HandleException"/> turns into a Throw completion, and a
+    /// their handler: the exceptions <see cref="HandleException"/> turns into a Throw completion (or, for a
+    /// <see cref="GeneratorReturnException"/>, into the Return completion it carries), and a
     /// CLR exception that has not been annotated with a JavaScript location yet — the innermost frame
     /// alone, since the annotation is idempotent and the frames above it would only redo the same test.
     /// </para>
     /// </remarks>
-    internal static bool ShouldCatch(Exception exception) => exception switch
+    internal static bool ShouldCatch(Exception exception)
+        => exception is GeneratorReturnException
+           || BecomesThrowCompletion(exception)
+           || (exception is not JintException && !ExceptionDataHelper.HasJavaScriptLocation(exception));
+
+    /// <summary>
+    /// Whether <see cref="HandleException"/> turns <paramref name="exception"/> into a Throw completion — the
+    /// exceptions a script's <c>catch</c> can see. Asked from exception filters, so it neither allocates nor throws.
+    /// </summary>
+    internal static bool BecomesThrowCompletion(Exception exception) => exception switch
     {
         // Keep in lock-step with HandleException's switch below.
         JavaScriptException or TypeErrorException or RangeErrorException or SyntaxErrorException => true,
-        JintException => false,
-        _ => !ExceptionDataHelper.HasJavaScriptLocation(exception),
+        // A syntax tree too deep for the stack, built while script runs: see SyntaxNesting.
+        ScriptPreparationException tooDeep => SyntaxNesting.IsTooDeep(tooDeep),
+        _ => false,
     };
 
     internal static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
     {
+        // A return() resumption that a yield inside this statement received: the statement ends with that return
+        // completion, exactly as it would had the yield been the whole statement (the ReturnRequested test in
+        // Execute). It is not an exception as far as the script or the debugger is concerned.
+        if (exception is GeneratorReturnException generatorReturn)
+        {
+            return new Completion(CompletionType.Return, generatorReturn.Value, s!._statement);
+        }
+
         var completion = exception switch
         {
             JavaScriptException javaScriptException => CreateThrowCompletion(s, javaScriptException),
             TypeErrorException typeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, typeErrorException.Node ?? s!._statement),
             RangeErrorException rangeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!._statement),
             SyntaxErrorException syntaxErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.SyntaxError, syntaxErrorException, s!._statement),
+            ScriptPreparationException tooDeep when SyntaxNesting.IsTooDeep(tooDeep) => new Completion(CompletionType.Throw, SyntaxNesting.CreateRangeError(context.Engine.Realm), s!._statement),
             // Unreachable through the callers, whose filters decline anything this switch cannot map;
             // kept so the switch stays total and so a future caller without a filter still behaves.
             _ => throw exception
         };
+
+        // A throw raised while a return() resumption is on its way out - an iterator's return() failing as the loop
+        // or pattern it belongs to is closed (https://tc39.es/ecma262/#sec-iteratorclose) - replaces that return
+        // completion, so nothing requests a return any more. Left set, the request turned the throw back into the
+        // return in the very next test of it, and a catch clause never saw the throw.
+        ClearReturnRequest(context.Engine);
 
         if (context.DebugMode)
         {
@@ -335,6 +400,26 @@ internal sealed class JintStatementList
         return completion;
     }
 
+    /// <summary>
+    /// Drops the request a generator's return() resumption raised, once something has taken over from the return
+    /// completion it stands for: a throw that replaced it, or the <c>catch</c> or <c>finally</c> block that runs next.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ClearReturnRequest(Engine engine)
+    {
+        var generator = engine.ExecutionContext.Generator;
+        if (generator is not null)
+        {
+            generator._returnRequested = false;
+        }
+
+        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
+        if (asyncGenerator is not null)
+        {
+            asyncGenerator._returnRequested = false;
+        }
+    }
+
     private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, Node s)
     {
         var error = errorConstructor.Construct(e.Message);
@@ -346,7 +431,11 @@ internal sealed class JintStatementList
         Node source = s!._statement;
         if (v.Location != default)
         {
-            source = AstExtensions.CreateLocationNode(v.Location);
+            // A thrown primitive has nowhere else to keep its call stack, so the completion carries it to the
+            // next function body boundary, which re-raises the same throw (issue #4461).
+            source = !v.Error.IsObject() && v.RecordedCallStack is { } callStack
+                ? AstExtensions.CreateThrowLocationNode(v.Location, callStack)
+                : AstExtensions.CreateLocationNode(v.Location);
         }
 
         return new Completion(CompletionType.Throw, v.Error, source);

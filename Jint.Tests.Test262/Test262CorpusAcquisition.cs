@@ -118,7 +118,9 @@ internal sealed class Test262CorpusAcquisition
 
                 // The unique staging directory is under the cache root, so this publishes a completely
                 // validated archive with one same-volume rename. The first publisher owns the cache entry;
-                // later publishers must not replace an archive that a returned Test262Stream is reading.
+                // later publishers must not replace an archive that another acquisition may be loading at
+                // that moment. Since Test262Harness 1.4.0 a returned Test262Stream has already read the whole
+                // archive into memory and closed it, so that load is the only read there is.
                 try
                 {
                     File.Move(stagedArchive, archive);

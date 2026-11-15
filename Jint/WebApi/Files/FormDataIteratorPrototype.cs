@@ -28,7 +28,7 @@ internal sealed partial class FormDataIteratorPrototype : IteratorPrototype
     internal FormDataIteratorPrototype(
         Engine engine,
         Realm realm,
-        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype)
+        IteratorPrototype iteratorPrototype) : base(engine, realm, iteratorPrototype, IteratorBrand.FormData)
     {
     }
 
@@ -51,8 +51,8 @@ internal sealed partial class FormDataIteratorPrototype : IteratorPrototype
     /// a class string is <c>{ [[Writable]]: false, [[Enumerable]]: false, [[Configurable]]: true }</c> in
     /// WebIDL too.
     /// </remarks>
-    [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+    [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable, CaptureField = nameof(_originalNextFunction))]
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.FormData);
 
     internal FormDataIterator ConstructEntryIterator(JsFormData formData)
         => Construct(formData, FormDataIteratorKind.KeyAndValue);
@@ -93,7 +93,7 @@ internal sealed class FormDataIterator : IteratorInstance
     private readonly FormDataIteratorKind _kind;
     private int _position;
 
-    internal FormDataIterator(Engine engine, JsFormData formData, FormDataIteratorKind kind) : base(engine)
+    internal FormDataIterator(Engine engine, JsFormData formData, FormDataIteratorKind kind) : base(engine, IteratorBrand.FormData)
     {
         _formData = formData;
         _kind = kind;

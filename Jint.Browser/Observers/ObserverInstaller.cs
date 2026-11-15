@@ -91,9 +91,10 @@ internal static class ObserverInstaller
     private static JsObjectShape BuildIntersectionObserverShape() => new JsObjectShape.Builder()
         .PerRealmSlot("constructor")
         .ToStringTag("IntersectionObserver")
+        .Accessor("delay", static (t, _) => JsNumber.Create(JsIntersectionObserver.Brand(t, "delay").Delay))
         .Accessor("root", static (t, _) => JsIntersectionObserver.Brand(t, "root").Root)
         .Accessor("rootMargin", static (t, _) => JsString.Create(JsIntersectionObserver.Brand(t, "rootMargin").RootMargin))
-        .Accessor("scrollMargin", static (_, _) => JsString.Create("0px 0px 0px 0px"))
+        .Accessor("scrollMargin", static (t, _) => JsString.Create(JsIntersectionObserver.Brand(t, "scrollMargin").ScrollMargin))
         .Accessor("thresholds", static (t, _) =>
         {
             var observer = JsIntersectionObserver.Brand(t, "thresholds");
@@ -105,6 +106,7 @@ internal static class ObserverInstaller
 
             return observer.Engine._mainRealm.Intrinsics.Array.ConstructFast(values);
         })
+        .Accessor("trackVisibility", static (t, _) => JsBoolean.Create(JsIntersectionObserver.Brand(t, "trackVisibility").TrackVisibility))
         .Method("observe", static (t, args) => JsIntersectionObserver.Brand(t, "observe").Observe(args), length: 1)
         .Method("unobserve", static (t, args) => JsIntersectionObserver.Brand(t, "unobserve").Unobserve(args), length: 1)
         .Method("disconnect", static (t, _) => JsIntersectionObserver.Brand(t, "disconnect").Disconnect())

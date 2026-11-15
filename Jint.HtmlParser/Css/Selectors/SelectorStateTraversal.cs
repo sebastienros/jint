@@ -81,18 +81,27 @@ internal static class SelectorStateTraversal
     }
 
     internal static void BuildActive(in SelectorEnvironment environment, ref SelectorMatchWork work)
+        => work.EnsureCell().ActiveElements = BuildDesignated(environment.PointerPressTarget, environment.Document!, ref work);
+
+    internal static void BuildHover(in SelectorEnvironment environment, ref SelectorMatchWork work)
+        => work.EnsureCell().HoverElements = BuildDesignated(environment.HoverTarget, environment.Document!, ref work);
+
+    // HTML §4.15 :active and :hover: the designated element, its flat-tree ancestors, and the labeled
+    // control of any label among them.
+    // https://html.spec.whatwg.org/multipage/semantics-other.html#selector-active
+    // https://html.spec.whatwg.org/multipage/semantics-other.html#selector-hover
+    private static HashSet<Element> BuildDesignated(Element? seed, Document document, ref SelectorMatchWork work)
     {
         var result = new HashSet<Element>(ReferenceEqualityComparer.Instance);
-        if (environment.PointerPressTarget is { } seed &&
-            Connected(seed, environment.Document!, ref work))
+        if (seed is not null && Connected(seed, document, ref work))
         {
             work.Step();
             result.Add(seed);
-            AddFlatAncestors(seed, environment.Document!, result, ref work);
+            AddFlatAncestors(seed, document, result, ref work);
             ResolveLabels(result, ref work);
         }
         work.Check();
-        work.EnsureCell().ActiveElements = result;
+        return result;
     }
 
     private static bool IsHtml(Element element, string name)

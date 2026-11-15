@@ -254,6 +254,12 @@ internal sealed record EventLoop
     /// </summary>
     internal bool HasPendingJobs => !_events.IsEmpty || _tasks is { IsEmpty: false };
 
+    /// <summary>
+    /// Stricter than <c>!</c><see cref="HasPendingJobs"/>: no queued job <em>and</em> no separate task lane,
+    /// because draining a task lane runs the task cleanup step even when the lane is empty.
+    /// </summary>
+    internal bool HasNothingToDrain => _tasks is null && _events.IsEmpty;
+
     // Feature pumps yield to the original FIFO without task lanes, but only to reactions with task lanes.
     // Yielding to other tasks on the separate lane would let two feature pumps defer on each other forever.
     internal bool HasPendingCheckpointJobs => !_events.IsEmpty;

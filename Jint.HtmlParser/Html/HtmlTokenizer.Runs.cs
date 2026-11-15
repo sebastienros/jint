@@ -6,6 +6,9 @@ namespace Jint.HtmlParser.Html;
 
 internal sealed partial class HtmlTokenizer
 {
+    // The most units one run takes; a whole tag appends a value's literals in runs of this length too.
+    private const int MaxRunLength = 4096;
+
     private static readonly SearchValues<char> DataStops = SearchValues.Create("&<\0\r");
     private static readonly SearchValues<char> RawTextStops = SearchValues.Create("<\0\r");
     private static readonly SearchValues<char> PlainTextStops = SearchValues.Create("\0\r");
@@ -55,7 +58,7 @@ internal sealed partial class HtmlTokenizer
         var sliced = buffer == _text || buffer == _value;
 
         var source = _input.CurrentSpan;
-        var limit = (int) Math.Min(Math.Min(_remainingWork + 1, source.Length), 4096);
+        var limit = (int) Math.Min(Math.Min(_remainingWork + 1, source.Length), MaxRunLength);
         if (buffer == _text) limit = Math.Min(limit, 4096 - TextLength);
         if (_maxToken > 0)
         {

@@ -3,6 +3,7 @@ using System.Runtime.ExceptionServices;
 using System.Text;
 using Jint.Browser.Runtime;
 using Jint.Native;
+using Jint.Runtime;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Url.Parsing;
@@ -237,13 +238,31 @@ public sealed partial class Page
         engine ??= _loop.CurrentEngine;
         if (!navigationEventDispatched && engine is not null
             && PageRuntime.Find(engine)?.Dom.ExistingNavigation is { } navigation
-            && PageUrl.Resolve(url, _url) is { } resolved)
+            && PageUrl.Resolve(url, _url) is { } resolved
+            && PageUrl.Parse(resolved, _url)?.Scheme != "javascript")
         {
             if (navigation.Handle(resolved, reload ? "reload" : replace || _isInitialAboutBlank ? "replace" : "push",
                 source: sourceElement, download: downloadRequest, userInitiated: userInitiated)) return;
             navigationEventDispatched = true;
             navigationId = navigation.OngoingId;
             navigationCancellation = navigation.NavigationCancellation;
+        }
+
+        if (downloadRequest is not null)
+        {
+            // https://html.spec.whatwg.org/multipage/links.html#downloading-hyperlinks: the navigate event has
+            // had its say, the document stays, and there is nothing here to save the response to.
+            if (engine is not null && PageRuntime.Find(engine) is { } runtime)
+            {
+                runtime.Dom.ExistingNavigation?.AbortOngoing();
+                runtime.Recorder.Add(
+                    PageErrorKind.ReportedError,
+                    "A download was requested by clicking a link, and this version has nowhere to save it; the page "
+                    + "stays where it is.",
+                    url);
+            }
+
+            return;
         }
 
         if (engine is not null && !reload && TryFragmentNavigation(engine, url, replace))
@@ -507,7 +526,7 @@ public sealed partial class Page
 
                 request = request with { FirstHopAllowed = allowed };
             }
-            else
+            else if (target.Scheme != "javascript")
             {
                 try
                 {
@@ -627,6 +646,43 @@ public sealed partial class Page
         if (request.PreflightFailure is { } failure)
         {
             ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+
+        // https://html.spec.whatwg.org/multipage/browsing-the-web.html#the-javascript:-url-special-case
+        if (PageUrl.Parse(request.Target, _url) is { Scheme: "javascript" } scriptUrl)
+        {
+            var replacement = await _loop.PostAsync(engine =>
+            {
+                if (PageRuntime.Find(engine) is not { ScriptingEnabled: true } runtime
+                    || request.SourceDocumentId != -1 && request.SourceDocumentId != _history.CurrentDocumentId
+                    || request.Creator is { } initiator && !initiator.Origin.IsSameOrigin(Dom.DomDocumentMetadata.CreatorOrigin(runtime.Dom)))
+                    return null;
+                var serialized = scriptUrl.Serialize();
+                var source = PercentEncoding.DecodeToString(serialized["javascript:".Length..]);
+                try
+                {
+                    var result = engine.Evaluate(source, _url);
+                    return result.IsString()
+                        ? request with
+                        {
+                            Target = _url,
+                            InlineContent = result.AsString(),
+                            History = HistoryMode.Replace,
+                            Reload = true,
+                            NavigationEventDispatched = true,
+                            Creator = CreationFactsOf(engine, includeBaseUrl: true),
+                        }
+                        : null;
+                }
+                catch (JavaScriptException exception)
+                {
+                    engine._webApi?.FireGlobalErrorEvent(engine.Realm, exception);
+                    _recorder.Add(PageErrorKind.ScriptError, PageRecorder.Diagnostics.Describe(exception.Error, exception), _url);
+                    return null;
+                }
+            }).ConfigureAwait(false);
+            if (replacement is null) return _response;
+            request = replacement;
         }
 
         CancellationTokenSource? browserUi = null;
@@ -766,7 +822,12 @@ public sealed partial class Page
         // HTML, which is what it was before there was a choice.
         var contentType = Dom.DomContentType.Html;
 
-        if (PageUrl.IsNetworkScheme(target))
+        if (request.InlineContent is { } inlineContent)
+        {
+            markup = inlineContent;
+            finalUrl = href;
+        }
+        else if (PageUrl.IsNetworkScheme(target))
         {
             var fetched = await FetchDocumentAsync(target, request, initiatorUrl, loaderId, timeout, cancellationToken).ConfigureAwait(false);
             markup = fetched.Markup;
@@ -1055,6 +1116,7 @@ public sealed partial class Page
         try
         {
             _observer?.DocumentCreated(runtime, loaderId);
+            runtime.DocumentPhase = phase => Reached(runtime, phase, loaderId);
 
             // Before the parse, and the order is load-bearing rather than tidy. Every phase signal a caller of
             // NavigateAsync may be awaiting is raised *inside* the parse, so signalling afterwards would let a

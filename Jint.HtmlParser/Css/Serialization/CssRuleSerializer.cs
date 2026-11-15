@@ -99,6 +99,28 @@ internal static class CssRuleSerializer
                 if (layer.Rules.Count != 0) builder.Append('\n');
                 frames.Push(new Frame(layer.Rules, layer, start));
             }
+            else if (rule is CssScopeRule scope)
+            {
+                // CSS Cascade 6 §3.5.2; the boundaries keep their validated author text.
+                builder.Append("@scope");
+                if (scope.Start is { } scopeStart)
+                {
+                    work.Charge(scopeStart.Length);
+                    builder.Append(" (");
+                    builder.Append(scopeStart);
+                    builder.Append(')');
+                }
+                if (scope.End is { } scopeEnd)
+                {
+                    work.Charge(scopeEnd.Length);
+                    builder.Append(" to (");
+                    builder.Append(scopeEnd);
+                    builder.Append(')');
+                }
+                builder.Append(" {");
+                if (scope.Rules.Count != 0) builder.Append('\n');
+                frames.Push(new Frame(scope.Rules, scope, start));
+            }
             else if (rule is CssConditionRule conditionRule)
             {
                 var condition = conditionRule is CssMediaRule media ? media.Media.Serialize(work) : conditionRule.ConditionText;

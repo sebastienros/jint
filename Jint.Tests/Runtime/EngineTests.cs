@@ -1880,14 +1880,16 @@ var prep = function (fn) { fn(); };
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
+                // The zone's own daylight name, which Windows gives in the OS display language (issue #4442).
+                .SetValue("daylightName", PDT.DaylightName)
             ;
 
         engine.Evaluate(@"
                     var d = new Date(1433160000000);
 
-                    equal('Mon Jun 01 2015 05:00:00 GMT-0700 (Pacific Daylight Time)', d.toString());
+                    equal('Mon Jun 01 2015 05:00:00 GMT-0700 (' + daylightName + ')', d.toString());
                     equal('Mon Jun 01 2015', d.toDateString());
-                    equal('05:00:00 GMT-0700 (Pacific Daylight Time)', d.toTimeString());
+                    equal('05:00:00 GMT-0700 (' + daylightName + ')', d.toTimeString());
                     // ECMA-402 compliant: numeric defaults used when no options specified, written with
                     // fr's own CLDR pattern (dd/MM/y, and a space before the time), as ICU writes them
                     equal('01/06/2015 05:00:00', d.toLocaleString());
@@ -3204,6 +3206,84 @@ x.test = {
         call(engine, script);
 
         beforeEvaluateTriggered.Should().BeTrue();
+    }
+
+    [Test]
+    public void BeforeEvaluateFiresForAHandlerSubscribedAfterEarlierEvaluations()
+    {
+        var engine = new Engine();
+        engine.Evaluate("1 + 1");
+
+        var triggered = 0;
+        engine.Debugger.BeforeEvaluate += (_, _) => triggered++;
+        engine.Evaluate("2 + 2");
+
+        triggered.Should().Be(1);
+    }
+
+    [Test]
+    public void ADrainAfterAnIdleDrainStillRunsNewlyQueuedJobs()
+    {
+        var engine = new Engine();
+
+        // This script's drain finds nothing to run; the next one must still run what its script queued.
+        engine.Execute("var log = [];");
+        engine.Execute("Promise.resolve().then(() => log.push('then'))");
+
+        engine.Evaluate("log.join()").AsString().Should().Be("then");
+    }
+
+    [Test]
+    public void APreparedExpressionScriptSeesCurrentStateOnEveryRun()
+    {
+        var engine = new Engine();
+        engine.Execute("var a = 2, b = 3;");
+        var prepared = Engine.PrepareScript("a + b");
+
+        // The first run builds the statement, the second caches it and the third reuses it.
+        engine.Evaluate(prepared).AsNumber().Should().Be(5);
+        engine.Execute("a = 10;");
+        engine.Evaluate(prepared).AsNumber().Should().Be(13);
+        engine.Evaluate(prepared).AsNumber().Should().Be(13);
+    }
+
+    [Test]
+    public void AnExpressionScriptReturnsTheExpressionValue()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("x = 5").AsNumber().Should().Be(5);
+        engine.Evaluate("'use strict'").AsString().Should().Be("use strict");
+        engine.Evaluate("(function () { var q = 7; return q; })()").AsNumber().Should().Be(7);
+        engine.Evaluate("void 0").IsUndefined().Should().BeTrue();
+    }
+
+    [Test]
+    public void APreparedExpressionScriptThrowsTheSameErrorOnEveryRun()
+    {
+        var engine = new Engine();
+        engine.Execute("var o = null;");
+        var prepared = Engine.PrepareScript("1 + o.x", "rule.js");
+
+        // The first run builds the statement, the second caches it and the third reuses it; all report the same error.
+        var first = Invoking(() => engine.Evaluate(prepared)).Should().ThrowExactly<JavaScriptException>().Which;
+        first.Error.AsObject().Get("name").AsString().Should().Be("TypeError");
+        first.Location.SourceFile.Should().Be("rule.js");
+        for (var run = 0; run < 2; run++)
+        {
+            var ex = Invoking(() => engine.Evaluate(prepared)).Should().ThrowExactly<JavaScriptException>().Which;
+            ex.Message.Should().Be(first.Message);
+            ex.Location.Should().Be(first.Location);
+        }
+
+        var undeclared = Engine.PrepareScript("missing + 1");
+        for (var run = 0; run < 2; run++)
+        {
+            var ex = Invoking(() => engine.Evaluate(undeclared)).Should().ThrowExactly<JavaScriptException>().Which;
+            ex.Error.AsObject().Get("name").AsString().Should().Be("ReferenceError");
+        }
+
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
     [Test]

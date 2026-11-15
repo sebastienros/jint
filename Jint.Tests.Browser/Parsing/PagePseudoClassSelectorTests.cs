@@ -1329,6 +1329,53 @@ public sealed class PagePseudoClassSelectorTests
     }
 
     /// <summary>
+    /// HTML §4.16.3: <c>:hover</c> is the element the pointer is over, its flat-tree ancestors and the
+    /// labeled control of a hovered label — and it follows the pointer, both for <c>matches</c> and for the
+    /// cascade a computed style reads (issue #4598: a CDP <c>mouseMoved</c> matched nothing).
+    /// </summary>
+    [Test]
+    public async Task HoverFollowsThePointerForSelectorsAndTheCascade()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><head><style>
+              div { width:100px; height:40px }
+              #h:hover { background-color:rgb(1, 2, 3) }
+            </style></head><body>
+              <div id="h"><span id="child">h</span></div>
+              <div id="other">other</div>
+              <label id="label" for="input">label</label><input id="input">
+            </body></html>
+            """);
+
+        const string State = """
+            (() => ['h', 'child', 'other', 'label', 'input']
+              .map(id => id + ':' + document.getElementById(id).matches(':hover')).join(',')
+              + '|' + getComputedStyle(document.getElementById('h')).backgroundColor)()
+            """;
+
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("h:false,child:false,other:false,label:false,input:false|rgba(0, 0, 0, 0)");
+
+        (await page.HoverAsync("#child")).Should().BeTrue();
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("h:true,child:true,other:false,label:false,input:false|rgb(1, 2, 3)");
+        (await page.EvaluateAsync<string>(
+            "Array.from(document.querySelectorAll(':hover'), e => e.id || e.localName).join('+')"))
+            .Should().Be("html+body+h+child", "Selectors §9.1 adds every ancestor of the hovered element");
+
+        await DispatchAsync(page, "other", MouseInputKind.Moved, buttons: 0);
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("h:false,child:false,other:true,label:false,input:false|rgba(0, 0, 0, 0)");
+
+        await DispatchAsync(page, "label", MouseInputKind.Moved, buttons: 0);
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("h:false,child:false,other:false,label:true,input:true|rgba(0, 0, 0, 0)");
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
     /// HTML §4.16.3: <c>:checked</c> is a checkbox or radio button whose checkedness is true and an
     /// <c>option</c> whose selectedness is true, and nothing else — not the historical <c>menuitem</c>
     /// The former DOM integration still models, and not an input whose <c>type</c> attribute has been taken away, whose

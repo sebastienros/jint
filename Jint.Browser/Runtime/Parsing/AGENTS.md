@@ -82,7 +82,9 @@ The current scheduling is deliberately simpler than a rendering browser's:
   deferred list after tokenization, in encounter order. Downloads do not overlap parsing; `async` does not
   mean execute at the instant its response arrives.
 - Deferred classic scripts run before the principal document's module pass. `PageModuleScriptLoader` and
-  `ImportMap` implement that pass and dynamic imports; child modules/import maps are not supported.
+  `ImportMap` implement that pass and dynamic imports, with separate loaders/maps for same-origin child
+  documents. A load started inside an engine job uses promise completion rather than recursively pumping
+  that job; pending modules delay frame readiness and their subresource timeout remains bounded.
 - The first prepared import map is retained. It can be read mid-parse for a classic script's `import()`;
   module scripts run after parsing and see the retained map. Additional maps are reported and ignored.
 
@@ -138,7 +140,7 @@ child document and parses it with the same driver. Missing/empty `src` produces 
 produces `about:srcdoc`, and network sources use the page's resource limits. `MaxFrameDocuments` is checked
 before all these creation paths, including `srcdoc`; zero declines them.
 
-Same-origin classic scripts with no sandbox-blocked scripting run in the child's `RealmScope`.
+Same-origin classic and module scripts with no sandbox-blocked scripting run in the child's `RealmScope`.
 `FrameWindows` gives each document its own global, intrinsics, DOM/event constructors, current script,
 readiness and window event target. A replaced document keeps its old creation brands. Creator origin/base
 URL and sandbox-origin facts are captured before a fetch can pump; do not recompute them from a later
@@ -148,9 +150,10 @@ owner state.
 `pageshow`. Initial child completion is before principal window `load`; source mutations use the deferred
 resource-event lane. Native callbacks do not enter the engine directly.
 
-Cross-origin WindowProxy access, full sandbox policy, child module loading and independent child browser
-services remain limited. Child Web APIs use page network configuration. Child location writes refuse
-rather than navigating the wrong document or silently succeeding; legacy `<frame>` is not the iframe lane.
+Cross-origin WindowProxy access, full sandbox policy and independent child browser services remain limited.
+Child Web APIs use page network configuration. `Location.href`, `assign`, `replace` and `reload` queue child
+loads; component setters still refuse rather than navigating the wrong document. Legacy `<frame>` is not
+the iframe lane.
 
 ### Dynamic markup insertion
 
@@ -158,10 +161,18 @@ During HTML parsing, `ParserDriver.Write` inserts into the active native `HtmlSc
 `InsertInput` and drives inserted input when the parser is not paused. The session owns insertion-point
 and nesting state; Browser must not replace it with concatenation and whole-document reparsing.
 
-After parsing, `DomHostHooks.TargetOf` distinguishes displayed from secondary documents. Replacing a
-displayed page/frame document through `open` or `write` remains a no-op with a recorded page error; `close`
-does nothing for a displayed document. Unloading, engine replacement and navigation cannot be smuggled
-into a DOM setter. XML rejects dynamic markup insertion with `InvalidStateError`.
+After parsing, `DomHostHooks.TargetOf` distinguishes the page's own document, frame documents and
+secondary documents. **`open` on the page's loaded document is not a navigation**: since whatwg/html#3946
+HTML keeps the document, window and engine, so `ParserDriver.OpenDisplayedDocument` erases document and
+window listeners, empties the tree in place and registers a script-created `NativeParse`. A later `write`
+appends and drives it to `NeedInput`, running written scripts through the ordinary host requests; `close`
+drives it to `Complete` and sets `interactive`, then **queues** the deferred scripts and `FinishLoad` as a task
+that never pumps (resource events chain as tasks), reporting `DOMContentLoaded`/`Loaded` through
+`PageRuntime.DocumentPhase` (Playwright's `setContent` waits for those). A write made while that parser is
+mid-drive only appends; `open`/`close` there are `InvalidStateError`, and a failed drive abandons the parser.
+A frame document, or the page's while its navigation parse runs outside a script, remains a no-op with a
+recorded page error. Unloading, engine replacement and navigation still cannot be smuggled into a DOM
+setter. XML rejects dynamic markup insertion with `InvalidStateError`.
 
 For a secondary document, `Dom/DynamicMarkupInsertion` keeps a native `HtmlParserSession` across writes.
 `open` clears the existing document and sets `loading`; successive writes preserve nodes and tokenizer

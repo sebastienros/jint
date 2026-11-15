@@ -13,6 +13,27 @@ namespace Jint.Tests.HtmlParser.Css;
 public sealed class NativeCssQueryTests
 {
     [Test]
+    public void WarmInlineEpochStillDetectsDetachedDeclarationWritesFromCheckpoints()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        document.AppendChild(target);
+        var block = CssDeclarationBlock.Parse("display:block");
+        var mutate = false;
+        var work = new CssValueWork(default, () =>
+        {
+            if (mutate) block.SetProperty("display", "none");
+        });
+        var query = new NativeCssQuery(document, [], [(target, block)], new(), new(document, null, null, null), work);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
+        mutate = true;
+        Assert.Throws<InvalidOperationException>(() => query.GetProperty(target, "display", ref matching))!
+            .Message.Should().Be(NativeCssQuery.Invalidated);
+    }
+
+    [Test]
     public void MatchedAndUnmatchedPendingDeclarationsCannotBlockAnUnrelatedDisplayRead()
     {
         var document = Document.CreateHtml();
@@ -24,7 +45,7 @@ public sealed class NativeCssQueryTests
         var result = query.GetProperty(target, "display", ref matching);
         result.Text.Should().Be("block");
         sheet.Stamp.Should().Be(stamp);
-        query.GetProperty(target, "background-color", ref matching).Text.Should().Be("transparent");
+        query.GetProperty(target, "background-color", ref matching).Text.Should().Be("red");
         query.GetProperty(target, "text-wrap", ref matching).Text.Should().Be("balance");
         query.GetProperty(target, "display", ref matching).Should().BeSameAs(result);
         ((CssStyleRule) sheet.Rules[1]).Style.SetProperty("display", "none");
@@ -175,7 +196,7 @@ public sealed class NativeCssQueryTests
         var display = query.GetProperty(target, "display", ref matching);
         display.Text.Should().Be("block");
         query.GetProperty(target, "display", ref matching).Should().BeSameAs(display);
-        query.GetProperty(target, "background", ref matching).Text.Should().BeEmpty();
+        query.GetProperty(target, "background", ref matching).Text.Should().Be("none");
         query.GetProperty(target, "display", ref matching).Should().BeSameAs(display);
     }
 

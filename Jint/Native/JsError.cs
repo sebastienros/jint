@@ -54,14 +54,6 @@ public sealed class JsError : ErrorInstance, IErrorData
     }
 
     /// <summary>
-    /// Forces the virtual <c>message</c> into real storage. Callers that add another own property through a
-    /// raw store (bypassing <see cref="DefineOwnProperty"/>) — notably the host-side <c>stack</c> property
-    /// installed by <see cref="Jint.Runtime.JavaScriptException"/> — must call this first so the message
-    /// keeps its construction-time position as the earliest own key.
-    /// </summary>
-    internal void EnsureMessageMaterialized() => MaterializeMessage();
-
-    /// <summary>
     /// The value of the <c>message</c> own data property while it is still served from the virtual field, or
     /// <see langword="null"/> when there is none there — never had one, deleted, or already materialized, in
     /// which case <see cref="GetOwnProperty"/> is the answer. Reading it is a field load and runs nothing.

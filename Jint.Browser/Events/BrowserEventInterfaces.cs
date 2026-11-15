@@ -23,9 +23,9 @@ internal static class BrowserEventInterfaces
         BuildUiEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "UIEvent");
             var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
-            return new JsUiEvent(realm.Engine, Type(realm, args, "UIEvent"), EventInit(realm, args, "UIEvent"), realm.TimeStamp, view, detail, which);
+            return new JsUiEvent(realm.Engine, type, eventInit, realm.TimeStamp, view, detail, which);
         });
 
     /// <summary>https://w3c.github.io/uievents/#interface-mouseevent.</summary>
@@ -35,12 +35,12 @@ internal static class BrowserEventInterfaces
         BuildMouseEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "MouseEvent");
             var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsMouseEvent(
                 realm.Engine,
-                Type(realm, args, "MouseEvent"),
-                EventInit(realm, args, "MouseEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 view,
                 detail,
@@ -55,28 +55,32 @@ internal static class BrowserEventInterfaces
         BuildPointerEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "PointerEvent");
             var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
+            var mouse = EventInitReader.MouseInit(realm.Engine, init);
+
+            // Lexicographic: height, isPrimary, pointerId, pointerType, pressure, tangentialPressure, tiltX,
+            // tiltY, twist, width.
+            var height = EventInitReader.Number(init, Names.Height, 1);
+            var isPrimary = EventInitReader.Bool(init, Names.IsPrimary);
+            var pointerId = EventInitReader.Long(init, Names.PointerId);
+            var pointerType = EventInitReader.Text(init, Names.PointerType);
+            var pressure = EventInitReader.Number(init, Names.Pressure);
+            var tangentialPressure = EventInitReader.Number(init, Names.TangentialPressure);
+            var tiltX = EventInitReader.Long(init, Names.TiltX);
+            var tiltY = EventInitReader.Long(init, Names.TiltY);
+            var twist = EventInitReader.Long(init, Names.Twist);
+            var width = EventInitReader.Number(init, Names.Width, 1);
             return new JsPointerEvent(
                 realm.Engine,
-                Type(realm, args, "PointerEvent"),
-                EventInit(realm, args, "PointerEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 view,
                 detail,
                 which,
-                EventInitReader.MouseInit(realm.Engine, init),
-                new PointerEventState(
-                    EventInitReader.Long(init, Names.PointerId),
-                    EventInitReader.Number(init, Names.Width, 1),
-                    EventInitReader.Number(init, Names.Height, 1),
-                    EventInitReader.Number(init, Names.Pressure),
-                    EventInitReader.Number(init, Names.TangentialPressure),
-                    EventInitReader.Long(init, Names.TiltX),
-                    EventInitReader.Long(init, Names.TiltY),
-                    EventInitReader.Long(init, Names.Twist),
-                    EventInitReader.Text(init, Names.PointerType),
-                    EventInitReader.Bool(init, Names.IsPrimary)));
+                mouse,
+                new PointerEventState(pointerId, width, height, pressure, tangentialPressure, tiltX, tiltY, twist, pointerType, isPrimary));
         });
 
     /// <summary>https://w3c.github.io/uievents/#interface-wheelevent.</summary>
@@ -86,21 +90,21 @@ internal static class BrowserEventInterfaces
         BuildWheelEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "WheelEvent");
             var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsWheelEvent(
                 realm.Engine,
-                Type(realm, args, "WheelEvent"),
-                EventInit(realm, args, "WheelEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 view,
                 detail,
                 which,
                 EventInitReader.MouseInit(realm.Engine, init),
-                EventInitReader.Number(init, Names.DeltaX),
-                EventInitReader.Number(init, Names.DeltaY),
-                EventInitReader.Number(init, Names.DeltaZ),
-                EventInitReader.Long(init, Names.DeltaMode));
+                deltaMode: EventInitReader.Long(init, Names.DeltaMode),
+                deltaX: EventInitReader.Number(init, Names.DeltaX),
+                deltaY: EventInitReader.Number(init, Names.DeltaY),
+                deltaZ: EventInitReader.Number(init, Names.DeltaZ));
         },
         constants: [("DOM_DELTA_PIXEL", 0), ("DOM_DELTA_LINE", 1), ("DOM_DELTA_PAGE", 2)]);
 
@@ -111,25 +115,17 @@ internal static class BrowserEventInterfaces
         BuildKeyboardEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "KeyboardEvent");
             var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsKeyboardEvent(
                 realm.Engine,
-                Type(realm, args, "KeyboardEvent"),
-                EventInit(realm, args, "KeyboardEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 view,
                 detail,
                 which,
-                new KeyboardEventState(
-                    EventInitReader.Text(init, Names.Key),
-                    EventInitReader.Text(init, Names.Code),
-                    EventInitReader.Long(init, Names.Location),
-                    EventInitReader.Bool(init, Names.Repeat),
-                    EventInitReader.Bool(init, Names.IsComposing),
-                    EventInitReader.Modifiers(init),
-                    EventInitReader.OptionalUnsignedLong(init, Names.CharCode),
-                    EventInitReader.OptionalUnsignedLong(init, Names.KeyCode)));
+                EventInitReader.KeyboardInit(init));
         },
         constants:
         [
@@ -146,19 +142,19 @@ internal static class BrowserEventInterfaces
         BuildInputEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "InputEvent");
             var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsInputEvent(
                 realm.Engine,
-                Type(realm, args, "InputEvent"),
-                EventInit(realm, args, "InputEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 view,
                 detail,
                 which,
-                EventInitReader.Any(init, Names.Data, JsValue.Null),
-                EventInitReader.Bool(init, Names.IsComposing),
-                EventInitReader.Text(init, Names.InputType));
+                data: EventInitReader.Any(init, Names.Data, JsValue.Null),
+                inputType: EventInitReader.Text(init, Names.InputType),
+                isComposing: EventInitReader.Bool(init, Names.IsComposing));
         });
 
     /// <summary>https://w3c.github.io/uievents/#interface-compositionevent.</summary>
@@ -168,12 +164,12 @@ internal static class BrowserEventInterfaces
         BuildCompositionEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "CompositionEvent");
             var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsCompositionEvent(
                 realm.Engine,
-                Type(realm, args, "CompositionEvent"),
-                EventInit(realm, args, "CompositionEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 view,
                 detail,
@@ -188,12 +184,12 @@ internal static class BrowserEventInterfaces
         BuildFocusEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "FocusEvent");
             var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsFocusEvent(
                 realm.Engine,
-                Type(realm, args, "FocusEvent"),
-                EventInit(realm, args, "FocusEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 view,
                 detail,
@@ -208,11 +204,11 @@ internal static class BrowserEventInterfaces
         BuildSubmitEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "SubmitEvent");
             return new JsSubmitEvent(
                 realm.Engine,
-                Type(realm, args, "SubmitEvent"),
-                EventInit(realm, args, "SubmitEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 EventInitReader.Any(init, Names.Submitter, JsValue.Null));
         });
@@ -224,7 +220,7 @@ internal static class BrowserEventInterfaces
         BuildFormDataEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "FormDataEvent");
             var formData = init?.Get(Names.FormData);
 
             // formData has no default, so the dictionary is required and so is the member — the one interface
@@ -236,8 +232,8 @@ internal static class BrowserEventInterfaces
 
             return new JsFormDataEvent(
                 realm.Engine,
-                Type(realm, args, "FormDataEvent"),
-                EventInit(realm, args, "FormDataEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 formData!);
         },
@@ -250,14 +246,14 @@ internal static class BrowserEventInterfaces
         BuildHashChangeEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "HashChangeEvent");
             return new JsHashChangeEvent(
                 realm.Engine,
-                Type(realm, args, "HashChangeEvent"),
-                EventInit(realm, args, "HashChangeEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
-                EventInitReader.Text(init, Names.OldUrl),
-                EventInitReader.Text(init, Names.NewUrl));
+                newUrl: EventInitReader.Text(init, Names.NewUrl),
+                oldUrl: EventInitReader.Text(init, Names.OldUrl));
         });
 
     /// <summary>https://html.spec.whatwg.org/multipage/nav-history-apis.html#the-popstateevent-interface.</summary>
@@ -267,14 +263,14 @@ internal static class BrowserEventInterfaces
         BuildPopStateEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "PopStateEvent");
             return new JsPopStateEvent(
                 realm.Engine,
-                Type(realm, args, "PopStateEvent"),
-                EventInit(realm, args, "PopStateEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
-                EventInitReader.Any(init, Names.State, JsValue.Null),
-                EventInitReader.Bool(init, Names.HasUaVisualTransition));
+                hasUaVisualTransition: EventInitReader.Bool(init, Names.HasUaVisualTransition),
+                state: EventInitReader.Any(init, Names.State, JsValue.Null));
         });
 
     /// <summary>https://html.spec.whatwg.org/multipage/nav-history-apis.html#the-pagetransitionevent-interface.</summary>
@@ -284,11 +280,11 @@ internal static class BrowserEventInterfaces
         BuildPageTransitionEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "PageTransitionEvent");
             return new JsPageTransitionEvent(
                 realm.Engine,
-                Type(realm, args, "PageTransitionEvent"),
-                EventInit(realm, args, "PageTransitionEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 EventInitReader.Bool(init, Names.Persisted));
         });
@@ -311,12 +307,12 @@ internal static class BrowserEventInterfaces
         BuildDragEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "DragEvent");
             var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsDragEvent(
                 realm.Engine,
-                Type(realm, args, "DragEvent"),
-                EventInit(realm, args, "DragEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 view,
                 detail,
@@ -332,17 +328,17 @@ internal static class BrowserEventInterfaces
         BuildStorageEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "StorageEvent");
             return new JsStorageEvent(
                 realm.Engine,
-                Type(realm, args, "StorageEvent"),
-                EventInit(realm, args, "StorageEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
-                EventInitReader.NullableText(init, Names.Key),
-                EventInitReader.NullableText(init, Names.OldValue),
-                EventInitReader.NullableText(init, Names.NewValue),
-                EventInitReader.Text(init, Names.Url),
-                StorageArea(realm, EventInitReader.Any(init, Names.StorageArea, JsValue.Null), "construct"));
+                key: EventInitReader.NullableText(init, Names.Key),
+                newValue: EventInitReader.NullableText(init, Names.NewValue),
+                oldValue: EventInitReader.NullableText(init, Names.OldValue),
+                storageArea: StorageArea(realm, EventInitReader.Any(init, Names.StorageArea, JsValue.Null), "construct"),
+                url: EventInitReader.Text(init, Names.Url));
         });
 
     /// <summary>https://w3c.github.io/touch-events/#touchevent-interface.</summary>
@@ -352,20 +348,20 @@ internal static class BrowserEventInterfaces
         BuildTouchEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "TouchEvent");
             var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsTouchEvent(
                 realm.Engine,
-                Type(realm, args, "TouchEvent"),
-                EventInit(realm, args, "TouchEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
                 view,
                 detail,
                 which,
-                EventInitReader.TouchSequence(realm, init, Names.Touches),
-                EventInitReader.TouchSequence(realm, init, Names.TargetTouches),
-                EventInitReader.TouchSequence(realm, init, Names.ChangedTouches),
-                EventInitReader.Modifiers(init));
+                modifiers: EventInitReader.Modifiers(init),
+                changedTouches: EventInitReader.TouchSequence(realm, init, Names.ChangedTouches),
+                targetTouches: EventInitReader.TouchSequence(realm, init, Names.TargetTouches),
+                touches: EventInitReader.TouchSequence(realm, init, Names.Touches));
         });
 
     /// <summary>https://w3c.github.io/deviceorientation/#devicemotionevent.</summary>
@@ -375,16 +371,16 @@ internal static class BrowserEventInterfaces
         BuildDeviceMotionEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "DeviceMotionEvent");
             return new JsDeviceMotionEvent(
                 realm.Engine,
-                Type(realm, args, "DeviceMotionEvent"),
-                EventInit(realm, args, "DeviceMotionEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
-                EventInitReader.Acceleration(realm, init, Names.Acceleration),
-                EventInitReader.Acceleration(realm, init, Names.AccelerationIncludingGravity),
-                EventInitReader.RotationRate(realm, init, Names.RotationRate),
-                EventInitReader.Number(init, Names.Interval));
+                acceleration: EventInitReader.Acceleration(realm, init, Names.Acceleration),
+                accelerationIncludingGravity: EventInitReader.Acceleration(realm, init, Names.AccelerationIncludingGravity),
+                interval: EventInitReader.Number(init, Names.Interval),
+                rotationRate: EventInitReader.RotationRate(realm, init, Names.RotationRate));
         });
 
     /// <summary>https://w3c.github.io/deviceorientation/#deviceorientationevent.</summary>
@@ -394,16 +390,16 @@ internal static class BrowserEventInterfaces
         BuildDeviceOrientationEvent,
         static (realm, args) =>
         {
-            var init = EventInitReader.Dictionary(args);
+            var (type, eventInit, init) = Begin(realm, args, "DeviceOrientationEvent");
             return new JsDeviceOrientationEvent(
                 realm.Engine,
-                Type(realm, args, "DeviceOrientationEvent"),
-                EventInit(realm, args, "DeviceOrientationEvent"),
+                type,
+                eventInit,
                 realm.TimeStamp,
-                EventInitReader.NullableNumber(init, Names.Alpha),
-                EventInitReader.NullableNumber(init, Names.Beta),
-                EventInitReader.NullableNumber(init, Names.Gamma),
-                EventInitReader.Bool(init, Names.Absolute));
+                absolute: EventInitReader.Bool(init, Names.Absolute),
+                alpha: EventInitReader.NullableNumber(init, Names.Alpha),
+                beta: EventInitReader.NullableNumber(init, Names.Beta),
+                gamma: EventInitReader.NullableNumber(init, Names.Gamma));
         });
 
     /// <summary>
@@ -694,6 +690,28 @@ internal static class BrowserEventInterfaces
 
     private static Jint.WebApi.Events.EventInit EventInit(BrowserEventRealm realm, JsValue[] args, string interfaceName)
         => EventConstructor.ReadEventInit(realm.OwningRealm, args.Length > 1 ? args[1] : JsValue.Undefined, interfaceName);
+
+    /// <summary>
+    /// The first three steps every constructor shares, in the order WebIDL takes them: the <c>type</c>
+    /// argument is converted before the dictionary, and the dictionary's inherited <c>EventInit</c> members
+    /// are read before any member a derived dictionary adds
+    /// (https://webidl.spec.whatwg.org/#es-dictionary step 4, sebastienros/jint#4530).
+    /// </summary>
+    /// <remarks>
+    /// The members a constructor reads after this are read in lexicographic order, which several constructors
+    /// express by writing <b>named arguments in that order</b> rather than in parameter order: C# evaluates
+    /// arguments in the order they are written, so reordering those named arguments, or making them positional,
+    /// changes what a page observes. <c>BrowserWebIdlDictionaryOrderTests</c> pins every one.
+    /// </remarks>
+    private static (JsString Type, Jint.WebApi.Events.EventInit EventInit, ObjectInstance? Init) Begin(
+        BrowserEventRealm realm,
+        JsValue[] args,
+        string interfaceName)
+    {
+        var type = Type(realm, args, interfaceName);
+        var eventInit = EventInit(realm, args, interfaceName);
+        return (type, eventInit, EventInitReader.Dictionary(args));
+    }
 
     // -----------------------------------------------------------------------------------------------------
     // The shapes. Every attribute is an Accessor and every operation a Method, which is WebIDL's
@@ -1132,8 +1150,9 @@ internal static class BrowserEventInterfaces
     }
 
     /// <summary>
-    /// A <c>sequence&lt;FontFace&gt; fontfaces = []</c> member — the iterable protocol, with anything that is
-    /// not a <c>FontFace</c> a <c>TypeError</c> after the iterator is closed.
+    /// A <c>sequence&lt;FontFace&gt; fontfaces = []</c> member — https://webidl.spec.whatwg.org/#es-sequence, the
+    /// iterable protocol, with a value that is not an Object, a string included, a <c>TypeError</c>, and anything
+    /// that is not a <c>FontFace</c> a <c>TypeError</c> that closes the iterator (sebastienros/jint#4431).
     /// </summary>
     private static JsValue[] FontFaceSequence(BrowserEventRealm realm, ObjectInstance? init)
     {
@@ -1144,18 +1163,25 @@ internal static class BrowserEventInterfaces
         }
 
         var principal = realm.OwningRealm;
-        var iterator = value.GetIterator(principal);
+        var iterator = Dom.DomConvert.SequenceIterator(principal, value, "Failed to construct 'FontFaceSetLoadEvent'", "fontfaces", "FontFaceSetLoadEventInit");
         var faces = new List<JsValue>();
-        while (iterator.TryIteratorStepValue(out var item))
+        try
         {
-            if (item is not Fonts.JsFontFace)
+            while (iterator.TryIteratorStepValue(out var item))
             {
-                iterator.Close(CompletionType.Throw);
-                Throw.TypeError(principal, "Failed to construct 'FontFaceSetLoadEvent': member fontfaces is not of type 'FontFace'.");
-                return [];
-            }
+                if (item is not Fonts.JsFontFace)
+                {
+                    Throw.TypeError(principal, "Failed to construct 'FontFaceSetLoadEvent': member fontfaces is not of type 'FontFace'.");
+                    return [];
+                }
 
-            faces.Add(item);
+                faces.Add(item);
+            }
+        }
+        catch
+        {
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return [.. faces];

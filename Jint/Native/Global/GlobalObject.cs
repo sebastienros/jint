@@ -109,7 +109,7 @@ public sealed partial class GlobalObject : ObjectInstance
         // exact integer mathInt those digits denote to the nearest Number - once, however many of them
         // there are. Accumulating them into a double instead rounds once per digit and lands one or more
         // ULP away past the 53rd significant bit, so the digits stay exact until the end.
-        if (!NumberParser.TryParseRadixInteger(s, radix, out var mathInt))
+        if (!NumberParser.TryParseRadixInteger(s, radix, exact: false, out var mathInt))
         {
             return JsNumber.DoubleNaN;
         }
@@ -185,9 +185,10 @@ public sealed partial class GlobalObject : ObjectInstance
 
             if (c == '.')
             {
-                if (dotFound)
+                // StrDecimalLiteral has one point and it comes before the exponent: "1e5.5" is the prefix
+                // "1e5" followed by something that is not part of it.
+                if (dotFound || exponentFound)
                 {
-                    // does not look right
                     break;
                 }
 

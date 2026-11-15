@@ -21,6 +21,18 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
         _expressionCanDiscard = _expression.HasDiscardFastPath;
     }
 
+    /// <summary>
+    /// Called by the statement list or block that runs this statement directly: a <c>yield</c> making up the whole
+    /// statement may then hand a return() resumption back as a value, since that runner tests the request next.
+    /// </summary>
+    internal void MarkStatementPosition(YieldStatementPosition position)
+    {
+        if (_expression is JintYieldExpression yieldExpression)
+        {
+            yieldExpression.MarkStatementPosition(position);
+        }
+    }
+
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         // generators/async functions surface suspended values through completions,

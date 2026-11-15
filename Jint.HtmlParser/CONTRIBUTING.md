@@ -72,7 +72,7 @@ Clear disposable feeds and caches, pack the actual packages, check framework ass
 licenses and exact Browser/parser version alignment, then verify restored package provenance.
 Run the no-friend parser probes and packaged Browser smoke probe. The shared
 `html-parser-package-consumer.yml` CI workflow covers preview and GA inputs, both shipped frameworks,
-and a parser-only Linux net10.0 Native AOT publish/run. A regular-runtime Browser probe does not claim
+and, in release builds only, a parser-only Linux net10.0 Native AOT publish/run. A regular-runtime Browser probe does not claim
 Browser AOT compatibility. Preserve `IsAotCompatible` only with warning-free trimming/AOT evidence.
 Private nuget.org trusted-publishing authorization remains an owner check before release.
 
@@ -283,12 +283,14 @@ Other allocation rules the hot paths rely on:
 
 CSS intentionally targets [LightPanda](https://github.com/lightpanda-io/browser), not a rendering
 engine. Syntax, the complete existing selector engine, media queries, CSSOM mutation and
-style/media/supports/layer/import/font-face models remain. Every other at-rule is an opaque
+style/media/supports/layer/scope/import/font-face models remain. Every other at-rule is an opaque
 `CSSRule` retaining its source `cssText`; it contributes nothing to matching or the cascade.
 
 Declarations store property names, text and importance. A data-only catalog supplies known names,
 inheritance flags, a small initial-value table and the layout shorthands (overflow, flex, flex-flow,
-margin, padding, inset, gap, border-width/style). A small token grammar gate discards invalid
+margin, padding, inset, gap, border-width/style) and the box shorthands (`background`, `background-position`,
+`border`, its four sides and `border-color`, in `CssBoxShorthands`). A shorthand holding `var()` defers its
+expansion to the cascade, after substitution. A small token grammar gate discards invalid
 visibility/layout keywords, lengths, numeric ranges and shorthand arity before declarations replace
 earlier valid values. It covers display, visibility, position, float/clear, box sizing, direction/writing
 mode, whitespace, dimensions, physical insets, margins/padding, border widths/styles, font size/line
@@ -308,7 +310,7 @@ Intentional conveniences beyond LightPanda include the existing UA/shadow/import
 broader selectors/media conditions, synthetic flex geometry, and small textual `var()` substitution
 for ordinary properties (depth 32, bounded expansion). Custom properties themselves remain
 declared text and inherit. Variables resolve at the consuming element, not in a typed declaration
-environment; there is no deferred shorthand or token-graph substitution engine.
+environment; there is no token-graph substitution engine.
 Literal invalid declarations are discarded before cascading ([CSS Cascade §4.1](https://drafts.csswg.org/css-cascade-5/#declared)).
 CSS-wide keywords remain accepted; a declaration containing `var()` defers validity until substitution.
 An invalid substituted visibility/layout value defaults to inheritance or the initial value instead of

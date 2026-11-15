@@ -4,7 +4,7 @@ using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Browser.Styling;
 
-// Query-owned layer identities. Nested layers precede their parent's implicit final sublayer.
+// Rule-plan-owned layer identities. Nested layers precede their parent's implicit final sublayer.
 internal sealed class NativeCssLayer
 {
     private readonly Dictionary<string, NativeCssLayer> _named = new(StringComparer.Ordinal);
@@ -53,10 +53,12 @@ internal sealed partial class NativeCssQuery
                 roots.Add(key, root);
             }
             var contexts = new Dictionary<CssRule, NativeCssLayer>();
+            Dictionary<CssRule, CssScopeRule[]>? scopes = null;
             foreach (var rule in NativeCssParsing.ApplicableRules(input.Sheet, _media, _work))
             {
                 _work.Charge(1);
                 var layer = rule.ParentRule is { } parent && contexts.TryGetValue(parent, out var inherited) ? inherited : root;
+                var chain = rule.ParentRule is { } scoped && scopes?.TryGetValue(scoped, out var enclosing) == true ? enclosing : null;
                 switch (rule)
                 {
                     case CssLayerBlockRule block:
@@ -65,11 +67,16 @@ internal sealed partial class NativeCssQuery
                     case CssLayerStatementRule statement:
                         foreach (var name in statement.Names) layer.Declare(name, _work);
                         break;
+                    case CssScopeRule scope:
+                        chain = chain is null ? [scope] : [.. chain, scope];
+                        break;
                     case CssStyleRule style:
+                        if (chain is not null) (_scopeChains ??= new(ReferenceEqualityComparer.Instance)).Add(style, chain);
                         rules.Add((style, input.Origin, order++, input.NamespaceUri, layer));
                         break;
                 }
                 contexts.Add(rule, layer);
+                if (chain is not null) (scopes ??= new(ReferenceEqualityComparer.Instance)).Add(rule, chain);
             }
         }
         foreach (var root in roots.Values)

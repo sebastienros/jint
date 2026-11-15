@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
@@ -97,7 +99,7 @@ internal static class NumberParser
         var truncated = false;
         var sawDigit = false;
 
-        while (i < length && IsDigit(text[i]))
+        while (i < length && text[i].IsDecimalDigit())
         {
             sawDigit = true;
             var digit = (ulong) (text[i] - '0');
@@ -122,7 +124,7 @@ internal static class NumberParser
         if (i < length && text[i] == '.')
         {
             i++;
-            while (i < length && IsDigit(text[i]))
+            while (i < length && text[i].IsDecimalDigit())
             {
                 sawDigit = true;
                 var digit = (ulong) (text[i] - '0');
@@ -162,13 +164,13 @@ internal static class NumberParser
                 i++;
             }
 
-            if (i >= length || !IsDigit(text[i]))
+            if (i >= length || !text[i].IsDecimalDigit())
             {
                 return false;
             }
 
             long scanned = 0;
-            while (i < length && IsDigit(text[i]))
+            while (i < length && text[i].IsDecimalDigit())
             {
                 // Keep accumulating until the exponent is so large that no digit count could pull the
                 // value back into range: compensation would need a digit string longer than 10^17
@@ -434,9 +436,10 @@ internal static class NumberParser
     /// </summary>
     /// <param name="text">Digits, and whatever follows the first character that is not one.</param>
     /// <param name="radix">The base the digits are read in, between 2 and 36.</param>
+    /// <param name="exact">Controls whether the entire string must match, that is, no leftover characters are allowed.</param>
     /// <param name="result">The value read, non-negative; the caller applies the sign.</param>
     /// <returns><see langword="true"/> when at least one digit was read.</returns>
-    internal static bool TryParseRadixInteger(ReadOnlySpan<char> text, int radix, out double result)
+    internal static bool TryParseRadixInteger(ReadOnlySpan<char> text, int radix, bool exact, out double result)
     {
         var length = text.Length;
         var i = 0;
@@ -461,13 +464,25 @@ internal static class NumberParser
         while (i < length)
         {
             var digit = DigitValue(text[i]);
-            if (digit < 0 || digit >= radix)
+            if ((uint) digit >= (uint) radix)
             {
                 break;
             }
 
             if (i >= overflowIndex)
             {
+                if (exact)
+                {
+                    for (i++; i < length; i++)
+                    {
+                        if ((uint) DigitValue(text[i]) >= (uint) radix)
+                        {
+                            result = 0;
+                            return false;
+                        }
+                    }
+                }
+
                 result = double.PositiveInfinity;
                 return true;
             }
@@ -496,7 +511,7 @@ internal static class NumberParser
             i++;
         }
 
-        if (!sawDigit)
+        if (!sawDigit || exact && i != length)
         {
             result = 0;
             return false;
@@ -675,8 +690,28 @@ internal static class NumberParser
         return counts;
     }
 
+    private static int DigitValue(char c)
+    {
+        var tmp = c - '0';
+        if ((uint) tmp < 10)
+        {
+            return tmp;
+        }
+
+        tmp = (c | 0x20) - 'a';
+        if ((uint) tmp < 26)
+        {
+            return tmp + 10;
+        }
+
+        return -1;
+    }
+
     private static int BitLength(ulong value)
     {
+#if NETCOREAPP3_0_OR_GREATER
+        return 64 - BitOperations.LeadingZeroCount(value);
+#else
         var bits = 0;
         while (value != 0)
         {
@@ -685,39 +720,61 @@ internal static class NumberParser
         }
 
         return bits;
+#endif
     }
-
-    private static int DigitValue(char c) => c switch
-    {
-        >= '0' and <= '9' => c - '0',
-        >= 'a' and <= 'z' => c - 'a' + 10,
-        >= 'A' and <= 'Z' => c - 'A' + 10,
-        _ => -1,
-    };
 
     private static int BitLength(BigInteger value)
     {
+#if NET5_0_OR_GREATER
+        return (int) value.GetBitLength();
+#else
         if (value.IsZero)
         {
             return 0;
         }
 
-        var bytes = value.ToByteArray();
-        var index = bytes.Length - 1;
-        while (index > 0 && bytes[index] == 0)
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
+        var byteCount = value.GetByteCount();
+        byte[]? byteArray = null;
+        try
         {
-            index--;
+            var bytes = byteCount <= 64
+                ? stackalloc byte[byteCount]
+                : (byteArray = ArrayPool<byte>.Shared.Rent(byteCount)).AsSpan(0, byteCount);
+            var success = value.TryWriteBytes(bytes, out var bytesWritten);
+            Debug.Assert(success && bytesWritten == byteCount);
+            return GetBitLength(bytes);
         }
-
-        var bits = index * 8;
-        int top = bytes[index];
-        while (top != 0)
+        finally
         {
-            bits++;
-            top >>= 1;
+            if (byteArray is not null)
+            {
+                ArrayPool<byte>.Shared.Return(byteArray);
+            }
         }
+#else
+        return GetBitLength(value.ToByteArray());
+#endif
 
-        return bits;
+        static int GetBitLength(ReadOnlySpan<byte> bytes)
+        {
+            var index = bytes.Length - 1;
+            while (index > 0 && bytes[index] == 0)
+            {
+                index--;
+            }
+
+            var bits = index * 8;
+            int top = bytes[index];
+            while (top != 0)
+            {
+                bits++;
+                top >>= 1;
+            }
+
+            return bits;
+        }
+#endif
     }
 
     /// <summary>
@@ -737,12 +794,9 @@ internal static class NumberParser
             return (long) value;
         }
 
-        return (double) (long) ((value >> 1) | (value & 1)) * 2.0;
+        return (long) ((value >> 1) | (value & 1)) * 2.0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static double Signed(double value, bool negative) => negative ? -value : value;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsDigit(char c) => c is >= '0' and <= '9';
 }

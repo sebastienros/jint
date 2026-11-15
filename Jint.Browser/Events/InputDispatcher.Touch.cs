@@ -280,7 +280,7 @@ internal static partial class InputDispatcher
             modifiers);
 
         var events = BrowserEventRealm.Of(dom.Engine);
-        events.PendingImagePoint = ImagePointOf(hit, released.ClientX, released.ClientY, layout);
+        events.PendingImagePoint = ImagePointOf(hit, released.ClientX, released.ClientY, layout.ClientBoxOf);
 
         try
         {

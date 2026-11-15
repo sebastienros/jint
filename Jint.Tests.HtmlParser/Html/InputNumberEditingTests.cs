@@ -230,14 +230,16 @@ public class InputNumberEditingTests
     [TestCase("text")]
     [TestCase("email")]
     [TestCase("number")]
-    public void SelectRetainsUnavailableFamilyGuardAfterTypeTransition(string destination)
+    public void SelectUsesTheNewFamilyAfterAColorTypeTransition(string destination)
     {
         var input = Input(); var state = State(input);
-        input.SetAttribute("type", "color"); input.SetAttribute("type", destination);
-        state.IsAvailable.Should().BeFalse();
-        var stamp = input.OwnerDocument!.MutationStamp;
-        Assert.Throws<NotSupportedException>(() => state.Select(default));
+        input.SetAttribute("type", "color");
+        state.IsAvailable.Should().BeTrue();
+        state.Select(default);
         state.Selection.Should().Be(default(HtmlTextSelection));
-        input.OwnerDocument.MutationStamp.Should().Be(stamp);
+        input.SetAttribute("type", destination);
+        state.IsAvailable.Should().BeTrue();
+        state.Select(default);
+        state.GetEditingSelection(default)!.Value.End.Should().Be((uint) state.GetValue(default).Length);
     }
 }

@@ -89,7 +89,19 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
 
         if (returnMethod is null)
         {
-            // If return is undefined, create a done iterator result
+            // Step 8: if return is undefined, resolve a done result, which is all the script sees. A built-in sync
+            // iterator may still hold native state that its own close releases - a CLR collection's iterator disposes
+            // its host enumerator - and the IteratorClose of a sync loop reaches it (sebastienros/jint#4408).
+            try
+            {
+                syncIterator.CloseWithoutReturn(CompletionType.Normal);
+            }
+            catch (JavaScriptException e)
+            {
+                promiseCapability.Reject(e.Error);
+                return promiseCapability.PromiseInstance;
+            }
+
             var iterResult = IteratorResult.CreateValueIteratorPosition(_engine, value, done: JsBoolean.True);
             promiseCapability.Resolve(iterResult);
             return promiseCapability.PromiseInstance;
@@ -215,17 +227,12 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
         catch (JavaScriptException e)
         {
             // 6. If valueWrapper is an abrupt completion, done is false, and closeOnRejection is true, then
-            //    a. Set valueWrapper to IteratorClose(syncIteratorRecord, valueWrapper).
+            //    a. Set valueWrapper to IteratorClose(syncIteratorRecord, valueWrapper). A throw completion: the close
+            //       discards what `return` raises (https://tc39.es/ecma262/#sec-iteratorclose step 5) and propagates
+            //       only what must end the run, a constraint that tripped inside `return` among them.
             if (!done && closeOnRejection)
             {
-                try
-                {
-                    syncIteratorRecord.Close(CompletionType.Throw);
-                }
-                catch
-                {
-                    // Ignore errors from close
-                }
+                syncIteratorRecord.Close(CompletionType.Throw);
             }
             // 7. IfAbruptRejectPromise(valueWrapper, promiseCapability).
             promiseCapability.Reject(e.Error);
@@ -256,15 +263,10 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
             onRejected = new ClrFunction(_engine, "", (thisObj, args) =>
             {
                 var error = args.At(0);
-                // Close the iterator and re-throw the error
-                try
-                {
-                    iteratorToClose.Close(CompletionType.Throw);
-                }
-                catch
-                {
-                    // If close throws, we still want to propagate the original error
-                }
+                // Close the iterator and re-throw the error. IteratorClose with a throw completion discards what
+                // `return` raises itself, so the original error stands; what still comes out of it - a constraint that
+                // tripped inside `return` - ends the run instead of rejecting the promise.
+                iteratorToClose.Close(CompletionType.Throw);
                 // Re-throw to propagate to the promise chain
                 throw new JavaScriptException(error);
             }, 1, PropertyFlag.Configurable);

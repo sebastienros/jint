@@ -65,16 +65,17 @@ internal sealed class DevToolsConsoleSink : ConsoleSink
     }
 
     /// <summary>
-    /// Always, because <c>Runtime.consoleAPICalled</c> carries a stack trace and a front end draws every
-    /// message's source anchor from it.
+    /// Whenever a target is bound, because <c>Runtime.consoleAPICalled</c> carries a stack trace and a front
+    /// end draws every message's source anchor from it; otherwise whatever the host's own sink asks for.
     /// </summary>
     /// <remarks>
-    /// The host's own sink is asked nothing: it is handed the record either way, and a sink that ignores
-    /// <see cref="ConsoleRecord.StackTrace"/> is unaffected by its being there. The cost is one call-stack
-    /// walk per console call on an engine a client is attached to, which is the engine that is already
-    /// paying for debug mode.
+    /// The engine reads this on every console call, so the answer moves with the binding. That matters for a
+    /// browser page: <c>Jint.Browser</c> installs this sink on every document's engine so that a client which
+    /// attaches later can hear it, and a page nobody has attached to must not pay a call-stack walk per
+    /// <c>console</c> call for a reader that does not exist. A sink that ignores
+    /// <see cref="ConsoleRecord.StackTrace"/> is unaffected by its being there.
     /// </remarks>
-    public override bool WantsStackTrace => true;
+    public override bool WantsStackTrace => _target is not null || _inner.WantsStackTrace;
 
     /// <inheritdoc/>
     public override void Write(ConsoleLogLevel level, string message) => _inner.Write(level, message);

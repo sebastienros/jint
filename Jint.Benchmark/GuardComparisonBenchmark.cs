@@ -5,8 +5,9 @@ namespace Jint.Benchmark;
 
 /// <summary>
 /// Guard-style strict comparisons over LCG-mixed inputs the branch predictor cannot memorize:
-/// `v === undefined`, `v === null`, `v == null` and `typeof v === '...'` — the idioms defensive
-/// library code (linq.js, lodash, handlebars) runs on nearly every call.
+/// `v === undefined`, `v === null`, `v == null`, `typeof v === '...'` and `v === true` /
+/// `v === 'literal'` — the idioms defensive library code (linq.js, lodash, handlebars) runs on
+/// nearly every call — plus relational comparisons between property and element reads.
 ///
 /// <para><b>Engine isolation.</b> Every row gets its own engine — built by <c>CreateEngine</c>, which
 /// re-runs <see cref="SetupSource"/> so each engine owns its own <c>mixedVals</c>/<c>order</c> — and
@@ -28,6 +29,8 @@ public class GuardComparisonBenchmark
     private IsolatedScript _typeofStringGuard;
     private IsolatedScript _typeofUndefinedGuard;
     private IsolatedScript _logicalGuard;
+    private IsolatedScript _literalGuard;
+    private IsolatedScript _propertyRelational;
 
     private const string SetupSource = """
         var mixedVals = [];
@@ -140,6 +143,41 @@ public class GuardComparisonBenchmark
             }
             f();
             """), CreateEngine);
+
+        // Comparisons against a boolean or string literal: the literal side is converted once, at
+        // build time, and only the variable side evaluates.
+        _literalGuard = IsolatedScript.Warm(Engine.PrepareScript("""
+            function f() {
+                var s = 0;
+                for (var i = 0; i < 100000; i++) {
+                    var v = mixedVals[order[i & 8191]];
+                    var isNull = v === null;
+                    if (isNull === true) { s++; }
+                    if (v === 's3') { s += 2; }
+                    if ('s7' !== v) { s += 3; }
+                }
+                return s;
+            }
+            f();
+            """), CreateEngine);
+
+        // Relational comparisons whose operands are not slot-stored locals (an element read and a
+        // property read), so they compare evaluated JsNumber operands rather than unboxed slots.
+        _propertyRelational = IsolatedScript.Warm(Engine.PrepareScript("""
+            function f() {
+                var s = 0;
+                var bounds = { lo: 64, hi: 191.5 };
+                for (var i = 0; i < 100000; i++) {
+                    var k = order[i & 8191];
+                    if (order[k] < bounds.lo) { s++; }
+                    if (order[k] >= bounds.hi) { s += 2; }
+                    if (bounds.lo > order[k + 1]) { s += 3; }
+                    if (order[k] <= bounds.hi) { s += 4; }
+                }
+                return s;
+            }
+            f();
+            """), CreateEngine);
     }
 
     [Benchmark]
@@ -159,4 +197,10 @@ public class GuardComparisonBenchmark
 
     [Benchmark]
     public JsValue LogicalGuard() => _logicalGuard.Run();
+
+    [Benchmark]
+    public JsValue LiteralGuard() => _literalGuard.Run();
+
+    [Benchmark]
+    public JsValue PropertyRelational() => _propertyRelational.Run();
 }

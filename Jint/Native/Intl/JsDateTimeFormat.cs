@@ -290,7 +290,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         try
         {
-            var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            var timeZone = Data.TimeZoneData.FindSystemTimeZone(timeZoneId);
             if (dateTime.Kind == DateTimeKind.Local)
             {
                 dateTime = dateTime.ToUniversalTime();
@@ -1229,14 +1229,17 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
             // Try CLDR metazone data first (provides locale-correct names)
             var isDst = false;
-            try
+            Data.TimeZoneData.TryFindSystemTimeZone(TimeZone, out var timeZoneInfo);
+            if (timeZoneInfo is not null)
             {
-                var tzInfo = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
-                isDst = tzInfo.IsDaylightSavingTime(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc));
-            }
-            catch
-            {
-                // If timezone not found, isDst stays false
+                try
+                {
+                    isDst = timeZoneInfo.IsDaylightSavingTime(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc));
+                }
+                catch
+                {
+                    // If the DST check fails, isDst stays false.
+                }
             }
 
             var cldrName = Data.MetaZoneData.GetDisplayName(TimeZone, isDst, longName, generic);
@@ -1246,21 +1249,18 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
 
             // Fallback to .NET TimeZoneInfo names
-            try
+            if (timeZoneInfo is not null)
             {
-                var tzInfo = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
                 if (longName)
                 {
-                    return isDst ? tzInfo.DaylightName : tzInfo.StandardName;
+                    return isDst ? timeZoneInfo.DaylightName : timeZoneInfo.StandardName;
                 }
                 var parts = TimeZone.Split('/');
                 return parts[parts.Length - 1].Replace('_', ' ');
             }
-            catch
-            {
-                var parts = TimeZone.Split('/');
-                return longName ? TimeZone : parts[parts.Length - 1];
-            }
+
+            var fallbackParts = TimeZone.Split('/');
+            return longName ? TimeZone : fallbackParts[fallbackParts.Length - 1];
         }
         // No explicit timezone: use the engine's default timezone
         var defaultTz = _engine.Options.TimeSystem.DefaultTimeZone;

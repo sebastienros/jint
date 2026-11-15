@@ -105,6 +105,22 @@ Kept because it is what the two rules above look like when they decide a real ch
 
 **Removing one of the two probes is below what a six-round paired benchmark on this hardware can resolve**, so the change did not ship; what the probes are and why neither is deletable is in [`Jint/Constraints/AGENTS.md`](../Jint/Constraints/AGENTS.md#gotchas). Two things to take from the table beyond that verdict. `DataPropertyRead` is a plain data-property read that never reaches the changed method, and it read **slower, 6/6, with an interval excluding zero** — the second such artefact this campaign caught on a row that provably cannot execute the change, so a full-sign-agreement exclusion of zero at six rounds is still not proof on its own. And it was only visible *because* the class carried a floor row that cannot execute the change: without it the same offset would have been read off the subject row as a result. **Put a control row in every class you add**, sized like the others, and pick it so that the change under test cannot reach it.
 
+### Diffing generated code
+
+When a result moves and the cause may be codegen (inlining, loop placement), diff the disassembly of the measured method before and after. These are diagnostic switches and work with the shipped runtime:
+
+| Variable | Effect |
+| --- | --- |
+| `DOTNET_JitDisasm="<method>"` | Print the method's code; accepts `Type:Method` and `*` wildcards. |
+| `DOTNET_JitDisasmDiffable=1` | Stable output without addresses, so two runs diff cleanly. |
+| `DOTNET_JitDisasmOnlyOptimized=1` | Only Tier1 and FullOpts code. |
+| `DOTNET_JitStdOutFile=<path>` | Write to a file instead of stdout. |
+| `DOTNET_JitDisasmSummary=1` | List every jitted method with its tier. |
+
+A method is compiled several times as it tiers up: judge the final tier (`; Tier1 code` or `; FullOpts code`), never `; Tier0 code`. Set the variables only for the measured process, not for `dotnet run`, which would also dump the SDK's own methods. A method that gets inlined has no listing of its own.
+
+Outside reference for profiling on Linux (`dotnet-counters`, `dotnet-trace`, `perf` flame graphs): [EgorBo/BlazingFastDotnet](https://github.com/EgorBo/BlazingFastDotnet). Its runtime "magic knobs" are host settings, and a gate must never use them, because gates run the default job.
+
 ### Adding a new benchmark
 
 1. Create a class in `Jint.Benchmark/` with `[MemoryDiagnoser]`.

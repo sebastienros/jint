@@ -119,8 +119,12 @@ internal sealed class JintObjectExpression : JintExpression
                 else if (!p.Computed && p.Key is Identifier identifier)
                 {
                     propName = identifier.Name;
-                    _canBuildFast &= !string.Equals(propName, "__proto__", StringComparison.Ordinal);
                 }
+
+                // `__proto__: v` and `"__proto__": v` both set [[Prototype]] rather than define a property
+                // (https://tc39.es/ecma262/#sec-runtime-semantics-propertydefinitionevaluation, the
+                // isProtoSetter step), and only BuildObjectNormal does that.
+                _canBuildFast &= !string.Equals(propName, "__proto__", StringComparison.Ordinal);
 
                 _properties[i] = new ObjectProperty(propName, p);
 
@@ -203,38 +207,6 @@ internal sealed class JintObjectExpression : JintExpression
                     break;
                 }
             }
-        }
-    }
-
-    /// <summary>
-    /// Detects whether evaluating a node could suspend the current generator/async frame: any
-    /// yield or await reachable without crossing into a nested function (whose suspensions belong
-    /// to its own frame). Class nodes are descended conservatively — their computed member keys
-    /// evaluate in the enclosing frame.
-    /// </summary>
-    private static class MaySuspendVisitor
-    {
-        public static bool MaySuspend(Node node)
-        {
-            if (node.Type is NodeType.YieldExpression or NodeType.AwaitExpression)
-            {
-                return true;
-            }
-
-            if (node.Type is NodeType.FunctionDeclaration or NodeType.FunctionExpression or NodeType.ArrowFunctionExpression)
-            {
-                return false;
-            }
-
-            foreach (var childNode in node.ChildNodes)
-            {
-                if (MaySuspend(childNode))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 

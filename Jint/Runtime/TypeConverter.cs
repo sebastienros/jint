@@ -291,38 +291,31 @@ public static class TypeConverter
             }
         }
 
-        if (input.Length > 2 && firstChar == '0' && char.IsLetter(input[1]))
+        double n;
+        char ch;
+
+        if (input.Length > 2 && firstChar == '0' && (ch = (char) (input[1] | 0x20)).IsInRange('b', 'x'))
         {
-            var fromBase = input[1] switch
+            var fromBase = ch switch
             {
-                'x' or 'X' => 16,
-                'o' or 'O' => 8,
-                'b' or 'B' => 2,
+                'x' => 16,
+                'o' => 8,
+                'b' => 2,
                 _ => 0
             };
 
             if (fromBase > 0)
             {
-                try
-                {
-                    return Convert.ToInt32(input.Substring(2), fromBase);
-                }
-                catch
-                {
-                    return double.NaN;
-                }
+                return NumberParser.TryParseRadixInteger(input.AsSpan(2), fromBase, exact: true, out n)
+                    ? n
+                    : double.NaN;
             }
         }
 
         // Not double.TryParse: .NET Framework's is not IEEE correctly-rounded, fails rather than
         // saturating on overflow, and loses the sign of a negative zero, so Number('...') would answer
         // three different questions depending on which target framework an embedder loaded.
-        if (NumberParser.TryParseDouble(input.AsSpan(), out var n))
-        {
-            return n;
-        }
-
-        return double.NaN;
+        return NumberParser.TryParseDouble(input.AsSpan(), out n) ? n : double.NaN;
     }
 
     /// <summary>
@@ -953,7 +946,11 @@ public static class TypeConverter
         // (double.Epsilon * 100, i.e. ~4.94e-322) instead classified every subnormal below it as the
         // integer zero, so String(Number.MIN_VALUE) answered "0" while (5e-324).toString(), which does
         // not come through here, answered "5e-324". JSON.stringify had the same hole.
-        return d > long.MinValue && d < long.MaxValue && d % 1 == 0;
+        // The range is the safe integers, not the long range: above 2^53 an integral double's exact
+        // value is not its shortest round-tripping spelling, which is what Number::toString produces
+        // (https://tc39.es/ecma262/#sec-numeric-types-number-tostring) - 2 ** 60 is "1152921504606847000",
+        // not the "1152921504606846976" a long prints.
+        return d >= -NumberConstructor.MaxSafeInteger && d <= NumberConstructor.MaxSafeInteger && d % 1 == 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

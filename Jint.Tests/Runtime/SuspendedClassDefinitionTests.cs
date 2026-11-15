@@ -1,0 +1,652 @@
+#nullable enable
+
+using Jint.Runtime.Interop;
+
+namespace Jint.Tests.Runtime;
+
+/// <summary>
+/// A class whose heritage or computed key suspends the frame it is evaluated in resumes where it suspended.
+/// <para>
+/// <see href="https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation">ClassDefinitionEvaluation</see>
+/// evaluates the heritage with the class scope as the running LexicalEnvironment (step 8), then the elements one by
+/// one with the class scope and the class's PrivateEnvironment (steps 12-13), and only then is the class binding
+/// initialized — by ClassDefinitionEvaluation for the inner one and by
+/// <see href="https://tc39.es/ecma262/#sec-runtime-semantics-bindingclassdeclarationevaluation">BindingClassDeclarationEvaluation</see>
+/// for a declaration's. An <c>await</c> or a <c>yield</c> anywhere in the heritage or in a computed key suspends the
+/// frame in the middle of that, and resuming it continues there: nothing evaluated before the suspension point runs
+/// again, the scope a closure captured there is the one the class binding is initialized in, and the binding stays
+/// uninitialized until the class is done.
+/// </para>
+/// <para>
+/// Jint replays a suspended body, and the class definition did not take part in the replay
+/// (sebastienros/jint#4395). A suspended heritage was checked for being a constructor before the frame was checked
+/// for having suspended, so the placeholder raised a TypeError inside a suspended frame and an async body replayed
+/// from its first statement; a generator threw it out of <c>next()</c>. A suspended computed key unwound, but the
+/// class declaration initialized its binding with the placeholder on the way out, and the resume rebuilt the class
+/// from scratch: the heritage and every key before the suspended one ran again, in an environment and with a
+/// strictness an async function had captured from inside the class. Each expected value is Node 26's, except the
+/// decorator tests, which follow the decorators proposal (Node has no decorators).
+/// </para>
+/// </summary>
+public class SuspendedClassDefinitionTests
+{
+    private const string Setup = """
+        var log = [];
+        var THROW = { throwInto: true };
+        class Base { m() { return 'base'; } }
+        """;
+
+    /// <summary>
+    /// The frames a class can suspend, each with the keyword that suspends it. <c>SUSPEND</c> in a body becomes that
+    /// keyword, and <c>REJECT</c> a suspension that resumes with a throw of <c>Error('no')</c>.
+    /// </summary>
+    public static readonly string[] Suspensions = ["async function", "generator", "async generator await", "async generator yield"];
+
+    /// <summary>
+    /// An engine on which script can read <c>suspendDataCount()</c>: how many constructs of the running frame have
+    /// suspend data parked, which a construct that resumes is expected to take back.
+    /// </summary>
+    private static Engine NewEngine()
+    {
+        var engine = new Engine();
+        engine.SetValue("suspendDataCount", new ClrFunction(engine, "suspendDataCount", (_, _) => engine.ExecutionContext.Suspendable?.Data.Count ?? -1));
+        return engine;
+    }
+
+    private static string Probe(string suspension, string body, string report)
+    {
+        return suspension switch
+        {
+            "async function" => AsyncProbe(Substitute(body, "await"), report),
+            "generator" => GeneratorProbe(Substitute(body, "yield"), report),
+            "async generator await" => AsyncGeneratorProbe(Substitute(body, "await"), report),
+            "async generator yield" => AsyncGeneratorProbe(Substitute(body, "yield"), report),
+            _ => throw new ArgumentOutOfRangeException(nameof(suspension)),
+        };
+
+        static string Substitute(string body, string keyword) => body
+            .Replace("REJECT", keyword == "await" ? "await Promise.reject(new Error('no'))" : "yield THROW")
+            .Replace("SUSPEND", keyword);
+    }
+
+    /// <summary>
+    /// Runs <paramref name="body"/> inside an async function bracketed by the <c>pre</c>/<c>post</c> markers and
+    /// returns <c>"&lt;report&gt;|&lt;log&gt;"</c>, or <c>"threw &lt;message&gt;|&lt;log&gt;"</c> when it rejects.
+    /// </summary>
+    private static string AsyncProbe(string body, string report) => NewEngine().Evaluate($$"""
+        {{Setup}}
+        async function m() {
+          log.push('pre');
+          {{body}}
+          log.push('post');
+          return {{report}};
+        }
+        m().then(
+          function (r) { return String(r) + '|' + log.join(','); },
+          function (e) { return 'threw ' + e.message + '|' + log.join(','); });
+        """).UnwrapIfPromise().AsString();
+
+    /// <summary>
+    /// The synchronous-generator twin of <see cref="AsyncProbe"/>: every <c>yield</c> is resumed with its own
+    /// yielded value, standing in for the awaited one, and a yielded <c>THROW</c> with a throw of <c>Error('no')</c>.
+    /// </summary>
+    private static string GeneratorProbe(string body, string report) => NewEngine().Evaluate($$"""
+        {{Setup}}
+        function* g() {
+          log.push('pre');
+          {{body}}
+          log.push('post');
+          return {{report}};
+        }
+        (function () {
+          try {
+            var it = g();
+            var res = it.next();
+            for (var i = 0; !res.done && i < 8; i++) res = res.value === THROW ? it.throw(new Error('no')) : it.next(res.value);
+            return String(res.value) + (res.done ? '' : ' (not done after 8 steps)') + '|' + log.join(',');
+          } catch (e) {
+            return 'threw ' + e.message + '|' + log.join(',');
+          }
+        })();
+        """).AsString();
+
+    /// <summary>
+    /// The async-generator twin: <c>await</c>s and <c>yield</c>s both suspend it, and the consumer drives it with
+    /// <c>next()</c> until it is done. Both generator drivers stop after a fixed number of steps, so a generator that
+    /// never finishes fails the assertion instead of spinning the test host.
+    /// </summary>
+    private static string AsyncGeneratorProbe(string body, string report) => NewEngine().Evaluate($$"""
+        {{Setup}}
+        async function* ag() {
+          log.push('pre');
+          {{body}}
+          log.push('post');
+          return {{report}};
+        }
+        async function drive() {
+          try {
+            var it = ag();
+            var res = await it.next();
+            for (var i = 0; !res.done && i < 8; i++) res = await (res.value === THROW ? it.throw(new Error('no')) : it.next(res.value));
+            return String(res.value) + (res.done ? '' : ' (not done after 8 steps)') + '|' + log.join(',');
+          } catch (e) {
+            return 'threw ' + e.message + '|' + log.join(',');
+          }
+        }
+        drive();
+        """).UnwrapIfPromise().AsString();
+
+    // ------------------------------------------------------------------ a suspension in the heritage
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedHeritageRunsWhatPrecedesItOnce(string suspension)
+    {
+        Probe(suspension, "class C extends (log.push('h'), SUSPEND Base) {}", "Object.getPrototypeOf(C) === Base && new C().m()")
+            .Should().Be("base|pre,h,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedHeritageInitializesTheBindingEveryClosureReads(string suspension)
+    {
+        Probe(suspension, "let read = () => C; let getC; class C extends (getC = () => C, SUSPEND Base) {}", "(getC() === C) + ',' + (read() === C)")
+            .Should().Be("true,true|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedHeritageThatResumesWithAThrowLeavesTheClassScopeFirst(string suspension)
+    {
+        Probe(suspension,
+                "let K = 'outer'; try { (class K extends (log.push('h'), REJECT) {}); log.push('not here'); } catch (e) { log.push('caught ' + e.message + ' ' + K); }",
+                "'r'")
+            .Should().Be("r|pre,h,caught no outer,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedHeritageThatResumesWithAnUncaughtThrowEndsTheFrameOnce(string suspension)
+    {
+        Probe(suspension, "class C extends (log.push('h'), REJECT) {} log.push('not here');", "'r'")
+            .Should().Be("threw no|pre,h");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedHeritageThatIsNotAConstructorThrowsOnce(string suspension)
+    {
+        Probe(suspension, "try { class C extends (log.push('h'), SUSPEND 1) {} } catch (e) { log.push(e.constructor.name); }", "'r'")
+            .Should().Be("r|pre,h,TypeError,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedHeritageOfANestedClassResumesBothClasses(string suspension)
+    {
+        Probe(suspension,
+                "class A extends (log.push('outer'), class B extends (log.push('inner'), SUSPEND Base) {}) {}",
+                "new A().m() + ',' + Object.getPrototypeOf(A).name")
+            .Should().Be("base,B|pre,outer,inner,post");
+    }
+
+    /// <summary>
+    /// The reference each of these writes the class to is resolved before the class is evaluated, so a resume that
+    /// starts inside the class scope resolves it there: to the class's own inner binding, still uninitialized.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedHeritageOfAClassExpressionIsBoundWhereItsReferenceResolves(string suspension)
+    {
+        Probe(suspension,
+                "const D = class extends (SUSPEND Base) {}; let K = class K extends (SUSPEND Base) {}; var V; V = class V extends (SUSPEND Base) {}; var o = {}; o.w = class W extends (SUSPEND Base) {};",
+                "[D.name, K.name, typeof K, V.name, o.w.name].join(',')")
+            .Should().Be("D,K,function,V,W|pre,post");
+    }
+
+    /// <summary>
+    /// A class is strict mode code, and the frame around it is not: the probe's function is sloppy, so an
+    /// assignment to an undeclared name after the class creates a global rather than throwing.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedHeritageLeavesTheFrameAsStrictAsItWas(string suspension)
+    {
+        Probe(suspension, "class C extends (SUSPEND Base) {} undeclaredAfterHeritage = 1;", "typeof undeclaredAfterHeritage")
+            .Should().Be("number|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedHeritageInALoopResumesEachIteration(string suspension)
+    {
+        Probe(suspension,
+                "for (let i = 0; i < 2; i++) { class C extends (log.push('h' + i), SUSPEND Base) {} log.push(Object.getPrototypeOf(C) === Base); }",
+                "'r'")
+            .Should().Be("r|pre,h0,true,h1,true,post");
+    }
+
+    /// <summary>
+    /// The decorators proposal evaluates a class's decorator expressions before its heritage
+    /// (https://tc39.es/proposal-decorators/), so a resume into the heritage must not evaluate them again.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedHeritageDoesNotEvaluateTheDecoratorsAgain(string suspension)
+    {
+        Probe(suspension,
+                "function dec() { log.push('apply'); } @(log.push('d'), dec) class C extends (SUSPEND Base) {}",
+                "Object.getPrototypeOf(C) === Base")
+            .Should().Be("true|pre,d,apply,post");
+    }
+
+    // ------------------------------------------------------------------ a suspension in a decorator
+
+    // A decorator's expression is evaluated in the frame around the class too: the class's own before anything of the
+    // class exists, an element's after the heritage, just before that element's key (https://github.com/tc39/ecma262/pull/2417).
+    // Its suspension stops the class there, and the resume continues at that decorator: the class is defined once,
+    // each decorator applied once and each static block run once. The expected values follow the spec text, since
+    // Node has no decorators.
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedClassDecoratorDecoratesTheClassOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0, staticRuns = 0; function dec(c) { applied++; } @(SUSPEND dec) class C { m() {} static { staticRuns++; } }",
+                "applied + ',' + staticRuns + ',' + typeof C.prototype.m")
+            .Should().Be("1,1,function|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedMethodDecoratorDecoratesTheMethodOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0, staticRuns = 0; function mdec(m) { applied++; return function () { return m.call(this) + 1; }; } class C { @(SUSPEND mdec) m() { return 1; } static { staticRuns++; } }",
+                "applied + ',' + staticRuns + ',' + new C().m()")
+            .Should().Be("1,1,2|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedFieldDecoratorDecoratesTheFieldOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0, staticRuns = 0; function fdec() { applied++; return v => v + 1; } class C { @(SUSPEND fdec) x = 1; static { staticRuns++; } }",
+                "applied + ',' + staticRuns + ',' + new C().x")
+            .Should().Be("1,1,2|pre,post");
+    }
+
+    /// <summary>
+    /// The decorators after the one that suspended are not evaluated until the resume reaches them.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ADecoratorAfterASuspendedOneIsEvaluatedOnce(string suspension)
+    {
+        Probe(suspension,
+                "let cRuns = 0; function a() {} function b() {} function c() {} @(SUSPEND a) @(cRuns++, b) class C { @(cRuns++, c) m() {} }",
+                "cRuns")
+            .Should().Be("2|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorAndASuspendedHeritageEachResumeOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0; function dec(c) { applied++; } @(SUSPEND dec) class C extends (log.push('h'), SUSPEND Base) {}",
+                "applied + ',' + (Object.getPrototypeOf(C) === Base)")
+            .Should().Be("1,true|pre,h,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorLeavesTheFrameAsStrictAsItWas(string suspension)
+    {
+        Probe(suspension, "function dec() {} @(SUSPEND dec) class C {} undeclaredAfterDecorator = 1;", "typeof undeclaredAfterDecorator")
+            .Should().Be("number|pre,post");
+    }
+
+    // The proposal evaluates each decorator expression once (DecoratorListEvaluation,
+    // https://tc39.es/proposal-decorators/), so a resume continues at the decorator that suspended. Nothing before it is
+    // evaluated again: not the decorators before it, and not the part of it before its await or yield, which a
+    // sequence's index or a call's callee keeps only for as long as the resume finds the handler that parked it
+    // (sebastienros/jint#4399).
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ADecoratorBeforeASuspendedOneAndThePartBeforeTheSuspensionRunOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = []; function a() { applied.push('a'); } function b() { applied.push('b'); } @(log.push('a'), a) @(log.push('b'), SUSPEND b) class C {}",
+                "applied.join('') + ',' + typeof C")
+            .Should().Be("ba,function|pre,a,b,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorCallResolvesItsCalleeOnce(string suspension)
+    {
+        Probe(suspension,
+                "var o = { get make() { log.push('get'); return function (v) { return function () { log.push('apply ' + v); }; }; } }; @(o.make(SUSPEND 'x')) class C {}",
+                "typeof C")
+            .Should().Be("function|pre,get,apply x,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void EveryKindOfDecoratorBeforeASuspendedOneIsEvaluatedOnce(string suspension)
+    {
+        Probe(suspension,
+                "function dec() {} function fdec() { return v => v * 10; } function adec() {} "
+                + "@(log.push('c'), dec) class C { @(log.push('m'), SUSPEND dec) m() { return 1; } @(log.push('f'), SUSPEND fdec) x = 2; @(log.push('a'), SUSPEND adec) accessor y = 3; @(log.push('g'), dec) get z() { return 4; } }",
+                "new C().m() + new C().x + new C().y + new C().z")
+            .Should().Be("28|pre,c,m,f,a,g,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void TwoSuspendedDecoratorsEachRunWhatPrecedesThemOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = []; function a() { applied.push('a'); } function b() { applied.push('b'); } @(log.push('a'), SUSPEND a) @(log.push('b'), SUSPEND b) class C {}",
+                "applied.join('')")
+            .Should().Be("ba|pre,a,b,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorOfAClassInADecoratorResumesBothClasses(string suspension)
+    {
+        Probe(suspension,
+                "function dec(c) { log.push('apply ' + c.name); } @(log.push('outer'), (@(log.push('inner'), SUSPEND dec) class Inner {}), dec) class Outer {}",
+                "typeof Outer")
+            .Should().Be("function|pre,outer,inner,apply Inner,apply Outer,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorThatResumesWithAThrowEvaluatesNoDecoratorAgain(string suspension)
+    {
+        Probe(suspension,
+                "function a() {} try { @(log.push('a'), a) @(log.push('b'), REJECT) class C {} log.push('not here'); } catch (e) { log.push('caught ' + e.message); } @(log.push('again'), SUSPEND a) class D {}",
+                "typeof D")
+            .Should().Be("function|pre,a,b,caught no,again,post");
+    }
+
+    /// <summary>
+    /// A <c>yield*</c> in a decorator resumes its delegation at each step, and once it has completed and a later
+    /// decorator suspends, it is not started over. The decorators are applied last to first.
+    /// </summary>
+    [TestCase("generator")]
+    [TestCase("async generator yield")]
+    public void ACompletedDelegationInAnEarlierDecoratorIsNotRestarted(string suspension)
+    {
+        Probe(suspension,
+                "function* inner() { log.push('inner'); yield 'i1'; log.push('i2'); yield 'i2'; return function () { log.push('apply a'); }; } function b() { log.push('apply b'); } @(yield* inner()) @(SUSPEND b) class C {}",
+                "typeof C")
+            .Should().Be("function|pre,inner,i2,apply b,apply a,post");
+    }
+
+    /// <summary>
+    /// What a suspended decorator's sub-expressions park is taken back by its resume, so a frame that evaluates such a
+    /// class on every iteration holds as much suspend data after the last iteration as after the first. The handlers
+    /// were rebuilt for every evaluation, so the sequence and the call each left an entry behind, against a handler
+    /// nothing would reach again, on every iteration.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedDecoratorInALoopLeavesNoSuspendDataBehind(string suspension)
+    {
+        Probe(suspension,
+                "var counts = []; function id(v) { return v; } function dec() {} for (let i = 0; i < 4; i++) { @(log.push('d' + i), id(SUSPEND dec)) class C {} counts.push(suspendDataCount()); }",
+                "counts.length + ' ' + (counts[0] >= 0 && counts.every(function (c) { return c === counts[0]; }))")
+            .Should().Be("4 true|pre,d0,d1,d2,d3,post");
+    }
+
+    // ------------------------------------------------------------------ a suspension in an element decorator
+
+    // An element's decorators are evaluated by ClassElementEvaluation, after the heritage and the keys before them, in
+    // the class scope and with the class's private names, so that is where a resume continues them
+    // (sebastienros/jint#4403).
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedElementDecoratorRunsAfterTheHeritageAndWhatPrecedesItOnce(string suspension)
+    {
+        // `static` keeps a computed key from reading as a member access on the decorator expression before it.
+        Probe(suspension,
+                "function dec() {} class C extends (log.push('h'), Base) { static [(log.push('k0'), 'a')]() {} @(log.push('d1'), SUSPEND dec) @(log.push('d2'), dec) static [(log.push('k1'), 'b')]() {} }",
+                "typeof C.a + typeof C.b")
+            .Should().Be("functionfunction|pre,h,k0,d1,d2,k1,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void AnElementDecoratorAndItsKeyThatEachSuspendAreEachEvaluatedOnce(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0; function mdec(m) { applied++; return function () { return m.call(this) + 1; }; } class C { @(log.push('d'), SUSPEND mdec) static [(log.push('k'), SUSPEND 'm')]() { return 1; } }",
+                "applied + ',' + C.m()")
+            .Should().Be("1,2|pre,d,k,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedElementDecoratorResumesWithTheClassPrivateNames(string suspension)
+    {
+        Probe(suspension,
+                "var check; function dec() {} class C { static #p = 1; @(check = o => #p in o, SUSPEND dec) m() {} }",
+                "check(C) + ',' + check({})")
+            .Should().Be("true,false|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedMemberDecoratorIsCalledWithItsObject(string suspension)
+    {
+        Probe(suspension,
+                "var obj = { dec(v, c) { log.push(c.kind + ' ' + (this === obj)); } }; @((SUSPEND obj).dec) class C { @((SUSPEND obj).dec) m() {} }",
+                "typeof C")
+            .Should().Be("function|pre,method true,class true,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedElementDecoratorThatResumesWithAThrowLeavesTheClassScopeFirst(string suspension)
+    {
+        Probe(suspension,
+                "let K = 'outer'; function dec() {} try { (class K { @(log.push('d'), REJECT) m() {} }); log.push('not here'); } catch (e) { log.push('caught ' + e.message + ' ' + K); } class D { @(log.push('again'), SUSPEND dec) m() {} }",
+                "typeof D")
+            .Should().Be("function|pre,d,caught no outer,again,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedElementDecoratorInALoopLeavesNoSuspendDataBehind(string suspension)
+    {
+        Probe(suspension,
+                "var counts = []; function id(v) { return v; } function dec() {} for (let i = 0; i < 4; i++) { class C { @(log.push('d' + i), id(SUSPEND dec)) m() {} } counts.push(suspendDataCount()); }",
+                "counts.length + ' ' + (counts[0] >= 0 && counts.every(function (c) { return c === counts[0]; }))")
+            .Should().Be("4 true|pre,d0,d1,d2,d3,post");
+    }
+
+    // An element decorator is applied once every element has been evaluated, and the class's own decorators before any
+    // static field or block runs (https://github.com/tc39/ecma262/pull/2417, sebastienros/jint#4413), so a key that
+    // suspends after a decorated element is evaluated before that element's decorator is applied, and the resume
+    // applies it.
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void AnElementDecoratorIsAppliedAfterALaterKeyThatSuspended(string suspension)
+    {
+        Probe(suspension,
+                "let applied = 0; function dec(m) { applied++; log.push('apply'); return function () { return m.call(this) + 1; }; } class C { @dec static a() { return 1; } static [(log.push('k'), SUSPEND 'b')]() { return 10; } }",
+                "applied + ',' + C.a() + ',' + C.b()")
+            .Should().Be("1,2,10|pre,k,apply,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void AClassDecoratorAfterASuspendedKeyIsAppliedBeforeTheStaticBlocks(string suspension)
+    {
+        Probe(suspension,
+                "var R; function cdec(c) { log.push('apply'); return R = class extends c {}; } @cdec class C { static [SUSPEND 'k'] = (log.push('field'), this === R); static { log.push('block ' + (this === R) + ' ' + (C === R)); } }",
+                "(C === R) + ',' + C.k + ',' + Object.hasOwn(R, 'k')")
+            .Should().Be("true,true,true|pre,apply,field,block true true,post");
+    }
+
+    /// <summary>
+    /// A class finished on a resume initializes its instances as any other class does: a method decorator's
+    /// <c>addInitializer</c> callback runs before the fields, and a field decorator's right after that field
+    /// (sebastienros/jint#4421).
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void AClassFinishedOnAResumeRunsItsInstanceInitializersWhereTheSpecTextPutsThem(string suspension)
+    {
+        Probe(suspension,
+                "function init(name) { return function (v, c) { c.addInitializer(function () { log.push('init ' + name); }); }; } class C { [SUSPEND 'k'] = log.push('k'); @(SUSPEND init('m')) m() {} @(init('x')) x = log.push('x'); } var c = new C();",
+                "Reflect.ownKeys(c).join()")
+            .Should().Be("k,x|pre,init m,k,x,init x,post");
+    }
+
+    /// <summary>
+    /// The class's own decorators run as the code around the class does, sloppy here, on the resume as well; its
+    /// element decorators stay strict.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedClassDecoratorResumesAsSloppyCodeAndLeavesTheElementDecoratorsStrict(string suspension)
+    {
+        Probe(suspension,
+                "try { @(SUSPEND 0, leakedAfterResume = function () {}) class C { @(leakedByElement = function () {}) m() {} } } catch (e) { log.push(e.constructor.name); }",
+                "typeof leakedAfterResume + ',' + typeof leakedByElement")
+            .Should().Be("function,undefined|pre,ReferenceError,post");
+    }
+
+    // ------------------------------------------------------------------ a suspension in a computed key
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedComputedKeyRunsWhatPrecedesItOnce(string suspension)
+    {
+        Probe(suspension,
+                "class C extends (log.push('h'), Base) { [(log.push('k1'), 'a')]() {} [(log.push('k2'), SUSPEND 'b')]() {} static [(log.push('k3'), 'c')] = 1; static { log.push('static'); } }",
+                "Object.getOwnPropertyNames(C.prototype).join('|') + ' ' + C.c")
+            .Should().Be("constructor|a|b 1|pre,h,k1,k2,k3,static,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedComputedKeyInitializesTheBindingEveryClosureReads(string suspension)
+    {
+        Probe(suspension,
+                "let read = () => C; let getC; class C { [(getC = () => C, SUSPEND 'k')]() { return 1; } }",
+                "(getC() === C) + ',' + (read() === C) + ',' + new C().k()")
+            .Should().Be("true,true,1|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedComputedKeyKeepsTheClassPrivateNames(string suspension)
+    {
+        Probe(suspension,
+                "class C { #p() { return 'p'; } static #s = 's'; [SUSPEND 'k']() { return this.#p(); } static s() { return C.#s; } }",
+                "new C().k() + C.s()")
+            .Should().Be("ps|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void AClassWhoseHeritageAndComputedKeySuspendResumesTwice(string suspension)
+    {
+        Probe(suspension,
+                "class C extends (log.push('h'), SUSPEND Base) { [(log.push('k'), SUSPEND 'b')]() { return 'b'; } }",
+                "new C().b() + new C().m()")
+            .Should().Be("bbase|pre,h,k,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedComputedKeyThatResumesWithAThrowLeavesTheClassScopeFirst(string suspension)
+    {
+        Probe(suspension,
+                "let K = 'outer'; try { (class K { [(log.push('k'), REJECT)]() {} }); log.push('not here'); } catch (e) { log.push('caught ' + e.message + ' ' + K); }",
+                "'r'")
+            .Should().Be("r|pre,k,caught no outer,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedComputedKeyLeavesTheFrameAsStrictAsItWas(string suspension)
+    {
+        Probe(suspension, "class C { [SUSPEND 'k']() {} } undeclaredAfterKey = 1;", "typeof undeclaredAfterKey")
+            .Should().Be("number|pre,post");
+    }
+
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedComputedKeyDoesNotEvaluateTheDecoratorsAgain(string suspension)
+    {
+        // `static` keeps the computed key from reading as a member access on the decorator expression.
+        Probe(suspension,
+                "function mdec() { log.push('apply'); } class C { @(log.push('d'), mdec) static [SUSPEND 'k']() { return 1; } }",
+                "C.k()")
+            .Should().Be("1|pre,d,apply,post");
+    }
+
+    /// <summary>
+    /// An accessor or a generator method whose computed key suspends defines nothing until the key is known. The
+    /// helper that defines one is shared with object literals, and it saw a generator's suspension only, so an
+    /// await went on to define the member under the key <c>"undefined"</c> on a target the resume reuses.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedAccessorOrGeneratorKeyDefinesOnlyItsOwnKey(string suspension)
+    {
+        Probe(suspension,
+                "const o = { get [SUSPEND 'k']() { return 1; }, *[SUSPEND 'g']() {}, set [SUSPEND 's'](v) {} }; class C { get [SUSPEND 'k']() { return 1; } static *[SUSPEND 'g']() {} static set [SUSPEND 's'](v) {} }",
+                "Object.getOwnPropertyNames(o).join('|') + ' ' + Object.getOwnPropertyNames(C.prototype).join('|') + ' ' + Object.getOwnPropertyNames(C).join('|')")
+            .Should().Be("k|g|s constructor|k length|name|prototype|g|s|pre,post");
+    }
+
+    /// <summary>
+    /// The decorators proposal's auto-accessor (https://tc39.es/proposal-decorators/) defines a getter and a setter
+    /// under its key, the same way.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void ASuspendedAutoAccessorKeyDefinesOnlyItsOwnKey(string suspension)
+    {
+        Probe(suspension,
+                "class C { accessor [SUSPEND 'a'] = 1; static accessor [SUSPEND 'b'] = 2; }",
+                "Object.getOwnPropertyNames(C.prototype).join('|') + ' ' + new C().a + C.b")
+            .Should().Be("constructor|a 12|pre,post");
+    }
+
+    // ------------------------------------------------------------------ the binding, seen from outside the frame
+
+    /// <summary>
+    /// While the frame is suspended inside the class, the class binding is still in its temporal dead zone: it is
+    /// initialized only once the class has been defined.
+    /// </summary>
+    [TestCase("class C extends (SUSPEND Base) {}")]
+    [TestCase("class C { [SUSPEND 'k']() {} }")]
+    [TestCase("@(SUSPEND (c => c)) class C {}")]
+    public void TheClassBindingIsUninitializedWhileTheFrameIsSuspended(string declaration)
+    {
+        const string Peek = "peek = function () { try { C; return 'initialized'; } catch (e) { return e.constructor.name; } };";
+
+        var async = new Engine().Evaluate($$"""
+            {{Setup}}
+            var peek;
+            async function f() { {{Peek}} {{declaration.Replace("SUSPEND", "await")}} return peek(); }
+            var p = f();
+            var during = peek();
+            p.then(function (r) { return during + ',' + r; });
+            """).UnwrapIfPromise().AsString();
+
+        var generator = new Engine().Evaluate($$"""
+            {{Setup}}
+            var peek;
+            function* g() { {{Peek}} {{declaration.Replace("SUSPEND", "yield")}} return peek(); }
+            var it = g();
+            var first = it.next();
+            var during = peek();
+            during + ',' + it.next(first.value).value;
+            """).AsString();
+
+        async.Should().Be("ReferenceError,initialized");
+        generator.Should().Be("ReferenceError,initialized");
+    }
+
+    // ------------------------------------------------------------------ controls
+
+    /// <summary>
+    /// A class that does not suspend, in a frame that suspends after it, is evaluated once — the shape the build-time
+    /// gate keeps on the unchanged path.
+    /// </summary>
+    [TestCaseSource(nameof(Suspensions))]
+    public void AClassThatDoesNotSuspendIsEvaluatedOnceControl(string suspension)
+    {
+        Probe(suspension, "class C extends (log.push('h'), Base) { [(log.push('k'), 'a')]() {} } SUSPEND 0;", "new C().a === C.prototype.a")
+            .Should().Be("true|pre,h,k,post");
+    }
+
+    /// <summary>
+    /// A heritage that throws leaves the class scope before the throw propagates (ClassDefinitionEvaluation step 8.d
+    /// restores the LexicalEnvironment before step 8.e's <c>?</c>), so a <c>catch</c> outside the class reads the
+    /// enclosing binding of the class's name, not the class's own uninitialized one. No frame suspends here.
+    /// </summary>
+    [Test]
+    public void AHeritageThatThrowsLeavesTheClassScope()
+    {
+        new Engine().Evaluate("""
+            var log = [];
+            let K = 'outer';
+            try { (class K extends (() => { throw new Error('no'); })() {}); } catch (e) { log.push('caught ' + e.message + ' ' + K); }
+            log.join(',');
+            """).AsString().Should().Be("caught no outer");
+    }
+}

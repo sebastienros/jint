@@ -156,37 +156,6 @@ public sealed class JsonParser
         return slots;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsDecimalDigit(char ch)
-    {
-        // * For characters, which are before the '0', the equation will be negative and then wrap
-        //   around because of the unsigned short cast
-        // * For characters, which are after the '9', the equation will be positive, but >  9
-        // * For digits, the equation will be between int(0) and int(9)
-        return ((uint) (ch - '0')) <= 9;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsLowerCaseHexAlpha(char ch)
-    {
-        return ((uint) (ch - 'a')) <= 5;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsUpperCaseHexAlpha(char ch)
-    {
-        return ((uint) (ch - 'A')) <= 5;
-    }
-
-    private static bool IsHexDigit(char ch)
-    {
-        return
-            IsDecimalDigit(ch) ||
-            IsLowerCaseHexAlpha(ch) ||
-            IsUpperCaseHexAlpha(ch)
-            ;
-    }
-
     /// <summary>
     /// JSON white space, which is TAB, LF, CR and SP and nothing else: <c>JSON.parse</c> defers the
     /// grammar to ECMA-404, whose <c>ws</c> production is those four.
@@ -197,6 +166,7 @@ public sealed class JsonParser
     /// language's, so NBSP, U+FEFF and the two line separators end a JSON document rather than pad it. Do
     /// not widen this to the language set to make the two agree.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsWhiteSpace(char ch)
     {
         return (ch == ' ') ||
@@ -211,7 +181,7 @@ public sealed class JsonParser
 
         for (int i = 0; i < 4; ++i)
         {
-            if (_index < _length && IsHexDigit(source[_index]))
+            if (_index < _length && source[_index].IsHexDigit())
             {
                 char ch = char.ToLower(source[_index++], CultureInfo.InvariantCulture);
                 code = code * 16 + "0123456789abcdef".IndexOf(ch);
@@ -308,13 +278,13 @@ public sealed class JsonParser
             {
                 canBeInteger = false;
                 // decimal number starts with '0' such as '09' is illegal.
-                if (ch > 0 && IsDecimalDigit(ch))
+                if (ch > 0 && ch.IsDecimalDigit())
                 {
                     ThrowError(_index, Messages.UnexpectedToken, ch);
                 }
             }
 
-            while (IsDecimalDigit((ch = source.CharCodeAt(_index))))
+            while ((ch = source.CharCodeAt(_index)).IsDecimalDigit())
             {
                 sb.Append(ch);
                 _index++;
@@ -328,12 +298,12 @@ public sealed class JsonParser
             _index++;
 
             // the JSON grammar requires at least one digit after the decimal point ('1.' is illegal)
-            if (!IsDecimalDigit(source.CharCodeAt(_index)))
+            if (!source.CharCodeAt(_index).IsDecimalDigit())
             {
                 ThrowError(_index, Messages.UnexpectedToken, source.CharCodeAt(_index));
             }
 
-            while (IsDecimalDigit((ch = source.CharCodeAt(_index))))
+            while ((ch = source.CharCodeAt(_index)).IsDecimalDigit())
             {
                 sb.Append(ch);
                 _index++;
@@ -350,9 +320,9 @@ public sealed class JsonParser
                 sb.Append(ch);
                 ch = source.CharCodeAt(++_index);
             }
-            if (IsDecimalDigit(ch))
+            if (ch.IsDecimalDigit())
             {
-                while (IsDecimalDigit(ch = source.CharCodeAt(_index)))
+                while ((ch = source.CharCodeAt(_index)).IsDecimalDigit())
                 {
                     sb.Append(ch);
                     _index++;
@@ -679,14 +649,14 @@ public sealed class JsonParser
 
         if (ch == '-') // Negative Number
         {
-            if (IsDecimalDigit(source.CharCodeAt(_index + 1)))
+            if (source.CharCodeAt(_index + 1).IsDecimalDigit())
             {
                 return ScanNumericLiteral(source);
             }
             return ScanPunctuator(source);
         }
 
-        if (IsDecimalDigit(ch))
+        if (ch.IsDecimalDigit())
         {
             return ScanNumericLiteral(source);
         }

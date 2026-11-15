@@ -252,9 +252,13 @@ internal sealed partial class PerformanceObserverPrototype : Prototype
                 names.Add(TypeConverter.ToString(element));
             }
         }
-        finally
+        catch
         {
-            iterator.Close(CompletionType.Normal);
+            // Closed only when a conversion throws, as the other sequence conversions here do. An iterator that ran out
+            // is not closed, which a script's `return` on %ArrayIteratorPrototype% would otherwise see
+            // (sebastienros/jint#4406); a step that threw left the record done.
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
         }
 
         return names.ToArray();

@@ -40,6 +40,12 @@ internal abstract class JintStatement
     protected abstract Completion ExecuteInternal(EvaluationContext context);
 
     /// <summary>
+    /// Runs the statement without <see cref="Execute"/>'s per-statement checks, for a handler that stands in
+    /// for this one and has already run them for the same node.
+    /// </summary>
+    internal Completion ExecuteWithoutStatementChecks(EvaluationContext context) => ExecuteInternal(context);
+
+    /// <summary>
     /// Tight-loop entry: executes the statement for side effects only, skipping the per-statement
     /// ceremony (PrepareFor, constraint checks, Completion materialization) where an override can
     /// prove it dead. Callers guarantee a non-suspendable frame, no exact constraint/debug checks
@@ -56,6 +62,14 @@ internal abstract class JintStatement
     internal virtual void ExecuteDiscarded(EvaluationContext context)
     {
         Execute(context);
+    }
+
+    /// <summary>
+    /// Adds the labels stacked above the innermost one to an iteration statement's label set, once, as the label stack
+    /// is built; see <see cref="JintIterationStatement{T}"/>. Any other statement has no label set and ignores them.
+    /// </summary>
+    internal virtual void SetEnclosingLabels(string[] labels)
+    {
     }
 
     public ref readonly SourceLocation Location => ref _statement.LocationRef;
@@ -90,10 +104,16 @@ internal abstract class JintStatement
             return preparedStatement;
         }
 
+        // A handler builds the statements nested in it as it is built. Once per handler built, never per execution.
+        using var nesting = SyntaxNesting.Enter();
+
         JintStatement? result = statement.Type switch
         {
             NodeType.BlockStatement => new JintBlockStatement((NestedBlockStatement) statement),
-            NodeType.ReturnStatement => new JintReturnStatement((ReturnStatement) statement),
+            // An async generator's own `return Expression;` awaits its value; the generator's State marked it.
+            NodeType.ReturnStatement => JintAsyncGeneratorReturnStatement.IsMarked((ReturnStatement) statement)
+                ? new JintAsyncGeneratorReturnStatement((ReturnStatement) statement)
+                : new JintReturnStatement((ReturnStatement) statement),
             NodeType.VariableDeclaration => new JintVariableDeclaration((VariableDeclaration) statement),
             NodeType.BreakStatement => new JintBreakStatement((BreakStatement) statement),
             NodeType.ContinueStatement => new JintContinueStatement((ContinueStatement) statement),
@@ -103,7 +123,7 @@ internal abstract class JintStatement
             NodeType.ForStatement => new JintForStatement((ForStatement) statement),
             NodeType.ForInStatement => new JintForInForOfStatement((ForInStatement) statement),
             NodeType.ForOfStatement => new JintForInForOfStatement((ForOfStatement) statement),
-            NodeType.IfStatement => new JintIfStatement((IfStatement) statement),
+            NodeType.IfStatement => BuildIf((IfStatement) statement),
             NodeType.LabeledStatement => new JintLabeledStatement((LabeledStatement) statement),
             NodeType.SwitchStatement => new JintSwitchStatement((SwitchStatement) statement),
             NodeType.FunctionDeclaration => new JintFunctionDeclarationStatement((FunctionDeclaration) statement),
@@ -128,9 +148,42 @@ internal abstract class JintStatement
         return result;
     }
 
+    /// <summary>
+    /// Builds an <c>if</c> and the <c>else if</c> chain it heads. The <c>else</c> is a tail position, so the chain is
+    /// built from its last arm up in a loop rather than one frame deeper per arm. Running it still recurses once per
+    /// arm, so every <see cref="SyntaxNesting.EvaluationProbeInterval"/>th arm that the chain continues below is
+    /// behind a <see cref="JintStackProbeStatement"/>; a chain shorter than that runs exactly as before.
+    /// </summary>
+    private static JintStatement BuildIf(IfStatement statement)
+    {
+        if (statement.Alternate is not IfStatement)
+        {
+            return new JintIfStatement(statement);
+        }
+
+        var arms = new List<IfStatement> { statement };
+        while (arms[arms.Count - 1].Alternate is IfStatement next && next.UserData is not JintStatement)
+        {
+            arms.Add(next);
+        }
+
+        JintStatement built = new JintIfStatement(arms[arms.Count - 1]);
+        for (var i = arms.Count - 2; i >= 0; i--)
+        {
+            var position = i + 1;
+            var alternate = position % SyntaxNesting.EvaluationProbeInterval == 0 && position < arms.Count - 1
+                ? new JintStackProbeStatement(built)
+                : built;
+            built = new JintIfStatement(arms[i], alternate);
+        }
+
+        return built;
+    }
+
     internal static JsValue? FastResolve(StatementOrExpression statement)
     {
-        if (statement is ReturnStatement rs && rs.Argument is Literal l)
+        // Not an async generator's return statement, which awaits even a literal.
+        if (statement is ReturnStatement rs && rs.Argument is Literal l && !JintAsyncGeneratorReturnStatement.IsMarked(rs))
         {
             return JintLiteralExpression.ConvertToJsValue(l);
         }

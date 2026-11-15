@@ -84,12 +84,18 @@ Several observable rules must survive changes to the projection:
   `NodeList.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]`.
 - **ARIA element references are not only reflected strings.** `AriaElementReflection` retains an explicitly
   set element; it detects later attribute changes by value. A manual write of the same empty string cannot
-  be distinguished from the IDL setter's own empty string, so it retains the reference.
+  be distinguished from the IDL setter's own empty string, so it retains the reference. The `FrozenArray`
+  cache belongs to the getter alone, which compares contents ([HTML](https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes)):
+  the setter converts first and never reads or writes it, so a refused set, and a set of the same elements,
+  keep the array's identity.
 - **Repeated property reads of a multi-match `document.all[name]` reuse a live collection.**
   `namedItem`, `item` and the legacy caller can create fresh collections, but the property lane memoizes
   its last named result so value and descriptor reads agree during host-contract verification.
 - **Absent `tabindex` still reflects as 0.** That is not a focusability test; `FocusController` uses the
   element kind and content attribute directly.
+- **A sequence conversion closes its iterator when an element fails to convert, and only then**, as the web APIs
+  do ([the rule](../../Jint/WebApi/AGENTS.md#when-a-sequence-conversion-closes-its-iterator));
+  `BrowserWebIdlSequenceCloseTests` runs that matrix over every Browser lane.
 
 ### Every member body goes through one invoker, and that is where a refusal is converted
 

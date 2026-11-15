@@ -255,6 +255,8 @@ internal sealed class DomRealm
 
     internal bool LoadCompleted { get; set; }
 
+    internal bool DomContentLoaded { get; set; }
+
     internal void AssociateContext(DomBrowsingContext context)
     {
         if (_contexts.TryGetValue(context, out var existing) && !ReferenceEquals(existing, this))

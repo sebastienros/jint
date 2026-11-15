@@ -21,6 +21,17 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
         _alternateIsFunctionDecl = statement.Alternate?.Type == NodeType.FunctionDeclaration;
     }
 
+    /// <summary>
+    /// An <c>if</c> whose <c>else if</c> is already built; see <c>JintStatement.BuildIf</c>.
+    /// </summary>
+    internal JintIfStatement(IfStatement statement, JintStatement elseIf) : base(statement)
+    {
+        _statementConsequent = new ProbablyBlockStatement(statement.Consequent);
+        _test = JintExpression.Build(statement.Test);
+        _alternate = new ProbablyBlockStatement(elseIf);
+        _consequentIsFunctionDecl = statement.Consequent.Type == NodeType.FunctionDeclaration;
+    }
+
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         Completion result;

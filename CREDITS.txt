@@ -44,7 +44,8 @@ Unicode CLDR
 -----
 Jint's Intl implementation embeds data derived from the Unicode Common Locale Data Repository (CLDR):
 likely subtags, week data, locale tag mappings, calendar preferences, metazones, date/time patterns, interval
-patterns and names, and the compact, list, relative-time and unit patterns under Jint/Native/Intl/Data/.
+patterns and names, the compact, list, relative-time and unit patterns, and script directions under
+Jint/Native/Intl/Data/.
 
 Website:      https://cldr.unicode.org/
 Copyright:    Copyright © 1991-2026 Unicode, Inc.

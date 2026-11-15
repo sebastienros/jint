@@ -72,7 +72,7 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     private readonly ConcurrentDictionary<string, PausedResponse> _pausedResponses = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, PausedAuth> _pausedAuth = new(StringComparer.Ordinal);
 
-    private volatile RequestPattern[] _patterns = [];
+    private volatile RequestPattern[]? _patterns;
     private volatile bool _handleAuth;
     private long _lastInterception;
 
@@ -83,13 +83,21 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
 
     /// <inheritdoc/>
     /// <remarks>
-    /// An empty or absent <c>patterns</c> means every request, which is the protocol's own default and what
-    /// every recorded client sends.
+    /// An <i>absent</i> <c>patterns</c> means every request, which is the protocol's own default; an explicit
+    /// empty list means none, and with <c>handleAuthRequests</c> it is refused as invalid params. Chromium's
+    /// <c>FetchHandler::Enable</c> (<c>content/browser/devtools/protocol/fetch_handler.cc</c>) does both:
+    /// <c>ToInterceptionPatterns</c> adds <c>*</c> only when the optional is unset, and a list left empty with
+    /// <c>handleAuth</c> set is "Can't specify empty patterns with handleAuth set".
     /// </remarks>
     protected override async ValueTask<EmptyResult> EnableAsync(EnableRequest parameters, CommandContext context)
     {
+        if (parameters.Patterns is { Length: 0 } && parameters.HandleAuthRequests == true)
+        {
+            Throw.InvalidParams("Can't specify empty patterns with handleAuth set");
+        }
+
         _target.ClaimInterception(this);
-        _patterns = parameters.Patterns ?? [];
+        _patterns = parameters.Patterns;
 
         // Unlike the patterns, this is not a filter over requests: a challenge has no resource type and no
         // URL pattern to match, so a client either wants every one of them or none.
@@ -124,7 +132,7 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
         }
 
         var patterns = _patterns;
-        if (patterns.Length == 0)
+        if (patterns is null)
         {
             return true;
         }
@@ -196,7 +204,7 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
             return false;
         }
 
-        foreach (var pattern in _patterns)
+        foreach (var pattern in _patterns ?? [])
         {
             if (IsResponseStage(pattern) && Matches(pattern, request, RequestStageValues.Response))
             {
@@ -686,7 +694,8 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     /// <summary>Whether one pattern asks about one request.</summary>
     /// <remarks>
     /// A pattern is asked about one stage at a time; a pattern with no
-    /// <c>urlPattern</c> means every URL, which is the protocol's default.
+    /// <c>urlPattern</c> means every URL, which is the protocol's default, while an empty one is a
+    /// <see cref="FetchUrlGlob"/> that matches none — Chrome draws the same line.
     /// </remarks>
     private static bool Matches(RequestPattern pattern, PageNetworkRequest request, string stage = RequestStageValues.Request)
     {
@@ -702,7 +711,7 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
             return false;
         }
 
-        return pattern.UrlPattern is not { } url || UrlPattern.Matches(url, request.Url);
+        return pattern.UrlPattern is not { } url || FetchUrlGlob.Matches(url, request.Url);
     }
 
     /// <summary>One hop, as the protocol describes a request.</summary>
@@ -718,7 +727,8 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
 
         return new ProtocolNetwork.Request
         {
-            Url = request.Url,
+            Url = RequestUrlParts.Split(request.Url, out var fragment),
+            UrlFragment = fragment,
             Method = request.Method,
             Headers = headers,
             PostData = request.PostData,

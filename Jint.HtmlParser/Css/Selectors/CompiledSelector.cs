@@ -28,6 +28,10 @@ internal sealed class CompiledSelector
     // A racing write recomputes the same value.
     internal byte DirectMatchShape;
 
+    // SelectorMatcher's originating-element programs for ::before and ::after, indexed by
+    // SelectorPseudoElement and derived once from the immutable program (null entry: no such branch).
+    internal CompiledSelector?[]? OriginatingPrograms;
+
     internal static IReadOnlyList<T> Freeze<T>(List<T> values) => values.Count == 0 ? [] : values.ToArray();
 
     private static T[] AsArray<T>(IReadOnlyList<T> values) => values as T[] ?? [.. values];

@@ -2768,9 +2768,18 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                                          && lengthValue.IsNumber()
                                          && ((JsNumber) lengthValue)._value >= 0;
 
-    // safe default
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    internal virtual bool HasOriginalIterator => false;
+    // Whether iterating this object is unobservable and yields what reading its elements by index yields, so that the
+    // spread and destructuring lanes may read by index instead. An override answers true only while @@iterator and the
+    // `next` of the iterator it answers are both still the built-ins (sebastienros/jint#4418); false is the safe default.
+    // GetIterator reads @@iterator once (https://tc39.es/ecma262/#sec-getiterator), so an override that reads it decides
+    // on that one read, after it, and hands what it found out as iteratorMethod: a caller that cannot read by index
+    // passes it to TryGetIteratorFromRead, which takes it as GetIterator's method instead of reading again. Null means
+    // nothing was read (sebastienros/jint#4426).
+    internal virtual bool HasOriginalIterator(out JsValue? iteratorMethod)
+    {
+        iteratorMethod = null;
+        return false;
+    }
 
     internal override bool IsIntegerIndexedArray => false;
 
@@ -2999,8 +3008,12 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         // — NOT the raw SetProperty primitive — so side-effecting overrides still run. ObjectPrototype is
         // itself a PlainObject and overrides SetOwnProperty to flip ObjectChangeFlags.ArrayIndex (which
         // disables the array fast-access path); skipping it silently breaks inherited-index iteration in
-        // Array.prototype.concat/sort. No PlainObject overrides [[DefineOwnProperty]] without also
-        // overriding SetOwnProperty, so this routing is equivalent to the full path for every PlainObject.
+        // Array.prototype.concat/sort. One PlainObject overrides [[DefineOwnProperty]] without also overriding
+        // SetOwnProperty: %ArrayIteratorPrototype%, whose override sets Engine._arrayIteratorNextMayBeReplaced. It
+        // cannot reach this lane while it is in built-in-shape mode, which the mask below excludes, and it leaves
+        // that mode only through a DefineOwnProperty or a RemoveOwnProperty, both of which set the flag, or a host's
+        // raw SetProperty (see that field). So skipping its DefineOwnProperty here loses nothing, and for every other
+        // PlainObject this routing is equivalent to the full path.
         //
         // The `_initialized` gate keeps the absence check honest: a lazily-initialized PlainObject
         // (intrinsic prototypes, GlobalObject, NumberPrototype) populates _properties in Initialize(), so

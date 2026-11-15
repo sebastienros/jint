@@ -68,6 +68,7 @@ internal sealed partial class AsyncDisposableStackPrototype : Prototype
             // of the returned promise is deferred until the dispose chain finishes.
             DisposeResourcesHelper.DisposeAndThen(
                 _engine,
+                _realm,
                 stack.DisposeCapability,
                 new Completion(CompletionType.Normal, Undefined, _engine.GetLastSyntaxElement()),
                 final =>

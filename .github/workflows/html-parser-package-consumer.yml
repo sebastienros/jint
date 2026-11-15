@@ -5,6 +5,11 @@ permissions:
 
 on:
   workflow_call:
+    inputs:
+      # The Native AOT leg is the slow half of this job, so only release.yml turns it on.
+      native-aot:
+        type: boolean
+        default: false
 
 jobs:
   packed-consumer:
@@ -54,6 +59,7 @@ jobs:
           grep -q '^BROWSER PACKAGE PROBE PASSED$' "$framework.log"
         done
     - name: Ensure the Native AOT toolchain is present
+      if: inputs.native-aot
       run: |
         if command -v clang > /dev/null && dpkg -s zlib1g-dev > /dev/null 2>&1; then
           echo "Native AOT toolchain already present"
@@ -63,6 +69,7 @@ jobs:
         fi
     # Browser does not claim general AOT compatibility. The native leg proves the parser's own claim.
     - name: Publish and run the packed parser with Native AOT
+      if: inputs.native-aot
       run: |
         set -euo pipefail
         rm -rf tools/html-parser-package-consumer/bin tools/html-parser-package-consumer/obj artifacts/html-parser-package-consumer/packages

@@ -37,6 +37,12 @@ target/runtime split and the manifest are there and none of it is repeated here.
   Input delivered during the parse must await publication of notices it creates before replying, without
   blocking the loop. A failed parse discards its history notices, still publishes queued cross-document
   requests, and fails waiting input replies; none may leak into the next document's commit.
+- **The console is the one event that does not cross `IPageObserver`.** `Runtime.consoleAPICalled` comes
+  from `Jint.DevTools`' own `DevToolsConsoleSink`, which a `TargetRuntime` binds to — so
+  `BrowserEngineFactory` installs it, outermost and last, on every document's engine whether or not a
+  client is attached (#4589). Unbound it only forwards and asks for no stack trace. `ConsoleSinkDecorator`
+  and `EngineConfiguration` run before it and are wrapped; a host that replaces `Options.WebApi.Console.Sink`
+  after the engine is built has a page whose console no client hears.
 - **Every command runs on the page loop**, so it may touch the DOM directly — and one that waits
   (`Page.navigate`) waits by `await`ing, never by blocking: the loop it is on runs the commit it waits for.
 - **`DOM` and `Input` are where a client stops evaluating and starts driving.** A node reaches a client as a
@@ -226,11 +232,13 @@ a second truth about the same request.
   attached costs.
 - **A URL pattern a client names is compiled on the loop and matched off it.** The engine's `URLPattern`
   matches through engine `RegExp`s, which the transport thread may not run, so
-  `emulateNetworkConditionsByRule` compiles each `urlPattern` through `UrlPatternMatcher.TryCompile` — the
-  engine's own parser, then a .NET `Regex` or an ordinal comparison generated from the part list, nothing of
-  the engine kept — and refuses a regexp group with `-32602`, as Chromium does. A listener throw lets the
-  request through, so a matcher must not throw either. `setBlockedURLs` still reads its `urlPatterns` as the
-  older `*` glob (`UrlPattern`), not as URLPattern syntax.
+  `emulateNetworkConditionsByRule` and `setBlockedURLs` compile each `urlPattern` through
+  `UrlPatternMatcher.TryCompile` — the engine's own parser, then a .NET `Regex` or an ordinal comparison
+  generated from the part list, nothing of the engine kept — and refuse a regexp group with `-32602`, as
+  Chromium does. A listener throw lets the request through, so a matcher must not throw either. Two globs
+  remain and are not interchangeable: `setBlockedURLs`' deprecated `urls` are Chromium's unanchored `*`
+  glob (`BlockedUrlGlob`), `Fetch.enable`'s are `base::MatchPattern` (`FetchUrlGlob`) — anchored, `?` for at
+  most one character, backslash escapes, the fragment removed — and neither is URLPattern syntax.
 - **A navigation's request is addressed by its `loaderId`**, passed into `DocumentFetch.LoadAsync` rather
   than read from the page: the field still holds the document that is showing while the fetch is in flight,
   and a client tells the navigation apart from every other request by exactly that string.
