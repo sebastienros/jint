@@ -100,6 +100,50 @@ public sealed class BrowserContext : IAsyncDisposable
 
     internal SharedWorkerRegistry SharedWorkers { get; } = new();
 
+    /// <summary>The routes this context registered, consulted after a page's own.</summary>
+    internal PageRouteTable Routes { get; } = new();
+
+    /// <summary>
+    /// Routes every request of every page in this context — open now or opened later — whose URL
+    /// <paramref name="match"/> accepts to <paramref name="handler"/>.
+    /// </summary>
+    /// <param name="match">Which URLs to route; called off the page's loop for every hop.</param>
+    /// <param name="handler">What to do with a matching request; see <see cref="RoutedRequest"/>.</param>
+    /// <returns>A task that completes once the route applies to every request sent after it.</returns>
+    /// <remarks>
+    /// A page's own routes (<see cref="Page.RouteAsync"/>) are asked first; a context route is asked when none
+    /// of them decided the request. Shared workers' loads are routed here too, since they belong to no page.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="match"/> or <paramref name="handler"/> is null.</exception>
+    public Task RouteAsync(Func<Uri, bool> match, Func<RoutedRequest, Task> handler)
+    {
+        ArgumentNullException.ThrowIfNull(match);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        if (_closed)
+        {
+            return Task.FromException(new ObjectDisposedException(nameof(BrowserContext)));
+        }
+
+        Routes.Add(new PageRoute(match, handler));
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Removes the routes this context registered with <paramref name="match"/>, or only the one with
+    /// <paramref name="handler"/> as well when it is named.
+    /// </summary>
+    /// <param name="match">The predicate a route was registered with, compared as a delegate.</param>
+    /// <param name="handler">The handler to remove, or <see langword="null"/> for every handler of <paramref name="match"/>.</param>
+    /// <returns>A task that completes once no request sent afterwards reaches the removed routes.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="match"/> is null.</exception>
+    public Task UnrouteAsync(Func<Uri, bool> match, Func<RoutedRequest, Task>? handler = null)
+    {
+        ArgumentNullException.ThrowIfNull(match);
+        Routes.Remove(match, handler);
+        return Task.CompletedTask;
+    }
+
     /// <summary>The init scripts every page of this context runs before its own, in each new document.</summary>
     internal NewDocumentScripts NewDocumentScripts { get; } = new();
 

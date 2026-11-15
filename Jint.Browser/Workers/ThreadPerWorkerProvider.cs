@@ -177,7 +177,11 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider, IClassicWorkerPr
         // contains page delegates and protocol listeners and must not outlive that page.
         var requests = sharedUrl is null ? _requests : new PageNetworkRecorder(
             _options.MaxRecordedEvents, _options.MaxCapturedResponseBytes,
-            static () => "", () => sharedUrl.AbsoluteUri);
+            static () => "", () => sharedUrl.AbsoluteUri)
+        {
+            // A shared worker belongs to the context rather than to the page that started it.
+            Router = new PageRouter(null, _page.Context.Routes),
+        };
 #pragma warning disable JINT0002 // FetchObserver is the engine's own network seam.
         options.WebApi.Fetch.Observer = requests;
 #pragma warning restore JINT0002

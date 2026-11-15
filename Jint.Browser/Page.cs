@@ -104,7 +104,10 @@ public sealed partial class Page : IAsyncDisposable
         // the blank document and the first one navigated to both parse in the emulated media.
         Emulation.ApplyMediaDefaults(options.MediaEmulation);
         Emulation.ApplyMediaDefaults(context.MediaEmulation);
-        _requests = new PageNetworkRecorder(options.MaxRecordedEvents, options.MaxCapturedResponseBytes, () => _loaderId, () => _url);
+        _requests = new PageNetworkRecorder(options.MaxRecordedEvents, options.MaxCapturedResponseBytes, () => _loaderId, () => _url)
+        {
+            Router = new PageRouter(_routes, context.Routes),
+        };
         _network = context.Network;
         _workers = new ThreadPerWorkerProvider(this, _network, _requests, options);
         _mainFrame = Frame.Detached(this);
