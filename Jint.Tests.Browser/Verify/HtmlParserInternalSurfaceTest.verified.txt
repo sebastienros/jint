@@ -123,6 +123,12 @@ internal Jint.HtmlParser.Css.Model.CssRuleList
     get_Item
     get_Stamp
 internal Jint.HtmlParser.Css.Model.CssRuleType
+internal Jint.HtmlParser.Css.Model.CssScopeRule
+    NestingContextOf
+    get_End
+    get_EndSelector
+    get_Start
+    get_StartSelector
 internal Jint.HtmlParser.Css.Model.CssSerializationSnapshot
     get_Ranges
     get_Text
@@ -225,6 +231,7 @@ internal Jint.HtmlParser.Css.Selectors.SelectorMatcher
     Matches
     QuerySelector
     QuerySelectorAllSnapshot
+    TryMatch
 internal Jint.HtmlParser.Css.Selectors.SelectorPseudoElement
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKey
     get_Kind

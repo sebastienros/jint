@@ -66,6 +66,9 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSRuleList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSRuleList;
 
+    /// <summary>The <c>CSSScopeRule</c> interface from the native binding contract.</summary>
+    internal static readonly DomInterfaceDefinition CSSScopeRule;
+
     /// <summary>The <c>CSSStyleDeclaration</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleDeclaration;
 
@@ -551,7 +554,7 @@ internal static partial class DomInterfaces
 
     static DomInterfaces()
     {
-        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(177);
+        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(178);
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
@@ -766,6 +769,15 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.Collection,
             collectionAccessor: DomAccessorCSSRuleList.Instance));
+
+        CSSScopeRule = Add(new DomInterfaceDefinition(
+            "CSSScopeRule",
+            typeof(global::Jint.HtmlParser.Css.Model.CssScopeRule),
+            BuildCSSScopeRule,
+            CSSGroupingRule,
+            rootsAtEventTarget: false,
+            hasInterfaceObject: true,
+            DomWrapperKind.Object));
 
         CSSStyleDeclaration = Add(new DomInterfaceDefinition(
             "CSSStyleDeclaration",

@@ -12,17 +12,17 @@ public sealed class CssParserLayerTests
     [Test]
     public void MediaRuleReturnsRawConditionAndBodyWithoutInterpretingEither()
     {
-        const string source = "/* leading */ @media (width > 10px) and future(foo([bar])) { @scope (.unused) {} }";
+        const string source = "/* leading */ @media (width > 10px) and future(foo([bar])) { @container (.unused) {} }";
         var raw = CssParser.ParseMediaRule(source, Work());
         raw.Prelude.Text.Should().Be(" (width > 10px) and future(foo([bar])) ");
-        raw.Body!.Value.Text.Should().Be(" @scope (.unused) {} ");
+        raw.Body!.Value.Text.Should().Be(" @container (.unused) {} ");
         raw.Text.Source.Should().BeSameAs(source);
         raw.Prelude.Source.Should().BeSameAs(source);
         raw.Body.Value.Source.Should().BeSameAs(source);
         var media = CssParser.ParseMediaQueryList(raw.Prelude, Work());
         media.MediaText.Should().Contain("future(foo([bar]))");
         var children = CssParser.ParseRuleList(new CssRuleBody(raw.Body.Value, CssRuleBodyKind.Group, raw.IsClosed), Work());
-        children.Single().Name.Should().Be("scope");
+        children.Single().Name.Should().Be("container");
         CssParser.ParseRule(children[0], Work())!.Value.Rule.Should().BeOfType<CssGenericRule>();
     }
 

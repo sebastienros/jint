@@ -7,7 +7,7 @@ using Jint.HtmlParser.Css.Selectors;
 
 namespace Jint.HtmlParser.Css.Model;
 
-internal enum CssRuleType { Unknown = 0, Layer = Unknown, Style = 1, Import = 3, Media = 4, FontFace = 5, Supports = 12 }
+internal enum CssRuleType { Unknown = 0, Layer = Unknown, Scope = Unknown, Style = 1, Import = 3, Media = 4, FontFace = 5, Supports = 12 }
 
 // CSSOM §6.4: exposed parent links and attachment ownership are deliberately separate.
 internal abstract class CssRule
@@ -101,9 +101,10 @@ internal sealed class CssStyleRule : CssRule
     private string _selectorText;
 
     internal CssStyleRule(CompiledSelector selector, string selectorText, CssDeclarationBlock style, CssSourceSpan span,
-        ParseLimits? limits = null, CssStyleRule? nestingParent = null)
+        ParseLimits? limits = null, CssStyleRule? nestingParent = null, bool scopeAnchor = false)
         : base(span)
     {
+        IsScopeAnchor = scopeAnchor;
         _selector = selector;
         _selectorText = selectorText;
         Style = style;
@@ -114,6 +115,8 @@ internal sealed class CssStyleRule : CssRule
     }
 
     internal override CssRuleType Type => CssRuleType.Style;
+    // CSS Cascade 6 §3.5.1: the unattached `:where(:scope)` parent of an @scope rule's scoped style rules.
+    internal bool IsScopeAnchor { get; }
     internal CssDeclarationBlock Style { get; }
     internal override CssRuleList Rules { get; }
     internal void AddProjected(CssRule rule) => _rules.Add(rule);
@@ -148,7 +151,7 @@ internal sealed class CssStyleRule : CssRule
             using var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
             var values = parser.ParseComponentValues();
             var selector = new SelectorCompiler.Worker(source,
-                new SelectorParseContext(limits: options.Limits, nestingParent: _nestingParent?.Selector),
+                SelectorParseContext.For(options.Limits, _nestingParent),
                 cancellationToken, work.CheckCancellation).Compile(values);
             var text = CssStyleSheet.SelectorText(source, values, parser, work);
             // Stage the entire subtree so a cancelled mutation cannot publish stale child programs.

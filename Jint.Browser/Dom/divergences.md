@@ -148,8 +148,13 @@ are removed by design for [LightPanda parity](../../Jint.HtmlParser/README.md#re
 Their at-rules, and page/namespace/counter-style rules, expose only CSSRule and round-trip cssText.
 They never affect the cascade. No removed rule interface is installed.
 
+[`@scope`](https://drafts.csswg.org/css-cascade-6/#scoped-styles) is a `CSSScopeRule` whose `start`/`end`
+(and `cssText`) keep the validated author text, not a re-serialized selector list. Scoped rules match only subjects between a root and its limits, nested `@scope` included, and
+scope proximity orders them after specificity, counting generational hops only. Bare declarations directly
+in an `@scope` body (Cascade 6 §3.5.6) are dropped, and a scoped rule never styles its shadow host.
+
 [Nested grouping at-rules](https://drafts.csswg.org/css-nesting-1/#nesting-at-rules)
-inside style rules (`@media`, `@supports`, `@layer`) also remain opaque CSSRule objects.
+inside style rules (`@media`, `@supports`, `@layer`, `@scope`) also remain opaque CSSRule objects.
 Their complete text is retained and an optional native parse diagnostic records
 `css/unsupported-nested-at-rule`; their contents do not cascade. Supported declarations
 around them and other rules still apply, including during `getComputedStyle` and `innerText` reads.

@@ -283,7 +283,7 @@ Other allocation rules the hot paths rely on:
 
 CSS intentionally targets [LightPanda](https://github.com/lightpanda-io/browser), not a rendering
 engine. Syntax, the complete existing selector engine, media queries, CSSOM mutation and
-style/media/supports/layer/import/font-face models remain. Every other at-rule is an opaque
+style/media/supports/layer/scope/import/font-face models remain. Every other at-rule is an opaque
 `CSSRule` retaining its source `cssText`; it contributes nothing to matching or the cascade.
 
 Declarations store property names, text and importance. A data-only catalog supplies known names,

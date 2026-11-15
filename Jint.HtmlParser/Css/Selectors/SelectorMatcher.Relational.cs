@@ -253,7 +253,8 @@ internal static partial class SelectorMatcher
                         result = frame.Node is Element ordinary
                             ? MatchPredicate(predicate, ordinary, frame.Scope, ref work)
                             : ReferenceEquals(frame.Node, work.ShadowScope)
-                                ? predicate.Kind == PredicateKind.Host
+                                ? predicate.Kind == PredicateKind.Host ||
+                                  predicate.Kind == PredicateKind.Scope && work.ScopesShadowRoot
                                 : predicate.Kind == PredicateKind.Scope && ReferenceEquals(frame.Node, frame.Scope);
                         if (!result) stack.RemoveAt(stack.Count - 1);
                         break;
@@ -543,7 +544,7 @@ internal static partial class SelectorMatcher
             }
             var predicate = predicates[frame.PredicateIndex++];
             work.Step();
-            if (predicate.Kind == PredicateKind.Scope && work.ShadowScope is null ||
+            if (predicate.Kind == PredicateKind.Scope && (work.ShadowScope is null || work.ScopesShadowRoot) ||
                 predicate.Kind == PredicateKind.Host && work.ShadowScope is not null)
             {
                 frame.HasCompanion = true;
