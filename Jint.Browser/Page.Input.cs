@@ -809,16 +809,28 @@ public sealed partial class Page
         return WaitForScriptAsync(expression, argument: null, timeout);
     }
     /// <summary>Looks at the document until <paramref name="condition"/> holds, or until the time runs out.</summary>
-    private async Task<bool> WaitForAsync(Func<Engine, bool> condition, TimeSpan timeout)
+    private Task<bool> WaitForAsync(Func<Engine, bool> condition, TimeSpan timeout)
+        => WaitForAsync(condition, static satisfied => satisfied, timeout);
+
+    /// <summary>
+    /// Reads the document on the loop until <paramref name="match"/>, applied off the loop to the detached
+    /// reading, holds — or until the time runs out.
+    /// </summary>
+    /// <remarks>
+    /// The split is where caller code runs: a <see cref="System.Text.RegularExpressions.Regex"/> or a
+    /// predicate a caller supplied sees only the CLR value the read returned, on the waiting thread, so it can
+    /// neither touch page-loop state nor hold the loop while it runs.
+    /// </remarks>
+    private async Task<bool> WaitForAsync<T>(Func<Engine, T> read, Func<T, bool> match, TimeSpan timeout)
     {
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
 
         while (true)
         {
-            bool satisfied;
+            T reading;
             try
             {
-                satisfied = await _loop.PostAsync(condition).ConfigureAwait(false);
+                reading = await _loop.PostAsync(read).ConfigureAwait(false);
             }
             catch (ObjectDisposedException) when (_closed)
             {
@@ -828,7 +840,12 @@ public sealed partial class Page
             {
                 return false;
             }
-            if (satisfied)
+            catch (OperationCanceledException) when (_closed)
+            {
+                // A look already running when the page closed sees the DOM's cancellation token fire.
+                return false;
+            }
+            if (match(reading))
             {
                 return true;
             }
