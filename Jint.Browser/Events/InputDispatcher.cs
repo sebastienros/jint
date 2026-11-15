@@ -56,7 +56,7 @@ internal static partial class InputDispatcher
         // is what makes a click on a <span> inside a <button> focus the button.
         if (target.Node is Element clicked && NearestFocusable(dom, clicked) is { } focusTarget)
         {
-            FocusController.Focus(dom, focusTarget);
+            FocusController.Focus(dom, focusTarget, FocusOrigin.Pointer);
         }
 
         DispatchClickEvent(target, options, trusted: true);
@@ -145,7 +145,7 @@ internal static partial class InputDispatcher
                 if (Mouse(target, "mousedown", options, cancelable: true)
                     && NearestFocusable(dom, hit) is { } focusTarget)
                 {
-                    FocusController.Focus(dom, focusTarget);
+                    FocusController.Focus(dom, focusTarget, FocusOrigin.Pointer);
                 }
 
                 events.MousePressTarget = hit;
@@ -522,6 +522,14 @@ internal static partial class InputDispatcher
 
         var dom = runtime.Dom;
         var realm = BrowserEventRealm.Of(dom.Engine);
+
+        // https://drafts.csswg.org/selectors-4/#the-focus-visible-pseudo — a key press, modifiers included as
+        // in Chromium, makes the focused element indicate its focus before any listener hears the key.
+        if (kind is KeyInputKind.KeyDown or KeyInputKind.RawKeyDown)
+        {
+            FocusController.NoteKeyPress(realm);
+        }
+
         var focused = FocusController.InteractionTarget(realm, document);
 
         if (focused is null)
@@ -695,7 +703,7 @@ internal static partial class InputDispatcher
     {
         if (FocusController.NextInTabOrder(dom, document, from, backwards) is { } next)
         {
-            FocusController.Focus(dom, next);
+            FocusController.Focus(dom, next, FocusOrigin.Keyboard);
         }
         else
         {

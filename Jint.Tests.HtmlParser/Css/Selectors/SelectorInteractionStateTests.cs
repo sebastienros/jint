@@ -96,6 +96,41 @@ public sealed class SelectorInteractionStateTests
         SelectorMatcher.Matches(Parse("input, " + selector), input).Should().BeTrue();
     }
 
+    /// <summary>
+    /// Selectors 4 §9.4: whether focus is indicated is the host's heuristic; given it, <c>:focus-visible</c>
+    /// is the focused element alone — not a shadow host <c>:focus</c> answers for, not a frame, not an
+    /// element that has left the document.
+    /// </summary>
+    [Test]
+    public void FocusVisibleIsTheIndicatedFocusedElementAlone()
+    {
+        var document = Document.CreateHtml();
+        var root = Add(document, "main");
+        var link = Add(root, "a");
+        var other = Add(root, "a");
+        var indicated = new SelectorEnvironment(document, link, null, null, FocusVisible: true);
+        Match(":focus-visible", link, indicated).Should().BeTrue();
+        Match("main:has(> :focus-visible)", root, indicated).Should().BeTrue();
+        Match(":not(:focus-visible)", other, indicated).Should().BeTrue();
+        Match(":focus-visible", root, indicated).Should().BeFalse("focus-visible does not propagate to ancestors");
+        Match(":focus-visible", link, indicated with { FocusVisible = false }).Should().BeFalse();
+        Match(":focus-visible", link, new SelectorEnvironment(document, null, null, null, FocusVisible: true)).Should().BeFalse();
+
+        var host = Add(root, "section");
+        var shadow = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var inner = Add(shadow, "input");
+        var inShadow = indicated with { FocusedElement = inner };
+        Match(":focus", host, inShadow).Should().BeTrue();
+        Match(":focus-visible", host, inShadow).Should().BeFalse();
+        Match(":focus-visible", inner, inShadow).Should().BeTrue();
+
+        var frame = Add(root, "iframe");
+        Match(":focus-visible", frame, indicated with { FocusedElement = frame }).Should().BeFalse();
+
+        root.RemoveChild(link);
+        Match(":focus-visible", link, indicated).Should().BeFalse();
+    }
+
     [Test]
     public void FocusHostsAndFlatAncestorsUseClosedRootsAndFreshNamedAssignment()
     {

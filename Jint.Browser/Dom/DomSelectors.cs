@@ -131,7 +131,8 @@ internal static class DomSelectors
         var target = DomDocumentState.Of(document).TargetElement;
         if (target?.OwnerDocument != document) target = null;
         return new SelectorEnvironment(document, focused, pressed, target, BrowserSelectorControlFacts.Factory,
-            realm, BrowserSelectorSemanticRevision.Read(document), hovered);
+            realm, BrowserSelectorSemanticRevision.Read(document), hovered,
+            focused is not null && FocusController.IsFocusVisible(realm, events, focused));
     }
 
 }

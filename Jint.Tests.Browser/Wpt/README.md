@@ -293,9 +293,9 @@ the selector could not see a focus every event and `document.activeElement` alre
 factory now reads that model, and HTML's focusing steps stop being confined to the displayed document: an
 `element.focus()` inside a child navigable takes the focus out of the page, which is exactly what
 `focus.html`'s last case asserts and what kept it passing while the other four did not.
-`:focus-visible` is deliberately still the former DOM integration's and still matches nothing — Selectors §9.4 makes it a
-decision about drawing a focus indicator, which a browser with no rendering cannot make — and
-`Dom/divergences.md` records that.
+`:focus-visible` follows Chromium's Selectors §9.4 heuristics, decided where focus moves
+(`Events/FocusController`): a key indicates focus, a pointer does not, a script inherits, and a text-entry
+control always indicates it.
 
 **And the last three predicates went with them, which leaves `:dir()` as the only selector cause in the
 table above.**

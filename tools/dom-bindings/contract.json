@@ -7803,7 +7803,7 @@
         {
           "DomName": "focus",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.focus\");\nglobal::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);\nreturn global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.focus\");\nglobal::Jint.Browser.Events.FocusController.FocusFromScript(self.Realm, self.Target, args, \"HTMLElement\");\nreturn global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -15412,7 +15412,7 @@
         {
           "DomName": "focus",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.focus\");\nglobal::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);\nreturn global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.focus\");\nglobal::Jint.Browser.Events.FocusController.FocusFromScript(self.Realm, self.Target, args, \"SVGElement\");\nreturn global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
