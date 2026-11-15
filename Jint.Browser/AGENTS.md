@@ -268,7 +268,8 @@ The pressure to promote and the table of promoted seams are
 [`Jint.Browser.Tool/AGENTS.md`](../Jint.Browser.Tool/AGENTS.md). `Jint.Browser.Tool` and `Jint.Browser.Mcp`
 take **no** `InternalsVisibleTo` grant: what they cannot reach is what an embedder cannot reach. Publish a
 necessary `Page` seam over existing internals rather than granting either friend access. **A target is a
-selector or a `ref=`**; `Runtime/ElementLocator` decides.
+selector, a `ref=`, or a `role=`/`label=`/`text=` locator chained with `>>`**; `Runtime/ElementLocator`
+decides, and a role target asks the snapshot's own walk (`AccessibilityTree.Query`), never page script.
 
 `Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the reviewable public API baseline.
 **The public Browser API does not expose native DOM nodes**, which is why `Page.SubmitFormAsync` takes a

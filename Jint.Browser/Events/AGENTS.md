@@ -53,7 +53,11 @@ rollback included. A link to follow, a form to submit and a file chooser to open
 `Events/BrowserActivationHost`, whose default *records* rather than acting; the page runtime replaces it
 through `BrowserEventRealm.ActivationHost`. A colour or date picker has nothing to pick
 with and is honestly nothing rather than a guessed value. Focusability is computed from the element's kind and
-its `tabindex` content attribute, not the reflected `tabIndex` default.
+its `tabindex` content attribute, not the reflected `tabIndex` default, and then from the cascade: an element
+that is not *being rendered* — `display: none` on it or a flat-tree ancestor, or its own
+`visibility: hidden|collapse` — is refused to `focus()` and skipped by <kbd>Tab</kbd>, the box test
+`checkVisibility()` asks. Past the last element <kbd>Tab</kbd> leaves focus at the body, as Chromium does,
+and only the next press wraps.
 **DOM queries and stylesheet selectors consume Browser state.** `DomSelectors` and
 `NativeCssStyleSheets.CreateQuery` pass focus, pointer-press, pointer-hover and fragment-target identities through the
 native `SelectorEnvironment`, with `BrowserSelectorControlFacts` supplying control state. Do not introduce
