@@ -20,6 +20,9 @@ namespace Jint.Browser.Tool;
 /// </remarks>
 internal static class ServeCommand
 {
+    /// <summary>The frame interval <c>serve</c> gives its pages when <c>--animation-frame-interval</c> is not given.</summary>
+    internal static readonly TimeSpan ServeAnimationFrameInterval = TimeSpan.FromMilliseconds(1);
+
     /// <summary>Every option <c>serve</c> accepts.</summary>
     internal static Dictionary<string, OptionKind> Syntax()
     {
@@ -51,7 +54,10 @@ internal static class ServeCommand
 
         var settings = BrowserSettings.Read(line);
 
-        var browserOptions = settings.ToBrowserOptions();
+        // A protocol client is automation, and automation waits for frames: Playwright's actionability check
+        // waits for two before every click. There is nothing to paint, so serve answers a frame in a
+        // millisecond rather than the package's 16 unless the command line says otherwise.
+        var browserOptions = settings.ToBrowserOptions(ServeAnimationFrameInterval);
         settings.HttpCache.ConfigureBrowser(browserOptions);
         await using var browser = new Browser(browserOptions);
         await using var server = new DevToolsServer(new DevToolsServerOptions { Host = host, Port = port });

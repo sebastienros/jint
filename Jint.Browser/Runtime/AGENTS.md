@@ -252,8 +252,8 @@ must enter the same scope through `DomRealm.MutateLayout()` or `PageLayout.Begin
 queries on entry and exit and disables reuse inside callbacks, including exceptional exits. Typed native
 dirty summaries may preserve unrelated rendered flags/rows/children, never old cascade/work/token ownership;
 unknown writes and unclassified callbacks discard them. Never
-add a native write without this bracket. Document replacement clears the cache; media, URL, focus and
-pointer-press state are also checked before reuse. Construction, unclassified `RunOnLoopAsync` callbacks,
+add a native write without this bracket. Document replacement clears the cache; media and URL are also checked before reuse, and focus,
+press and hover only when the rule plan says a selector names them. Construction, unclassified `RunOnLoopAsync` callbacks,
 any `ConfigureEngine` customization and active CSS coverage keep query-local behavior. External stylesheet
 attachment/import changes have independent resource and CSSOM witnesses. No document-wide layout mutation
 observer is installed; the first eligible geometry read installs only a bounded native dirty sink. The complete contract

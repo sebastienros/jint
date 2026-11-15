@@ -70,8 +70,12 @@ Native text editing scopes its atomic value/caret commit. Its `beforeinput` and 
 listeners are not unfinished native writes: their own mutations remain tracked, and they may reuse
 unaffected measurements without changing event ordering or cancellation.
 
-The page checks document identity, media environment, native document URL, focus and pointer-press
-state before reusing anything. Replacing the document releases retained work immediately. Sizes and
+The page checks document identity, media environment and native document URL before reusing anything,
+and focus, pointer-press and hover state when a rule can observe them: the rule plan records which of
+`:focus`/`:focus-visible`/`:focus-within`, `:active` and `:hover` any selector names, pseudo-element branches
+included, and an unread plan or an unknown selector counts as all three. Without that, every automation
+click retired measurements twice, on press and on release, for documents whose rules never mention `:active`.
+The shared `getComputedStyle` traversal applies the same test. Replacing the document releases retained work immediately. Sizes and
 placement stay in document coordinates; scroll projection and content-shrink clamping remain current.
 A complete layout can share the retained size query and cascade, but never causes a single-rectangle
 request to eagerly lay out unrelated descendants.

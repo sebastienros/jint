@@ -66,6 +66,54 @@ public sealed class PageSchedulingTests
     }
 
     [Test]
+    public async Task AFrameRunsNoSoonerThanTheHostsFrameInterval()
+    {
+        await using var browser = new Browser(new BrowserOptions { AnimationFrameInterval = TimeSpan.FromMilliseconds(80) });
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <script>
+              window.waited = null;
+              const requested = performance.now();
+              requestAnimationFrame(() => { window.waited = performance.now() - requested });
+            </script>
+            """);
+
+        (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        // A timer never fires early; the slack is the clock's millisecond rounding.
+        (await page.EvaluateAsync<double>("window.waited")).Should().BeGreaterThanOrEqualTo(78);
+    }
+
+    [Test]
+    public async Task AZeroFrameIntervalRunsTheFrameAheadOfALaterTimer()
+    {
+        await using var browser = new Browser(new BrowserOptions { AnimationFrameInterval = TimeSpan.Zero });
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <script>
+              window.order = [];
+              setTimeout(() => window.order.push('timeout'), 10);
+              requestAnimationFrame(() => window.order.push('frame'));
+            </script>
+            """);
+
+        (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        (await page.EvaluateAsync<string>("window.order.join()")).Should().Be("frame,timeout");
+    }
+
+    [Test]
+    public void TheFrameIntervalIsSixteenMillisecondsAndNeverNegative()
+    {
+        var options = new BrowserOptions();
+        options.AnimationFrameInterval.Should().Be(TimeSpan.FromMilliseconds(16));
+        Caught.Exception(() => options.AnimationFrameInterval = TimeSpan.FromMilliseconds(-1))
+            .Should().BeOfType<ArgumentOutOfRangeException>();
+    }
+
+    [Test]
     public async Task AFrameCancelledFromInsideTheFrameDoesNotRun()
     {
         await using var browser = new Browser();

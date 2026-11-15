@@ -486,7 +486,25 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     {
         if (!_target.IsPaused)
         {
-            return _target.Runtime.Engine.Evaluate(expression);
+            var engine = _target.Runtime.Engine;
+            // A large expression is an automation client's injected script, sent to every page it opens.
+            if (expression.Length >= PreparedScriptCache.MinimumLength && PreparedScriptCache.Suits(engine.Options))
+            {
+                Prepared<Acornima.Ast.Script> prepared;
+                try
+                {
+                    prepared = PreparedScriptCache.GetOrPrepare(expression, null, 0, engine.Options.Strict, engine.Options.RetainFunctionSourceText);
+                }
+                catch (ScriptPreparationException)
+                {
+                    // The engine's own parse reports the SyntaxError the way an evaluation always has.
+                    return engine.Evaluate(expression);
+                }
+
+                return engine.Evaluate(prepared);
+            }
+
+            return engine.Evaluate(expression);
         }
 
         try

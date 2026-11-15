@@ -28,6 +28,10 @@ internal sealed partial class PageLayout
     private bool _reuseDisabled;
     private int _mutationDepth;
 
+    // What the retained plan's rules can observe of focus, press and hover. Until a plan is read, all of it:
+    // an unread plan proves nothing about the rules.
+    private CssInteractionDependencies _cachedInteractions = CssInteractionDependencies.All;
+
     /// <summary>An opaque Browser-owned revision; saturation permanently declines reuse.</summary>
     internal ulong Version { get; private set; }
 
@@ -68,6 +72,16 @@ internal sealed partial class PageLayout
         _supportedStyles = null;
         _cachedSheetRevisions = null;
         _cachedSheetWork = null;
+        _cachedInteractions = CssInteractionDependencies.All;
+    }
+
+    /// <summary>Narrows the interaction witnesses to what the plan behind retained measurements can observe.</summary>
+    private void NoteInteractions(NativeCssQuery query)
+    {
+        if (query.TryGetInteractionDependencies(out var dependencies))
+        {
+            _cachedInteractions = dependencies;
+        }
     }
 
     private void RetireQueries()
@@ -111,19 +125,24 @@ internal sealed partial class PageLayout
         var document = _runtime.Document;
         var controlRevision = document is null ? 0 : Dom.BrowserSelectorSemanticRevision.Read(document);
         var url = document is null ? null : Dom.DomDocumentState.Of(document).Url;
+        // A focus, press or hover change moves no box unless some rule can match on it: Playwright's every
+        // click presses and releases, and retiring measurements twice per click for a document with no
+        // :active rule rebuilt the whole flat layout for nothing.
+        var interactions = _cachedInteractions;
         var globalChange = !ReferenceEquals(_cachedDocument, document) || _cachedMedia != _runtime.Media
             || document is not null && (!_cachedResources.CanReuse || _cachedResources != NativeCssStyleSheets.Stamp(document)) || stylesChanged
             || controlRevision == ulong.MaxValue || _cachedControlRevision != controlRevision
-            || _cachedUrl != url || !ReferenceEquals(_cachedFocus, events.FocusedElement)
-            || !ReferenceEquals(_cachedPress, events.MousePressTarget)
-            || !ReferenceEquals(_cachedHover, events.MouseHoverTarget);
+            || _cachedUrl != url
+            || (interactions & CssInteractionDependencies.Focus) != 0 && !ReferenceEquals(_cachedFocus, events.FocusedElement)
+            || (interactions & CssInteractionDependencies.Active) != 0 && !ReferenceEquals(_cachedPress, events.MousePressTarget)
+            || (interactions & CssInteractionDependencies.Hover) != 0 && !ReferenceEquals(_cachedHover, events.MouseHoverTarget);
         if (globalChange || _cachedNativeStamp != document?.MutationStamp)
         {
             if (globalChange || !ReferenceEquals(_observedDocument, document) || _observedStamp != document?.MutationStamp)
                 ResetMeasurements(stylesChanged ? "stylesheet" : _cachedControlRevision != controlRevision ? "control-state"
-                    : !ReferenceEquals(_cachedFocus, events.FocusedElement) ? "focus"
-                    : !ReferenceEquals(_cachedPress, events.MousePressTarget) ? "press"
-                    : !ReferenceEquals(_cachedHover, events.MouseHoverTarget) ? "hover"
+                    : (interactions & CssInteractionDependencies.Focus) != 0 && !ReferenceEquals(_cachedFocus, events.FocusedElement) ? "focus"
+                    : (interactions & CssInteractionDependencies.Active) != 0 && !ReferenceEquals(_cachedPress, events.MousePressTarget) ? "press"
+                    : (interactions & CssInteractionDependencies.Hover) != 0 && !ReferenceEquals(_cachedHover, events.MouseHoverTarget) ? "hover"
                     : "global-witness");
             RetireQueries();
             _supportedStyles = null;
@@ -138,6 +157,7 @@ internal sealed partial class PageLayout
             _cachedFocus = events.FocusedElement;
             _cachedPress = events.MousePressTarget;
             _cachedHover = events.MouseHoverTarget;
+            _cachedInteractions = CssInteractionDependencies.All;
         }
 
         // Source installation and CSSOM edits are independent of the native DOM revision.
@@ -150,7 +170,7 @@ internal sealed partial class PageLayout
         var nativeStamp = document.MutationStamp;
         var resources = NativeCssStyleSheets.Stamp(document);
         var version = Version;
-        var work = new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check);
+        var work = new CssValueWork(realm.CancellationToken, realm.CssCheckpoint);
         var sheets = NativeCssStyleSheets.Get(document, work, includeShadow: true);
         var roots = new CssStyleSheet[sheets.Count];
         for (var i = 0; i < roots.Length; i++)
