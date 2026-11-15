@@ -32,7 +32,7 @@ withdrawn before it ships. Anything not listed here is intended to keep working 
 
 The dedicated `net8.0` asset is removed as .NET 8 leaves support. Modern libraries and their tests
 target .NET 10 and .NET 11; Jint retains its .NET Standard assets for downlevel embedders.
-Building the repository requires the .NET 11 SDK selected by `global.json` (currently a release candidate).
+Building the repository requires the .NET 11 SDK selected by `global.json` (11.0.100 or a later feature band).
 
 The .NET 11 asset also tightens `DecompressionStream` to the Compression Standard: truncated input,
 trailing bytes, and concatenated gzip members now error both sides with a `TypeError`. Supply one complete
