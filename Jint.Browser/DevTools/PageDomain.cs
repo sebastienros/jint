@@ -111,17 +111,23 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
 
     /// <inheritdoc/>
     /// <remarks>
+    /// <para>
+    /// It is the page's own <see cref="Page.ReloadAsync"/>, not a navigation to <see cref="Page.Url"/>: a
+    /// reload rewrites the current history entry, so <c>history.length</c> stays and a later back lands on the
+    /// entry before the reloaded one, and a URL with a fragment is fetched again rather than taken as a
+    /// same-document fragment move (#4639).
+    /// </para>
+    /// <para>
     /// <c>ignoreCache</c> is accepted and ignored; use <c>Network.setCacheDisabled</c> for a cache bypass.
     /// <c>scriptToEvaluateOnLoad</c> is the deprecated half of
     /// <c>addScriptToEvaluateOnNewDocument</c>, which is the one every recorded client sends.
+    /// </para>
     /// </remarks>
     protected override async ValueTask<EmptyResult> ReloadAsync(ReloadRequest parameters, CommandContext context)
     {
-        var url = Page.Url;
-
         try
         {
-            await Page.NavigateAsync(url, new NavigationOptions { WaitUntil = WaitUntilState.Commit }).ConfigureAwait(false);
+            await Page.ReloadAsync(new NavigationOptions { WaitUntil = WaitUntilState.Commit }).ConfigureAwait(false);
         }
         catch (NavigationFailedException)
         {
