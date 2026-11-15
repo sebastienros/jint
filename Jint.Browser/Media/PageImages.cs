@@ -73,6 +73,9 @@ internal sealed class PageImages
     /// </remarks>
     internal bool TryStart(int ceiling) => _started++ < ceiling;
 
+    /// <summary>Whether any image of this document has asked for a fetch, refused by the ceiling or not.</summary>
+    internal bool HasStarted => _started > 0;
+
     /// <summary>
     /// Puts <paramref name="image"/>'s current request into the unavailable state, which is where
     /// <a href="https://html.spec.whatwg.org/multipage/images.html#update-the-image-data">update the image

@@ -112,6 +112,36 @@ internal static class ImageSourceSet
         return false;
     }
 
+    /// <summary>
+    /// Whether <paramref name="image"/>'s selection can depend on the environment at all: a non-empty
+    /// <c>srcset</c>, or a <c>&lt;source&gt;</c> before it in a <c>&lt;picture&gt;</c> parent.
+    /// </summary>
+    /// <remarks>
+    /// The filter <see cref="Runtime.Parsing.ParserDriver.ReactToEnvironmentChange"/> applies before it selects,
+    /// because an image that is only its own <c>src</c> selects the same URL in every viewport.
+    /// </remarks>
+    internal static bool UsesSourceSet(Element image, DomReadWork work)
+    {
+        if (!IsBlank(work.Attribute(image, "srcset"), work))
+        {
+            return true;
+        }
+
+        if (image.ParentNode is Element parent && parent is { NamespaceUri: Namespaces.Html, LocalName: "picture" })
+        {
+            for (var child = parent.FirstChild; child is not null && !ReferenceEquals(child, image); child = child.NextSibling)
+            {
+                work.Step();
+                if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "source" })
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private static bool IsBlank(string? value, DomReadWork work) => value is null || Trim(value, work).Length == 0;
 
     /// <summary>

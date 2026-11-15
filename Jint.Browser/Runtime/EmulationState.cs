@@ -54,7 +54,26 @@ internal sealed class EmulationState
     /// a transport thread: the runtime's copy belongs to the page loop, and a window's size is not worth a
     /// round trip to it.
     /// </remarks>
-    internal Viewport Viewport { get; set; }
+    internal Viewport Viewport { get; private set; }
+
+    /// <summary>
+    /// What <c>Emulation.setDeviceMetricsOverride</c>, <c>setVisibleSize</c>, <c>clearDeviceMetricsOverride</c>
+    /// and <see cref="Page.SetViewportAsync(Jint.Browser.Viewport)"/> all do: record the viewport, then move the
+    /// document that is already loaded to it.
+    /// </summary>
+    /// <remarks>
+    /// One implementation with two entry points, the way <see cref="TouchEmulation.Set"/> is, so a host in this
+    /// process and a protocol client on the socket cannot leave a page in two different states. Recording it
+    /// here first is what makes it outlive the document: the next engine's media environment is built from
+    /// this object. <see cref="PageRuntime.SetMedia"/> is what the loaded document hears — <c>resize</c>, the
+    /// visual viewport, every <c>MediaQueryList</c> whose answer moved and the image source sets. Called on the
+    /// page loop by both.
+    /// </remarks>
+    internal void SetViewport(Viewport viewport, PageRuntime? runtime)
+    {
+        Viewport = viewport;
+        runtime?.SetMedia(MediaEnvironment);
+    }
 
     /// <summary>Whether a client told the page it is offline, which is what <c>navigator.onLine</c> answers.</summary>
     /// <remarks>

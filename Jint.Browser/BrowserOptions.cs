@@ -82,6 +82,11 @@ public sealed class BrowserOptions
     }
 
     /// <summary>The size and pixel ratio every page reports; 1280 × 720 at a ratio of 1 by default.</summary>
+    /// <remarks>
+    /// The browser-wide default a page opens with. <see cref="BrowserContextOptions.Viewport"/> overrides it for
+    /// one context, and <see cref="Page.SetViewportAsync(Jint.Browser.Viewport)"/> resizes one page after it has
+    /// opened.
+    /// </remarks>
     public Viewport Viewport { get; set; } = Viewport.Default;
 
     /// <summary>Whether every page opens as a touch device.</summary>
@@ -97,6 +102,9 @@ public sealed class BrowserOptions
     /// It does not decide whether a touch <i>arrives</i>. <see cref="Page.TapAsync(string, NavigationOptions)"/>
     /// and <c>Input.dispatchTouchEvent</c> deliver one either way, because a caller that taps is asking for a
     /// tap.
+    /// </para>
+    /// <para>
+    /// <see cref="BrowserContextOptions.HasTouch"/> overrides it for one context.
     /// </para>
     /// </remarks>
     public bool HasTouch { get; set; }
