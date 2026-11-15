@@ -781,23 +781,11 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     }
 
     /// <summary>The <c>net::ERR_*</c> string one of the protocol's error reasons stands for.</summary>
-    private static string NetworkError(string reason) => reason switch
+    private static string NetworkError(string reason)
     {
-        ProtocolNetwork.ErrorReasonValues.Aborted => "net::ERR_ABORTED",
-        ProtocolNetwork.ErrorReasonValues.TimedOut => "net::ERR_TIMED_OUT",
-        ProtocolNetwork.ErrorReasonValues.AccessDenied => "net::ERR_ACCESS_DENIED",
-        ProtocolNetwork.ErrorReasonValues.ConnectionClosed => "net::ERR_CONNECTION_CLOSED",
-        ProtocolNetwork.ErrorReasonValues.ConnectionReset => "net::ERR_CONNECTION_RESET",
-        ProtocolNetwork.ErrorReasonValues.ConnectionRefused => "net::ERR_CONNECTION_REFUSED",
-        ProtocolNetwork.ErrorReasonValues.ConnectionAborted => "net::ERR_CONNECTION_ABORTED",
-        ProtocolNetwork.ErrorReasonValues.ConnectionFailed => "net::ERR_CONNECTION_FAILED",
-        ProtocolNetwork.ErrorReasonValues.NameNotResolved => "net::ERR_NAME_NOT_RESOLVED",
-        ProtocolNetwork.ErrorReasonValues.InternetDisconnected => "net::ERR_INTERNET_DISCONNECTED",
-        ProtocolNetwork.ErrorReasonValues.AddressUnreachable => "net::ERR_ADDRESS_UNREACHABLE",
-        ProtocolNetwork.ErrorReasonValues.BlockedByClient => "net::ERR_BLOCKED_BY_CLIENT",
-        ProtocolNetwork.ErrorReasonValues.BlockedByResponse => "net::ERR_BLOCKED_BY_RESPONSE",
-        _ => "net::ERR_FAILED",
-    };
+        PageNetworkErrors.TryGet(reason, out var error);
+        return error;
+    }
 
     private static string ResourceTypeOf(PageRequestKind kind) => kind switch
     {

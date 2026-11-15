@@ -99,7 +99,10 @@ public sealed partial class Page : IAsyncDisposable
         _options = options;
         _recorder = recorder;
         Emulation = new EmulationState(options.Viewport, options.UserAgent) { TouchEnabled = options.HasTouch };
-        _requests = new PageNetworkRecorder(options.MaxRecordedEvents, options.MaxCapturedResponseBytes, () => _loaderId, () => _url);
+        _requests = new PageNetworkRecorder(options.MaxRecordedEvents, options.MaxCapturedResponseBytes, () => _loaderId, () => _url)
+        {
+            Router = new PageRouter(_routes, context.Routes),
+        };
         _network = context.Network;
         _workers = new ThreadPerWorkerProvider(this, _network, _requests, options);
         _mainFrame = Frame.Detached(this);

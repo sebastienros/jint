@@ -24,6 +24,8 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task CloseAsync() { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
         public System.Threading.Tasks.Task<Jint.Browser.Page> NewPageAsync() { }
+        public System.Threading.Tasks.Task RouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task> handler) { }
+        public System.Threading.Tasks.Task UnrouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task>? handler = null) { }
     }
     public sealed class BrowserContextOptions
     {
@@ -193,6 +195,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> PressAsync(string key, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> PressAsync(string key, Jint.Browser.KeyModifiers modifiers, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> ReloadAsync(Jint.Browser.NavigationOptions? options = null) { }
+        public System.Threading.Tasks.Task RouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task> handler) { }
         public System.Threading.Tasks.Task ScrollToAsync(double y) { }
         public System.Threading.Tasks.Task<bool> SelectAsync(string target, string value) { }
         public System.Threading.Tasks.Task<bool> SelectAsync(string target, int index, string value) { }
@@ -211,6 +214,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<string> TitleAsync() { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, string text) { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, int index, string text) { }
+        public System.Threading.Tasks.Task UnrouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task>? handler = null) { }
         public System.Threading.Tasks.Task<bool> WaitForAsync(string expression, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForAsync(string predicate, object? argument, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForCountAsync(string selector, int count, System.TimeSpan timeout, bool visibleOnly = false) { }
@@ -289,6 +293,46 @@ namespace Jint.Browser
         Document = 0,
         Script = 1,
         Subresource = 2,
+    }
+    public enum RequestResourceType
+    {
+        Document = 0,
+        Frame = 1,
+        Script = 2,
+        Stylesheet = 3,
+        Image = 4,
+        Font = 5,
+        Fetch = 6,
+        Xhr = 7,
+        EventSource = 8,
+        Other = 9,
+    }
+    public sealed class RouteContinueOverrides
+    {
+        public RouteContinueOverrides() { }
+        public System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, string>>? Headers { get; init; }
+        public string? Method { get; init; }
+        public System.ReadOnlyMemory<byte>? PostData { get; init; }
+        public string? Url { get; init; }
+    }
+    public sealed class RoutedRequest
+    {
+        public bool HasPostData { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageHeader> Headers { get; }
+        public Jint.Browser.RequestInitiator Initiator { get; }
+        public bool IsHandled { get; }
+        public bool IsNavigationRequest { get; }
+        public string Method { get; }
+        public string? PostData { get; }
+        public System.ReadOnlyMemory<byte> PostDataBuffer { get; }
+        public int RedirectCount { get; }
+        public Jint.Browser.RequestResourceType ResourceType { get; }
+        public System.Uri Url { get; }
+        public System.Threading.Tasks.Task AbortAsync(string errorCode = "failed") { }
+        public System.Threading.Tasks.Task ContinueAsync(Jint.Browser.RouteContinueOverrides? overrides = null) { }
+        public System.Threading.Tasks.Task FulfillAsync(int status, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, string>>? headers, System.ReadOnlyMemory<byte> body, string? contentType = null) { }
+        public System.Threading.Tasks.Task FulfillAsync(int status = 200, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, string>>? headers = null, string? body = null, string? contentType = null) { }
+        public string? HeaderValue(string name) { }
     }
     public abstract class StoragePartitionProvider
     {
