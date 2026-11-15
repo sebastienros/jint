@@ -211,6 +211,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<string> ContentAsync() { }
         public System.Threading.Tasks.Task<int> CountAsync(string selector, bool visibleOnly = false) { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public System.Threading.Tasks.Task<bool> DoubleClickAsync(string target, int index = 0, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task EmulateMediaAsync(Jint.Browser.MediaEmulation emulation) { }
         public System.Threading.Tasks.Task<object?> EvaluateAndAwaitAsync(string script, System.Threading.CancellationToken cancellationToken = default) { }
         public System.Threading.Tasks.Task<object?> EvaluateAndAwaitAsync(string function, object? argument, System.Threading.CancellationToken cancellationToken = default) { }

@@ -373,4 +373,22 @@ public sealed class PageAutomationTests
         (await page.CountAsync("role=button[name=\"Tip\"]")).Should().Be(1); // an empty descendant still falls back to its title
         (await page.EvaluateAsync<string>("getComputedStyle(label).unicodeBidi")).Should().Be("isolate");
     }
+
+    [Test]
+    public async Task ADoubleClickIsTwoClicksThenADblclick()
+    {
+        await using var browser = new NativeBrowser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html>
+            <div id=node>node</div>
+            <script>
+              window.log = [];
+              for (const type of ['mousedown', 'mouseup', 'click', 'dblclick']) node.addEventListener(type, e => log.push(type + e.detail));
+            </script>
+            """);
+
+        (await page.DoubleClickAsync("#node")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("log.join(' ')")).Should().Be("mousedown1 mouseup1 click1 mousedown2 mouseup2 click2 dblclick2");
+    }
 }

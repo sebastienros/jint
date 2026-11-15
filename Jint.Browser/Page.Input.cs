@@ -91,7 +91,28 @@ public sealed partial class Page
     /// <param name="options">How far to wait for a navigation the click causes; the defaults when omitted.</param>
     /// <returns><see langword="true"/> when the indexed element matched and was clicked.</returns>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public async Task<bool> ClickAsync(string target, int index, NavigationOptions? options = null)
+    public Task<bool> ClickAsync(string target, int index, NavigationOptions? options = null)
+        => ClickAsync(target, index, options, clickCount: 1);
+
+    /// <summary>Double-clicks what <paramref name="target"/> names, and waits for any navigation it causes.</summary>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="options">How far to wait for a navigation the clicks cause; the defaults when omitted.</param>
+    /// <returns><see langword="true"/> when the indexed element matched and was double-clicked.</returns>
+    /// <remarks>
+    /// Two presses and releases at the centre of the element's box, then <c>dblclick</c>: the sequence
+    /// <a href="https://w3c.github.io/uievents/#events-mouseevent-event-order">UI Events</a> orders —
+    /// <c>mousedown</c>, <c>mouseup</c>, <c>click</c> with <c>detail</c> 1, the same with <c>detail</c> 2, then
+    /// <c>dblclick</c>. The target is hit-tested once, as for <see cref="ClickAsync(string, NavigationOptions)"/>.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> DoubleClickAsync(string target, int index = 0, NavigationOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ClickAsync(target, index, options, clickCount: 2);
+    }
+
+    private async Task<bool> ClickAsync(string target, int index, NavigationOptions? options, int clickCount)
     {
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_closed, this);
@@ -139,9 +160,14 @@ public sealed partial class Page
             try
             {
                 InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Moved, x, y, 0, 0, 0, EventModifiers.None, 0, 0));
-                InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Pressed, x, y, 0, 1, 1, EventModifiers.None, 0, 0));
-                var clicked = InputDispatcher.DispatchMouse(runtime,
-                    new MouseInput(MouseInputKind.Released, x, y, 0, 0, 1, EventModifiers.None, 0, 0), element);
+                var clicked = true;
+                for (var count = 1; count <= clickCount; count++)
+                {
+                    InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Pressed, x, y, 0, 1, count, EventModifiers.None, 0, 0));
+                    clicked &= InputDispatcher.DispatchMouse(runtime,
+                        new MouseInput(MouseInputKind.Released, x, y, 0, 0, count, EventModifiers.None, 0, 0), element);
+                }
+
                 return (clicked, _capturedNavigation, true);
             }
             finally
