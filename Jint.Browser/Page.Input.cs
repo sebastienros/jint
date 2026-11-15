@@ -825,6 +825,11 @@ public sealed partial class Page
             {
                 return false;
             }
+            catch (OperationCanceledException) when (_closed)
+            {
+                // A look already running when the page closed sees the DOM's cancellation token fire.
+                return false;
+            }
             if (match(reading))
             {
                 return true;

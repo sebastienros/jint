@@ -219,7 +219,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> WaitForAsync(string predicate, object? argument, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForAttributeAsync(string target, string name, System.Text.RegularExpressions.Regex pattern, System.TimeSpan timeout, int index = 0) { }
         public System.Threading.Tasks.Task<bool> WaitForAttributeAsync(string target, string name, string? value, System.TimeSpan timeout, int index = 0) { }
-        public System.Threading.Tasks.Task<bool> WaitForCheckedAsync(string target, bool @checked, System.TimeSpan timeout, int index = 0) { }
+        public System.Threading.Tasks.Task<bool> WaitForCheckedAsync(string target, System.TimeSpan timeout, bool isChecked = true, int index = 0) { }
         public System.Threading.Tasks.Task<bool> WaitForCountAsync(string selector, int count, System.TimeSpan timeout, bool visibleOnly = false) { }
         public System.Threading.Tasks.Task<bool> WaitForFocusAsync(string target, System.TimeSpan timeout, bool focused = true, int index = 0) { }
         public System.Threading.Tasks.Task<bool> WaitForIdleAsync(System.TimeSpan timeout) { }

@@ -176,7 +176,7 @@ bool paged = await page.WaitForUrlAsync("?page=2", TimeSpan.FromSeconds(5));
 bool current = await page.WaitForAttributeAsync("#next", "aria-current", "page", TimeSpan.FromSeconds(5));
 bool focused = await page.WaitForFocusAsync("#next", TimeSpan.FromSeconds(5));
 bool filled = await page.WaitForValueAsync("#search", new Regex("^asp"), TimeSpan.FromSeconds(5));
-bool ticked = await page.WaitForCheckedAsync("#agree", true, TimeSpan.FromSeconds(5));
+bool ticked = await page.WaitForCheckedAsync("#agree", TimeSpan.FromSeconds(5));
 
 string? label = await page.GetAttributeAsync("#next", "aria-label");
 string? query = await page.InputValueAsync("#search");
@@ -187,7 +187,8 @@ bool active = await page.IsFocusedAsync("#search");
 `WaitForUrlAsync` takes a string, a `Regex` or a `Func<Uri, bool>` and compares the URL `Page.Url`
 answers, so `history.pushState`, `history.replaceState`, fragment navigations and traversals count as
 well as real navigations. A string is compared exactly after both are serialized; a relative one is
-resolved against the page's URL when the wait starts. A `Regex` is searched for, not anchored.
+resolved against the URL each look compares it with, so `"?page=2"` means the current path with that
+query. A `Regex` is searched for, not anchored.
 
 `WaitForAttributeAsync(target, name, value: null, timeout)` waits for the attribute to be absent; an
 empty string waits for it to be present and empty. Either way the target must exist: a missing element is
@@ -200,7 +201,9 @@ change no content attribute and no `MutationObserver` sees them, but both satisf
 `InputValueAsync` reads `input`, `textarea` and `select` and returns `null` for anything else.
 `IsCheckedAsync` reads `<input type=checkbox|radio>`, and `aria-checked="true"` on an element whose
 explicit role is `checkbox`, `radio`, `switch`, `option`, `treeitem`, `menuitemcheckbox` or
-`menuitemradio`; it returns `null` for anything else, which no `WaitForCheckedAsync` call satisfies.
+`menuitemradio`; it returns `null` for anything else and for `aria-checked="mixed"`, which no
+`WaitForCheckedAsync` call satisfies. A native checkbox's `indeterminate` flag does not change its
+checkedness, as in HTML and Playwright, although the accessibility snapshot reports it as `mixed`.
 Focus is the element user input reaches: inside a shadow tree that is the inner control, not the host
 `document.activeElement` names. A missing target is not focused.
 

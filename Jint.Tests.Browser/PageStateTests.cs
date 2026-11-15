@@ -27,7 +27,7 @@ public sealed class PageStateTests
         var url = page.WaitForUrlAsync("?page=2", Patience);
         var urlPattern = page.WaitForUrlAsync(new Regex(@"\?page=2$"), Patience);
         var urlPredicate = page.WaitForUrlAsync(uri => uri.Query == "?page=2", Patience);
-        var isChecked = page.WaitForCheckedAsync("#c", true, Patience);
+        var isChecked = page.WaitForCheckedAsync("#c", Patience);
         var attribute = page.WaitForAttributeAsync("#b", "aria-current", "page", Patience);
         var focus = page.WaitForFocusAsync("#b", Patience);
 
@@ -52,9 +52,12 @@ public sealed class PageStateTests
             .MapHtml("/", "<a id=next href='/next?x=1'>next</a>")
             .MapHtml("/next", "<p>next</p>"));
         var page = fixture.Page;
+        var fromBlank = page.WaitForUrlAsync("/", Patience);
         await page.NavigateAsync(fixture.Url("/"));
+        (await fromBlank).Should().BeTrue("a relative URL started on about:blank still matches once the page has an origin");
 
         (await page.WaitForUrlAsync(fixture.Url("/"), TimeSpan.Zero)).Should().BeTrue();
+        (await page.WaitForUrlAsync("/", TimeSpan.Zero)).Should().BeTrue("a relative URL resolves against the URL it is compared with");
         (await page.WaitForUrlAsync("/elsewhere", TimeSpan.Zero)).Should().BeFalse();
 
         var replaced = page.WaitForUrlAsync("/replaced", Patience);
@@ -137,28 +140,34 @@ public sealed class PageStateTests
         await page.SetContentAsync("""
             <input id=c type=checkbox><input id=r1 type=radio name=g checked><input id=r2 type=radio name=g>
             <div id=sw role="switch other" aria-checked=true></div><div id=plain aria-checked=true></div>
-            <input id=text>
+            <div id=fallback role="x-toggle checkbox" aria-checked=TRUE></div><div id=mixed role=checkbox aria-checked=mixed></div>
+            <input id=text><input id=tri type=checkbox checked>
             """);
+        await page.EvaluateAsync("tri.indeterminate = true");
 
         (await page.IsCheckedAsync("#c")).Should().BeFalse();
         (await page.IsCheckedAsync("#r1")).Should().BeTrue();
         (await page.IsCheckedAsync("#sw")).Should().BeTrue();
         (await page.IsCheckedAsync("#plain")).Should().BeNull("aria-checked means nothing without a role that takes it");
+        (await page.IsCheckedAsync("#fallback")).Should().BeTrue("the first role token ARIA recognizes is the explicit role");
+        (await page.IsCheckedAsync("#mixed")).Should().BeNull("mixed is neither checked nor unchecked");
+        (await page.WaitForCheckedAsync("#mixed", TimeSpan.Zero, isChecked: false)).Should().BeFalse();
+        (await page.IsCheckedAsync("#tri")).Should().BeTrue("indeterminate does not change a native control's checkedness");
         (await page.IsCheckedAsync("#text")).Should().BeNull();
         (await page.IsCheckedAsync("#missing")).Should().BeNull();
-        (await page.WaitForCheckedAsync("#missing", false, TimeSpan.Zero)).Should().BeFalse("a missing element is not unchecked");
-        (await page.WaitForCheckedAsync("#text", false, TimeSpan.Zero)).Should().BeFalse();
+        (await page.WaitForCheckedAsync("#missing", TimeSpan.Zero, isChecked: false)).Should().BeFalse("a missing element is not unchecked");
+        (await page.WaitForCheckedAsync("#text", TimeSpan.Zero, isChecked: false)).Should().BeFalse();
 
-        var box = page.WaitForCheckedAsync("#c", true, Patience);
-        var radioOff = page.WaitForCheckedAsync("#r1", false, Patience);
-        var switchOff = page.WaitForCheckedAsync("#sw", false, Patience);
+        var box = page.WaitForCheckedAsync("#c", Patience);
+        var radioOff = page.WaitForCheckedAsync("#r1", Patience, isChecked: false);
+        var switchOff = page.WaitForCheckedAsync("#sw", Patience, isChecked: false);
         await page.EvaluateAsync("setTimeout(() => { c.checked = true; r2.checked = true; sw.setAttribute('aria-checked', 'false'); }, 50)");
         (await box).Should().BeTrue();
         (await radioOff).Should().BeTrue("checking a radio button unchecks the rest of its group");
         (await switchOff).Should().BeTrue();
         (await page.GetAttributeAsync("#c", "checked")).Should().BeNull("checked = true changes no content attribute");
 
-        var cleared = page.WaitForCheckedAsync("#c", false, Patience);
+        var cleared = page.WaitForCheckedAsync("#c", Patience, isChecked: false);
         (await page.ClickAsync("#c")).Should().BeTrue();
         (await cleared).Should().BeTrue();
     }
@@ -202,7 +211,7 @@ public sealed class PageStateTests
         var page = fixture.Page;
         await page.NavigateAsync(fixture.Url("/"));
 
-        var isChecked = page.WaitForCheckedAsync("#c", true, Patience);
+        var isChecked = page.WaitForCheckedAsync("#c", Patience);
         var value = page.WaitForValueAsync("#v", "next", Patience);
         var attribute = page.WaitForAttributeAsync("#p", "data-x", "next", Patience);
         await page.NavigateAsync(fixture.Url("/next"));
@@ -233,7 +242,7 @@ public sealed class PageStateTests
         await using var browser = new NativeBrowser();
         var page = await browser.NewPageAsync();
         await page.SetContentAsync("<input id=c type=checkbox>");
-        var waiting = page.WaitForCheckedAsync("#c", true, Patience);
+        var waiting = page.WaitForCheckedAsync("#c", Patience);
         await page.CloseAsync();
         (await waiting).Should().BeFalse();
         var reading = () => page.IsCheckedAsync("#c");

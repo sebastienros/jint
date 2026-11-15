@@ -29,7 +29,7 @@ public sealed class HostBrowserStateWaitTests
             page.WaitForUrlAsync("?page=2", Patience),
             page.WaitForUrlAsync(new Regex(@"\?page=2$"), Patience),
             page.WaitForUrlAsync(uri => uri.Query == "?page=2", Patience),
-            page.WaitForCheckedAsync("#c", true, Patience),
+            page.WaitForCheckedAsync("#c", Patience),
             page.WaitForValueAsync("#v", "typed", Patience),
             page.WaitForValueAsync("#v", new Regex("^ty"), Patience),
             page.WaitForAttributeAsync("#b", "aria-current", "page", Patience),
@@ -44,7 +44,7 @@ public sealed class HostBrowserStateWaitTests
         (await page.InputValueAsync("#v")).Should().Be("typed");
         (await page.IsCheckedAsync("#c")).Should().BeTrue();
         (await page.IsFocusedAsync("#b")).Should().BeTrue();
-        (await page.WaitForCheckedAsync("#c", false, TimeSpan.Zero)).Should().BeFalse();
+        (await page.WaitForCheckedAsync("#c", TimeSpan.Zero, isChecked: false)).Should().BeFalse();
     }
 }
 #endif

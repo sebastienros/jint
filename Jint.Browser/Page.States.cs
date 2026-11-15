@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Jint.Browser.Accessibility;
 using Jint.Browser.Dom;
 using Jint.Browser.Dom.Files;
 using Jint.Browser.Events;
@@ -34,7 +35,7 @@ namespace Jint.Browser;
 public sealed partial class Page
 {
     /// <summary>The roles whose checkedness is their <c>aria-checked</c> attribute, as Playwright's are.</summary>
-    private static readonly HashSet<string> AriaCheckedRoles = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> AriaCheckedRoles = new(StringComparer.Ordinal)
     {
         "checkbox", "menuitemcheckbox", "menuitemradio", "option", "radio", "switch", "treeitem",
     };
@@ -80,7 +81,9 @@ public sealed partial class Page
     /// The checkedness of an <c>&lt;input type=checkbox|radio&gt;</c> — its <c>checked</c> IDL attribute — or,
     /// for an element whose explicit <c>role</c> is <c>checkbox</c>, <c>radio</c>, <c>switch</c>, <c>option</c>,
     /// <c>treeitem</c>, <c>menuitemcheckbox</c> or <c>menuitemradio</c>, whether its <c>aria-checked</c> is
-    /// <c>true</c>. <see langword="null"/> when no element matches or the element is neither.
+    /// <c>true</c>. <see langword="null"/> when no element matches, the element is neither, or its
+    /// <c>aria-checked</c> is <c>mixed</c>. A native checkbox's <c>indeterminate</c> flag does not change its
+    /// checkedness, so it answers its <c>checked</c> state.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="target"/> is null.</exception>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
@@ -96,7 +99,8 @@ public sealed partial class Page
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <returns>
     /// <see langword="true"/> when the element itself holds focus — the element user input reaches, so a
-    /// focused control inside a shadow tree is focused and its host is not. A missing target is not focused.
+    /// focused control inside a shadow tree is focused and its host is not. A missing target is not focused:
+    /// removing the focused element from the document is one of the ways focus leaves it.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="target"/> is null.</exception>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
@@ -110,8 +114,8 @@ public sealed partial class Page
     /// <summary>Waits until the page's <see cref="Url"/> is <paramref name="url"/>.</summary>
     /// <param name="url">
     /// The URL to wait for, compared exactly once both are serialized. A relative URL is resolved against the
-    /// page's URL when the wait starts, so <c>"?page=2"</c> waits for the current document's path with that
-    /// query.
+    /// URL each look compares it with, so <c>"?page=2"</c> waits for the current document's path with that
+    /// query and <c>"/dashboard"</c> waits for that path on whichever origin the page reaches.
     /// </param>
     /// <param name="timeout">The ceiling on the wait.</param>
     /// <returns><see langword="true"/> when the URL matched, <see langword="false"/> when the timeout won.</returns>
@@ -126,8 +130,10 @@ public sealed partial class Page
     {
         ArgumentNullException.ThrowIfNull(url);
         ObjectDisposedException.ThrowIf(_closed, this);
-        var expected = PageUrl.Resolve(url, _url) ?? url;
-        return WaitForAsync(ReadUrl, current => string.Equals(current, expected, StringComparison.Ordinal), timeout);
+        return WaitForAsync(
+            ReadUrl,
+            current => string.Equals(current, PageUrl.Resolve(url, current), StringComparison.Ordinal),
+            timeout);
     }
 
     /// <summary>Waits until the page's <see cref="Url"/> matches <paramref name="pattern"/>.</summary>
@@ -277,8 +283,8 @@ public sealed partial class Page
 
     /// <summary>Waits until the indexed checkbox or radio button is checked, or unchecked.</summary>
     /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
-    /// <param name="checked">The checkedness to wait for.</param>
     /// <param name="timeout">The ceiling on the wait.</param>
+    /// <param name="isChecked">The checkedness to wait for: checked (the default) or unchecked.</param>
     /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
     /// <returns><see langword="true"/> when the state was reached, <see langword="false"/> when the timeout won.</returns>
     /// <remarks>
@@ -287,11 +293,11 @@ public sealed partial class Page
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="target"/> is null.</exception>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public Task<bool> WaitForCheckedAsync(string target, bool @checked, TimeSpan timeout, int index = 0)
+    public Task<bool> WaitForCheckedAsync(string target, TimeSpan timeout, bool isChecked = true, int index = 0)
     {
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_closed, this);
-        return WaitForAsync(engine => ReadChecked(engine, target, index) == @checked, timeout);
+        return WaitForAsync(engine => ReadChecked(engine, target, index) == isChecked, timeout);
     }
 
     /// <summary>One look's URL, read on the loop so it is ordered after the requests before it.</summary>
@@ -325,6 +331,12 @@ public sealed partial class Page
     /// https://html.spec.whatwg.org/multipage/input.html#concept-fe-checked for a checkbox or radio button,
     /// https://w3c.github.io/aria/#aria-checked for an element whose explicit role takes it.
     /// </summary>
+    /// <remarks>
+    /// A native control answers its checkedness, which <c>indeterminate</c> does not change: HTML keeps the two
+    /// apart, and so does Playwright's <c>toBeChecked</c>. The accessibility tree reports such a checkbox as
+    /// <c>mixed</c>, because that is what assistive technology announces. <c>aria-checked="mixed"</c> has no
+    /// checkedness to fall back on and answers <see langword="null"/>, so it satisfies neither wait.
+    /// </remarks>
     private static bool? ReadChecked(Engine engine, string target, int index)
     {
         if (Locate(engine, target, index) is not { } element)
@@ -338,34 +350,42 @@ public sealed partial class Page
             return DomInputMembers.Checked(DomRealm.Of(engine), element);
         }
 
-        var role = element.GetAttribute("role");
-        if (role is null)
+        if (AriaRoles.Explicit(element.GetAttribute("role")) is not { } role || !AriaCheckedRoles.Contains(role))
         {
             return null;
         }
 
-        // ARIA's role attribute is a token list whose first recognized token wins; the first token is the
-        // explicit role every role this reader knows is spelled as.
-        var first = role.AsSpan().Trim();
-        var end = first.IndexOfAny(" \t\n\f\r");
-        var explicitRole = (end < 0 ? first : first[..end]).ToString();
-        return AriaCheckedRoles.Contains(explicitRole)
-            ? string.Equals(element.GetAttribute("aria-checked"), "true", StringComparison.OrdinalIgnoreCase)
-            : null;
+        var state = element.GetAttribute("aria-checked")?.Trim();
+        return string.Equals(state, "mixed", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : string.Equals(state, "true", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Whether the located element is the realm's focused element, after the staleness check
-    /// <c>document.activeElement</c> applies.</summary>
+    /// <summary>
+    /// Whether the located element holds focus: the realm's focused element, still connected to the document
+    /// whose focus store names it — the facts <c>document.activeElement</c> checks, without its retargeting walk
+    /// and without clearing a stale focus, which is the getter's business rather than a reader's.
+    /// </summary>
     private static bool IsFocused(Engine engine, string target, int index)
     {
         if (PageRuntime.Find(engine) is not { Document: { } document } runtime
-            || ElementLocator.Find(runtime.Dom, document, target, index) is not { } element)
+            || ElementLocator.Find(runtime.Dom, document, target, index) is not { } element
+            || !ReferenceEquals(BrowserEventRealm.Of(engine).FocusedElement, element)
+            || !ReferenceEquals(BrowserEventRealm.FocusedElementOf(document), element))
         {
             return false;
         }
 
-        var events = BrowserEventRealm.Of(engine);
-        FocusController.ActiveElement(events, document);
-        return ReferenceEquals(events.FocusedElement, element);
+        // A snapshot reference can outlive its element's place in the tree; a selector match cannot.
+        for (Node? node = element; node is not null; node = node.ParentNode ?? (node as ShadowRoot)?.Host)
+        {
+            engine.Constraints.Check();
+            if (ReferenceEquals(node, document))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
