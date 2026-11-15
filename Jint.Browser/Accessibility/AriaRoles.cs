@@ -72,6 +72,21 @@ internal static class AriaRoles
         string.Equals(role, Generic, StringComparison.Ordinal) || IsPresentational(role);
 
     /// <summary>
+    /// The role a synonym stands for: WAI-ARIA 1.3's <c>image</c> for <c>img</c>, and <c>none</c> for
+    /// <c>presentation</c>; any other role is its own.
+    /// </summary>
+    /// <remarks>
+    /// HTML-AAM maps <c>&lt;img&gt;</c> to <c>image</c> while authors, and every role query written against
+    /// ARIA 1.2, say <c>img</c>; a query compares canonical roles so either spelling finds the element.
+    /// </remarks>
+    internal static string Canonical(string role) => role switch
+    {
+        "img" => "image",
+        Presentation => None,
+        _ => role,
+    };
+
+    /// <summary>
     /// Reads the first token of a <c>role</c> attribute that names a real role, or <see langword="null"/>
     /// when the attribute is absent, empty or names nothing.
     /// </summary>

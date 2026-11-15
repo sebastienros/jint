@@ -21,6 +21,11 @@
     <!-- Jint.Browser grants this project no InternalsVisibleTo, so a page API used here is one an embedder can reach. -->
     <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" Condition="'$(TargetFramework)' != 'net472'" />
     <!--
+      Jint.Browser grants InternalsVisibleTo to Jint.Tests.Browser only, so a page driven from here reaches
+      exactly what an embedder's `new Browser()` reaches.
+    -->
+    <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" Condition="'$(TargetFramework)' != 'net472'" />
+    <!--
       The [JsAccessible] generator is consumed here the way a third party consumes it, which is the whole
       reason the fixture is in this project and not in Jint.Tests: this is the only suite without
       InternalsVisibleTo, so code the generator emits either compiles against Jint's public surface alone or
