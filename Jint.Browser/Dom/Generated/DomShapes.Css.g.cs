@@ -5131,6 +5131,17 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.transition");
                     self.Target.SetProperty("transition", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transition")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("transitionBehavior",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transitionBehavior", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.transitionBehavior");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("transition-behavior"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.transitionBehavior", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.transitionBehavior");
+                    self.Target.SetProperty("transition-behavior", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.transitionBehavior")); return global::Jint.Native.JsValue.Undefined;
+                }))
             .Accessor("transitionDelay",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transitionDelay", static (thisObj, args) =>
                 {

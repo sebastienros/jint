@@ -172,7 +172,14 @@ catalog properties still accept nonempty text. Only the layout shorthands plus `
 ([CSS Backgrounds §2.11, §4.4-§4.5](https://drafts.csswg.org/css-backgrounds-3/#background)). Their components are
 classified by token shape (anything that is not a width, style, position, size, box, repeat or image is taken as the
 color) and keep declared text; `border` does not reset `border-image`, and an omitted border width is `medium`
-text, not `3px`. A shorthand holding `var()` keeps its text on every longhand until the cascade substitutes and
+text, not `3px`. `animation` and `transition` expand too
+([CSS Animations §3.9](https://drafts.csswg.org/css-animations-1/#animation),
+[CSS Transitions §2.5](https://drafts.csswg.org/css-transitions-1/#transition-shorthand-property)): each longhand holds
+one comma-separated item per layer, and the shorthand serializes in Chromium's component order, shortest form.
+`animation` sets only its eight Level 1 longhands, not the reset-only `animation-timeline`/`animation-range-*`, and
+an unset `animation-duration` is Chromium's `0s`, not Level 2's `auto`. The computed `<time>` longhands are in
+seconds (`300ms` reads `0.3s`), but easing functions stay text (`step-start` is not `steps(1, start)`), and a
+computed shorthand repeats shorter longhand lists to the layer count. A shorthand holding `var()` keeps its text on every longhand until the cascade substitutes and
 expands it ([CSS Variables §3.2](https://drafts.csswg.org/css-variables-1/#variables-in-shorthands)); its specified
 longhands read as empty. Named/generic CSSOM accessors still share one
 store, receiver checks, null removal, readonly computed views and live invalidation.

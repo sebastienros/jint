@@ -307,7 +307,7 @@ internal static class CssBoxShorthands
                "left" or "right" or "center" or "top" or "bottom");
 
     // Top-level comma-separated layers of non-whitespace components, or null on a token no value accepts.
-    private static List<List<Item>>? Layers(string text, CssValueWork work)
+    internal static List<List<Item>>? Layers(string text, CssValueWork work)
     {
         using var parser = new CssSyntaxParser(text, null, work.Token, work.CheckCancellation);
         var values = parser.ParseComponentValues();
@@ -328,7 +328,7 @@ internal static class CssBoxShorthands
         return layers;
     }
 
-    private static string[] SplitLayers(string value, CssValueWork work)
+    internal static string[] SplitLayers(string value, CssValueWork work)
     {
         var layers = new List<string>();
         var depth = 0;
@@ -351,7 +351,7 @@ internal static class CssBoxShorthands
     }
 
     // Keyword is the ASCII-lowered identifier, or empty for anything else.
-    private readonly record struct Item(CssComponentValue Value, string Text, string Keyword)
+    internal readonly record struct Item(CssComponentValue Value, string Text, string Keyword)
     {
         internal bool IsSlash => Value.TokenKind == CssTokenKind.Delim && Value.Token.Delimiter == '/';
     }

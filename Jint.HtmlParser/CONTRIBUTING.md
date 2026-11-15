@@ -289,7 +289,8 @@ style/media/supports/layer/scope/import/font-face models remain. Every other at-
 Declarations store property names, text and importance. A data-only catalog supplies known names,
 inheritance flags, a small initial-value table and the layout shorthands (overflow, flex, flex-flow,
 margin, padding, inset, gap, border-width/style) and the box shorthands (`background`, `background-position`,
-`border`, its four sides and `border-color`, in `CssBoxShorthands`). A shorthand holding `var()` defers its
+`border`, its four sides and `border-color`, in `CssBoxShorthands`), and `animation`/`transition` in
+`CssMotionShorthands`. A shorthand holding `var()` defers its
 expansion to the cascade, after substitution. A small token grammar gate discards invalid
 visibility/layout keywords, lengths, numeric ranges and shorthand arity before declarations replace
 earlier valid values. It covers display, visibility, position, float/clear, box sizing, direction/writing

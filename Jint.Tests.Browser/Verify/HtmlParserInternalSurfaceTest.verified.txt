@@ -283,6 +283,9 @@ internal Jint.HtmlParser.Css.Values.CssValueWork
 internal Jint.HtmlParser.Css.Values.Properties.CssDeclarationContext
 internal Jint.HtmlParser.Css.Values.Properties.CssLayoutValues
     AcceptsText
+internal Jint.HtmlParser.Css.Values.Properties.CssMotionShorthands
+    ComputedTimes
+    IsTimeList
 internal Jint.HtmlParser.Css.Values.Properties.CssPropertyCatalog
     get_Names
 internal Jint.HtmlParser.Css.Values.Properties.CssPropertyMetadata
