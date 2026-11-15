@@ -19,8 +19,8 @@
     <ProjectReference Include="..\Jint\Jint.csproj" />
     <ProjectReference Include="..\Jint.HtmlParser\Jint.HtmlParser.csproj" Condition="'$(TargetFramework)' != 'net472'" />
     <!--
-      Jint.Browser grants InternalsVisibleTo to Jint.Tests.Browser alone, so a Browser member a test here can
-      call is one an embedder can call. Gated like the parser: the package ships net8.0 and later only.
+      Jint.Browser grants InternalsVisibleTo to Jint.Tests.Browser only, so a page driven from here reaches
+      exactly what an embedder's `new Browser()` reaches.
     -->
     <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" Condition="'$(TargetFramework)' != 'net472'" />
     <!--

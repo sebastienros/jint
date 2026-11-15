@@ -107,7 +107,8 @@ bool ready = await page.WaitForCountAsync(".recipe", 3, TimeSpan.FromSeconds(5),
 bool shown = await page.WaitForVisibleAsync(".status", TimeSpan.FromSeconds(5));
 ```
 
-`CountAsync` and `TextsAsync` accept CSS selectors and throw for invalid selectors. `TextsAsync`
+`CountAsync` and `TextsAsync` accept every target form below and throw a `SyntaxError` `DomException`
+for an invalid selector or a malformed locator. `TextsAsync`
 returns one document-order snapshot of **textContent** strings in a single request: no trimming,
 rendered whitespace normalization or exclusion of hidden descendant text. `visibleOnly` filters the
 matched elements, not the text descendants.
@@ -127,3 +128,40 @@ and occlusion are not visibility tests. The synthetic box model is not a renderi
 `WaitForTextAsync(target, text, timeout, index = 0)` checks a literal ordinal substring of innerText
 and requires a matching element. These waits observe mutations and navigation without retaining DOM
 handles. Timeout returns `false`, including a zero timeout whose first probe fails.
+
+## Role, label and text targets
+
+Every member that takes a target — `ClickAsync`, `TapAsync`, `FillAsync`, `TypeAsync`, `HoverAsync`, `SelectAsync`, `SetInputFilesAsync`,
+`IsVisibleAsync`, `InnerTextAsync`, `CountAsync`, `TextsAsync` and the waits — also accepts Playwright's
+locator syntax, resolved in .NET by the same role and accessible-name computation
+`AccessibilitySnapshotAsync` prints from. No page JavaScript runs and no snapshot is taken.
+
+```csharp
+await page.ClickAsync("role=button[name=\"Next\"]");
+await page.FillAsync("label=Email", "someone@example.com");
+await page.ClickAsync("text=Sign in");
+await page.ClickAsync("[data-filter-group=type] >> role=checkbox[name=\"Integration\"]");
+int headings = await page.CountAsync("role=heading[level=2]");
+```
+
+| Form | Meaning |
+| --- | --- |
+| `role=button` | Elements whose computed role (author `role`, else HTML-AAM's) is `button`. `img` and `image`, `none` and `presentation` are the same role. |
+| `[name="Next"]` / `[name="Next"i]` | The accessible name contains `Next`, case-insensitively, after whitespace is collapsed. |
+| `[name="Next"s]` | The accessible name is exactly `Next`, case-sensitively. |
+| `[level=2]`, `[checked]`, `[checked=false]`, `[checked="mixed"]`, `[pressed]`, `[expanded]`, `[selected]`, `[disabled]` | The state the snapshot publishes. A role WAI-ARIA does not give that state never matches (`[selected]` on a button, `[level]` on a link). |
+| `[include-hidden]` | Also match elements the snapshot leaves out as hidden (`hidden`, `display:none`, `visibility:hidden`, `aria-hidden`). |
+| `label=Email` / `label="Email"` | Controls named by `aria-labelledby`, else `aria-label`, else an associated `<label>`: a case-insensitive substring, or an exact match when quoted. |
+| `text=Save` / `text="Save"` | The deepest elements whose text contains `Save` (exact when quoted, `"…"i` to keep it case-insensitive). Script, style and `head` text does not count; a hidden element's text does. |
+| `internal:role=…`, `internal:label=…`, `internal:text=…`, `css=…` | The spellings a Playwright locator serializes to, and an explicit CSS part. |
+| `aria/Next[role="button"]` | Puppeteer's ARIA query: an exact accessible name, with an optional role. |
+| `a >> b` | `b` resolved inside every element `a` found, in document order; any part may be CSS, `ref=` or a locator. |
+
+A role target matches by role, not by what the snapshot keeps: a `generic` wrapper or a `role=none` element
+the snapshot prunes is still found by `role=generic` or `role=none`. An unescaped apostrophe in an unquoted
+`text=` body opens a string, as in Playwright, so quote such a body before chaining after it.
+
+A plain selector — no `>>`, no prefix — is compiled exactly as before. A malformed locator matches nothing
+in the input members and `IsVisibleAsync`, and throws from `CountAsync`/`TextsAsync`, as an invalid selector
+does. Role targets inherit the accessibility tree's boundaries: hidden means the renderless visibility
+described above, and generated content does not contribute to a name.
