@@ -1,4 +1,3 @@
-using System.Globalization;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
 using Jint.DevTools.Domains;
@@ -86,7 +85,12 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     internal EmulationState Emulation => Page.Emulation;
 
     /// <summary>The scripts <c>Page.addScriptToEvaluateOnNewDocument</c> runs before each document's own.</summary>
-    internal NewDocumentScripts NewDocumentScripts { get; } = new();
+    /// <remarks>
+    /// The page's own store, the one <see cref="Page.AddInitScriptAsync(string)"/> adds to, so a client and an
+    /// in-process caller install into one ordered list. The page runs it once the empty document exists, after
+    /// <see cref="IPageObserver.DocumentCreated"/> has replaced this target's engine and re-installed its bindings.
+    /// </remarks>
+    internal NewDocumentScripts NewDocumentScripts => Page.NewDocumentScripts;
 
     /// <summary>
     /// The node identifiers the <c>DOM</c> domain addresses this page's document by.
@@ -336,8 +340,8 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
 
     /// <inheritdoc/>
     /// <remarks>
-    /// The engine swap clears handles and installs the new contexts, bindings and new-document scripts
-    /// before the first inline script runs. It is not yet the navigation commit: the parser has not made
+    /// The engine swap clears handles and installs the new contexts and bindings before the page runs its
+    /// new-document scripts and the first inline script. It is not yet the navigation commit: the parser has not made
     /// the document observable. Announcing the frame here would release a client's click navigation barrier
     /// while the parser can still be blocked before the response's body.
     /// </remarks>
@@ -352,8 +356,8 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         Nodes.DocumentReplaced();
         Sheets.DocumentReplaced();
 
+        // The new-document scripts are not run here: the page runs them once the empty document exists.
         Replace(runtime.Engine);
-        NewDocumentScripts.Run(runtime);
     }
 
     /// <inheritdoc/>
@@ -529,87 +533,4 @@ internal readonly record struct DialogDecision(bool Accept, string PromptText)
 {
     /// <summary>Dismiss it, which is what a page with nobody watching already gets.</summary>
     internal static DialogDecision Dismiss { get; } = new(Accept: false, PromptText: "");
-}
-
-/// <summary>
-/// The scripts <c>Page.addScriptToEvaluateOnNewDocument</c> installed, run in order before each document's
-/// own.
-/// </summary>
-/// <remarks>
-/// <b>An error in one is the page's, not the navigation's.</b> A client's instrumentation that throws must
-/// not stop the document loading — Chrome does not — so a failure becomes a page error and the next script
-/// runs.
-/// </remarks>
-internal sealed class NewDocumentScripts
-{
-    private readonly object _gate = new();
-    private readonly List<(string Id, string Source)> _scripts = [];
-
-    private int _next;
-
-    /// <summary>Adds one and answers the identifier a client removes it by.</summary>
-    internal string Add(string source)
-    {
-        lock (_gate)
-        {
-            var id = (++_next).ToString(CultureInfo.InvariantCulture);
-            _scripts.Add((id, source));
-            return id;
-        }
-    }
-
-    /// <summary>Removes one, answering whether there was one.</summary>
-    internal bool Remove(string identifier)
-    {
-        lock (_gate)
-        {
-            for (var i = 0; i < _scripts.Count; i++)
-            {
-                if (string.Equals(_scripts[i].Id, identifier, StringComparison.Ordinal))
-                {
-                    _scripts.RemoveAt(i);
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Runs every script into <paramref name="runtime"/>, in the order they were added.</summary>
-    internal void Run(PageRuntime runtime)
-    {
-        (string Id, string Source)[] scripts;
-        lock (_gate)
-        {
-            if (_scripts.Count == 0)
-            {
-                return;
-            }
-
-            scripts = [.. _scripts];
-        }
-
-        foreach (var (id, source) in scripts)
-        {
-            try
-            {
-                runtime.Engine.Execute(source, "__jint_new_document_" + id);
-            }
-            catch (JavaScriptException exception)
-            {
-                runtime.Recorder.Add(
-                    PageErrorKind.ScriptError,
-                    exception.Message,
-                    "Page.addScriptToEvaluateOnNewDocument#" + id);
-            }
-            catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
-            {
-                runtime.Recorder.Add(
-                    PageErrorKind.ScriptError,
-                    exception.Message,
-                    "Page.addScriptToEvaluateOnNewDocument#" + id);
-            }
-        }
-    }
 }
