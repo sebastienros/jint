@@ -231,7 +231,8 @@ is built the same way rather than the obvious way: the page is looked at from **
 `WaitPoll`, through one mailbox request per look. Holding the loop and pumping inside a single request —
 which is what `WaitForIdleAsync` does — would be a wait for something the page could never do, because the
 loop it is holding is the one a navigation commits on and the one a mailbox request runs on. One wait
-mechanism, three public members over it.
+mechanism, every native `WaitFor*` member over it. **A caller's `Regex` or predicate runs off the loop**,
+over the detached value a look read (`Page.States.cs`), so it can neither touch page state nor hold the loop.
 
 **An expression that throws is not yet true**, so a condition written against an element a framework has
 not rendered is usable; the last failure is kept, and a timeout rethrows it rather than answering

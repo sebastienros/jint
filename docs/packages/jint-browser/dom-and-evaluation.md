@@ -165,3 +165,45 @@ A plain selector — no `>>`, no prefix — is compiled exactly as before. A mal
 in the input members and `IsVisibleAsync`, and throws from `CountAsync`/`TextsAsync`, as an invalid selector
 does. Role targets inherit the accessibility tree's boundaries: hidden means the renderless visibility
 described above, and generated content does not contribute to a name.
+
+## URL, attribute, focus, value and checked state
+
+The assertions a browser test makes most often have native readers and waits too, so none of them needs
+a JavaScript predicate re-evaluated on every poll:
+
+```csharp
+bool paged = await page.WaitForUrlAsync("?page=2", TimeSpan.FromSeconds(5));
+bool current = await page.WaitForAttributeAsync("#next", "aria-current", "page", TimeSpan.FromSeconds(5));
+bool focused = await page.WaitForFocusAsync("#next", TimeSpan.FromSeconds(5));
+bool filled = await page.WaitForValueAsync("#search", new Regex("^asp"), TimeSpan.FromSeconds(5));
+bool ticked = await page.WaitForCheckedAsync("#agree", true, TimeSpan.FromSeconds(5));
+
+string? label = await page.GetAttributeAsync("#next", "aria-label");
+string? query = await page.InputValueAsync("#search");
+bool? agreed = await page.IsCheckedAsync("#agree");
+bool active = await page.IsFocusedAsync("#search");
+```
+
+`WaitForUrlAsync` takes a string, a `Regex` or a `Func<Uri, bool>` and compares the URL `Page.Url`
+answers, so `history.pushState`, `history.replaceState`, fragment navigations and traversals count as
+well as real navigations. A string is compared exactly after both are serialized; a relative one is
+resolved against the page's URL when the wait starts. A `Regex` is searched for, not anchored.
+
+`WaitForAttributeAsync(target, name, value: null, timeout)` waits for the attribute to be absent; an
+empty string waits for it to be present and empty. Either way the target must exist: a missing element is
+neither. Write the absent case with the named `value:` argument, since a positional `null` is ambiguous
+with the `Regex` overload. `GetAttributeAsync` returns `null` for an absent attribute and for a missing
+target alike.
+
+Value and checkedness are the IDL state, not markup: `input.value = 'x'` and `checkbox.checked = true`
+change no content attribute and no `MutationObserver` sees them, but both satisfy the waits.
+`InputValueAsync` reads `input`, `textarea` and `select` and returns `null` for anything else.
+`IsCheckedAsync` reads `<input type=checkbox|radio>`, and `aria-checked="true"` on an element whose
+explicit role is `checkbox`, `radio`, `switch`, `option`, `treeitem`, `menuitemcheckbox` or
+`menuitemradio`; it returns `null` for anything else, which no `WaitForCheckedAsync` call satisfies.
+Focus is the element user input reaches: inside a shadow tree that is the inner control, not the host
+`document.activeElement` names. A missing target is not focused.
+
+Each look resolves the target against the current document, exactly like the waits above. A `Regex` or
+predicate runs on the waiting thread over a detached string or `Uri`, never on the page loop; an exception
+it throws faults the returned task.
