@@ -42,6 +42,16 @@ References belong to one document and stop resolving after navigation.
 
 `SetTouchEmulationAsync(enabled, maxTouchPoints)` is the separate question of what the page *detects*: `ontouchstart` and its three siblings on `window`, `document` and elements, `navigator.maxTouchPoints`, and the `(pointer: coarse)` / `(hover: none)` media features. A tap is delivered either way — a page that added a `touchstart` listener hears one — so emulation is what lets a responsive page decide to add one. It belongs to the page and survives navigation; `BrowserOptions.HasTouch` is the same setting one level up, so a page opens as a touch device and its first document parses in one.
 
+`EmulateMediaAsync` is the same kind of setting for the media environment — Playwright's `page.emulateMedia`, and the in-process half of the protocol's `Emulation.setEmulatedMedia`, over the same page state:
+
+```csharp
+await page.EmulateMediaAsync(new MediaEmulation { ReducedMotion = "reduce" });
+await page.EmulateMediaAsync(new MediaEmulation { ColorScheme = "dark" }); // reduced motion stays on
+await page.EmulateMediaAsync(new MediaEmulation { Media = "print", ColorScheme = "" }); // print; scheme back to the default
+```
+
+`MediaEmulation` carries `Media` (`screen`, `print`), `ColorScheme` (`light`, `dark`, `no-preference`), `ReducedMotion` (`reduce`, `no-preference`), `ForcedColors` (`active`, `none`) and `Contrast` (`no-preference`, `more`, `less`, `custom`). A property left `null` keeps the override already in force and an empty string clears it; any other keyword is refused with `ArgumentException`. The loaded document moves: every `matchMedia` list whose answer changed fires `change` before the call completes, and stylesheet `@media` rules follow on the next style read. The setting belongs to the page and survives navigation. `BrowserOptions.MediaEmulation` and `BrowserContextOptions.MediaEmulation` are the page's defaults — merged property by property, context over browser — so a page, and a popup it opens, parses its first document in them. They sit beneath the overrides the way an operating-system preference does in a real browser: clearing an override, from `EmulateMediaAsync` or from a protocol client's `Emulation.setEmulatedMedia`, goes back to them.
+
 Methods that name an element return `false` when no suitable target exists.
 
 Color inputs keep their current value, dirty flag and reset behavior in native control state.

@@ -462,12 +462,193 @@ public sealed class InputDispatcherTests
         await BrowserTestAccess.DispatchKeyAsync(page, "Tab");
         (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("c");
 
-        // The order wraps, because there is nothing above the document to hand focus to.
+        // Past the last element focus leaves the document, as Chromium hands it to its own controls, and
+        // only the next Tab wraps round (#4618).
+        await BrowserTestAccess.DispatchKeyAsync(page, "Tab");
+        (await page.EvaluateAsync<string>("document.activeElement.localName")).Should().Be("body");
+
         await BrowserTestAccess.DispatchKeyAsync(page, "Tab");
         (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("a");
 
         await BrowserTestAccess.DispatchKeyAsync(page, "Tab", EventModifiers.Shift);
+        (await page.EvaluateAsync<string>("document.activeElement.localName")).Should().Be("body");
+
+        await BrowserTestAccess.DispatchKeyAsync(page, "Tab", EventModifiers.Shift);
         (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("c");
+    }
+
+    // https://github.com/sebastienros/jint/issues/4618 — the issue's repro: controls that are not being
+    // rendered (display: none on an ancestor, visibility: hidden on the element) are skipped like `hidden`
+    // and `disabled` ones, and focus leaves the document after the last control before it wraps. The
+    // expected order is chrome-headless-shell's.
+    [Test]
+    public async Task TabSkipsControlsThatAreNotRenderedAndLeavesTheDocumentBeforeWrapping()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <!doctype html>
+            <style>.hide { display: none } .vh { visibility: hidden }</style>
+            <details open id=d><summary>Type</summary>
+              <div class=hide><button id=close>Close</button></div>
+              <label><input type=checkbox id=first> First</label>
+            </details>
+            <details open id=d2><summary>Topic</summary>
+              <button id=close2 class=vh>Close</button>
+              <button id=close3 hidden>Close</button>
+              <button id=close4 disabled>Close</button>
+              <label><input type=checkbox id=second> Second</label>
+            </details>
+            """);
+        await page.EvaluateAsync("document.querySelector('#d summary').focus()");
+
+        var order = new List<string>();
+        for (var i = 0; i < 6; i++)
+        {
+            await page.PressAsync("Tab");
+            order.Add(await page.EvaluateAsync<string>("document.activeElement.id || document.activeElement.localName") ?? "");
+        }
+
+        string.Join(" -> ", order).Should().Be("first -> summary -> second -> body -> summary -> first");
+    }
+
+    [Test]
+    public async Task ShiftTabSkipsControlsThatAreNotRendered()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <button id=a>a</button>
+            <div style="display: none"><span><button id=gone>gone</button></span></div>
+            <button id=vh style="visibility: collapse">vh</button>
+            <button id=b>b</button>
+            <script>b.focus();</script>
+            """);
+
+        await page.PressAsync("Tab", global::Jint.Browser.KeyModifiers.Shift);
+        (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("a");
+        await page.PressAsync("Tab", global::Jint.Browser.KeyModifiers.Shift);
+        (await page.EvaluateAsync<string>("document.activeElement.localName")).Should().Be("body");
+        await page.PressAsync("Tab", global::Jint.Browser.KeyModifiers.Shift);
+        (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("b");
+    }
+
+    // A `visibility: visible` descendant escapes a hidden ancestor, and `display: contents` delegates the
+    // element's rendering to its children rather than removing it — both stay in the sequence.
+    [Test]
+    public async Task VisibleDescendantsOfHiddenAncestorsAndDisplayContentsStayFocusable()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <div style="visibility: hidden">
+              <button id=hidden>hidden</button>
+              <button id=visible style="visibility: visible">visible</button>
+            </div>
+            <button id=contents style="display: contents">contents</button>
+            """);
+
+        var order = new List<string>();
+        for (var i = 0; i < 3; i++)
+        {
+            await page.PressAsync("Tab");
+            order.Add(await page.EvaluateAsync<string>("document.activeElement.id || document.activeElement.localName") ?? "");
+        }
+
+        string.Join(",", order).Should().Be("visible,contents,body");
+    }
+
+    // https://github.com/sebastienros/jint/issues/4618 — focus() on an element that is not being rendered
+    // does nothing: no event, no change of activeElement, and the element that had focus keeps it.
+    [TestCase("<div style='display:none'><button id=target>x</button></div>")]
+    [TestCase("<div class=hide><div><input id=target></div></div>")]
+    [TestCase("<button id=target class=vh>x</button>")]
+    [TestCase("<div class=vh><a id=target href=#>x</a></div>")]
+    [TestCase("<button id=target style='display:none'>x</button>")]
+    [TestCase("<div style='display:none'><div id=target tabindex=0>x</div></div>")]
+    public async Task FocusDoesNothingOnAnElementThatIsNotRendered(string markup)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            "<style>.hide { display: none } .vh { visibility: hidden }</style><input id=keeper>" + markup);
+        await page.EvaluateAsync("""
+            keeper.focus();
+            window.events = [];
+            for (const type of ['focus', 'focusin', 'blur', 'focusout'])
+                document.addEventListener(type, e => events.push(type + ':' + e.target.id), true);
+            target.focus();
+            """);
+
+        (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("keeper");
+        (await page.EvaluateAsync<string>("events.join(',')")).Should().BeEmpty();
+        (await page.EvaluateAsync<bool>("target.matches(':focus')")).Should().BeFalse();
+    }
+
+    // The flat tree decides, not the DOM tree: a light-DOM child of a shadow host renders where its slot
+    // does, and not at all when no slot takes it. CSS Display §2.8 makes `display: contents` on a form
+    // control compute to `none`, and `hidden=until-found` hides its content without display: none.
+    [TestCase("<div id=host><button id=target slot=s>x</button></div>",
+        "host.attachShadow({mode:'open'}).innerHTML = \"<div style='display:none'><slot name=s></slot></div>\"")]
+    [TestCase("<div id=host><button id=target>x</button></div>",
+        "host.attachShadow({mode:'open'}).innerHTML = '<span>no slot</span>'")]
+    [TestCase("<input id=target style='display: contents'>", "")]
+    [TestCase("<div hidden=until-found><button id=target>x</button></div>", "")]
+    public async Task FocusFollowsTheFlatTreeAndTheDisplayRules(string markup, string setup)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id=keeper>" + markup);
+        await page.EvaluateAsync(setup + "; keeper.focus(); target.focus();");
+
+        (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("keeper");
+    }
+
+    [TestCase("<div id=host><button id=target>x</button></div>",
+        "host.attachShadow({mode:'open'}).innerHTML = '<div><slot></slot></div>'")]
+    [TestCase("<style>[hidden] { display: block }</style><div hidden><button id=target>x</button></div>", "")]
+    [TestCase("<button id=target style='display: contents'>x</button>", "")]
+    public async Task FocusReachesRenderedControlsTheDomTreeAloneWouldMisjudge(string markup, string setup)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id=keeper>" + markup);
+        await page.EvaluateAsync(setup + "; keeper.focus(); target.focus();");
+
+        (await page.EvaluateAsync<string>("document.activeElement.id")).Should().Be("target");
+    }
+
+    // The classification is the cascade's at the time of the call: revealing the subtree makes it focusable.
+    [Test]
+    public async Task FocusFollowsTheCurrentCascade()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>.hide { display: none }</style><div id=panel class=hide><button id=target>x</button></div>");
+
+        (await page.EvaluateAsync<string>("target.focus(); document.activeElement.localName")).Should().Be("body");
+        (await page.EvaluateAsync<string>("panel.classList.remove('hide'); target.focus(); document.activeElement.id")).Should().Be("target");
+    }
+
+    // A dialog looks for its focus delegate before it is open, while dialog:not([open]) is display: none;
+    // its own closed state must not hide the delegate, while a hidden subtree inside it still does.
+    [Test]
+    public async Task DialogShowFocusesItsFirstRenderedControl()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <dialog id=dlg>
+              <div style="display:none"><button id=gone>gone</button></div>
+              <button id=first>first</button>
+            </dialog>
+            """);
+
+        (await page.EvaluateAsync<string>("dlg.show(); document.activeElement.id")).Should().Be("first");
     }
 
     [Test]

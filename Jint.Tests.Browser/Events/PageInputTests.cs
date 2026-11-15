@@ -291,6 +291,24 @@ public sealed class PageInputTests
         (await page.FillAsync("#field", "2026-10-26")).Should().BeFalse();
     }
 
+    // https://github.com/sebastienros/jint/issues/4618 — a control that is not being rendered cannot take
+    // focus, so neither a fill nor typing reaches it, and the keys do not land in the control that kept focus.
+    [TestCase("<div style='display:none'><input id=field></div>", "text")]
+    [TestCase("<input id=field style='visibility:hidden'>", "text")]
+    [TestCase("<div style='display:none'><input id=field type=date></div>", "2026-10-26")]
+    public async Task FillAndTypeRefuseAControlThatIsNotRendered(string markup, string value)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<!doctype html><input id=keeper>" + markup);
+        await page.EvaluateAsync("keeper.focus()");
+
+        (await page.FillAsync("#field", value)).Should().BeFalse();
+        (await page.TypeAsync("#field", value)).Should().BeFalse();
+
+        (await page.EvaluateAsync<string>("field.value + '|' + keeper.value + '|' + document.activeElement.id")).Should().Be("||keeper");
+    }
+
     [TestCase(KeyModifiers.Control, "true:false")]
     [TestCase(KeyModifiers.Meta, "false:true")]
     public async Task PressCarriesModifiersWithoutInsertingShortcutText(KeyModifiers modifiers, string flags)
