@@ -150,7 +150,7 @@ internal sealed partial class PageLayout
         var nativeStamp = document.MutationStamp;
         var resources = NativeCssStyleSheets.Stamp(document);
         var version = Version;
-        var work = new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check);
+        var work = new CssValueWork(realm.CancellationToken, realm.CssCheckpoint);
         var sheets = NativeCssStyleSheets.Get(document, work, includeShadow: true);
         var roots = new CssStyleSheet[sheets.Count];
         for (var i = 0; i < roots.Length; i++)

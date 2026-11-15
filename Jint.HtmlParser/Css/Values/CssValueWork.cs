@@ -6,8 +6,6 @@ internal sealed class CssValueWork
     private readonly Action? _checkpoint;
     private readonly CssValueWork _counter;
     private int _sinceCheck;
-    private int _checks;
-    private const int CheckpointStride = 63;
     internal CancellationToken Token => _cancellationToken;
 
     internal CssValueWork(CancellationToken cancellationToken, Action? checkpoint = null)
@@ -30,13 +28,8 @@ internal sealed class CssValueWork
     internal void CheckCancellation()
     {
         _cancellationToken.ThrowIfCancellationRequested();
-        // The host checkpoint (an engine's constraints: a clock read, an allocation read) is amortized over
-        // the invocation's checks; the first check of an invocation always reaches it.
-        if (_checkpoint is not null && (_counter._checks++ & CheckpointStride) == 0)
-        {
-            _checkpoint();
-            _cancellationToken.ThrowIfCancellationRequested();
-        }
+        _checkpoint?.Invoke();
+        _cancellationToken.ThrowIfCancellationRequested();
     }
 
     internal void Charge(int utf16Units)

@@ -594,6 +594,27 @@ internal sealed class DomRealm
     // Trusted host-only checks. Native read work owns polling and never retains this callback.
     internal Action<int> NativeReadCheckpoint => _nativeReadCheckpoint ??= _ => Engine.Constraints.Check();
 
+    private Action? _cssCheckpoint;
+    private int _cssChecks;
+
+    /// <summary>
+    /// The engine's constraints as the native cascade's host checkpoint: consulted on every 64th check.
+    /// </summary>
+    /// <remarks>
+    /// The native cascade polls its host at every rule, sheet and name it visits, around a hundred thousand
+    /// times for one automation click, and each constraint check reads the clock for the turn's deadline. A
+    /// budget is a bound rather than an instant, so the clock is read at a stride shared by every query of the
+    /// realm, the way the interpreter's own amortized checks read it. Callers still observe their cancellation
+    /// token on every check; only the constraint pass is strided.
+    /// </remarks>
+    internal Action CssCheckpoint => _cssCheckpoint ??= () =>
+    {
+        if ((_cssChecks++ & 63) == 0)
+        {
+            Engine.Constraints.Check();
+        }
+    };
+
     internal CancellationToken CancellationToken
         => Engine.Constraints.Find<Jint.Constraints.CancellationConstraint>()?.Token ?? default;
 

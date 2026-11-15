@@ -221,7 +221,10 @@ internal sealed class PlaywrightLane : ILane
         var options = new JintOptions();
         if (Environment.GetEnvironmentVariable("PERF_RAF_MS") is { } raf)
         {
-            options.AnimationFrameInterval = TimeSpan.FromMilliseconds(double.Parse(raf));
+            // Through reflection, so the harness also builds against a Jint.Browser without the option.
+            var property = typeof(JintOptions).GetProperty("AnimationFrameInterval")
+                ?? throw new InvalidOperationException("PERF_RAF_MS needs BrowserOptions.AnimationFrameInterval");
+            property.SetValue(options, TimeSpan.FromMilliseconds(double.Parse(raf)));
         }
 
         return options;
