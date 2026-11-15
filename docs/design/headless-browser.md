@@ -305,8 +305,10 @@ a value of the document that replaced it.
 
 `Jint.Browser` reaches all of that through one seam, `IPageObserver`, and a page has exactly one observer.
 `DocumentCreated` fires after the window installer and before the parse, on the loop thread, which is what
-makes it the place to replace the engine, re-install the bindings and run the new-document scripts: every one
-of them has to be in place before the document's first inline script. `Phase`, `SameDocumentNavigated`,
+makes it the place to replace the engine and re-install the bindings: both have to be in place before the
+document's first inline script. The new-document scripts are the page's (`Page.AddInitScriptAsync` adds to the
+same store, `BrowserContext.AddInitScriptAsync` to one run first), and the page runs them a moment later, once
+the empty document exists with `readyState` `loading` and before the parser reads a byte. `Phase`, `SameDocumentNavigated`,
 `TitleChanged`, `DialogOpening`/`DialogClosed`, `NetworkIdle` and `Closed` are the rest.
 
 The events of a cross-document navigation, in the order the recordings show Chrome sending them:

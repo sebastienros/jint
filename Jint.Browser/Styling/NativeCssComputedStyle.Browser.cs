@@ -13,5 +13,10 @@ internal sealed partial class NativeCssComputedStyle
 
     internal NativeCssReadContext? ReadContext { get; private set; }
 
+    // Dom/Views/ResolvedLengths memoizes this view's computed font-size and its root's here; a view is no
+    // longer lived than the query snapshot its cascaded text came from.
+    internal double? ResolvedFontSize { get; set; }
+    internal double? ResolvedRootFontSize { get; set; }
+
     partial void CopyBrowserReadContext(NativeCssComputedStyle view) => view.ReadContext = ReadContext;
 }

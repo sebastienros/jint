@@ -61,8 +61,8 @@ public class FrontEndDomainTests
     {
         await using var session = await PageSession.CreateAsync();
         var style = cyclicVariables
-            ? "--a:var(--b);--b:var(--a);display:inline;color:var(--a,rgb(1,2,3));mask-image:linear-gradient(red, blue)"
-            : "display:inline;color:rgb(1,2,3);mask-image:linear-gradient(red, blue)";
+            ? "--a:var(--b);--b:var(--a);display:inline;color:var(--a,rgb(1,2,3));mask-image:linear-gradient(red, blue);margin-left:2rem"
+            : "display:inline;color:rgb(1,2,3);mask-image:linear-gradient(red, blue);margin-left:2rem";
         var attachment = await OpenAsync(session, $"<html><body><div id='box' style='{style}'>x</div></body></html>");
 
         await session.ResultAsync("CSS.enable", null, attachment);
@@ -95,6 +95,12 @@ public class FrontEndDomainTests
         mask.Should().Be("linear-gradient(rgb(255, 0, 0), rgb(0, 0, 255))");
         mask.Should().Be((await session.EvaluateAsync(
             "getComputedStyle(document.getElementById('box')).maskImage",
+            attachment)).GetProperty("value").GetString());
+        // Lengths are absolutized on both lanes too (#4615).
+        var margin = computed.Single(p => p.GetProperty("name").GetString() == "margin-left").GetProperty("value").GetString();
+        margin.Should().Be("32px");
+        margin.Should().Be((await session.EvaluateAsync(
+            "getComputedStyle(document.getElementById('box')).marginLeft",
             attachment)).GetProperty("value").GetString());
 
         var inline = (await session.ResultAsync("CSS.getInlineStylesForNode", $$"""{"nodeId":{{nodeId}}}""", attachment))
