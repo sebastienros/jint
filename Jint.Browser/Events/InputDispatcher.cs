@@ -686,11 +686,20 @@ internal static partial class InputDispatcher
     /// https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation — <kbd>Tab</kbd>,
     /// and <kbd>Shift</kbd>+<kbd>Tab</kbd> the other way.
     /// </summary>
+    /// <remarks>
+    /// Past the last element (or before the first) focus leaves the document, as Chromium hands it to its own
+    /// controls: the element loses focus with its <c>blur</c> and <c>focusout</c>, <c>activeElement</c> is the
+    /// body, and the next <kbd>Tab</kbd> starts over from the first element.
+    /// </remarks>
     private static void MoveFocus(DomRealm dom, Document document, Element from, bool backwards)
     {
         if (FocusController.NextInTabOrder(dom, document, from, backwards) is { } next)
         {
             FocusController.Focus(dom, next);
+        }
+        else
+        {
+            FocusController.Blur(dom, from);
         }
     }
 

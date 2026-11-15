@@ -202,7 +202,10 @@ change-event scheduling rather than replacing the evaluator on the assumption th
 An `Emulation` command writes the page's `Runtime/EmulationState`, not protocol-target state: overrides
 outlive the document. Viewport, media, touch, focus, geolocation, user agent and hardware concurrency can
 affect the loaded document; time zone, locale and script execution affect the next document. Each command
-states its boundary, including accepted no-ops.
+states its boundary, including accepted no-ops. The public `Page.EmulateMediaAsync` and the
+`MediaEmulation` defaults on `BrowserOptions`/`BrowserContextOptions` write that same state through
+`EmulationState`: `EmulateMedia` **merges** (Playwright's shape) where `ReplaceMedia` (CDP) replaces, and
+the host defaults are a layer beneath both overrides, as `DefaultViewport` is beneath `Viewport`.
 
 `NavigatorInstaller` and `TouchEmulation` add accessors without discarding the engine's shared shapes.
 Touch emulation controls detection; `Input.dispatchTouchEvent` can deliver input regardless.
@@ -268,7 +271,8 @@ The pressure to promote and the table of promoted seams are
 [`Jint.Browser.Tool/AGENTS.md`](../Jint.Browser.Tool/AGENTS.md). `Jint.Browser.Tool` and `Jint.Browser.Mcp`
 take **no** `InternalsVisibleTo` grant: what they cannot reach is what an embedder cannot reach. Publish a
 necessary `Page` seam over existing internals rather than granting either friend access. **A target is a
-selector or a `ref=`**; `Runtime/ElementLocator` decides.
+selector, a `ref=`, or a `role=`/`label=`/`text=` locator chained with `>>`**; `Runtime/ElementLocator`
+decides, and a role target asks the snapshot's own walk (`AccessibilityTree.Query`), never page script.
 
 `Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the reviewable public API baseline.
 **The public Browser API does not expose native DOM nodes**, which is why `Page.SubmitFormAsync` takes a

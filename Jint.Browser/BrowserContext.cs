@@ -41,7 +41,14 @@ public sealed class BrowserContext : IAsyncDisposable
             maxStorage = browser.Options.MaxTotalStorageBytes;
         Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault,
             browser.Options.MaxCacheStorageBytes, browser.Options.MaxIndexedDbBytes, maxStorage);
+        MediaEmulation = options.MediaEmulation;
     }
+
+    /// <summary>
+    /// <see cref="BrowserContextOptions.MediaEmulation"/>, read once when the context was created and applied
+    /// over the browser's own to every page the context opens.
+    /// </summary>
+    internal MediaEmulation? MediaEmulation { get; }
 
     /// <summary>The browser this context belongs to.</summary>
     public Browser Browser { get; }
