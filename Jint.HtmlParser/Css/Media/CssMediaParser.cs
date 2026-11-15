@@ -370,7 +370,7 @@ internal static class CssMediaParser
     private static bool InParens(CssComponentValue value) => value.Kind == CssComponentKind.Function ||
         (value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '(');
     private static string? Ident(CssComponentValue value, CssValueWork work) => Token(value, CssTokenKind.Ident)
-        ? CssPropertyRegistry.NormalizeName(value.Token.Text, work) : null;
+        ? CssPropertyRegistry.LowerAscii(value.Token.Text, work) : null;
     private static bool Token(CssComponentValue value, CssTokenKind kind) => value.Kind == CssComponentKind.Token && value.Token.Kind == kind;
     private static bool Delim(CssComponentValue value, char delimiter) => Token(value, CssTokenKind.Delim) && value.Token.Delimiter == delimiter;
     private sealed class MediaSyntaxException : Exception;

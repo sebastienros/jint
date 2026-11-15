@@ -16,15 +16,9 @@ internal static class ResolvedStyle
         style.VerifyRead();
         var name = CssPropertyRegistry.NormalizeName(propertyName, style.Work);
         var value = style.GetNormalizedProperty(name).Text;
-        if (IsColor(name))
+        if (IsColor(name) || ResolvedValueText.IsImage(name) || IsPosition(name))
         {
-            value = Color(name, value, style);
-            style.VerifyRead();
-            return value;
-        }
-        if (ResolvedValueText.IsImage(name))
-        {
-            value = ResolvedValueText.Image(value, style);
+            value = ResolvedText(name, value, style);
             style.VerifyRead();
             return value;
         }
@@ -51,11 +45,20 @@ internal static class ResolvedStyle
         return value;
     }
 
-    /// <summary>A settled property's resolved color (gradient stops included), or its text unchanged otherwise.</summary>
-    internal static string ColorOf(string name, string value, NativeCssComputedStyle style) =>
+    /// <summary>
+    /// A settled property's resolved value where it needs no box: a color (gradient stops included) or a
+    /// position; its text unchanged otherwise. The CSSOM and the DevTools CSS domain share this one answer.
+    /// </summary>
+    internal static string ResolvedText(string name, string value, NativeCssComputedStyle style) =>
         IsColor(name) ? Color(name, value, style)
         : ResolvedValueText.IsImage(name) ? ResolvedValueText.Image(value, style)
+        : IsPosition(name) ? CssBoxShorthands.ComputedPosition(value, style.Work) ?? value
         : value;
+
+    // CSS Masking 1 §7.4: mask-position computes like background-position, each axis a percentage or an
+    // offset (CSS Backgrounds 3 §2.6), which is what Chromium reports. A value that is not one stays text.
+    // background-position-x/-y hold one axis each and still report declared text.
+    private static bool IsPosition(string name) => name == "mask-position";
 
     // CSSOM §9 (resolved value): color properties report the used color; CSS Color 4 §4.6 makes
     // currentcolor the element's color, and on 'color' itself the inherited one.
