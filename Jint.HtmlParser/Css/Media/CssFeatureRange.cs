@@ -72,7 +72,7 @@ internal sealed record CssFeatureRange(string Name, CssMediaComparison FirstComp
             secondComparison = second.Comparison;
         }
         work.Charge(items.Length);
-        return new(CssPropertyRegistry.NormalizeName(name, work), first.Comparison, value, reversed, secondComparison, last);
+        return new(CssPropertyRegistry.LowerAscii(name, work), first.Comparison, value, reversed, secondComparison, last);
     }
 
     internal static CssComponentValue[] WithoutWhitespace(CssComponentValueList values, CssValueWork work)
