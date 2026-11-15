@@ -34,6 +34,7 @@ namespace Jint.Browser
         public BrowserContextOptions() { }
         public bool BlockPrivateNetwork { get; set; }
         public Jint.WebApi.Fetch.CookieJar? CookieJar { get; set; }
+        public bool? HasTouch { get; set; }
         public Jint.Browser.BrowserHttpCacheOptions HttpCache { get; }
         public System.Net.Http.HttpClient? HttpClient { get; set; }
         public System.Func<Jint.Engine, System.Net.Http.HttpClient>? HttpClientFactory { get; set; }
@@ -42,6 +43,7 @@ namespace Jint.Browser
         public Jint.Browser.MediaEmulation? MediaEmulation { get; set; }
         public Jint.Browser.StoragePartitionProvider? StoragePartition { get; set; }
         public System.Func<System.Uri, bool>? UrlFilter { get; set; }
+        public Jint.Browser.Viewport? Viewport { get; set; }
     }
     public sealed class BrowserHttpCacheOptions
     {
@@ -177,6 +179,7 @@ namespace Jint.Browser
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageRequest> Requests { get; }
         public Jint.Browser.PageResponse? Response { get; }
         public string Url { get; }
+        public Jint.Browser.Viewport Viewport { get; }
         public int Workers { get; }
         public event System.EventHandler<Jint.Browser.DialogEventArgs>? DialogOpened;
         public event System.EventHandler<Jint.Browser.Page>? Popup;
@@ -228,6 +231,8 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> SetInputFilesAsync(string target, int index, System.Collections.Generic.IReadOnlyList<Jint.Browser.PageFile> files) { }
         public System.Threading.Tasks.Task<bool> SetInputFilesAsync(string target, int index, System.Collections.Generic.IReadOnlyList<string> paths) { }
         public System.Threading.Tasks.Task SetTouchEmulationAsync(bool enabled, int maxTouchPoints = 1) { }
+        public System.Threading.Tasks.Task SetViewportAsync(Jint.Browser.Viewport viewport) { }
+        public System.Threading.Tasks.Task SetViewportSizeAsync(int width, int height) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> SubmitFormAsync(string selector, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> TapAsync(string target, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task TapAsync(double x, double y, Jint.Browser.NavigationOptions? options = null) { }

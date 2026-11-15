@@ -56,6 +56,53 @@ public sealed class BrowserContextOptions
         }
     }
 
+    /// <summary>
+    /// The viewport every page of this context opens with, or <see langword="null"/> — the default — for
+    /// <see cref="BrowserOptions.Viewport"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The device-profile half of a context, which is what lets one browser drive a desktop, a tablet and a
+    /// phone at once: each context's pages report their own <c>innerWidth</c>, <c>devicePixelRatio</c> and
+    /// dimension media features from their <b>first</b> document. A popup a page of this context opens opens
+    /// at this size too.
+    /// </para>
+    /// <para>
+    /// It is where a page starts, not where it has to stay: <see cref="Page.SetViewportAsync(Jint.Browser.Viewport)"/>
+    /// and a protocol client's <c>Emulation.setDeviceMetricsOverride</c> resize one page, and
+    /// <c>Emulation.clearDeviceMetricsOverride</c> puts it back to this value. Read once, when the context is
+    /// created; its width and height must be at least 1 and its device scale factor positive and finite.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a usable viewport.</exception>
+    public Viewport? Viewport
+    {
+        get => _viewport;
+        set
+        {
+            if (value is { } viewport)
+            {
+                Jint.Browser.Viewport.ThrowIfUnusable(viewport, nameof(value));
+            }
+
+            _viewport = value;
+        }
+    }
+
+    private Viewport? _viewport;
+
+    /// <summary>
+    /// Whether every page of this context opens as a touch device, or <see langword="null"/> — the default —
+    /// for <see cref="BrowserOptions.HasTouch"/>.
+    /// </summary>
+    /// <remarks>
+    /// The other half of a device profile, beside <see cref="Viewport"/>, with the meaning
+    /// <see cref="BrowserOptions.HasTouch"/> gives it: what a page <i>detects</i> from its first document, which
+    /// <see cref="Page.SetTouchEmulationAsync"/> changes later for one page. Read once, when the context is
+    /// created.
+    /// </remarks>
+    public bool? HasTouch { get; set; }
+
     /// <summary>Where this context's cookies live.</summary>
     /// <remarks>
     /// <para>

@@ -397,7 +397,7 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
     }
 
     private Viewport Viewport()
-        => PageRuntime.Find(_target.Runtime.Engine)?.Viewport ?? _target.Emulation.DefaultViewport;
+        => PageRuntime.Find(_target.Runtime.Engine)?.Viewport ?? _target.Emulation.Viewport;
 
     /// <summary>Refuses a frame identifier that is not the page's one scripted frame.</summary>
     private void RequireMainFrame(string? frameId)

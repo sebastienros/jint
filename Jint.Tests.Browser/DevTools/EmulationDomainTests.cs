@@ -92,6 +92,55 @@ public class EmulationDomainTests
         (await Flag(session, attachment, "matchMedia('(max-width: 600px)').matches")).Should().BeTrue();
     }
 
+    /// <summary>
+    /// The metrics override and <see cref="Page.SetViewportAsync(Viewport)"/> are one write: either fires
+    /// <c>resize</c>, each sees the other's value, and clearing goes back to the <i>context's</i> viewport.
+    /// </summary>
+    [Test]
+    public async Task DeviceMetricsAndTheHostApiAreOneViewportAndBothFireResize()
+    {
+        await using var session = await PageSession.CreateAsync(
+            new BrowserContextOptions { Viewport = new Viewport(1024, 768, 2) });
+        var page = await session.NewPageAsync();
+        var attachment = await session.AttachAsync(await session.TargetForAsync(page));
+
+        await session.EvaluateAsync(
+            "window.sizes = []; addEventListener('resize', () => sizes.push(innerWidth + 'x' + innerHeight));",
+            attachment);
+
+        await session.ResultAsync(
+            "Emulation.setDeviceMetricsOverride",
+            """{"width":390,"height":844,"deviceScaleFactor":3,"mobile":true}""",
+            attachment);
+        page.Viewport.Should().Be(new Viewport(390, 844, 3));
+
+        await page.SetViewportSizeAsync(600, 844);
+        (await Text(session, attachment, "innerWidth + '@' + devicePixelRatio")).Should().Be("600@3");
+
+        await session.ResultAsync("Emulation.clearDeviceMetricsOverride", null, attachment);
+        page.Viewport.Should().Be(new Viewport(1024, 768, 2));
+        (await Text(session, attachment, "sizes.join(' ')")).Should().Be("390x844 600x844 1024x768");
+    }
+
+    /// <summary>A zero width or height is the protocol's "no override" for that dimension.</summary>
+    [Test]
+    public async Task AZeroDimensionLeavesTheOpenedOneAndOnlyTheScaleFactorMoves()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var page = await session.NewPageAsync();
+        var attachment = await session.AttachAsync(await session.TargetForAsync(page));
+
+        await session.EvaluateAsync("window.resized = 0; addEventListener('resize', () => resized++);", attachment);
+        await session.ResultAsync(
+            "Emulation.setDeviceMetricsOverride",
+            """{"width":0,"height":0,"deviceScaleFactor":2,"mobile":false}""",
+            attachment);
+
+        (await Text(session, attachment, "innerWidth + 'x' + innerHeight + '@' + devicePixelRatio + ' ' + resized"))
+            .Should().Be("1280x720@2 0");
+        page.Viewport.Should().Be(new Viewport(1280, 720, 2));
+    }
+
     [Test]
     public async Task SetVisibleSizeResizesTheViewportAndKeepsTheDeviceScaleFactor()
     {

@@ -98,7 +98,7 @@ public sealed partial class Page : IAsyncDisposable
         WindowHandle = windowHandle ?? new BrowsingContextHandle();
         _options = options;
         _recorder = recorder;
-        Emulation = new EmulationState(options.Viewport, options.UserAgent) { TouchEnabled = options.HasTouch };
+        Emulation = new EmulationState(context.Viewport, options.UserAgent) { TouchEnabled = context.HasTouch };
 
         // The browser's defaults, then the context's over them, before the loop builds the first engine — so
         // the blank document and the first one navigated to both parse in the emulated media.
@@ -194,8 +194,9 @@ public sealed partial class Page : IAsyncDisposable
     /// It outlives every document, because that is what an override means: the engine factory reads it when
     /// it builds the next one, and the window installer reads it on every access. The <c>Emulation</c>
     /// domain is what writes it, on the loop thread, and so do the public emulation members —
-    /// <see cref="SetTouchEmulationAsync"/> and <see cref="EmulateMediaAsync"/> — which are mailbox requests
-    /// over the same state rather than a second copy of it.
+    /// <see cref="SetViewportAsync(Jint.Browser.Viewport)"/>, <see cref="SetTouchEmulationAsync"/> and
+    /// <see cref="EmulateMediaAsync"/> — which are mailbox requests over the same state rather than a second
+    /// copy of it.
     /// </remarks>
     internal EmulationState Emulation { get; }
 
@@ -640,14 +641,6 @@ public sealed partial class Page : IAsyncDisposable
     /// under one identifier, and a failure has to name that one rather than the document still showing.
     /// </remarks>
     internal string PendingLoaderId => _pendingLoaderId;
-
-    /// <summary>The page's viewport, which is a document's rather than the browser's once one overrides it.</summary>
-    internal Task<Viewport> ViewportAsync()
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Viewport ?? _options.Viewport);
-
-    /// <summary>Overrides what the page believes its window to be, announcing the change to its media queries.</summary>
-    internal Task SetViewportAsync(Viewport viewport)
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.SetViewport(viewport));
 
     /// <summary>The context's network position, which owns the cookie jar every document read shares.</summary>
     internal PageNetwork Network => _network;

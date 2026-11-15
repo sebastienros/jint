@@ -273,6 +273,20 @@ entity work uses the smaller of that ceiling and the default. Parser limits are 
 not XML syntax errors or `parsererror` documents. Allocation constraints can fail before these ceilings.
 Standalone parser callers can explicitly select `ParseLimits.Unbounded` for trusted XML.
 
+### Viewport changes (#4622)
+
+`Page.SetViewportAsync`, `SetViewportSizeAsync` and `Emulation.setDeviceMetricsOverride` share
+`EmulationState.SetViewport`. With no rendering loop, HTML's
+[update the rendering](https://html.spec.whatwg.org/multipage/webappapis.html#update-the-rendering) work
+runs synchronously when the viewport changes, not at the next frame. It keeps that algorithm's order: window
+`resize`, `visualViewport` `resize`, then `MediaQueryList` `change`. Only a width or height change counts as
+a resize. [Reacting to environment changes](https://html.spec.whatwg.org/multipage/images.html#img-environment-changes)
+runs after every change, for the principal document's `<img>` elements (shadow trees included) that select
+from a `srcset` or a `<picture>`. Each image that now selects another URL queues a task to fetch it, and the
+viewport change does not wait for that task. An image whose earlier selection named nothing is included. A
+fetch that fails leaves the image broken instead of keeping the previous one. Child frames' images are not
+selected again. `Runtime/ViewportResizeTests` pins this behaviour.
+
 ### Automatic HTTP cache
 
 The context-owned private cache stores only complete `200 GET` responses, with explicit freshness and

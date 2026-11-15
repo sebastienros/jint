@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Jint.Browser.Runtime;
@@ -24,10 +25,10 @@ namespace Jint.Browser.Runtime;
 /// says so. Script execution is the document's, decided when its parse starts.
 /// </para>
 /// <para>
-/// Written on the page loop and read from a transport thread by <c>Browser.getWindowForTarget</c>, which is
-/// why the viewport is a plain property of a reference type rather than something torn: a window's size is
-/// two integers a client asked for moments ago, and a round trip to the loop for it would be a command
-/// waiting behind a page's own script.
+/// Written on the page loop and read from other threads, by <c>Browser.getWindowForTarget</c> and by
+/// <see cref="Page.Viewport"/>, which is why the viewport is published whole rather than written in place: a
+/// window's size is a value a client asked for moments ago, and a round trip to the loop for it would be a
+/// command waiting behind a page's own script.
 /// </para>
 /// </remarks>
 internal sealed class EmulationState
@@ -39,7 +40,7 @@ internal sealed class EmulationState
     {
         DefaultViewport = defaultViewport;
         DefaultUserAgent = defaultUserAgent;
-        Viewport = defaultViewport;
+        _viewport = new StrongBox<Viewport>(defaultViewport);
     }
 
     /// <summary>The viewport the page opened with, which clearing an override restores.</summary>
@@ -52,9 +53,32 @@ internal sealed class EmulationState
     /// <remarks>
     /// Kept here as well as on the page runtime so that <c>Browser.getWindowForTarget</c> can answer it from
     /// a transport thread: the runtime's copy belongs to the page loop, and a window's size is not worth a
-    /// round trip to it.
+    /// round trip to it. <see cref="Jint.Browser.Viewport"/> is two integers and a double, too wide to be read in one piece, so each
+    /// write publishes a new box and a reader on another thread sees one whole value, old or new, never a mix
+    /// of the two.
     /// </remarks>
-    internal Viewport Viewport { get; set; }
+    internal Viewport Viewport => Volatile.Read(ref _viewport).Value;
+
+    private StrongBox<Viewport> _viewport;
+
+    /// <summary>
+    /// What <c>Emulation.setDeviceMetricsOverride</c>, <c>setVisibleSize</c>, <c>clearDeviceMetricsOverride</c>
+    /// and <see cref="Page.SetViewportAsync(Jint.Browser.Viewport)"/> all do: record the viewport, then move the
+    /// document that is already loaded to it.
+    /// </summary>
+    /// <remarks>
+    /// One implementation with two entry points, the way <see cref="TouchEmulation.Set"/> is, so a host in this
+    /// process and a protocol client on the socket cannot leave a page in two different states. Recording it
+    /// here first is what makes it outlive the document: the next engine's media environment is built from
+    /// this object. <see cref="PageRuntime.SetMedia"/> is what the loaded document hears — <c>resize</c>, the
+    /// visual viewport, every <c>MediaQueryList</c> whose answer moved and the image source sets. Called on the
+    /// page loop by both.
+    /// </remarks>
+    internal void SetViewport(Viewport viewport, PageRuntime? runtime)
+    {
+        Volatile.Write(ref _viewport, new StrongBox<Viewport>(viewport));
+        runtime?.SetMedia(MediaEnvironment);
+    }
 
     /// <summary>Whether a client told the page it is offline, which is what <c>navigator.onLine</c> answers.</summary>
     /// <remarks>

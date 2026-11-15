@@ -439,6 +439,11 @@ internal sealed partial class ParserDriver : IDisposable
         {
             var images = _runtime.Images;
 
+            if (Media.ImageSourceSet.UsesSourceSet(_runtime, image))
+            {
+                images.RememberSourceSet(image);
+            }
+
             // https://html.spec.whatwg.org/multipage/images.html#update-the-source-set
             // Select from the native element's attributes using the page's viewport and media state.
             // The recorded request URL alone does not account for srcset descriptors or picture sources.

@@ -48,6 +48,14 @@ References belong to one document and stop resolving after navigation.
 
 `SetTouchEmulationAsync(enabled, maxTouchPoints)` is the separate question of what the page *detects*: `ontouchstart` and its three siblings on `window`, `document` and elements, `navigator.maxTouchPoints`, and the `(pointer: coarse)` / `(hover: none)` media features. A tap is delivered either way — a page that added a `touchstart` listener hears one — so emulation is what lets a responsive page decide to add one. It belongs to the page and survives navigation; `BrowserOptions.HasTouch` is the same setting one level up, so a page opens as a touch device and its first document parses in one.
 
+`SetViewportSizeAsync(width, height)` resizes an open page and keeps its device scale factor. `SetViewportAsync(viewport)` also sets the scale factor, and `Page.Viewport` returns the current value. The loaded document is updated before the task completes. `innerWidth`, `devicePixelRatio`, `screen`, `visualViewport` and the boxes return the new values. A size change fires `resize` at the window, and then at `visualViewport`. Each `MediaQueryList` whose result changed fires `change`. Stylesheet `@media` rules are evaluated against the new size, and an `<img>` whose `srcset` or `<picture>` now selects another candidate queues a fetch for it. `WaitForIdleAsync` waits for those fetches. CDP's `Emulation.setDeviceMetricsOverride` performs the same update, and the viewport persists across navigation. `BrowserContextOptions.Viewport` and `BrowserContextOptions.HasTouch` set the starting device profile for one context's pages and override `BrowserOptions.Viewport` and `HasTouch`. One browser can therefore drive desktop, tablet and phone contexts together:
+
+```csharp
+var phone = await browser.NewContextAsync(new BrowserContextOptions { Viewport = new Viewport(390, 844, 3), HasTouch = true });
+var page = await phone.NewPageAsync();
+await page.SetViewportSizeAsync(320, 640);
+```
+
 `EmulateMediaAsync` is the same kind of setting for the media environment — Playwright's `page.emulateMedia`, and the in-process half of the protocol's `Emulation.setEmulatedMedia`, over the same page state:
 
 ```csharp

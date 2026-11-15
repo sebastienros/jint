@@ -73,6 +73,54 @@ internal sealed class PageImages
     /// </remarks>
     internal bool TryStart(int ceiling) => _started++ < ceiling;
 
+    // Every image whose selection can depend on the environment, in the order the driver first selected for
+    // it. Weak, so a removed image collects; the table keeps an element from being listed twice.
+    private List<WeakReference<Element>>? _sourceSetImages;
+    private ConditionalWeakTable<Element, object>? _sourceSetMembers;
+
+    /// <summary>
+    /// Records that <paramref name="image"/> selects from a <c>srcset</c> or a <c>&lt;picture&gt;</c>, so a
+    /// viewport or media change knows to select for it again.
+    /// </summary>
+    /// <remarks>
+    /// Recorded when the driver selects, whether or not the selection named a URL: an image whose every
+    /// candidate was ruled out at one width is exactly the one that may select something at another.
+    /// </remarks>
+    internal void RememberSourceSet(Element image)
+    {
+        var members = _sourceSetMembers ??= new ConditionalWeakTable<Element, object>();
+        if (members.TryGetValue(image, out _))
+        {
+            return;
+        }
+
+        members.Add(image, image);
+        (_sourceSetImages ??= []).Add(new WeakReference<Element>(image));
+    }
+
+    /// <summary>The source-set images still alive, pruning the ones that were collected.</summary>
+    internal List<Element> SourceSetImages()
+    {
+        var alive = new List<Element>();
+        if (_sourceSetImages is not { } images)
+        {
+            return alive;
+        }
+
+        images.RemoveAll(reference =>
+        {
+            if (!reference.TryGetTarget(out var image))
+            {
+                return true;
+            }
+
+            alive.Add(image);
+            return false;
+        });
+
+        return alive;
+    }
+
     /// <summary>
     /// Puts <paramref name="image"/>'s current request into the unavailable state, which is where
     /// <a href="https://html.spec.whatwg.org/multipage/images.html#update-the-image-data">update the image

@@ -275,7 +275,7 @@ public class FlatLayoutTests
         {
             var runtime = PageRuntime.Find(engine)!;
             var before = runtime.Layout.Current().Count;
-            runtime.SetViewport(new Viewport(400, 800));
+            page.Emulation.SetViewport(new Viewport(400, 800), runtime);
             return before - runtime.Layout.Current().Count;
         })).Should().Be(1);
         page.Errors.Should().BeEmpty();
@@ -322,7 +322,7 @@ public class FlatLayoutTests
 
         await page.RunOnLoopAsync(engine =>
         {
-            PageRuntime.Find(engine)!.SetViewport(new Viewport(0, 64));
+            page.Emulation.SetViewport(new Viewport(0, 64), PageRuntime.Find(engine));
             return 0;
         });
         (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('target')).width")).Should().Be("0px");

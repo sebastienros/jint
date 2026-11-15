@@ -41,8 +41,22 @@ public sealed class BrowserContext : IAsyncDisposable
             maxStorage = browser.Options.MaxTotalStorageBytes;
         Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault,
             browser.Options.MaxCacheStorageBytes, browser.Options.MaxIndexedDbBytes, maxStorage);
+        Viewport = options.Viewport ?? browser.Options.Viewport;
+        HasTouch = options.HasTouch ?? browser.Options.HasTouch;
         MediaEmulation = options.MediaEmulation;
     }
+
+    /// <summary>
+    /// The viewport this context's pages open with: <see cref="BrowserContextOptions.Viewport"/>, or the
+    /// browser's when the context named none.
+    /// </summary>
+    internal Viewport Viewport { get; }
+
+    /// <summary>
+    /// Whether this context's pages open as touch devices: <see cref="BrowserContextOptions.HasTouch"/>, or the
+    /// browser's when the context named none.
+    /// </summary>
+    internal bool HasTouch { get; }
 
     /// <summary>
     /// <see cref="BrowserContextOptions.MediaEmulation"/>, read once when the context was created and applied
