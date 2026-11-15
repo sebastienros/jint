@@ -9,12 +9,12 @@ public sealed class NativeCssContentAlignmentAndGapTests
     [TestCase("alignContent", "align-content", "first baseline", "first baseline", "first baseline")]
     [TestCase("justifyContent", "justify-content", "space-around", "space-around", "space-around")]
     [TestCase("placeContent", "place-content", "last baseline start", "last baseline start", "last baseline start")]
-    [TestCase("rowGap", "row-gap", "2em", "2em", "2em")]
+    [TestCase("rowGap", "row-gap", "2em", "2em", "40px")]
     [TestCase("columnGap", "column-gap", "thick", "", "normal")]
-    [TestCase("gap", "gap", "2em 3px", "2em 3px", "2em 3px")]
-    [TestCase("gridGap", "grid-gap", "2em", "2em", "2em")]
-    [TestCase("gridRowGap", "grid-row-gap", "2em", "2em", "2em")]
-    [TestCase("gridColumnGap", "grid-column-gap", "2em", "2em", "2em")]
+    [TestCase("gap", "gap", "2em 3px", "2em 3px", "40px 3px")]
+    [TestCase("gridGap", "grid-gap", "2em", "2em", "40px")]
+    [TestCase("gridRowGap", "grid-row-gap", "2em", "2em", "40px")]
+    [TestCase("gridColumnGap", "grid-column-gap", "2em", "2em", "40px")]
     public async Task NamedGenericRuleAndLiveComputedSurfacesAgree(string named, string property,
         string value, string specified, string computed)
     {
@@ -89,11 +89,11 @@ public sealed class NativeCssContentAlignmentAndGapTests
         (await page.EvaluateAsync<string>("""
             var box = document.getElementById('box'), computed = getComputedStyle(box);
             computed.gap + '|' + computed.placeContent
-            """)).Should().Be("2em 5%|baseline");
+            """)).Should().Be("40px 5%|baseline");
         (await page.EvaluateAsync<string>("""
             box.style.setProperty('--g','calc(-2px)');
             computed.gridGap + '|' + computed.rowGap + '|' + computed.columnGap
-            """)).Should().Be("calc(-2px) 5%|calc(-2px)|5%");
+            """)).Should().Be("0px 5%|0px|5%");
         (await page.EvaluateAsync<string>("""
             box.style.gridRowGap='4px';
             box.style.justifyContent='space-evenly';

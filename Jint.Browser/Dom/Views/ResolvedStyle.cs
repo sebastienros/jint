@@ -9,47 +9,74 @@ namespace Jint.Browser.Dom.Views;
 
 internal static class ResolvedStyle
 {
-    // Renderless CSSOM: width/height and grid column tracks use synthetic geometry, colors (also in gradients)
-    // resolve to sRGB; other values stay text.
+    // Renderless CSSOM: width/height, grid column tracks and transform/perspective origins use synthetic geometry,
+    // colors (also in gradients) resolve to sRGB, and lengths are absolutized; other values stay text.
     internal static string ValueOf(string propertyName, NativeCssComputedStyle style, Element element, PageRuntime? runtime)
     {
         style.VerifyRead();
         var name = CssPropertyRegistry.NormalizeName(propertyName, style.Work);
-        var value = style.GetNormalizedProperty(name).Text;
-        if (IsColor(name) || ResolvedValueText.IsImage(name) || IsPosition(name))
+        var property = style.GetNormalizedProperty(name);
+        var value = property.Text;
+        if (IsColor(name))
         {
             value = ResolvedText(name, value, style);
             style.VerifyRead();
             return value;
         }
+        var viewport = runtime?.Viewport ?? Viewport.Default;
+        if (ResolvedValueText.IsImage(name) || IsPosition(name))
+        {
+            value = ResolvedText(name, ResolvedLengths.Resolve(name, property, style, viewport), style);
+            style.VerifyRead();
+            return value;
+        }
+        // A pseudo-element has no box in the flat model, so its width, height and tracks stay computed values.
+        if ((name is "width" or "height" || name == "grid-template-columns" && ResolvedValueText.IsGridContainer(style)) &&
+            runtime is not null && style.Pseudo is null && ReferenceEquals(runtime.Document, element.OwnerDocument))
+        {
+            var sizes = style.ReadContext is { } context ? runtime.Layout.MeasureSizes(context) : runtime.Layout.MeasureSizes();
+            if (sizes.HasBox(element))
+            {
+                value = name == "grid-template-columns"
+                    ? ResolvedValueText.GridColumns(ResolvedLengths.Resolve(name, property, style, viewport), style, sizes.Width(element),
+                        () => ResolvedLengths.Resolve("column-gap", style.GetNormalizedProperty("column-gap"), style, viewport))
+                    : ResolvedLengths.Serialize(name == "width" ? sizes.Width(element) : sizes.Height(element)) + "px";
+                style.VerifyRead();
+                return value;
+            }
+        }
+        // CSSOM §9: a computed value holds absolute lengths and reduced math (CSS Values 4 §6, §10.13).
+        value = ResolvedLengths.Resolve(name, property, style, viewport);
         // CSSOM §9: transform's resolved value is its matrix. A list that needs a box to resolve stays text.
         if (name == "transform" && value != "none" &&
             Geometry.GeometryConversion.TryParse(value, style.Work, out var matrix, out var is2D))
         {
             value = Geometry.GeometryConversion.SerializeResolved(matrix, is2D);
-            style.VerifyRead();
-            return value;
         }
-        if (name == "grid-template-columns" && !ResolvedValueText.IsGridContainer(style)) return value;
-        // A pseudo-element has no box in the flat model, so its width, height and tracks stay computed values.
-        if (name is not ("width" or "height" or "grid-template-columns") || runtime is null || style.Pseudo is not null ||
-            !ReferenceEquals(runtime.Document, element.OwnerDocument)) return value;
-        var sizes = style.ReadContext is { } context ? runtime.Layout.MeasureSizes(context) : runtime.Layout.MeasureSizes();
-        if (sizes.HasBox(element))
+        else if (name is "transform-origin" or "perspective-origin")
         {
-            value = name == "grid-template-columns"
-                ? ResolvedValueText.GridColumns(value, style, sizes.Width(element))
-                : (name == "width" ? sizes.Width(element) : sizes.Height(element)).ToString("0.######", CultureInfo.InvariantCulture) + "px";
+            value = ResolvedOrigin.Resolve(name, value, style, element, runtime, viewport);
         }
         style.VerifyRead();
         return value;
     }
 
     /// <summary>
-    /// A settled property's resolved value where it needs no box: a color (gradient stops included) or a
-    /// position; its text unchanged otherwise. The CSSOM and the DevTools CSS domain share this one answer.
+    /// A settled property's resolved value where it needs no box: absolute lengths and reduced math, a color
+    /// (gradient stops included) or a position; its text unchanged otherwise. DevTools' CSS domain reports it.
     /// </summary>
-    internal static string ResolvedText(string name, string value, NativeCssComputedStyle style) =>
+    internal static string SettledValueOf(NativeCssProperty property, NativeCssComputedStyle style)
+    {
+        var document = style.Element.OwnerDocument;
+        var host = document is null ? null : NativeCssStyleSheets.RealmOf(document);
+        var viewport = (host is null ? null : PageRuntime.FindBrowsingContext(host.Engine, document))?.Viewport ?? Viewport.Default;
+        var value = ResolvedText(property.Name, ResolvedLengths.Resolve(property.Name, property, style, viewport), style);
+        style.VerifyRead();
+        return value;
+    }
+
+    // A settled color (gradient stops included) or position; the CSSOM and the DevTools CSS domain share it.
+    private static string ResolvedText(string name, string value, NativeCssComputedStyle style) =>
         IsColor(name) ? Color(name, value, style)
         : ResolvedValueText.IsImage(name) ? ResolvedValueText.Image(value, style)
         : IsPosition(name) ? CssBoxShorthands.ComputedPosition(value, style.Work) ?? value
