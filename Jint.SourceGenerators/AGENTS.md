@@ -42,6 +42,9 @@ usable on every in-support SDK — and `net472`, where the run-time compiled int
 is both the target with the most to gain and the one most likely to be on that SDK. **Raising it is a
 breaking change for consumers with no signature to show for it.** `Jint.SourceGenerators` is deliberately
 not pinned: it never leaves this repository, so this repository's SDK floor is the only one it has to meet.
+That is why the repository-wide version is never newer than the floor SDK's own Roslyn and Dependabot
+ignores it: a bump past that compiler makes every build on the floor SDK fail with the same `CS9057`, so
+it is moved by hand, with `global.json` in view (the note beside it in `Directory.Packages.props`).
 
 ## The pipeline model must be value-equatable, and every odd type here is why
 

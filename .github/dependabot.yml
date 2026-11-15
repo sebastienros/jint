@@ -14,6 +14,12 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # Never newer than the Roslyn of the SDK floor in global.json. Our source generators are loaded by
+      # the build's own compiler, which rejects one built against a newer Roslyn (CS9057), so a bump here
+      # can silently raise the minimum SDK. It is moved by hand; see the note in Directory.Packages.props. Also covers the 4.8.0 VersionOverride in Jint.SourceGenerators.Interop,
+      # which is a consumer-facing floor.
+      - dependency-name: "Microsoft.CodeAnalysis.CSharp"
     groups:
       # Roslyn analyzers and source generators (build-time only).
       analyzers:
