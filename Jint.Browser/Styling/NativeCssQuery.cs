@@ -137,7 +137,8 @@ internal sealed partial class NativeCssQuery
                 var property = GetProperty(element, pseudo, metadata.Longhands[i], ref matching);
                 entries[i] = new(property.Name, property.Text, false, default);
             }
-            return new(name, CssDeclarationBlock.ShorthandValue(entries, metadata, _work), null, NativeCssDisposition.Cascaded);
+            return new(name, CssDeclarationBlock.ShorthandValue(entries, metadata, _work, computed: true), null,
+                NativeCssDisposition.Cascaded);
         }
         if (name == "display")
         {
@@ -187,6 +188,7 @@ internal sealed partial class NativeCssQuery
             if (name == "display") text = Display(state, text, ref matching);
             // CSS Generated Content 3 §1.1: on ::before and ::after, content: normal computes to none.
             else if (currentPseudo is not null && name == "content" && text == "normal") text = "none";
+            else if (CssMotionShorthands.IsTimeList(name)) text = CssMotionShorthands.ComputedTimes(text, _work);
             result = new(name, text, candidate?.Source, disposition);
             state.Computed.Add(name, result);
             _diagnostics?.ComputedPublished(current, name);

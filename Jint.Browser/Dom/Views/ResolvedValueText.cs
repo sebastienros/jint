@@ -12,7 +12,7 @@ namespace Jint.Browser.Dom.Views;
 /// </summary>
 internal static class ResolvedValueText
 {
-    internal static bool IsImage(string name) => name is "background-image" or "mask-image" or "-webkit-mask-image"
+    internal static bool IsImage(string name) => name is "background-image" or "mask-image"
         or "list-style-image" or "border-image-source" or "mask-border-source";
 
     // CSS Images 3 §3 / CSS Color 4 §15.2: a computed <gradient> holds its color stops as computed colors,

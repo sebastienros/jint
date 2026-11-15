@@ -19,14 +19,14 @@ internal static class ResolvedStyle
         var value = property.Text;
         if (IsColor(name))
         {
-            value = Color(name, value, style);
+            value = ResolvedText(name, value, style);
             style.VerifyRead();
             return value;
         }
         var viewport = runtime?.Viewport ?? Viewport.Default;
-        if (ResolvedValueText.IsImage(name))
+        if (ResolvedValueText.IsImage(name) || IsPosition(name))
         {
-            value = ResolvedValueText.Image(ResolvedLengths.Resolve(name, property, style, viewport), style);
+            value = ResolvedText(name, ResolvedLengths.Resolve(name, property, style, viewport), style);
             style.VerifyRead();
             return value;
         }
@@ -62,25 +62,30 @@ internal static class ResolvedStyle
     }
 
     /// <summary>
-    /// A settled property's computed value as DevTools' computed style reports it: absolute lengths and reduced
-    /// math, and resolved colors (gradient stops included), without the box-dependent resolutions.
+    /// A settled property's resolved value where it needs no box: absolute lengths and reduced math, a color
+    /// (gradient stops included) or a position; its text unchanged otherwise. DevTools' CSS domain reports it.
     /// </summary>
     internal static string SettledValueOf(NativeCssProperty property, NativeCssComputedStyle style)
     {
         var document = style.Element.OwnerDocument;
         var host = document is null ? null : NativeCssStyleSheets.RealmOf(document);
         var viewport = (host is null ? null : PageRuntime.FindBrowsingContext(host.Engine, document))?.Viewport ?? Viewport.Default;
-        var value = ResolvedLengths.Resolve(property.Name, property, style, viewport);
-        value = ColorOf(property.Name, value, style);
+        var value = ResolvedText(property.Name, ResolvedLengths.Resolve(property.Name, property, style, viewport), style);
         style.VerifyRead();
         return value;
     }
 
-    /// <summary>A settled property's resolved color (gradient stops included), or its text unchanged otherwise.</summary>
-    private static string ColorOf(string name, string value, NativeCssComputedStyle style) =>
+    // A settled color (gradient stops included) or position; the CSSOM and the DevTools CSS domain share it.
+    private static string ResolvedText(string name, string value, NativeCssComputedStyle style) =>
         IsColor(name) ? Color(name, value, style)
         : ResolvedValueText.IsImage(name) ? ResolvedValueText.Image(value, style)
+        : IsPosition(name) ? CssBoxShorthands.ComputedPosition(value, style.Work) ?? value
         : value;
+
+    // CSS Masking 1 §7.4: mask-position computes like background-position, each axis a percentage or an
+    // offset (CSS Backgrounds 3 §2.6), which is what Chromium reports. A value that is not one stays text.
+    // background-position-x/-y hold one axis each and still report declared text.
+    private static bool IsPosition(string name) => name == "mask-position";
 
     // CSSOM §9 (resolved value): color properties report the used color; CSS Color 4 §4.6 makes
     // currentcolor the element's color, and on 'color' itself the inherited one.
