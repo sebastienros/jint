@@ -52,7 +52,7 @@ Notes:
 
 * The `--` separator is required so the arguments are forwarded to BenchmarkDotNet instead of being
   consumed by `dotnet run`.
-* Select `-f net10.0` or `-f net11.0` explicitly. The .NET 11 target uses runtime async.
+* Select `-f net10.0` or `-f net11.0` explicitly.
   BenchmarkDotNet 0.15.8 does not recognize .NET 11 in its runtime selector or out-of-process
   SDK validator. For an exploratory CLR async comparison, use
   `--inProcess --filter "*AsyncHostEntryBenchmark*"` on each framework, without `--runtimes`.

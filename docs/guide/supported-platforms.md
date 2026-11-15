@@ -12,8 +12,6 @@ The core package targets:
 
 This lets the interpreter run on legacy .NET Framework applications as well as current .NET.
 
-The .NET 11 target is compiled with runtime async enabled; older targets keep compiler-generated async state machines.
-
 Some APIs are available only on modern targets. The opt-in web API surface is compiled for .NET 10 and later.
 
 ## Optional packages
