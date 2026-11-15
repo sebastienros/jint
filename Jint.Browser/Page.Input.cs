@@ -344,8 +344,9 @@ public sealed partial class Page
     /// when the page is listening for the
     /// keys. Date, month, week, time and local date-time controls instead commit a sanitized whole value
     /// and fire <c>input</c> then <c>change</c>; invalid values throw <see cref="ArgumentException"/>.
-    /// Disabled, readonly and unsupported controls answer <see langword="false"/>, as does a control inside an
-    /// <c>inert</c> or <c>hidden</c> subtree, which no user could reach.
+    /// Disabled, readonly and unsupported controls answer <see langword="false"/>, and so does a control that is
+    /// not being rendered — <c>display: none</c> on it or an ancestor, or <c>visibility: hidden</c> — or that
+    /// is inside an <c>inert</c> subtree, because it cannot take focus.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<bool> FillAsync(string target, string text) => FillAsync(target, 0, text);
@@ -369,13 +370,19 @@ public sealed partial class Page
                 return false;
             }
 
+            // A control that is not being rendered (#4618) or is inert (#4625) cannot take focus, and the
+            // keys would reach whatever kept it.
+            if (!FocusController.IsBeingRendered(runtime.Dom, element) || FocusController.IsInInertSubtree(element))
+            {
+                return false;
+            }
+
             using var mutation = runtime.Dom.MutateLayout();
             if (element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
                 && element.GetHtmlState()!.GetInputValueState(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken) is { } state
                 && state.Type is HtmlInputType.Date or HtmlInputType.Month or HtmlInputType.Week or HtmlInputType.Time or HtmlInputType.DateTimeLocal)
             {
-                if (!FocusController.Focus(runtime.Dom, element) && FocusController.IsInInertOrHiddenSubtree(element))
-                    return false;
+                FocusController.Focus(runtime.Dom, element);
                 var previous = state.GetValue(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
                 if (!state.ApplyPickerUserValue(text, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken))
                     return false;
@@ -390,10 +397,7 @@ public sealed partial class Page
             if (!TextEditing.IsEditable(runtime.Dom, element) && ContentEditing.HostOf(element) is null)
                 return false;
 
-            // A control no user could reach — inert, or under a hidden ancestor — is refused rather than
-            // filled, because a focus that did not move would send the edit to whatever had focus before.
-            if (!FocusController.Focus(runtime.Dom, element) && FocusController.IsInInertOrHiddenSubtree(element))
-                return false;
+            FocusController.Focus(runtime.Dom, element);
 
             // The dispatcher's own select-all, which is what a client sends as commands: ["selectAll"], so a
             // fill and a client's fill clear the control the same way rather than two ways.
@@ -416,8 +420,9 @@ public sealed partial class Page
     /// with its <c>beforeinput</c> and <c>input</c>, and a <c>keyup</c> — so a page filtering keystrokes, an
     /// autocomplete listening for <c>input</c> and a form's <c>maxlength</c> all see what they would see from
     /// a user. It does <b>not</b> clear the control first; <see cref="FillAsync(string, string)"/> is the one
-    /// that does.
-    /// A target inside an <c>inert</c> or <c>hidden</c> subtree answers <see langword="false"/> and receives nothing.
+    /// that does. An element that is not being rendered — <c>display: none</c> on it or an ancestor, or
+    /// <c>visibility: hidden</c> — or that is inside an <c>inert</c> subtree cannot take focus, so nothing is
+    /// typed and the answer is <see langword="false"/>.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<bool> TypeAsync(string target, string text) => TypeAsync(target, 0, text);
@@ -441,11 +446,12 @@ public sealed partial class Page
                 return false;
             }
 
-            // As FillAsync: a target no user could reach is refused rather than typed at whatever had focus.
-            if (!FocusController.Focus(runtime.Dom, element) && FocusController.IsInInertOrHiddenSubtree(element))
+            if (!FocusController.IsBeingRendered(runtime.Dom, element) || FocusController.IsInInertSubtree(element))
             {
                 return false;
             }
+
+            FocusController.Focus(runtime.Dom, element);
 
             foreach (var rune in text.EnumerateRunes())
             {
@@ -517,7 +523,7 @@ public sealed partial class Page
     /// focus, as it would for a user.
     /// </para>
     /// <para>
-    /// A match that is not focusable — disabled, inside an <c>inert</c> or <c>hidden</c> subtree, or an element
+    /// A match that is not focusable — disabled, not being rendered, inside an <c>inert</c> subtree, or an element
     /// with neither an interactive kind nor a <c>tabindex</c> — is waited past rather than pressed at, because
     /// the key would otherwise reach the body, which is the one thing a caller naming a target did not ask for.
     /// </para>
@@ -592,8 +598,9 @@ public sealed partial class Page
     /// <b>The wait is for a focusable match, not merely a present one.</b> An element is focusable when its kind
     /// makes it so (a link with <c>href</c>, a control, a <c>&lt;summary&gt;</c>, an editing host) or when it
     /// carries a valid <c>tabindex</c> — a negative one included, which only removes it from <kbd>Tab</kbd>
-    /// order — and when it is not disabled and not inside an <c>inert</c> or <c>hidden</c> subtree (its own
-    /// attribute or an ancestor's, an enclosing <c>&lt;iframe&gt;</c> included). So a
+    /// order — and when it is not disabled, is being rendered (no <c>display: none</c> on it or an ancestor,
+    /// no <c>hidden</c>, no <c>visibility: hidden</c>) and is not inside an <c>inert</c> subtree (its own
+    /// attribute, an ancestor's, or an enclosing <c>&lt;iframe&gt;</c>'s). So a
     /// control a framework renders disabled and enables later is focused once it is enabled, and one behind an
     /// <c>inert</c> backdrop is focused once the backdrop goes. The page is looked at from off the loop, so it
     /// goes on running its timers, its promises and its fetches while the wait lasts.
@@ -774,10 +781,13 @@ public sealed partial class Page
                 return false;
             }
 
-            if (!FocusController.Focus(runtime.Dom, select) && FocusController.IsInInertOrHiddenSubtree(select))
+            // As FillAsync: a select that cannot take focus is not one a user could choose from.
+            if (!FocusController.IsBeingRendered(runtime.Dom, select) || FocusController.IsInInertSubtree(select))
             {
                 return false;
             }
+
+            FocusController.Focus(runtime.Dom, select);
 
             // The option's own activation behaviour, so a selection made here and one made by clicking the
             // option change the same state and fire the same two events at the same element.
@@ -998,16 +1008,28 @@ public sealed partial class Page
         return WaitForScriptAsync(expression, argument: null, timeout);
     }
     /// <summary>Looks at the document until <paramref name="condition"/> holds, or until the time runs out.</summary>
-    private async Task<bool> WaitForAsync(Func<Engine, bool> condition, TimeSpan timeout)
+    private Task<bool> WaitForAsync(Func<Engine, bool> condition, TimeSpan timeout)
+        => WaitForAsync(condition, static satisfied => satisfied, timeout);
+
+    /// <summary>
+    /// Reads the document on the loop until <paramref name="match"/>, applied off the loop to the detached
+    /// reading, holds — or until the time runs out.
+    /// </summary>
+    /// <remarks>
+    /// The split is where caller code runs: a <see cref="System.Text.RegularExpressions.Regex"/> or a
+    /// predicate a caller supplied sees only the CLR value the read returned, on the waiting thread, so it can
+    /// neither touch page-loop state nor hold the loop while it runs.
+    /// </remarks>
+    private async Task<bool> WaitForAsync<T>(Func<Engine, T> read, Func<T, bool> match, TimeSpan timeout)
     {
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
 
         while (true)
         {
-            bool satisfied;
+            T reading;
             try
             {
-                satisfied = await _loop.PostAsync(condition).ConfigureAwait(false);
+                reading = await _loop.PostAsync(read).ConfigureAwait(false);
             }
             catch (ObjectDisposedException) when (_closed)
             {
@@ -1017,7 +1039,12 @@ public sealed partial class Page
             {
                 return false;
             }
-            if (satisfied)
+            catch (OperationCanceledException) when (_closed)
+            {
+                // A look already running when the page closed sees the DOM's cancellation token fire.
+                return false;
+            }
+            if (match(reading))
             {
                 return true;
             }

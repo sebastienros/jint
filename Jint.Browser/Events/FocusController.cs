@@ -1,6 +1,9 @@
 using System.Runtime.CompilerServices;
 using Jint.HtmlParser;
+using Jint.Browser.Accessibility;
 using Jint.Browser.Dom;
+using Jint.Browser.Dom.Views;
+using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.WebApi.Events;
@@ -262,86 +265,324 @@ internal static class FocusController
     }
 
     /// <summary>
-    /// https://html.spec.whatwg.org/multipage/interaction.html#focusable-area, decided without a rendering: an
-    /// element is focusable when its kind makes it so or when it carries a valid <c>tabindex</c>, and when it
-    /// is not disabled and not inside a subtree an <c>inert</c> or <c>hidden</c> content attribute excludes.
+    /// https://html.spec.whatwg.org/multipage/interaction.html#focusable-area, decided without a layout: an
+    /// element is focusable when its kind makes it so or when it carries a valid <c>tabindex</c>, when it is
+    /// neither disabled nor inert, and when it is <see cref="IsBeingRendered(DomRealm, Element)">being
+    /// rendered</see>.
     /// </summary>
-    internal static bool IsFocusable(DomRealm dom, Element element) => IsFocusableCore(dom, element, null);
+    internal static bool IsFocusable(DomRealm dom, Element element) => IsFocusableCore(dom, element, null, null, null);
 
     /// <summary>The same focus classification with bounded native reads for a caller's traversal.</summary>
-    internal static bool IsFocusable(DomRealm dom, Element element, DomReadWork work)
+    /// <remarks>
+    /// <paramref name="scope"/> is an ancestor whose own rendering the caller is about to change, so the
+    /// rendering walk stops below it: a <c>&lt;dialog&gt;</c> looks for its focus delegate before it gains
+    /// <c>open</c>, while <c>dialog:not([open])</c> still says <c>display: none</c>. Whatever is above the
+    /// scope is checked again when <see cref="Focus"/> runs.
+    /// </remarks>
+    internal static bool IsFocusable(DomRealm dom, Element element, DomReadWork work, Element? scope = null)
     {
         work.Check();
-        var focusable = IsFocusableCore(dom, element, work);
+        var focusable = IsFocusableCore(dom, element, work, new RenderingQuery(dom, work, scope), inert: null);
         work.Check();
         return focusable;
     }
 
-    private static bool IsFocusableCore(DomRealm dom, Element element, DomReadWork? work)
-        => IsFocusableKind(dom, element, work) && !IsInInertOrHiddenSubtree(element, work);
+    private static bool IsFocusableCore(DomRealm dom, Element element, DomReadWork? work, RenderingQuery? rendering, InertQuery? inert)
+    {
+        if (EventDom.Disabled(dom, element) || Attribute(element, "inert", work) is not null) return false;
+        if (TabIndexAttribute(element, work) is null && !IsInherentlyFocusable(element, work)) return false;
+        if ((inert ?? new InertQuery(work)).IsInert(element)) return false;
+        // The cascade is asked last, and only for an element every cheaper test already admitted.
+        return (rendering ?? new RenderingQuery(dom, work, scope: null)).IsRendered(element);
+    }
 
     /// <summary>
-    /// The half of the focusable-area question the element answers alone: its kind or a valid
-    /// <c>tabindex</c> makes it a candidate, and it is not disabled.
+    /// https://html.spec.whatwg.org/multipage/interaction.html#the-inert-attribute — whether
+    /// <paramref name="element"/> is inert because it or a flat-tree ancestor carries the attribute, or
+    /// because the <c>&lt;iframe&gt;</c> holding its document is inert.
     /// </summary>
-    private static bool IsFocusableKind(DomRealm dom, Element element, DomReadWork? work)
-        => !EventDom.Disabled(dom, element)
-            && (TabIndexAttribute(element, work) is not null || IsInherentlyFocusable(element, work));
+    internal static bool IsInInertSubtree(Element element) => new InertQuery(work: null).IsInert(element);
 
     /// <summary>
-    /// The other half: whether <paramref name="node"/> is inside a subtree no focusable area can be in —
-    /// one rooted at an element with the <c>inert</c> attribute
-    /// (https://html.spec.whatwg.org/multipage/interaction.html#the-inert-attribute), or at one with the
-    /// <c>hidden</c> attribute, which the UA style sheet takes out of the rendering.
+    /// The inert half of a focus question, remembered per node the way <see cref="RenderingQuery"/>
+    /// remembers its containers, so a <kbd>Tab</kbd> walk reads each ancestor's <c>inert</c> attribute once.
+    /// </summary>
+    /// <remarks>
+    /// The <c>inert</c> attribute makes the element and every flat-tree descendant inert, and an inert node is
+    /// not a focusable area. The walk is the flat tree's — a shadow root continues at its host, a shadow
+    /// host's child at its assigned slot — and a child navigable's document continues at its container, so
+    /// an inert <c>&lt;iframe&gt;</c> makes the document inside it inert too. A shadow host's child no slot
+    /// takes has no flat-tree parent; it is not being rendered either, so its answer does not matter here.
+    /// </remarks>
+    private sealed class InertQuery(DomReadWork? work)
+    {
+        private readonly Dictionary<Node, bool> _known = new();
+        private readonly List<Node> _path = new();
+
+        internal bool IsInert(Node node)
+        {
+            var inert = false;
+            _path.Clear();
+            for (Node? current = node; current is not null;)
+            {
+                if (_known.TryGetValue(current, out inert))
+                {
+                    break;
+                }
+
+                work?.Step();
+                _path.Add(current);
+                if (current is Element element && Attribute(element, "inert", work) is not null)
+                {
+                    inert = true;
+                    break;
+                }
+
+                current = current is Document document
+                    ? DomBrowsingContext.Of(document)?.FrameElement
+                    : FlatParent(current);
+            }
+
+            foreach (var visited in _path)
+            {
+                _known[visited] = inert;
+            }
+
+            _path.Clear();
+            return inert;
+        }
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/rendering.html#being-rendered, answered from the cascade: an
+    /// element whose box CSS removes is not a focusable area, and neither is one <c>visibility</c> hides.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Asked after <see cref="IsFocusableKind"/>, so the ancestor walk is paid only by elements that would
-    /// otherwise be focusable; <see cref="TabOrder"/> prunes excluded subtrees instead and never asks it.
-    /// The walk is the shadow-including ancestor chain — a shadow root continues at its host — and a
-    /// child navigable's document continues at its container, so an <c>inert</c> or <c>hidden</c>
-    /// <c>&lt;iframe&gt;</c> excludes the document inside it. A slotted element follows its light-tree
-    /// parents rather than the slot's flat-tree chain.
+    /// HTML's focusable-area table admits only elements that are "being rendered" or that "delegate their
+    /// rendering to their children". So <c>display: none</c> on the element or on any flat-tree ancestor
+    /// removes it — a light-DOM child of a shadow host is reached through its assigned slot, and one no slot
+    /// takes is not rendered at all — as does a metadata ancestor. <c>display: contents</c> delegates and
+    /// keeps the element, except on the replaced elements and form controls CSS Display §2.8 makes compute
+    /// it to <c>none</c>. The <c>hidden</c> attribute is the UA sheet's <c>display: none</c>, so an author
+    /// rule overriding it is honoured, while <c>hidden=until-found</c> is <c>content-visibility: hidden</c>,
+    /// which the cascade does not compute and which hides what it contains. <c>visibility: hidden|collapse</c>
+    /// is the element's own computed value, because CSS inherits it and a <c>visibility: visible</c>
+    /// descendant escapes it; every engine skips such an element in sequential navigation and refuses it to
+    /// <c>focus()</c>. An <c>&lt;area&gt;</c> is the one element whose own <c>display: none</c> does not
+    /// count: its focusable area is a shape of the image that uses its map, not a box of its own.
+    /// </para>
+    /// <para>
+    /// It asks the same <see cref="ElementVisibility"/> questions as <c>LayoutMembers.IsCheckVisible</c>,
+    /// which answers CSSOM View's different question — whether the element itself generates a box, so its
+    /// own <c>display: contents</c> fails there and passes here. Nothing here knows that an element is clipped
+    /// or off-screen, and neither matters to focus.
     /// </para>
     /// </remarks>
-    internal static bool IsInInertOrHiddenSubtree(Node node) => IsInInertOrHiddenSubtree(node, null);
+    internal static bool IsBeingRendered(DomRealm dom, Element element) => new RenderingQuery(dom, work: null, scope: null).IsRendered(element);
 
-    private static bool IsInInertOrHiddenSubtree(Node node, DomReadWork? work)
+    /// <summary>
+    /// One cascade read shared by every candidate of a single focus question: the document's traversal is
+    /// taken once, and each ancestor's verdict is remembered, so a <kbd>Tab</kbd> walk costs one style read
+    /// per element rather than one per element per level of nesting.
+    /// </summary>
+    private sealed class RenderingQuery(DomRealm dom, DomReadWork? work, Element? scope)
     {
-        for (Node? current = node; current is not null; current = ContainingNode(current))
+        private readonly ElementVisibility _visibility = new(useComputedStyle: true, work);
+        private readonly Dictionary<Node, Container> _containers = new();
+        private readonly List<Node> _path = new();
+        private CssCascade.Traversal? _traversal;
+        private Document? _document;
+
+        /// <summary>Whether descendants of a node can be rendered, and the nearest <c>visibility</c> above them.</summary>
+        /// <remarks>
+        /// <see cref="Visibility"/> only matters when the cascade cannot answer and inline styles are all
+        /// there is: a computed value is already inherited.
+        /// </remarks>
+        private readonly record struct Container(bool Rendered, string? Visibility);
+
+        internal bool IsRendered(Element element)
         {
-            work?.Step();
-            if (current is Element element && ExcludesSubtree(element, work))
+            if (element.OwnerDocument is not { } document)
             {
-                return true;
+                return false;
             }
+
+            if (!ReferenceEquals(_document, document))
+            {
+                _document = document;
+                _containers.Clear();
+                _traversal = _visibility.CascadeAvailable ? CssCascade.Traversal.Current(document) : null;
+            }
+
+            Step();
+            if (!Admits(element, self: true, out var visibility))
+            {
+                return false;
+            }
+
+            var container = ContainerOf(FlatParent(element));
+            if (!container.Rendered)
+            {
+                return false;
+            }
+
+            return !IsHiddenVisibility(visibility ?? container.Visibility);
         }
 
-        return false;
+        private Container ContainerOf(Node? parent)
+        {
+            var state = new Container(Rendered: false, Visibility: null);
+            _path.Clear();
+            for (var node = parent; ;)
+            {
+                if (node is null)
+                {
+                    // Detached, or a shadow host's child that no slot takes.
+                    break;
+                }
+
+                if (ReferenceEquals(node, scope))
+                {
+                    state = new Container(Rendered: true, Visibility: null);
+                    break;
+                }
+
+                if (node is Document owner)
+                {
+                    state = new Container(ReferenceEquals(owner, _document), Visibility: null);
+                    break;
+                }
+
+                if (_containers.TryGetValue(node, out state))
+                {
+                    break;
+                }
+
+                Step();
+                _path.Add(node);
+                node = FlatParent(node);
+            }
+
+            for (var i = _path.Count - 1; i >= 0; i--)
+            {
+                var node = _path[i];
+                if (state.Rendered && node is Element element)
+                {
+                    state = Admits(element, self: false, out var visibility)
+                        ? state with { Visibility = visibility ?? state.Visibility }
+                        : new Container(Rendered: false, Visibility: null);
+                }
+
+                _containers[node] = state;
+            }
+
+            _path.Clear();
+            return state;
+        }
+
+        /// <summary>The element's own share of the verdict: its box, and its specified <c>visibility</c>.</summary>
+        private bool Admits(Element element, bool self, out string? visibility)
+        {
+            visibility = null;
+            if (FlatLayout.IsMetadata(element))
+            {
+                return false;
+            }
+
+            var hidden = Attribute(element, "hidden", work);
+            if (hidden is not null && string.Equals(hidden.Trim(), "until-found", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var (display, specified) = _visibility.Style(element, _traversal);
+            // The UA sheet's [hidden] rule says display: none; only an inline-only read cannot see it.
+            if (hidden is not null && !(_traversal is not null && _visibility.CascadeAvailable))
+            {
+                return false;
+            }
+
+            var isHtml = element.NamespaceUri == Namespaces.Html;
+            if (string.Equals(display, "none", StringComparison.OrdinalIgnoreCase)
+                && !(self && isHtml && element.LocalName == "area"))
+            {
+                return false;
+            }
+
+            if (string.Equals(display, "contents", StringComparison.OrdinalIgnoreCase) && isHtml
+                && element.LocalName is "input" or "textarea" or "select" or "iframe" or "img" or "video" or "audio"
+                    or "canvas" or "embed" or "object" or "meter" or "progress" or "br" or "wbr" or "frame" or "frameset")
+            {
+                return false;
+            }
+
+            visibility = string.IsNullOrEmpty(specified) ? null : specified;
+            return true;
+        }
+
+        private void Step()
+        {
+            if (work is not null) work.Step();
+            else dom.CancellationToken.ThrowIfCancellationRequested();
+        }
+
+        private static bool IsHiddenVisibility(string? visibility)
+            => string.Equals(visibility, "hidden", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(visibility, "collapse", StringComparison.OrdinalIgnoreCase);
+
     }
 
-    private static bool ExcludesSubtree(Element element, DomReadWork? work)
-        => Attribute(element, "inert", work) is not null || Attribute(element, "hidden", work) is not null;
-
-    private static Node? ContainingNode(Node node)
-        => node.ParentNode ?? (node switch
+    // The flat tree's parent: a shadow root's host, a shadow host's child's assigned slot (null when no
+    // slot takes it), and otherwise the tree parent.
+    private static Node? FlatParent(Node node)
+    {
+        if (node is ShadowRoot root)
         {
-            ShadowRoot root => root.Host,
-            Document document => DomBrowsingContext.Of(document)?.FrameElement,
-            _ => null,
-        });
+            return root.Host;
+        }
+
+        var parent = node.ParentNode;
+        return parent is Element { AttachedShadowRoot: not null } ? SlotAssignment.GetAssignedSlot(node) : parent;
+    }
 
     private static string? Attribute(Element element, string name, DomReadWork? work)
         => work is null ? element.GetAttributeNS(null, name) : work.Attribute(element, name);
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation — whether the
+    /// element takes part in <kbd>Tab</kbd> traversal, which a negative <c>tabindex</c> opts out of while
+    /// leaving the element focusable by other means.
+    /// </summary>
+    internal static bool IsTabbable(DomRealm dom, Element element) => IsTabbable(dom, element, rendering: null, inert: null);
+
+    private static bool IsTabbable(DomRealm dom, Element element, RenderingQuery? rendering, InertQuery? inert)
+    {
+        if (!IsFocusableCore(dom, element, null, rendering, inert))
+        {
+            return false;
+        }
+
+        var tabIndex = TabIndexAttribute(element);
+        return tabIndex is null ? IsInherentlyFocusable(element) : tabIndex >= 0;
+    }
 
     /// <summary>
     /// The element after <paramref name="from"/> in sequential focus navigation order, or the first one when
     /// <paramref name="from"/> is <see langword="null"/>; <paramref name="backwards"/> walks the other way.
     /// </summary>
     /// <remarks>
-    /// The order is HTML's, reduced to what a document without a rendering can decide: every element with a
+    /// <para>
+    /// The order is HTML's, reduced to what a document without a layout can decide: every element with a
     /// positive <c>tabindex</c> first, ordered by that value and then by tree order, and then everything else
-    /// in tree order. It wraps, because there is nothing above the document to hand focus to.
+    /// in tree order. Only elements that are <see cref="IsBeingRendered(DomRealm, Element)">being rendered</see> take part.
+    /// </para>
+    /// <para>
+    /// Past either end it answers <see langword="null"/>, which is HTML's "the user agent may transfer focus
+    /// to its own controls": Chromium takes focus out of the document there, leaving <c>activeElement</c> at
+    /// the body, and only the next <kbd>Tab</kbd> wraps round to the first element — which is what starting
+    /// from nothing focused already gives.
+    /// </para>
     /// </remarks>
     internal static Element? NextInTabOrder(DomRealm dom, Document document, Element? from, bool backwards)
     {
@@ -359,7 +600,7 @@ internal static class FocusController
         }
 
         var next = backwards ? index - 1 : index + 1;
-        return order[(next + order.Count) % order.Count];
+        return (uint) next < (uint) order.Count ? order[next] : null;
     }
 
     private static List<Element> TabOrder(DomRealm dom, Document document)
@@ -367,50 +608,28 @@ internal static class FocusController
         var positive = new List<(int TabIndex, int Position, Element Element)>();
         var zero = new List<Element>();
         var position = 0;
+        var rendering = new RenderingQuery(dom, work: null, scope: null);
+        var inert = new InertQuery(work: null);
 
-        // A pre-order walk that skips an inert or hidden subtree whole, so each element is asked about its
-        // own kind once and nobody walks back up to the root: Tab stays linear in the document's size.
-        var work = new DomReadWork(dom.NativeReadCheckpoint, dom.CancellationToken);
-        work.Check();
-        Node? current = DomBrowsingContext.Of(document)?.FrameElement is { } frame && IsInInertOrHiddenSubtree(frame, work)
-            ? null
-            : document.FirstChild;
-
-        while (current is not null)
+        foreach (var element in NodeTraversal.DescendantElements(document, () => dom.NativeReadCheckpoint(256), dom.CancellationToken))
         {
-            work.Step();
-            var descend = true;
-            if (current is Element element)
+            if (!IsTabbable(dom, element, rendering, inert))
             {
-                if (ExcludesSubtree(element, null))
-                {
-                    descend = false;
-                }
-                else if (IsFocusableKind(dom, element, null))
-                {
-                    // https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation — a
-                    // negative tabindex opts out of Tab traversal while leaving the element focusable otherwise.
-                    var tabIndex = TabIndexAttribute(element);
-                    if (tabIndex is null ? IsInherentlyFocusable(element) : tabIndex >= 0)
-                    {
-                        if (tabIndex is > 0)
-                        {
-                            positive.Add((tabIndex.Value, position, element));
-                        }
-                        else
-                        {
-                            zero.Add(element);
-                        }
-
-                        position++;
-                    }
-                }
+                continue;
             }
 
-            current = NextInPreOrder(current, document, descend, work);
-        }
+            var tabIndex = TabIndexAttribute(element);
+            if (tabIndex is > 0)
+            {
+                positive.Add((tabIndex.Value, position, element));
+            }
+            else
+            {
+                zero.Add(element);
+            }
 
-        work.Check();
+            position++;
+        }
 
         if (positive.Count == 0)
         {
@@ -427,26 +646,6 @@ internal static class FocusController
 
         order.AddRange(zero);
         return order;
-    }
-
-    /// <summary>The node after <paramref name="node"/> in tree order within <paramref name="root"/>, optionally skipping its subtree.</summary>
-    private static Node? NextInPreOrder(Node node, Node root, bool descend, DomReadWork work)
-    {
-        if (descend && node.FirstChild is { } child)
-        {
-            return child;
-        }
-
-        for (Node? current = node; current is not null && !ReferenceEquals(current, root); current = current.ParentNode)
-        {
-            work.Step();
-            if (current.NextSibling is { } sibling)
-            {
-                return sibling;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>
