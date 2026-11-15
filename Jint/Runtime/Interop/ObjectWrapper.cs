@@ -1548,7 +1548,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             // we take properties, fields and methods
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
             {
-                foreach (var p in ClrType.GetProperties(interopOptions.ObjectWrapperReportedPropertyBindingFlags))
+                foreach (var p in InDeclarationOrder(ClrType.GetProperties(interopOptions.ObjectWrapperReportedPropertyBindingFlags)))
                 {
                     if (!interopOptions.TypeResolver.Filter(_engine, ClrType, p))
                     {
@@ -1565,7 +1565,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Field) == MemberTypes.Field)
             {
-                foreach (var f in ClrType.GetFields(interopOptions.ObjectWrapperReportedFieldBindingFlags))
+                foreach (var f in InDeclarationOrder(ClrType.GetFields(interopOptions.ObjectWrapperReportedFieldBindingFlags)))
                 {
                     if (!interopOptions.TypeResolver.Filter(_engine, ClrType, f))
                     {
@@ -1578,7 +1578,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Method) == MemberTypes.Method)
             {
-                foreach (var m in ClrType.GetMethods(interopOptions.ObjectWrapperReportedMethodBindingFlags))
+                foreach (var m in InDeclarationOrder(ClrType.GetMethods(interopOptions.ObjectWrapperReportedMethodBindingFlags)))
                 {
                     // we won't report anything from base object as it would usually not be something to expect from JS perspective
                     if (m.DeclaringType == typeof(object) || m.IsSpecialName || !interopOptions.TypeResolver.Filter(_engine, ClrType, m))
@@ -1589,6 +1589,52 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     yield return JsString.Create(m.Name);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Orders reflected members the most-derived declaring type first, then by metadata token, which is the order
+    /// .NET reports them in.
+    /// </summary>
+    /// <remarks>
+    /// <c>GetProperties</c>, <c>GetFields</c> and <c>GetMethods</c> promise no order, and .NET Framework keeps none:
+    /// its member cache is held weakly and refilled in the order members are next asked for by name, so
+    /// <c>Reflect.ownKeys</c> over one wrapper answered differently before and after a <c>ContainsKey</c> call
+    /// once a collection ran in between. The returned array is the caller's own copy, so it is sorted in place.
+    /// </remarks>
+    private static T[] InDeclarationOrder<T>(T[] members) where T : MemberInfo
+    {
+        if (members.Length > 1)
+        {
+            Array.Sort(members, MemberDeclarationOrder<T>.Comparison);
+        }
+
+        return members;
+    }
+
+    private static class MemberDeclarationOrder<T> where T : MemberInfo
+    {
+        internal static readonly Comparison<T> Comparison = static (left, right) =>
+        {
+            if (ReferenceEquals(left.DeclaringType, right.DeclaringType))
+            {
+                return left.MetadataToken.CompareTo(right.MetadataToken);
+            }
+
+            // the deeper declaring type is the more derived one, and .NET lists its members first
+            var depth = InheritanceDepth(right.DeclaringType).CompareTo(InheritanceDepth(left.DeclaringType));
+            return depth != 0 ? depth : left.MetadataToken.CompareTo(right.MetadataToken);
+        };
+
+        private static int InheritanceDepth(Type? type)
+        {
+            var depth = 0;
+            for (; type is not null; type = type.BaseType)
+            {
+                depth++;
+            }
+
+            return depth;
         }
     }
 

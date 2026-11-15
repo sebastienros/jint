@@ -8778,6 +8778,14 @@ up among the document's elements, which is WebIDL's named property visibility: `
 shadows `hasOwnProperty`, and is not listed by `Object.getOwnPropertyNames` of the named-properties object. Every
 bare call to an inherited global used to walk the whole document first.
 
+### 4.239 A wrapped CLR object lists its reflected members in declaration order on .NET Framework too ([#4638](https://github.com/sebastienros/jint/pull/4638))
+
+`Reflect.ownKeys`, `Object.getOwnPropertyNames`, `Object.keys` and `for..in` over an `ObjectWrapper` list its
+properties, then its fields, then its methods, each the most-derived type's first and in declaration order. That is
+the order .NET already reported, so nothing changes there. On .NET Framework the order was whatever its reflection
+cache held: a member somebody had looked up by name came first, so two listings of one wrapper could disagree, with a
+`ContainsKey` call or a garbage collection in between. A host that sorted the keys itself is unaffected.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
