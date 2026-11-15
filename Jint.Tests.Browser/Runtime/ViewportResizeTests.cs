@@ -128,6 +128,25 @@ public sealed class ViewportResizeTests
     }
 
     [Test]
+    public async Task ViewportUnitsInComputedStyleFollowAResize()
+    {
+        await using var browser = new Browser(new BrowserOptions { Viewport = new Viewport(400, 300) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            "<!doctype html><style>#v { margin-left: 10vw; margin-top: 10vh }</style><div id=v></div>",
+            "http://127.0.0.1/");
+
+        // The same declaration object, read before and after: a resolved value is computed per read, not kept.
+        await page.EvaluateAsync("window.style = getComputedStyle(document.getElementById('v'))");
+        const string read = "style.marginLeft + ' ' + style.marginTop";
+        (await page.EvaluateAsync<string>(read)).Should().Be("40px 30px");
+
+        await page.SetViewportSizeAsync(1000, 800);
+        (await page.EvaluateAsync<string>(read)).Should().Be("100px 80px");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task AResizeListenerThatClosesAMenuRunsBeforeTheTaskCompletes()
     {
         await using var browser = new Browser();
