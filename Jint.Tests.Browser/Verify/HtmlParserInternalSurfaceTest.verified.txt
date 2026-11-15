@@ -88,6 +88,7 @@ internal Jint.HtmlParser.Css.Model.CssImportRule
     get_Href
     get_Media
     get_StyleSheet
+internal Jint.HtmlParser.Css.Model.CssIncompleteRuleGrammarException
 internal Jint.HtmlParser.Css.Model.CssLayerBlockRule
     get_LayerName
     get_Name

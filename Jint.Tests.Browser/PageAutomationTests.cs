@@ -335,4 +335,42 @@ public sealed class PageAutomationTests
         await bounded.SetContentAsync("<!doctype html>");
         (await bounded.ClickAsync("#never")).Should().BeFalse();
     }
+
+    [Test]
+    public async Task OptionConstructsAnOptionElement()
+    {
+        await using var browser = new NativeBrowser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<!doctype html><select id=s><option>a</option></select>");
+
+        (await page.EvaluateAsync<string>("""
+            const o = new Option('Label', 'v', true, true);
+            s.add(o);
+            [o instanceof HTMLOptionElement, o.text, o.value, o.defaultSelected, o.selected, s.value, new Option().outerHTML].join('|')
+            """)).Should().Be("true|Label|v|true|true|v|<option></option>");
+    }
+
+    /// <summary>
+    /// A descendant whose content is only whitespace has a name from content — the whitespace — so its
+    /// title is not reached (accname step 2F.v): an icon span with a tooltip does not name a button twice.
+    /// </summary>
+    [Test]
+    public async Task ADescendantsTitleIsNotItsNameWhenItHasWhitespaceContent()
+    {
+        await using var browser = new NativeBrowser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html>
+            <button id=menu><span class=icon title="Content">
+                <i aria-hidden="true"></i>
+            </span>
+            <span class=title>Content</span></button>
+            <button id=bare><span title="Tip"></span>Bare</button>
+            <bdi id=label>x</bdi>
+            """);
+
+        (await page.CountAsync("role=button[name=\"Content\"s]")).Should().Be(1);
+        (await page.CountAsync("role=button[name=\"Tip\"]")).Should().Be(1); // an empty descendant still falls back to its title
+        (await page.EvaluateAsync<string>("getComputedStyle(label).unicodeBidi")).Should().Be("isolate");
+    }
 }
