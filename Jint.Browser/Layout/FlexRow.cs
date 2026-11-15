@@ -50,6 +50,8 @@ internal static class FlexRow
         cancellationToken.ThrowIfCancellationRequested();
         var widths = new double[children.Count];
         var minimums = new double[children.Count];
+        var explicitMinimums = new double?[children.Count];
+        var maximums = new double?[children.Count];
         var growth = new double[children.Count];
         var shrinkage = new double[children.Count];
         var basisTotal = 0d;
@@ -70,8 +72,15 @@ internal static class FlexRow
             // taken to be at least one row wide — enough for a port, a toggle or an icon to keep a box a pointer
             // can hit — unless the author gave a minimum of their own.
             var overflow = style is null ? null : CssCascade.ValueOf(style, "overflow-x");
-            minimums[i] = Length(style is null ? null : CssCascade.ValueOf(style, "min-width"), available)
+            explicitMinimums[i] = Length(style is null ? null : CssCascade.ValueOf(style, "min-width"), available);
+            maximums[i] = Length(style is null ? null : CssCascade.ValueOf(style, "max-width"), available);
+            minimums[i] = explicitMinimums[i]
                 ?? (overflow is null or "" or "visible" ? Math.Min(widths[i], FlatLayout.RowHeight) : 0);
+
+            // §9.2 step 3.E: the hypothetical main size is the base size clamped by the min and max main sizes,
+            // and it is what the free space is computed from.
+            if (maximums[i] is { } hypotheticalMaximum) widths[i] = Math.Min(widths[i], hypotheticalMaximum);
+            if (explicitMinimums[i] is { } hypotheticalMinimum) widths[i] = Math.Max(widths[i], hypotheticalMinimum);
             growth[i] = Number(style is null ? null : CssCascade.ValueOf(style, "flex-grow")) ?? 0;
             var shrink = Number(style is null ? null : CssCascade.ValueOf(style, "flex-shrink")) ?? 1;
             shrinkage[i] = shrink * widths[i];
@@ -94,6 +103,16 @@ internal static class FlexRow
             {
                 widths[i] = Math.Max(minimums[i], widths[i] + free * Math.Min(1, shrinkFactorTotal) * shrinkage[i] / shrinkageTotal);
             }
+        }
+
+        // https://drafts.csswg.org/css-flexbox/#resolve-flexible-lengths step 4.c: every item's used size is
+        // clamped by its min and max main sizes, the minimum winning a conflict (CSS 2 §10.4). One pass, without
+        // the redistribution the algorithm loops for: what the flat model needs is that an item's own
+        // min-width or max-width holds, as a sidebar's `min-width: 240px` does in a browser.
+        for (var i = 0; i < widths.Length; i++)
+        {
+            if (maximums[i] is { } maximum) widths[i] = Math.Min(widths[i], maximum);
+            if (explicitMinimums[i] is { } minimum) widths[i] = Math.Max(widths[i], minimum);
         }
 
         return widths;

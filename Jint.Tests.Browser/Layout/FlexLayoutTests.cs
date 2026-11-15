@@ -103,6 +103,9 @@ public class FlexLayoutTests
     [TestCase("", 16)]
     [TestCase("min-width:40px", 40)]
     [TestCase("overflow:hidden", 0)]
+    [TestCase("flex:0 0 auto;min-width:240px", 240)]
+    [TestCase("flex:0 0 300px;max-width:100px", 100)]
+    [TestCase("flex:0 0 300px;max-width:100px;min-width:150px", 150)]
     public async Task AShrinkingItemStopsAtItsMinimumWidth(string style, int width)
     {
         await using var browser = new global::Jint.Browser.Browser(
