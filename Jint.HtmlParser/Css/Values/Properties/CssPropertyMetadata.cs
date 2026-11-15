@@ -149,6 +149,15 @@ internal static class CssPropertyRegistry
         Add("background-attachment", "scroll");
         Add("background-origin", "padding-box");
         Add("background-clip", "border-box");
+        // CSS Animations 1 §3 and 2 §3, CSS Transitions 1 §2 and 2 §2.1; durations take Chromium's 0s, not Level 2's auto.
+        for (var i = 0; i < CssMotionShorthands.AnimationLonghands.Length; i++)
+            Add(CssMotionShorthands.AnimationLonghands[i], CssMotionShorthands.AnimationInitials[i]);
+        Add("animation-composition", "replace");
+        Add("animation-timeline", "auto");
+        Add("animation-range-start", "normal");
+        Add("animation-range-end", "normal");
+        for (var i = 0; i < CssMotionShorthands.TransitionLonghands.Length; i++)
+            Add(CssMotionShorthands.TransitionLonghands[i], CssMotionShorthands.TransitionInitials[i]);
         Shorthand("overflow", "visible", ["overflow-x", "overflow-y"]);
         Shorthand("flex", "0 1 auto", ["flex-grow", "flex-shrink", "flex-basis"]);
         Shorthand("flex-flow", "row nowrap", ["flex-direction", "flex-wrap"]);
@@ -168,6 +177,8 @@ internal static class CssPropertyRegistry
         Shorthand("background-position", "0% 0%", ["background-position-x", "background-position-y"]);
         Shorthand("background", "", CssBoxShorthands.BackgroundLonghands);
         Shorthand("mask", "", CssBoxShorthands.MaskLonghands);
+        Shorthand("animation", "", CssMotionShorthands.AnimationLonghands);
+        Shorthand("transition", "", CssMotionShorthands.TransitionLonghands);
         return entries;
 
         void Add(string name, string initial, bool inherited = false) =>
