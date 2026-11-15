@@ -101,7 +101,7 @@ internal sealed class BrowserDialogState
         Element? first = null;
         foreach (var candidate in Descendants(_element, work))
         {
-            if (!FocusController.IsFocusable(realm, candidate, work)) continue;
+            if (!FocusController.IsFocusable(realm, candidate, work, scope: _element)) continue;
             first ??= candidate;
             if (work.Attribute(candidate, "autofocus") is not null) return candidate;
         }

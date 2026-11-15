@@ -35,6 +35,7 @@ namespace Jint.Browser
         public System.Func<Jint.Engine, System.Net.Http.HttpClient>? HttpClientFactory { get; set; }
         public int? MaxPages { get; set; }
         public long? MaxTotalStorageBytes { get; set; }
+        public Jint.Browser.MediaEmulation? MediaEmulation { get; set; }
         public Jint.Browser.StoragePartitionProvider? StoragePartition { get; set; }
         public System.Func<System.Uri, bool>? UrlFilter { get; set; }
     }
@@ -79,6 +80,7 @@ namespace Jint.Browser
         public long MaxSubresourceBytes { get; set; }
         public System.TimeSpan MaxTaskDuration { get; set; }
         public long MaxTotalStorageBytes { get; set; }
+        public Jint.Browser.MediaEmulation? MediaEmulation { get; set; }
         public long MemoryLimit { get; set; }
         public System.TimeSpan PumpIdle { get; set; }
         public bool RecordConsoleMessages { get; set; }
@@ -135,6 +137,15 @@ namespace Jint.Browser
         Meta = 4,
         Shift = 8,
     }
+    public sealed class MediaEmulation
+    {
+        public MediaEmulation() { }
+        public string? ColorScheme { get; init; }
+        public string? Contrast { get; init; }
+        public string? ForcedColors { get; init; }
+        public string? Media { get; init; }
+        public string? ReducedMotion { get; init; }
+    }
     public sealed class NavigationFailedException : System.Exception
     {
         public NavigationFailedException() { }
@@ -172,6 +183,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<string> ContentAsync() { }
         public System.Threading.Tasks.Task<int> CountAsync(string selector, bool visibleOnly = false) { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public System.Threading.Tasks.Task EmulateMediaAsync(Jint.Browser.MediaEmulation emulation) { }
         public System.Threading.Tasks.Task<object?> EvaluateAndAwaitAsync(string script, System.Threading.CancellationToken cancellationToken = default) { }
         public System.Threading.Tasks.Task<object?> EvaluateAndAwaitAsync(string function, object? argument, System.Threading.CancellationToken cancellationToken = default) { }
         public System.Threading.Tasks.Task<T?> EvaluateAndAwaitAsync<T>(string script, System.Threading.CancellationToken cancellationToken = default) { }

@@ -340,7 +340,9 @@ public sealed partial class Page
     /// when the page is listening for the
     /// keys. Date, month, week, time and local date-time controls instead commit a sanitized whole value
     /// and fire <c>input</c> then <c>change</c>; invalid values throw <see cref="ArgumentException"/>.
-    /// Disabled, readonly and unsupported controls answer <see langword="false"/>.
+    /// Disabled, readonly and unsupported controls answer <see langword="false"/>, and so does a control that is
+    /// not being rendered — <c>display: none</c> on it or an ancestor, or <c>visibility: hidden</c> — because
+    /// it cannot take focus.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<bool> FillAsync(string target, string text) => FillAsync(target, 0, text);
@@ -360,6 +362,13 @@ public sealed partial class Page
         return _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
+            {
+                return false;
+            }
+
+            // A control that is not being rendered cannot take focus (#4618), and the keys would reach
+            // whatever kept it.
+            if (!FocusController.IsBeingRendered(runtime.Dom, element))
             {
                 return false;
             }
@@ -407,7 +416,8 @@ public sealed partial class Page
     /// with its <c>beforeinput</c> and <c>input</c>, and a <c>keyup</c> — so a page filtering keystrokes, an
     /// autocomplete listening for <c>input</c> and a form's <c>maxlength</c> all see what they would see from
     /// a user. It does <b>not</b> clear the control first; <see cref="FillAsync(string, string)"/> is the one
-    /// that does.
+    /// that does. An element that is not being rendered — <c>display: none</c> on it or an ancestor, or
+    /// <c>visibility: hidden</c> — cannot take focus, so nothing is typed and the answer is <see langword="false"/>.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<bool> TypeAsync(string target, string text) => TypeAsync(target, 0, text);
@@ -427,6 +437,11 @@ public sealed partial class Page
         return _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
+            {
+                return false;
+            }
+
+            if (!FocusController.IsBeingRendered(runtime.Dom, element))
             {
                 return false;
             }

@@ -138,18 +138,25 @@ internal sealed class EmulationDomain : EmulationDomainBase
     /// the environment reads first.
     /// </para>
     /// <para>
-    /// <b>The media type reaches the cascade and a preference does not.</b>
-    /// <c>Runtime/PageRenderDevice</c> reports the emulated type, so an <c>@media print</c> rule becomes
-    /// active with this command; <c>IRenderDevice</c> has no member for a Level 5 preference, so an
-    /// <c>@media (prefers-color-scheme: dark)</c> rule in a style sheet never does. A page that themes
-    /// itself reads <c>matchMedia</c>, which is the half that answers.
+    /// <b>Style sheets follow too.</b> <c>Styling/NativeCssStyleSheets.Browser.cs</c> builds the cascade's
+    /// <c>CssMediaEnvironment</c> from the same environment, so an <c>@media print</c> or
+    /// <c>@media (prefers-color-scheme: dark)</c> rule applies on the next style read after this command.
+    /// </para>
+    /// <para>
+    /// <b>This replaces; <see cref="Page.EmulateMediaAsync"/> merges.</b> Both write the same overrides in
+    /// <c>Runtime/EmulationState</c>: this command sets the media type and the whole feature list, as Chrome's
+    /// does. A feature named with an empty value is no override, which is how Chromium reads the empty value
+    /// Playwright sends for every preference it is not emulating. The browser and context defaults a page
+    /// opened with are a layer beneath the overrides, the way an operating-system preference is beneath
+    /// Chrome's, so clearing every override goes back to them.
     /// </para>
     /// </remarks>
     protected override ValueTask<EmptyResult> SetEmulatedMediaAsync(SetEmulatedMediaRequest parameters, CommandContext context)
     {
-        State.EmulatedMedia = parameters.Media;
-        State.MediaFeatures = Features(parameters.Features);
-        Reevaluate();
+        State.ReplaceMedia(
+            parameters.Media,
+            parameters.Features?.Select(static feature => new KeyValuePair<string, string>(feature.Name, feature.Value)),
+            Runtime());
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -402,27 +409,6 @@ internal sealed class EmulationDomain : EmulationDomainBase
     /// </remarks>
     protected override ValueTask<EmptyResult> SetEmitTouchEventsForMouseAsync(SetEmitTouchEventsForMouseRequest parameters, CommandContext context)
         => new(EmptyResult.Instance);
-
-    /// <summary>The features a client emulated, as the environment reads them.</summary>
-    /// <remarks>
-    /// A feature named twice is last writer wins, and a name is matched exactly as CSS writes it — the
-    /// protocol carries the CSS name, so no mapping is needed and none is invented.
-    /// </remarks>
-    private static IReadOnlyDictionary<string, string> Features(MediaFeature[]? features)
-    {
-        if (features is not { Length: > 0 })
-        {
-            return System.Collections.Frozen.FrozenDictionary<string, string>.Empty;
-        }
-
-        var map = new Dictionary<string, string>(features.Length, StringComparer.OrdinalIgnoreCase);
-        foreach (var feature in features)
-        {
-            map[feature.Name] = feature.Value;
-        }
-
-        return map;
-    }
 
     /// <summary>
     /// Writes the viewport straight onto the page runtime, which is safe because this is the loop thread.
