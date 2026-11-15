@@ -207,14 +207,27 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
             // the command was well formed and it is the client's expression that was not.
             return new ValueTask<EvaluateResponse>(EvaluateFailure(exception, request));
         }
+        catch (Exception exception) when (_target.DescribeExecutionStop(exception) is { } stop)
+        {
+            return new ValueTask<EvaluateResponse>(Stopped(stop, EvaluateAnswer));
+        }
 
         if (parameters.AwaitPromise == true && value.IsPromise())
         {
-            return Settled(value, request, context, static (result, details) => new EvaluateResponse { Result = result, ExceptionDetails = details });
+            return Settled(value, request, context, EvaluateAnswer);
         }
 
-        return new ValueTask<EvaluateResponse>(new EvaluateResponse { Result = _objects.Describe(value, request) });
+        return new ValueTask<EvaluateResponse>(Described(value, request, EvaluateAnswer));
     }
+
+    private static readonly Func<RemoteObject, ExceptionDetails?, EvaluateResponse> EvaluateAnswer
+        = static (result, details) => new EvaluateResponse { Result = result, ExceptionDetails = details };
+
+    private static readonly Func<RemoteObject, ExceptionDetails?, CallFunctionOnResponse> CallAnswer
+        = static (result, details) => new CallFunctionOnResponse { Result = result, ExceptionDetails = details };
+
+    private static readonly Func<RemoteObject, ExceptionDetails?, RunScriptResponse> RunScriptAnswer
+        = static (result, details) => new RunScriptResponse { Result = result, ExceptionDetails = details };
 
     /// <inheritdoc/>
     protected override ValueTask<CallFunctionOnResponse> CallFunctionOnAsync(CallFunctionOnRequest parameters, CommandContext context)
@@ -251,6 +264,10 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         {
             return new ValueTask<CallFunctionOnResponse>(CallFailure(exception, request));
         }
+        catch (Exception exception) when (_target.DescribeExecutionStop(exception) is { } stop)
+        {
+            return new ValueTask<CallFunctionOnResponse>(Stopped(stop, CallAnswer));
+        }
 
         if (!function.IsCallable())
         {
@@ -269,13 +286,19 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         {
             return new ValueTask<CallFunctionOnResponse>(CallFailure(exception, request));
         }
+        catch (Exception exception) when (_target.DescribeExecutionStop(exception) is { } stop)
+        {
+            // axe.run's synchronous half on a large page is the case that found this (#4619): Playwright and
+            // Puppeteer both evaluate through this command, and both surface a thrown error's description.
+            return new ValueTask<CallFunctionOnResponse>(Stopped(stop, CallAnswer));
+        }
 
         if (parameters.AwaitPromise == true && result.IsPromise())
         {
-            return Settled(result, request, context, static (value, details) => new CallFunctionOnResponse { Result = value, ExceptionDetails = details });
+            return Settled(result, request, context, CallAnswer);
         }
 
-        return new ValueTask<CallFunctionOnResponse>(new CallFunctionOnResponse { Result = _objects.Describe(result, request) });
+        return new ValueTask<CallFunctionOnResponse>(Described(result, request, CallAnswer));
     }
 
     /// <inheritdoc/>
@@ -400,13 +423,17 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
                 ExceptionDetails = _objects.Exception(exception, NextExceptionId(), MainExecutionContextId),
             });
         }
+        catch (Exception exception) when (_target.DescribeExecutionStop(exception) is { } stop)
+        {
+            return new ValueTask<RunScriptResponse>(Stopped(stop, RunScriptAnswer));
+        }
 
         if (parameters.AwaitPromise == true && value.IsPromise())
         {
-            return Settled(value, request, context, static (result, details) => new RunScriptResponse { Result = result, ExceptionDetails = details });
+            return Settled(value, request, context, RunScriptAnswer);
         }
 
-        return new ValueTask<RunScriptResponse>(new RunScriptResponse { Result = _objects.Describe(value, request) });
+        return new ValueTask<RunScriptResponse>(Described(value, request, RunScriptAnswer));
     }
 
     /// <inheritdoc/>
@@ -599,6 +626,10 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
                 var result = arguments.Length > 0 ? arguments[0] : JsValue.Undefined;
                 completion.TrySetResult(build(_objects.Describe(result, request), null));
             }
+            catch (Exception exception) when (_target.DescribeExecutionStop(exception) is { } stop)
+            {
+                completion.TrySetResult(Stopped(stop, build));
+            }
             catch (Exception exception)
             {
                 completion.TrySetException(exception);
@@ -626,9 +657,67 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         engine.Call(then, promise, [onFulfilled, onRejected]);
 
         // From here the answer depends on a reaction this engine runs, which is what lifts the command
-        // timeout off it and what has the mailbox answer it when the engine is replaced (#4590).
-        context.MarkAwaitingScript();
+        // timeout off it and what has the mailbox answer it when the engine is replaced (#4590) -- or when an
+        // execution limit stops the turn the reaction was queued in (#4619).
+        context.MarkAwaitingScript(stop => completion.TrySetResult(Stopped(stop, build)));
         return new ValueTask<TResponse>(completion.Task);
+    }
+
+    /// <summary>
+    /// Describes a command's value, or answers the execution stop that describing it ran into.
+    /// </summary>
+    /// <remarks>
+    /// <c>returnByValue</c> is <c>JSON.stringify</c>, so a <c>toJSON</c> or a getter runs inside the same turn
+    /// the evaluation did and can spend the rest of its budget.
+    /// </remarks>
+    private TResponse Described<TResponse>(JsValue value, in RemoteObjectRequest request, Func<RemoteObject, ExceptionDetails?, TResponse> build)
+    {
+        try
+        {
+            return build(_objects.Describe(value, request), null);
+        }
+        catch (Exception exception) when (_target.DescribeExecutionStop(exception) is { } stop)
+        {
+            return Stopped(stop, build);
+        }
+    }
+
+    /// <summary>
+    /// Answers an evaluation an execution limit stopped, as a thrown <c>Error</c> whose message names the limit.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A thrown error, not a protocol error, because that is what a client shows.</b> Playwright turns any
+    /// <c>-32000</c> out of an evaluation into "Execution context was destroyed, most likely because of a
+    /// navigation" and Puppeteer into a protocol error naming the method; both report an exception's
+    /// <c>description</c> as the evaluation's error. The context is not destroyed — the limit ended one
+    /// script, and the next command runs in the same document.
+    /// </para>
+    /// <para>
+    /// <b>The error object is described, not made.</b> The engine has just been stopped inside the turn that ran
+    /// out, so nothing is allocated in it; the remote object carries no <c>objectId</c>, which is what a client
+    /// is handed for a value it cannot ask about again.
+    /// </para>
+    /// </remarks>
+    private TResponse Stopped<TResponse>(string stop, Func<RemoteObject, ExceptionDetails?, TResponse> build)
+    {
+        var error = new RemoteObject
+        {
+            Type = RemoteObjectTypeValues.Object,
+            Subtype = RemoteObjectSubtypeValues.Error,
+            ClassName = "Error",
+            Description = "Error: " + stop,
+        };
+
+        return build(error, new ExceptionDetails
+        {
+            ExceptionId = NextExceptionId(),
+            Text = "Uncaught",
+            LineNumber = 0,
+            ColumnNumber = 0,
+            ExecutionContextId = MainExecutionContextId,
+            Exception = error,
+        });
     }
 
     private EvaluateResponse EvaluateFailure(JavaScriptException exception, in RemoteObjectRequest request)

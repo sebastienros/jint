@@ -175,6 +175,12 @@ on by default, so a page cannot reach `localhost`, a private address or a cloud 
 of the event loop, one inline `<script>` — rather than the run as a whole, which is what a pumped event loop
 allows anyone to bound.
 
+The ceiling is five seconds for `fetch` and `eval`, and the hardened profile's own under `--untrusted` (and for
+`mcp`, which hardens by default). **`serve` has none unless `--untrusted` is given**,
+as Chromium has none: a protocol client already bounds what it drives (Playwright gives a test 30 seconds),
+and closing a page ends a running task whatever the ceiling. A task stopped by the ceiling is reported to
+the client as an error naming it — `Task exceeded MaxTaskDuration (5s)` — and the page stays usable.
+
 ## HTTP response caching
 
 Caching is disabled by default. `serve`, `fetch`, `eval` and `mcp` accept the same cache switches:

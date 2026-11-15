@@ -255,6 +255,36 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     /// <inheritdoc/>
     internal override ValueTask CloseAsync() => new(Page.CloseAsync());
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The page's own budget names itself — <see cref="BrowserOptions.MaxTaskDuration"/> or
+    /// <see cref="BrowserOptions.MemoryLimit"/>, and the <c>jint-browser</c> option that sets it — and any
+    /// other limit keeps the constraint's message. Runs on the loop, which is the budget's thread.
+    /// </remarks>
+    internal override string? DescribeExecutionStop(Exception exception)
+        => PageRuntime.Find(Runtime.Engine)?.Budget.Describe(exception) ?? base.DescribeExecutionStop(exception);
+
+    /// <inheritdoc/>
+    internal override long CurrentTurn => PageRuntime.Find(Runtime.Engine)?.Budget.Turn ?? 0;
+
+    /// <summary>Answers every command that awaited a promise of the turn the budget just stopped.</summary>
+    /// <remarks>
+    /// Without it, <c>Runtime.evaluate</c> of <c>Promise.resolve().then(work)</c> whose <c>work</c> ran out of
+    /// budget waited for ever: the reaction that would settle it was discarded with the checkpoint, and a
+    /// promise wait has no command timeout (#4590, #4619).
+    /// </remarks>
+    void IPageObserver.TaskStopped(Exception exception)
+    {
+        var runtime = Runtime;
+        if (runtime.IsDisposed || PageRuntime.Find(runtime.Engine) is not { } page)
+        {
+            return;
+        }
+
+        var budget = page.Budget;
+        runtime.Dispatcher.StopAwaiting(budget.Turn, budget.Describe(exception) ?? base.DescribeExecutionStop(exception) ?? exception.Message);
+    }
+
     /// <summary>Registers one attachment's <c>Page</c> domain as a listener.</summary>
     internal void AddDomain(PageDomain domain)
     {

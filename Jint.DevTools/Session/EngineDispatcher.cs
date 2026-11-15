@@ -98,6 +98,14 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         {
             return await item.Completion.Task.WaitAsync(CommandTimeout, context.CancellationToken).ConfigureAwait(false);
         }
+        catch (TimeoutException) when (item.Completion.Task.IsFaulted)
+        {
+            // Not the wait running out: the command itself failed with a TimeoutException, which WaitAsync
+            // rethrows as it is. Reading that as the client's bound is what answered a page's five-second turn
+            // budget with "Command timed out" at exactly five seconds (#4619). Run translates an execution
+            // stop before it gets here; anything else that throws one is the command's own failure.
+            throw;
+        }
         catch (TimeoutException) when (item.IsAwaiting)
         {
             // The engine ran the command and it is now waiting on a promise of that engine -- Runtime.evaluate
@@ -120,6 +128,39 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
                 : Throw.ServerError<string>(
                     "Engine is not being pumped",
                     "no thread ran the engine's event loop within the command timeout; call engine.Tasks.ProcessTasks() or EngineTarget.Pump(), or give the target ThreadMode.LibraryOwned");
+        }
+    }
+
+    /// <summary>
+    /// Answers every command awaiting a promise that was evaluated in <paramref name="turn"/>, because an
+    /// execution limit stopped that turn.
+    /// </summary>
+    /// <param name="turn">The turn that was stopped, as <see cref="DevToolsTarget.CurrentTurn"/> numbered it.</param>
+    /// <param name="stop">The sentence naming the limit.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>Only the commands of that turn, and that is a decision.</b> A command whose promise is settled by the
+    /// microtasks of its own checkpoint — <c>Promise.resolve().then(work)</c>, an <c>async</c> function between
+    /// two <c>await</c>s — lost the reaction it waits on when the limit discarded the checkpoint, so it would
+    /// otherwise wait for ever: there is no command timeout on a promise wait (#4590). A command evaluated in
+    /// an earlier turn may well be waiting on something else entirely — a poll a client keeps running on
+    /// every frame — and nothing can tell which task would have settled it, so it keeps waiting.
+    /// </para>
+    /// <para>Called on the engine thread, which is the only one that may run the command's answer.</para>
+    /// </remarks>
+    internal void StopAwaiting(long turn, string stop)
+    {
+        if (turn == 0)
+        {
+            return;
+        }
+
+        foreach (var item in _awaiting.Keys)
+        {
+            if (item.Turn == turn && Forget(item))
+            {
+                item.Stop(stop);
+            }
         }
     }
 
@@ -360,7 +401,7 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
     /// <summary>Runs one command, and tracks it while it waits on a promise of this engine.</summary>
     private void Run(CommandItem item)
     {
-        if (!item.Run() || !item.IsAwaiting)
+        if (!item.Run(_target) || !item.IsAwaiting)
         {
             // Answered already, or waiting on host work -- Page.navigate awaiting the very commit that
             // replaces this engine -- which the swap completes rather than destroys.
@@ -461,6 +502,7 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         private readonly DevToolsSession _session;
         private readonly ProtocolRequest _request;
         private readonly CommandContext _context;
+        private DevToolsTarget? _target;
         private int _started;
 
         internal CommandItem(DevToolsSession session, ProtocolRequest request, CommandContext context)
@@ -483,6 +525,33 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         /// <summary>Gets the qualified method the client asked for, which is what a paused drain filters on.</summary>
         internal string Method => _request.Method;
 
+        /// <summary>Gets the engine turn the command ran in, or zero when its target numbers none.</summary>
+        internal long Turn { get; private set; }
+
+        /// <summary>Answers a command whose awaited turn an execution limit stopped.</summary>
+        /// <remarks>
+        /// Through the command's own answer when it registered one — <c>Runtime</c> answers a thrown error, as
+        /// it does for a stop the command saw itself — and as a server error naming the limit otherwise.
+        /// </remarks>
+        internal void Stop(string stop)
+        {
+            if (_context.Stopped is { } stopped)
+            {
+                try
+                {
+                    stopped(stop);
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    Completion.TrySetException(exception);
+                    return;
+                }
+            }
+
+            Completion.TrySetException(new ProtocolException(ProtocolErrorCodes.ServerError, stop));
+        }
+
         /// <summary>Answers a command whose engine is being replaced under it.</summary>
         internal void Abandon()
         {
@@ -504,20 +573,23 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         }
 
         /// <summary>Answers the command, or starts answering it.</summary>
+        /// <param name="target">The target the command is answered for, which numbers its turn and describes a stop.</param>
         /// <returns>
         /// <see langword="true"/> when the answer is still pending, and <see langword="false"/> when it has
         /// been given.
         /// </returns>
-        internal bool Run()
+        internal bool Run(DevToolsTarget target)
         {
             Volatile.Write(ref _started, 1);
+            _target = target;
+            Turn = target.CurrentTurn;
 
             try
             {
                 var pending = _session.DispatchAsync(in _request, _context);
                 if (pending.IsCompleted)
                 {
-                    Complete(pending.AsTask(), Completion);
+                    Complete(pending.AsTask(), this, onEngineThread: true);
                     return false;
                 }
 
@@ -525,8 +597,8 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
                 // job that runs its reactions, which is this same thread. What crosses back is still only a
                 // string, so finishing the continuation inline is safe and saves a hop.
                 pending.AsTask().ContinueWith(
-                    static (task, state) => Complete(task, (TaskCompletionSource<string>) state!),
-                    Completion,
+                    static (task, state) => Complete(task, (CommandItem) state!, onEngineThread: false),
+                    this,
                     CancellationToken.None,
                     TaskContinuationOptions.ExecuteSynchronously,
                     TaskScheduler.Default);
@@ -537,16 +609,45 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
             {
                 // Everything the drain runs has to come back as a completion rather than as a throw: this
                 // runs inside an event-loop job, and an exception here erupts out of the host's pump.
-                Completion.TrySetException(exception);
+                Completion.TrySetException(Translate(exception));
                 return false;
             }
         }
 
-        private static void Complete(Task<string> task, TaskCompletionSource<string> completion)
+        /// <summary>
+        /// The failure a client is told about: an execution limit as the sentence naming it, anything else as
+        /// it was thrown.
+        /// </summary>
+        /// <remarks>
+        /// Decided here, on the engine thread, because the target describes a stop from state of the turn that
+        /// stopped; the transport thread that reads the completion may touch none of it.
+        /// </remarks>
+        private Exception Translate(Exception exception)
+            => _target?.DescribeExecutionStop(exception) is { } stop
+                ? new ProtocolException(ProtocolErrorCodes.ServerError, stop)
+                : exception;
+
+        /// <param name="task">The command's own answer.</param>
+        /// <param name="item">The queued command it answers.</param>
+        /// <param name="onEngineThread">
+        /// Whether this runs on the engine thread, which is the only place a stop may be described. A command
+        /// that answers later completes wherever its own task completed it, so one that can be stopped while it
+        /// waits — <c>Runtime</c>'s promise waits — describes the stop itself before it gets here.
+        /// </param>
+        private static void Complete(Task<string> task, CommandItem item, bool onEngineThread)
         {
+            var completion = item.Completion;
             if (task.IsFaulted)
             {
-                completion.TrySetException(task.Exception!.InnerExceptions);
+                var failures = task.Exception!.InnerExceptions;
+                if (onEngineThread && failures.Count == 1)
+                {
+                    completion.TrySetException(item.Translate(failures[0]));
+                }
+                else
+                {
+                    completion.TrySetException(failures);
+                }
             }
             else if (task.IsCanceled)
             {

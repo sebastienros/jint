@@ -87,7 +87,12 @@ internal sealed class BrowserSettings
     /// The frame interval when <c>--animation-frame-interval</c> is not given, or <see langword="null"/> for the
     /// package's own.
     /// </param>
-    internal BrowserOptions ToBrowserOptions(TimeSpan? defaultAnimationFrameInterval = null)
+    /// <param name="defaultMaxTaskDuration">
+    /// The turn ceiling when <c>--max-task-duration</c> is not given and the pages are trusted, or
+    /// <see langword="null"/> for the package's own. Never applied under <c>--untrusted</c>, whose profile
+    /// supplies a ceiling of its own and must keep it.
+    /// </param>
+    internal BrowserOptions ToBrowserOptions(TimeSpan? defaultAnimationFrameInterval = null, TimeSpan? defaultMaxTaskDuration = null)
     {
         var options = new BrowserOptions();
 
@@ -101,7 +106,7 @@ internal sealed class BrowserSettings
             options.UserAgent = UserAgent;
         }
 
-        if (MaxTaskDuration is { } duration)
+        if ((MaxTaskDuration ?? (Untrusted ? null : defaultMaxTaskDuration)) is { } duration)
         {
             options.MaxTaskDuration = duration;
         }

@@ -218,6 +218,53 @@ public abstract class DevToolsTarget : ICommandGateway
     /// </remarks>
     internal virtual bool RunsOffThread(string method) => false;
 
+    /// <summary>
+    /// Describes the execution limit that stopped script this target was running, or answers
+    /// <see langword="null"/> for any other failure.
+    /// </summary>
+    /// <param name="exception">What the engine threw out of a command, or out of a task the command awaited.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>A stop is not a broken command.</b> A constraint the host registered — a time budget, an allocation
+    /// budget, a statement count, a recursion depth — ended the script, and the client is owed a sentence
+    /// naming that limit rather than a bare <c>-32000</c>: Playwright rewrites any protocol error out of an
+    /// evaluation into <i>"Execution context was destroyed, most likely because of a navigation"</i>, which
+    /// sends a reader looking for a navigation that never happened (#4619). <c>Runtime</c> answers the
+    /// sentence as a thrown error, and every other command as the error's message.
+    /// </para>
+    /// <para>
+    /// Called on the engine thread, while the turn that stopped is still the latest one. Virtual so a target
+    /// whose host owns the budget — a page, whose turns <c>Jint.Browser</c> brackets — can say which of its
+    /// options set the limit; the default is the constraint's own message.
+    /// </para>
+    /// </remarks>
+    internal virtual string? DescribeExecutionStop(Exception exception)
+        => IsExecutionStop(exception) ? exception.Message : null;
+
+    /// <summary>Whether <paramref name="exception"/> is one of the engine's execution limits running out.</summary>
+    /// <remarks>
+    /// The four a constraint or a configured limit throws out of a running script: wall-clock time
+    /// (<c>LimitExecutionTime</c> and <see cref="Jint.Constraints.OperationDeadlineConstraint"/> both raise
+    /// <see cref="TimeoutException"/>), allocation, statements and recursion. Cancellation is deliberately not
+    /// one: a cancelled engine is one the host is tearing down, and the command is answered as such.
+    /// </remarks>
+    internal static bool IsExecutionStop(Exception exception)
+        => exception is TimeoutException
+            or MemoryLimitExceededException
+            or StatementsCountOverflowException
+            or RecursionDepthOverflowException;
+
+    /// <summary>
+    /// Gets a number that names the engine turn running now, for a target whose host brackets turns, or zero.
+    /// </summary>
+    /// <remarks>
+    /// A command that awaits a promise records it when it runs, so that a budget stopping that very turn — the
+    /// command's own microtask checkpoint — can answer the command rather than leave it waiting on a reaction
+    /// that will never run (<see cref="Session.EngineDispatcher.StopAwaiting"/>). Zero means "no turns", and a
+    /// command recorded under zero is never stopped this way.
+    /// </remarks>
+    internal virtual long CurrentTurn => 0;
+
     /// <summary>Registers what one attachment to this target answers, on <paramref name="session"/>.</summary>
     /// <param name="session">The session node the attachment answers on.</param>
     /// <param name="browser">The conversation it belongs to, or <see langword="null"/> for a direct connection.</param>

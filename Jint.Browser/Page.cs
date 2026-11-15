@@ -107,7 +107,7 @@ public sealed partial class Page : IAsyncDisposable
             "Jint.Browser page loop",
             options.PumpIdle,
             () => BuildEngine("about:blank", ""),
-            exception => recorder.Add(PumpErrorKind(exception), exception.Message, "PageLoop"),
+            PumpFailed,
             ReportTitleAtEndOfTurn);
 
         // The recorder is built before the page, so it is told here where to read the page's URL from — the
@@ -150,6 +150,22 @@ public sealed partial class Page : IAsyncDisposable
 
         _reportedTitle = title;
         observer.TitleChanged(title);
+    }
+
+    /// <summary>Records what erupted from the pump, and tells the watcher when it was a budget stopping a task.</summary>
+    /// <remarks>
+    /// Runs on the loop, after the stopped task's bracket has closed and before any other turn opens, which is
+    /// what lets the watcher name the turn that stopped. A protocol command awaiting a promise of that very
+    /// turn is answered from it; see <see cref="IPageObserver.TaskStopped"/>.
+    /// </remarks>
+    private void PumpFailed(Exception exception)
+    {
+        _recorder.Add(PumpErrorKind(exception), exception.Message, "PageLoop");
+
+        if (PageBudget.IsBudgetFailure(exception))
+        {
+            _observer?.TaskStopped(exception);
+        }
     }
 
     /// <summary>What a page calls something that erupts from its pump rather than from a callback.</summary>
@@ -743,6 +759,7 @@ public sealed partial class Page : IAsyncDisposable
                 // A job that ran out of budget ends; the wait does not, because the next drain gets a budget
                 // of its own and the caller's own ceiling is what bounds this loop.
                 _recorder.Add(PageErrorKind.BudgetExceeded, exception.Message, "PageLoop");
+                _observer?.TaskStopped(exception);
             }
 
             if (engine.Tasks.TimeUntilNextScheduledWork is not { } next)
