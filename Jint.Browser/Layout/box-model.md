@@ -49,6 +49,17 @@ content's and nothing else moves: growing its parent would feed back into an edi
 from its container. Its offsets are not applied: it stays at its parent's left edge, on its row. A document
 with a positioned box takes the rectangle hit test.
 
+**A column flex container with a pixel height shares it with its growing items.** Its own `height` (resolved
+as `getComputedStyle` does, so `calc(100vh - 5rem)` is pixels) is at least that many rows, and the height its
+items' rows leave is shared between the items with a `flex-grow`, in proportion, as is a stretched row item's:
+a designer's canvas fills the column a full-height layout gives it. Only a column: an ordinary block sized from
+its content keeps its rows, since an editor that sizes its layers from its container would otherwise feed back.
+An absolute box with both `top` and `bottom` set and an `auto` height covers its parent's box.
+
+**A grid item is as wide as the column tracks it spans.** The container's `grid-template-columns`, when every
+track is a length or `fr`, gives each track its used width, and an item spans `grid-column`'s tracks and the
+gaps between them from the first column. Items are not placed side by side: each keeps its row.
+
 **Single-line horizontal flex rows partition their containing width.** `Layout/FlexRow` reads the shared native cascade's
 computed display, direction, basis, growth, shrinkage and cross-axis alignment. The synthetic intrinsic
 size is still a row, not measured text; wrapping, gaps, margins, main-axis justification, ordering and positioned

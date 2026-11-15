@@ -334,8 +334,10 @@ internal sealed class FlatLayout
             var invisible = IsInvisible(element, visibility, cascade);
             _invisible.Add(invisible);
             // A positioned box can be narrower than its parent, which the row division cannot answer either.
-            // So can an invisible one, which the row division would hit.
-            hasFlexRows = hasFlexRows || invisible || FlexRow.IsHorizontal(element, cascade) || IsOutOfFlow(element, cascade);
+            // So can an invisible one, which the row division would hit, and a column whose height or growth
+            // gives a box more rows than its descendants.
+            hasFlexRows = hasFlexRows || invisible || FlexRow.IsHorizontal(element, cascade) || IsOutOfFlow(element, cascade)
+                || FlexRow.IsColumn(element, cascade);
 
             for (var child = element.LastChild; child is not null; child = child.PreviousSibling)
             {
@@ -526,8 +528,9 @@ internal sealed class FlatLayout
         }
 
         /// <summary>
-        /// An absolutely positioned box with a pixel height of its own covers that height, as far as its
-        /// parent's box goes, or less than its row when nothing is inside it: a layer of an editor — Monaco's lines — is as tall as the editor, so a press
+        /// An absolutely positioned box with a pixel height of its own covers that height, or with its top and
+        /// bottom set its parent's height, as far as its parent's box goes, or less than its row when nothing is
+        /// inside it: a layer of an editor — Monaco's lines — is as tall as the editor, so a press
         /// below the last line is still on it. It is out of flow, so its rows, and every other box, stay as
         /// they are: its parent does not grow with it, which would feed back into an editor sizing its
         /// layers from its container.
@@ -536,13 +539,32 @@ internal sealed class FlatLayout
         {
             if (cascade?.LayoutOf(target) is not { } style
                 || CssCascade.ValueOf(style, "position") != "absolute"
-                || CssCascade.ValueOf(style, "height") is not { } height
-                || !height.EndsWith("px", StringComparison.Ordinal)
-                || FlexRow.Length(height, 0) is not { } pixels
                 || target.ParentNode is not Element parent
                 || !HasBox(parent))
             {
                 return box;
+            }
+
+            // CSS 2 §10.6.4: with both its top and its bottom set and an auto height, it spans its containing
+            // block — a canvas laid over its host with inset: 0.
+            var height = CssCascade.ValueOf(style, "height");
+            double pixels;
+            if (height is null or "" or "auto")
+            {
+                if (CssCascade.ValueOf(style, "top") is null or "" or "auto" || CssCascade.ValueOf(style, "bottom") is null or "" or "auto")
+                {
+                    return box;
+                }
+
+                pixels = double.PositiveInfinity;
+            }
+            else if (!height.EndsWith("px", StringComparison.Ordinal) || FlexRow.Length(height, 0) is not { } length)
+            {
+                return box;
+            }
+            else
+            {
+                pixels = length;
             }
 
             // Shorter than its row only without boxes inside it, which have to stay inside it.
@@ -661,7 +683,7 @@ internal sealed class FlatLayout
                 }
                 else
                 {
-                    _widths.Add(element, PositionedWidth(element, width) ?? width);
+                    _widths.Add(element, PositionedWidth(element, width) ?? GridItemWidth(element, parent, width) ?? width);
                 }
             }
 
@@ -698,6 +720,53 @@ internal sealed class FlatLayout
             if (FlexRow.Length(CssCascade.ValueOf(style, "max-width"), available) is { } maximum) width = Math.Min(width, maximum);
             if (FlexRow.Length(CssCascade.ValueOf(style, "min-width"), available) is { } minimum) width = Math.Max(width, minimum);
             return width;
+        }
+
+        /// <summary>
+        /// The width of a grid item (https://drafts.csswg.org/css-grid-2/#layout-algorithm, for column tracks
+        /// it can size without content): the tracks it spans and the gaps between them, from the first column —
+        /// items are not placed side by side, each keeps its row, but a dashboard widget is as wide as its cells.
+        /// <see langword="null"/> outside a grid, or for a track list that needs content to size.
+        /// </summary>
+        private double? GridItemWidth(Element element, Element parent, double available)
+        {
+            if (cascade?.LayoutOf(parent) is not { } container
+                || !Dom.Views.ResolvedValueText.IsGridContainer(container)
+                || cascade.LayoutOf(element) is not { } style)
+            {
+                return null;
+            }
+
+            // Absolute lengths, as getComputedStyle reads them: a gap of 1rem is 16px.
+            var viewport = ViewportOf();
+            var columns = Dom.Views.ResolvedLengths.Resolve("grid-template-columns", container.GetNormalizedProperty("grid-template-columns"), container, viewport);
+            var columnGap = Dom.Views.ResolvedLengths.Resolve("column-gap", container.GetNormalizedProperty("column-gap"), container, viewport);
+            if (Dom.Views.ResolvedValueText.ColumnTracks(columns, available, columnGap, out var gap) is not { } tracks)
+            {
+                return null;
+            }
+
+            // A shorthand with a var() in it leaves its longhands pending; the shorthand has the substituted value.
+            var span = Math.Max(Span(CssCascade.ValueOf(style, "grid-column-start")), Span(CssCascade.ValueOf(style, "grid-column-end")));
+            if (span == 1 && CssCascade.ValueOf(style, "grid-column") is { } shorthand)
+            {
+                span = Span(shorthand.Split('/')[0].Trim());
+            }
+
+            span = Math.Min(span, tracks.Length);
+            var width = gap * (span - 1);
+            for (var i = 0; i < span; i++)
+            {
+                width += tracks[i];
+            }
+
+            return Math.Min(width, available);
+
+            // "span 2" spans two tracks; a line number or auto spans one.
+            static int Span(string? value)
+                => value is not null && value.StartsWith("span ", StringComparison.Ordinal)
+                    && int.TryParse(value.AsSpan(5).Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var count)
+                    && count > 0 ? count : 1;
         }
 
         /// <summary>
@@ -769,9 +838,7 @@ internal sealed class FlatLayout
             while (!_heights.ContainsKey(element))
             {
                 Step();
-                if ((element.ParentNode as Element) is not { } parent
-                    || !FlexRow.IsHorizontal(parent, cascade)
-                    || FlexRow.Alignment(element, parent, cascade) != "stretch")
+                if ((element.ParentNode as Element) is not { } parent || !SizedByParent(element, parent))
                 {
                     _heights.Add(element, CountRows(element) * RowHeight);
                     break;
@@ -784,11 +851,69 @@ internal sealed class FlatLayout
             while (ancestors.TryPop(out element))
             {
                 Step();
-                _heights.Add(element, _heights[(element.ParentNode as Element)!] - RowHeight);
+                var parent = (element.ParentNode as Element)!;
+                _heights.Add(element, FlexRow.IsHorizontal(parent, cascade)
+                    ? _heights[parent] - RowHeight
+                    : Grown(element, parent, _heights[parent]));
             }
 
             return _heights[target];
         }
+
+        // A horizontal flex row stretches its items to its height; a column grows the items that flex-grow.
+        private bool SizedByParent(Element element, Element parent)
+            => FlexRow.IsHorizontal(parent, cascade)
+                ? FlexRow.Alignment(element, parent, cascade) == "stretch"
+                : FlexRow.IsColumn(parent, cascade) && FlexRow.Grow(element, cascade) > 0;
+
+        /// <summary>
+        /// https://drafts.csswg.org/css-flexbox/#resolve-flexible-lengths, along a column: the height of a
+        /// container left over by its items' rows is shared between the items that grow — a designer's canvas
+        /// fills the column a full-height layout gives it. An item is never shorter than its rows.
+        /// </summary>
+        private double Grown(Element element, Element parent, double parentHeight)
+        {
+            var own = CountRows(element) * RowHeight;
+            var content = 0d;
+            var growth = 0d;
+            foreach (var child in Children(parent))
+            {
+                Step();
+                if (HasBox(child))
+                {
+                    content += CountRows(child) * RowHeight;
+                    growth += FlexRow.Grow(child, cascade);
+                }
+            }
+
+            var free = parentHeight - RowHeight - content;
+            return free > 0 && growth > 0 ? own + (free * FlexRow.Grow(element, cascade) / Math.Max(1, growth)) : own;
+        }
+
+        /// <summary>
+        /// The rows a column flex container's own pixel height covers — <c>height: calc(100vh - 5rem)</c> on a
+        /// full-height layout — which its growing items then share. Only a column: its items' heights come from
+        /// it, while a block sized from its content, an editor's, would feed back into the content sizing itself.
+        /// </summary>
+        private int DefiniteRows(Element element)
+        {
+            if (!FlexRow.IsColumn(element, cascade) || cascade?.LayoutOf(element) is not { } style)
+            {
+                return 0;
+            }
+
+            var height = ResolvedLengths.Resolve("height", style.GetNormalizedProperty("height"), style, ViewportOf());
+            return height.EndsWith("px", StringComparison.Ordinal) && FlexRow.Length(height, 0) is { } pixels
+                ? (int) Math.Min(int.MaxValue / 2, Math.Ceiling(pixels / RowHeight))
+                : 0;
+        }
+
+        /// <summary>The page's viewport, which vw, vh and rem lengths resolve against.</summary>
+        private Viewport ViewportOf()
+            => document is not null && Styling.NativeCssStyleSheets.RealmOf(document) is { } host
+                && Runtime.PageRuntime.FindBrowsingContext(host.Engine, document) is { } runtime
+                    ? runtime.Viewport
+                    : Viewport.Default with { Width = (int) viewportWidth };
 
         // A scroll clamp only needs proof that the document reaches the viewport's bottom.
         // Stop at that bound; partial counts must never enter the exact-size cache.
@@ -820,6 +945,11 @@ internal sealed class FlatLayout
                     Step();
                     var rows = frame.Next == 0 ? frame.Rows
                         : frame.Horizontal ? Math.Max(frame.Rows, result + 1) : frame.Rows + result;
+                    if (frame.Next == Children(frame.Element).Count)
+                    {
+                        rows = Math.Max(rows, DefiniteRows(frame.Element));
+                    }
+
                     if (rows >= frame.Limit || frame.Next == Children(frame.Element).Count)
                     {
                         result = Math.Min(rows, frame.Limit);
@@ -887,7 +1017,7 @@ internal sealed class FlatLayout
                         rows = horizontal ? Math.Max(rows, _rows[child]) : rows + _rows[child];
                     }
 
-                    _rows.Add(element, rows + 1);
+                    _rows.Add(element, Math.Max(rows + 1, DefiniteRows(element)));
                 }
             }
 

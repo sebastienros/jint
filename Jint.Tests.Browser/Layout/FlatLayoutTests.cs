@@ -403,6 +403,31 @@ public class FlatLayoutTests
         (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {3.5 * Row}).id")).Should().Be("invisible");
     }
 
+    /// <summary>
+    /// https://drafts.csswg.org/css-grid-2/#layout-algorithm — a grid item is as wide as the column tracks it
+    /// spans and the gaps between them, whether the track count and the span come from a var() or not.
+    /// </summary>
+    [TestCase("repeat(4, 1fr)", "span 2")]
+    [TestCase("repeat( var(--columns), 1fr)", "span var(--width)")]
+    public async Task AGridItemIsAsWideAsTheTracksItSpans(string columns, string span)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            $$"""
+            <style>
+              #grid { --columns: 4; display: grid; grid-template-columns: {{columns}}; grid-gap: 1rem }
+              #wide { --width: 2; grid-column: {{span}} }
+            </style>
+            <div id="grid"><div id="one">a</div><div id="wide">b</div></div>
+            """);
+
+        // (1280 - 3 × 16) / 4 = 308 per track.
+        (await page.EvaluateAsync<double>("document.getElementById('one').getBoundingClientRect().width")).Should().Be(308);
+        (await page.EvaluateAsync<double>("document.getElementById('wide').getBoundingClientRect().width")).Should().Be(632);
+    }
+
     [Test]
     public async Task ElementFromPointHitsTheLeafAtItsCentreAndADescendantAtAContainers()
     {

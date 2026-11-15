@@ -24,6 +24,16 @@ internal static class FlexRow
             && CssCascade.ValueOf(style, "flex-wrap") is not ("wrap" or "wrap-reverse");
     }
 
+    /// <summary>Whether <paramref name="element"/> is a flex container laying its items out in a column.</summary>
+    internal static bool IsColumn(Element element, CssCascade.Traversal? cascade)
+        => cascade?.Of(element) is { } style
+            && CssCascade.ValueOf(style, "display") is "flex" or "inline-flex"
+            && CssCascade.ValueOf(style, "flex-direction") is "column" or "column-reverse";
+
+    /// <summary>An item's flex-grow factor, zero when it does not grow.</summary>
+    internal static double Grow(Element element, CssCascade.Traversal? cascade)
+        => Number(cascade?.LayoutOf(element) is { } style ? CssCascade.ValueOf(style, "flex-grow") : null) ?? 0;
+
     internal static bool IsReversed(Element element, CssCascade.Traversal? cascade)
     {
         var style = cascade?.LayoutOf(element);
