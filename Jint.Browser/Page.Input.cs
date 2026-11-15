@@ -117,6 +117,8 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_closed, this);
 
+        await SettleFrameAsync().ConfigureAwait(false);
+
         // An attempt that dispatched nothing — no match, no box, another element on top — may be retried while
         // the context's action timeout lasts; one that dispatched input is never repeated.
         (bool Clicked, NavigationRequest? Navigation, bool Dispatched) captured = default;
@@ -1152,6 +1154,38 @@ public sealed partial class Page
             await turned.WaitAsync(WaitPoll).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
     }
+
+    /// <summary>
+    /// Lets a frame the page asked for run before a click lands: a component that renders in
+    /// <c>requestAnimationFrame</c> — Monaco lays its lines out there once it is created — is not clicked
+    /// half-drawn, which is what Playwright's wait for a box that is stable across frames gives a page too.
+    /// One frame, and only when a callback is waiting for one; a page that requests a frame from every frame
+    /// costs a click one frame, not a timeout.
+    /// </summary>
+    private async Task SettleFrameAsync()
+    {
+        long frame;
+        try
+        {
+            frame = await _loop.PostAsync(engine =>
+                PageRuntime.Find(engine)?.AnimationFrames is { HasCallbacks: true } lane ? lane.FramesRun : -1L).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException) when (_closed)
+        {
+            return;
+        }
+
+        if (frame >= 0)
+        {
+            await WaitForAsync(
+                engine => PageRuntime.Find(engine)?.AnimationFrames.FramesRun ?? long.MaxValue,
+                run => run > frame,
+                FrameSettleTimeout).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>The longest a click waits for a pending frame: a few frames' worth, for a loop that is busy.</summary>
+    private static readonly TimeSpan FrameSettleTimeout = TimeSpan.FromMilliseconds(100);
 
     /// <summary>Completed, and replaced, at the end of every turn of the loop that was not a wait's own look.</summary>
     private TaskCompletionSource _turnEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
