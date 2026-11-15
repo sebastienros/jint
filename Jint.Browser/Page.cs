@@ -240,6 +240,13 @@ public sealed partial class Page : IAsyncDisposable
     /// <summary>What the page's scripts printed, oldest first, formatted the way a console would.</summary>
     public IReadOnlyList<string> ConsoleMessages => _recorder.ConsoleMessages;
 
+    /// <summary>
+    /// What the page's scripts printed, oldest first, each with the level of the <c>console</c> method that
+    /// printed it — so a caller can ask for the errors without parsing text.
+    /// </summary>
+    /// <remarks>The same messages, and the same bound, as <see cref="ConsoleMessages"/>.</remarks>
+    public IReadOnlyList<PageConsoleMessage> ConsoleEntries => _recorder.ConsoleEntries;
+
     /// <summary>Raised when the page calls <c>alert</c>, <c>confirm</c> or <c>prompt</c>.</summary>
     /// <remarks>
     /// The handler runs on the page's own thread, inside the script that opened the dialog, so it must return

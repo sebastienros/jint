@@ -92,6 +92,36 @@ public sealed class BrowserContextOptions
     private Viewport? _viewport;
 
     /// <summary>
+    /// The URL a relative address a host passes to a page of this context is resolved against, or
+    /// <see langword="null"/> — the default — for none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A test suite names its server once rather than on every call:
+    /// <c>page.NavigateAsync("/admin")</c> and <c>page.WaitForUrlAsync("/admin", ...)</c> resolve against it,
+    /// with the URL standard's own rules, so <c>"/admin"</c> keeps its host and <c>"admin"</c> its directory.
+    /// It is the host's address bar and nothing else: a page's own links, forms and <c>location</c> writes
+    /// still resolve against the document's base URL. An absolute address is left alone.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentException">The value is not an absolute URL.</exception>
+    public string? BaseUrl
+    {
+        get => _baseUrl;
+        set
+        {
+            if (value is not null && Runtime.PageUrl.Parse(value, null) is null)
+            {
+                throw new ArgumentException("A base URL must be absolute.", nameof(value));
+            }
+
+            _baseUrl = value;
+        }
+    }
+
+    private string? _baseUrl;
+
+    /// <summary>
     /// Whether every page of this context opens as a touch device, or <see langword="null"/> — the default —
     /// for <see cref="BrowserOptions.HasTouch"/>.
     /// </summary>

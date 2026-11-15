@@ -44,7 +44,11 @@ public sealed class BrowserContext : IAsyncDisposable
         Viewport = options.Viewport ?? browser.Options.Viewport;
         HasTouch = options.HasTouch ?? browser.Options.HasTouch;
         MediaEmulation = options.MediaEmulation;
+        BaseUrl = options.BaseUrl;
     }
+
+    /// <summary><see cref="BrowserContextOptions.BaseUrl"/>, read once when the context was created.</summary>
+    internal string? BaseUrl { get; }
 
     /// <summary>
     /// The viewport this context's pages open with: <see cref="BrowserContextOptions.Viewport"/>, or the
