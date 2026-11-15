@@ -291,7 +291,7 @@ internal static partial class InputDispatcher
             {
                 // https://html.spec.whatwg.org/multipage/interaction.html#focusing-steps — a tap focuses what
                 // it lands on unless the page cancelled the mousedown, which is the rule a press follows too.
-                FocusController.Focus(dom, focusTarget);
+                FocusController.Focus(dom, focusTarget, FocusOrigin.Pointer);
             }
 
             Mouse(target, "mouseup", options, cancelable: true);

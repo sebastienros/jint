@@ -19,6 +19,7 @@ internal sealed partial class PageLayout
     private ulong _cachedControlRevision;
     private string? _cachedUrl;
     private Element? _cachedFocus;
+    private bool _cachedFocusIndicated;
     private Element? _cachedPress;
     private Element? _cachedHover;
     private bool? _supportedStyles;
@@ -67,6 +68,7 @@ internal sealed partial class PageLayout
         RetireQueries();
         _cachedDocument = null;
         _cachedFocus = null;
+        _cachedFocusIndicated = false;
         _cachedPress = null;
         _cachedHover = null;
         _supportedStyles = null;
@@ -133,14 +135,14 @@ internal sealed partial class PageLayout
             || document is not null && (!_cachedResources.CanReuse || _cachedResources != NativeCssStyleSheets.Stamp(document)) || stylesChanged
             || controlRevision == ulong.MaxValue || _cachedControlRevision != controlRevision
             || _cachedUrl != url
-            || (interactions & CssInteractionDependencies.Focus) != 0 && !ReferenceEquals(_cachedFocus, events.FocusedElement)
+            || (interactions & CssInteractionDependencies.Focus) != 0 && (!ReferenceEquals(_cachedFocus, events.FocusedElement) || _cachedFocusIndicated != events.FocusIndicated)
             || (interactions & CssInteractionDependencies.Active) != 0 && !ReferenceEquals(_cachedPress, events.MousePressTarget)
             || (interactions & CssInteractionDependencies.Hover) != 0 && !ReferenceEquals(_cachedHover, events.MouseHoverTarget);
         if (globalChange || _cachedNativeStamp != document?.MutationStamp)
         {
             if (globalChange || !ReferenceEquals(_observedDocument, document) || _observedStamp != document?.MutationStamp)
                 ResetMeasurements(stylesChanged ? "stylesheet" : _cachedControlRevision != controlRevision ? "control-state"
-                    : (interactions & CssInteractionDependencies.Focus) != 0 && !ReferenceEquals(_cachedFocus, events.FocusedElement) ? "focus"
+                    : (interactions & CssInteractionDependencies.Focus) != 0 && (!ReferenceEquals(_cachedFocus, events.FocusedElement) || _cachedFocusIndicated != events.FocusIndicated) ? "focus"
                     : (interactions & CssInteractionDependencies.Active) != 0 && !ReferenceEquals(_cachedPress, events.MousePressTarget) ? "press"
                     : (interactions & CssInteractionDependencies.Hover) != 0 && !ReferenceEquals(_cachedHover, events.MouseHoverTarget) ? "hover"
                     : "global-witness");
@@ -155,6 +157,7 @@ internal sealed partial class PageLayout
             _cachedMedia = _runtime.Media;
             _cachedUrl = url;
             _cachedFocus = events.FocusedElement;
+            _cachedFocusIndicated = events.FocusIndicated;
             _cachedPress = events.MousePressTarget;
             _cachedHover = events.MouseHoverTarget;
             _cachedInteractions = CssInteractionDependencies.All;

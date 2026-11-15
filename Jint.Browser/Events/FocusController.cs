@@ -6,6 +6,8 @@ using Jint.Browser.Dom.Views;
 using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 using Jint.Native;
+using Jint.Native.Object;
+using Jint.Runtime;
 using Jint.WebApi.Events;
 
 namespace Jint.Browser.Events;
@@ -144,7 +146,7 @@ internal static class FocusController
     /// was given focus or already had it — whatever a listener then did with focus; <see langword="false"/>
     /// when the element is not a focusable area of a page document and nothing happened.
     /// </returns>
-    internal static bool Focus(DomRealm dom, Element element)
+    internal static bool Focus(DomRealm dom, Element element, FocusOrigin origin = FocusOrigin.Script, bool? focusVisible = null)
     {
         if (!CanFocus(dom, element))
         {
@@ -163,13 +165,107 @@ internal static class FocusController
 
         if (ReferenceEquals(previous, element))
         {
+            // HTML's focus() indicates focus after the focusing steps, which return early here; a user's
+            // click or key on the focused element leaves its indication as it was, as Chromium does.
+            if (focusVisible is { } requested) Indicate(realm, requested, requestedByScript: true);
             return true;
         }
 
+        IndicateFocus(realm, previous is not null, origin, focusVisible);
         realm.FocusedElement = element;
         RunFocusUpdateSteps(dom, previous, element, ++Updates.GetOrCreateValue(realm).Revision);
         return true;
     }
+
+    /// <summary>
+    /// https://drafts.csswg.org/selectors-4/#the-focus-visible-pseudo — the heuristics Selectors 4 §9.4
+    /// recommends, as Chromium applies them when focus moves: a key indicates focus and a pointer does not;
+    /// a script indicates it when the element it takes focus from did, or when no pointer has moved focus
+    /// since the last key; and <c>focus({ focusVisible })</c> decides outright.
+    /// </summary>
+    private static void IndicateFocus(BrowserEventRealm realm, bool hadFocus, FocusOrigin origin, bool? focusVisible)
+    {
+        switch (origin)
+        {
+            case FocusOrigin.Keyboard:
+                realm.LastFocusByPointer = false;
+                Indicate(realm, true, requestedByScript: false);
+                return;
+            case FocusOrigin.Pointer:
+                realm.LastFocusByPointer = true;
+                Indicate(realm, false, requestedByScript: false);
+                return;
+            default:
+                if (focusVisible is { } requested) Indicate(realm, requested, requestedByScript: true);
+                else Indicate(realm, hadFocus && realm.FocusIndicated || !realm.LastFocusByPointer, requestedByScript: false);
+                return;
+        }
+    }
+
+    private static void Indicate(BrowserEventRealm realm, bool indicated, bool requestedByScript)
+    {
+        realm.FocusIndicated = indicated;
+        realm.FocusIndicationRequested = requestedByScript;
+    }
+
+    /// <summary>
+    /// A key press, which Selectors 4 §9.4 says makes the focused element indicate its focus — unless a
+    /// script asked for it not to with <c>focus({ focusVisible: false })</c> — and which a later script
+    /// <c>focus()</c> inherits.
+    /// </summary>
+    internal static void NoteKeyPress(BrowserEventRealm realm)
+    {
+        realm.LastFocusByPointer = false;
+        if (!realm.FocusIndicationRequested) realm.FocusIndicated = true;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="element"/>, the focused element of its document, matches <c>:focus-visible</c>:
+    /// its focus is indicated, or it is a control a user types into — a text field, a <c>&lt;textarea&gt;</c>
+    /// or an editing host — which always indicates focus, readonly or not, as in Chromium.
+    /// </summary>
+    internal static bool IsFocusVisible(DomRealm dom, BrowserEventRealm realm, Element element)
+    {
+        if (realm.FocusIndicated) return true;
+        if (element.NamespaceUri == Namespaces.Html)
+        {
+            if (element.LocalName == "textarea") return true;
+            if (element.LocalName == "input")
+                return element.GetHtmlState()?.GetInputValueState(dom.NativeReadCheckpoint, dom.CancellationToken)
+                    is { HasEditingBuffer: true };
+        }
+        return ContentEditing.HostOf(element) is not null;
+    }
+
+    /// <summary>
+    /// The FocusOptions dictionary's <c>focusVisible</c> member, or <see langword="null"/> when it is absent.
+    /// </summary>
+    /// <remarks>
+    /// https://html.spec.whatwg.org/multipage/interaction.html#focusoptions — WebIDL reads a dictionary's
+    /// members in lexicographic order, so <c>focusVisible</c> before <c>preventScroll</c>, which nothing here
+    /// could honour or violate and whose getter still runs.
+    /// </remarks>
+    internal static bool? FocusVisibleOption(DomRealm dom, JsValue[] arguments, string interfaceName)
+    {
+        var options = arguments.Length > 0 ? arguments[0] : JsValue.Undefined;
+        if (options.IsNullOrUndefined()) return null;
+        if (options is not ObjectInstance dictionary)
+        {
+            Throw.TypeError(dom.Engine.Realm,
+                "Failed to execute 'focus' on '" + interfaceName + "': parameter 1 is not of type 'FocusOptions'.");
+            return null;
+        }
+        var focusVisible = dictionary.Get("focusVisible");
+        _ = dictionary.Get("preventScroll");
+        return focusVisible.IsUndefined() ? null : TypeConverter.ToBoolean(focusVisible);
+    }
+
+    /// <summary>
+    /// <c>HTMLElement.focus(options)</c> and <c>SVGElement.focus(options)</c>: the focusing steps for a
+    /// script, with FocusOptions' <c>focusVisible</c>.
+    /// </summary>
+    internal static void FocusFromScript(DomRealm dom, Element element, JsValue[] arguments, string interfaceName)
+        => Focus(dom, element, FocusOrigin.Script, FocusVisibleOption(dom, arguments, interfaceName));
 
     /// <summary>
     /// Whether <see cref="Focus"/> would move focus to <paramref name="element"/>: it is connected to a
@@ -790,4 +886,17 @@ internal static class FocusController
 
         return false;
     }
+}
+
+/// <summary>What moved focus, which is what Selectors 4 §9.4's <c>:focus-visible</c> heuristics ask.</summary>
+internal enum FocusOrigin
+{
+    /// <summary><c>element.focus()</c>, autofocus, a dialog, or a host API standing in for one.</summary>
+    Script,
+
+    /// <summary>Sequential focus navigation with a key.</summary>
+    Keyboard,
+
+    /// <summary>A trusted mouse press or tap.</summary>
+    Pointer,
 }

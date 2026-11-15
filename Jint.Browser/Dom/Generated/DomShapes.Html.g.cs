@@ -126,7 +126,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.focus", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.focus");
-                    global::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);
+                    global::Jint.Browser.Events.FocusController.FocusFromScript(self.Realm, self.Target, args, "HTMLElement");
                     return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)

@@ -61,7 +61,11 @@ and only the next press wraps.
 **DOM queries and stylesheet selectors consume Browser state.** `DomSelectors` and
 `NativeCssStyleSheets.CreateQuery` pass focus, pointer-press, pointer-hover and fragment-target identities through the
 native `SelectorEnvironment`, with `BrowserSelectorControlFacts` supplying control state. Do not introduce
-an independent focus model for selectors.
+an independent focus model for selectors. `:focus-visible` is the one heuristic in it: `FocusController.Focus` takes a
+`FocusOrigin` — `Keyboard` from <kbd>Tab</kbd>, `Pointer` from a trusted press or tap, `Script` for everything
+else — and decides `BrowserEventRealm.FocusIndicated` as Chromium does; a key press indicates the focused
+element in `InputDispatcher.DispatchKey`, and a text-entry control matches whatever the flag says. A new
+caller that stands in for a user passes its origin; one that does not leaves `Script`.
 
 **Handler content attributes need no native mutation subscription.** The attribute's
 text *is* the state: a handler slot records which text it was last reconciled against, and any difference is
