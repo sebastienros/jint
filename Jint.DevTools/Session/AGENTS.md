@@ -37,7 +37,10 @@ Four consequences that are not negotiable:
   awaiting a promise of its engine** (`CommandContext.MarkAwaitingScript`, set by `RuntimeDomain.Settled`):
   that engine ran the command, so it is pumped, and Chrome waits as long as the promise takes — a 30 s
   ceiling there failed long `axe.run()` scans, which Playwright reports as a destroyed context (#4590).
-  `Abandon` answers those awaits instead, since a replaced realm never settles them. Never mark a command
+  `Abandon` answers those awaits instead, since a replaced realm never settles them. **A `TimeoutException` the
+  command itself threw is not the client's bound** — an execution limit's, which `Run` translates through
+  `DevToolsTarget.DescribeExecutionStop` into a reply naming the limit; reading it as the timeout answered a
+  page's five-second budget "Command timed out", which Playwright reports as a destroyed context (#4619). Never mark a command
   awaiting host work: `Page.navigate` awaits the very swap that would then abandon it. The two messages are told apart
   deliberately — an item nothing dequeued says `Engine is not being pumped`, one that started and did not
   finish says `Command timed out` — because a host debugging the wrong one wastes an afternoon.

@@ -42,15 +42,51 @@ internal static class DomSelectors
         return SelectorMatcher.Closest(program, element, environment, ref work);
     }
 
+    /// <summary>How many selector texts one realm remembers before it starts again.</summary>
+    /// <remarks>
+    /// A page asks a handful of selectors many times — axe-core asks <c>matches</c> and <c>closest</c> the same
+    /// few hundred for every element of the page — and a page building selectors out of data would otherwise
+    /// grow the table without bound. Starting again costs only recompilation.
+    /// </remarks>
+    internal const int MaxCompiledSelectors = 512;
+
+    /// <summary>
+    /// The compiled form of <paramref name="text"/>, compiled once per realm and reused.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Scope matching compiles with an empty namespace-prefix map, so the program is a function of the text
+    /// alone, and a <see cref="CompiledSelector"/> is immutable but for memo fields the matcher fills in to be
+    /// reused. Recompiling it for every <c>element.matches(s)</c> was 4% of an axe-core scan (#4619).
+    /// </para>
+    /// <para>
+    /// A selector that does not parse is not remembered, so every call raises its own <c>SyntaxError</c>.
+    /// </para>
+    /// </remarks>
     internal static CompiledSelector Compile(DomRealm realm, string text)
     {
         realm.Engine.Constraints.Check();
+
+        var cache = realm.CompiledSelectors;
+        if (cache is not null && cache.TryGetValue(text, out var cached))
+        {
+            return cached;
+        }
+
         try
         {
             // DOM §4.2.6 scope matching uses an empty namespace-prefix map. The compiler owns
             // forgiving lists, escapes and CSS Syntax's EOF recovery; no text rewriting is needed.
             var program = SelectorCompiler.Compile(text, null, realm.CancellationToken);
             realm.Engine.Constraints.Check();
+
+            cache ??= realm.CompiledSelectors = new Dictionary<string, CompiledSelector>(StringComparer.Ordinal);
+            if (cache.Count >= MaxCompiledSelectors)
+            {
+                cache.Clear();
+            }
+
+            cache[text] = program;
             return program;
         }
         catch (SelectorParseException exception)

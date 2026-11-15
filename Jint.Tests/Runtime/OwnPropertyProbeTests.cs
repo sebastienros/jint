@@ -205,6 +205,35 @@ public class OwnPropertyProbeTests
         AssertProbesAgreeWithDescriptors(target, [.. IndexLikeKeys(), JsString.Create("callee")]);
     }
 
+    /// <summary>
+    /// A key the virtual object does not own resolves on the prototype without materializing it — the
+    /// default-parameter idiom <c>arguments[1] !== undefined</c> on a one-argument call did, tens of thousands
+    /// of times in an axe-core scan (#4619).
+    /// </summary>
+    [Test]
+    public void AnArgumentsMissResolvesOnThePrototypeWithoutMaterializing()
+    {
+        var engine = new Engine();
+        engine.Execute("function f(a) { globalThis.past = arguments[1]; globalThis.named = typeof arguments.hasOwnProperty; return arguments; }");
+
+        var target = (JsArguments) engine.Evaluate("f(1)");
+        IsVirtual(target).Should().BeTrue("an index past length and an inherited method are both own misses");
+        engine.Evaluate("past").Should().Be(JsValue.Undefined);
+        engine.Evaluate("named").AsString().Should().Be("function");
+
+        // The prototype is still consulted, so what it holds is what the miss finds.
+        engine.Evaluate(
+            "Object.prototype[1] = 'inherited'; Object.prototype.extra = 'too';"
+            + "var seen = (function (a) { return [arguments[1], arguments.extra, arguments[0]].join(); })(7);"
+            + "delete Object.prototype[1]; delete Object.prototype.extra; seen").AsString()
+            .Should().Be("inherited,too,7");
+
+        // And a receiver other than the object itself still goes the ordinary way.
+        engine.Evaluate(
+            "(function (a) { var o = Object.create(arguments); return [o[0], o[1], o.length].join(); })(5)").AsString()
+            .Should().Be("5,,1");
+    }
+
     [Test]
     public void ArgumentsEnumerationIsUnchanged()
     {

@@ -38,6 +38,15 @@ namespace Jint.Browser.Runtime;
 /// than installed, so a frame the parse has not reached yet appears the moment it does.
 /// </para>
 /// <para>
+/// <b>A name an object further up the chain owns is not visible here</b>, which is WebIDL's <i>named property
+/// visibility algorithm</i>: <c>hasOwnProperty</c>, <c>toString</c> and <c>addEventListener</c> resolve on
+/// <c>Object.prototype</c> and <c>EventTarget.prototype</c>, which sit <i>below</i> this object, so every bare
+/// call to one used to reach the document first — and walked every element looking for a <c>name</c>
+/// attribute. axe-core calls a bare <c>hasOwnProperty</c> about 140 000 times scanning a 3 000-element page,
+/// which made that walk a quarter of the scan and the scan quadratic in the page (#4619). The check is the
+/// specification's, so it is also what stops <c>&lt;div id=hasOwnProperty&gt;</c> shadowing the method.
+/// </para>
+/// <para>
 /// <b>One divergence, about a name several elements answer to.</b> HTML collects every matching element in
 /// tree order and answers with an <c>HTMLCollection</c> when there is more than one; this answers the first
 /// it finds, preferring an <c>id</c> to a <c>name</c>. An <c>&lt;iframe name=x&gt;</c> used to be a second:
@@ -79,7 +88,7 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
             return !value.IsUndefined();
         }
 
-        if (name.Length != 0 && (_document ?? _runtime.Document) is { } document)
+        if (name.Length != 0 && !IsOwnedFurtherUp(name) && (_document ?? _runtime.Document) is { } document)
         {
             if (DomDocumentReads.ById(_runtime.Dom, document, name) is { } byId)
             {
@@ -125,6 +134,36 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
     /// <inheritdoc />
     /// <remarks>The other half of the paragraph above: there is nowhere to write, and nothing may be.</remarks>
     protected override bool TrySetNamedValue(string name, JsValue value) => false;
+
+    /// <summary>
+    /// Whether an object above this one in the prototype chain owns <paramref name="name"/>, which makes the
+    /// name invisible here.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://webidl.spec.whatwg.org/#dfn-named-property-visibility — step 4: walking the global's prototype
+    /// chain, a prototype that is not a named properties object and has an own property named P hides it.
+    /// The global object and <c>Window.prototype</c> come before this object, so an ordinary lookup has already
+    /// found anything they own; what is left to ask is the part of the chain after it.
+    /// </para>
+    /// <para>
+    /// Those are <c>EventTarget.prototype</c> and <c>Object.prototype</c> — two own-property probes, no getter
+    /// run and no script, against a walk of the document. A page that adds a property to either of them hides
+    /// an element of that name from then on, which is what the algorithm says too.
+    /// </para>
+    /// </remarks>
+    private bool IsOwnedFurtherUp(string name)
+    {
+        for (var prototype = Prototype; prototype is not null; prototype = prototype.Prototype)
+        {
+            if (prototype is not NamedPropertyObject && prototype.HasOwnProperty(name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// The array index a property key is, or <see langword="null"/> when it is not one.
@@ -196,14 +235,17 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
         work.Check();
         foreach (var element in NodeTraversal.DescendantElements(document, work.Check, work.Token))
         {
-            if (work.Attribute(element, "id") is { Length: > 0 } id && seen.Add(id))
+            // A name the chain above owns is not a name of this object at all, so it is not listed either:
+            // NameAt may advertise only what TryGetNamedValue answers.
+            if (work.Attribute(element, "id") is { Length: > 0 } id && seen.Add(id) && !IsOwnedFurtherUp(id))
             {
                 names.Add(id);
             }
 
             if (IsNamedAccessKind(element)
                 && work.Attribute(element, "name") is { Length: > 0 } name
-                && seen.Add(name))
+                && seen.Add(name)
+                && !IsOwnedFurtherUp(name))
             {
                 names.Add(name);
             }

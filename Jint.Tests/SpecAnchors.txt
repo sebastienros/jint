@@ -417,6 +417,7 @@ ecma262 sec-isintegralnumber
 ecma262 sec-islooselyequal
 ecma262 sec-ispropertyreference
 ecma262 sec-isregexp
+ecma262 sec-isstrictlyequal
 ecma262 sec-istypedarrayfixedlength
 ecma262 sec-istypedarrayoutofbounds
 ecma262 sec-isvalidintegerindex

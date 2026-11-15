@@ -1163,6 +1163,23 @@ public sealed partial class ArrayPrototype : ArrayInstance
         if (thisObject is JsArray { CanUseFastAccess: true } fast && fast._dense is { } dense)
         {
             var actualLen = (int) System.Math.Min((uint) dense.Length, (uint) len);
+
+            // IsStrictlyEqual of an object is identity (https://tc39.es/ecma262/#sec-isstrictlyequal step 2 ->
+            // SameValueNonNumber step 7), so searching for one needs no virtual Equals per element. Searching
+            // an array of DOM nodes for a node is how axe-core deduplicates, and this loop is the scan.
+            if (searchElement is ObjectInstance)
+            {
+                for (var i = (int) k; i < actualLen; i++)
+                {
+                    if (ReferenceEquals(dense[i], searchElement))
+                    {
+                        return JsNumber.Create((uint) i);
+                    }
+                }
+
+                return JsNumber.IntegerNegativeOne;
+            }
+
             for (var i = (int) k; i < actualLen; i++)
             {
                 var v = dense[i];

@@ -8753,6 +8753,30 @@ The `Array.prototype` methods whose spec asks `HasProperty` before `Get` (`forEa
 otherwise returns what `Get` returns. An array whose prototype chain is the intrinsic `Array.prototype` and
 `Object.prototype`, with no index on either, reads what it did. There is no switch back.
 
+### 4.238 A CDP evaluation stopped by an execution limit is a thrown error naming it, and `jint-browser serve` has no task ceiling ([#4619](https://github.com/sebastienros/jint/issues/4619))
+
+**What a client is told.** `Runtime.evaluate`, `Runtime.callFunctionOn` and `Runtime.runScript` answer a script that
+an execution limit stopped — a page's `BrowserOptions.MaxTaskDuration` or `MemoryLimit`, or an engine's
+`LimitExecutionTime`, `LimitStatements`, `LimitMemory` or `MaxRecursionDepth` — with `exceptionDetails` carrying an
+`Error` whose description names the limit, for a page
+`Error: Task exceeded MaxTaskDuration (5s): … Raise BrowserOptions.MaxTaskDuration (jint-browser --max-task-duration)`.
+They used to answer `-32000 "Command timed out"` at exactly the budget, because the mailbox read the limit's
+`TimeoutException` as its own command timeout, and Playwright reports any such protocol error from an evaluation as
+*"Execution context was destroyed, most likely because of a navigation"*. The context is not destroyed: the next
+command runs in the same document. A command awaiting a promise whose reaction the limit discarded with the turn's
+checkpoint is answered the same way rather than never. Every other command stopped by a limit is a `-32000` whose
+message names it.
+
+**`serve`'s default.** Trusted pages under `jint-browser serve` have no per-task ceiling unless
+`--max-task-duration` gives one, as Chromium has none: a protocol client bounds what it drives, and closing a target
+ends a running task whatever the ceiling. `--untrusted` keeps its profile's ceiling; `fetch` and `eval` keep five
+seconds; `BrowserOptions.MaxTaskDuration`'s own default is unchanged. Pass `--max-task-duration 5s` for the old one.
+
+**Named access on the window.** A name that `EventTarget.prototype` or `Object.prototype` owns is no longer looked
+up among the document's elements, which is WebIDL's named property visibility: `<div id="hasOwnProperty">` no longer
+shadows `hasOwnProperty`, and is not listed by `Object.getOwnPropertyNames` of the named-properties object. Every
+bare call to an inherited global used to walk the whole document first.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

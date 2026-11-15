@@ -453,4 +453,44 @@ public sealed class WindowTests
             """))
             .Should().Be("document:true,alert:function,before:true,after:mine,own:true,miss:true");
     }
+
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#dfn-named-property-visibility — a name an object further up the
+    /// window's prototype chain owns is not a named property at all: <c>EventTarget.prototype</c> and
+    /// <c>Object.prototype</c> sit <i>below</i> the named-properties object, and an element named after one of
+    /// their members neither shadows it nor is listed (#4619).
+    /// </summary>
+    [Test]
+    public async Task ANameTheChainAboveOwnsIsNotANamedProperty()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            "<div id='hasOwnProperty'></div><form name='addEventListener'></form><div id='plain'></div><div id='later'></div>");
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              var named = Object.getPrototypeOf(Window.prototype);
+              var seen = [];
+              seen.push(hasOwnProperty === Object.prototype.hasOwnProperty);
+              seen.push(addEventListener === EventTarget.prototype.addEventListener);
+              seen.push(Object.getOwnPropertyNames(named).includes('hasOwnProperty'));
+              seen.push(Object.getOwnPropertyNames(named).includes('addEventListener'));
+
+              // An ordinary element name still resolves, and is listed.
+              seen.push(plain.id === 'plain');
+              seen.push(Object.getOwnPropertyNames(named).includes('plain'));
+
+              // A property added further up later hides the element from then on, as the algorithm says.
+              seen.push(later.id === 'later');
+              Object.prototype.later = 'inherited';
+              seen.push(later);
+              delete Object.prototype.later;
+              seen.push(later.id === 'later');
+              return seen.join(',');
+            })()
+            """))
+            .Should().Be("true,true,false,false,true,true,true,inherited,true");
+    }
 }

@@ -594,6 +594,12 @@ internal sealed class DomRealm
     // Trusted host-only checks. Native read work owns polling and never retains this callback.
     internal Action<int> NativeReadCheckpoint => _nativeReadCheckpoint ??= _ => Engine.Constraints.Check();
 
+    /// <summary>
+    /// The selectors <c>matches</c>, <c>closest</c> and the query methods compiled, by their text; see
+    /// <see cref="DomSelectors.Compile"/>.
+    /// </summary>
+    internal Dictionary<string, Jint.HtmlParser.Css.Selectors.CompiledSelector>? CompiledSelectors;
+
     private Action? _cssCheckpoint;
     private int _cssChecks;
 
