@@ -25,6 +25,7 @@ public sealed class BrowserOptions
     private Action<BrowserContextOptions>? _contextConfiguration;
     private string _userAgent = DefaultUserAgent;
     private TimeSpan _pumpIdle = TimeSpan.FromMilliseconds(50);
+    private TimeSpan _animationFrameInterval = TimeSpan.FromMilliseconds(16);
     private int _maxRecordedEvents = 1000;
     private long _maxDocumentBytes = 32 * 1024 * 1024;
     private long _maxSubresourceBytes = 8 * 1024 * 1024;
@@ -467,6 +468,21 @@ public sealed class BrowserOptions
         set => _maxRedirects = value >= 0
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxRedirects cannot be negative.");
+    }
+
+    /// <summary>How long after a <c>requestAnimationFrame</c> its frame runs; 16 ms by default.</summary>
+    /// <remarks>
+    /// There is nothing to paint, so a frame is a scheduling concept only. Automation clients wait for
+    /// frames — Playwright's actionability check waits for two before every click — so a shorter interval
+    /// is directly a faster client, at the cost of a page's continuous animation loop running more often.
+    /// Zero runs the frame as soon as the current task and its microtasks are done.
+    /// </remarks>
+    public TimeSpan AnimationFrameInterval
+    {
+        get => _animationFrameInterval;
+        set => _animationFrameInterval = value >= TimeSpan.Zero
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "AnimationFrameInterval cannot be negative.");
     }
 
     /// <summary>How long a page loop parks when it has nothing due; 50 ms by default.</summary>

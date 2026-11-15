@@ -27,8 +27,6 @@ namespace Jint.Browser.Runtime;
 /// </remarks>
 internal sealed class AnimationFrameLane
 {
-    private const long FrameIntervalMilliseconds = 16;
-
     private readonly PageRuntime _runtime;
     private readonly List<Entry> _pending = [];
     private readonly HashSet<int> _cancelledDuringFrame = [];
@@ -123,7 +121,7 @@ internal sealed class AnimationFrameLane
             _runtime.Engine.Realm,
             new Batch(this),
             [],
-            FrameIntervalMilliseconds,
+            (long) _runtime.Options.AnimationFrameInterval.TotalMilliseconds,
             repeat: false,
             _runtime.Engine.CaptureEventLoopRegistration()));
 

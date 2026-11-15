@@ -786,7 +786,28 @@ internal sealed partial class ParserDriver : IDisposable
             {
                 RecoverNativeMutationNotifications();
                 using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
-                _runtime.Engine.Execute(text, source, ParsingFrom(line));
+                if (text.Length >= Jint.DevTools.Domains.SharedPreparedScripts.MinimumLength
+                    && _runtime.Options.UntrustedContent is null && _runtime.Options.EngineConfiguration.Count == 0)
+                {
+                    // Parsed once per process: a bundle every page loads is the same program every time.
+                    Prepared<Acornima.Ast.Script> prepared;
+                    try
+                    {
+                        prepared = Jint.DevTools.Domains.SharedPreparedScripts.GetOrPrepare(
+                            text, source, line, _runtime.Engine.Options.Strict, _runtime.Engine.Options.RetainFunctionSourceText);
+                    }
+                    catch (ScriptPreparationException)
+                    {
+                        prepared = default;
+                    }
+
+                    if (prepared.IsValid) _runtime.Engine.Execute(prepared);
+                    else _runtime.Engine.Execute(text, source, ParsingFrom(line));
+                }
+                else
+                {
+                    _runtime.Engine.Execute(text, source, ParsingFrom(line));
+                }
             }
         }
         catch (JavaScriptException exception)

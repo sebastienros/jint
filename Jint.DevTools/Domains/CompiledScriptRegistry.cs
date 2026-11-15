@@ -78,7 +78,7 @@ internal sealed class CompiledScriptRegistry
         // Parenthesised so that `function () {}` is an expression rather than a declaration, and with the
         // closing parenthesis on its own line so that a declaration ending in `//# sourceURL=` -- which is
         // what every one of the recorded clients appends -- does not comment it out.
-        var prepared = Engine.PrepareScript("(" + declaration + "\n)");
+        var prepared = SharedPreparedScripts.GetOrPrepare("(" + declaration + "\n)", null, 0, strict: false, retainSourceText: false);
 
         lock (_gate)
         {
