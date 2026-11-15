@@ -366,11 +366,13 @@ public sealed class PageAutomationTests
             </span>
             <span class=title>Content</span></button>
             <button id=bare><span title="Tip"></span>Bare</button>
+            <a href=#><span style="display:flex" title="Tip"><i aria-hidden=true></i></span>Flex</a>
             <bdi id=label>x</bdi>
             """);
 
         (await page.CountAsync("role=button[name=\"Content\"s]")).Should().Be(1);
-        (await page.CountAsync("role=button[name=\"Tip\"]")).Should().Be(1); // an empty descendant still falls back to its title
+        (await page.CountAsync("role=button[name=\"TipBare\"s]")).Should().Be(1); // an empty inline descendant falls back to its title
+        (await page.CountAsync("role=link[name=\"Flex\"s]")).Should().Be(1); // a block-level one does not, as in Chromium
         (await page.EvaluateAsync<string>("getComputedStyle(label).unicodeBidi")).Should().Be("isolate");
     }
 

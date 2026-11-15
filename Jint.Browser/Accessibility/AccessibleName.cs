@@ -189,6 +189,16 @@ internal sealed class AccessibleName
                 // contributes that whitespace, and its title is not reached — what Playwright's and the
                 // browsers' implementations answer. The root flattens what its descendants accumulated.
                 var accumulated = AccumulatedContent(element, context);
+
+                // A block-level node's content is set apart with whitespace on both sides — what HTML-AAM's
+                // rendering asks for, and what Playwright and the browsers do — so even an empty one, a
+                // `display: flex` icon holder, has accumulated text and its title is not reached either.
+                if (descendant && accumulated.Length == 0
+                    && !HtmlDisplay.IsInlineLevel(HtmlDisplay.Resolve(element, _visibility.Style(element, _cascade).Display)))
+                {
+                    accumulated = " ";
+                }
+
                 if (descendant ? accumulated.Length > 0 : Flatten(accumulated).Length > 0)
                 {
                     return descendant ? accumulated : Flatten(accumulated);
