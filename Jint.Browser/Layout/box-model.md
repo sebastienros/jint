@@ -56,14 +56,23 @@ a designer's canvas fills the column a full-height layout gives it. Only a colum
 its content keeps its rows, since an editor that sizes its layers from its container would otherwise feed back.
 An absolute box with both `top` and `bottom` set and an `auto` height covers its parent's box.
 
+**A block-level or inline-block box takes its own width.** Its `width`, else its containing block's, clamped by
+`min-width` and `max-width` (CSS 2 §10.3.3), resolved as `getComputedStyle` resolves them; its margins are not
+applied, so it stays at its parent's left edge. An inline box keeps its parent's width: `width` does not apply
+to it, and there is no inline flow to place it in.
+
+**A wrapping flex row whose items fit on one line is that line.** Its items' percentage bases share the
+container, their other bases and gaps the viewport, and an automatic basis is one row; when they fit, the
+container is laid out as a single-line row, and when they do not, its items stack as in a block.
+
 **A grid item is as wide as the column tracks it spans.** The container's `grid-template-columns`, when every
 track is a length or `fr`, gives each track its used width, and an item spans `grid-column`'s tracks and the
 gaps between them from the first column. Items are not placed side by side: each keeps its row.
 
 **Single-line horizontal flex rows partition their containing width.** `Layout/FlexRow` reads the shared native cascade's
 computed display, direction, basis, growth, shrinkage and cross-axis alignment. The synthetic intrinsic
-size is still a row, not measured text; wrapping, gaps, margins, main-axis justification, ordering and positioned
-offsets remain unmodeled. A row shares vertical space instead of stacking full-width controls, so a trailing
+size is still a row, not measured text; multi-line wrapping, gaps, margins, main-axis justification, ordering and
+positioned offsets remain unmodeled. A row shares vertical space instead of stacking full-width controls, so a trailing
 button no longer owns its parent's centre. DOM rectangles, hit testing, offsets and resize measurements
 use the same boxes. Documents without these rows keep the existing ordinal hit-test path.
 
