@@ -4884,6 +4884,14 @@
           "Origin": "StyleDeclarationExtensions.GetTransition"
         },
         {
+          "DomName": "transitionBehavior",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.transitionBehavior\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"transition-behavior\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.transitionBehavior\");\nself.Target.SetProperty(\"transition-behavior\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.transitionBehavior\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM supported CSS property accessor: https://drafts.csswg.org/cssom/#the-cssstyleproperties-interface"
+        },
+        {
           "DomName": "transitionDelay",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.transitionDelay\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"transition-delay\"));",
