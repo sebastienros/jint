@@ -32,6 +32,15 @@ namespace Jint.Benchmark;
 /// its frames before it found the subject is not the root.
 /// </description></item>
 /// <item><description>
+/// <see cref="ScopedRules"/> — 40 <c>@scope (.card) { h3 { } }</c> blocks. Each element matched every block's
+/// <c>&lt;scope-start&gt;</c> against its whole ancestor path, so the reads cost elements × depth × blocks.
+/// </description></item>
+/// <item><description>
+/// <see cref="LogicalSubjects"/> — 40 rules whose subject is <c>:is(.tag-N, .kind-N)</c> or a nested
+/// <c>&amp;.state-N</c>: with no name of its own, the subject was not bucketed, so each rule was tried on every
+/// element.
+/// </description></item>
+/// <item><description>
 /// <see cref="Control"/> — the same reads under ordinary class rules, which none of the changes reach: the
 /// cross-process floor, and a delta on it is not a result.
 /// </description></item>
@@ -60,6 +69,8 @@ public class BrowserStyleSelectorPatternsBenchmark
     private Page _nesting = null!;
     private Page _rootHasMiss = null!;
     private Page _control = null!;
+    private Page _scoped = null!;
+    private Page _logical = null!;
 
     [GlobalSetup]
     public async Task Setup()
@@ -70,6 +81,16 @@ public class BrowserStyleSelectorPatternsBenchmark
         _nesting = await CreatePageAsync(".card { & h3 { color: rgb(1, 2, 3) } & p { color: rgb(4, 5, 6) } }");
         _rootHasMiss = await CreatePageAsync(":root:has(.missing) { color: rgb(1, 2, 3) } h3 { color: rgb(4, 5, 6) }");
         _control = await CreatePageAsync(".card h3 { color: rgb(1, 2, 3) } .card p { color: rgb(4, 5, 6) }");
+        var scoped = new StringBuilder();
+        var logical = new StringBuilder();
+        for (var i = 0; i < 40; i++)
+        {
+            scoped.Append("@scope (.card) to (.limit-").Append(i).Append(") { h3 { color: rgb(").Append(i).Append(", 2, 3) } }");
+            logical.Append(":is(.tag-").Append(i).Append(", .kind-").Append(i).Append(") { color: rgb(").Append(i).Append(", 2, 3) }")
+                .Append(".card { &.state-").Append(i).Append(" { color: rgb(").Append(i).Append(", 5, 6) } }");
+        }
+        _scoped = await CreatePageAsync(scoped.ToString());
+        _logical = await CreatePageAsync(logical.ToString());
     }
 
     private async Task<Page> CreatePageAsync(string css)
@@ -106,6 +127,12 @@ public class BrowserStyleSelectorPatternsBenchmark
 
     [Benchmark]
     public Task<double> RootHasMiss() => _rootHasMiss.EvaluateAsync<double>(ReadScript);
+
+    [Benchmark]
+    public Task<double> ScopedRules() => _scoped.EvaluateAsync<double>(ReadScript);
+
+    [Benchmark]
+    public Task<double> LogicalSubjects() => _logical.EvaluateAsync<double>(ReadScript);
 
     [Benchmark(Baseline = true)]
     public Task<double> Control() => _control.EvaluateAsync<double>(ReadScript);
