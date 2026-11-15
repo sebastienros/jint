@@ -351,6 +351,7 @@ internal sealed class CssDeclarationBlock
         if (parts.Length == 0) return null;
         if (parts.Length == 1 && CssTextOperations.IsWide(parts[0])) return Enumerable.Repeat(parts[0], metadata.Longhands.Count).ToArray();
         if (CssBoxShorthands.Handles(name)) return CssBoxShorthands.Expand(name, text, work);
+        if (CssMotionShorthands.Handles(name)) return CssMotionShorthands.Expand(name, text, work);
         if (name == "flex")
         {
             return text switch
@@ -381,8 +382,8 @@ internal sealed class CssDeclarationBlock
     {
         work.Charge(text.Length);
         if (name.StartsWith("--", StringComparison.Ordinal)) return text;
-        if (text.StartsWith('.') && text.Length > 1 && char.IsAsciiDigit(text[1])) return "0" + text;
-        if (text.StartsWith("-.", StringComparison.Ordinal) && text.Length > 2 && char.IsAsciiDigit(text[2])) return "-0" + text[1..];
+        var zeroed = CssTextOperations.WithLeadingZero(text);
+        if (!ReferenceEquals(zeroed, text)) return zeroed;
         if (text == "0" && (name is "width" or "height" or "top" or "right" or "bottom" or "left" or "flex-basis" ||
             name.StartsWith("margin-", StringComparison.Ordinal) || name.StartsWith("padding-", StringComparison.Ordinal) ||
             name.EndsWith("-width", StringComparison.Ordinal) || name.EndsWith("-height", StringComparison.Ordinal) ||
@@ -390,7 +391,10 @@ internal sealed class CssDeclarationBlock
         return text;
     }
 
-    internal static string ShorthandValue(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work)
+    // computed: the entries are computed values, whose comma-separated lists repeat to the shorthand's layer
+    // count instead of leaving it without a serialization.
+    internal static string ShorthandValue(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work,
+        bool computed = false)
     {
         var values = new string[shorthand.Longhands.Count];
         bool? important = null;
@@ -418,6 +422,7 @@ internal sealed class CssDeclarationBlock
         if (values.Any(CssTextOperations.IsWide) && values.Any(value => value != values[0])) return "";
         if (values.All(value => value == values[0]) && CssTextOperations.IsWide(values[0])) return values[0];
         if (CssBoxShorthands.Handles(shorthand.Name)) return CssBoxShorthands.Serialize(shorthand.Name, values, work);
+        if (CssMotionShorthands.Handles(shorthand.Name)) return CssMotionShorthands.Serialize(shorthand.Name, values, computed, work);
         var count = values.Length;
         if (count == 4 && values[3] == values[1]) count--;
         if (count == 3 && shorthand.Name != "flex" && values[2] == values[0]) count--;
