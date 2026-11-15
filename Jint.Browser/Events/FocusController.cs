@@ -139,12 +139,16 @@ internal static class FocusController
     /// gaining it. <c>blur</c> and <c>focus</c> do not bubble; <c>focusout</c> and <c>focusin</c> do. Each
     /// carries the other element as its <c>relatedTarget</c>.
     /// </remarks>
-    internal static void Focus(DomRealm dom, Element element)
+    /// <returns>
+    /// <see langword="true"/> when the focusing steps ran — <paramref name="element"/> passed their guard and
+    /// was given focus or already had it — whatever a listener then did with focus; <see langword="false"/>
+    /// when the element is not a focusable area of a page document and nothing happened.
+    /// </returns>
+    internal static bool Focus(DomRealm dom, Element element)
     {
-        if (!IsInAPageDocument(dom, element) || element.OwnerDocument is not { } document
-            || !IsConnectedTo(element, document) || !IsFocusable(dom, element))
+        if (!CanFocus(dom, element))
         {
-            return;
+            return false;
         }
 
         var realm = BrowserEventRealm.Of(dom.Engine);
@@ -159,12 +163,25 @@ internal static class FocusController
 
         if (ReferenceEquals(previous, element))
         {
-            return;
+            return true;
         }
 
         realm.FocusedElement = element;
         RunFocusUpdateSteps(dom, previous, element, ++Updates.GetOrCreateValue(realm).Revision);
+        return true;
     }
+
+    /// <summary>
+    /// Whether <see cref="Focus"/> would move focus to <paramref name="element"/>: it is connected to a
+    /// document this page shows, and it is a focusable area.
+    /// </summary>
+    /// <remarks>
+    /// The focusing steps' own guard. A caller that has to answer whether it focused something reads
+    /// <see cref="Focus"/>'s result instead of asking this first and paying for the question twice.
+    /// </remarks>
+    private static bool CanFocus(DomRealm dom, Element element)
+        => IsInAPageDocument(dom, element) && element.OwnerDocument is { } document
+            && IsConnectedTo(element, document) && IsFocusable(dom, element);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#dom-blur — the unfocusing steps. HTML notes
@@ -253,7 +270,7 @@ internal static class FocusController
     /// neither disabled nor inert, and when it is <see cref="IsBeingRendered(DomRealm, Element)">being
     /// rendered</see>.
     /// </summary>
-    internal static bool IsFocusable(DomRealm dom, Element element) => IsFocusableCore(dom, element, null, null);
+    internal static bool IsFocusable(DomRealm dom, Element element) => IsFocusableCore(dom, element, null, null, null);
 
     /// <summary>The same focus classification with bounded native reads for a caller's traversal.</summary>
     /// <remarks>
@@ -265,17 +282,75 @@ internal static class FocusController
     internal static bool IsFocusable(DomRealm dom, Element element, DomReadWork work, Element? scope = null)
     {
         work.Check();
-        var focusable = IsFocusableCore(dom, element, work, new RenderingQuery(dom, work, scope));
+        var focusable = IsFocusableCore(dom, element, work, new RenderingQuery(dom, work, scope), inert: null);
         work.Check();
         return focusable;
     }
 
-    private static bool IsFocusableCore(DomRealm dom, Element element, DomReadWork? work, RenderingQuery? rendering)
+    private static bool IsFocusableCore(DomRealm dom, Element element, DomReadWork? work, RenderingQuery? rendering, InertQuery? inert)
     {
         if (EventDom.Disabled(dom, element) || Attribute(element, "inert", work) is not null) return false;
         if (TabIndexAttribute(element, work) is null && !IsInherentlyFocusable(element, work)) return false;
+        if ((inert ?? new InertQuery(work)).IsInert(element)) return false;
         // The cascade is asked last, and only for an element every cheaper test already admitted.
         return (rendering ?? new RenderingQuery(dom, work, scope: null)).IsRendered(element);
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/interaction.html#the-inert-attribute — whether
+    /// <paramref name="element"/> is inert because it or a flat-tree ancestor carries the attribute, or
+    /// because the <c>&lt;iframe&gt;</c> holding its document is inert.
+    /// </summary>
+    internal static bool IsInInertSubtree(Element element) => new InertQuery(work: null).IsInert(element);
+
+    /// <summary>
+    /// The inert half of a focus question, remembered per node the way <see cref="RenderingQuery"/>
+    /// remembers its containers, so a <kbd>Tab</kbd> walk reads each ancestor's <c>inert</c> attribute once.
+    /// </summary>
+    /// <remarks>
+    /// The <c>inert</c> attribute makes the element and every flat-tree descendant inert, and an inert node is
+    /// not a focusable area. The walk is the flat tree's — a shadow root continues at its host, a shadow
+    /// host's child at its assigned slot — and a child navigable's document continues at its container, so
+    /// an inert <c>&lt;iframe&gt;</c> makes the document inside it inert too. A shadow host's child no slot
+    /// takes has no flat-tree parent; it is not being rendered either, so its answer does not matter here.
+    /// </remarks>
+    private sealed class InertQuery(DomReadWork? work)
+    {
+        private readonly Dictionary<Node, bool> _known = new();
+        private readonly List<Node> _path = new();
+
+        internal bool IsInert(Node node)
+        {
+            var inert = false;
+            _path.Clear();
+            for (Node? current = node; current is not null;)
+            {
+                if (_known.TryGetValue(current, out inert))
+                {
+                    break;
+                }
+
+                work?.Step();
+                _path.Add(current);
+                if (current is Element element && Attribute(element, "inert", work) is not null)
+                {
+                    inert = true;
+                    break;
+                }
+
+                current = current is Document document
+                    ? DomBrowsingContext.Of(document)?.FrameElement
+                    : FlatParent(current);
+            }
+
+            foreach (var visited in _path)
+            {
+                _known[visited] = inert;
+            }
+
+            _path.Clear();
+            return inert;
+        }
     }
 
     /// <summary>
@@ -456,18 +531,19 @@ internal static class FocusController
             => string.Equals(visibility, "hidden", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(visibility, "collapse", StringComparison.OrdinalIgnoreCase);
 
-        // The flat tree's parent: a shadow root's host, a shadow host's child's assigned slot (null when no
-        // slot takes it), and otherwise the tree parent.
-        private static Node? FlatParent(Node node)
-        {
-            if (node is ShadowRoot root)
-            {
-                return root.Host;
-            }
+    }
 
-            var parent = node.ParentNode;
-            return parent is Element { AttachedShadowRoot: not null } ? SlotAssignment.GetAssignedSlot(node) : parent;
+    // The flat tree's parent: a shadow root's host, a shadow host's child's assigned slot (null when no
+    // slot takes it), and otherwise the tree parent.
+    private static Node? FlatParent(Node node)
+    {
+        if (node is ShadowRoot root)
+        {
+            return root.Host;
         }
+
+        var parent = node.ParentNode;
+        return parent is Element { AttachedShadowRoot: not null } ? SlotAssignment.GetAssignedSlot(node) : parent;
     }
 
     private static string? Attribute(Element element, string name, DomReadWork? work)
@@ -478,11 +554,11 @@ internal static class FocusController
     /// element takes part in <kbd>Tab</kbd> traversal, which a negative <c>tabindex</c> opts out of while
     /// leaving the element focusable by other means.
     /// </summary>
-    internal static bool IsTabbable(DomRealm dom, Element element) => IsTabbable(dom, element, rendering: null);
+    internal static bool IsTabbable(DomRealm dom, Element element) => IsTabbable(dom, element, rendering: null, inert: null);
 
-    private static bool IsTabbable(DomRealm dom, Element element, RenderingQuery? rendering)
+    private static bool IsTabbable(DomRealm dom, Element element, RenderingQuery? rendering, InertQuery? inert)
     {
-        if (!IsFocusableCore(dom, element, null, rendering))
+        if (!IsFocusableCore(dom, element, null, rendering, inert))
         {
             return false;
         }
@@ -533,10 +609,11 @@ internal static class FocusController
         var zero = new List<Element>();
         var position = 0;
         var rendering = new RenderingQuery(dom, work: null, scope: null);
+        var inert = new InertQuery(work: null);
 
         foreach (var element in NodeTraversal.DescendantElements(document, () => dom.NativeReadCheckpoint(256), dom.CancellationToken))
         {
-            if (!IsTabbable(dom, element, rendering))
+            if (!IsTabbable(dom, element, rendering, inert))
             {
                 continue;
             }
