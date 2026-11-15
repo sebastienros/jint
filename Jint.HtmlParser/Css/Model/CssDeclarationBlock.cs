@@ -358,8 +358,7 @@ internal sealed class CssDeclarationBlock
             {
                 "none" => ["0", "0", "auto"],
                 "auto" => ["1", "1", "auto"],
-                _ => parts.Length == 1 && !char.IsDigit(parts[0][0]) ? ["1", "1", parts[0]] :
-                    [parts[0], parts.Length > 1 ? parts[1] : "1", parts.Length > 2 ? parts[2] : "0%"]
+                _ => ExpandFlex(parts),
             };
         }
         if (name == "flex-flow") return parts[0] is "wrap" or "nowrap" or "wrap-reverse"
@@ -373,6 +372,35 @@ internal sealed class CssDeclarationBlock
         }
         return [parts[0], parts.Length > 1 ? parts[1] : parts[0]];
     }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-flexbox/#flex-property — <c>[ &lt;'flex-grow'&gt; &lt;'flex-shrink'&gt;? ||
+    /// &lt;'flex-basis'&gt; ]</c>: the factors are the numbers, the first growth and the next shrinkage, and the
+    /// basis is the one other part, before or after them. An omitted shrinkage is 1, an omitted basis 0% and,
+    /// when only a basis is given, the growth is 1. "A unitless zero that is not already preceded by two flex
+    /// factors must be interpreted as a flex factor." So <c>0 auto</c> is <c>0 1 auto</c>, not a shrinkage of
+    /// <c>auto</c>.
+    /// </summary>
+    private static string[] ExpandFlex(string[] parts)
+    {
+        string? grow = null, shrink = null, basis = null;
+        foreach (var part in parts)
+        {
+            var isFactor = IsFlexFactor(part) && (part != "0" || shrink is null);
+            if (isFactor && grow is null && basis is null) grow = part;
+            else if (isFactor && grow is not null && shrink is null && basis is null) shrink = part;
+            else if (isFactor && grow is null) grow = part;
+            else if (isFactor && shrink is null) shrink = part;
+            else basis ??= part;
+        }
+
+        return grow is null
+            ? ["1", "1", basis ?? "0%"]
+            : [grow, shrink ?? "1", basis ?? "0%"];
+    }
+
+    private static bool IsFlexFactor(string part) =>
+        part.Length > 0 && double.TryParse(part, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _);
 
     private static CssDeclaration Longhand(string name, string text, bool important, CssSourceSpan span,
         CssDeclarationContext context, CssValueWork work) =>
