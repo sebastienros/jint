@@ -98,6 +98,27 @@ public class FlexLayoutTests
         page.Errors.Should().BeEmpty();
     }
 
+    // https://drafts.csswg.org/css-flexbox/#min-size-auto: a shrinking item keeps its automatic minimum, one row
+    // without text measurement, an explicit min-width, or nothing when its overflow is not visible.
+    [TestCase("", 16)]
+    [TestCase("min-width:40px", 40)]
+    [TestCase("overflow:hidden", 0)]
+    public async Task AShrinkingItemStopsAtItsMinimumWidth(string style, int width)
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 600) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            $$"""
+            <div style="display:flex">
+              <div id="a" style="flex:1 0 100%">A</div>
+              <button id="b" style="flex:0 1 auto;{{style}}">B</button>
+            </div>
+            """);
+        (await page.EvaluateAsync<int>("document.getElementById('b').getBoundingClientRect().width")).Should().Be(width);
+        page.Errors.Should().BeEmpty();
+    }
+
     [TestCase("flex-start", 48, 16)]
     [TestCase("center", 64, 16)]
     [TestCase("flex-end", 80, 16)]

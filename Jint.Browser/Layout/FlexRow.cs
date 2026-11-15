@@ -49,6 +49,7 @@ internal static class FlexRow
     {
         cancellationToken.ThrowIfCancellationRequested();
         var widths = new double[children.Count];
+        var minimums = new double[children.Count];
         var growth = new double[children.Count];
         var shrinkage = new double[children.Count];
         var basisTotal = 0d;
@@ -63,6 +64,14 @@ internal static class FlexRow
             var basis = style is null ? null : CssCascade.ValueOf(style, "flex-basis");
             var width = style is null ? null : CssCascade.ValueOf(style, "width");
             widths[i] = Length(basis, available) ?? Length(width, available) ?? FlatLayout.RowHeight;
+
+            // https://drafts.csswg.org/css-flexbox/#min-size-auto: an item whose overflow is visible does not
+            // shrink below its content's minimum width. There is no text measurement here, so the content is
+            // taken to be at least one row wide — enough for a port, a toggle or an icon to keep a box a pointer
+            // can hit — unless the author gave a minimum of their own.
+            var overflow = style is null ? null : CssCascade.ValueOf(style, "overflow-x");
+            minimums[i] = Length(style is null ? null : CssCascade.ValueOf(style, "min-width"), available)
+                ?? (overflow is null or "" or "visible" ? Math.Min(widths[i], FlatLayout.RowHeight) : 0);
             growth[i] = Number(style is null ? null : CssCascade.ValueOf(style, "flex-grow")) ?? 0;
             var shrink = Number(style is null ? null : CssCascade.ValueOf(style, "flex-shrink")) ?? 1;
             shrinkage[i] = shrink * widths[i];
@@ -83,7 +92,7 @@ internal static class FlexRow
             }
             else if (free < 0 && shrinkageTotal > 0)
             {
-                widths[i] = Math.Max(0, widths[i] + free * Math.Min(1, shrinkFactorTotal) * shrinkage[i] / shrinkageTotal);
+                widths[i] = Math.Max(minimums[i], widths[i] + free * Math.Min(1, shrinkFactorTotal) * shrinkage[i] / shrinkageTotal);
             }
         }
 
