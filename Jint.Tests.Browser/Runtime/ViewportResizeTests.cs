@@ -177,6 +177,10 @@ public sealed class ViewportResizeTests
                       <source media="(max-width: 599px)" srcset="/narrow.png">
                       <img id="b" src="/wide.png">
                     </picture>
+                    <picture>
+                      <source media="(min-width: 1000px)" srcset="/wide.png">
+                      <img id="c" alt="only on a wide screen">
+                    </picture>
                     <script>
                       window.loads = [];
                       a.addEventListener('load', () => loads.push('a:' + a.currentSrc.replace(/^.*\//, '')));
@@ -190,12 +194,14 @@ public sealed class ViewportResizeTests
         await page.NavigateAsync(loopback.Url("/"));
         await page.WaitForIdleAsync(Timeout);
 
-        const string selected = "[a, b].map(i => i.currentSrc.replace(/^.*\\//, '') + ':' + i.naturalWidth).join(' ')";
-        (await page.EvaluateAsync<string>(selected)).Should().Be("small.png:1 narrow.png:3");
+        const string selected = "[a, b, c].map(i => i.currentSrc.replace(/^.*\\//, '') + ':' + i.naturalWidth).join(' ')";
+        (await page.EvaluateAsync<string>(selected)).Should().Be("small.png:1 narrow.png:3 :0");
 
+        // The change returns before the network is asked: each fetch is a task of its own, which the idle wait
+        // sees. The third image selected nothing at 390 px and selects something now.
         await page.SetViewportSizeAsync(1440, 900);
-        (await page.EvaluateAsync<string>(selected)).Should().Be("large.png:2 wide.png:4");
         await page.WaitForIdleAsync(Timeout);
+        (await page.EvaluateAsync<string>(selected)).Should().Be("large.png:2 wide.png:4 wide.png:4");
         (await page.EvaluateAsync<string>("loads.slice(-2).sort().join(' ')")).Should().Be("a:large.png b:wide.png");
 
         // An image whose selection did not move is not fetched again.
@@ -203,7 +209,7 @@ public sealed class ViewportResizeTests
         await page.SetViewportSizeAsync(1280, 900);
         await page.WaitForIdleAsync(Timeout);
         page.Requests.Count.Should().Be(requests);
-        (await page.EvaluateAsync<string>(selected)).Should().Be("large.png:2 wide.png:4");
+        (await page.EvaluateAsync<string>(selected)).Should().Be("large.png:2 wide.png:4 wide.png:4");
         page.Errors.Should().BeEmpty();
     }
 

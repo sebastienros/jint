@@ -60,8 +60,14 @@ internal sealed class EmulationDomain : EmulationDomainBase
     /// </remarks>
     protected override ValueTask<EmptyResult> SetDeviceMetricsOverrideAsync(SetDeviceMetricsOverrideRequest parameters, CommandContext context)
     {
+        // A width or height of 0 is the protocol's "no override" for that dimension, which leaves the one the
+        // page opened with: a client that only wants a device scale factor sends 0 for both.
         var scale = parameters.DeviceScaleFactor > 0 ? parameters.DeviceScaleFactor : 1;
-        SetViewport(new Viewport(parameters.Width, parameters.Height, scale));
+        var opened = State.DefaultViewport;
+        SetViewport(new Viewport(
+            parameters.Width > 0 ? parameters.Width : opened.Width,
+            parameters.Height > 0 ? parameters.Height : opened.Height,
+            scale));
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 

@@ -122,6 +122,25 @@ public class EmulationDomainTests
         (await Text(session, attachment, "sizes.join(' ')")).Should().Be("390x844 600x844 1024x768");
     }
 
+    /// <summary>A zero width or height is the protocol's "no override" for that dimension.</summary>
+    [Test]
+    public async Task AZeroDimensionLeavesTheOpenedOneAndOnlyTheScaleFactorMoves()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var page = await session.NewPageAsync();
+        var attachment = await session.AttachAsync(await session.TargetForAsync(page));
+
+        await session.EvaluateAsync("window.resized = 0; addEventListener('resize', () => resized++);", attachment);
+        await session.ResultAsync(
+            "Emulation.setDeviceMetricsOverride",
+            """{"width":0,"height":0,"deviceScaleFactor":2,"mobile":false}""",
+            attachment);
+
+        (await Text(session, attachment, "innerWidth + 'x' + innerHeight + '@' + devicePixelRatio + ' ' + resized"))
+            .Should().Be("1280x720@2 0");
+        page.Viewport.Should().Be(new Viewport(1280, 720, 2));
+    }
+
     [Test]
     public async Task SetVisibleSizeResizesTheViewportAndKeepsTheDeviceScaleFactor()
     {

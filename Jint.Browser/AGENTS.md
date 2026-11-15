@@ -193,7 +193,7 @@ interfaces.
 Every retained `MediaQueryList` recomputes against the whole new value and fires a real
 `MediaQueryListEvent` only if its answer changed. A width/height change first runs the resize steps at the
 change (window `resize`, then `visualViewport`), and afterwards `ParserDriver.ReactToEnvironmentChange`
-re-selects source-set images. **`EmulationState.SetViewport` is the one viewport write**:
+queues a fetch task for each recorded source-set image that now selects another URL. **`EmulationState.SetViewport` is the one viewport write**:
 `Emulation.setDeviceMetricsOverride` and `Page.SetViewportAsync` both call it, and
 `BrowserContextOptions.Viewport` is only where a page starts.
 

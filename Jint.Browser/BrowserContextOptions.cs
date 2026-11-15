@@ -80,12 +80,9 @@ public sealed class BrowserContextOptions
         get => _viewport;
         set
         {
-            if (value is { } viewport
-                && (viewport.Width < 1 || viewport.Height < 1
-                    || !(viewport.DeviceScaleFactor > 0) || double.IsInfinity(viewport.DeviceScaleFactor)))
+            if (value is { } viewport)
             {
-                throw new ArgumentOutOfRangeException(nameof(value), viewport,
-                    "A viewport needs a width and a height of at least 1 and a positive, finite device scale factor.");
+                Jint.Browser.Viewport.ThrowIfUnusable(viewport, nameof(value));
             }
 
             _viewport = value;

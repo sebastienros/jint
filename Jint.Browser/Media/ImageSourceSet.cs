@@ -81,11 +81,24 @@ internal static class ImageSourceSet
     internal static bool HasCandidates(PageRuntime runtime, Element element)
     {
         var work = new DomReadWork(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
-        if (!IsBlank(work.Attribute(element, "src"), work))
-        {
-            return true;
-        }
+        return !IsBlank(work.Attribute(element, "src"), work) || UsesSourceSet(element, work);
+    }
 
+    /// <summary>
+    /// Whether <paramref name="element"/>'s selection can depend on the environment at all: an
+    /// <c>&lt;img&gt;</c> with a non-empty <c>srcset</c>, or with a <c>&lt;source&gt;</c> that has one before
+    /// it in a <c>&lt;picture&gt;</c> parent.
+    /// </summary>
+    /// <remarks>
+    /// What decides whether a viewport or media change has to select for an image again
+    /// (<see cref="PageImages.RememberSourceSet"/>): one that is only its own <c>src</c> selects the same URL
+    /// in every viewport.
+    /// </remarks>
+    internal static bool UsesSourceSet(PageRuntime runtime, Element element)
+        => UsesSourceSet(element, new DomReadWork(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken));
+
+    private static bool UsesSourceSet(Element element, DomReadWork work)
+    {
         if (element is not { NamespaceUri: Namespaces.Html, LocalName: "img" })
         {
             return false;
@@ -103,36 +116,6 @@ internal static class ImageSourceSet
                 work.Step();
                 if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "source" } source
                     && !IsBlank(work.Attribute(source, "srcset"), work))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Whether <paramref name="image"/>'s selection can depend on the environment at all: a non-empty
-    /// <c>srcset</c>, or a <c>&lt;source&gt;</c> before it in a <c>&lt;picture&gt;</c> parent.
-    /// </summary>
-    /// <remarks>
-    /// The filter <see cref="Runtime.Parsing.ParserDriver.ReactToEnvironmentChange"/> applies before it selects,
-    /// because an image that is only its own <c>src</c> selects the same URL in every viewport.
-    /// </remarks>
-    internal static bool UsesSourceSet(Element image, DomReadWork work)
-    {
-        if (!IsBlank(work.Attribute(image, "srcset"), work))
-        {
-            return true;
-        }
-
-        if (image.ParentNode is Element parent && parent is { NamespaceUri: Namespaces.Html, LocalName: "picture" })
-        {
-            for (var child = parent.FirstChild; child is not null && !ReferenceEquals(child, image); child = child.NextSibling)
-            {
-                work.Step();
-                if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "source" })
                 {
                     return true;
                 }

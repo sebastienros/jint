@@ -35,6 +35,7 @@ public sealed partial class Page
         ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
         ObjectDisposedException.ThrowIf(_closed, this);
 
+        // The scale factor is read on the loop, so a protocol client's write that lands first is the one kept.
         return _loop.PostAsync(engine =>
         {
             Emulation.SetViewport(Emulation.Viewport with { Width = width, Height = height }, PageRuntime.Find(engine));
@@ -53,8 +54,9 @@ public sealed partial class Page
     /// numbers; when the width or height changed, <c>resize</c> fires at the window and then at
     /// <c>visualViewport</c>; every <c>MediaQueryList</c> whose answer moved fires <c>change</c>; stylesheet
     /// <c>@media</c> rules are matched against the new size on the next style read; and an <c>&lt;img&gt;</c>
-    /// whose <c>srcset</c> or <c>&lt;picture&gt;</c> now selects a different candidate fetches it. All of it
-    /// has happened, listeners included, when the task completes.
+    /// whose <c>srcset</c> or <c>&lt;picture&gt;</c> now selects a different candidate queues a fetch for it.
+    /// Everything except that fetch, listeners included, has happened by the time the task completes.
+    /// <see cref="WaitForIdleAsync"/> waits for the fetches as well.
     /// </para>
     /// <para>
     /// It is the same write as <c>Emulation.setDeviceMetricsOverride</c>, so a host in this process and a
@@ -67,14 +69,7 @@ public sealed partial class Page
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task SetViewportAsync(Viewport viewport)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(viewport.Width, 1, nameof(viewport));
-        ArgumentOutOfRangeException.ThrowIfLessThan(viewport.Height, 1, nameof(viewport));
-        if (!(viewport.DeviceScaleFactor > 0) || double.IsInfinity(viewport.DeviceScaleFactor))
-        {
-            throw new ArgumentOutOfRangeException(nameof(viewport), viewport.DeviceScaleFactor,
-                "The device scale factor must be a positive, finite number.");
-        }
-
+        Jint.Browser.Viewport.ThrowIfUnusable(viewport, nameof(viewport));
         ObjectDisposedException.ThrowIf(_closed, this);
 
         return _loop.PostAsync(engine =>

@@ -250,10 +250,10 @@ Standalone parser callers can explicitly select `ParseLimits.Unbounded` for trus
 runs synchronously when the viewport changes, not at the next frame. It keeps that algorithm's order: window
 `resize`, `visualViewport` `resize`, then `MediaQueryList` `change`. Only a width or height change counts as
 a resize. [Reacting to environment changes](https://html.spec.whatwg.org/multipage/images.html#img-environment-changes)
-runs after every change, for the principal document's light-tree `<img>` elements that use `srcset` or a
-`<picture>`. The new candidate is fetched while the loop is blocked, so `currentSrc` is already the new URL
-when the change returns. A fetch that fails leaves the image broken instead of keeping the previous one.
-Images in shadow trees and child frames, and images in a document that is still being parsed, are not
+runs after every change, for the principal document's `<img>` elements (shadow trees included) that select
+from a `srcset` or a `<picture>`. Each image that now selects another URL queues a task to fetch it, and the
+viewport change does not wait for that task. An image whose earlier selection named nothing is included. A
+fetch that fails leaves the image broken instead of keeping the previous one. Child frames' images are not
 selected again. `Runtime/ViewportResizeTests` pins this behaviour.
 
 ### Automatic HTTP cache
