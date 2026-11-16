@@ -8892,7 +8892,7 @@ side include them. An `ownKeys` trap of a proxy over such a wrapper that leaves 
 `String` first. `Object.isSealed` and `Object.isFrozen` now answer `false` for a wrapper with projections that was
 only made non-extensible, because its projections are still configurable. There is no switch back.
 
-### 4.245 A wrapped dictionary's entry is a data property, writable and configurable where the host allows it to change
+### 4.245 A wrapped dictionary's entry is a data property, writable and configurable where the host allows it to change ([#4679](https://github.com/sebastienros/jint/pull/4679))
 
 An entry of a wrapped dictionary whose key type is not `string` (`Dictionary<int, T>`, `Dictionary<long, T>`,
 `IReadOnlyDictionary<int, T>`, a `DayOfWeek`-keyed one, and so on) reported the indexer's accessor pair:
