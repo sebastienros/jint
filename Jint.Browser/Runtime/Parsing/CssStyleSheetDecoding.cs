@@ -43,4 +43,17 @@ internal static class CssStyleSheetDecoding
         TextDecoderHandler.Create(in encoding, fatal: false).TryDecode(bytes[bomLength..], flush: true, out var text);
         return (text.ToString(), encoding.LowercasedName);
     }
+
+    /// <summary>
+    /// <see cref="Decode(ReadOnlySpan{byte}, string?, string?)"/> of a fetched body, whose text the pages decoding
+    /// the same array share (see <see cref="DecodedBodies"/>).
+    /// </summary>
+    internal static (string Text, string Encoding) Decode(byte[] bytes, string? contentType, string? environmentEncoding)
+    {
+        // The fallback is all the labels decide: the BOM and the bytes do the rest.
+        var protocolLabel = contentType is null ? null : MimeType.Parse(contentType)?.GetParameter("charset");
+        var fallback = CssStyleSheetEncoding.DetermineFallback(bytes, protocolLabel, environmentEncoding, GetEncoding);
+        return DecodedBodies.GetOrDecode(bytes, fallback ?? "", (contentType, environmentEncoding), static (bytes, inputs) =>
+            Decode(bytes.AsSpan(), inputs.contentType, inputs.environmentEncoding));
+    }
 }

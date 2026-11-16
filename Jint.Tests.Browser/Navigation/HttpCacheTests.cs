@@ -42,6 +42,37 @@ public sealed class HttpCacheTests
     }
 
     [Test]
+    public async Task ACachedStyleSheetIsDecodedWithEachReferrersEncoding()
+    {
+        var childRequests = 0;
+        // No charset of its own: CSS Syntax §3.2 decodes an imported sheet with its parent's encoding.
+        var child = new byte[] { (byte) 'p', (byte) '{', (byte) 'c', (byte) 'o', (byte) 'n', (byte) 't', (byte) 'e', (byte) 'n', (byte) 't',
+            (byte) ':', (byte) '"', 0xE9, (byte) '"', (byte) '}' };
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/utf8", _ => LoopbackResponse.Html("<link rel='stylesheet' href='/utf8.css'><p>x</p>"))
+            .Map("/latin", _ => LoopbackResponse.Html("<link rel='stylesheet' href='/latin.css'><p>x</p>"))
+            .Map("/utf8.css", _ => LoopbackResponse.Raw("@charset \"utf-8\"; @import \"child.css\";"u8.ToArray(), "text/css"))
+            .Map("/latin.css", _ => LoopbackResponse.Raw("@charset \"windows-1252\"; @import \"child.css\";"u8.ToArray(), "text/css"))
+            .Map("/child.css", _ =>
+            {
+                Interlocked.Increment(ref childRequests);
+                return LoopbackResponse.Raw(child, "text/css").With("Cache-Control", "max-age=60");
+            }),
+            options => options.HttpCache.Storage = BrowserHttpCacheStorage.Memory);
+        const string Content = "document.styleSheets[0].cssRules[0].styleSheet.cssRules[0].style.content";
+
+        await fixture.Page.NavigateAsync(fixture.Url("/utf8"));
+        (await fixture.Page.EvaluateAsync<string>(Content)).Should().Be("\"\uFFFD\"");
+        await fixture.Page.NavigateAsync(fixture.Url("/latin"));
+        (await fixture.Page.EvaluateAsync<string>(Content)).Should().Be("\"\u00E9\"");
+        await fixture.Page.NavigateAsync(fixture.Url("/utf8"));
+        (await fixture.Page.EvaluateAsync<string>(Content)).Should().Be("\"\uFFFD\"");
+
+        childRequests.Should().Be(1);
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task OpaquePagesDoNotShareCachedFetchRepresentations()
     {
         var requests = 0;

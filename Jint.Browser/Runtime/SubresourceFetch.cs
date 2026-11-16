@@ -30,8 +30,11 @@ internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, str
     {
         var declared = ContentType is null ? null : MimeType.Parse(ContentType)?.GetParameter("charset");
         var encoding = Resolve(declared) ?? Resolve(fallbackCharset) ?? Encoding.UTF8;
-        var text = encoding.GetString(Bytes);
-        return text.Length != 0 && text[0] == '﻿' ? text[1..] : text;
+        return DecodedBodies.GetOrDecode(Bytes, encoding.WebName, encoding, static (bytes, encoding) =>
+        {
+            var text = encoding.GetString(bytes);
+            return (text.Length != 0 && text[0] == '\ufeff' ? text[1..] : text, encoding.WebName);
+        }).Text;
     }
 
     private static Encoding? Resolve(string? label)
@@ -235,6 +238,12 @@ internal static class SubresourceFetch
         if (response.Content.Headers.ContentLength is { } declared && declared > maxBytes)
         {
             throw new SubresourceFetchException("", "the resource is larger than the " + Describe(maxBytes) + " a page may load.");
+        }
+
+        // A body the HTTP cache served is its stored array, which every consumer of a subresource only reads.
+        if (response.Content is Jint.WebApi.Fetch.HttpResponseCache.StoredBodyContent stored)
+        {
+            return stored.Body;
         }
 
 #pragma warning disable CA2007 // The await is on a stream this method owns; there is no context to capture.
