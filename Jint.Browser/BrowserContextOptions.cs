@@ -56,6 +56,114 @@ public sealed class BrowserContextOptions
         }
     }
 
+    /// <summary>
+    /// The viewport every page of this context opens with, or <see langword="null"/> — the default — for
+    /// <see cref="BrowserOptions.Viewport"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The device-profile half of a context, which is what lets one browser drive a desktop, a tablet and a
+    /// phone at once: each context's pages report their own <c>innerWidth</c>, <c>devicePixelRatio</c> and
+    /// dimension media features from their <b>first</b> document. A popup a page of this context opens opens
+    /// at this size too.
+    /// </para>
+    /// <para>
+    /// It is where a page starts, not where it has to stay: <see cref="Page.SetViewportAsync(Jint.Browser.Viewport)"/>
+    /// and a protocol client's <c>Emulation.setDeviceMetricsOverride</c> resize one page, and
+    /// <c>Emulation.clearDeviceMetricsOverride</c> puts it back to this value. Read once, when the context is
+    /// created; its width and height must be at least 1 and its device scale factor positive and finite.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a usable viewport.</exception>
+    public Viewport? Viewport
+    {
+        get => _viewport;
+        set
+        {
+            if (value is { } viewport)
+            {
+                Jint.Browser.Viewport.ThrowIfUnusable(viewport, nameof(value));
+            }
+
+            _viewport = value;
+        }
+    }
+
+    private Viewport? _viewport;
+
+    /// <summary>
+    /// The URL a relative address a host passes to a page of this context is resolved against, or
+    /// <see langword="null"/> — the default — for none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A test suite names its server once rather than on every call:
+    /// <c>page.NavigateAsync("/admin")</c> and <c>page.WaitForUrlAsync("/admin", ...)</c> resolve against it,
+    /// with the URL standard's own rules, so <c>"/admin"</c> keeps its host and <c>"admin"</c> its directory.
+    /// It is the host's address bar and nothing else: a page's own links, forms and <c>location</c> writes
+    /// still resolve against the document's base URL. An absolute address is left alone.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentException">The value is not an absolute URL.</exception>
+    public string? BaseUrl
+    {
+        get => _baseUrl;
+        set
+        {
+            if (value is not null && Runtime.PageUrl.Parse(value, null) is null)
+            {
+                throw new ArgumentException("A base URL must be absolute.", nameof(value));
+            }
+
+            _baseUrl = value;
+        }
+    }
+
+    private string? _baseUrl;
+
+    /// <summary>
+    /// How long a page's actions wait for their target to be actionable; <see cref="TimeSpan.Zero"/> — the
+    /// default — looks once.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Page.ClickAsync(string, NavigationOptions)"/>, <see cref="Page.FillAsync(string, string)"/>,
+    /// <see cref="Page.TypeAsync(string, string)"/>, <see cref="Page.SelectAsync(string, string)"/>,
+    /// <see cref="Page.HoverAsync(string)"/> and <see cref="Page.SetInputFilesAsync(string, IReadOnlyList{string})"/>
+    /// answer <see langword="false"/> when their target is missing, not being rendered, not editable or covered
+    /// by another element. With a timeout they look again, while the page goes on running, until the target is
+    /// ready or the time is up — Playwright's actionability wait, for a suite written against it. An attempt
+    /// that dispatched input is never repeated, so a click that started but landed elsewhere still answers
+    /// <see langword="false"/> at once.
+    /// </para>
+    /// <para>
+    /// <see cref="Page.FocusAsync"/> and the target form of <see cref="Page.PressAsync(string, string, KeyModifiers, int, NavigationOptions?, TimeSpan?)"/>
+    /// have a timeout of their own and do not read this one.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative and not infinite.</exception>
+    public TimeSpan ActionTimeout
+    {
+        get => _actionTimeout;
+        set => _actionTimeout = value >= TimeSpan.Zero || value == System.Threading.Timeout.InfiniteTimeSpan
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "ActionTimeout cannot be negative.");
+    }
+
+    private TimeSpan _actionTimeout;
+
+    /// <summary>
+    /// Whether every page of this context opens as a touch device, or <see langword="null"/> — the default —
+    /// for <see cref="BrowserOptions.HasTouch"/>.
+    /// </summary>
+    /// <remarks>
+    /// The other half of a device profile, beside <see cref="Viewport"/>, with the meaning
+    /// <see cref="BrowserOptions.HasTouch"/> gives it: what a page <i>detects</i> from its first document, which
+    /// <see cref="Page.SetTouchEmulationAsync"/> changes later for one page. Read once, when the context is
+    /// created.
+    /// </remarks>
+    public bool? HasTouch { get; set; }
+
     /// <summary>Where this context's cookies live.</summary>
     /// <remarks>
     /// <para>
@@ -82,6 +190,21 @@ public sealed class BrowserContextOptions
     /// page, which is the lifetime its name promises.
     /// </remarks>
     public StoragePartitionProvider? StoragePartition { get; set; }
+
+    /// <summary>
+    /// The media type and preferences this context's pages open with, over
+    /// <see cref="BrowserOptions.MediaEmulation"/>; <see langword="null"/> — the default — adds nothing to the
+    /// browser's.
+    /// </summary>
+    /// <remarks>
+    /// Playwright's <c>colorScheme</c>, <c>reducedMotion</c>, <c>forcedColors</c> and <c>contrast</c> context
+    /// options, in one value. It is merged property by property: a <see langword="null"/> property keeps the
+    /// browser's value and an empty one clears it for this context. Every page of the context — including a
+    /// popup one of them opens — parses its first document in it. It is a default beneath the page's
+    /// overrides: <see cref="Page.EmulateMediaAsync"/> and <c>Emulation.setEmulatedMedia</c> change one page
+    /// from there, and clearing what they set comes back to it.
+    /// </remarks>
+    public MediaEmulation? MediaEmulation { get; set; }
 
     /// <summary>The <see cref="System.Net.Http.HttpClient"/> every request of this context goes through.</summary>
     /// <remarks>

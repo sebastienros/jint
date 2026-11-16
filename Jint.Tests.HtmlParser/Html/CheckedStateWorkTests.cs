@@ -29,6 +29,9 @@ public class CheckedStateWorkTests
         HtmlCheckableState.GetRadioGroupFacts(a, default).MemberCount.Should().Be(size);
         probe.Builds.Should().Be(1);
         var units = probe.Units;
+        // The first case runs cold: without a warm pass the counted loop spans the call's tier-up and on-stack
+        // replacement, whose runtime work is charged to this thread. The pin is on the hot path, so warm it first.
+        for (var i = 0; i < 1000; i++) HtmlCheckableState.GetRadioGroupFacts(a, default);
         var allocated = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < 1000; i++) HtmlCheckableState.GetRadioGroupFacts(a, default);
         var difference = GC.GetAllocatedBytesForCurrentThread() - allocated;

@@ -96,6 +96,26 @@ timeout returns `false`; invalid script and final JavaScript errors remain excep
 budget failures are not retried. Closing an already-running wait ends it with `false`; starting an
 operation on a closed page throws.
 
+## Init scripts
+
+`AddInitScriptAsync` installs a script that runs in every **new** document before any of the document's
+own scripts, the in-process form of Playwright's `addInitScript`:
+
+```csharp
+await context.AddInitScriptAsync(
+    "seed => localStorage.setItem('theme', seed.theme)", new { theme = "dark" });
+await page.AddInitScriptAsync("Element.prototype.scrollIntoView = function () {}");
+await page.NavigateAsync("https://example.org/");
+```
+
+It runs once the empty document exists (`document.readyState` is `loading`) and before the parser reads
+any markup, on every navigation, reload, history traversal and `SetContentAsync` from then on — never
+in the document already showing. A context's scripts reach all of its pages, including ones already open
+and the `about:blank` a new page starts on, and run before a page's own. Scripts run in the order added;
+the argument overloads bind JSON data exactly as `EvaluateAsync(function, argument)` does. A script that
+throws is recorded in `Page.Errors` and the document loads anyway. CDP's
+`Page.addScriptToEvaluateOnNewDocument` adds to the same per-page list. Child frames run no init scripts.
+
 ## Native queries and waits
 
 For common DOM conditions, avoid JavaScript source and per-row page-loop calls:
@@ -107,7 +127,8 @@ bool ready = await page.WaitForCountAsync(".recipe", 3, TimeSpan.FromSeconds(5),
 bool shown = await page.WaitForVisibleAsync(".status", TimeSpan.FromSeconds(5));
 ```
 
-`CountAsync` and `TextsAsync` accept CSS selectors and throw for invalid selectors. `TextsAsync`
+`CountAsync` and `TextsAsync` accept every target form below and throw a `SyntaxError` `DomException`
+for an invalid selector or a malformed locator. `TextsAsync`
 returns one document-order snapshot of **textContent** strings in a single request: no trimming,
 rendered whitespace normalization or exclusion of hidden descendant text. `visibleOnly` filters the
 matched elements, not the text descendants.
@@ -125,5 +146,92 @@ and occlusion are not visibility tests. The synthetic box model is not a renderi
 `WaitForCountAsync` requires an exact nonnegative count; zero is useful for disappearance.
 `WaitForVisibleAsync(target, timeout, visible: false, index: 0)` succeeds for hidden or missing targets.
 `WaitForTextAsync(target, text, timeout, index = 0)` checks a literal ordinal substring of innerText
-and requires a matching element. These waits observe mutations and navigation without retaining DOM
+and requires a matching element; `WaitForTextAsync(target, pattern, timeout, index = 0)` matches a `Regex`
+against the same text off the page thread, so `new Regex("^3$")` tells an exact `3` from a `13`. These waits observe mutations and navigation without retaining DOM
 handles. Timeout returns `false`, including a zero timeout whose first probe fails.
+
+## Role, label and text targets
+
+Every member that takes a target — `ClickAsync`, `TapAsync`, `FillAsync`, `TypeAsync`, `HoverAsync`, `SelectAsync`, `SetInputFilesAsync`,
+`IsVisibleAsync`, `InnerTextAsync`, `CountAsync`, `TextsAsync` and the waits — also accepts Playwright's
+locator syntax, resolved in .NET by the same role and accessible-name computation
+`AccessibilitySnapshotAsync` prints from. No page JavaScript runs and no snapshot is taken.
+
+```csharp
+await page.ClickAsync("role=button[name=\"Next\"]");
+await page.FillAsync("label=Email", "someone@example.com");
+await page.ClickAsync("text=Sign in");
+await page.ClickAsync("[data-filter-group=type] >> role=checkbox[name=\"Integration\"]");
+int headings = await page.CountAsync("role=heading[level=2]");
+```
+
+| Form | Meaning |
+| --- | --- |
+| `role=button` | Elements whose computed role (author `role`, else HTML-AAM's) is `button`. `img` and `image`, `none` and `presentation` are the same role. |
+| `[name="Next"]` / `[name="Next"i]` | The accessible name contains `Next`, case-insensitively, after whitespace is collapsed. |
+| `[name="Next"s]` | The accessible name is exactly `Next`, case-sensitively. |
+| `[level=2]`, `[checked]`, `[checked=false]`, `[checked="mixed"]`, `[pressed]`, `[expanded]`, `[selected]`, `[disabled]` | The state the snapshot publishes. A role WAI-ARIA does not give that state never matches (`[selected]` on a button, `[level]` on a link). |
+| `[include-hidden]` | Also match elements the snapshot leaves out as hidden (`hidden`, `display:none`, `visibility:hidden`, `aria-hidden`). |
+| `label=Email` / `label="Email"` | Controls named by `aria-labelledby`, else `aria-label`, else an associated `<label>`: a case-insensitive substring, or an exact match when quoted. |
+| `text=Save` / `text="Save"` | The deepest elements whose text contains `Save` (exact when quoted, `"…"i` to keep it case-insensitive). Script, style and `head` text does not count; a hidden element's text does. |
+| `internal:role=…`, `internal:label=…`, `internal:text=…`, `css=…` | The spellings a Playwright locator serializes to, and an explicit CSS part. |
+| `aria/Next[role="button"]` | Puppeteer's ARIA query: an exact accessible name, with an optional role. |
+| `a >> b` | `b` resolved inside every element `a` found, in document order; any part may be CSS, `ref=` or a locator. |
+| `a >> nth=1`, `a >> nth=-1` | The second, or the last, of `a`'s matches: what a locator's `Nth`, `First` and `Last` serialize to. |
+| `a >> visible=true` / `visible=false` | `a`'s matches that pass, or fail, the visibility test above. |
+| `a >> has-text=Save` / `has-text="Save"s` | `a`'s matches whose text contains `Save`, case-insensitively, or is exactly `Save` with the `s` flag; `has-not-text=` keeps the others. `internal:has-text=` is the spelling `Filter(HasText)` serializes to. |
+
+`nth=`, `visible=` and `has-text=` are filters: they narrow the matches of the part before them instead of
+searching inside them, so they cannot come first. A role target matches by role, not by what the snapshot keeps: a `generic` wrapper or a `role=none` element
+the snapshot prunes is still found by `role=generic` or `role=none`. An unescaped apostrophe in an unquoted
+`text=` body opens a string, as in Playwright, so quote such a body before chaining after it.
+
+A plain selector — no `>>`, no prefix — is compiled exactly as before. A malformed locator matches nothing
+in the input members and `IsVisibleAsync`, and throws from `CountAsync`/`TextsAsync`, as an invalid selector
+does. Role targets inherit the accessibility tree's boundaries: hidden means the renderless visibility
+described above, and generated content does not contribute to a name.
+
+## URL, attribute, focus, value and checked state
+
+The assertions a browser test makes most often have native readers and waits too, so none of them needs
+a JavaScript predicate re-evaluated on every poll:
+
+```csharp
+bool paged = await page.WaitForUrlAsync("?page=2", TimeSpan.FromSeconds(5));
+bool current = await page.WaitForAttributeAsync("#next", "aria-current", "page", TimeSpan.FromSeconds(5));
+bool focused = await page.WaitForFocusAsync("#next", TimeSpan.FromSeconds(5));
+bool filled = await page.WaitForValueAsync("#search", new Regex("^asp"), TimeSpan.FromSeconds(5));
+bool ticked = await page.WaitForCheckedAsync("#agree", TimeSpan.FromSeconds(5));
+
+string? label = await page.GetAttributeAsync("#next", "aria-label");
+string? query = await page.InputValueAsync("#search");
+bool? agreed = await page.IsCheckedAsync("#agree");
+bool active = await page.IsFocusedAsync("#search");
+```
+
+`WaitForUrlAsync` takes a string, a `Regex` or a `Func<Uri, bool>` and compares the URL `Page.Url`
+answers, so `history.pushState`, `history.replaceState`, fragment navigations and traversals count as
+well as real navigations. A string is compared exactly after both are serialized; a relative one is
+resolved against the URL each look compares it with, so `"?page=2"` means the current path with that
+query. A `Regex` is searched for, not anchored.
+
+`WaitForAttributeAsync(target, name, value: null, timeout)` waits for the attribute to be absent; an
+empty string waits for it to be present and empty. Either way the target must exist: a missing element is
+neither. Write the absent case with the named `value:` argument, since a positional `null` is ambiguous
+with the `Regex` overload. `GetAttributeAsync` returns `null` for an absent attribute and for a missing
+target alike.
+
+Value and checkedness are the IDL state, not markup: `input.value = 'x'` and `checkbox.checked = true`
+change no content attribute and no `MutationObserver` sees them, but both satisfy the waits.
+`InputValueAsync` reads `input`, `textarea` and `select` and returns `null` for anything else.
+`IsCheckedAsync` reads `<input type=checkbox|radio>`, and `aria-checked="true"` on an element whose
+explicit role is `checkbox`, `radio`, `switch`, `option`, `treeitem`, `menuitemcheckbox` or
+`menuitemradio`; it returns `null` for anything else and for `aria-checked="mixed"`, which no
+`WaitForCheckedAsync` call satisfies. A native checkbox's `indeterminate` flag does not change its
+checkedness, as in HTML and Playwright, although the accessibility snapshot reports it as `mixed`.
+Focus is the element user input reaches: inside a shadow tree that is the inner control, not the host
+`document.activeElement` names. A missing target is not focused.
+
+Each look resolves the target against the current document, exactly like the waits above. A `Regex` or
+predicate runs on the waiting thread over a detached string or `Uri`, never on the page loop; an exception
+it throws faults the returned task.

@@ -33,7 +33,7 @@ internal static partial class CssParser
     internal static CssParsedRule? ParseRule(CssRawRule raw, CssValueWork work,
         CssStyleRule? nestingParent = null, CssParseOptions? options = null)
     {
-        var name = raw.Kind == CssRuleKind.AtRule ? CssPropertyRegistry.NormalizeName(raw.Name, work) : null;
+        var name = raw.Kind == CssRuleKind.AtRule ? CssPropertyRegistry.LowerAscii(raw.Name, work) : null;
         var kind = name is null ? default : CssAtRuleLookup.Match(name);
         // CSS Syntax §3.2: an encoding declaration only looks like an at-rule; "no such rule actually exists".
         if (name == "charset") return null;

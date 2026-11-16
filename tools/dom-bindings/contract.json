@@ -3596,6 +3596,118 @@
           "Origin": "CSSOM supported CSS property accessor: https://drafts.csswg.org/cssom/#the-cssstyleproperties-interface"
         },
         {
+          "DomName": "webkitMask",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMask\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMask\");\nself.Target.SetProperty(\"-webkit-mask\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.webkitMask\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM webkit-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-webkit-cased-attribute"
+        },
+        {
+          "DomName": "webkitMaskClip",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskClip\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-clip\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskClip\");\nself.Target.SetProperty(\"-webkit-mask-clip\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.webkitMaskClip\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM webkit-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-webkit-cased-attribute"
+        },
+        {
+          "DomName": "webkitMaskImage",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskImage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-image\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskImage\");\nself.Target.SetProperty(\"-webkit-mask-image\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.webkitMaskImage\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM webkit-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-webkit-cased-attribute"
+        },
+        {
+          "DomName": "webkitMaskOrigin",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskOrigin\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-origin\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskOrigin\");\nself.Target.SetProperty(\"-webkit-mask-origin\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.webkitMaskOrigin\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM webkit-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-webkit-cased-attribute"
+        },
+        {
+          "DomName": "webkitMaskPosition",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskPosition\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-position\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskPosition\");\nself.Target.SetProperty(\"-webkit-mask-position\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.webkitMaskPosition\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM webkit-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-webkit-cased-attribute"
+        },
+        {
+          "DomName": "webkitMaskRepeat",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskRepeat\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-repeat\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskRepeat\");\nself.Target.SetProperty(\"-webkit-mask-repeat\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.webkitMaskRepeat\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM webkit-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-webkit-cased-attribute"
+        },
+        {
+          "DomName": "webkitMaskSize",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskSize\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-size\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.webkitMaskSize\");\nself.Target.SetProperty(\"-webkit-mask-size\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.webkitMaskSize\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM webkit-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-webkit-cased-attribute"
+        },
+        {
+          "DomName": "WebkitMask",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMask\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMask\");\nself.Target.SetProperty(\"-webkit-mask\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.WebkitMask\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM camel-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-camel-cased-attribute"
+        },
+        {
+          "DomName": "WebkitMaskClip",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskClip\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-clip\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskClip\");\nself.Target.SetProperty(\"-webkit-mask-clip\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.WebkitMaskClip\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM camel-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-camel-cased-attribute"
+        },
+        {
+          "DomName": "WebkitMaskImage",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskImage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-image\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskImage\");\nself.Target.SetProperty(\"-webkit-mask-image\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.WebkitMaskImage\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM camel-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-camel-cased-attribute"
+        },
+        {
+          "DomName": "WebkitMaskOrigin",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskOrigin\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-origin\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskOrigin\");\nself.Target.SetProperty(\"-webkit-mask-origin\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.WebkitMaskOrigin\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM camel-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-camel-cased-attribute"
+        },
+        {
+          "DomName": "WebkitMaskPosition",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskPosition\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-position\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskPosition\");\nself.Target.SetProperty(\"-webkit-mask-position\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.WebkitMaskPosition\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM camel-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-camel-cased-attribute"
+        },
+        {
+          "DomName": "WebkitMaskRepeat",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskRepeat\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-repeat\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskRepeat\");\nself.Target.SetProperty(\"-webkit-mask-repeat\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.WebkitMaskRepeat\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM camel-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-camel-cased-attribute"
+        },
+        {
+          "DomName": "WebkitMaskSize",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskSize\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"-webkit-mask-size\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.WebkitMaskSize\");\nself.Target.SetProperty(\"-webkit-mask-size\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.WebkitMaskSize\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM camel-cased attribute of a legacy name alias (Compatibility §3.4.1): https://drafts.csswg.org/cssom/#dom-cssstyleproperties-camel-cased-attribute"
+        },
+        {
           "DomName": "maxBlockSize",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.maxBlockSize\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"max-block-size\"));",
@@ -4770,6 +4882,14 @@
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.transition\");\nself.Target.SetProperty(\"transition\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSStyleDeclaration.transition\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "StyleDeclarationExtensions.GetTransition"
+        },
+        {
+          "DomName": "transitionBehavior",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.transitionBehavior\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"transition-behavior\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.transitionBehavior\");\nself.Target.SetProperty(\"transition-behavior\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.transitionBehavior\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM supported CSS property accessor: https://drafts.csswg.org/cssom/#the-cssstyleproperties-interface"
         },
         {
           "DomName": "transitionDelay",
@@ -7683,7 +7803,7 @@
         {
           "DomName": "focus",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.focus\");\nglobal::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);\nreturn global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.focus\");\nglobal::Jint.Browser.Events.FocusController.FocusFromScript(self.Realm, self.Target, args, \"HTMLElement\");\nreturn global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -10446,6 +10566,14 @@
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
+        },
+        {
+          "DomName": "setRangeText",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.setRangeText\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetRangeText(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTML text control selection API"
         },
         {
           "DomName": "setSelectionRange",
@@ -13493,6 +13621,14 @@
           "Origin": "IValidation.SetCustomValidity"
         },
         {
+          "DomName": "setRangeText",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.setRangeText\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetRangeText(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTML text control selection API"
+        },
+        {
           "DomName": "setSelectionRange",
           "Kind": 0,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.setSelectionRange\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionRange(self.Realm, self.Target, args);",
@@ -15292,7 +15428,7 @@
         {
           "DomName": "focus",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.focus\");\nglobal::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);\nreturn global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.focus\");\nglobal::Jint.Browser.Events.FocusController.FocusFromScript(self.Realm, self.Target, args, \"SVGElement\");\nreturn global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"

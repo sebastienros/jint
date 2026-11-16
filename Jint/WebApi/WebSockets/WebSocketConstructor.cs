@@ -180,6 +180,16 @@ internal sealed partial class WebSocketConstructor : Constructor
 
             var factory = state.WebSocketConnections ?? ClientWebSocketConnectionFactory.For(observation is not null);
             connection = factory.Create(uri, protocols, options.MaxResponseBytes, options.UserAgent);
+
+            // https://websockets.spec.whatwg.org/#concept-websocket-establish step 4: the opening handshake's
+            // credentials mode is "include", so it carries the cookies the host's jar holds for the URL — the
+            // http(s) URL the ws(s) one stands for, which is the one the jar knows. A hub behind a login
+            // refuses a handshake without them.
+            if (connection is ClientWebSocketConnection client && state.FetchNetwork.CookieJar is { } jar)
+            {
+                var builder = new UriBuilder(uri) { Scheme = string.Equals(uri.Scheme, "wss", StringComparison.Ordinal) ? Uri.UriSchemeHttps : Uri.UriSchemeHttp, Port = uri.IsDefaultPort ? -1 : uri.Port };
+                client.SetCookieHeader(jar.GetCookieHeader(builder.Uri));
+            }
         }
         else if (observation is not null && Uri.TryCreate(url.Serialize(), UriKind.Absolute, out var refused))
         {

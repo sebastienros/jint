@@ -67,6 +67,7 @@ internal static class CssCascade
             var layoutRevision = runtime?.Layout.Version;
             var events = runtime is null ? null : BrowserEventRealm.Of(runtime.Engine);
             var focus = events?.FocusedElement;
+            var focusIndicated = events?.FocusIndicated ?? false;
             var press = events?.MousePressTarget;
             var hover = events?.MouseHoverTarget;
             var url = DomDocumentState.Of(document).Url;
@@ -80,7 +81,7 @@ internal static class CssCascade
                 ReferenceEquals(DomBrowsingContext.Of(document), context) &&
                 ReferenceEquals(DomBrowsingContext.Of(runtime.Document), displayedContext) &&
                 ReferenceEquals(PageRuntime.FindBrowsingContext(runtime.Engine, document), runtime) && runtime.Media == media && runtime.Layout.Version == layoutRevision &&
-                InteractionsAreCurrent(input.Query, events!, focus, press, hover) &&
+                InteractionsAreCurrent(input.Query, events!, focus, focusIndicated, press, hover) &&
                 DomDocumentState.Of(document).Url == url && ReferenceEquals(DomDocumentState.Of(document).TargetElement, target);
             Action? readWitness = witnessIsCurrent is null ? null : () =>
             {
@@ -96,11 +97,12 @@ internal static class CssCascade
         }
 
         // A focus, press or hover change can only change a style a rule matches on it; until the rules have
-        // been read, any change retires the traversal.
+        // been read, any change retires the traversal. Whether focus is indicated is part of the focus, for
+        // :focus-visible: a key pressed on an element a click focused changes it and moves nothing.
         private static bool InteractionsAreCurrent(NativeCssQuery query, BrowserEventRealm events,
-            Element? focus, Element? press, Element? hover)
+            Element? focus, bool focusIndicated, Element? press, Element? hover)
         {
-            var focusChanged = !ReferenceEquals(events.FocusedElement, focus);
+            var focusChanged = !ReferenceEquals(events.FocusedElement, focus) || events.FocusIndicated != focusIndicated;
             var pressChanged = !ReferenceEquals(events.MousePressTarget, press);
             var hoverChanged = !ReferenceEquals(events.MouseHoverTarget, hover);
             if (!focusChanged && !pressChanged && !hoverChanged) return true;

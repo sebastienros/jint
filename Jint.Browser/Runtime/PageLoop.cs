@@ -43,6 +43,10 @@ internal sealed class PageLoop : IDisposable
     private readonly Channel<LoopRequest> _mailbox = Channel.CreateUnbounded<LoopRequest>(
         new UnboundedChannelOptions { SingleReader = true, AllowSynchronousContinuations = false });
 
+    // Reads a waiting caller makes, which may run in a turn that is already under way — the parser waiting for a
+    // script, as HTML's "spin the event loop" lets other tasks run — besides the loop's own turns.
+    private readonly System.Collections.Concurrent.ConcurrentQueue<Action<Engine?>> _reentrant = new();
+
     private readonly CancellationTokenSource _closing = new();
     private readonly CancellationToken _closingToken;
     private CancellationTokenSource _documentClosing = new();
@@ -165,6 +169,60 @@ internal sealed class PageLoop : IDisposable
         work(engine);
         return null;
     });
+
+    /// <summary>
+    /// Posts a read that may also run while a turn already under way spins the loop — the parser waiting for a
+    /// script — rather than only once it is over: what a page answers to a caller polling it while it loads.
+    /// </summary>
+    /// <remarks>
+    /// Only for work that reads the document, or runs script as a task may: a request that navigates or writes
+    /// through native seams must use <see cref="PostAsync{T}(Func{Engine, T}, bool)"/>, which a parse never runs.
+    /// </remarks>
+    internal Task<T> PostReentrantAsync<T>(Func<Engine, T> work)
+    {
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (_closed)
+        {
+            return Task.FromException<T>(Disposed());
+        }
+
+        _reentrant.Enqueue(engine =>
+        {
+            if (engine is null)
+            {
+                completion.TrySetException(Disposed());
+                return;
+            }
+
+            try
+            {
+                completion.TrySetResult(work(engine));
+            }
+            catch (Exception exception)
+            {
+                completion.TrySetException(exception);
+            }
+        });
+
+        try
+        {
+            _tasks?.Post(EventLoop.WakeJob);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        return completion.Task;
+    }
+
+    /// <summary>Runs the reads <see cref="PostReentrantAsync{T}"/> queued; on the loop thread only.</summary>
+    internal void DrainReentrant()
+    {
+        while (_reentrant.TryDequeue(out var work))
+        {
+            work(_engine);
+        }
+    }
 
     /// <summary>Runs <paramref name="work"/> on the loop thread and completes with what it answered.</summary>
     /// <param name="work">What to do with the engine, on the thread that owns it.</param>
@@ -398,6 +456,20 @@ internal sealed class PageLoop : IDisposable
 
         while (!_closing.IsCancellationRequested)
         {
+            // A read the loop itself serves is a turn of its own, with the fresh budget a mailbox request gets.
+            while (!_closing.IsCancellationRequested && _reentrant.TryDequeue(out var read))
+            {
+                BeginLoopTurn(bracketed: true);
+                try
+                {
+                    read(_engine);
+                }
+                finally
+                {
+                    EndLoopTurn();
+                }
+            }
+
             while (!_closing.IsCancellationRequested && reader.TryRead(out var request))
             {
                 // The bracket is outside the request rather than inside it, and that is what makes a budget
@@ -451,7 +523,7 @@ internal sealed class PageLoop : IDisposable
                 _onPumpError(exception);
             }
 
-            if (_closing.IsCancellationRequested || reader.TryPeek(out _))
+            if (_closing.IsCancellationRequested || reader.TryPeek(out _) || !_reentrant.IsEmpty)
             {
                 continue;
             }
@@ -576,6 +648,11 @@ internal sealed class PageLoop : IDisposable
         while (_mailbox.Reader.TryRead(out var request))
         {
             request.Work(null);
+        }
+
+        while (_reentrant.TryDequeue(out var work))
+        {
+            work(null);
         }
     }
 

@@ -7984,13 +7984,12 @@ configurable, refused if it is not. Extensibility does not matter, so `Object.pr
 a configurable property from being deleted. A plain wrapped object, and a writable collection under `AllowWrite`,
 already behaved this way.
 
-`Object.freeze` and `Object.seal` do stop it for a property the script created: they make it non-configurable,
-because the wrapper now lists it among its own keys
-([§4.223](#4-223-a-wrapped-clr-object-lists-the-properties-the-script-defined-on-it-4503)). They do not yet stop it
-for something the wrapper projects itself and the script redefines, such as the `Symbol.iterator` in the example
-above (or the `length` forwarder, or `Symbol.dispose`). The wrapper does not list a projection, so after
-`Object.freeze` it stays configurable and `delete` still removes it
-([#4528](https://github.com/sebastienros/jint/issues/4528)).
+`Object.freeze` and `Object.seal` do stop it: they make the property non-configurable, because the wrapper lists it
+among its own keys. That holds for a property the script created
+([§4.223](#4-223-a-wrapped-clr-object-lists-the-properties-the-script-defined-on-it-4503)), and for something the
+wrapper projects itself, such as the `Symbol.iterator` in the example above, the `length` forwarder or
+`Symbol.dispose`
+([§4.243](#4-243-a-wrapped-clr-object-lists-a-projection-once-the-script-redefines-it-or-the-object-stops-being-extensible-4528)).
 
 The same rules apply to what the wrapper itself puts on a collection. `delete list.Contains` and
 `delete list.length` now return `true`. The method is back on the next read. So is the count for a collection
@@ -8246,12 +8245,12 @@ the target lists it, which on a view means not at all for a member such as `Cont
 that a dictionary later gains as an entry is listed once, in the dictionary's place. `for..of` over a dictionary
 still yields only its entries.
 
-What the wrapper projects itself and the target does not report is not listed, as before: the `length` forwarder,
-`Symbol.iterator`, `Symbol.dispose` and `Symbol.asyncDispose`, and a reflected member such as `ToString`. (A plain
-wrapper does list a public `toJSON` method, once, because its target reports its methods by name.) That stays
-true after the script redefines one: it is still the wrapper's projection, so `Object.freeze` and `Object.seal` do
-not reach it, it stays configurable, and `delete` still removes it
-([#4528](https://github.com/sebastienros/jint/issues/4528)).
+A reflected member the target does not report, such as `ToString`, is not listed, as before. Neither is what the
+wrapper projects itself, the `length` forwarder, `Symbol.iterator`, `Symbol.dispose` and `Symbol.asyncDispose`, while
+the script has not redefined it and the wrapper is extensible. (A plain wrapper does list a public `toJSON` method,
+once, because its target reports its methods by name.) A projection the script redefines, and every projection of
+a non-extensible wrapper, is listed
+([§4.243](#4-243-a-wrapped-clr-object-lists-a-projection-once-the-script-redefines-it-or-the-object-stops-being-extensible-4528)).
 
 What happens when the script deletes a projection and then defines a property of that name depends on whether the
 wrapper rebuilds the projection:
@@ -8260,7 +8259,8 @@ wrapper rebuilds the projection:
   `Object.freeze` reaches it.
 - **It rebuilds on the next read**, and the define is that read: `Symbol.iterator` is materialized again, and
   `toJSON`, a reflected member such as `ToString`, and `length` on an array resolve from the CLR type again. So the
-  define redefines the wrapper's projection, which stays the wrapper's and is listed only where it was before.
+  define redefines what the wrapper rebuilt. A projection is then listed, as any redefined projection is; a
+  reflected member is listed only where it was before.
 
 Properties a host stores with `DefineOwnPropertyUnchecked`, which bypasses `[[DefineOwnProperty]]`, are not listed
 either, whether or not the script has defined properties of its own.
@@ -8762,6 +8762,108 @@ The `Array.prototype` methods whose spec asks `HasProperty` before `Get` (`forEa
 `ArrayInstance.TryGetValue(uint, out JsValue)`, which stays hole-aware: it reports `false` when `HasProperty` does, and
 otherwise returns what `Get` returns. An array whose prototype chain is the intrinsic `Array.prototype` and
 `Object.prototype`, with no index on either, reads what it did. There is no switch back.
+
+### 4.238 A CDP evaluation stopped by an execution limit is a thrown error naming it, and `jint-browser serve` allows two minutes per task ([#4619](https://github.com/sebastienros/jint/issues/4619))
+
+**What a client is told.** `Runtime.evaluate`, `Runtime.callFunctionOn` and `Runtime.runScript` answer a script that
+an execution limit stopped — a page's `BrowserOptions.MaxTaskDuration` or `MemoryLimit`, or an engine's
+`LimitExecutionTime`, `LimitStatements`, `LimitMemory` or `MaxRecursionDepth` — with `exceptionDetails` carrying an
+`Error` whose description names the limit, for a page
+`Error: Task exceeded MaxTaskDuration (5s): … Raise BrowserOptions.MaxTaskDuration (jint-browser --max-task-duration)`.
+They used to answer `-32000 "Command timed out"` at exactly the budget, because the mailbox read the limit's
+`TimeoutException` as its own command timeout, and Playwright reports any such protocol error from an evaluation as
+*"Execution context was destroyed, most likely because of a navigation"*. The context is not destroyed: the next
+command runs in the same document. A command awaiting a promise whose reaction the limit discarded with the turn's
+checkpoint is answered the same way rather than never. Every other command stopped by a limit is a `-32000` whose
+message names it.
+
+**`serve`'s default.** Trusted pages under `jint-browser serve` get two minutes per task unless
+`--max-task-duration` says otherwise: past any protocol client's own timeout, since Chromium has no per-task
+ceiling, and still finite so a page a killed client left running cannot spin for ever. `--untrusted` keeps its
+profile's ceiling; `fetch` and `eval` keep five seconds; `BrowserOptions.MaxTaskDuration`'s own default is
+unchanged. Pass `--max-task-duration 5s` for the old one, or `0` for none.
+
+**Named access on the window.** A name that `EventTarget.prototype` or `Object.prototype` owns is no longer looked
+up among the document's elements, which is WebIDL's named property visibility: `<div id="hasOwnProperty">` no longer
+shadows `hasOwnProperty`, and is not listed by `Object.getOwnPropertyNames` of the named-properties object. Every
+bare call to an inherited global used to walk the whole document first.
+
+### 4.239 A wrapped CLR object lists its reflected members in declaration order on .NET Framework too ([#4638](https://github.com/sebastienros/jint/pull/4638))
+
+`Reflect.ownKeys`, `Object.getOwnPropertyNames`, `Object.keys` and `for..in` over an `ObjectWrapper` list its
+properties, then its fields, then its methods, each the most-derived type's first and in declaration order. That is
+the order .NET already reported, so nothing changes there. On .NET Framework the order was whatever its reflection
+cache held: a member somebody had looked up by name came first, so two listings of one wrapper could disagree, with a
+`ContainsKey` call or a garbage collection in between. A host that sorted the keys itself is unaffected.
+
+### 4.240 `toSorted`, `toReversed`, `with`, `sort`, `Array.from` and the `toArray` helpers refuse a list past `MaxArraySize` ([#4520](https://github.com/sebastienros/jint/issues/4520))
+
+`Options.Constraints.MaxArraySize` bounds every array a script can build from a count (§4.217, §4.221). A few
+built-ins still built one past it, from an array-like's `length` or from the values an iterator yields. With
+`MaxArraySize = 4`:
+
+```js
+Array.prototype.toSorted.call({ length: 10 });
+// earlier previews: an array of 10 elements
+// 5.x:              MemoryLimitExceededException ("The array size 10 is larger than maximum allowed (4)")
+```
+
+Each of these now ends the run with that exception, where it used to return an array or an unbounded list:
+
+- `Array.prototype.toSorted`, `toReversed` and `with` on an array-like whose `length` is past the limit. The
+  exception comes where the specification sizes the result (`ArrayCreate(len)`), before any element is read.
+- `Array.prototype.sort` on an array-like that reports more elements present than the limit. A sparse array-like
+  with a large `length` and few elements still sorts.
+- `Array.from`, `Iterator.prototype.toArray` and `AsyncIterator.prototype.toArray` over an iterator that yields more
+  values than the limit. The collection stops at the first value that does not fit and closes the iterator, as the
+  built-in's own abrupt completion does, so a generator's `finally` runs and an infinite one no longer fills memory.
+  For `AsyncIterator.prototype.toArray` the exception comes out of whatever drains the event loop, and the promise
+  it returned never settles.
+
+`toSpliced`, `Array.from` over an array-like, and the lists `Object.groupBy` and `Map.groupBy` build were already
+bounded and are unchanged.
+
+**What could break:** a host that set a finite `MaxArraySize`, or runs `Options.ForUntrustedCode`, and relied on one
+of these returning a larger array. `sort` of a real array that a host built longer than the limit with
+`new JsArray(engine, items)` now throws too. A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged,
+and a list of exactly `MaxArraySize` elements is still allowed. There is no switch back: raise `MaxArraySize`.
+
+### 4.243 A wrapped CLR object lists a projection once the script redefines it or the object stops being extensible ([#4528](https://github.com/sebastienros/jint/issues/4528))
+
+A wrapped CLR object makes a few properties of its own that its target does not report: the `length` forwarder of a
+list or array, `Symbol.iterator` on anything enumerable, `toJSON` on a type with a public `toJSON()` method, and
+`Symbol.dispose` / `Symbol.asyncDispose` on an `IDisposable` / `IAsyncDisposable`. None of them was ever listed. A
+script could make one non-configurable without `Reflect.ownKeys` showing it, and `Object.freeze` and `Object.seal`
+left them configurable while `Object.isFrozen` and `isSealed` answered `true`:
+
+```js
+// host: engine.SetValue("list", new List<int> { 1, 2 }); engine.SetValue("stream", new MemoryStream());
+Object.defineProperty(list, Symbol.iterator, { value: function* () { }, configurable: false });
+Reflect.ownKeys(list)        // earlier previews: ['0', '1']          5.x: ['0', '1', Symbol(Symbol.iterator)]
+Object.freeze(stream);
+Object.getOwnPropertyDescriptor(stream, Symbol.dispose).configurable
+                             // earlier previews: true, though isFrozen was true    5.x: false
+```
+
+A projection is now listed in two cases:
+- **The script redefines it** through `Object.defineProperty`, `Reflect.defineProperty` or anything else that reaches
+  `[[DefineOwnProperty]]`. Deleting it takes it off the list again.
+- **The wrapper becomes non-extensible**, through `Object.preventExtensions`, `Object.seal` or `Object.freeze`. Every
+  projection is listed from then on, so `seal` and `freeze` make each of them non-configurable, and `isSealed` and
+  `isFrozen` check each of them.
+
+An extensible wrapper whose projections the script has not redefined lists exactly what it did before, and a
+reflected member such as `Count` or `ToString` is still not listed. A listed projection follows the target's keys and
+comes ahead of the properties the script created, as an array's `length` does: `Reflect.ownKeys` over a frozen
+`List<int> { 1, 2 }` is `['0', '1', 'length', Symbol(Symbol.iterator)]`. The projections are non-enumerable, so
+`Object.keys`, `for..in`, `Object.assign`, spread and `JSON.stringify` do not change. `Reflect.ownKeys`,
+`Object.getOwnPropertyNames`, `Object.getOwnPropertySymbols`, and `GetOwnPropertyKeys` / `GetOwnProperties` on the host
+side include them. An `ownKeys` trap of a proxy over such a wrapper that leaves one out now throws a `TypeError`.
+
+**What could break:** over a sealed, frozen or non-extensible wrapper, or one whose projection the script redefined,
+`Reflect.ownKeys` now includes a symbol, so a script that calls `.join()` on that list throws. Map the keys through
+`String` first. `Object.isSealed` and `Object.isFrozen` now answer `false` for a wrapper with projections that was
+only made non-extensible, because its projections are still configurable. There is no switch back.
 
 ## 5. New in v5
 

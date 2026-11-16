@@ -1,10 +1,13 @@
+using System.Globalization;
 using Jint.HtmlParser.Css.Syntax;
 
 namespace Jint.HtmlParser.Css.Values.Properties;
 
-// CSS Backgrounds 3 §2.11 (background), §2.6 (background-position) and §4.4-§4.5 (border):
-// shorthands whose components are optional and order-free, so whitespace splitting cannot place them.
+// CSS Backgrounds 3 §2.11 (background), §2.6 (background-position) and §4.4-§4.5 (border), and
+// CSS Masking 1 §7.9 (mask): shorthands whose components are optional and order-free, so whitespace
+// splitting cannot place them.
 // https://drafts.csswg.org/css-backgrounds-3/#background
+// https://drafts.csswg.org/css-masking-1/#the-mask
 // Renderless: a component is classified by its token shape only and keeps its declared text.
 // Anything the box keywords, lengths and image functions do not claim is taken as the color.
 internal static class CssBoxShorthands
@@ -20,7 +23,16 @@ internal static class CssBoxShorthands
     private static readonly string[] BackgroundInitials =
         ["none", "0%", "0%", "auto", "repeat", "scroll", "padding-box", "border-box", "transparent"];
 
-    internal static bool Handles(string name) => name is "background" or "background-position" or "border" or "border-color" ||
+    internal static readonly string[] MaskLonghands =
+    [
+        "mask-image", "mask-position", "mask-size", "mask-repeat", "mask-origin", "mask-clip", "mask-composite", "mask-mode"
+    ];
+
+    // CSS Masking 1 §7.1-§7.8: each longhand's initial value, in MaskLonghands order.
+    internal static readonly string[] MaskInitials =
+        ["none", "0% 0%", "auto", "repeat", "border-box", "border-box", "add", "match-source"];
+
+    internal static bool Handles(string name) => name is "background" or "background-position" or "border" or "border-color" or "mask" ||
         name.StartsWith("border-", StringComparison.Ordinal) && Array.IndexOf(Sides, name[7..]) >= 0;
 
     /// <summary>The longhand values in registry order, or null when the text is not a valid value.</summary>
@@ -29,6 +41,7 @@ internal static class CssBoxShorthands
         var layers = Layers(text, work);
         if (layers is null) return null;
         if (name == "background") return Background(layers, work);
+        if (name == "mask") return Mask(layers, work);
         if (layers.Count != 1) return null;
         if (name == "background-position")
             return Position(layers[0], 0, layers[0].Count, work) is { } position ? [position.X, position.Y] : null;
@@ -52,6 +65,7 @@ internal static class CssBoxShorthands
         work.Charge(values.Length);
         if (name == "background-position") return values[0] + " " + values[1];
         if (name == "background") return SerializeBackground(values, work);
+        if (name == "mask") return SerializeMask(values, work);
         if (name == "border-color")
         {
             var count = values[3] == values[1] ? values[2] == values[0] ? values[1] == values[0] ? 1 : 2 : 3 : 4;
@@ -129,27 +143,12 @@ internal static class CssBoxShorthands
                 var keyword = item.Keyword;
                 if (IsPosition(item, work))
                 {
-                    if (x is not null) return null;
-                    var end = i;
-                    while (end < items.Count && end - i < 4 && IsPosition(items[end], work)) end++;
-                    if (Position(items, i, end, work) is not { } position) return null;
-                    (x, y) = position;
-                    i = end - 1;
-                    if (i + 1 < items.Count && items[i + 1].IsSlash)
-                    {
-                        if (Size(items, i + 2, work) is not { } parsed) return null;
-                        (size, var count) = parsed;
-                        i += 1 + count;
-                    }
+                    if (x is not null || PositionAndSize(items, ref i, work) is not { } position) return null;
+                    (x, y, size) = position;
                 }
                 else if (item.IsSlash) return null;
                 else if (image is null && IsImage(item)) image = item.Text;
-                else if (repeat is null && keyword is "repeat-x" or "repeat-y") repeat = item.Text;
-                else if (repeat is null && IsRepeat(keyword))
-                {
-                    repeat = item.Text;
-                    if (i + 1 < items.Count && IsRepeat(items[i + 1].Keyword)) repeat += " " + items[++i].Text;
-                }
+                else if (repeat is null && RepeatStyle(items, ref i) is { } style) repeat = style;
                 else if (attachment is null && keyword is "scroll" or "fixed" or "local") attachment = item.Text;
                 else if (origin is null && keyword is "border-box" or "padding-box" or "content-box") origin = item.Text;
                 else if (clip is null && keyword is "border-box" or "padding-box" or "content-box" or "text") clip = item.Text;
@@ -173,12 +172,7 @@ internal static class CssBoxShorthands
 
     private static string SerializeBackground(string[] values, CssValueWork work)
     {
-        var lists = new string[values.Length - 1][];
-        for (var i = 0; i < lists.Length; i++)
-        {
-            lists[i] = SplitLayers(values[i], work);
-            if (lists[i].Length != lists[0].Length) return "";
-        }
+        if (LayerLists(values, values.Length - 1, work) is not { } lists) return "";
         var layers = new List<string>(lists[0].Length);
         for (var layer = 0; layer < lists[0].Length; layer++)
         {
@@ -198,6 +192,183 @@ internal static class CssBoxShorthands
         return Joined(layers, work, ", ");
     }
 
+    // CSS Masking 1 §7.9: <mask-layer># with <mask-layer> = <mask-reference> || <position> [ / <bg-size> ]? ||
+    // <repeat-style> || <geometry-box> || [ <geometry-box> | no-clip ] || <compositing-operator> || <masking-mode>.
+    private static string[]? Mask(List<List<Item>> layers, CssValueWork work)
+    {
+        var lists = new List<string>[MaskLonghands.Length];
+        for (var i = 0; i < lists.Length; i++) lists[i] = new(layers.Count);
+        foreach (var items in layers)
+        {
+            if (items.Count == 0) return null;
+            string? image = null, position = null, size = null, repeat = null, origin = null, clip = null, composite = null, mode = null;
+            for (var i = 0; i < items.Count; i++)
+            {
+                work.Charge(1);
+                var item = items[i];
+                var keyword = item.Keyword;
+                if (IsPosition(item, work))
+                {
+                    if (position is not null || PositionAndSize(items, ref i, work) is not { } parsed) return null;
+                    position = parsed.X + " " + parsed.Y;
+                    size = parsed.Size;
+                }
+                else if (item.IsSlash) return null;
+                else if (image is null && IsImage(item)) image = item.Text;
+                else if (repeat is null && RepeatStyle(items, ref i) is { } style) repeat = style;
+                else if (origin is null && IsGeometryBox(keyword)) origin = item.Text;
+                else if (clip is null && (IsGeometryBox(keyword) || keyword == "no-clip")) clip = item.Text;
+                else if (composite is null && keyword is "add" or "subtract" or "intersect" or "exclude") composite = item.Text;
+                else if (mode is null && keyword is "alpha" or "luminance" or "match-source") mode = item.Text;
+                else return null;
+            }
+            // §7.9: one <geometry-box> sets both mask-origin and mask-clip; no-clip alone leaves the origin initial.
+            if (origin is not null && clip is null) clip = origin;
+            var values = new[] { image, position, size, repeat, origin, clip, composite, mode };
+            for (var i = 0; i < lists.Length; i++)
+            {
+                work.Charge(1);
+                lists[i].Add(values[i] ?? MaskInitials[i]);
+            }
+        }
+        var result = new string[MaskLonghands.Length];
+        for (var i = 0; i < lists.Length; i++) result[i] = Joined(lists[i], work, ", ");
+        return result;
+    }
+
+    private static string SerializeMask(string[] values, CssValueWork work)
+    {
+        if (LayerLists(values, values.Length, work) is not { } lists) return "";
+        var layers = new List<string>(lists[0].Length);
+        for (var layer = 0; layer < lists[0].Length; layer++)
+        {
+            work.Charge(1);
+            string At(int index) => lists[index][layer];
+            var parts = new List<string>();
+            if (At(0) != MaskInitials[0]) parts.Add(At(0));
+            if (At(1) != MaskInitials[1] || At(2) != MaskInitials[2])
+                parts.Add(At(2) == MaskInitials[2] ? At(1) : At(1) + " / " + At(2));
+            if (At(3) != MaskInitials[3]) parts.Add(At(3));
+            // A lone <geometry-box> sets both boxes, so a differing clip needs the origin spelled out.
+            var (origin, clip) = (At(4), At(5));
+            if (origin == clip) { if (origin != MaskInitials[4]) parts.Add(origin); }
+            else if (clip == "no-clip" && origin == MaskInitials[4]) parts.Add(clip);
+            else parts.Add(origin + " " + clip);
+            if (At(6) != MaskInitials[6]) parts.Add(At(6));
+            if (At(7) != MaskInitials[7]) parts.Add(At(7));
+            layers.Add(parts.Count == 0 ? "none" : Joined(parts, work));
+        }
+        var text = Joined(layers, work, ", ");
+        // CSSOM §6.7.2: a longhand set on its own (mask-clip: text) can hold what the shorthand cannot express,
+        // and then the shorthand serializes as empty rather than as text that does not parse back.
+        if (Layers(text, work) is not { } parsed || Mask(parsed, work) is not { } again ||
+            LayerLists(again, again.Length, work) is not { } reparsed || reparsed[0].Length != lists[0].Length) return "";
+        for (var i = 0; i < lists.Length; i++)
+        {
+            for (var layer = 0; layer < lists[i].Length; layer++)
+            {
+                work.Charge(1);
+                var (expected, actual) = (lists[i][layer], reparsed[i][layer]);
+                // A one-value position reparses as its two-value spelling.
+                if (expected != actual && (i != 1 || ComputedPosition(expected, work) is not { } computed ||
+                    computed != ComputedPosition(actual, work))) return "";
+            }
+        }
+        return text;
+    }
+
+    // Each longhand's comma-separated layers, or null when the longhands disagree on the layer count.
+    private static string[][]? LayerLists(string[] values, int count, CssValueWork work)
+    {
+        var lists = new string[count][];
+        for (var i = 0; i < count; i++)
+        {
+            lists[i] = SplitLayers(values[i], work);
+            if (lists[i].Length != lists[0].Length) return null;
+        }
+        return lists;
+    }
+
+    // <position> [ / <bg-size> ]? from items[i]; i is left on its last item.
+    private static (string X, string Y, string? Size)? PositionAndSize(List<Item> items, ref int i, CssValueWork work)
+    {
+        var end = i;
+        while (end < items.Count && end - i < 4 && IsPosition(items[end], work)) end++;
+        if (Position(items, i, end, work) is not { } position) return null;
+        i = end - 1;
+        if (i + 1 >= items.Count || !items[i + 1].IsSlash) return (position.X, position.Y, null);
+        if (Size(items, i + 2, work) is not { } size) return null;
+        i += 1 + size.Count;
+        return (position.X, position.Y, size.Size);
+    }
+
+    // §2.4 <repeat-style> from items[i], which is left on its last item, or null when items[i] is not one.
+    private static string? RepeatStyle(List<Item> items, ref int i)
+    {
+        var item = items[i];
+        if (item.Keyword is "repeat-x" or "repeat-y") return item.Text;
+        if (!IsRepeat(item.Keyword)) return null;
+        if (i + 1 < items.Count && IsRepeat(items[i + 1].Keyword)) return item.Text + " " + items[++i].Text;
+        return item.Text;
+    }
+
+    /// <summary>
+    /// CSS Backgrounds 3 §2.6's computed <c>&lt;position&gt;</c>, per comma-separated layer: a keyword becomes its
+    /// percentage and an offset from the right or bottom edge <c>100%</c> minus it (a <c>calc()</c> for a length).
+    /// Null when a layer is not a position, or offsets an edge by a math function this renderless model cannot fold.
+    /// </summary>
+    internal static string? ComputedPosition(string text, CssValueWork work)
+    {
+        if (Layers(text, work) is not { } layers) return null;
+        var result = new List<string>(layers.Count);
+        foreach (var items in layers)
+        {
+            foreach (var item in items)
+            {
+                if (!IsPosition(item, work)) return null;
+            }
+            if (Position(items, 0, items.Count, work) is not { } position ||
+                Computed(position.X, "left", "right") is not { } x || Computed(position.Y, "top", "bottom") is not { } y) return null;
+            result.Add(x + " " + y);
+        }
+        return Joined(result, work, ", ");
+
+        string? Computed(string axis, string start, string end)
+        {
+            work.Charge(axis.Length);
+            var space = axis.IndexOf(' ');
+            var keyword = space < 0 ? axis.AsSpan() : axis.AsSpan(0, space);
+            if (keyword.Equals("center", StringComparison.OrdinalIgnoreCase)) return "50%";
+            var fromStart = keyword.Equals(start, StringComparison.OrdinalIgnoreCase);
+            if (!fromStart && !keyword.Equals(end, StringComparison.OrdinalIgnoreCase)) return axis;
+            if (space < 0) return fromStart ? "0%" : "100%";
+            var offset = axis[(space + 1)..];
+            if (fromStart) return offset;
+            if (offset.Contains('(')) return null;
+            if (offset.EndsWith('%') && double.TryParse(offset.AsSpan(0, offset.Length - 1), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out var percent))
+                return (100 - percent).ToString("0.######", CultureInfo.InvariantCulture) + "%";
+            var magnitude = offset.TrimStart('+', '-');
+            if (IsZero(magnitude)) return "100%";
+            return (offset.StartsWith('-') ? "calc(100% + " : "calc(100% - ") + magnitude + ")";
+        }
+
+        static bool IsZero(string length)
+        {
+            var digits = false;
+            foreach (var c in length)
+            {
+                if (c is not ('0' or '.')) return digits && !char.IsAsciiDigit(c);
+                digits |= c == '0';
+            }
+            return digits;
+        }
+    }
+
+    // CSS Masking 1 §7.5-§7.6: the <coord-box> mask-origin and mask-clip accept, as Chromium does.
+    private static bool IsGeometryBox(string keyword) => keyword is
+        "border-box" or "padding-box" or "content-box" or "fill-box" or "stroke-box" or "view-box";
+
     // §2.6 <bg-position>: one or two values, or three or four as keyword/offset pairs.
     private static (string X, string Y)? Position(List<Item> items, int start, int end, CssValueWork work)
     {
@@ -211,8 +382,12 @@ internal static class CssBoxShorthands
         if (count == 2)
         {
             var (first, second) = (items[start], items[start + 1]);
+            // Only two keywords may come vertical first: "top 10px" and "10px left" are invalid.
             if (first.Keyword is "top" or "bottom" || second.Keyword is "left" or "right")
+            {
+                if (first.Keyword.Length == 0 || second.Keyword.Length == 0) return null;
                 (first, second) = (second, first);
+            }
             if (first.Keyword is "top" or "bottom" || second.Keyword is "left" or "right") return null;
             return (first.Text, second.Text);
         }
@@ -307,7 +482,7 @@ internal static class CssBoxShorthands
                "left" or "right" or "center" or "top" or "bottom");
 
     // Top-level comma-separated layers of non-whitespace components, or null on a token no value accepts.
-    private static List<List<Item>>? Layers(string text, CssValueWork work)
+    internal static List<List<Item>>? Layers(string text, CssValueWork work)
     {
         using var parser = new CssSyntaxParser(text, null, work.Token, work.CheckCancellation);
         var values = parser.ParseComponentValues();
@@ -328,7 +503,7 @@ internal static class CssBoxShorthands
         return layers;
     }
 
-    private static string[] SplitLayers(string value, CssValueWork work)
+    internal static string[] SplitLayers(string value, CssValueWork work)
     {
         var layers = new List<string>();
         var depth = 0;
@@ -351,7 +526,7 @@ internal static class CssBoxShorthands
     }
 
     // Keyword is the ASCII-lowered identifier, or empty for anything else.
-    private readonly record struct Item(CssComponentValue Value, string Text, string Keyword)
+    internal readonly record struct Item(CssComponentValue Value, string Text, string Keyword)
     {
         internal bool IsSlash => Value.TokenKind == CssTokenKind.Delim && Value.Token.Delimiter == '/';
     }

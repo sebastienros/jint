@@ -82,6 +82,11 @@ public sealed class BrowserOptions
     }
 
     /// <summary>The size and pixel ratio every page reports; 1280 × 720 at a ratio of 1 by default.</summary>
+    /// <remarks>
+    /// The browser-wide default a page opens with. <see cref="BrowserContextOptions.Viewport"/> overrides it for
+    /// one context, and <see cref="Page.SetViewportAsync(Jint.Browser.Viewport)"/> resizes one page after it has
+    /// opened.
+    /// </remarks>
     public Viewport Viewport { get; set; } = Viewport.Default;
 
     /// <summary>Whether every page opens as a touch device.</summary>
@@ -98,8 +103,30 @@ public sealed class BrowserOptions
     /// and <c>Input.dispatchTouchEvent</c> deliver one either way, because a caller that taps is asking for a
     /// tap.
     /// </para>
+    /// <para>
+    /// <see cref="BrowserContextOptions.HasTouch"/> overrides it for one context.
+    /// </para>
     /// </remarks>
     public bool HasTouch { get; set; }
+
+    /// <summary>The media type and preferences every page opens with; <see langword="null"/> emulates nothing.</summary>
+    /// <remarks>
+    /// <para>
+    /// The media counterpart of <see cref="HasTouch"/>: applied before a page's <b>first</b> document parses,
+    /// so a stylesheet's <c>@media (prefers-color-scheme: dark)</c> and an inline script's
+    /// <c>matchMedia('(prefers-reduced-motion: reduce)')</c> are answered in it from the start, which
+    /// <see cref="Page.EmulateMediaAsync"/> — called once the page exists — cannot promise of a blank document
+    /// that has already been answered.
+    /// </para>
+    /// <para>
+    /// <see cref="BrowserContextOptions.MediaEmulation"/> is applied over it, property by property, for the
+    /// pages of one context. Together they are the page's <i>default</i>, which stands where an operating
+    /// system's preference stands in a real browser: <see cref="Page.EmulateMediaAsync"/> and a protocol
+    /// client's <c>Emulation.setEmulatedMedia</c> override it, and clearing those overrides goes back to it.
+    /// Read when each page is created, so changing it afterwards reaches only pages opened later.
+    /// </para>
+    /// </remarks>
+    public MediaEmulation? MediaEmulation { get; set; }
 
     /// <summary>Gets or sets the default Cache Storage quota per context and origin; defaults to five mebibytes.</summary>
     /// <remarks>
@@ -214,7 +241,8 @@ public sealed class BrowserOptions
     /// <para>
     /// A <see cref="Page"/> call that exhausts its budget fails with <see cref="TimeoutException"/>.
     /// A pumped task or inline script records <see cref="PageErrorKind.BudgetExceeded"/> in
-    /// <see cref="Page.Errors"/>; a protocol command reports failure to its client. The page continues.
+    /// <see cref="Page.Errors"/>; a protocol evaluation answers a thrown error naming this budget, and any other
+    /// command a server error naming it. The page and its execution context continue.
     /// </para>
     /// <para>
     /// <see cref="Timeout.InfiniteTimeSpan"/>, zero and any negative value all mean no time bound at all,

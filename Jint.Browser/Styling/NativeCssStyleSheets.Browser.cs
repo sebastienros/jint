@@ -114,12 +114,14 @@ internal static partial class NativeCssStyleSheets
         var press = events.MousePressTarget;
         var hover = events.MouseHoverTarget;
         var target = DomDocumentState.Of(document).TargetElement;
+        if (focus?.OwnerDocument != document) focus = null;
         var selectors = new SelectorEnvironment(document,
-            focus?.OwnerDocument == document ? focus : null,
+            focus,
             press?.OwnerDocument == document ? press : null,
             target?.OwnerDocument == document ? target : null, BrowserSelectorControlFacts.Factory,
             realm, BrowserSelectorSemanticRevision.Read(document),
-            hover?.OwnerDocument == document ? hover : null);
+            hover?.OwnerDocument == document ? hover : null,
+            focus is not null && FocusController.IsFocusVisible(realm, events, focus));
         return CreateQuery(document, media, selectors, work, Check, diagnostics);
     }
 

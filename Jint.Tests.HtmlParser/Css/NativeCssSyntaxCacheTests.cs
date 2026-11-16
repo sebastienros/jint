@@ -1,5 +1,6 @@
 #nullable enable
 using Jint.Browser.Styling;
+using Jint.HtmlParser.Css;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
 
@@ -16,8 +17,30 @@ public sealed class NativeCssSyntaxCacheTests
         var boundaries = cache.Parse(first, work);
         cache.Parse(new string(first.ToCharArray()), work).Should().BeSameAs(boundaries);
         cache.Parse("a {display:flex}", work).Should().NotBeSameAs(boundaries);
-        for (var i = 0; i < 16; i++) cache.Parse($".entry{i} {{}}", work);
+        for (var i = 0; i < NativeCssSyntaxCache.MaxEntries; i++) cache.Parse($".entry{i} {{}}", work);
         cache.Parse(first, work).Should().NotBeSameAs(boundaries);
+    }
+
+    [Test]
+    public void AGroupingRuleBodyIsSharedOnlyAtTheSameOffsetWithTheSameText()
+    {
+        var cache = new NativeCssSyntaxCache();
+        var work = new CssValueWork(default);
+        const string sheet = "@media print { a { color: red } b { color: blue } }";
+        CssRuleBody BodyOf(string source) => new(cache.Parse(source, work)[0].Body!.Value, CssRuleBodyKind.Group, true);
+
+        var first = cache.ParseBody(BodyOf(sheet), work);
+        first.Should().HaveCount(2);
+        // Another copy of the sheet, as the next page fetches it.
+        cache.ParseBody(BodyOf(new string(sheet.ToCharArray())), work).Should().BeSameAs(first);
+        // The same body moved: its rules would name the wrong offsets.
+        var moved = cache.ParseBody(BodyOf(" " + sheet), work);
+        moved.Should().NotBeSameAs(first);
+        moved[0].Text.Span.Start.Should().Be(first[0].Text.Span.Start + 1);
+        // Another body at the same offset.
+        var other = cache.ParseBody(BodyOf(sheet.Replace("red", "tan", StringComparison.Ordinal)), work);
+        other.Should().NotBeSameAs(first);
+        other[0].Text.Text.Should().Contain("tan");
     }
 
     [Test]
@@ -25,9 +48,9 @@ public sealed class NativeCssSyntaxCacheTests
     {
         var cache = new NativeCssSyntaxCache();
         var work = new CssValueWork(default);
-        var oversizedText = "a{}" + new string(' ', 2 * 1024 * 1024);
+        var oversizedText = "a{}" + new string(' ', NativeCssSyntaxCache.MaxUnits);
         cache.Parse(oversizedText, work).Should().NotBeSameAs(cache.Parse(oversizedText, work));
-        var oversizedRules = string.Concat(Enumerable.Repeat("a{}", 40000));
+        var oversizedRules = string.Concat(Enumerable.Repeat("a{}", (NativeCssSyntaxCache.MaxUnits / 64) + 1));
         cache.Parse(oversizedRules, work).Should().NotBeSameAs(cache.Parse(oversizedRules, work));
     }
 

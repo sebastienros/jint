@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -166,6 +167,66 @@ internal static class AccessibilityTree
     internal static Element? ElementFor(Document document, int id)
         => s_identifiers.TryGetValue(document, out var identifiers) ? identifiers.Find(document, id) : null;
 
+    /// <summary>
+    /// Appends to <paramref name="output"/>, in document order, every element under one of
+    /// <paramref name="scopes"/> whose accessibility node <paramref name="query"/> matches.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is the snapshot's own walk.</b> One <see cref="Builder"/> serves every scope, so the role, the
+    /// accessible name and the hidden verdict are the ones <see cref="Build(Document, AccessibilityOptions?, NativeCssQueryDiagnostics?)"/>
+    /// computes, from the same visibility cascade, and nothing runs the page's script. Unlike a build it
+    /// assigns no identifier and computes a name only for an element whose role and states already matched.
+    /// </para>
+    /// <para>
+    /// A document scope includes its document element; an element scope contributes its descendants and not
+    /// itself, which is what a CSS scope means in a chained target. Each scope's matches are appended in
+    /// document order; a caller passing several scopes, nested or not, restores order and removes duplicates.
+    /// </para>
+    /// <para>
+    /// <paramref name="checkpoint"/> runs once per element visited, which is how a page's turn budget and
+    /// cancellation reach a walk that runs no script; <paramref name="first"/> stops at the first match.
+    /// </para>
+    /// </remarks>
+    internal static void Query(Document document, IReadOnlyList<Node> scopes, AxRoleQuery query, List<Element> output,
+        bool first = false, Action? checkpoint = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(scopes);
+        ArgumentNullException.ThrowIfNull(query);
+
+        var builder = new Builder(document, AccessibilityOptions.Snapshot, diagnostics: null);
+        var search = new RoleSearch(query, output, first, checkpoint);
+        foreach (var scope in scopes)
+        {
+            switch (scope)
+            {
+                case Document { DocumentElement: { } root }:
+                    builder.Query(root, AxIgnoredReason.None, search);
+                    break;
+
+                case Element element when builder.TryEnter(element, InheritedReasonFor(element, builder),
+                    query.IncludeHidden, out var reason, out _, out _):
+                    foreach (var child in element.ChildNodes)
+                    {
+                        if (search.Done)
+                        {
+                            return;
+                        }
+
+                        builder.Query(child, reason, search);
+                    }
+
+                    break;
+            }
+
+            if (search.Done)
+            {
+                return;
+            }
+        }
+    }
+
     private static string Identifier(int id) => id.ToString(CultureInfo.InvariantCulture);
 
     private static AxProtocolProperty ToProtocol(AxProperty property) =>
@@ -281,6 +342,92 @@ internal static class AccessibilityTree
             }
         }
 
+        /// <summary>
+        /// The element half of <see cref="Visit"/>'s decisions — which elements the walk reaches, with which
+        /// role and hidden verdict — collecting the elements <paramref name="search"/>'s query matches.
+        /// </summary>
+        internal void Query(Node node, AxIgnoredReason inherited, RoleSearch search)
+        {
+            if (node is not Element element)
+            {
+                return;
+            }
+
+            search.Checkpoint?.Invoke();
+            var query = search.Query;
+            if (!TryEnter(element, inherited, query.IncludeHidden, out var reason, out var role, out _))
+            {
+                return;
+            }
+
+            if ((query.IncludeHidden || !IsHidden(reason))
+                && Matches(element, role, query)
+                && (query.Name is null || MatchesName(_names.Compute(element, role, hiddenRoot: query.IncludeHidden), query)))
+            {
+                search.Output.Add(element);
+                if (search.First)
+                {
+                    search.Done = true;
+                    return;
+                }
+            }
+
+            foreach (var child in element.ChildNodes)
+            {
+                Query(child, reason, search);
+                if (search.Done)
+                {
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The per-element decision both walks share: whether the walk enters the element at all, with which
+        /// hidden verdict and which role.
+        /// </summary>
+        /// <param name="element">The element the walk reached.</param>
+        /// <param name="inherited">The verdict its parent passed down.</param>
+        /// <param name="keepHidden">Whether a subtree-hiding verdict is still entered.</param>
+        /// <param name="reason">The element's own verdict, which its children inherit.</param>
+        /// <param name="role">The computed role: the author's, else HTML-AAM's.</param>
+        /// <param name="explicitRole">Whether the role came from a <c>role</c> attribute.</param>
+        /// <returns>
+        /// <see langword="false"/> for metadata content, a hidden subtree that is not kept, and an element
+        /// HTML-AAM maps to no role at all (<c>&lt;br&gt;</c>, <c>&lt;wbr&gt;</c>, <c>&lt;input type=hidden&gt;</c>).
+        /// </returns>
+        internal bool TryEnter(Element element, AxIgnoredReason inherited, bool keepHidden,
+            out AxIgnoredReason reason, out string role, out bool explicitRole)
+        {
+            reason = AxIgnoredReason.None;
+            role = string.Empty;
+            explicitRole = false;
+            if (ImplicitRole.IsMetadataContent(element))
+            {
+                return false;
+            }
+
+            reason = Reason(ReasonFor(element), inherited);
+
+            // Four of the reasons take the subtree with them: nothing inside a `display: none`, a `hidden`
+            // attribute or an `aria-hidden` can come back. `visibility` is the one that can, because CSS
+            // inherits it and a descendant may set it back to `visible`.
+            if (IsSubtreeHidden(reason) && !keepHidden)
+            {
+                return false;
+            }
+
+            var author = AriaRoles.Explicit(element.GetAttribute("role"));
+            explicitRole = author is not null;
+            if ((author ?? ImplicitRole.For(element)) is not { } computed)
+            {
+                return false;
+            }
+
+            role = computed;
+            return true;
+        }
+
         private void VisitText(Node text, string data, AxIgnoredReason inherited, List<AxNode> output, bool suppressText)
         {
             if (!_options.IncludeText || (suppressText && !_options.IncludeIgnored))
@@ -309,28 +456,8 @@ internal static class AccessibilityTree
 
         private void VisitElement(Element element, AxIgnoredReason inherited, List<AxNode> output, bool suppressText)
         {
-            if (ImplicitRole.IsMetadataContent(element))
+            if (!TryEnter(element, inherited, _options.IncludeIgnored, out var reason, out var role, out var explicitRole))
             {
-                return;
-            }
-
-            var reason = Reason(ReasonFor(element), inherited);
-
-            // Four of the reasons take the subtree with them: nothing inside a `display: none`, a `hidden`
-            // attribute or an `aria-hidden` can come back. `visibility` is the one that can, because CSS
-            // inherits it and a descendant may set it back to `visible`.
-            var subtreeHidden = reason is AxIgnoredReason.Hidden or AxIgnoredReason.NotRendered
-                or AxIgnoredReason.AriaHiddenElement or AxIgnoredReason.AriaHiddenSubtree;
-            if (subtreeHidden && !_options.IncludeIgnored)
-            {
-                return;
-            }
-
-            var explicitRole = AriaRoles.Explicit(element.GetAttribute("role"));
-            var role = explicitRole ?? ImplicitRole.For(element);
-            if (role is null)
-            {
-                // HTML-AAM maps the element to no role at all: <br>, <wbr>, <input type=hidden>.
                 return;
             }
 
@@ -344,7 +471,7 @@ internal static class AccessibilityTree
                 Visit(child, reason, children, suppressBelow);
             }
 
-            if (reason == AxIgnoredReason.None && explicitRole is null && IsEmptyAlt(element))
+            if (reason == AxIgnoredReason.None && !explicitRole && IsEmptyAlt(element))
             {
                 reason = AxIgnoredReason.EmptyAlt;
             }
@@ -533,9 +660,106 @@ internal static class AccessibilityTree
             }
         }
 
+        /// <summary>Whether the reason hides the element's whole subtree, which only <c>visibility</c> does not.</summary>
+        private static bool IsSubtreeHidden(AxIgnoredReason reason) => reason is AxIgnoredReason.Hidden
+            or AxIgnoredReason.NotRendered or AxIgnoredReason.AriaHiddenElement or AxIgnoredReason.AriaHiddenSubtree;
+
+        /// <summary>Whether the reason is one of the visibility verdicts, rather than a pruning one.</summary>
+        private static bool IsHidden(AxIgnoredReason reason) => reason == AxIgnoredReason.NotVisible || IsSubtreeHidden(reason);
+
+        private static bool MatchesState(string? state, string? wanted, bool stateful)
+        {
+            if (wanted is null)
+            {
+                return true;
+            }
+
+            // A role that has the state but whose element states nothing is in its default, unchecked state.
+            return string.Equals(state ?? (stateful ? "false" : null), wanted, StringComparison.Ordinal);
+        }
+
+        private static bool MatchesFlag(bool? state, bool? wanted) => wanted is null || state == wanted;
+
+        private static bool MatchesName(string name, AxRoleQuery query)
+        {
+            if (query.Name is not { } wanted)
+            {
+                return true;
+            }
+
+            return query.NameExact
+                ? string.Equals(name, wanted, StringComparison.Ordinal)
+                : name.Contains(wanted, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool Matches(Element element, string role, AxRoleQuery query)
+        {
+            if (query.Role is { } wanted && !string.Equals(AriaRoles.Canonical(role), AriaRoles.Canonical(wanted), StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!MatchesState(CheckedState(element, role), query.Checked, IsCheckable(role)))
+            {
+                return false;
+            }
+
+            if (query.Pressed is not null)
+            {
+                var pressed = element.GetAttribute("aria-pressed");
+                if (!string.Equals(role, "button", StringComparison.Ordinal)
+                    || !MatchesState(string.IsNullOrWhiteSpace(pressed) ? null : pressed.ToLowerInvariant(), query.Pressed, stateful: true))
+                {
+                    return false;
+                }
+            }
+
+            // WAI-ARIA 1.2 supports aria-selected, aria-expanded and aria-level on these roles only, which is
+            // also where Playwright's role selector answers them; elsewhere the state is not the role's to have.
+            if (query.Selected is not null
+                && (!s_selectedRoles.Contains(role) || !MatchesFlag(SelectedState(element, role) ?? false, query.Selected)))
+            {
+                return false;
+            }
+
+            if (query.Expanded is not null
+                && ((!s_expandedRoles.Contains(role) && element is not { NamespaceUri: Namespaces.Html, LocalName: "details" })
+                    || !MatchesFlag(ExpandedState(element), query.Expanded)))
+            {
+                return false;
+            }
+
+            if (query.Level is { } level && (!s_levelRoles.Contains(role) || Level(element, role) != level))
+            {
+                return false;
+            }
+
+            return query.Disabled is not { } disabled || IsDisabled(element) == disabled;
+        }
+
+        private static readonly FrozenSet<string> s_selectedRoles = new[]
+        {
+            "columnheader", "gridcell", "option", "row", "rowheader", "tab", "treeitem",
+        }.ToFrozenSet(StringComparer.Ordinal);
+
+        private static readonly FrozenSet<string> s_expandedRoles = new[]
+        {
+            "application", "button", "checkbox", "columnheader", "combobox", "gridcell", "link", "listbox", "menuitem",
+            "menuitemcheckbox", "menuitemradio", "row", "rowheader", "switch", "tab", "treeitem",
+        }.ToFrozenSet(StringComparer.Ordinal);
+
+        private static readonly FrozenSet<string> s_levelRoles = new[]
+        {
+            "heading", "listitem", "row", "treeitem",
+        }.ToFrozenSet(StringComparer.Ordinal);
+
+        /// <summary>The roles whose node publishes a <c>checked</c> state.</summary>
+        private static bool IsCheckable(string role) =>
+            role is "checkbox" or "radio" or "switch" or "menuitemcheckbox" or "menuitemradio";
+
         private static string? CheckedState(Element element, string role)
         {
-            if (role is not ("checkbox" or "radio" or "switch" or "menuitemcheckbox" or "menuitemradio"))
+            if (!IsCheckable(role))
             {
                 return null;
             }
@@ -602,6 +826,23 @@ internal static class AccessibilityTree
             return HtmlDisabledness.GetState(element, CancellationToken.None) == HtmlDisabledState.Disabled;
         }
 
+        /// <summary>
+        /// https://html.spec.whatwg.org/multipage/interaction.html#the-inert-attribute — an inert subtree has
+        /// no focusable area, which is the answer <c>Events/FocusController</c> gives the same element.
+        /// </summary>
+        private static bool IsInert(Element element)
+        {
+            for (Node? node = element; node is not null; node = node.ParentNode ?? (node as ShadowRoot)?.Host)
+            {
+                if (node is Element ancestor && ancestor.HasAttribute("inert"))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool IsRequired(Element element) =>
             string.Equals(element.GetAttribute("aria-required"), "true", StringComparison.OrdinalIgnoreCase)
             || element.HasAttribute("required");
@@ -612,7 +853,7 @@ internal static class AccessibilityTree
 
         private static bool IsFocusable(Element element, bool disabled)
         {
-            if (disabled)
+            if (disabled || IsInert(element))
             {
                 return false;
             }
@@ -777,6 +1018,21 @@ internal static class AccessibilityTree
             _ when string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) => false,
             _ => null,
         };
+    }
+
+    /// <summary>One role query's state across the scopes it searches.</summary>
+    private sealed class RoleSearch(AxRoleQuery query, List<Element> output, bool first, Action? checkpoint)
+    {
+        internal AxRoleQuery Query { get; } = query;
+
+        internal List<Element> Output { get; } = output;
+
+        internal bool First { get; } = first;
+
+        internal Action? Checkpoint { get; } = checkpoint;
+
+        /// <summary>Whether a first-only search has found its match.</summary>
+        internal bool Done { get; set; }
     }
 
     private sealed class NodeIdentifiers

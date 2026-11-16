@@ -188,6 +188,11 @@ internal static partial class SelectorMatcher
         // Ordinary query shapes stay allocation-free; the rest use the explicit VM.
         if (TryMatchDirect(program, element, scope, ref work, out var matched, out specificity))
             return matched;
+        if (!SubjectMayMatch(program, element, scope, ref work))
+        {
+            specificity = default;
+            return false;
+        }
         return Evaluate(program, element, scope, ref work, out specificity);
     }
 
@@ -266,9 +271,9 @@ internal static partial class SelectorMatcher
             case PredicateKind.Active:
             case PredicateKind.Hover:
             case PredicateKind.Target:
-                return MatchEnvironment(predicate.Kind, element, ref work);
-            // Current headless profile has no focus indicator or UA autofill store.
             case PredicateKind.FocusVisible:
+                return MatchEnvironment(predicate.Kind, element, ref work);
+            // Current headless profile has no UA autofill store.
             case PredicateKind.Autofill:
                 return false;
             case PredicateKind.Empty:

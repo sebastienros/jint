@@ -45,21 +45,35 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     private PropertyDictionary? _crossingMemo;
 
     /// <summary>
-    /// Whether the script has ever created a property on this wrapper: a key that no CLR member, element, entry or
-    /// wrapper projection answered for when it was defined. Each such property's descriptor carries
-    /// <see cref="PropertyDescriptor.ScriptDefinedOnWrapper"/>, and a wrapper the script never extends pays this one
-    /// test in <see cref="GetOwnPropertyKeys"/>. Never cleared: a deleted property takes its descriptor, and so its
-    /// mark, with it.
+    /// Whether this wrapper lists a key of its own beside its target's keys. Each such property's descriptor carries
+    /// <see cref="PropertyDescriptor.ListedOnWrapper"/>, and a wrapper that has none pays this one test in
+    /// <see cref="GetOwnPropertyKeys"/>. Never cleared: a deleted property takes its descriptor, and so its mark, with
+    /// it.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The mark is needed because <c>_properties</c> holds the script's properties beside entries the wrapper stores
-    /// itself: the descriptor of every CLR member <see cref="GetOwnProperty(JsValue)"/> resolves, cached under
-    /// whatever name the script spelled, and the wrapper's projections (the <c>length</c> forwarder, <c>toJSON</c>,
-    /// <c>@@iterator</c>, <c>@@dispose</c>, <c>@@asyncDispose</c>). Listing those would make the key list depend on
-    /// which members happened to be read. Nothing else tells the two apart: a method and a script property are both
-    /// plain <see cref="PropertyDescriptor"/>s. Asking the CLR side again at enumeration time would answer a
-    /// different question, about now rather than about the moment of creation, and would get three cases wrong:
+    /// Three things are marked:
+    /// <list type="bullet">
+    /// <item>A property the script creates: a key no CLR member, element, entry or projection answered for when it was
+    /// defined (<see cref="SetOwnProperty"/>).</item>
+    /// <item>A projection the script redefines through <c>[[DefineOwnProperty]]</c>, which may have made it
+    /// non-configurable, and <c>[[OwnPropertyKeys]]</c> must list every non-configurable own property
+    /// (<see cref="DefineOwnProperty"/>).</item>
+    /// <item>Every projection, once the wrapper is non-extensible, because <c>[[OwnPropertyKeys]]</c> must then list
+    /// exactly the own properties <c>[[GetOwnProperty]]</c> answers (<see cref="PreventExtensions"/>).</item>
+    /// </list>
+    /// The projections are what the wrapper makes itself and its target does not report: the <c>length</c> forwarder,
+    /// <c>toJSON</c>, <c>@@iterator</c>, <c>@@dispose</c> and <c>@@asyncDispose</c> (<see cref="IsProjection"/>).
+    /// An untouched projection of an extensible wrapper stays unmarked and unlisted, so what that wrapper lists does
+    /// not depend on which of them happened to be read.
+    /// </para>
+    /// <para>
+    /// The mark is needed because <c>_properties</c> holds those beside entries the wrapper stores itself and never
+    /// lists: the descriptor of every CLR member <see cref="GetOwnProperty(JsValue)"/> resolves, cached under
+    /// whatever name the script spelled, and the projections while they are untouched. Nothing else tells them apart:
+    /// a method and a script property are both plain <see cref="PropertyDescriptor"/>s. Asking the CLR side again at
+    /// enumeration time would answer a different question, about now rather than about the moment of creation, and
+    /// would get three cases wrong:
     /// <list type="bullet">
     /// <item>A projection the wrapper never rebuilds, if the script deleted it and then defined it again, is the
     /// script's. Those are <c>@@dispose</c>, <c>@@asyncDispose</c>, and a <c>length</c> forwarder no member of that
@@ -68,9 +82,6 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <item>Under <c>PreferJsPrototypeMethods</c>, telling a callable from a getter on the prototype would mean running
     /// the getter.</item>
     /// </list>
-    /// The other projections come back on the read the define itself makes, through <c>SetProperty</c>, unmarked:
-    /// <c>@@iterator</c> is materialized again, and <c>toJSON</c> or any other reflected member is resolved and cached
-    /// again. A define after a delete therefore redefines the wrapper's projection, which stays unmarked.
     /// </para>
     /// <para>
     /// A flag in padding and a bit on the descriptor, rather than a list, because every CLR object that crosses into
@@ -78,7 +89,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// wrapper a dependent handle and a list, which every instance of a JS class extending a CLR type is.
     /// </para>
     /// </remarks>
-    private bool _hasScriptDefinedKeys;
+    private bool _hasListedOwnKeys;
 
     internal ObjectWrapper(
         Engine engine,
@@ -966,7 +977,134 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
         }
 
-        return base.DefineOwnProperty(property, desc);
+        if (!base.DefineOwnProperty(property, desc))
+        {
+            return false;
+        }
+
+        ListIfProjection(property);
+        return true;
+    }
+
+    /// <summary>
+    /// Makes the wrapper non-extensible, after which it lists every property it projects among its own keys.
+    /// </summary>
+    /// <remarks>
+    /// The projections are the <c>length</c> forwarder of a collection, <c>toJSON</c>, <c>Symbol.iterator</c>,
+    /// <c>Symbol.dispose</c> and <c>Symbol.asyncDispose</c>. An extensible wrapper lists one only after the script
+    /// redefines it, so <c>Object.freeze</c>, <c>Object.seal</c>, <c>Object.isFrozen</c> and <c>Object.isSealed</c>
+    /// reach all of them.
+    /// </remarks>
+    public override bool PreventExtensions()
+    {
+        // https://tc39.es/ecma262/#sec-ordinarypreventextensions. A non-extensible object's [[OwnPropertyKeys]] must
+        // list exactly the own properties its [[GetOwnProperty]] answers
+        // (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods), and SetIntegrityLevel and
+        // TestIntegrityLevel read that list right after this returns. The lazy projections are made here, once, while
+        // the wrapper is still the extensible one they belong to; a later call only marks what is stored, so it never
+        // brings back a projection the script deleted from a non-extensible wrapper.
+        var wasExtensible = Extensible;
+        if (!base.PreventExtensions())
+        {
+            return false;
+        }
+
+        ListEveryProjection(materialize: wasExtensible);
+        return true;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="property"/> names a property this wrapper projects itself, which its target does not
+    /// report: the <c>length</c> forwarder, <c>toJSON</c>, <c>@@iterator</c>, <c>@@dispose</c> or
+    /// <c>@@asyncDispose</c>.
+    /// </summary>
+    private bool IsProjection(JsValue property)
+    {
+        if (property is JsSymbol)
+        {
+            return (property == GlobalSymbolRegistry.Iterator && _typeDescriptor.Iterable)
+                   || (property == GlobalSymbolRegistry.Dispose && _typeDescriptor.IsDisposable)
+                   || (property == GlobalSymbolRegistry.AsyncDispose && _typeDescriptor.IsAsyncDisposable);
+        }
+
+        return property is JsString name
+               && ((_typeDescriptor.LengthProperty is not null && CommonProperties.Length.Equals(name))
+                   || (_typeDescriptor.ToJsonMethod is not null && string.Equals(name.ToString(), "toJSON", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// Lists the projection <paramref name="property"/> names, if it is one, after a <c>[[DefineOwnProperty]]</c> that
+    /// succeeded on it. Out of line: <see cref="DefineOwnProperty"/> calls it for every key it defines, and only a
+    /// projection's name gets past the first test.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ListIfProjection(JsValue property)
+    {
+        if (IsProjection(property) && TryGetProperty(property, out var stored))
+        {
+            ListAsOwnKey(stored);
+        }
+    }
+
+    /// <summary>
+    /// Lists every projection this wrapper stores, first making the lazy ones (the <c>length</c> forwarder and
+    /// <c>@@iterator</c>) when <paramref name="materialize"/> says the wrapper has only now stopped being extensible.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ListEveryProjection(bool materialize)
+    {
+        if (materialize)
+        {
+            if (_lengthPropertyPending)
+            {
+                MaterializeLengthProperty();
+            }
+
+            if (_typeDescriptor.Iterable && !TryGetProperty(GlobalSymbolRegistry.Iterator, out _))
+            {
+                // the read materializes it, as it would have on any later read
+                GetOwnProperty(GlobalSymbolRegistry.Iterator);
+            }
+        }
+
+        if (_typeDescriptor.LengthProperty is not null)
+        {
+            ListIfStored(CommonProperties.Length);
+        }
+
+        if (_typeDescriptor.ToJsonMethod is not null)
+        {
+            ListIfStored(JsString.Create("toJSON"));
+        }
+
+        if (_typeDescriptor.Iterable)
+        {
+            ListIfStored(GlobalSymbolRegistry.Iterator);
+        }
+
+        if (_typeDescriptor.IsDisposable)
+        {
+            ListIfStored(GlobalSymbolRegistry.Dispose);
+        }
+
+        if (_typeDescriptor.IsAsyncDisposable)
+        {
+            ListIfStored(GlobalSymbolRegistry.AsyncDispose);
+        }
+    }
+
+    private void ListIfStored(JsValue property)
+    {
+        if (TryGetProperty(property, out var stored))
+        {
+            ListAsOwnKey(stored);
+        }
+    }
+
+    private void ListAsOwnKey(PropertyDescriptor descriptor)
+    {
+        descriptor._flags |= PropertyDescriptor.ListedOnWrapper;
+        _hasListedOwnKeys = true;
     }
 
     public override object ToObject() => Target;
@@ -979,19 +1117,21 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         // ValidateAndApplyPropertyDescriptor stores through here for two things: a property GetOwnProperty did not
         // answer, which it is creating, and one it did, which a redefinition replaces (data to accessor and back, or an
         // accessor given a new get or set, which arrives as a copy). Only the first is a key of the script's own, so
-        // only a creation is marked. A replacement keeps whatever the entry it replaces was: the script's stays the
-        // script's, because the copy constructors carry the attributes and nothing else; and a CLR member, element,
-        // entry or projection stays the wrapper's. Each of those is stored before anything can redefine it:
-        // GetOwnProperty caches a member it resolves, DefineOwnProperty stores a dictionary entry first, and a
-        // projection is stored when it is made, all through SetProperty, which never reaches here.
+        // only a creation is marked here. A replacement keeps whatever the entry it replaces was: the script's stays the
+        // script's, because the copy constructors carry the attributes and nothing else; a listed projection stays
+        // listed; and a CLR member, element or entry stays the wrapper's. Each of those is stored before anything can
+        // redefine it: GetOwnProperty caches a member it resolves, DefineOwnProperty stores a dictionary entry first,
+        // and a projection is stored when it is made, all through SetProperty, which never reaches here. A projection
+        // the script redefines is listed by DefineOwnProperty once the redefinition succeeds, whichever way it was
+        // applied: in place, or through a replacement stored here.
         if (TryGetProperty(property, out var current))
         {
-            desc._flags |= current._flags & PropertyDescriptor.ScriptDefinedOnWrapper;
+            desc._flags |= current._flags & PropertyDescriptor.ListedOnWrapper;
         }
         else
         {
-            desc._flags |= PropertyDescriptor.ScriptDefinedOnWrapper;
-            _hasScriptDefinedKeys = true;
+            desc._flags |= PropertyDescriptor.ListedOnWrapper;
+            _hasListedOwnKeys = true;
         }
 
         base.SetOwnProperty(property, desc);
@@ -1282,34 +1422,37 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     }
 
     /// <summary>
-    /// The target's keys (its members, a collection's positions or a dictionary's entries), then the keys of the
-    /// properties the script created on the wrapper itself.
+    /// The target's keys (its members, a collection's positions or a dictionary's entries), then the keys the wrapper
+    /// lists of its own: the projections the script redefined, or all of them once the wrapper is non-extensible, and
+    /// the properties the script created on it.
     /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
-        => _hasScriptDefinedKeys ? GetOwnPropertyKeysWithScriptDefinedKeys(types) : [.. EnumerateOwnPropertyKeys(types)];
+        => _hasListedOwnKeys ? GetOwnPropertyKeysWithListedOwnKeys(types) : [.. EnumerateOwnPropertyKeys(types)];
 
     /// <summary>
-    /// <see cref="GetOwnPropertyKeys"/> for a wrapper the script has created a property on, out of line. Nearly every
-    /// wrapper never gets one, and for those <see cref="GetOwnPropertyKeys"/> is the body it had before the script's
-    /// properties were listed plus a single test, with no local kept live across a call.
+    /// <see cref="GetOwnPropertyKeys"/> for a wrapper that lists keys of its own, out of line. Nearly every wrapper
+    /// never does, and for those <see cref="GetOwnPropertyKeys"/> is the body it had before such keys were listed
+    /// plus a single test, with no local kept live across a call.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private List<JsValue> GetOwnPropertyKeysWithScriptDefinedKeys(Types types)
-        => AddScriptDefinedKeys([.. EnumerateOwnPropertyKeys(types)], types);
+    private List<JsValue> GetOwnPropertyKeysWithListedOwnKeys(Types types)
+        => AddListedOwnKeys([.. EnumerateOwnPropertyKeys(types)], types);
 
     /// <summary>
-    /// Adds the keys the script created on this wrapper to <paramref name="targetKeys"/>, in
+    /// Adds the keys this wrapper lists of its own to <paramref name="targetKeys"/>, in
     /// <see href="https://tc39.es/ecma262/#sec-ordinaryownpropertykeys">OrdinaryOwnPropertyKeys</see> order over
-    /// both lists, with the target's keys taken as the older ones.
+    /// both lists, with the target's keys taken as the oldest and the projections as older than the script's keys.
     /// </summary>
     /// <remarks>
     /// <para>
     /// The target's own keys are never reordered. When they are already in that order the result is exactly that
     /// order: an array-like view's positions, a plain wrapper's member names (never an array index), and a
     /// dictionary that enumerates its numeric keys first and ascending. The script's array indices join the
-    /// target's leading run of ascending indices, and lead the list when it has none. Its other strings follow the
-    /// target's keys, and its symbols come last, each in creation order. A dictionary that enumerates its keys in
-    /// some other order keeps it.
+    /// target's leading run of ascending indices, and lead the list when it has none. The listed projections follow
+    /// the target's keys, strings with the strings and symbols with the symbols, each in the order the wrapper made
+    /// them: they belong to the wrapper from its creation, as an array's <c>length</c> does, so which was read first
+    /// does not move them. The script's other strings follow, and its symbols come last, each in creation order. A
+    /// dictionary that enumerates its keys in some other order keeps it.
     /// </para>
     /// <para>
     /// A view never contributes an index of the script's: its positions are its elements, and
@@ -1320,22 +1463,32 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private List<JsValue> AddScriptDefinedKeys(List<JsValue> targetKeys, Types types)
+    private List<JsValue> AddListedOwnKeys(List<JsValue> targetKeys, Types types)
     {
         var includeStrings = (types & Types.String) != Types.Empty;
         var includeSymbols = (types & Types.Symbol) != Types.Empty;
 
         // The marked entries, strings then symbols, each store in its insertion order, which is creation order: a
         // deleted entry leaves no slot an add would reuse, so a property defined again comes after every one it now
-        // follows. Collected before anything below asks GetOwnProperty, so no store is walked while it is read.
-        List<JsValue>? scriptDefinedKeys = null;
+        // follows. The projections are taken ahead of the rest, keeping that order among themselves. Collected
+        // before anything below asks GetOwnProperty, so no store is walked while it is read.
+        List<JsValue>? projections = null;
+        List<JsValue>? others = null;
         if (includeStrings && _properties is not null)
         {
             foreach (var pair in _properties)
             {
-                if ((pair.Value._flags & PropertyDescriptor.ScriptDefinedOnWrapper) != PropertyFlag.None)
+                if ((pair.Value._flags & PropertyDescriptor.ListedOnWrapper) != PropertyFlag.None)
                 {
-                    (scriptDefinedKeys ??= []).Add(JsString.Create(pair.Key.Name));
+                    JsValue key = JsString.Create(pair.Key.Name);
+                    if (IsProjection(key))
+                    {
+                        (projections ??= []).Add(key);
+                    }
+                    else
+                    {
+                        (others ??= []).Add(key);
+                    }
                 }
             }
         }
@@ -1344,16 +1497,33 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             foreach (var pair in _symbols)
             {
-                if ((pair.Value._flags & PropertyDescriptor.ScriptDefinedOnWrapper) != PropertyFlag.None)
+                if ((pair.Value._flags & PropertyDescriptor.ListedOnWrapper) != PropertyFlag.None)
                 {
-                    (scriptDefinedKeys ??= []).Add(pair.Key);
+                    if (IsProjection(pair.Key))
+                    {
+                        (projections ??= []).Add(pair.Key);
+                    }
+                    else
+                    {
+                        (others ??= []).Add(pair.Key);
+                    }
                 }
             }
         }
 
-        if (scriptDefinedKeys is null)
+        var listedKeys = projections;
+        if (listedKeys is null)
         {
-            // every property the script created has been deleted again
+            listedKeys = others;
+        }
+        else if (others is not null)
+        {
+            listedKeys.AddRange(others);
+        }
+
+        if (listedKeys is null)
+        {
+            // every property the wrapper listed has been deleted again
             return targetKeys;
         }
 
@@ -1368,7 +1538,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         List<JsValue>? names = null;
         List<JsValue>? symbols = null;
 
-        foreach (var key in scriptDefinedKeys)
+        foreach (var key in listedKeys)
         {
             var isSymbol = key.IsSymbol();
             if (isSymbol ? !includeSymbols : !includeStrings)
@@ -1548,7 +1718,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             // we take properties, fields and methods
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
             {
-                foreach (var p in ClrType.GetProperties(interopOptions.ObjectWrapperReportedPropertyBindingFlags))
+                foreach (var p in InDeclarationOrder(ClrType.GetProperties(interopOptions.ObjectWrapperReportedPropertyBindingFlags)))
                 {
                     if (!interopOptions.TypeResolver.Filter(_engine, ClrType, p))
                     {
@@ -1565,7 +1735,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Field) == MemberTypes.Field)
             {
-                foreach (var f in ClrType.GetFields(interopOptions.ObjectWrapperReportedFieldBindingFlags))
+                foreach (var f in InDeclarationOrder(ClrType.GetFields(interopOptions.ObjectWrapperReportedFieldBindingFlags)))
                 {
                     if (!interopOptions.TypeResolver.Filter(_engine, ClrType, f))
                     {
@@ -1578,7 +1748,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Method) == MemberTypes.Method)
             {
-                foreach (var m in ClrType.GetMethods(interopOptions.ObjectWrapperReportedMethodBindingFlags))
+                foreach (var m in InDeclarationOrder(ClrType.GetMethods(interopOptions.ObjectWrapperReportedMethodBindingFlags)))
                 {
                     // we won't report anything from base object as it would usually not be something to expect from JS perspective
                     if (m.DeclaringType == typeof(object) || m.IsSpecialName || !interopOptions.TypeResolver.Filter(_engine, ClrType, m))
@@ -1589,6 +1759,52 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     yield return JsString.Create(m.Name);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Orders reflected members the most-derived declaring type first, then by metadata token, which is the order
+    /// .NET reports them in.
+    /// </summary>
+    /// <remarks>
+    /// <c>GetProperties</c>, <c>GetFields</c> and <c>GetMethods</c> promise no order, and .NET Framework keeps none:
+    /// its member cache is held weakly and refilled in the order members are next asked for by name, so
+    /// <c>Reflect.ownKeys</c> over one wrapper answered differently before and after a <c>ContainsKey</c> call
+    /// once a collection ran in between. The returned array is the caller's own copy, so it is sorted in place.
+    /// </remarks>
+    private static T[] InDeclarationOrder<T>(T[] members) where T : MemberInfo
+    {
+        if (members.Length > 1)
+        {
+            Array.Sort(members, MemberDeclarationOrder<T>.Comparison);
+        }
+
+        return members;
+    }
+
+    private static class MemberDeclarationOrder<T> where T : MemberInfo
+    {
+        internal static readonly Comparison<T> Comparison = static (left, right) =>
+        {
+            if (ReferenceEquals(left.DeclaringType, right.DeclaringType))
+            {
+                return left.MetadataToken.CompareTo(right.MetadataToken);
+            }
+
+            // the deeper declaring type is the more derived one, and .NET lists its members first
+            var depth = InheritanceDepth(right.DeclaringType).CompareTo(InheritanceDepth(left.DeclaringType));
+            return depth != 0 ? depth : left.MetadataToken.CompareTo(right.MetadataToken);
+        };
+
+        private static int InheritanceDepth(Type? type)
+        {
+            var depth = 0;
+            for (; type is not null; type = type.BaseType)
+            {
+                depth++;
+            }
+
+            return depth;
         }
     }
 

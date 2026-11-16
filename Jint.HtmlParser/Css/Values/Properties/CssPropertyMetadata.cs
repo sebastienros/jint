@@ -22,7 +22,30 @@ internal static class CssPropertyRegistry
     internal static ReadOnlySpan<CssPropertyMetadata> ShorthandsCovering(string longhand) =>
         ShorthandsByLonghand.TryGetValue(longhand, out var shorthands) ? shorthands : [];
 
-    internal static string NormalizeName(string name, CssValueWork? work = null)
+    /// <summary>A property name, ASCII-lowered, with a legacy name alias resolved to the property it names.</summary>
+    internal static string NormalizeName(string name, CssValueWork? work = null) => LowerAscii(name, work) switch
+    {
+        "grid-gap" => "gap",
+        "grid-row-gap" => "row-gap",
+        "grid-column-gap" => "column-gap",
+        // Compatibility §3.4.1 legacy name aliases (https://compat.spec.whatwg.org/#css-properties), for mask.
+        // -webkit-mask-composite is not aliased: Chromium keeps it a separate property for its legacy
+        // compositing operators, which this catalog does not support.
+        "-webkit-mask" => "mask",
+        "-webkit-mask-image" => "mask-image",
+        "-webkit-mask-position" => "mask-position",
+        "-webkit-mask-size" => "mask-size",
+        "-webkit-mask-repeat" => "mask-repeat",
+        "-webkit-mask-origin" => "mask-origin",
+        "-webkit-mask-clip" => "mask-clip",
+        var result => result
+    };
+
+    /// <summary>
+    /// An identifier ASCII-lowered, with no property alias applied: at-rule names and media features are not
+    /// property names. A custom property name keeps its case.
+    /// </summary>
+    internal static string LowerAscii(string name, CssValueWork? work = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         work?.CheckCancellation();
@@ -47,13 +70,7 @@ internal static class CssPropertyRegistry
             result = name;
         }
         work?.CheckCancellation();
-        return result switch
-        {
-            "grid-gap" => "gap",
-            "grid-row-gap" => "row-gap",
-            "grid-column-gap" => "column-gap",
-            _ => result
-        };
+        return result;
     }
 
     internal static CssPropertyMetadata? Find(string name, CssDeclarationContext context = CssDeclarationContext.Style) =>
@@ -89,6 +106,14 @@ internal static class CssPropertyRegistry
         Add("cursor", "auto", true);
         Add("fill", "black", true);
         Add("stroke", "none", true);
+        // The properties forced colors mode forces (CSS Color Adjustment 1 §3.1), with their initial values and
+        // inheritance: Color Adjustment 1 §2.1 and §3.2, CSS UI 4 §6.2, CSS Scrollbars 1 §2, Backgrounds 3 §7.1, Text Decoration 3 §4.
+        Add("color-scheme", "normal", true);
+        Add("forced-color-adjust", "auto", true);
+        Add("accent-color", "auto", true);
+        Add("scrollbar-color", "auto", true);
+        Add("box-shadow", "none");
+        Add("text-shadow", "none", true);
         foreach (var name in new[] { "transform", "translate", "rotate", "scale", "background-image", "clip-path" })
             Add(name, "none");
         foreach (var name in new[] { "width", "height", "min-width", "min-height" }) Add(name, "auto");
@@ -107,8 +132,10 @@ internal static class CssPropertyRegistry
         Add("justify-content", "normal");
         Add("row-gap", "normal");
         Add("column-gap", "normal");
-        foreach (var name in new[] { "grid-template-columns", "grid-template-rows", "grid-template-areas", "mask-image" })
+        foreach (var name in new[] { "grid-template-columns", "grid-template-rows", "grid-template-areas" })
             Add(name, "none");
+        for (var i = 0; i < CssBoxShorthands.MaskLonghands.Length; i++)
+            Add(CssBoxShorthands.MaskLonghands[i], CssBoxShorthands.MaskInitials[i]);
         Add("object-fit", "fill");
         foreach (var side in new[] { "top", "right", "bottom", "left", "block-start", "block-end", "inline-start", "inline-end" })
             Add("scroll-padding-" + side, "auto");
@@ -130,6 +157,15 @@ internal static class CssPropertyRegistry
         Add("background-attachment", "scroll");
         Add("background-origin", "padding-box");
         Add("background-clip", "border-box");
+        // CSS Animations 1 §3 and 2 §3, CSS Transitions 1 §2 and 2 §2.1; durations take Chromium's 0s, not Level 2's auto.
+        for (var i = 0; i < CssMotionShorthands.AnimationLonghands.Length; i++)
+            Add(CssMotionShorthands.AnimationLonghands[i], CssMotionShorthands.AnimationInitials[i]);
+        Add("animation-composition", "replace");
+        Add("animation-timeline", "auto");
+        Add("animation-range-start", "normal");
+        Add("animation-range-end", "normal");
+        for (var i = 0; i < CssMotionShorthands.TransitionLonghands.Length; i++)
+            Add(CssMotionShorthands.TransitionLonghands[i], CssMotionShorthands.TransitionInitials[i]);
         Shorthand("overflow", "visible", ["overflow-x", "overflow-y"]);
         Shorthand("flex", "0 1 auto", ["flex-grow", "flex-shrink", "flex-basis"]);
         Shorthand("flex-flow", "row nowrap", ["flex-direction", "flex-wrap"]);
@@ -148,6 +184,9 @@ internal static class CssPropertyRegistry
             "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"]);
         Shorthand("background-position", "0% 0%", ["background-position-x", "background-position-y"]);
         Shorthand("background", "", CssBoxShorthands.BackgroundLonghands);
+        Shorthand("mask", "", CssBoxShorthands.MaskLonghands);
+        Shorthand("animation", "", CssMotionShorthands.AnimationLonghands);
+        Shorthand("transition", "", CssMotionShorthands.TransitionLonghands);
         return entries;
 
         void Add(string name, string initial, bool inherited = false) =>

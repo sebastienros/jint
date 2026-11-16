@@ -138,6 +138,18 @@ internal interface IPageObserver
     {
     }
 
+    /// <summary>A task of the page's loop ran out of its budget and was stopped; the page goes on.</summary>
+    /// <param name="exception">What the budget threw: a <see cref="TimeoutException"/> or a memory-limit failure.</param>
+    /// <remarks>
+    /// Runs on the page loop, after the stopped turn has closed and before another opens, so the page's
+    /// <see cref="PageBudget.Turn"/> still names the turn that stopped. Nothing of the task survives it: a
+    /// reaction its checkpoint would have run is gone, which is why a protocol command waiting on one is
+    /// answered here rather than left waiting.
+    /// </remarks>
+    void TaskStopped(Exception exception)
+    {
+    }
+
     /// <summary>The page has been closed, and nothing else will arrive.</summary>
     /// <remarks>Runs on whichever thread closed the page, after its loop has stopped.</remarks>
     void Closed()

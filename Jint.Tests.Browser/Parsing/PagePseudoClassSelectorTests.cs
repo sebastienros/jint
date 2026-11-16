@@ -1199,12 +1199,11 @@ public sealed class PagePseudoClassSelectorTests
     /// <summary>
     /// Selectors §9.5: <c>:focus-within</c> is the focused element together with every element containing it,
     /// so it answers for the ancestors of whatever <c>:focus</c> answers for and for nothing else.
-    /// <c>:focus-visible</c> is deliberately not answered — Selectors §9.4 makes it a decision about drawing a
-    /// focus indicator, which this browser has no rendering to draw — so it stays the former DOM integration's and matches
-    /// nothing, which this pins rather than leaves to be discovered.
+    /// <c>:focus-visible</c> is the focused element alone, never an ancestor; when it matches is
+    /// <c>Events/FocusVisibleTests</c>'s.
     /// </summary>
     [Test]
-    public async Task FocusWithinMatchesTheFocusedElementAndItsAncestorsAndFocusVisibleStaysUnanswered()
+    public async Task FocusWithinMatchesTheFocusedElementAndItsAncestorsAndFocusVisibleOnlyTheElement()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -1231,7 +1230,7 @@ public sealed class PagePseudoClassSelectorTests
               return answers.join('|');
             })()
             """)).Should().Be(
-            "/|html+body+outer+inner+field/|true:false:true|html+body+sibling+other|[]");
+            "/|html+body+outer+inner+field/field|true:false:true|html+body+sibling+other|[]");
 
         page.Errors.Should().BeEmpty();
     }

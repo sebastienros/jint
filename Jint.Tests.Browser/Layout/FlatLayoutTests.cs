@@ -275,7 +275,7 @@ public class FlatLayoutTests
         {
             var runtime = PageRuntime.Find(engine)!;
             var before = runtime.Layout.Current().Count;
-            runtime.SetViewport(new Viewport(400, 800));
+            page.Emulation.SetViewport(new Viewport(400, 800), runtime);
             return before - runtime.Layout.Current().Count;
         })).Should().Be(1);
         page.Errors.Should().BeEmpty();
@@ -322,7 +322,7 @@ public class FlatLayoutTests
 
         await page.RunOnLoopAsync(engine =>
         {
-            PageRuntime.Find(engine)!.SetViewport(new Viewport(0, 64));
+            page.Emulation.SetViewport(new Viewport(0, 64), PageRuntime.Find(engine));
             return 0;
         });
         (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('target')).width")).Should().Be("0px");
@@ -361,11 +361,10 @@ public class FlatLayoutTests
             <div id="shown">a</div>
             <div id="hidden" hidden><span id="child">b</span></div>
             <div id="none" style="display: none">c</div>
-            <div id="invisible" style="visibility: hidden">d</div>
             <script id="code">void 0;</script>
             """);
 
-        foreach (var id in new[] { "hidden", "child", "none", "invisible", "code" })
+        foreach (var id in new[] { "hidden", "child", "none", "code" })
         {
             (await Rect(page, $"document.getElementById('{id}')")).Should().Be("0,0,0,0", "'{0}' is not rendered", id);
             (await page.EvaluateAsync<int>($"document.getElementById('{id}').getClientRects().length"))
@@ -375,6 +374,66 @@ public class FlatLayoutTests
 
         // And the one that is rendered still is, on the row right after the body.
         (await Rect(page, "document.getElementById('shown')")).Should().Be($"0,{2 * Row},1280,{Row}");
+    }
+
+    /// <summary>
+    /// https://www.w3.org/TR/CSS2/visufx.html#visibility — a <c>visibility: hidden</c> box is invisible but
+    /// still affects layout, so hiding one moves nothing after it; a hit test passes through it.
+    /// </summary>
+    [Test]
+    public async Task AnInvisibleBoxKeepsItsPlaceAndIsNotHit()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <div id="wrapper"><div id="invisible" style="visibility: hidden">d</div></div>
+            <div id="overlay" style="position: absolute; visibility: hidden">out of flow</div>
+            <div id="layer" style="visibility: hidden"><span id="caret" style="position: absolute">|</span></div>
+            <div id="after">e</div>
+            """);
+
+        (await Rect(page, "document.getElementById('invisible')")).Should().Be($"0,{3 * Row},1280,{Row}");
+        (await page.EvaluateAsync<int>("document.getElementById('invisible').getClientRects().length")).Should().Be(1);
+
+        // An out-of-flow one takes no space in a browser, so it has no rows to keep.
+        (await page.EvaluateAsync<int>("document.getElementById('overlay').getClientRects().length")).Should().Be(0);
+
+        // One hidden with its layer keeps its rows, as the layer does, so showing the layer moves nothing.
+        (await page.EvaluateAsync<int>("document.getElementById('caret').getClientRects().length")).Should().Be(1);
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{6 * Row},1280,{Row}");
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {3.5 * Row}).id")).Should().Be("wrapper");
+
+        // Showing it again moves nothing either.
+        await page.EvaluateAsync("document.getElementById('invisible').style.visibility = 'visible'; document.getElementById('layer').style.visibility = 'visible'");
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{6 * Row},1280,{Row}");
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {3.5 * Row}).id")).Should().Be("invisible");
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-grid-2/#layout-algorithm — a grid item is as wide as the column tracks it
+    /// spans and the gaps between them, whether the track count and the span come from a var() or not.
+    /// </summary>
+    [TestCase("repeat(4, 1fr)", "span 2")]
+    [TestCase("repeat( var(--columns), 1fr)", "span var(--width)")]
+    public async Task AGridItemIsAsWideAsTheTracksItSpans(string columns, string span)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            $$"""
+            <style>
+              #grid { --columns: 4; display: grid; grid-template-columns: {{columns}}; grid-gap: 1rem }
+              #wide { --width: 2; grid-column: {{span}} }
+            </style>
+            <div id="grid"><div id="one">a</div><div id="wide">b</div></div>
+            """);
+
+        // (1280 - 3 × 16) / 4 = 308 per track.
+        (await page.EvaluateAsync<double>("document.getElementById('one').getBoundingClientRect().width")).Should().Be(308);
+        (await page.EvaluateAsync<double>("document.getElementById('wide').getBoundingClientRect().width")).Should().Be(632);
     }
 
     [Test]

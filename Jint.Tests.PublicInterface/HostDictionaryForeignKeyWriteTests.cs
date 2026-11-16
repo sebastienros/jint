@@ -687,7 +687,10 @@ public class HostDictionaryForeignKeyWriteTests
         count().Should().Be(1);
     }
 
-    /// <summary>A non-extensible wrapper refuses the new key (<c>Reflect.set</c> answers <c>false</c>), so it is not listed.</summary>
+    /// <summary>
+    /// A non-extensible wrapper refuses the new key (<c>Reflect.set</c> answers <c>false</c>), so it is not listed.
+    /// What becoming non-extensible does list is the wrapper's own <c>Symbol.iterator</c> projection (#4528).
+    /// </summary>
     [TestCaseSource(nameof(ShapesAndModes))]
     public void ANonExtensibleWrapperListsNothingItRefused(string shape, bool strict)
     {
@@ -706,7 +709,7 @@ public class HostDictionaryForeignKeyWriteTests
             """,
             [
                 .. AllStringKeys("b => b"),
-                ("Reflect.ownKeys(d).map(String)", "b => b"),
+                ("Reflect.ownKeys(d).map(String)", "b => [...b, 'Symbol(Symbol.iterator)']"),
             ]).Should().BeEmpty();
         count().Should().Be(1);
     }

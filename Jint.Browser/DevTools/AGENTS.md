@@ -16,21 +16,22 @@ is one method — `DevToolsServerExtensions.AddBrowser(server, browser)`. Read
 target/runtime split and the manifest are there and none of it is repeated here.
 
 - **A target is a page and a runtime is a document.** `PageTarget : DevToolsTarget` holds what a client keeps
-  addressing — the identifier, the frame it names, the bindings, the new-document scripts, the emulation —
+  addressing — the identifier, the frame it names, the bindings, the emulation, and (through the page's own
+  store) the new-document scripts —
   and the engine under it is replaced on every navigation. The frame identifier **is** the target
   identifier: there is one scripted frame per page, and a client matching the frame it navigated against the
   context it evaluates in gets one string from both.
 - **`IPageObserver` is the only seam, and a page has exactly one observer.** Every event a client hears is
   one of its calls turned into a protocol event. `DocumentCreated` runs after the window installer and
-  before the parse, on the loop, which is what makes it the place to replace the engine, re-install the
-  bindings and run `addScriptToEvaluateOnNewDocument` — all of which have to be in place before the
-  document's first inline script. `DocumentParsed` is the commit, with the runtime: it is the first moment
+  before the parse, on the loop, which is what makes it the place to replace the engine and re-install the
+  bindings. `addScriptToEvaluateOnNewDocument` writes the **page's** store, the one `Page.AddInitScriptAsync`
+  writes, and the page runs it — with no client attached too — once the empty document exists, before the parser. `DocumentParsed` is the commit, with the runtime: it is the first moment
   there is a tree, so it is where anything that watches a document arms itself, and why the mutation bridge
   needs no field remembering an engine from before the parse.
 - **Frame commit is not engine creation.** Publish `lifecycleEvent(init)` and `frameNavigated` at
   `DocumentParsed`, before fulfilling the host's commit signal. Publishing the frame before the parse
   releases Playwright's click barrier while a parser-blocking script can still hide the success DOM.
-  Context replacement and new-document scripts still happen at `DocumentCreated`. Buffer navigation and
+  Context replacement still happens at `DocumentCreated`, the new-document scripts just after it. Buffer navigation and
   history notices raised during that parse until after its frame commit, or that commit consumes the next
   navigation or masks its URL. Chromium can commit a streaming document earlier; Jint's commit is the
   parsed-document boundary, not a promise to await unrelated later redirects or asynchronous scripts.
@@ -239,6 +240,14 @@ a second truth about the same request.
   remain and are not interchangeable: `setBlockedURLs`' deprecated `urls` are Chromium's unanchored `*`
   glob (`BlockedUrlGlob`), `Fetch.enable`'s are `base::MatchPattern` (`FetchUrlGlob`) — anchored, `?` for at
   most one character, backslash escapes, the fragment removed — and neither is URLPattern syntax.
+- **A host's routes answer through the same decision, after the listener.** `Page.RouteAsync` and
+  `BrowserContext.RouteAsync` fill `Runtime/PageRoutes`, which the recorder asks only about a hop the listener
+  let through (a protocol pause, a blocked URL and the offline switch decide first) and whose answer is a
+  `PageNetworkDecision` translated exactly as a `Fetch` pause's is — one interception, two clients. Unlike
+  a pause, which only awaits, a host matcher or handler may block, so `PageRouter` moves to the thread pool
+  when a script's `fetch` or a parser's subresource reaches it on the loop; its throw fails the request
+  rather than being swallowed, because a route is asked to decide. The context's `UrlFilter` still refuses the first hop before
+  either is asked.
 - **A navigation's request is addressed by its `loaderId`**, passed into `DocumentFetch.LoadAsync` rather
   than read from the page: the field still holds the document that is showing while the fetch is in flight,
   and a client tells the navigation apart from every other request by exactly that string.

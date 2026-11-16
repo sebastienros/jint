@@ -47,6 +47,23 @@ public class CascadeRuleIndexTests
     }
 
     [Test]
+    public async Task LogicalAndNestedSubjectsAreKeyedByTheNamesInsideThem()
+    {
+        var result = await ComputedAsync(
+            "<!doctype html><style>:is(.a, #b, em){display:none} :where(.c){display:none} :is(:where(.d), .e){display:none}"
+            + " .card{ & .t{display:none} &.on{display:none} & > :is(.u, .v){display:none} }"
+            + " :is(.x, :not(.y)) > i{display:none}</style>"
+            + "<p class='a' data-t=a></p><p id='b' data-t=id></p><em data-t=em></em><p class='c' data-t=c></p>"
+            + "<p class='d' data-t=d></p><p class='e' data-t=e></p><p class='f' data-t=f></p>"
+            + "<div class='card' data-t=card><span class='t' data-t=t></span><span class='v' data-t=v></span></div>"
+            + "<div class='card on' data-t=on></div><div class='on' data-t=offcard></div><span class='t' data-t=stray></span>"
+            + "<div class='z'><i data-t=not></i></div><div class='y'><i data-t=y></i></div>",
+            Hidden);
+        result.Should().Be("a:none id:none em:none c:none d:none e:none f:block card:block t:none v:none"
+            + " on:none offcard:block stray:inline not:none y:inline");
+    }
+
+    [Test]
     public async Task ClassesSeparatedByAnyAsciiWhitespaceAreIndexed()
     {
         var result = await ComputedAsync(

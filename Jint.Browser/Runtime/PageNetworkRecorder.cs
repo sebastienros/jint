@@ -71,6 +71,7 @@ internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBud
     private long _capturedBytes;
     private long _reservedBytes;
     private volatile IPageNetworkListener? _listener;
+    private volatile PageRouter? _router;
     private volatile bool _captureBodies;
 
     private long _lastChange = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -125,7 +126,19 @@ internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBud
     /// Read once per request by the transport, which is why it can answer zero for a page with nothing
     /// watching and a bound for one being recorded.
     /// </remarks>
-    public override int RequestBodyPreviewBytes => _captureBodies ? MaxPostDataBytes : 0;
+    public override int RequestBodyPreviewBytes => _captureBodies || _router?.HasRoutes == true ? MaxPostDataBytes : 0;
+
+    /// <summary>The host's in-process routes for this log's requests, or <see langword="null"/>.</summary>
+    /// <remarks>
+    /// Asked after the <see cref="Listener"/>, and only about a hop the listener let through: a protocol
+    /// client's own <c>Fetch</c> pause, its blocked URLs and its offline switch have already decided the hops
+    /// they answer, and a route sees the request as the client left it.
+    /// </remarks>
+    internal PageRouter? Router
+    {
+        get => _router;
+        set => _router = value;
+    }
 
     /// <summary>How many requests are still in flight, and when the last one stopped being.</summary>
     /// <remarks>
@@ -281,7 +294,10 @@ internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBud
 
         var entry = Hop(request.Id.Value, initiator, kind, declaration?.RequestId, request.Url, request.Method, request.RedirectCount);
 
-        if (_listener is not { } listener)
+        var listener = _listener;
+        var router = _router is { HasRoutes: true } routes ? routes : null;
+
+        if (listener is null && router is null)
         {
             return null;
         }
@@ -310,23 +326,70 @@ internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBud
 
         entry.LastHop = hop;
 
-        PageNetworkDecision decision;
-        try
+        var decision = PageNetworkDecision.Proceed;
+        if (listener is not null)
         {
-            decision = await listener.RequestWillBeSentAsync(hop, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
+            try
+            {
+                decision = await listener.RequestWillBeSentAsync(hop, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
 #pragma warning disable CA1031 // a watcher that failed must not decide the fetch; see IPageNetworkListener
-        catch (Exception)
+            catch (Exception)
 #pragma warning restore CA1031
+            {
+                decision = PageNetworkDecision.Proceed;
+            }
+        }
+
+        if (router is not null && decision.Kind is PageNetworkDecisionKind.Proceed or PageNetworkDecisionKind.Continue)
         {
-            return null;
+            // The route sees the hop the listener settled on, and a throw from it is not swallowed the way a
+            // watcher's is: a route is the callback that was asked to decide, so the transport fails the fetch.
+            var settled = hop with
+            {
+                Url = decision.Url ?? hop.Url,
+                Method = decision.Method ?? hop.Method,
+                Headers = decision.Headers ?? hop.Headers,
+                HasPostData = decision.Body is not null || hop.HasPostData,
+            };
+
+            var body = decision.Body is { } replaced
+                ? replaced.AsMemory(0, Math.Min(replaced.Length, MaxPostDataBytes))
+                : request.BodyPreview;
+
+            var url = decision.Url is { } rewritten && Uri.TryCreate(rewritten, UriKind.Absolute, out var parsed)
+                ? parsed
+                : request.Url;
+
+            if (await router.RouteAsync(settled, url, body, cancellationToken).ConfigureAwait(false) is { } routed)
+            {
+                decision = Merge(decision, routed);
+            }
         }
 
         return Translate(entry, decision);
+    }
+
+    /// <summary>
+    /// A route's answer over the listener's: a fulfil or a failure replaces it, and a continuation keeps
+    /// whatever of the listener's rewrites the route did not name.
+    /// </summary>
+    private static PageNetworkDecision Merge(PageNetworkDecision listener, PageNetworkDecision route)
+    {
+        if (route.Kind != PageNetworkDecisionKind.Continue || listener.Kind != PageNetworkDecisionKind.Continue)
+        {
+            return route;
+        }
+
+        return PageNetworkDecision.Continue(
+            route.Url ?? listener.Url,
+            route.Method ?? listener.Method,
+            route.Headers ?? listener.Headers,
+            route.Body ?? listener.Body);
     }
 
     /// <summary>

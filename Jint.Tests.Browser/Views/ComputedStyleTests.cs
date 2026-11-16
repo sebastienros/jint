@@ -58,7 +58,8 @@ public sealed class ComputedStyleTests
             $"<div style='display:flex'><div id=sized style='{(inline ? dimensions : "")}'>sized text</div></div>");
         (await page.EvaluateAsync<string>("getComputedStyle(hidden).display")).Should().Be("none");
         (await page.EvaluateAsync<string>("getComputedStyle(invisible).visibility")).Should().Be("hidden");
-        (await page.EvaluateAsync<int>("hidden.getClientRects().length + invisible.getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<int>("hidden.getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<int>("invisible.getClientRects().length")).Should().Be(1, "a visibility: hidden box is still laid out");
         (await page.EvaluateAsync<string>("document.body.innerText")).Should().Be("sized text");
         (await page.EvaluateAsync<string>("getComputedStyle(sized).width + '|' + getComputedStyle(sized).height + '|' + getComputedStyle(sized).paddingLeft"))
             .Should().Be("24px|16px|3px");
@@ -87,7 +88,7 @@ public sealed class ComputedStyleTests
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<div style='visibility:hidden'><div id=t style='--d:bogus;--v:bogus;display:none;display:var(--d);visibility:visible;visibility:var(--v);width:24px;width:var(--d);padding-left:3px;padding-left:var(--d)'>text</div></div>");
+        await page.SetContentAsync("<div style='visibility:hidden;display:none'><div id=t style='--d:bogus;--v:bogus;display:none;display:var(--d);visibility:visible;visibility:var(--v);width:24px;width:var(--d);padding-left:3px;padding-left:var(--d)'>text</div></div>");
         (await Read(page, "display")).Should().Be("inline");
         (await Read(page, "visibility")).Should().Be("hidden");
         (await Read(page, "width")).Should().Be("auto");
@@ -346,10 +347,11 @@ public sealed class ComputedStyleTests
     [TestCase("100%", "100%")]
     [TestCase("50%", "50%")]
     [TestCase("calc(100% - 10px)", "calc(100% - 10px)")]
-    [TestCase("2em", "2em")]
-    [TestCase("2rem", "2rem")]
-    [TestCase("10vw", "10vw")]
-    [TestCase("10vh", "10vh")]
+    // CSS Values 4 §6: font- and viewport-relative lengths compute to px (#4615).
+    [TestCase("2em", "32px")]
+    [TestCase("2rem", "32px")]
+    [TestCase("10vw", "128px")]
+    [TestCase("10vh", "72px")]
     public async Task MinimumWidthKeepsComputedPercentages(string value, string expected)
     {
         await using var browser = new Browser();
@@ -372,16 +374,16 @@ public sealed class ComputedStyleTests
             await page.SetContentAsync($"<div id='t' style='{property}:auto'>g</div>");
             (await Read(page, property)).Should().Be(expected);
         }
-        await page.SetContentAsync("<div id='t' style='width:20ch;visibility:hidden'>g</div>");
+        await page.SetContentAsync("<div id='t' style='width:20ch;visibility:hidden;display:none'>g</div>");
         (await Read(page, "visibility")).Should().Be("hidden");
         (await page.EvaluateAsync<int>("document.getElementById('t').getClientRects().length")).Should().Be(0);
-        // A missing box retains declaration text without requiring a font metric.
+        // A missing box keeps the computed value, which needs no font metric: ch takes CSS Values 4's 0.5em fallback.
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
             var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "t")!;
             var style = CssCascade.Traversal.For(runtime.Document)!.Of(element);
-            ResolvedStyle.ValueOf("width", style, element, runtime).Should().Be("20ch");
+            ResolvedStyle.ValueOf("width", style, element, runtime).Should().Be("160px");
             return true;
         });
     }
@@ -655,7 +657,8 @@ public sealed class ComputedStyleTests
     [TestCase("translate(10px, 20px) scale(2)", "matrix(2, 0, 0, 2, 10, 20)")]
     [TestCase("rotate(30deg)", "matrix(0.866025, 0.5, -0.5, 0.866025, 0, 0)")]
     [TestCase("translateZ(5px)", "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 5, 1)")]
-    [TestCase("translateX(2em)", "translateX(2em)")]
+    [TestCase("translateX(2em)", "matrix(1, 0, 0, 1, 32, 0)")]
+    [TestCase("translateX(50%)", "translateX(50%)")]
     public async Task TransformResolvesToAMatrix(string declared, string expected)
     {
         await using var browser = new Browser();

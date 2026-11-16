@@ -3527,6 +3527,160 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.maskType");
                     self.Target.SetProperty("mask-type", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.maskType")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("webkitMask",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.webkitMask", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMask");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.webkitMask", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMask");
+                    self.Target.SetProperty("-webkit-mask", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.webkitMask")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("webkitMaskClip",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.webkitMaskClip", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskClip");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-clip"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.webkitMaskClip", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskClip");
+                    self.Target.SetProperty("-webkit-mask-clip", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.webkitMaskClip")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("webkitMaskImage",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.webkitMaskImage", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskImage");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-image"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.webkitMaskImage", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskImage");
+                    self.Target.SetProperty("-webkit-mask-image", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.webkitMaskImage")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("webkitMaskOrigin",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.webkitMaskOrigin", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskOrigin");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-origin"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.webkitMaskOrigin", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskOrigin");
+                    self.Target.SetProperty("-webkit-mask-origin", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.webkitMaskOrigin")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("webkitMaskPosition",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.webkitMaskPosition", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskPosition");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-position"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.webkitMaskPosition", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskPosition");
+                    self.Target.SetProperty("-webkit-mask-position", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.webkitMaskPosition")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("webkitMaskRepeat",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.webkitMaskRepeat", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskRepeat");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-repeat"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.webkitMaskRepeat", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskRepeat");
+                    self.Target.SetProperty("-webkit-mask-repeat", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.webkitMaskRepeat")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("webkitMaskSize",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.webkitMaskSize", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskSize");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-size"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.webkitMaskSize", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.webkitMaskSize");
+                    self.Target.SetProperty("-webkit-mask-size", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.webkitMaskSize")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("WebkitMask",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.WebkitMask", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMask");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.WebkitMask", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMask");
+                    self.Target.SetProperty("-webkit-mask", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.WebkitMask")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("WebkitMaskClip",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.WebkitMaskClip", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskClip");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-clip"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.WebkitMaskClip", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskClip");
+                    self.Target.SetProperty("-webkit-mask-clip", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.WebkitMaskClip")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("WebkitMaskImage",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.WebkitMaskImage", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskImage");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-image"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.WebkitMaskImage", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskImage");
+                    self.Target.SetProperty("-webkit-mask-image", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.WebkitMaskImage")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("WebkitMaskOrigin",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.WebkitMaskOrigin", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskOrigin");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-origin"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.WebkitMaskOrigin", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskOrigin");
+                    self.Target.SetProperty("-webkit-mask-origin", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.WebkitMaskOrigin")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("WebkitMaskPosition",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.WebkitMaskPosition", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskPosition");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-position"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.WebkitMaskPosition", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskPosition");
+                    self.Target.SetProperty("-webkit-mask-position", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.WebkitMaskPosition")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("WebkitMaskRepeat",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.WebkitMaskRepeat", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskRepeat");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-repeat"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.WebkitMaskRepeat", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskRepeat");
+                    self.Target.SetProperty("-webkit-mask-repeat", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.WebkitMaskRepeat")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("WebkitMaskSize",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.WebkitMaskSize", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskSize");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("-webkit-mask-size"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.WebkitMaskSize", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.WebkitMaskSize");
+                    self.Target.SetProperty("-webkit-mask-size", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.WebkitMaskSize")); return global::Jint.Native.JsValue.Undefined;
+                }))
             .Accessor("maxBlockSize",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.maxBlockSize", static (thisObj, args) =>
                 {
@@ -5130,6 +5284,17 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.transition");
                     self.Target.SetProperty("transition", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transition")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("transitionBehavior",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transitionBehavior", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.transitionBehavior");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("transition-behavior"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.transitionBehavior", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.transitionBehavior");
+                    self.Target.SetProperty("transition-behavior", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.transitionBehavior")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("transitionDelay",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transitionDelay", static (thisObj, args) =>

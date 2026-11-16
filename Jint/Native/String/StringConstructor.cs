@@ -161,7 +161,9 @@ rangeError:
                     _engine.Constraints.Check();
                 }
 
-                if (i < (ulong) arguments.Length && !arguments[(int) i].IsUndefined())
+                // Every present substitution is converted, undefined included; only one past the end adds nothing
+                // (https://tc39.es/ecma262/#sec-string.raw step 7.e).
+                if (i < (ulong) arguments.Length)
                 {
                     var substitution = TypeConverter.ToString(arguments[(int) i]);
                     JsString.ThrowIfLengthExceeded(_realm, (long) result.Length + substitution.Length);

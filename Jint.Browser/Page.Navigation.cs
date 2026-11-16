@@ -88,7 +88,7 @@ public sealed partial class Page
 
         var settings = options ?? NavigationOptions.Default;
         return NavigateCoreAsync(new NavigationRequest(
-            url,
+            ResolveHostUrl(url),
             settings,
             HistoryMode.Push,
             TraversalIndex: -1,
@@ -101,6 +101,19 @@ public sealed partial class Page
             // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate
             BrowserUi: true));
     }
+
+    /// <summary>
+    /// An address a host passed, resolved against <see cref="BrowserContextOptions.BaseUrl"/> when the
+    /// context named one and the address is relative; otherwise the address unchanged.
+    /// </summary>
+    /// <remarks>
+    /// "Relative" is the URL standard's answer — a string that does not parse without a base — rather than
+    /// <see cref="Uri"/>'s, which on Unix reads <c>"/admin"</c> as an absolute <c>file:</c> path.
+    /// </remarks>
+    private string ResolveHostUrl(string url)
+        => Context.BaseUrl is { } baseUrl && PageUrl.Parse(url, null) is null && PageUrl.Resolve(url, baseUrl) is { } resolved
+            ? resolved
+            : url;
 
     /// <summary>
     /// Submits the form <paramref name="selector"/> names, running HTML's form submission algorithm.
@@ -1110,9 +1123,8 @@ public sealed partial class Page
         PerformanceNavigation.Begin(runtime, resourceTiming);
 
         // The engine exists and its window is installed, and nothing of the document has been parsed. This is
-        // where a protocol target replaces its engine, re-installs the bindings a client added and runs the
-        // scripts it asked to be evaluated on every new document -- all of which have to be in place before
-        // the first inline script of the document runs.
+        // where a protocol target replaces its engine and re-installs the bindings a client added -- which have
+        // to be in place before the init scripts the driver runs below, once the empty document exists.
         try
         {
             _observer?.DocumentCreated(runtime, loaderId);
@@ -1130,7 +1142,8 @@ public sealed partial class Page
             {
                 Reached(runtime, phase, loaderId);
                 onPhase?.Invoke(phase);
-            }, Dom.DomDocumentMetadata.ParseLastModified(response?.Header("last-modified")), defaultStyle);
+            }, Dom.DomDocumentMetadata.ParseLastModified(response?.Header("last-modified")), defaultStyle,
+                beforeParse: RunNewDocumentScripts);
 
             _load = load;
             _mainFrame = Frame.Build(this, runtime, load.Document, url);

@@ -50,3 +50,46 @@ traffic. A validated response delivers the retained body while transferring zero
 References intentionally not fetched, such as a media element or a non-stylesheet `<link>`, still appear with `NotFetchedReason`. The log spans navigations and is bounded by `BrowserOptions.MaxRecordedEvents`.
 
 Use `UrlFilter` for an application allow-list. `BlockPrivateNetwork` is a coarse additional defense; see [Untrusted content](./untrusted-content).
+
+## Routing requests
+
+`Page.WaitForResponseAsync(predicate, timeout)` waits for the first request sent after the call whose response
+the predicate accepts, and returns its `PageRequest`, or `null` at the timeout. Start it before the action that
+sends the request:
+
+```csharp
+var saved = page.WaitForResponseAsync(r => r.Url.EndsWith("/api/save", StringComparison.Ordinal), TimeSpan.FromSeconds(5));
+await page.ClickAsync("#save");
+PageRequest? response = await saved;
+```
+
+A request counts once its headers are in, or once it failed. It reads the same log as `Page.Requests`, so it has
+no body and no request headers: a route that records them and continues answers those questions.
+
+`Page.RouteAsync` and `BrowserContext.RouteAsync` answer a request in process — with a response of your own,
+a network failure, or the request sent on, optionally rewritten:
+
+```csharp
+await context.RouteAsync(
+    uri => uri.AbsolutePath.EndsWith("/track.js", StringComparison.Ordinal),
+    request => request.FulfillAsync(contentType: "application/javascript", body: "window.__stubbed = true"));
+
+await page.RouteAsync(uri => uri.Host == "analytics.example.org", request => request.AbortAsync("blockedbyclient"));
+
+await page.RouteAsync(_ => true, async request =>
+{
+    Console.WriteLine($"{request.ResourceType} {request.Method} {request.Url}");
+    await request.ContinueAsync();
+});
+```
+
+Documents, child frames, scripts, style sheets, images, fonts, `fetch`, `XMLHttpRequest` and workers' loads
+are routed, every redirect hop afresh. A page's routes are asked before its context's, newest first; a
+handler that returns without deciding falls back to the next matching route, and a request no route decides
+is sent unchanged. `UnrouteAsync` removes routes by the predicate they were registered with.
+
+`UrlFilter` still runs first, so it stays the allow-list: a refused URL never reaches a route, and a
+`ContinueAsync` URL rewrite is checked against it the way a redirect is. Matchers and handlers run on a
+thread-pool thread, never on the page's loop, so a handler may block; one that waits on its own page can
+still deadlock a fetch the page is itself blocked on. Decide before the handler's task completes — a later
+decision throws — and note that a handler that throws fails the request.

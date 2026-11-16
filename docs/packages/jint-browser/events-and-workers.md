@@ -21,6 +21,8 @@ Read script failures and console output from:
 ```csharp
 IReadOnlyList<PageError> errors = page.Errors;
 IReadOnlyList<string> messages = page.ConsoleMessages;
+IReadOnlyList<PageConsoleMessage> entries = page.ConsoleEntries; // each with its ConsoleLogLevel
+var errors = entries.Where(entry => entry.Level == ConsoleLogLevel.Error);
 ```
 
 For console-only customization, set `BrowserOptions.ConsoleSinkDecorator` rather than registering a
