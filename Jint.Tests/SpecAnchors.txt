@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-11-14
-anchors: 1361
+anchors: 1362
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -415,6 +415,7 @@ ecma262 sec-integer-indexed-exotic-objects-ownpropertykeys
 ecma262 sec-integer-indexed-exotic-objects-set-p-v-receiver
 ecma262 sec-integerindexedelementget
 ecma262 sec-integerindexedelementset
+ecma262 sec-invariants-of-the-essential-internal-methods
 ecma262 sec-invoke
 ecma262 sec-isarray
 ecma262 sec-isconcatspreadable
