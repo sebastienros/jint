@@ -84,23 +84,41 @@ internal sealed class NativeCssSyntaxCache
         public int GetHashCode(BodyKey key) => HashCode.Combine(string.GetHashCode(key.Text), key.Start, key.Kind);
     }
 
-    internal CssRawRule[] ParseBody(CssRuleBody body, CssValueWork work)
+    // A body found before by the raw rule it belongs to, which the documents of a sheet share: its text is not
+    // hashed and compared again on every page. It lives as long as that raw rule.
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<CssRawRule, CssRawRule[]> _bodiesByRaw = new();
+
+    internal CssRawRule[] ParseBody(CssRuleBody body, CssValueWork work) => ParseBody(body, null, work);
+
+    /// <param name="body">The body to split into rules.</param>
+    /// <param name="owner">The raw rule whose body it is, when it is known, which finds a body read before at once.</param>
+    /// <param name="work">The work the split is charged to.</param>
+    internal CssRawRule[] ParseBody(CssRuleBody body, CssRawRule? owner, CssValueWork work)
     {
         work.CheckCancellation();
         var text = body.Text;
         work.Charge(text.Span.Length);
-        if (text.Span.Length > MaxUnits) return CssParser.ParseRuleList(body, work);
-        var key = new BodyKey(text.Source, text.Span.Start, text.Span.Length, body.Kind, body.IsClosed);
         CssRawRule[]? rules;
-        lock (_gate) _bodies.TryGetValue(key, out rules);
-        if (rules is not null)
+        if (owner is not null && _bodiesByRaw.TryGetValue(owner, out rules))
         {
             work.Charge(rules.Length);
             work.CheckCancellation();
             return rules;
         }
 
+        if (text.Span.Length > MaxUnits) return CssParser.ParseRuleList(body, work);
+        var key = new BodyKey(text.Source, text.Span.Start, text.Span.Length, body.Kind, body.IsClosed);
+        lock (_gate) _bodies.TryGetValue(key, out rules);
+        if (rules is not null)
+        {
+            if (owner is not null) _bodiesByRaw.AddOrUpdate(owner, rules);
+            work.Charge(rules.Length);
+            work.CheckCancellation();
+            return rules;
+        }
+
         rules = CssParser.ParseRuleList(body, work);
+        if (owner is not null) _bodiesByRaw.AddOrUpdate(owner, rules);
         var units = (long) text.Span.Length + ((long) rules.Length * 64);
         work.CheckCancellation();
         if (units <= MaxUnits)
