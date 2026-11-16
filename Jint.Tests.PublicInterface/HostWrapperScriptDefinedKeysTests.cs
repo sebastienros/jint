@@ -56,10 +56,10 @@ public class HostWrapperScriptDefinedKeysTests
     ];
 
     /// <summary>
-    /// The shapes whose own keys are all non-configurable when <c>AllowWrite</c> is off, so that a configurable
-    /// property of the script's is the one thing standing between a non-extensible wrapper and
-    /// <c>Object.isSealed</c>. Every shape but <c>HashSet</c>, which lists its methods, and a method's descriptor is
-    /// configurable.
+    /// The shapes whose target keys are all non-configurable when <c>AllowWrite</c> is off, so that a configurable
+    /// property of the script's, or a configurable projection a non-extensible wrapper lists (#4528), is what stands
+    /// between a non-extensible wrapper and <c>Object.isSealed</c>. Every shape but <c>HashSet</c>, which lists its
+    /// methods, and a method's descriptor is configurable.
     /// </summary>
     private static readonly string[] _sealableShapes =
     [
@@ -230,7 +230,8 @@ public class HostWrapperScriptDefinedKeysTests
     /// <summary>
     /// <c>Object.isSealed</c> and <c>isFrozen</c> answered <see langword="true"/> for a non-extensible wrapper whose
     /// script-defined property was still configurable, because they never saw it. TestIntegrityLevel must check
-    /// every own key.
+    /// every own key. Once the script's property is gone, what <c>isSealed</c> answers is whether any listed key is
+    /// still configurable, which on an iterable shape is its projections (#4528).
     /// </summary>
     [TestCaseSource(nameof(SealableShapes))]
     public void IsSealedSeesAConfigurablePropertyOfTheScripts(string shape)
@@ -242,7 +243,9 @@ public class HostWrapperScriptDefinedKeysTests
             """
             Object.defineProperty(host, 'tag', { value: 1, configurable: true });
             Object.preventExtensions(host);
-            [Object.isSealed(host), Object.isFrozen(host), delete host.tag, Object.isSealed(host)].join()
+            const before = [Object.isSealed(host), Object.isFrozen(host), delete host.tag];
+            const configurable = Reflect.ownKeys(host).filter(k => Object.getOwnPropertyDescriptor(host, k).configurable);
+            [...before, Object.isSealed(host) === (configurable.length === 0)].join()
             """).AsString().Should().Be("false,false,true,true");
     }
 
@@ -470,14 +473,14 @@ public class HostWrapperScriptDefinedKeysTests
     }
 
     /// <summary>
-    /// Only a projection the wrapper does not rebuild becomes the script's when the script deletes it and defines it
-    /// again. The others come back on the read the define itself makes, so the define redefines the wrapper's own:
-    /// <c>Symbol.iterator</c> is materialized again and stays unlisted, and a plain wrapper's <c>toJSON</c> resolves
-    /// from its CLR method again and is listed once, by the target. A <c>length</c> forwarder over a collection with
-    /// no <c>Length</c> member is not rebuilt, so the script's <c>length</c> is its own: listed, and frozen.
+    /// A projection the script deletes and then defines again is listed whether or not the wrapper rebuilds it. A
+    /// <c>length</c> forwarder over a collection with no <c>Length</c> member is not rebuilt, so the script's
+    /// <c>length</c> is its own. <c>Symbol.iterator</c> comes back on the read the define itself makes, and the define
+    /// redefines it, which lists it too (#4528). A plain wrapper's <c>toJSON</c> resolves from its CLR method again
+    /// and is listed once, by the target.
     /// </summary>
     [Test]
-    public void AProjectionDeletedThenDefinedIsTheScriptsOnlyWhereTheWrapperDoesNotRebuildIt()
+    public void AProjectionDeletedThenDefinedIsListedWhetherOrNotTheWrapperRebuildsIt()
     {
         var engine = CreateEngine(new List<int> { 1, 2 }, allowWrite: false);
         engine.SetValue("record", new JsonRecord());
@@ -495,12 +498,12 @@ public class HostWrapperScriptDefinedKeysTests
 
             delete host.length;
             Object.defineProperty(host, 'length', { value: 7, configurable: true });
-            const listed = Reflect.ownKeys(host).join();
+            const listed = Reflect.ownKeys(host).map(String).join();
             Object.freeze(host);
             const length = [listed, Object.getOwnPropertyDescriptor(host, 'length').configurable].join('/');
 
             [iterator, toJson, length].join(';')
-            """).AsString().Should().Be("0/9;Value,toJSON/Value,toJSON/\"script\";0,1,length/false");
+            """).AsString().Should().Be("1/9;Value,toJSON/Value,toJSON/\"script\";0,1,length,Symbol(Symbol.iterator)/false");
     }
 
     /// <summary>
@@ -533,8 +536,8 @@ public class HostWrapperScriptDefinedKeysTests
             """
             Object.defineProperty(host, 'find', { value: 1, enumerable: true, configurable: true });
             Object.freeze(host);
-            [Reflect.ownKeys(host).join(), host.find, Object.getOwnPropertyDescriptor(host, 'find').configurable].join(';')
-            """).AsString().Should().Be("0,1,find;1;false");
+            [Reflect.ownKeys(host).map(String).join(), host.find, Object.getOwnPropertyDescriptor(host, 'find').configurable].join(';')
+            """).AsString().Should().Be("0,1,length,find,Symbol(Symbol.iterator);1;false");
     }
 
     /// <summary>
@@ -659,8 +662,8 @@ public class HostWrapperScriptDefinedKeysTests
             """
             Object.defineProperty(host, 'tag', { value: 0, configurable: true });
             Object.freeze(host);
-            [Reflect.ownKeys(host).join(), Object.isFrozen(host)].join(';')
-            """).AsString().Should().Be("a,b,tag;true");
+            [Reflect.ownKeys(host).map(String).join(), Object.isFrozen(host)].join(';')
+            """).AsString().Should().Be("a,b,tag,Symbol(Symbol.iterator);true");
     }
 
     /// <summary>
