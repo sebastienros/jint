@@ -1801,9 +1801,13 @@ internal sealed partial class StringPrototype : StringInstance
     }
 
     [StructLayout(LayoutKind.Auto)]
-    private readonly record struct CodePointResult(int CodePoint, int CodeUnitCount, bool IsUnpairedSurrogate);
+    internal readonly record struct CodePointResult(int CodePoint, int CodeUnitCount, bool IsUnpairedSurrogate);
 
-    private static CodePointResult CodePointAt(string s, int position)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-codepointat, which <c>codePointAt</c>, <c>toWellFormed</c> and the string iterator
+    /// (<see cref="Jint.Native.Iterator.IteratorInstance.StringIterator"/>) all step by.
+    /// </summary>
+    internal static CodePointResult CodePointAt(string s, int position)
     {
         var size = s.Length;
         var first = s.CharCodeAt(position);
