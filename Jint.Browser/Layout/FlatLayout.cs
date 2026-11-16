@@ -543,7 +543,7 @@ internal sealed class FlatLayout
                     {
                         // Its height affects the next sibling, not its own vertical origin. Leave
                         // this index pending so a later sibling query measures it when needed.
-                        _positions[child] = new FlatBox(PlacedX(child, parentBox.X), parentBox.Y + offset, 0, 0);
+                        _positions[child] = new FlatBox(PlacedX(child, parentBox.X), PlacedY(child, parentBox, parentBox.Y + offset), 0, 0);
                         break;
                     }
 
@@ -562,7 +562,7 @@ internal sealed class FlatLayout
 
                     _positions[child] = new FlatBox(
                         PlacedX(child, parentBox.X + (horizontal ? offset : 0)),
-                        parentBox.Y + (horizontal ? RowHeight + cross : offset), 0, 0);
+                        PlacedY(child, parentBox, parentBox.Y + (horizontal ? RowHeight + cross : offset)), 0, 0);
                     offset += horizontal ? (reverse ? 0 : width) : HeightOf(child);
                     if (ReferenceEquals(child, element))
                     {
@@ -586,7 +586,7 @@ internal sealed class FlatLayout
         /// keeps its static position. CSS Transforms 1 §6: a translation then moves it, and nothing else. Popper
         /// places dropdown menus, tooltips and popovers this way — <c>inset: 0 0 auto auto</c> and a
         /// <c>translate()</c> it works out from the offset parent — so a menu wider than its toggle opens back
-        /// into the viewport instead of past its edge. Vertically, the box keeps its row.
+        /// into the viewport instead of past its edge. Vertically, <see cref="PlacedY"/> places it.
         /// </summary>
         private double PlacedX(Element child, double staticX)
         {
@@ -611,6 +611,47 @@ internal sealed class FlatLayout
             }
 
             return x + TranslationX(style, child);
+        }
+
+        /// <summary>
+        /// The top edge of <paramref name="child"/>: <paramref name="staticY"/>, its row, unless it is absolutely
+        /// positioned with a vertical inset that keeps it inside both its containing block and its parent. CSS 2
+        /// §10.6.4: <c>top</c> puts it that far below the containing block's top, or, with <c>top: auto</c>,
+        /// <c>bottom</c> ends it that far above the block's bottom — a card's badges laid along the bottom of its
+        /// image header with <c>bottom: 12px</c>. A box the inset would move outside either keeps its row: every
+        /// descendant then still fits vertically inside its ancestors, which the hit test relies on. Its rows, and
+        /// what follows it, stay where the flow puts them; its descendants move with it.
+        /// </summary>
+        private double PlacedY(Element child, FlatBox parentBox, double staticY)
+        {
+            if (cascade?.LayoutOf(child) is not { } style
+                || CssCascade.ValueOf(style, "position") != "absolute"
+                || PositionedAncestor(child) is not { } block
+                || !_positions.TryGetValue(block, out var blockBox))
+            {
+                return staticY;
+            }
+
+            var blockHeight = HeightOf(block);
+            var height = HeightOf(child);
+            double y;
+            if (OffsetOf(style, "top", blockHeight) is { } top)
+            {
+                y = blockBox.Y + top;
+            }
+            else if (OffsetOf(style, "bottom", blockHeight) is { } bottom)
+            {
+                y = blockBox.Y + blockHeight - bottom - height;
+            }
+            else
+            {
+                return staticY;
+            }
+
+            var parentBottom = parentBox.Y + HeightOf((child.ParentNode as Element)!);
+            return y >= blockBox.Y && y + height <= blockBox.Y + blockHeight && y >= parentBox.Y && y + height <= parentBottom
+                ? y
+                : staticY;
         }
 
         /// <summary>

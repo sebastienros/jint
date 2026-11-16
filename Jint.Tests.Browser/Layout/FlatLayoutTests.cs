@@ -619,6 +619,41 @@ public class FlatLayoutTests
     }
 
     /// <summary>
+    /// https://www.w3.org/TR/CSS2/visudet.html#abs-non-replaced-height — an absolutely positioned box with a
+    /// <c>top</c> sits that far below its containing block's top, and one with only a <c>bottom</c> ends that far
+    /// above its bottom, its descendants with it: badges laid along the bottom of a card's 16:9 header. One the
+    /// inset would move out of its containing block — a dropdown panel at <c>top: 100%</c> — keeps its row.
+    /// </summary>
+    [Test]
+    public async Task AnAbsoluteBoxIsPlacedByItsVerticalInsetInsideItsContainingBlock()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <div style="width: 320px"><div id="art" style="position: relative; aspect-ratio: 16 / 9">
+              <div id="caption" style="position: absolute; top: 40px">caption</div>
+              <div id="badges" style="position: absolute; bottom: 12px; left: 12px"><span id="kind">kind</span></div>
+              <div id="menu" style="position: absolute; top: 100%">menu</div>
+            </div></div>
+            """);
+
+        // html, body, the card, then the header at 48 px, 180 px tall.
+        (await Rect(page, "document.getElementById('art')")).Should().Be($"0,{3 * Row},320,180");
+        (await page.EvaluateAsync<double>("document.getElementById('caption').getBoundingClientRect().top")).Should().Be((3 * Row) + 40);
+
+        // The badges are two rows: their own and the kind's. They end 12 px above the header's bottom.
+        var bottom = (3 * Row) + 180 - 12;
+        (await page.EvaluateAsync<double>("document.getElementById('badges').getBoundingClientRect().bottom")).Should().Be(bottom);
+        (await page.EvaluateAsync<double>("document.getElementById('kind').getBoundingClientRect().top")).Should().Be(bottom - Row);
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(20, {bottom - 4}).id")).Should().Be("kind");
+
+        // top: 100% would put it below the header, so it keeps its row, the header's fourth.
+        (await page.EvaluateAsync<double>("document.getElementById('menu').getBoundingClientRect().top")).Should().Be((3 * Row) + (4 * Row));
+    }
+
+    /// <summary>
     /// https://drafts.csswg.org/css-grid-2/#layout-algorithm — a grid item is as wide as the column tracks it
     /// spans and the gaps between them, whether the track count and the span come from a var() or not.
     /// </summary>
