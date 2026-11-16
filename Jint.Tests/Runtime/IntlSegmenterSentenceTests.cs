@@ -122,6 +122,19 @@ public class IntlSegmenterSentenceTests
     }
 
     /// <summary>
+    /// The official conformance test of UAX #29 for Unicode 17.0.0 (SentenceBreakTest.txt, vendored under
+    /// tools/text-segmentation/), every line of it. Node 26 passes all of them.
+    /// </summary>
+    [Test]
+    public void TheUnicodeSentenceBreakTestPasses()
+    {
+        var (cases, failures) = UnicodeBreakTestFile.Run("unicode-SentenceBreakTest.txt", "# SentenceBreakTest-17.0.0.txt", "sentence");
+
+        cases.Should().Be(512);
+        failures.Should().BeEmpty("{0} of {1} lines fail, the first: {2}", failures.Count, cases, string.Join(Environment.NewLine, failures.Take(40)));
+    }
+
+    /// <summary>
     /// The segment data objects carry the code unit index each sentence starts at, and <c>containing</c> finds the
     /// sentence a code unit belongs to, also across a surrogate pair.
     /// </summary>
