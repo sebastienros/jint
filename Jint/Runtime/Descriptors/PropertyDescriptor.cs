@@ -20,12 +20,13 @@ public class PropertyDescriptor
     internal const PropertyFlag WritesThroughDefineOwnProperty = (PropertyFlag) 64;
 
     /// <summary>
-    /// An internal bit, not a <see cref="PropertyFlag"/> member, on a descriptor a script created on a CLR object's
-    /// wrapper, as opposed to one the wrapper stored itself (a resolved member, an entry, a projection). It is what
-    /// tells <c>ObjectWrapper.GetOwnPropertyKeys</c> which stored keys to list, and changes no attribute
-    /// (sebastienros/jint#4503).
+    /// An internal bit, not a <see cref="PropertyFlag"/> member, on a descriptor a CLR object's wrapper lists among its
+    /// own keys beside its target's: one a script created (sebastienros/jint#4503), and a projection the script
+    /// redefined or the wrapper made while becoming non-extensible (sebastienros/jint#4528). A resolved member, an
+    /// entry and an untouched projection stay unmarked. It is what tells <c>ObjectWrapper.GetOwnPropertyKeys</c> which
+    /// stored keys to list, and changes no attribute.
     /// </summary>
-    internal const PropertyFlag ScriptDefinedOnWrapper = (PropertyFlag) 128;
+    internal const PropertyFlag ListedOnWrapper = (PropertyFlag) 128;
 
     internal PropertyFlag _flags;
     internal JsValue? _value;

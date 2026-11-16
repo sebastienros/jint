@@ -2570,6 +2570,7 @@ namespace Jint.Runtime.Interop
         public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         public override bool HasProperty(Jint.Native.JsValue property) { }
+        public override bool PreventExtensions() { }
         protected override Jint.Native.Object.OwnPropertyProbe ProbeOwnProperty(Jint.Native.JsValue property) { }
         public override sealed void RemoveOwnProperty(Jint.Native.JsValue property) { }
         public override bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }

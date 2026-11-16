@@ -38,5 +38,11 @@ internal sealed partial class SegmentIteratorPrototype : IteratorPrototype
     /// <see cref="IteratorBrand.Segment"/>: any other receiver is a <c>TypeError</c> (sebastienros/jint#4451).
     /// </summary>
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
-    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, IteratorBrand.Segment);
+    private JsValue NextHandler(JsValue thisObject)
+    {
+        // The segment data object is created in the realm of this running next, whichever realm the iterator is from.
+        return thisObject is JsSegments.SegmentIterator iterator
+            ? iterator.Step(_realm)
+            : Next(thisObject, IteratorBrand.Segment);
+    }
 }

@@ -44,6 +44,6 @@ internal sealed class JsSegmenter : ObjectInstance
     /// </summary>
     internal JsSegments Segment(Realm realm, string input)
     {
-        return new JsSegments(_engine, realm, this, input);
+        return new JsSegments(_engine, realm.Intrinsics.SegmentsPrototype, this, input);
     }
 }

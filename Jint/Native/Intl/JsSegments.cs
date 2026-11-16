@@ -2,7 +2,6 @@ using System.Globalization;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Intl;
 
@@ -10,50 +9,43 @@ namespace Jint.Native.Intl;
 /// https://tc39.es/ecma402/#sec-segments-objects
 /// Represents the Segments object returned by Intl.Segmenter.prototype.segment().
 /// </summary>
-[JsObject]
-internal sealed partial class JsSegments : ObjectInstance
+internal sealed class JsSegments : ObjectInstance
 {
-    private readonly Realm _realm;
     private readonly JsSegmenter _segmenter;
     private readonly string _input;
     private readonly List<SegmentData> _segments;
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-createsegmentsobject, in <paramref name="realm"/>: the realm of the
-    /// <c>Intl.Segmenter.prototype.segment</c> that was called, which is the realm whose segment iterators this object's
-    /// <c>@@iterator</c> creates, whichever realm the caller or the segmenter belongs to.
+    /// https://tc39.es/ecma402/#sec-createsegmentsobject, inheriting <paramref name="prototype"/>: the
+    /// %IntlSegmentsPrototype% of the realm of the <c>Intl.Segmenter.prototype.segment</c> that was called, whichever realm
+    /// the caller or the segmenter belongs to. A Segments object has no own property: <c>containing</c> and <c>@@iterator</c>
+    /// are the prototype's (sebastienros/jint#4452).
     /// </summary>
-    internal JsSegments(Engine engine, Realm realm, JsSegmenter segmenter, string input) : base(engine)
+    internal JsSegments(Engine engine, SegmentsPrototype prototype, JsSegmenter segmenter, string input) : base(engine)
     {
-        _realm = realm;
+        _prototype = prototype;
         _segmenter = segmenter;
         _input = input;
         _segments = ComputeSegments(input, segmenter.Granularity);
     }
 
-    protected override void Initialize()
-    {
-        CreateProperties_Generated();
-        CreateSymbols_Generated();
-    }
-
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-%segmentsprototype%.containing
+    /// https://tc39.es/ecma402/#sec-%intlsegmentsprototype%.containing, from step 5 on: the segment data object, created in
+    /// <paramref name="realm"/>, of the segment holding code unit <paramref name="n"/>, or undefined.
     /// </summary>
-    [JsFunction]
-    private static JsValue Containing(JsSegments thisObject, [ToInteger] double n)
+    internal JsValue Containing(Realm realm, double n)
     {
-        if (n < 0 || n >= thisObject._input.Length)
+        if (n < 0 || n >= _input.Length)
         {
             return Undefined;
         }
 
         var intIndex = (int) n;
-        foreach (var segment in thisObject._segments)
+        foreach (var segment in _segments)
         {
             if (intIndex >= segment.Index && intIndex < segment.Index + segment.Segment.Length)
             {
-                return thisObject.CreateSegmentDataObject(segment);
+                return CreateSegmentDataObject(realm, segment);
             }
         }
 
@@ -61,29 +53,27 @@ internal sealed partial class JsSegments : ObjectInstance
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-%segmentsprototype%-@@iterator, step 5's CreateSegmentIterator
-    /// (https://tc39.es/ecma402/#sec-createsegmentiterator) creating the iterator from this function's realm's
-    /// %IntlSegmentIteratorPrototype%. The function is this object's own, so its realm is this object's, also when it is
-    /// called on another realm's segments object.
+    /// https://tc39.es/ecma402/#sec-createsegmentiterator, inheriting <paramref name="prototype"/>, the
+    /// %IntlSegmentIteratorPrototype% of the realm of the <c>@@iterator</c> that was called.
     /// </summary>
-    [JsSymbolFunction("Iterator", Flags = PropertyFlag.Writable | PropertyFlag.Configurable)]
-    private SegmentIterator GetIterator(JsSegments thisObject)
-    {
-        return new SegmentIterator(_engine, thisObject, _realm.Intrinsics.SegmentIteratorPrototype);
-    }
+    internal JsValue CreateIterator(SegmentIteratorPrototype prototype) => new SegmentIterator(_engine, this, prototype);
 
     internal IEnumerable<SegmentData> GetSegments() => _segments;
 
-    internal JsObject CreateSegmentDataObject(SegmentData data)
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-createsegmentdataobject: an ordinary object of the current realm, the realm of the
+    /// running <c>containing</c> or segment iterator <c>next</c>, whose properties are defined, not set.
+    /// </summary>
+    internal JsObject CreateSegmentDataObject(Realm realm, SegmentData data)
     {
-        var obj = OrdinaryObjectCreate(_engine, _engine.Realm.Intrinsics.Object.PrototypeObject);
-        obj.Set("segment", data.Segment);
-        obj.Set("index", data.Index);
-        obj.Set("input", _input);
+        var obj = OrdinaryObjectCreate(_engine, realm.Intrinsics.Object.PrototypeObject);
+        obj.CreateDataPropertyOrThrow("segment", data.Segment);
+        obj.CreateDataPropertyOrThrow("index", JsNumber.Create(data.Index));
+        obj.CreateDataPropertyOrThrow("input", _input);
 
         if (string.Equals(_segmenter.Granularity, "word", StringComparison.Ordinal))
         {
-            obj.Set("isWordLike", data.IsWordLike);
+            obj.CreateDataPropertyOrThrow("isWordLike", data.IsWordLike ? JsBoolean.True : JsBoolean.False);
         }
 
         return obj;
@@ -230,39 +220,24 @@ internal sealed partial class JsSegments : ObjectInstance
 
     private readonly record struct GraphemeInfo(string Text, int Index);
 
+    /// <summary>
+    /// The sentences of <paramref name="input"/> by the sentence boundary rules of UAX #29, see <see cref="SentenceBreaker"/>.
+    /// </summary>
     private static List<SegmentData> ComputeSentenceSegments(string input)
     {
         var segments = new List<SegmentData>();
         var index = 0;
-        var length = input.Length;
 
-        while (index < length)
+        while (index < input.Length)
         {
-            var startIndex = index;
-
-            // Find end of sentence (., !, ?)
-            while (index < length)
-            {
-                var c = input[index];
-                index++;
-
-                if (c == '.' || c == '!' || c == '?')
-                {
-                    // Include trailing whitespace in the sentence
-                    while (index < length && char.IsWhiteSpace(input[index]))
-                    {
-                        index++;
-                    }
-                    break;
-                }
-            }
-
+            var end = SentenceBreaker.NextBreak(input, index);
             segments.Add(new SegmentData
             {
-                Segment = input.Substring(startIndex, index - startIndex),
-                Index = startIndex,
+                Segment = input.Substring(index, end - index),
+                Index = index,
                 IsWordLike = false
             });
+            index = end;
         }
 
         return segments;
@@ -277,24 +252,39 @@ internal sealed partial class JsSegments : ObjectInstance
 
     /// <summary>
     /// A segment iterator (https://tc39.es/ecma402/#sec-segment-iterator-objects), which inherits the
-    /// %IntlSegmentIteratorPrototype% of the realm that created it.
+    /// %IntlSegmentIteratorPrototype% of the realm that created it, and steps in that realm unless a <c>next</c> of another
+    /// realm is called on it (<see cref="Step(Realm)"/>).
     /// </summary>
-    private sealed class SegmentIterator : IteratorInstance
+    internal sealed class SegmentIterator : IteratorInstance
     {
         private readonly JsSegments _segments;
+        private readonly Realm _realm;
         private readonly IEnumerator<SegmentData> _enumerator;
 
         public SegmentIterator(Engine engine, JsSegments segments, SegmentIteratorPrototype prototype) : base(engine, prototype, IteratorBrand.Segment)
         {
             _segments = segments;
+            _realm = prototype._realm;
             _enumerator = segments.GetSegments().GetEnumerator();
         }
 
-        public override bool TryIteratorStep(out ObjectInstance result)
+        public override bool TryIteratorStep(out ObjectInstance result) => TryStep(_realm, out result);
+
+        /// <summary>
+        /// https://tc39.es/ecma402/#sec-%intlsegmentiteratorprototype%.next, run by the <c>next</c> of
+        /// <paramref name="realm"/>, in whose realm the segment data object is created.
+        /// </summary>
+        internal JsValue Step(Realm realm)
+        {
+            TryStep(realm, out var result);
+            return result;
+        }
+
+        private bool TryStep(Realm realm, out ObjectInstance result)
         {
             if (_enumerator.MoveNext())
             {
-                var segmentData = _segments.CreateSegmentDataObject(_enumerator.Current);
+                var segmentData = _segments.CreateSegmentDataObject(realm, _enumerator.Current);
                 result = new Iterator.IteratorResult(_engine, segmentData, JsBoolean.False);
                 return true;
             }
