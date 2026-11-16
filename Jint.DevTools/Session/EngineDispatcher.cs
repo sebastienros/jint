@@ -610,7 +610,9 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
             {
                 // Everything the drain runs has to come back as a completion rather than as a throw: this
                 // runs inside an event-loop job, and an exception here erupts out of the host's pump.
-                Completion.TrySetException(Translate(exception));
+                var failure = Translate(exception);
+                ReplyNow(failure);
+                Completion.TrySetException(failure);
                 return false;
             }
         }
@@ -628,6 +630,15 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
                 ? new ProtocolException(ProtocolErrorCodes.ServerError, stop)
                 : exception;
 
+        // A command the client gave up on (its token) gets no reply, as the transport writes none for it.
+        private void ReplyNow(Exception failure)
+        {
+            if (failure is not OperationCanceledException)
+            {
+                _context.ReplyNow(result: null, failure);
+            }
+        }
+
         /// <param name="task">The command's own answer.</param>
         /// <param name="item">The queued command it answers.</param>
         /// <param name="onEngineThread">
@@ -637,16 +648,21 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         /// </param>
         private static void Complete(Task<string> task, CommandItem item, bool onEngineThread)
         {
+            // The reply is written here, on the thread that finished the command, before the waiter is released:
+            // that keeps it in order with the events the engine sends after it (CommandContext.ReplyNow).
             var completion = item.Completion;
             if (task.IsFaulted)
             {
                 var failures = task.Exception!.InnerExceptions;
                 if (onEngineThread && failures.Count == 1)
                 {
-                    completion.TrySetException(item.Translate(failures[0]));
+                    var failure = item.Translate(failures[0]);
+                    item.ReplyNow(failure);
+                    completion.TrySetException(failure);
                 }
                 else
                 {
+                    item.ReplyNow(failures[0]);
                     completion.TrySetException(failures);
                 }
             }
@@ -656,6 +672,7 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
             }
             else
             {
+                item._context.ReplyNow(task.Result, failure: null);
                 completion.TrySetResult(task.Result);
             }
         }

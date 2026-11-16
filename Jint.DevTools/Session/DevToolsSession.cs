@@ -166,34 +166,48 @@ internal sealed class DevToolsSession
 
             var session = Resolve(sessionId);
             context = new CommandContext(session, sessionId, cancellationToken);
+            var replyId = id.Value;
+            var replying = context;
+            // The engine thread writes the reply as the command finishes, in order with the events it sends
+            // (CommandContext.ReplyNow); this thread writes it only when nothing there did.
+            context.SetReplier((result, failure) => WriteReply(replyId, sessionId, replying, result, failure, cancellationToken));
 
             var result = session._gateway is { } gateway
                 ? await gateway.DispatchAsync(session, request, context).ConfigureAwait(false)
                 : await session.DispatchAsync(in request, context).ConfigureAwait(false);
 
-            var reply = ProtocolMessage.WriteResponse(id.Value, result, sessionId);
-
-            // A command that reserved memory for its own reply is answered through the tracked send, so the
-            // reservation is released once the string is on the wire rather than once it is queued. Every
-            // other command keeps the queue-and-return send it has always had.
-            if (context.HoldsUntilReplyWritten)
+            if (context.TryClaimReply())
             {
-                await _root._connection!.SendTrackedAsync(reply, cancellationToken).ConfigureAwait(false);
+                await WriteReply(replyId, sessionId, context, result, failure: null, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                await SendAsync(reply, cancellationToken).ConfigureAwait(false);
+                await context.ReplyWrite.ConfigureAwait(false);
             }
         }
         catch (ProtocolException exception)
         {
-            await FailAsync(id, exception.Code, exception.Message, exception.Details, sessionId, cancellationToken).ConfigureAwait(false);
+            if (context?.TryClaimReply() ?? true)
+            {
+                await FailAsync(id, exception.Code, exception.Message, exception.Details, sessionId, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await context.ReplyWrite.ConfigureAwait(false);
+            }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             // A command that failed for a reason the protocol has no code for is still a command the client
             // is waiting on. It gets the server error rather than the exception, and the host keeps running.
-            await FailAsync(id, ProtocolErrorCodes.ServerError, exception.Message, details: null, sessionId, cancellationToken).ConfigureAwait(false);
+            if (context?.TryClaimReply() ?? true)
+            {
+                await FailAsync(id, ProtocolErrorCodes.ServerError, exception.Message, details: null, sessionId, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await context.ReplyWrite.ConfigureAwait(false);
+            }
         }
         finally
         {
@@ -202,6 +216,28 @@ internal sealed class DevToolsSession
             context?.ReleaseHeld();
             document.Dispose();
         }
+    }
+
+    /// <summary>Writes one command's reply, or its error, to the connection.</summary>
+    /// <remarks>
+    /// The message is enqueued before this returns: both transports only queue it, so the engine thread may
+    /// call this (<see cref="CommandContext.ReplyNow"/>). A command that reserved memory for its own reply is
+    /// answered through the tracked send, so the reservation is released once the string is on the wire rather
+    /// than once it is queued. Every other command keeps the queue-and-return send it has always had.
+    /// </remarks>
+    private ValueTask WriteReply(long id, string? sessionId, CommandContext context, string? result, Exception? failure, CancellationToken cancellationToken)
+    {
+        if (failure is null)
+        {
+            var reply = ProtocolMessage.WriteResponse(id, result!, sessionId);
+            return context.HoldsUntilReplyWritten
+                ? _root._connection!.SendTrackedAsync(reply, cancellationToken)
+                : SendAsync(reply, cancellationToken);
+        }
+
+        return failure is ProtocolException protocol
+            ? FailAsync(id, protocol.Code, protocol.Message, protocol.Details, sessionId, cancellationToken)
+            : FailAsync(id, ProtocolErrorCodes.ServerError, failure.Message, details: null, sessionId, cancellationToken);
     }
 
     /// <summary>Sends one event, which no client is waiting on and which carries no identifier.</summary>
