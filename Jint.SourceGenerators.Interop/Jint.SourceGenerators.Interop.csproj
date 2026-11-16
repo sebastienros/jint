@@ -38,7 +38,7 @@
     so there is nothing to buy by doing so.
 
     Jint.SourceGenerators is deliberately NOT pinned this way: it never leaves this repository, and this
-    repository's SDK floor is 10.0.100 (see the PolySharp note in Directory.Packages.props).
+    repository's SDK floor is 11.0.100 (see the Roslyn note in Directory.Packages.props).
   -->
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="4.8.0" PrivateAssets="all" />
