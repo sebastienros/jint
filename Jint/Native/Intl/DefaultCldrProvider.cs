@@ -21,7 +21,7 @@ namespace Jint.Native.Intl;
 /// Every member has a caller: whatever this class answers is what <c>Intl</c> shows, and whatever a derived
 /// class answers displaces it. Two answers here are derived rather than read, because .NET has nowhere to
 /// read them from. <see cref="DateTimeFormatInfo"/> has no narrow month slot at all, so
-/// <see cref="GetMonthNames"/> answers <c>"narrow"</c> with the first text element of the abbreviated name,
+/// <see cref="GetMonthNames"/> answers <c>"narrow"</c> with the first grapheme cluster of the abbreviated name,
 /// upper-cased; and its narrowest weekday slot, <c>ShortestDayNames</c>, holds CLDR's narrow names on Windows
 /// and its short ones on Linux, so <see cref="GetWeekdayNames"/> narrows that array the same way when the
 /// platform handed it the short one. Both reproduce CLDR for locales whose narrow form is an initial — Latin,
@@ -492,7 +492,7 @@ public class DefaultCldrProvider : ICldrProvider
     /// <remarks>
     /// Which of the two <c>ShortestDayNames</c> holds is a platform difference rather than a locale one: for
     /// <c>en</c> it is <c>S,M,T,W,T,F,S</c> on Windows and <c>Su,Mo,Tu,We,Th,Fr,Sa</c> on Linux. An array in
-    /// which no entry is a single text element is one of the latter, and narrowing each entry recovers the
+    /// which no entry is a single grapheme cluster is one of the latter, and narrowing each entry recovers the
     /// CLDR narrow name for every locale whose narrow form is an initial. An array that already has a
     /// single-element entry is left alone, so the locales whose narrow names are genuinely two characters
     /// long — <c>th</c>'s <c>อา</c>, <c>hi</c>'s <c>सो</c> — keep them.
@@ -503,7 +503,7 @@ public class DefaultCldrProvider : ICldrProvider
 
         foreach (var name in shortest)
         {
-            if (name.Length == 0 || StringInfo.GetNextTextElement(name, 0).Length == name.Length)
+            if (name.Length == 0 || GraphemeBreaker.NextBreak(name, 0) == name.Length)
             {
                 return shortest;
             }
@@ -519,15 +519,19 @@ public class DefaultCldrProvider : ICldrProvider
     }
 
     /// <summary>
-    /// One name reduced to its narrow form: the first text element, upper-cased in the locale's own casing
-    /// rules.
+    /// One name reduced to its narrow form: the first extended grapheme cluster, upper-cased in the locale's own
+    /// casing rules.
     /// </summary>
     /// <remarks>
-    /// A text element rather than a <c>char</c>, so a surrogate pair or a base letter carrying a combining
-    /// mark stays whole. The locale's own casing, so Turkish dotted and dotless I are not anglicised.
+    /// A grapheme cluster rather than a <c>char</c>, so a surrogate pair, a base letter carrying a combining mark or
+    /// a conjunct (GB9c, https://www.unicode.org/reports/tr29/#GB9c) stays whole. The cluster is
+    /// <see cref="GraphemeBreaker"/>'s, from the pinned Unicode table, rather than <see cref="StringInfo"/>'s text
+    /// element, which follows the runtime's Unicode data: no runtime applies GB9c, and .NET Framework's data
+    /// predates most of the other rules, so the same name was cut differently by each target framework. The locale's
+    /// own casing, so Turkish dotted and dotless I are not anglicised.
     /// </remarks>
     private static string Narrow(CultureInfo culture, string name)
-        => name.Length == 0 ? name : culture.TextInfo.ToUpper(StringInfo.GetNextTextElement(name, 0));
+        => name.Length == 0 ? name : culture.TextInfo.ToUpper(name.Substring(0, GraphemeBreaker.NextBreak(name, 0)));
 
     /// <inheritdoc />
     /// <remarks>
