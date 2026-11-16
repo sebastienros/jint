@@ -14,8 +14,8 @@
 # The 'verified' date is the only thing bounding anchor rot: a clause renamed upstream keeps
 # resolving here until somebody re-runs that.
 #
-verified: 2026-11-16
-anchors: 1355
+verified: 2026-11-14
+anchors: 1361
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -152,6 +152,8 @@ ecma262 sec-async-functions-abstract-operations-async-function-start
 ecma262 sec-async-module-execution-fulfilled
 ecma262 sec-async-module-execution-rejected
 ecma262 sec-asyncblockstart
+ecma262 sec-asyncdisposablestack.prototype.dispose
+ecma262 sec-asyncdisposablestack.prototype.move
 ecma262 sec-asyncfromsynciteratorcontinuation
 ecma262 sec-asyncgenerator-objects
 ecma262 sec-asyncgenerator-prototype-next
@@ -275,6 +277,7 @@ ecma262 sec-definemethodproperty
 ecma262 sec-deletepropertyorthrow
 ecma262 sec-detacharraybuffer
 ecma262 sec-disposablestack.prototype.dispose
+ecma262 sec-disposablestack.prototype.move
 ecma262 sec-disposeresources
 ecma262 sec-dowait
 ecma262 sec-ecmascript-function-objects-call-thisargument-argumentslist
@@ -357,6 +360,7 @@ ecma262 sec-get-sharedarraybuffer.prototype.growable
 ecma262 sec-get-sharedarraybuffer.prototype.maxbytelength
 ecma262 sec-getactivescriptormodule
 ecma262 sec-getarraybuffermaxbytelengthoption
+ecma262 sec-getdisposemethod
 ecma262 sec-getexportednames
 ecma262 sec-getfunctionrealm
 ecma262 sec-getiterator
@@ -883,8 +887,9 @@ ecma402 relativetimeformat-objects
 ecma402 sec-%intlsegmentiteratorprototype%-object
 ecma402 sec-%intlsegmentiteratorprototype%.%symbol.tostringtag%
 ecma402 sec-%intlsegmentiteratorprototype%.next
-ecma402 sec-%segmentsprototype%-@@iterator
-ecma402 sec-%segmentsprototype%.containing
+ecma402 sec-%intlsegmentsprototype%-@@iterator
+ecma402 sec-%intlsegmentsprototype%-object
+ecma402 sec-%intlsegmentsprototype%.containing
 ecma402 sec-InitializeRelativeTimeFormat
 ecma402 sec-Intl.DateTimeFormat.prototype.formatRangeToParts
 ecma402 sec-Intl.DateTimeFormat.prototype.formatToParts
@@ -938,6 +943,7 @@ ecma402 sec-collationsoflocale
 ecma402 sec-computeexponent
 ecma402 sec-computeexponentformagnitude
 ecma402 sec-createdatetimeformat
+ecma402 sec-createsegmentdataobject
 ecma402 sec-createsegmentiterator
 ecma402 sec-createsegmentsobject
 ecma402 sec-createstringlistfromiterable

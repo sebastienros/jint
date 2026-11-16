@@ -140,7 +140,20 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
 
         // 4. year (read but use reference year for PlainMonthDay)
         var yearProp = obj.Get("year");
-        var year = yearProp.IsUndefined() ? md.IsoDate.Year : TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearProp);
+        // An iso8601 month-day uses the year only for its leap status, so it must not saturate at int.MaxValue.
+        int year;
+        if (yearProp.IsUndefined())
+        {
+            year = md.IsoDate.Year;
+        }
+        else if (string.Equals(md.Calendar, "iso8601", StringComparison.Ordinal))
+        {
+            year = TemporalHelpers.ToLeapYearEquivalentIsoYear(TemporalHelpers.ToIntegerWithTruncation(_realm, yearProp));
+        }
+        else
+        {
+            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearProp);
+        }
 
         // Validate that at least one temporal field was provided (IsPartialTemporalObject)
         if (dayProp.IsUndefined() && monthProp.IsUndefined() && monthCodeProp.IsUndefined() && yearProp.IsUndefined())

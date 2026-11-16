@@ -62,7 +62,14 @@ internal sealed class DisposeCapability
     /// </summary>
     public bool HasResources => _disposableResourceStack.Count > 0;
 
-    public void AddDisposableResource(JsValue v, DisposeHint hint, ICallable? method = null)
+    public void AddDisposableResource(JsValue v, DisposeHint hint, ICallable? method = null) => AddDisposableResource(v, hint, null, method);
+
+    /// <summary>
+    /// <see cref="AddDisposableResource(JsValue, DisposeHint, ICallable?)"/> for a built-in that is not running in the
+    /// realm it belongs to: <paramref name="realm"/> (null for the running realm) is the realm of the
+    /// <c>TypeError</c> it raises and of the promise a sync dispose method gets wrapped in.
+    /// </summary>
+    public void AddDisposableResource(JsValue v, DisposeHint hint, Realm? realm, ICallable? method = null)
     {
         DisposableResource resource;
         if (method is null)
@@ -72,17 +79,17 @@ internal sealed class DisposeCapability
                 return;
             }
 
-            resource = CreateDisposableResource(v, hint);
+            resource = CreateDisposableResource(v, hint, null, realm);
         }
         else
         {
-            resource = CreateDisposableResource(JsValue.Undefined, hint, method);
+            resource = CreateDisposableResource(JsValue.Undefined, hint, method, realm);
         }
 
         _disposableResourceStack.Add(resource);
     }
 
-    private DisposableResource CreateDisposableResource(JsValue v, DisposeHint hint, ICallable? method = null)
+    private DisposableResource CreateDisposableResource(JsValue v, DisposeHint hint, ICallable? method, Realm? realm)
     {
         if (method is null)
         {
@@ -95,13 +102,13 @@ internal sealed class DisposeCapability
             {
                 if (!v.IsObject())
                 {
-                    Throw.TypeError(_engine.Realm, "Expected an object for disposable resource.");
+                    Throw.TypeError(realm ?? _engine.Realm, "Expected an object for disposable resource.");
                     return default;
                 }
-                method = v.AsObject().GetDisposeMethod(hint);
+                method = v.AsObject().GetDisposeMethod(hint, realm);
                 if (method is null)
                 {
-                    Throw.TypeError(_engine.Realm, "No dispose method found for the resource.");
+                    Throw.TypeError(realm ?? _engine.Realm, "No dispose method found for the resource.");
                     return default;
                 }
             }
