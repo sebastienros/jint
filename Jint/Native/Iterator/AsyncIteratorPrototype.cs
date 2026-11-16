@@ -1,3 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using Jint.Native.Array;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -529,9 +532,31 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             },
             onValue: (value, _, _) =>
             {
+                if (_engine._hasMaxArraySize && (uint) items.Count >= _engine.Options.Constraints.MaxArraySize)
+                {
+                    StopCollectionPastMaxArraySize(iterated, items.Count);
+                }
+
                 items.Add(value);
                 AsyncCollectLoop(iterated, items, promiseCapability);
             });
+    }
+
+    /// <summary>
+    /// <c>toArray</c> has been handed one value more than <c>MaxArraySize</c> allows: the iterator is closed with a throw
+    /// completion, as an abrupt completion of the built-in's own closes it
+    /// (https://tc39.es/ecma262/#sec-asynciteratorclose), and the run ends in the same exception every other array
+    /// past the limit raises (sebastienros/jint#4520). The close is started and not awaited: the promise of
+    /// <c>toArray</c> is never settled, because the exception ends the run, and a throw completion lets that win over
+    /// what <c>return</c> answers, as it does everywhere a built-in leaves by a throw. Out of line, so that the common
+    /// path of the loop is as it was.
+    /// </summary>
+    [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void StopCollectionPastMaxArraySize(IteratorInstance.ObjectIterator iterated, int count)
+    {
+        iterated.AsyncIteratorClose(CompletionType.Throw, static _ => { });
+        ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, (ulong) count + 1);
     }
 
     [JsFunction]
