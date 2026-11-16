@@ -38,6 +38,120 @@ internal sealed class NoArrayLikeViewFactory : ArrayLikeWrapperFactory
     public override ArrayLikeWrapper? Create(Engine engine, object target, Type type) => null;
 }
 
+/// <summary>
+/// How a list target crossing under a declared type other than its own is exposed (#4524).
+/// </summary>
+internal enum DeclaredTypeExposure : byte
+{
+    /// <summary>The declared type, with the view it names, as before.</summary>
+    Declared,
+
+    /// <summary>The declared dictionary, without the list view the target's runtime type would not have.</summary>
+    DeclaredWithoutListView,
+
+    /// <summary>The target's runtime type, with its own view.</summary>
+    Runtime,
+}
+
+/// <summary>
+/// What wrapping a target under one exposed type resolves once: the array-like view factory, and whether a list
+/// target's runtime type may decide its exposure instead of the declared type (#4524).
+/// </summary>
+/// <remarks>
+/// <para>
+/// A declared type picks a list view only when it is an explicit list contract: an interface such as
+/// <see cref="IList{T}"/>, <see cref="IReadOnlyList{T}"/> or <see cref="IList"/>. A declared class does not:
+/// Newtonsoft's <c>JToken</c> and <c>JContainer</c> are what a <c>JObject</c> or a <c>JArray</c> crosses as through a
+/// member, and the view they named was a list of a <c>JObject</c>'s <c>JProperty</c> nodes, or a <c>JArray</c> whose
+/// every other name reached <c>JToken</c>'s object indexer and threw. So a list crossing as a class it derives from is
+/// wrapped as its own type. <see cref="object"/> and the remaining interfaces (<c>IEnumerable&lt;JToken&gt;</c>,
+/// <c>IDictionary&lt;string, JToken&gt;</c>) defer only for a runtime type addressed by key alone
+/// (<see cref="TypeDescriptor.IsAddressedByKeyOnly"/>): a declared dictionary keeps its exposure without the list
+/// view, anything else becomes the runtime type.
+/// </para>
+/// <para>
+/// The decision is memoized for the last runtime type seen, so a declared type that always holds the same runtime
+/// type decides once. A sealed declared type, an explicit list contract and a type addressed by key alone never
+/// defer, and their crossings pay one flag test.
+/// </para>
+/// </remarks>
+internal sealed class ExposureResolution
+{
+    private readonly Type _declaredType;
+    private readonly bool _declaredIsClass;
+    private readonly bool _declaredIsDictionary;
+    private RuntimeTypeExposure? _last;
+
+    internal ExposureResolution(Type declaredType, TypeDescriptor declaredDescriptor, ArrayLikeWrapperFactory? factory)
+    {
+        _declaredType = declaredType;
+        Factory = factory;
+
+        var isExplicitListContract = declaredType.IsInterface
+                                     && (factory is not null || typeof(IList).IsAssignableFrom(declaredType));
+        RuntimeTypeMayDecide = !declaredType.IsSealed
+                               && !declaredDescriptor.IsAddressedByKeyOnly
+                               && !isExplicitListContract;
+        _declaredIsClass = !declaredType.IsInterface && declaredType != typeof(object);
+        _declaredIsDictionary = declaredDescriptor.IsDictionary;
+    }
+
+    /// <summary>The array-like view factory for the exposed type, <see langword="null"/> for none.</summary>
+    internal ArrayLikeWrapperFactory? Factory { get; }
+
+    /// <summary>Whether a list target of another runtime type may be exposed otherwise than as the declared type.</summary>
+    internal bool RuntimeTypeMayDecide { get; }
+
+    internal bool TryGetMemoized(Type runtimeType, out DeclaredTypeExposure exposure)
+    {
+        var last = _last;
+        if (last is not null && ReferenceEquals(last.RuntimeType, runtimeType))
+        {
+            exposure = last.Exposure;
+            return true;
+        }
+
+        exposure = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Decides how a target of <paramref name="runtimeType"/>, described by <paramref name="runtimeDescriptor"/>, is
+    /// exposed under the declared type, and memoizes the answer.
+    /// </summary>
+    internal DeclaredTypeExposure Decide(Type runtimeType, TypeDescriptor runtimeDescriptor)
+    {
+        DeclaredTypeExposure exposure;
+        if (!_declaredType.IsAssignableFrom(runtimeType) || !typeof(IList).IsAssignableFrom(runtimeType))
+        {
+            // a host may name a type its target does not implement, and keeps the answer it had
+            exposure = DeclaredTypeExposure.Declared;
+        }
+        else if (_declaredIsClass)
+        {
+            exposure = DeclaredTypeExposure.Runtime;
+        }
+        else if (!runtimeDescriptor.IsAddressedByKeyOnly)
+        {
+            exposure = DeclaredTypeExposure.Declared;
+        }
+        else
+        {
+            exposure = _declaredIsDictionary ? DeclaredTypeExposure.DeclaredWithoutListView : DeclaredTypeExposure.Runtime;
+        }
+
+        // a racy publication of an immutable pair: a lost update only costs the next crossing a decision
+        _last = new RuntimeTypeExposure(runtimeType, exposure);
+        return exposure;
+    }
+
+    private sealed class RuntimeTypeExposure(Type runtimeType, DeclaredTypeExposure exposure)
+    {
+        public readonly Type RuntimeType = runtimeType;
+        public readonly DeclaredTypeExposure Exposure = exposure;
+    }
+}
+
 internal sealed class ArrayWrapperFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : ArrayLikeWrapperFactory
 {
     public override ArrayLikeWrapper Create(Engine engine, object target, Type type)

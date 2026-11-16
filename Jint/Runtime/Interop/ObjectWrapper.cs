@@ -232,7 +232,37 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         type ??= target.GetType();
 
-        if (TryBuildArrayLikeWrapper(engine, target, type, out var wrapper))
+        var resolution = ResolveExposure(type);
+        var listViewAllowed = true;
+
+        // A declared type that is not an explicit list contract may not pick the view of a list whose runtime type
+        // is something else (#4524): a JObject typed JToken, JContainer or object is the keyed object it is as
+        // JObject, one typed IDictionary<string, JToken> keeps that exposure without a list view, and a JArray typed
+        // JToken is the list it is as JArray. ExposureResolution says which declared types may defer. One that
+        // cannot pays a flag test, and one crossing as its own type a reference comparison more.
+        if (resolution.RuntimeTypeMayDecide)
+        {
+            var runtimeType = target.GetType();
+            if (!ReferenceEquals(runtimeType, type) && target is IList)
+            {
+                if (!resolution.TryGetMemoized(runtimeType, out var exposure))
+                {
+                    exposure = resolution.Decide(runtimeType, TypeDescriptor.Get(runtimeType));
+                }
+
+                if (exposure == DeclaredTypeExposure.Runtime)
+                {
+                    type = runtimeType;
+                    resolution = ResolveExposure(type);
+                }
+                else if (exposure == DeclaredTypeExposure.DeclaredWithoutListView)
+                {
+                    listViewAllowed = false;
+                }
+            }
+        }
+
+        if (listViewAllowed && TryBuildArrayLikeWrapper(engine, target, type, resolution.Factory, out var wrapper))
         {
             return wrapper;
         }
@@ -240,52 +270,96 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return new ObjectWrapper(engine, target, type);
     }
 
-    private static readonly ConcurrentDictionary<Type, ArrayLikeWrapperFactory?> _arrayLikeWrapperResolution = new();
+    private static readonly ConcurrentDictionary<Type, ExposureResolution> _exposureResolution = new();
+
+    /// <summary>
+    /// What wrapping a target under <paramref name="type"/> needs resolved once: the array-like view factory, and
+    /// whether the target's runtime type may decide the exposure instead.
+    /// </summary>
+    /// <remarks>
+    /// Resolved once per exposed type: reflection (interface scan + generic instantiation + Activator) runs only on
+    /// the first sighting, every later wrapper creation is a dictionary read. Deliberately not GetOrAdd with a
+    /// lambda: a lambda parameter carries no [DynamicallyAccessedMembers], so <paramref name="type"/>'s annotation
+    /// is lost at the closure boundary and the interface scan inside reads as unannotated in every trimming build.
+    /// </remarks>
+    internal static ExposureResolution ResolveExposure(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    {
+        if (_exposureResolution.TryGetValue(type, out var resolution))
+        {
+            return resolution;
+        }
+
+        var descriptor = TypeDescriptor.Get(type);
+        ArrayLikeWrapperFactory? factory;
+        if (descriptor.IsAddressedByKeyOnly)
+        {
+            // a dictionary whose list holds its entries (JObject's JProperty nodes) is an object to script,
+            // not a view of that list: no factory is built, and the IList fallback below is not taken (#4501)
+            factory = NoArrayLikeViewFactory.Instance;
+        }
+        else
+        {
+            try
+            {
+                var factoryType = ResolveArrayLikeWrapperFactoryType(type);
+                factory = factoryType is null ? null : (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
+            }
+            catch (Exception e) when (IsMissingGenericInstantiation(e))
+            {
+                // no typed factory on this runtime; the caller degrades to the non-generic ListWrapper,
+                // or to a plain ObjectWrapper when the target is not even an IList
+                factory = null;
+            }
+        }
+
+        // GetOrAdd's value overload rather than TryAdd, so that a race still hands every caller the
+        // same resolution the dictionary holds - which is what the factory overload guaranteed.
+        return _exposureResolution.GetOrAdd(type, new ExposureResolution(type, descriptor, factory));
+    }
+
+    /// <summary>
+    /// Whether <paramref name="wrapper"/> is what wrapping its target under <paramref name="exposedType"/> builds,
+    /// although its <see cref="ClrType"/> is another type: the runtime type that exposure defers to (#4524).
+    /// </summary>
+    /// <remarks>
+    /// The identity caches match a wrapper to the type its target is crossing as, and for a deferring exposure that
+    /// is not the wrapper's own type. Asked only once a cached wrapper's type has already differed, so an ordinary
+    /// lookup never reaches it.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static bool IsDeferredExposureOf(ObjectWrapper wrapper, Type exposedType)
+    {
+        if (!_exposureResolution.TryGetValue(exposedType, out var resolution)
+            || !resolution.RuntimeTypeMayDecide
+            || wrapper.Target is not IList)
+        {
+            return false;
+        }
+
+        var runtimeType = wrapper.ClrType;
+        if (!ReferenceEquals(runtimeType, wrapper.Target.GetType()))
+        {
+            return false;
+        }
+
+        if (!resolution.TryGetMemoized(runtimeType, out var exposure))
+        {
+            // the wrapper's own descriptor is the runtime type's, which is what Decide reads
+            exposure = resolution.Decide(runtimeType, wrapper._typeDescriptor);
+        }
+
+        return exposure == DeclaredTypeExposure.Runtime;
+    }
 
     private static bool TryBuildArrayLikeWrapper(
         Engine engine,
         object target,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties)] Type type,
+        ArrayLikeWrapperFactory? factory,
         [NotNullWhen(true)] out ArrayLikeWrapper? result)
     {
         result = null;
-
-        // resolved once per exposed type: reflection (interface scan + generic instantiation +
-        // Activator) runs only on the first sighting, every later wrapper creation is a single
-        // virtual call into the cached factory.
-        //
-        // Deliberately not GetOrAdd with a lambda: a lambda parameter carries no
-        // [DynamicallyAccessedMembers], so `type`'s annotation is lost at the closure boundary and the
-        // interface scan inside reads as unannotated in every trimming build. Resolving in this method
-        // keeps the annotated parameter in scope. A cached miss is stored as null and TryGetValue reports
-        // it, so a type that is not array-like is resolved once and not once per crossing.
-        if (!_arrayLikeWrapperResolution.TryGetValue(type, out var factory))
-        {
-            if (TypeDescriptor.Get(type).IsAddressedByKeyOnly)
-            {
-                // a dictionary whose list holds its entries (JObject's JProperty nodes) is an object to script,
-                // not a view of that list: no factory is built, and the IList fallback below is not taken (#4501)
-                factory = NoArrayLikeViewFactory.Instance;
-            }
-            else
-            {
-                try
-                {
-                    var factoryType = ResolveArrayLikeWrapperFactoryType(type);
-                    factory = factoryType is null ? null : (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
-                }
-                catch (Exception e) when (IsMissingGenericInstantiation(e))
-                {
-                    // no typed factory on this runtime; the caller degrades to the non-generic ListWrapper,
-                    // or to a plain ObjectWrapper when the target is not even an IList
-                    factory = null;
-                }
-            }
-
-            // GetOrAdd's value overload rather than TryAdd, so that a race still hands every caller the
-            // same factory the dictionary holds - which is what the factory overload guaranteed.
-            factory = _arrayLikeWrapperResolution.GetOrAdd(type, factory);
-        }
 
         // IsInstanceOfType is what keeps the factory's cast honest. Every factory casts the target to the
         // contract the exposed type named - (T[]), (IList<T>), (IReadOnlyList<T>) - and until the exposed
@@ -458,7 +532,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     private static EnumerableSnapshotFactory ResolveEnumerableSnapshotFactory(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
     {
-        // resolved out of the lambda for the reason TryBuildArrayLikeWrapper's is: an annotated Type does
+        // resolved out of the lambda for the reason ResolveExposure's is: an annotated Type does
         // not survive the closure boundary, so the interface scan below read as unannotated.
         if (_enumerableSnapshotResolution.TryGetValue(type, out var cached))
         {
