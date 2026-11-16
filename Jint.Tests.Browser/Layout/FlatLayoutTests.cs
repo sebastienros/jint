@@ -585,6 +585,40 @@ public class FlatLayoutTests
     }
 
     /// <summary>
+    /// https://drafts.csswg.org/css-sizing-4/#aspect-ratio — a box with an authored aspect ratio and an auto height
+    /// is its used width divided by the ratio, reported exactly, and takes the rows that height covers: a card's
+    /// 16:9 image header as wide as the card. Taller content still wins, and an authored height is kept.
+    /// </summary>
+    [TestCase("aspect-ratio: 16 / 9", 180)]
+    [TestCase("aspect-ratio: 16/9", 180)]
+    [TestCase("aspect-ratio: auto 2 / 1", 160)]
+    [TestCase("aspect-ratio: 1.6", 200)]
+    [TestCase("aspect-ratio: 10", 48)]
+    [TestCase("aspect-ratio: 16 / 9; height: 40px", 48)]
+    public async Task AnAspectRatioGivesABoxItsHeight(string style, double height)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            $"""
+            <div style="width: 320px"><div id="art" style="{style}"><b>a</b><b>b</b></div><p id="after">after</p></div>
+            """);
+
+        // html, body, the card, then the header at 3 rows; its content is three rows (48 px).
+        (await Rect(page, "document.getElementById('art')")).Should().Be($"0,{3 * Row},320,{height}");
+        // What follows it starts where it ends.
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{(3 * Row) + height},320,{Row}");
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(100, {(3 * Row) + height + 4}).id")).Should().Be("after");
+
+        // The space below its content is the header's own.
+        if (height > 3 * Row)
+        {
+            (await page.EvaluateAsync<string>($"document.elementFromPoint(100, {(3 * Row) + height - 4}).id")).Should().Be("art");
+        }
+    }
+
+    /// <summary>
     /// https://drafts.csswg.org/css-grid-2/#layout-algorithm — a grid item is as wide as the column tracks it
     /// spans and the gaps between them, whether the track count and the span come from a var() or not.
     /// </summary>

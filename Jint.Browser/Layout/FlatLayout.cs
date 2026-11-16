@@ -361,6 +361,11 @@ internal sealed class FlatLayout
                 || CssCascade.ValueOf(style, "max-width") is not (null or "" or "none")
                 || CssCascade.ValueOf(style, "min-width") is not (null or "" or "auto" or "0" or "0px"));
 
+    /// <summary>Whether <paramref name="element"/> declares an aspect ratio, which can give it more rows than its content.</summary>
+    private static bool HasAspectRatio(Element element, CssCascade.Traversal? cascade)
+        => cascade?.LayoutOf(element) is { } style
+            && CssCascade.ValueOf(style, "aspect-ratio") is { Length: > 0 } ratio && !ratio.Trim().Equals("auto", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Whether <paramref name="element"/> is absolutely positioned, out of its parent's flow.</summary>
     private static bool IsOutOfFlow(Element element, CssCascade.Traversal? cascade)
         => cascade?.LayoutOf(element) is { } style
@@ -384,7 +389,7 @@ internal sealed class FlatLayout
             // So can an invisible one, which the row division would hit, and a column whose height or growth
             // gives a box more rows than its descendants.
             hasFlexRows = hasFlexRows || invisible || FlexRow.IsHorizontal(element, cascade) || IsOutOfFlow(element, cascade)
-                || FlexRow.IsColumn(element, cascade) || HasAuthoredWidth(element, cascade);
+                || FlexRow.IsColumn(element, cascade) || HasAuthoredWidth(element, cascade) || HasAspectRatio(element, cascade);
 
             for (var child = element.LastChild; child is not null; child = child.PreviousSibling)
             {
@@ -1056,7 +1061,12 @@ internal sealed class FlatLayout
                 Step();
                 if ((element.ParentNode as Element) is not { } parent || !SizedByParent(element, parent))
                 {
-                    _heights.Add(element, CountRows(element) * RowHeight);
+                    var rows = CountRows(element);
+                    // An aspect ratio's height is reported as it is, not rounded up to the rows it takes, unless
+                    // the content is taller (CSS Sizing 4's automatic minimum).
+                    _heights.Add(element, RatioHeight(element) is { } ratio
+                        ? Math.Max(ratio, ContentRows(element) * RowHeight)
+                        : rows * RowHeight);
                     break;
                 }
 
@@ -1113,15 +1123,65 @@ internal sealed class FlatLayout
         /// </summary>
         private int DefiniteRows(Element element)
         {
+            var ratioRows = RatioHeight(element) is { } ratio ? (int) Math.Min(int.MaxValue / 2, Math.Ceiling(ratio / RowHeight)) : 0;
             if (!FlexRow.IsColumn(element, cascade) || cascade?.LayoutOf(element) is not { } style)
             {
-                return 0;
+                return ratioRows;
             }
 
             var height = ResolvedLengths.Resolve("height", style.GetNormalizedProperty("height"), style, ViewportOf());
             return height.EndsWith("px", StringComparison.Ordinal) && FlexRow.Length(height, 0) is { } pixels
                 ? (int) Math.Min(int.MaxValue / 2, Math.Ceiling(pixels / RowHeight))
-                : 0;
+                : ratioRows;
+        }
+
+        /// <summary>
+        /// The height an authored <c>aspect-ratio</c> gives a box whose height is <c>auto</c>
+        /// (https://drafts.csswg.org/css-sizing-4/#aspect-ratio): its used width divided by the ratio — a card's
+        /// 16:9 image header as wide as the card. <see langword="null"/> without a ratio, for <c>auto</c> alone
+        /// (a non-replaced box has no natural ratio), or when the height is authored. The content still wins when
+        /// it is taller, which the callers apply: the ratio only sets a minimum on the rows.
+        /// </summary>
+        private double? RatioHeight(Element element)
+        {
+            if (cascade?.LayoutOf(element) is not { } style
+                || CssCascade.ValueOf(style, "height") is not (null or "" or "auto")
+                || Ratio(CssCascade.ValueOf(style, "aspect-ratio")) is not { } ratio)
+            {
+                return null;
+            }
+
+            var width = WidthOf(element);
+            return width > 0 ? width / ratio : null;
+
+            // <ratio> is <number> [ / <number> ]?, with an optional auto keyword on either side.
+            static double? Ratio(string? value)
+            {
+                if (value is null) return null;
+                var text = value.Replace("auto", "", StringComparison.OrdinalIgnoreCase).Trim();
+                if (text.Length == 0) return null;
+                var slash = text.IndexOf('/');
+                if (!double.TryParse(slash < 0 ? text : text[..slash], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var width)) return null;
+                var height = 1d;
+                if (slash >= 0 && !double.TryParse(text[(slash + 1)..], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out height)) return null;
+                return width > 0 && height > 0 && double.IsFinite(width / height) ? width / height : null;
+            }
+        }
+
+        // The rows a box's content takes, without what a definite height or a ratio adds: its own row and its
+        // children's, side by side in a horizontal flex row. CountRows has counted the children already.
+        private int ContentRows(Element element)
+        {
+            var rows = 0;
+            var horizontal = FlexRow.IsHorizontal(element, cascade);
+            foreach (var child in Children(element))
+            {
+                Step();
+                var count = TryRows(child, out var known) ? known : CountRows(child);
+                rows = horizontal ? Math.Max(rows, count) : rows + count;
+            }
+
+            return rows + 1;
         }
 
         /// <summary>The page's viewport, which vw, vh and rem lengths resolve against.</summary>
