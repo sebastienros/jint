@@ -105,7 +105,7 @@ internal sealed partial class NativeCssQuery
             Verify();
             return result;
         }
-        catch { _aborted = true; _states.Clear(); _pseudoStates.Clear(); throw; }
+        catch { _aborted = true; _states.Clear(); _pseudoStates.Clear(); _ancestorFilters?.Clear(); throw; }
     }
 
     internal bool HasPropertyInput(Element element, string name, ref SelectorMatchWork matching) =>
@@ -294,10 +294,12 @@ internal sealed partial class NativeCssQuery
         var candidates = _candidateBuffer ?? [];
         _candidateBuffer = null;
         _index!.Collect(element, candidates, _seenCandidates!, ref _candidateGeneration, _work);
+        var ancestors = AncestorsOf(element);
         foreach (var position in candidates)
         {
             _work.Charge(1);
             var (rule, origin, order, namespaceUri, layer) = _rules![position];
+            if (_scopeChains?.ContainsKey(rule) != true && !_index.Admits(position, pseudo is not null, ancestors)) continue;
             if (namespaceUri is not null && element.NamespaceUri != namespaceUri) continue;
             var scope = (rule.ParentStyleSheet?.Attachment.OwnerNode ??
                 rule.ParentStyleSheet?.EffectiveOwnerNode(_work))?.TreeShadowRoot;
@@ -474,3 +476,4 @@ internal sealed partial class NativeCssQuery
         public int GetHashCode(string value) => unchecked((int) CssText.Hash(value, work));
     }
 }
+

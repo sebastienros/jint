@@ -7,8 +7,10 @@ namespace Jint.Browser.Styling;
 // separate bounded cache; media, ownership and CSSOM identities remain fresh for each sheet.
 internal sealed class NativeCssSyntaxCache
 {
-    private const int MaxEntries = 16;
-    private const int MaxUnits = 2 * 1024 * 1024;
+    // An admin page alone links a dozen sheets (a framework, a theme, icon fonts, editors) and inlines more, and
+    // the prepared-rule cache keys rules by these sources' identity: evicting one re-parses every rule in it.
+    private const int MaxEntries = 256;
+    private const int MaxUnits = 32 * 1024 * 1024;
     private readonly object _gate = new();
     private readonly Dictionary<string, CssRawRule[]> _rules = new(StringComparer.Ordinal);
     private readonly Queue<string> _order = new();

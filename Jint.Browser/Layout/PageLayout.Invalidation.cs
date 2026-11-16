@@ -43,7 +43,7 @@ internal sealed partial class PageLayout
     internal bool TryGetCollectionVersion(out ulong version)
     {
         version = Version;
-        return !_reuseDisabled && _mutationDepth == 0 && _runtime.ReadyState == "complete"
+        return !_reuseDisabled && _mutationDepth == 0 && _runtime.ReadyState is "interactive" or "complete"
             && _runtime.Options.EngineConfiguration.Count == 0;
     }
 
@@ -111,7 +111,7 @@ internal sealed partial class PageLayout
     {
         // ConfigureEngine can install arbitrary native writers, converters and selector services.
         // Keep its existing contract, without requiring hosts to adopt a new invalidation API.
-        if (_runtime.Document?.MutationStamp == ulong.MaxValue || _reuseDisabled || _mutationDepth != 0 || _runtime.ReadyState != "complete"
+        if (_runtime.Document?.MutationStamp == ulong.MaxValue || _reuseDisabled || _mutationDepth != 0 || _runtime.ReadyState is not ("interactive" or "complete")
             || _runtime.Options.EngineConfiguration.Count != 0 || CssRuleUsage.IsTrackingDocument(_runtime.Document))
         {
             _sizes = null;

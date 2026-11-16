@@ -55,7 +55,8 @@ internal static class BrowserEngineFactory
             request.Requests,
             request.Emulation,
             request.Url,
-            options.MaxSubresourceBytes);
+            options.MaxSubresourceBytes,
+            options.ShareParsedScripts);
 
         var engine = new Engine(o =>
         {

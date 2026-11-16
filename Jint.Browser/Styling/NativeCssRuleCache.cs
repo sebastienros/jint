@@ -21,18 +21,23 @@ internal sealed class NativeCssRuleCache
     private readonly Dictionary<string, int> _sources = new(ReferenceEqualityComparer.Instance);
     private int _units;
 
-    private readonly record struct Key(string Text, int Start);
+    private readonly record struct Key(string Text, int Start, int Length)
+    {
+        internal ReadOnlySpan<char> Rule => Text.AsSpan(Start, Length);
+    }
 
-    // A rule is its source text and its offset in it. The texts are the syntax cache's own instances, shared by
-    // every sheet parsed from the same source, so identity is enough — and hashing a whole style sheet for each
-    // of its rules would cost more than parsing them.
+    // A rule parses from its own text alone, so it is keyed by that text and its offset, in whichever instance of
+    // its sheet's source: every document fetches its sheets anew. Hashing a whole style sheet for each of its
+    // rules would cost more than parsing them, so only the rule's span is hashed and compared.
     private sealed class KeyComparer : IEqualityComparer<Key>
     {
         internal static readonly KeyComparer Instance = new();
 
-        public bool Equals(Key x, Key y) => ReferenceEquals(x.Text, y.Text) && x.Start == y.Start;
+        // The same offset too: a compiled selector keeps source positions, which must stay the ones of this text.
+        public bool Equals(Key x, Key y)
+            => x.Start == y.Start && x.Length == y.Length && (ReferenceEquals(x.Text, y.Text) || x.Rule.SequenceEqual(y.Rule));
 
-        public int GetHashCode(Key key) => HashCode.Combine(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(key.Text), key.Start);
+        public int GetHashCode(Key key) => HashCode.Combine(string.GetHashCode(key.Rule), key.Start);
     }
 
     // The declaration prototype is private, unowned and never mutated or returned. Copy creates
@@ -47,7 +52,8 @@ internal sealed class NativeCssRuleCache
             return CssParser.ParseRule(raw, work, nestingParent);
 
         work.Charge(raw.Text.Span.Length);
-        var key = new Key(raw.Text.Text, raw.Text.Span.Start);
+        // The sheet's source and the rule's span in it: CssSourceText.Text would copy the rule's text out.
+        var key = new Key(raw.Text.Source, raw.Text.Span.Start, raw.Text.Span.Length);
         Entry? entry;
         lock (_gate) _entries.TryGetValue(key, out entry);
         if (entry is not null)

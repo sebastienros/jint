@@ -140,6 +140,39 @@ public sealed class ModuleLoadCompletion
     }
 
     /// <summary>
+    /// Finishes the load with module source text the host already parsed — a parse shared between the engines of
+    /// a process, as a browser shares a module every page imports — which becomes the record of a JavaScript
+    /// module exactly as <see cref="SetSource(string)"/> would make it. A request for another kind of module
+    /// (JSON, text, bytes) ignores <paramref name="prepared"/> and builds from <paramref name="code"/>.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="prepared"/> must be <paramref name="code"/> parsed as this engine parses a module: with its
+    /// source-text retention, at <see cref="ModuleFactory.LocationOf"/>, and with no parsing constraints.
+    /// </remarks>
+    internal void SetSource(string code, Prepared<Module> prepared)
+    {
+        if (code is null)
+        {
+            Throw.ArgumentNullException(nameof(code));
+        }
+
+        Settle(() => Build(() =>
+        {
+            var length = System.Text.Encoding.UTF8.GetByteCount(code);
+            _modules.EnsureModuleRegistrationAllowed(_cacheKey, length);
+            var request = Resolved.ModuleRequest;
+            if (request.IsBytesModule() || request.IsTextModule() || request.IsJsonModule())
+            {
+                return ModuleFactory.BuildFromContents(Engine, Resolved, code, _parsingConstraints);
+            }
+
+            var record = ModuleFactory.BuildSourceTextModule(Engine, in prepared);
+            record.SourceByteLength = length;
+            return record;
+        }));
+    }
+
+    /// <summary>
     /// Finishes the load with raw module content. Bytes modules (<c>with { type: "bytes" }</c>) take them as
     /// they are; anything else is decoded as UTF-8.
     /// </summary>

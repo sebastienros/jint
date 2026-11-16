@@ -26,8 +26,8 @@ internal Jint.HtmlParser.Css.CssRuleBody
 internal Jint.HtmlParser.Css.CssRuleBodyKind
 internal Jint.HtmlParser.Css.CssSourceText
     From
+    get_Source
     get_Span
-    get_Text
 internal Jint.HtmlParser.Css.Media.CssMediaEnvironment
     (constructor)
     get_ForcedColors
@@ -240,7 +240,10 @@ internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKey
     get_Name
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKeyKind
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKeys
+    AllSubjectsArePseudoElements
+    NoSubjectIsAPseudoElement
     TryCollect
+    TryCollectAncestorKeys
 internal Jint.HtmlParser.Css.Serialization.CssRuleSerializer
     Serialize
 internal Jint.HtmlParser.Css.Syntax.CssAscii
