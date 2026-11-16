@@ -27,6 +27,11 @@
     <EmbeddedResource Include="..\tools\cldr-dates\reference\golden-styles.tsv" LogicalName="cldr-dates-golden-styles.tsv" />
     <EmbeddedResource Include="..\tools\cldr-dates\reference\range-golden.tsv" LogicalName="cldr-dates-range-golden.tsv" />
     <EmbeddedResource Include="..\tools\cldr-dates\reference\golden-calendars.tsv" LogicalName="cldr-dates-golden-calendars.tsv" />
+    <!-- The conformance tests of UAX #29's grapheme cluster, word and sentence boundaries, vendored beside the
+         generator of the tables they check. -->
+    <EmbeddedResource Include="..\tools\text-segmentation\GraphemeBreakTest.txt" LogicalName="unicode-GraphemeBreakTest.txt" />
+    <EmbeddedResource Include="..\tools\text-segmentation\WordBreakTest.txt" LogicalName="unicode-WordBreakTest.txt" />
+    <EmbeddedResource Include="..\tools\text-segmentation\SentenceBreakTest.txt" LogicalName="unicode-SentenceBreakTest.txt" />
   </ItemGroup>
 
   <!--

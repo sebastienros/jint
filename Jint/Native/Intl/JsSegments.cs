@@ -1,4 +1,3 @@
-using System.Globalization;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -97,128 +96,52 @@ internal sealed class JsSegments : ObjectInstance
         };
     }
 
+    /// <summary>
+    /// The extended grapheme clusters of <paramref name="input"/> by the grapheme cluster boundary rules of UAX #29, see
+    /// <see cref="GraphemeBreaker"/>.
+    /// </summary>
     private static List<SegmentData> ComputeGraphemeSegments(string input)
     {
         var segments = new List<SegmentData>();
-        var enumerator = StringInfo.GetTextElementEnumerator(input);
+        var index = 0;
 
-        while (enumerator.MoveNext())
+        while (index < input.Length)
         {
+            var end = GraphemeBreaker.NextBreak(input, index);
             segments.Add(new SegmentData
             {
-                Segment = enumerator.GetTextElement(),
-                Index = enumerator.ElementIndex,
+                Segment = input.Substring(index, end - index),
+                Index = index,
                 IsWordLike = false
             });
+            index = end;
         }
 
         return segments;
     }
 
+    /// <summary>
+    /// The words of <paramref name="input"/> by the word boundary rules of UAX #29, see <see cref="WordBreaker"/>.
+    /// </summary>
     private static List<SegmentData> ComputeWordSegments(string input)
     {
         var segments = new List<SegmentData>();
+        var index = 0;
 
-        // First, get grapheme clusters
-        var graphemes = new List<GraphemeInfo>();
-        var enumerator = StringInfo.GetTextElementEnumerator(input);
-        while (enumerator.MoveNext())
+        while (index < input.Length)
         {
-            graphemes.Add(new GraphemeInfo(enumerator.GetTextElement(), enumerator.ElementIndex));
-        }
-
-        if (graphemes.Count == 0)
-        {
-            return segments;
-        }
-
-        var i = 0;
-        while (i < graphemes.Count)
-        {
-            var grapheme = graphemes[i].Text;
-            var startIndex = graphemes[i].Index;
-            var firstChar = grapheme[0];
-
-            if (char.IsWhiteSpace(firstChar))
+            var end = WordBreaker.NextBreak(input, index, out var isWordLike);
+            segments.Add(new SegmentData
             {
-                // Whitespace segment - group consecutive whitespace graphemes
-                var endIndex = startIndex + grapheme.Length;
-                i++;
-                while (i < graphemes.Count && graphemes[i].Text.Length > 0 && char.IsWhiteSpace(graphemes[i].Text[0]))
-                {
-                    endIndex = graphemes[i].Index + graphemes[i].Text.Length;
-                    i++;
-                }
-                segments.Add(new SegmentData
-                {
-                    Segment = input.Substring(startIndex, endIndex - startIndex),
-                    Index = startIndex,
-                    IsWordLike = false
-                });
-            }
-            else if (char.IsLetterOrDigit(firstChar) || char.GetUnicodeCategory(firstChar) == UnicodeCategory.ModifierLetter)
-            {
-                // Word segment - group consecutive word-like graphemes
-                var endIndex = startIndex + grapheme.Length;
-                i++;
-                while (i < graphemes.Count)
-                {
-                    var nextGrapheme = graphemes[i].Text;
-                    if (nextGrapheme.Length == 0) break;
-                    var nextChar = nextGrapheme[0];
-                    // Include letters, digits, apostrophe, hyphen, and modifier marks
-                    if (char.IsLetterOrDigit(nextChar) ||
-                        nextChar == '\'' || nextChar == '-' ||
-                        char.GetUnicodeCategory(nextChar) == UnicodeCategory.ModifierLetter ||
-                        char.GetUnicodeCategory(nextChar) == UnicodeCategory.NonSpacingMark)
-                    {
-                        endIndex = graphemes[i].Index + nextGrapheme.Length;
-                        i++;
-                    }
-                    // Include decimal point or comma when between digits (for numbers like 1.23 or 1,000)
-                    else if ((nextChar == '.' || nextChar == ',') && i + 1 < graphemes.Count)
-                    {
-                        var afterNext = graphemes[i + 1].Text;
-                        if (afterNext.Length > 0 && char.IsDigit(afterNext[0]))
-                        {
-                            // Include the decimal/comma and the next digit
-                            endIndex = graphemes[i + 1].Index + afterNext.Length;
-                            i += 2;
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                segments.Add(new SegmentData
-                {
-                    Segment = input.Substring(startIndex, endIndex - startIndex),
-                    Index = startIndex,
-                    IsWordLike = true
-                });
-            }
-            else
-            {
-                // Punctuation/other - each grapheme is its own segment
-                segments.Add(new SegmentData
-                {
-                    Segment = grapheme,
-                    Index = startIndex,
-                    IsWordLike = false
-                });
-                i++;
-            }
+                Segment = input.Substring(index, end - index),
+                Index = index,
+                IsWordLike = isWordLike
+            });
+            index = end;
         }
 
         return segments;
     }
-
-    private readonly record struct GraphemeInfo(string Text, int Index);
 
     /// <summary>
     /// The sentences of <paramref name="input"/> by the sentence boundary rules of UAX #29, see <see cref="SentenceBreaker"/>.

@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Reflection;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -689,13 +690,15 @@ public class HostDictionaryForeignKeyWriteTests
 
     /// <summary>
     /// A non-extensible wrapper refuses the new key (<c>Reflect.set</c> answers <c>false</c>), so it is not listed.
-    /// What becoming non-extensible does list is the wrapper's own <c>Symbol.iterator</c> projection (#4528).
+    /// What becoming non-extensible does list is the wrapper's own <c>Symbol.iterator</c> projection (#4528), and the
+    /// dictionary's CLR members (#4682), which the lists compared here leave out.
     /// </summary>
     [TestCaseSource(nameof(ShapesAndModes))]
     public void ANonExtensibleWrapperListsNothingItRefused(string shape, bool strict)
     {
         var (host, count) = CreateShape(shape);
         var engine = CreateEngine(host, allowWrite: true, strict);
+        engine.Execute($"var clrMembers = new Set({ClrMemberNames(host.GetType())});");
 
         Disagreements(
             engine,
@@ -708,10 +711,24 @@ public class HostDictionaryForeignKeyWriteTests
             try { d[Symbol.for('s')] = 3; } catch (e) { }
             """,
             [
-                .. AllStringKeys("b => b"),
-                ("Reflect.ownKeys(d).map(String)", "b => [...b, 'Symbol(Symbol.iterator)']"),
+                .. AllStringKeys("b => b").Select(check => (check.Enumeration + ".filter(k => !clrMembers.has(k))", check.Expected)),
+                ("Reflect.ownKeys(d).map(String).filter(k => !clrMembers.has(k))", "b => [...b, 'Symbol(Symbol.iterator)']"),
             ]).Should().BeEmpty();
         count().Should().Be(1);
+    }
+
+    /// <summary>
+    /// The names of <paramref name="type"/>'s public properties, fields and methods, as a JavaScript array literal.
+    /// </summary>
+    private static string ClrMemberNames(Type type)
+    {
+        const BindingFlags Flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
+        var names = type.GetProperties(Flags).Select(p => p.Name)
+            .Concat(type.GetFields(Flags).Select(f => f.Name))
+            .Concat(type.GetMethods(Flags).Where(m => m.DeclaringType != typeof(object)).Select(m => m.Name))
+            .Distinct(StringComparer.Ordinal);
+
+        return "[" + string.Join(",", names.Select(name => "'" + name + "'")) + "]";
     }
 
     /// <summary>A CLR member the dictionary reads but cannot write refuses the name, so nothing is stored or listed under it.</summary>

@@ -536,7 +536,9 @@ public class HostWrapperScriptDefinedKeysTests
             """
             Object.defineProperty(host, 'find', { value: 1, enumerable: true, configurable: true });
             Object.freeze(host);
-            [Reflect.ownKeys(host).map(String).join(), host.find, Object.getOwnPropertyDescriptor(host, 'find').configurable].join(';')
+            // a frozen view lists its CLR members too (#4682), which are all PascalCase
+            const keys = Reflect.ownKeys(host).filter(k => typeof k !== 'string' || !/^[A-Z]/.test(k)).map(String);
+            [keys.join(), host.find, Object.getOwnPropertyDescriptor(host, 'find').configurable].join(';')
             """).AsString().Should().Be("0,1,length,find,Symbol(Symbol.iterator);1;false");
     }
 
@@ -662,7 +664,9 @@ public class HostWrapperScriptDefinedKeysTests
             """
             Object.defineProperty(host, 'tag', { value: 0, configurable: true });
             Object.freeze(host);
-            [Reflect.ownKeys(host).map(String).join(), Object.isFrozen(host)].join(';')
+            // a frozen dictionary lists its CLR members too (#4682), which are all PascalCase
+            const keys = Reflect.ownKeys(host).filter(k => typeof k !== 'string' || !/^[A-Z]/.test(k)).map(String);
+            [keys.join(), Object.isFrozen(host)].join(';')
             """).AsString().Should().Be("a,b,tag,Symbol(Symbol.iterator);true");
     }
 
