@@ -68,22 +68,27 @@ internal sealed class DisposableStack : ObjectInstance
         return true;
     }
 
-    public void Defer(JsValue onDispose)
+    // The methods below take the realm of the built-in that was called, the current Realm Record of its steps, for the
+    // errors they raise: it is not the running realm when another realm's built-in is applied to this stack.
+
+    public void Defer(JsValue onDispose, Realm realm)
     {
-        AddDisposableResource(Undefined, _hint, onDispose.GetCallable(_engine.Realm));
+        AssertNotDisposed(realm);
+        AddDisposableResource(Undefined, _hint, realm, onDispose.GetCallable(realm));
     }
 
-    public JsValue Use(JsValue value)
+    public JsValue Use(JsValue value, Realm realm)
     {
-        AddDisposableResource(value, _hint);
+        AssertNotDisposed(realm);
+        AddDisposableResource(value, _hint, realm);
         return value;
     }
 
-    public JsValue Adopt(JsValue value, JsValue onDispose)
+    public JsValue Adopt(JsValue value, JsValue onDispose, Realm realm)
     {
-        AssertNotDisposed();
+        AssertNotDisposed(realm);
 
-        var callable = onDispose.GetCallable(_engine.Realm);
+        var callable = onDispose.GetCallable(realm);
         JsCallDelegate closure = (_, _) =>
         {
             callable.Call(Undefined, value);
@@ -91,14 +96,14 @@ internal sealed class DisposableStack : ObjectInstance
         };
 
         var f = new ClrFunction(_engine, string.Empty, closure);
-        AddDisposableResource(Undefined, DisposeHint.Sync, f);
+        AddDisposableResource(Undefined, DisposeHint.Sync, realm, f);
 
         return value;
     }
 
-    public JsValue Move(DisposableStack newDisposableStack)
+    public JsValue Move(DisposableStack newDisposableStack, Realm realm)
     {
-        AssertNotDisposed();
+        AssertNotDisposed(realm);
 
         newDisposableStack.State = DisposableState.Pending;
         newDisposableStack._disposeCapability = this._disposeCapability;
@@ -107,17 +112,16 @@ internal sealed class DisposableStack : ObjectInstance
         return newDisposableStack;
     }
 
-    private void AddDisposableResource(JsValue v, DisposeHint hint, ICallable? method = null)
+    private void AddDisposableResource(JsValue v, DisposeHint hint, Realm realm, ICallable? method = null)
     {
-        AssertNotDisposed();
-        _disposeCapability.AddDisposableResource(v, hint, method);
+        _disposeCapability.AddDisposableResource(v, hint, realm, method);
     }
 
-    private void AssertNotDisposed()
+    private void AssertNotDisposed(Realm realm)
     {
         if (State == DisposableState.Disposed)
         {
-            Throw.ReferenceError(_engine.Realm, "Stack already disposed.");
+            Throw.ReferenceError(realm, "Stack already disposed.");
         }
     }
 }

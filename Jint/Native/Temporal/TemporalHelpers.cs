@@ -162,8 +162,11 @@ internal static class TemporalHelpers
         Regex.InfiniteMatchTimeout);
 
     // Duration pattern already supports comma via [.,]
+    // The (?=\d) after T is the grammar's DurationTimeDesignator TimeDuration: a time designator must be
+    // followed by at least one time component, so "P1DT" is not a duration
+    // (https://tc39.es/proposal-temporal/#sec-temporal-totemporalduration).
     private static readonly Regex DurationPattern = new(
-        @"^([+-])?P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)(?:[.,](\d{1,9}))?H)?(?:(\d+)(?:[.,](\d{1,9}))?M)?(?:(\d+)(?:[.,](\d{1,9}))?S)?)?$",
+        @"^([+-])?P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?=\d)(?:(\d+)(?:[.,](\d{1,9}))?H)?(?:(\d+)(?:[.,](\d{1,9}))?M)?(?:(\d+)(?:[.,](\d{1,9}))?S)?)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         Regex.InfiniteMatchTimeout);
 
@@ -2239,6 +2242,7 @@ internal static class TemporalHelpers
     /// <param name="requireYear">When true and neither eraYear nor year is supplied, throws TypeError. When false, returns <paramref name="defaultYear"/>.</param>
     /// <param name="explicitlyProvided">true when either eraYear or year was user-supplied; false when neither was supplied and <paramref name="defaultYear"/> is returned.</param>
     /// <param name="defaultYear">Year to return when not supplied and <paramref name="requireYear"/> is false (e.g. PlainMonthDay's reference year 1972).</param>
+    /// <param name="yearDecidesLeapStatusOnly">When true, a "year" past the int range maps through <see cref="ToLeapYearEquivalentIsoYear"/> instead of saturating (an iso8601 PlainMonthDay).</param>
     /// <returns>The resolved year value.</returns>
     internal static int ResolveYearFromEraOrYear(
         Realm realm,
@@ -2246,7 +2250,8 @@ internal static class TemporalHelpers
         int? eraYearDerived,
         bool requireYear,
         out bool explicitlyProvided,
-        int defaultYear = 0)
+        int defaultYear = 0,
+        bool yearDecidesLeapStatusOnly = false)
     {
         if (eraYearDerived.HasValue)
         {
@@ -2277,7 +2282,35 @@ internal static class TemporalHelpers
         }
 
         explicitlyProvided = true;
-        return ToIntegerWithTruncationAsInt(realm, yearProp);
+        return yearDecidesLeapStatusOnly
+            ? ToLeapYearEquivalentIsoYear(ToIntegerWithTruncation(realm, yearProp))
+            : ToIntegerWithTruncationAsInt(realm, yearProp);
+    }
+
+    /// <summary>
+    /// Maps an integral ISO year whose only use is its leap-year status onto an int year with the same status.
+    /// </summary>
+    /// <remarks>
+    /// An iso8601 PlainMonthDay takes any year and uses it only to apply overflow
+    /// (https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.from), so a year past the int range must
+    /// not saturate into one with a different leap status. The Gregorian cycle repeats every 400 years, so such
+    /// a year is reduced into one cycle; a year inside the int range is returned unchanged.
+    /// </remarks>
+    internal static int ToLeapYearEquivalentIsoYear(double year)
+    {
+        if (year >= int.MinValue && year <= int.MaxValue)
+        {
+            return (int) year;
+        }
+
+        // Every finite double this large is an integer, and % on doubles is exact.
+        var yearInCycle = year % 400;
+        if (yearInCycle < 0)
+        {
+            yearInCycle += 400;
+        }
+
+        return 2000 + (int) yearInCycle;
     }
 
     /// <summary>
