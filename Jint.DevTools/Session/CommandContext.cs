@@ -20,6 +20,9 @@ internal sealed class CommandContext
     private List<IDisposable>? _held;
     private int _awaitingScript;
     private Action<string>? _stopped;
+    private Func<string?, Exception?, ValueTask>? _reply;
+    private int _replied;
+    private Task? _replyWrite;
 
     internal CommandContext(DevToolsSession session, string? sessionId, CancellationToken cancellationToken)
     {
@@ -104,6 +107,42 @@ internal sealed class CommandContext
             (_held ??= []).Add(lease);
         }
     }
+
+    /// <summary>Installs what writes this command's reply or error. Called by the session, once, before dispatch.</summary>
+    internal void SetReplier(Func<string?, Exception?, ValueTask> reply) => _reply = reply;
+
+    /// <summary>Takes the one reply this command gets. <see langword="true"/> for the first caller alone.</summary>
+    /// <remarks>
+    /// The engine thread claims it as the command finishes; the transport thread claims it when it gives up
+    /// waiting (a timeout, a refusal) or when the command never reached the engine. Whoever loses writes nothing.
+    /// </remarks>
+    internal bool TryClaimReply() => Interlocked.Exchange(ref _replied, 1) == 0;
+
+    /// <summary>
+    /// Writes the reply from the thread that finished the command, unless something already did.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The reply leaves in the order the session produced it.</b> A domain sends its events from the engine
+    /// thread as it runs, so a reply written later by the transport thread, once its wait resumed on the thread
+    /// pool, could follow an event a later command sent: <c>Runtime.enable</c>'s
+    /// <c>executionContextCreated</c> overtook the <c>Page.getFrameTree</c> reply sent before it, and Playwright,
+    /// which drops a context for a frame it does not know yet, then waited for ever for the page's main world.
+    /// Chrome writes replies and events in the order its session produces them. The transports only enqueue,
+    /// so writing here costs the engine thread no I/O.
+    /// </para>
+    /// <para>Call it before completing the waiter, so that the waiter finds the reply claimed.</para>
+    /// </remarks>
+    internal void ReplyNow(string? result, Exception? failure)
+    {
+        if (_reply is { } reply && TryClaimReply())
+        {
+            _replyWrite = reply(result, failure).AsTask();
+        }
+    }
+
+    /// <summary>The write <see cref="ReplyNow"/> started, which the transport awaits before releasing what is held.</summary>
+    internal Task ReplyWrite => _replyWrite ?? Task.CompletedTask;
 
     /// <summary>Disposes what this command was holding. Idempotent, and called by the session alone.</summary>
     internal void ReleaseHeld()
