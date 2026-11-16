@@ -8786,6 +8786,43 @@ the order .NET already reported, so nothing changes there. On .NET Framework the
 cache held: a member somebody had looked up by name came first, so two listings of one wrapper could disagree, with a
 `ContainsKey` call or a garbage collection in between. A host that sorted the keys itself is unaffected.
 
+### 4.241 A `JObject` or `JArray` that crosses as `JToken` is the object it is as itself ([#4524](https://github.com/sebastienros/jint/issues/4524))
+
+[§4.222](#4-222-an-index-on-a-wrapped-jobject-is-one-more-of-its-keys-4501) made a wrapped `JObject` a keyed object,
+but only when it crossed as `JObject`. A member typed `JToken` (a POCO property, a method such as `SelectToken`, a
+field), `JContainer`, `object` or `IDictionary<string, JToken>` wrapped it against that declared type, and none of
+those is a dictionary whose list Jint knew to ignore. So it was still a view of its `JProperty` nodes:
+
+```js
+// host: engine.SetValue("host", new { Data = (JToken) JObject.Parse("{ \"a\": 1, \"b\": 2 }") });
+Object.keys(host.Data)          // earlier previews: InvalidOperationException out of Evaluate   5.x: ["a", "b"]
+JSON.stringify(host.Data)       // earlier previews: InvalidOperationException                   5.x: {"a":1,"b":2}
+Object.getPrototypeOf(host.Data) === Object.prototype  // earlier previews: false (Array.prototype)  5.x: true
+Array.prototype.slice.call(host.Data).length           // earlier previews: 2 (the JProperty nodes)   5.x: 0
+```
+
+Typed `object` or `IDictionary<string, JToken>`, reads by key already worked, but the object was on
+`Array.prototype` with a `length` of 0, and under `AllowWrite` a delete answered `false`. A `JArray` typed `JToken`
+was a list, but every name that is not an index went through `JToken`'s object indexer, and `JArray`'s throws
+`ArgumentException`: `x.foo`, `x.push(3)` and `JSON.stringify(x)` (which looks up `toJSON`) threw out of `Evaluate`,
+and `x[0] = 7` under `AllowWrite` was silently dropped.
+
+Now a list that crosses as a class it derives from (`JToken`, `JContainer`) is wrapped as its own type. A `JObject`
+that crosses as `object` or as an interface other than a list interface is wrapped as `JObject`, and one that crosses
+as `IDictionary<string, JToken>` keeps that exposure without the list view. Every one of these answers what the
+`JObject` or the `JArray` answers when it crosses as itself, as [§4.222](#4-222-an-index-on-a-wrapped-jobject-is-one-more-of-its-keys-4501)
+describes for a `JObject`. Reading the same member twice still hands script the same wrapper. A `JValue` crossed as
+its value before and still does.
+
+**What could break:** script that read a `JObject`'s `JProperty` nodes by position through such a member, or relied
+on it being on `Array.prototype`, and a host `catch` written for the exceptions above. What did not change: a list
+declared as a list interface (`IList<T>`, `IReadOnlyList<T>`, `IList`) keeps the view it names, so a `JObject`
+handed over as `IList<JToken>` is still a list of its nodes; a list declared as `object` or as an interface that is
+not a list is wrapped as before unless its runtime type is addressed by key alone, as `JObject`,
+`OrderedDictionary<string, TValue>` and System.Text.Json 9's `JsonObject` are; and an object that is not a list is
+wrapped as before whatever it is declared as. The same holds for any host type, not only Newtonsoft's: a host list
+type that crosses as a base class is wrapped as its own type, with its own list view. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
