@@ -247,7 +247,8 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
         // 5. year - use eraYear if computed, otherwise read from property. PMD allows year to
         // be omitted (uses 1972 as the reference year), so requireYear is false.
         var year = TemporalHelpers.ResolveYearFromEraOrYear(
-            _realm, obj, eraYear, requireYear: false, out var yearExplicitlyProvided, defaultYear: 1972);
+            _realm, obj, eraYear, requireYear: false, out var yearExplicitlyProvided, defaultYear: 1972,
+            yearDecidesLeapStatusOnly: string.Equals(calendar, "iso8601", StringComparison.Ordinal));
 
         // 6. Read options.overflow AFTER all fields (but BEFORE algorithmic validation)
         var overflow = optionsValue.IsUndefined() ? "constrain" : TemporalHelpers.GetOverflowOption(_realm, optionsValue);
