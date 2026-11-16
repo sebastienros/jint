@@ -51,7 +51,8 @@ internal sealed partial class NativeCssQuery
                 }
                 continue;
             }
-            if (!text.AsSpan(i).StartsWith("var(", StringComparison.Ordinal) ||
+            var isEnv = text.AsSpan(i).StartsWith("env(", StringComparison.OrdinalIgnoreCase);
+            if (!(isEnv || text.AsSpan(i).StartsWith("var(", StringComparison.Ordinal)) ||
                 i > 0 && (char.IsLetterOrDigit(text[i - 1]) || text[i - 1] is '-' or '_'))
             { output.Append(c); continue; }
             var start = i + 4;
@@ -80,8 +81,21 @@ internal sealed partial class NativeCssQuery
             }
             if (end >= text.Length) return null;
             var name = text[start..(comma < 0 ? end : comma)].Trim();
-            if (!name.StartsWith("--", StringComparison.Ordinal) || name.Length == 2) return null;
             string? replacement = null;
+            if (isEnv)
+            {
+                // CSS Environment Variables 1 §3: env() is substituted where var() is, from the user agent's values,
+                // then from its fallback; an unknown name with none makes the declaration invalid at computed-value
+                // time, as an undefined var() does.
+                replacement = EnvironmentValue(name);
+                if (replacement is null && comma >= 0)
+                    replacement = Substitute(element, pseudo, text[(comma + 1)..end].Trim(), ref matching, depth + 1, active, expanded);
+                if (replacement is null) return null;
+                output.Append(replacement);
+                i = end;
+                continue;
+            }
+            if (!name.StartsWith("--", StringComparison.Ordinal) || name.Length == 2) return null;
             if (expanded.TryGetValue(name, out var known))
             {
                 replacement = known;
@@ -112,5 +126,26 @@ internal sealed partial class NativeCssQuery
         }
         _work.CheckCancellation();
         return output.Length > 1_000_000 ? null : output.ToString();
+    }
+
+    /// <summary>
+    /// The value of a user-agent environment variable (https://drafts.csswg.org/css-env-1/#safe-area-insets), or
+    /// <see langword="null"/> for one this browser does not define. A headless page has a rectangular viewport with
+    /// no notch, no rounded corners and no virtual keyboard, so every safe-area and keyboard inset is <c>0px</c>, as
+    /// in a desktop Chromium. The title bar and viewport segment variables are not defined there either, and fall
+    /// back.
+    /// </summary>
+    private static string? EnvironmentValue(string name)
+    {
+        var space = name.IndexOfAny([' ', '\t', '\n']);
+        var identifier = (space < 0 ? name : name[..space]).ToLowerInvariant();
+        return identifier switch
+        {
+            "safe-area-inset-top" or "safe-area-inset-right" or "safe-area-inset-bottom" or "safe-area-inset-left"
+                or "safe-area-max-inset-top" or "safe-area-max-inset-right" or "safe-area-max-inset-bottom" or "safe-area-max-inset-left"
+                or "keyboard-inset-top" or "keyboard-inset-right" or "keyboard-inset-bottom" or "keyboard-inset-left"
+                or "keyboard-inset-width" or "keyboard-inset-height" => "0px",
+            _ => null,
+        };
     }
 }

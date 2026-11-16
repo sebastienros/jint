@@ -181,7 +181,7 @@ internal sealed partial class NativeCssQuery
             var candidate = Winner(state, name);
             var text = candidate?.Declaration.Value;
             var disposition = NativeCssDisposition.Cascaded;
-            if (!custom && text is not null && text.Contains("var(", StringComparison.Ordinal))
+            if (!custom && text is not null && (text.Contains("var(", StringComparison.Ordinal) || text.Contains("env(", StringComparison.OrdinalIgnoreCase)))
             {
                 text = Substitute(current, currentPseudo, text, ref matching);
                 // CSS Variables 1 §3.2: a pending shorthand expands only once its text is substituted.
