@@ -194,11 +194,11 @@ public sealed class TypeResolver
             if (indexParameters.Length == 1)
             {
                 var parameter = indexParameters[0];
-                if (string.Equals(m.DeclaringType?.FullName, "System.Text.Json.Nodes.JsonNode", StringComparison.Ordinal))
+                if (SystemTextJsonNodes.IsJsonNode(m.DeclaringType))
                 {
                     // STJ
-                    return parameter.ParameterType == typeof(string) && string.Equals(targetType.FullName, "System.Text.Json.Nodes.JsonObject", StringComparison.Ordinal)
-                           || parameter.ParameterType == typeof(int) && string.Equals(targetType.FullName, "System.Text.Json.Nodes.JsonArray", StringComparison.Ordinal);
+                    return parameter.ParameterType == typeof(string) && SystemTextJsonNodes.IsJsonObject(targetType)
+                           || parameter.ParameterType == typeof(int) && SystemTextJsonNodes.IsJsonArray(targetType);
                 }
 
                 if (string.Equals(targetType.FullName, "Newtonsoft.Json.Linq.JArray", StringComparison.Ordinal))

@@ -275,7 +275,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         // JsonArray is to script, so either is exposed as the runtime type - which GetClrType, and so the wrapper's
         // ClrType, already says. Wrapping a List<int> typed object as object took the non-generic list view, whose
         // writes handed the list a script value it refused.
-        if (type is null || type == typeof(object) || IsSystemTextJsonNode(type))
+        if (type is null || type == typeof(object) || SystemTextJsonNodes.IsJsonNode(type))
         {
             type = target.GetType();
         }
@@ -388,7 +388,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         if (!_exposureResolution.TryGetValue(exposedType, out var resolution))
         {
             // JsonNode is never resolved: CreateWithReflection exposes every node as its runtime type
-            return IsSystemTextJsonNode(exposedType);
+            return SystemTextJsonNodes.IsJsonNode(exposedType);
         }
 
         if (!resolution.RuntimeTypeMayDecide
@@ -2531,13 +2531,6 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         var accessor = engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, MemberResolutionRequirement.None, accessorFactory: Factory);
         return accessor.CreatePropertyDescriptor(engine, target, member.Name);
     }
-
-    /// <summary>
-    /// Whether <paramref name="type"/> is System.Text.Json's <c>JsonNode</c>, matched by name because only some target
-    /// frameworks reference the assembly.
-    /// </summary>
-    private static bool IsSystemTextJsonNode(Type type)
-        => string.Equals(type.FullName, "System.Text.Json.Nodes.JsonNode", StringComparison.Ordinal);
 
     internal static Type GetClrType(object obj, Type? type)
     {

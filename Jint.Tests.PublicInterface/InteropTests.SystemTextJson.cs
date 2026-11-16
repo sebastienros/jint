@@ -1,7 +1,4 @@
 ﻿using System.Text.Json.Nodes;
-using Jint.Native;
-using Jint.Runtime.Interop;
-using System.Text.Json;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -166,50 +163,6 @@ public partial class InteropTests
 
     private static Engine GetEngine()
     {
-        var engine = new Engine(options =>
-        {
-            options.Interop.AllowWrite = true;
-#if !NET8_0_OR_GREATER
-            // Jint doesn't know about the types statically as they are not part of the out-of-the-box experience
-            options.AddObjectConverter(SystemTextJsonValueConverter.Instance);
-#endif
-        });
-
-        return engine;
-    }
-}
-
-file sealed class SystemTextJsonValueConverter : ObjectConverter
-{
-    public static readonly SystemTextJsonValueConverter Instance = new();
-
-    private SystemTextJsonValueConverter()
-    {
-    }
-
-    public override bool TryConvert(Engine engine, object value, out JsValue result)
-    {
-        if (value is JsonValue jsonValue)
-        {
-            var valueKind = jsonValue.GetValueKind();
-            result = valueKind switch
-            {
-                JsonValueKind.Object or JsonValueKind.Array => JsValue.FromObject(engine, jsonValue),
-                JsonValueKind.String => jsonValue.ToString(),
-#pragma warning disable IL2026, IL3050
-                JsonValueKind.Number => jsonValue.TryGetValue<int>(out var intValue) ? JsNumber.Create(intValue) : JsonSerializer.Deserialize<double>(jsonValue),
-#pragma warning restore IL2026, IL3050
-                JsonValueKind.True => JsBoolean.True,
-                JsonValueKind.False => JsBoolean.False,
-                JsonValueKind.Undefined => JsValue.Undefined,
-                JsonValueKind.Null => JsValue.Null,
-                _ => JsValue.Undefined
-            };
-
-            return true;
-        }
-
-        result = JsValue.Undefined;
-        return false;
+        return new Engine(options => options.Interop.AllowWrite = true);
     }
 }

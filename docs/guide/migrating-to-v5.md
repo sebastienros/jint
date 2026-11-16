@@ -9074,6 +9074,36 @@ itself, as a `JObject` typed `ICollection<JToken>` already was.
 or set declared as a collection interface keeps that view, a list declared as a list interface keeps the view it
 names, and an object that is not a list is wrapped as before whatever it is declared as. There is no switch back.
 
+### 4.248 On .NET Framework and `netstandard`, a System.Text.Json `JsonValue` crosses as the primitive it holds ([#4681](https://github.com/sebastienros/jint/issues/4681))
+
+On .NET 10 and later a `JsonValue` has always crossed into script as the number, string, boolean or null it holds.
+On the `net472`, `netstandard2.0` and `netstandard2.1` assets it was wrapped as a CLR object. Jint does not reference
+System.Text.Json there, so nothing recognized the type. That broke every JSON document a host handed script:
+
+```js
+// host: engine.SetValue("obj", JsonNode.Parse("""{"a":1,"b":"x","c":[1,2]}"""))
+typeof obj.a             // earlier previews on net472: "object"                          5.x: "number"
+obj.b === 'x'            // earlier previews on net472: false                             5.x: true
+JSON.stringify(obj)      // earlier previews on net472: TypeError "Cyclic reference detected."
+                         // 5.x: {"a":1,"b":"x","c":[1,2]}
+```
+
+Those assets now recognize a `JsonValue` by its type name, once per runtime type, and convert it by the rules the
+.NET 10 asset uses, NaN, the infinities and `-0` included. Jint still takes no dependency on the System.Text.Json
+package.
+
+Two fixes reach every target framework, .NET 10 included:
+
+- **A `float` NaN or infinity** (`JsonValue.Create(float.NaN)`) threw an `ArgumentException` out of the conversion,
+  because the JSON writer has no spelling for it. It now crosses as `NaN`, `Infinity` or `-Infinity`, as a `double`
+  one already did.
+- **A `JsonValue` created around a CLR object or collection** (`JsonValue.Create(new Poco())`,
+  `JsonValue.Create(new[] { 1, 2 })`) ended the process on .NET 10 with a stack overflow: its conversion converted
+  the same value again. It holds no primitive, so it is now wrapped like any other CLR object, on every target.
+
+**What could break:** script, or an `ObjectConverter`, that handled the wrapper. A converter that turned `JsonValue`
+into a primitive itself still works: registered converters run before Jint's own conversion. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
