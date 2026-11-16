@@ -28,11 +28,11 @@ public class StringIteratorCodePointTests
         ("loneLowBetween", @"'a\uDC00b'", "61|dc00|62"),
         ("highThenNonLow", @"'\uD800a'", "d800|61"),
         ("reversedPair", @"'\uDC00\uD800'", "dc00|d800"),
-        ("validPair", @"'x😀y'", "78|d83d de00|79"),
-        ("loneHighThenPair", @"'\uD800😀'", "d800|d83d de00"),
+        ("validPair", @"'x\u{1F600}y'", "78|d83d de00|79"),
+        ("loneHighThenPair", @"'\uD800\u{1F600}'", "d800|d83d de00"),
         ("crlf", @"'a\r\nb'", "61|d|a|62"),
-        ("combiningMark", @"'é'", "65|301"),
-        ("zwjSequence", @"'\u{1F468}‍\u{1F469}'", "d83d dc68|200d|d83d dc69"),
+        ("combiningMark", @"'e\u0301'", "65|301"),
+        ("zwjSequence", @"'\u{1F468}\u200D\u{1F469}'", "d83d dc68|200d|d83d dc69"),
     ];
 
     // Each body receives the string as `v` and returns the list of elements it produced.
@@ -129,9 +129,9 @@ public class StringIteratorCodePointTests
     /// A finished iterator stays finished, and the step after the last element is <c>{ value: undefined, done: true }</c>
     /// (https://tc39.es/ecma262/#sec-createstringiterator step 1.b), whatever the last element was.
     /// </summary>
-    [TestCase(@"'😀'")]
+    [TestCase(@"'\u{1F600}'")]
     [TestCase(@"'\uD800'")]
-    [TestCase(@"'á'")]
+    [TestCase(@"'a\u0301'")]
     [TestCase("''")]
     public void ExhaustedIteratorStaysDone(string source)
     {

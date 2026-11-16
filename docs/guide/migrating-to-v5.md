@@ -9194,8 +9194,8 @@ marks, or an emoji sequence held together by U+200D (zero width joiner) into one
 
 ```js
 [...'\r\n'].length                         // 4.x / earlier 5.0: 1    5.x: 2
-Array.from('é').length               // 4.x / earlier 5.0: 1    5.x: 2
-[...'\u{1F468}‍\u{1F469}'].length     // 4.x / earlier 5.0: 1    5.x: 3
+Array.from('e\u0301').length               // 4.x / earlier 5.0: 1    5.x: 2
+[...'\u{1F468}\u200D\u{1F469}'].length     // 4.x / earlier 5.0: 1    5.x: 3
 const [first] = '\r\n'; first              // 4.x / earlier 5.0: '\r\n'    5.x: '\r'
 ```
 
