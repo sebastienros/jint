@@ -156,7 +156,7 @@ internal sealed class FlatLayout
     /// </remarks>
     internal static bool IsRendered(Element element, ElementVisibility visibility, CssCascade.Traversal? cascade = null)
     {
-        if (IsMetadata(element))
+        if (IsMetadata(element) || IsClosedDetailsContent(element))
         {
             return false;
         }
@@ -191,6 +191,20 @@ internal sealed class FlatLayout
 
         return element.LocalName is "script" or "style" or "template" or "noscript" or "title" or "meta" or "link";
     }
+
+    /// <summary>
+    /// Whether <paramref name="element"/> is the content of a closed <c>&lt;details&gt;</c>: a child other than its
+    /// summary, which HTML's rendering puts in the details' content slot with <c>content-visibility: hidden</c>
+    /// (https://html.spec.whatwg.org/multipage/rendering.html#the-details-and-summary-elements). Nothing in it is
+    /// drawn or hit, and the details is only as tall as its summary, so here it has no box: a closed dropdown's
+    /// panel does not cover the open one beside it. Chromium still reports its geometry, which the flat model,
+    /// with boxes that are rows, cannot give it without making the details as tall as its content.
+    /// </summary>
+    internal static bool IsClosedDetailsContent(Element element)
+        // The summary for the details is its first summary child; any other summary is content like the rest.
+        => element.ParentNode is Element { NamespaceUri: Namespaces.Html, LocalName: "details" } details
+            && !details.HasAttribute("open")
+            && !ReferenceEquals(Events.ActivationBehaviors.FirstSummaryOf(details), element);
 
     /// <summary>The ordinal of <paramref name="element"/>, or <c>-1</c> when it is not rendered.</summary>
     internal int OrdinalOf(Element element)
