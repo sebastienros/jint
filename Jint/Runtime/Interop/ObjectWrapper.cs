@@ -1160,18 +1160,29 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return;
         }
 
-        if (CommonProperties.Length.Equals(property))
-        {
-            // of the projections only length has lanes that answer without asking what is stored: toJSON is read
-            // like any member, and the symbols are only ever read from the store
-            _projectionTakeover |= ProjectionTakeover.Length;
-        }
-
         if (TryGetProperty(property, out var stored))
         {
+            if (CommonProperties.Length.Equals(property) && !IsLengthForwarder(stored))
+            {
+                // Of the projections only length has lanes that answer without asking what is stored: toJSON is read
+                // like any member, and the symbols are only ever read from the store. A define that leaves the
+                // forwarder's getter in place, which is what Object.freeze and Object.seal do, keeps those lanes:
+                // the getter answers what they do.
+                _projectionTakeover |= ProjectionTakeover.Length;
+            }
+
             ListAsOwnKey(stored);
         }
     }
+
+    /// <summary>
+    /// Whether <paramref name="descriptor"/> is an accessor over the <c>length</c> forwarder's getter, which answers
+    /// the count of whatever wrapper it is called on.
+    /// </summary>
+    private static bool IsLengthForwarder(PropertyDescriptor descriptor)
+        => descriptor.IsAccessorDescriptor()
+           && descriptor.Get is ClrFunction getter
+           && ReferenceEquals(getter._func, _lengthFunction);
 
     /// <summary>
     /// The bit recording that <paramref name="property"/>, a projection this wrapper makes again on a read, was
@@ -2434,11 +2445,17 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         _lengthPropertyPending = false;
         // create a forwarder to produce length from Count or Length if one of them is present
-        var functionInstance = new ClrFunction(_engine, "length", GetLength);
+        var functionInstance = new ClrFunction(_engine, "length", _lengthFunction);
         var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
         SetProperty(KnownKeys.Length, descriptor);
         return descriptor;
     }
+
+    /// <summary>
+    /// The <c>length</c> forwarder's getter, one delegate for every wrapper so that <see cref="IsLengthForwarder"/>
+    /// can recognize it.
+    /// </summary>
+    private static readonly JsCallDelegate _lengthFunction = GetLength;
 
     private static JsNumber GetLength(JsValue thisObject, JsCallArguments arguments)
     {

@@ -82,6 +82,24 @@ public class HostWrapperProjectionTakeoverTests
     }
 
     /// <summary>
+    /// Freezing or sealing an untouched collection redefines its <c>length</c> forwarder without replacing it, so
+    /// <c>length</c> goes on reading the live count.
+    /// </summary>
+    [TestCase("freeze")]
+    [TestCase("seal")]
+    public void AFrozenForwarderStillReadsTheLiveCount(string integrityLevel)
+    {
+        var list = new List<int> { 1, 2 };
+        var engine = CreateEngine(list);
+
+        engine.Execute($"Object.{integrityLevel}(host);");
+        list.Add(3);
+
+        engine.Evaluate("[host.length, Object.getOwnPropertyDescriptor(host, 'length').get.call(host)].join()")
+            .AsString().Should().Be("3,3");
+    }
+
+    /// <summary>
     /// A <c>length</c> the script defines after deleting the forwarder of a collection that has no <c>Length</c>
     /// member is the script's own, and reads as such.
     /// </summary>
