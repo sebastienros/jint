@@ -49,7 +49,9 @@ internal sealed class EmulationDomain : EmulationDomainBase
     /// <remarks>
     /// The width, the height and the device scale factor are the three a page can read, and they take
     /// effect: <c>innerWidth</c>, <c>devicePixelRatio</c>, <c>screen</c>, every client rectangle and every
-    /// dimension media query move with them. <c>scale</c>, the screen dimensions, the window position and
+    /// dimension media query move with them, a size change fires <c>resize</c> at the window, and an image
+    /// whose source set now selects another candidate fetches it. <see cref="Page.SetViewportAsync(Viewport)"/>
+    /// is the same write, through <see cref="EmulationState.SetViewport"/>. <c>scale</c>, the screen dimensions, the window position and
     /// the display feature are accepted and not acted on — there is no renderer for a scale to mean anything
     /// to. <c>mobile</c> and <c>screenOrientation</c> are accepted and reach the page only through the
     /// numbers: a viewport taller than it is wide is <c>(orientation: portrait)</c>, and there is no
@@ -58,8 +60,14 @@ internal sealed class EmulationDomain : EmulationDomainBase
     /// </remarks>
     protected override ValueTask<EmptyResult> SetDeviceMetricsOverrideAsync(SetDeviceMetricsOverrideRequest parameters, CommandContext context)
     {
+        // A width or height of 0 is the protocol's "no override" for that dimension, which leaves the one the
+        // page opened with: a client that only wants a device scale factor sends 0 for both.
         var scale = parameters.DeviceScaleFactor > 0 ? parameters.DeviceScaleFactor : 1;
-        SetViewport(new Viewport(parameters.Width, parameters.Height, scale));
+        var opened = State.DefaultViewport;
+        SetViewport(new Viewport(
+            parameters.Width > 0 ? parameters.Width : opened.Width,
+            parameters.Height > 0 ? parameters.Height : opened.Height,
+            scale));
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -138,18 +146,25 @@ internal sealed class EmulationDomain : EmulationDomainBase
     /// the environment reads first.
     /// </para>
     /// <para>
-    /// <b>The media type reaches the cascade and a preference does not.</b>
-    /// <c>Runtime/PageRenderDevice</c> reports the emulated type, so an <c>@media print</c> rule becomes
-    /// active with this command; <c>IRenderDevice</c> has no member for a Level 5 preference, so an
-    /// <c>@media (prefers-color-scheme: dark)</c> rule in a style sheet never does. A page that themes
-    /// itself reads <c>matchMedia</c>, which is the half that answers.
+    /// <b>Style sheets follow too.</b> <c>Styling/NativeCssStyleSheets.Browser.cs</c> builds the cascade's
+    /// <c>CssMediaEnvironment</c> from the same environment, so an <c>@media print</c> or
+    /// <c>@media (prefers-color-scheme: dark)</c> rule applies on the next style read after this command.
+    /// </para>
+    /// <para>
+    /// <b>This replaces; <see cref="Page.EmulateMediaAsync"/> merges.</b> Both write the same overrides in
+    /// <c>Runtime/EmulationState</c>: this command sets the media type and the whole feature list, as Chrome's
+    /// does. A feature named with an empty value is no override, which is how Chromium reads the empty value
+    /// Playwright sends for every preference it is not emulating. The browser and context defaults a page
+    /// opened with are a layer beneath the overrides, the way an operating-system preference is beneath
+    /// Chrome's, so clearing every override goes back to them.
     /// </para>
     /// </remarks>
     protected override ValueTask<EmptyResult> SetEmulatedMediaAsync(SetEmulatedMediaRequest parameters, CommandContext context)
     {
-        State.EmulatedMedia = parameters.Media;
-        State.MediaFeatures = Features(parameters.Features);
-        Reevaluate();
+        State.ReplaceMedia(
+            parameters.Media,
+            parameters.Features?.Select(static feature => new KeyValuePair<string, string>(feature.Name, feature.Value)),
+            Runtime());
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -403,27 +418,6 @@ internal sealed class EmulationDomain : EmulationDomainBase
     protected override ValueTask<EmptyResult> SetEmitTouchEventsForMouseAsync(SetEmitTouchEventsForMouseRequest parameters, CommandContext context)
         => new(EmptyResult.Instance);
 
-    /// <summary>The features a client emulated, as the environment reads them.</summary>
-    /// <remarks>
-    /// A feature named twice is last writer wins, and a name is matched exactly as CSS writes it — the
-    /// protocol carries the CSS name, so no mapping is needed and none is invented.
-    /// </remarks>
-    private static IReadOnlyDictionary<string, string> Features(MediaFeature[]? features)
-    {
-        if (features is not { Length: > 0 })
-        {
-            return System.Collections.Frozen.FrozenDictionary<string, string>.Empty;
-        }
-
-        var map = new Dictionary<string, string>(features.Length, StringComparer.OrdinalIgnoreCase);
-        foreach (var feature in features)
-        {
-            map[feature.Name] = feature.Value;
-        }
-
-        return map;
-    }
-
     /// <summary>
     /// Writes the viewport straight onto the page runtime, which is safe because this is the loop thread.
     /// </summary>
@@ -432,11 +426,7 @@ internal sealed class EmulationDomain : EmulationDomainBase
     /// engine's, and the engine is the loop's — so the viewport is set where a media query would read it,
     /// with the <c>change</c> events that follow dispatched on the same turn.
     /// </remarks>
-    private void SetViewport(Viewport viewport)
-    {
-        State.Viewport = viewport;
-        Reevaluate();
-    }
+    private void SetViewport(Viewport viewport) => State.SetViewport(viewport, Runtime());
 
     /// <summary>Hands the page the whole media environment again, so one change is one notification.</summary>
     private void Reevaluate() => Runtime()?.SetMedia(State.MediaEnvironment);

@@ -154,16 +154,16 @@ internal sealed class ObserverRealm
         _ = IntersectionObserver;
         _ = IntersectionObserverEntry;
 
-        var (root, rootMargin, thresholds) = JsIntersectionObserver.ReadOptions(_runtime.Engine, arguments.At(1));
+        // WebIDL converts the arguments in order: the callback is refused before any options getter runs.
+        var callback = Callback(arguments, "IntersectionObserver");
+        var options = JsIntersectionObserver.ReadOptions(_runtime.Engine, arguments.At(1));
 
         return new JsIntersectionObserver(
             _runtime,
             _intersectionObserverPrototype!,
             _intersectionObserverEntryPrototype!,
-            Callback(arguments, "IntersectionObserver"),
-            root,
-            rootMargin,
-            thresholds);
+            callback,
+            options);
     }
 
     private ObjectInstance ConstructResizeObserver(JsValue[] arguments)

@@ -61,8 +61,8 @@ public class FrontEndDomainTests
     {
         await using var session = await PageSession.CreateAsync();
         var style = cyclicVariables
-            ? "--a:var(--b);--b:var(--a);display:inline;color:var(--a,rgb(1,2,3))"
-            : "display:inline;color:rgb(1,2,3)";
+            ? "--a:var(--b);--b:var(--a);display:inline;color:var(--a,rgb(1,2,3));mask-image:linear-gradient(red, blue);margin-left:2rem"
+            : "display:inline;color:rgb(1,2,3);mask-image:linear-gradient(red, blue);margin-left:2rem";
         var attachment = await OpenAsync(session, $"<html><body><div id='box' style='{style}'>x</div></body></html>");
 
         await session.ResultAsync("CSS.enable", null, attachment);
@@ -90,6 +90,18 @@ public class FrontEndDomainTests
             "getComputedStyle(document.getElementById('box')).color",
             attachment)).GetProperty("value").GetString();
         color.Should().Be(colorFromScript);
+        // Gradient color stops resolve on both lanes too (#4593).
+        var mask = computed.Single(p => p.GetProperty("name").GetString() == "mask-image").GetProperty("value").GetString();
+        mask.Should().Be("linear-gradient(rgb(255, 0, 0), rgb(0, 0, 255))");
+        mask.Should().Be((await session.EvaluateAsync(
+            "getComputedStyle(document.getElementById('box')).maskImage",
+            attachment)).GetProperty("value").GetString());
+        // Lengths are absolutized on both lanes too (#4615).
+        var margin = computed.Single(p => p.GetProperty("name").GetString() == "margin-left").GetProperty("value").GetString();
+        margin.Should().Be("32px");
+        margin.Should().Be((await session.EvaluateAsync(
+            "getComputedStyle(document.getElementById('box')).marginLeft",
+            attachment)).GetProperty("value").GetString());
 
         var inline = (await session.ResultAsync("CSS.getInlineStylesForNode", $$"""{"nodeId":{{nodeId}}}""", attachment))
             .GetProperty("inlineStyle");

@@ -247,6 +247,13 @@ public sealed class MemoryLimitConstraint : Constraint
     internal OperationState? CurrentOperationState => _activeState;
 
     /// <summary>
+    /// Whether the operation in progress has gone over the limit — set the moment <see cref="Check"/> throws for
+    /// it, and cleared when the operation ends. A host bracketing turns reads it to tell this constraint's
+    /// failure from another <see cref="MemoryLimitExceededException"/>, such as <c>MaxArraySize</c>'s.
+    /// </summary>
+    internal bool HasExceeded => _activeState is { Exceeded: true };
+
+    /// <summary>
     /// Charges the active operation for a concatenation that defers its copy instead of making it
     /// (<see cref="Native.JsString.Concat"/>), as if the characters had been allocated where the copy would
     /// have been (sebastienros/jint#4162).

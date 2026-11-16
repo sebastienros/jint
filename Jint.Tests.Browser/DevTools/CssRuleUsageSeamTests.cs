@@ -114,6 +114,26 @@ public sealed class CssRuleUsageSeamTests
         CssCascade.Traversal.Current(untracked.Document).Should().BeSameAs(before);
     }
 
+    [Test]
+    public void APseudoElementReadRecordsTheRulesWhoseSubjectIsThatPseudoElement()
+    {
+        using var fixture = CreateStyled(".used::after { opacity:.5; } .used::before { opacity:.4; } .used { opacity:.3; }");
+        var element = ContentDom.ElementById(fixture.Document, "box")!;
+        var tracker = new CssRuleUsageTracker();
+        tracker.Rebind(fixture.Document);
+        CssRuleUsage.Arm(tracker);
+        try
+        {
+            var traversal = CssCascade.Traversal.For(fixture.Document)!;
+            traversal.Of(element, Jint.HtmlParser.Css.Selectors.SelectorPseudoElement.After).GetPropertyValue("opacity").Should().Be("0.5");
+            tracker.TakeDelta().Select(rule => rule.SelectorText).Should().Equal(".used::after");
+        }
+        finally
+        {
+            CssRuleUsage.Disarm(tracker);
+        }
+    }
+
     private static DomTestFixture CreateStyled(string css)
     {
         var fixture = DomTestFixture.Create($"<!doctype html><style>{css}</style><p id='box' class='used'>text</p>");

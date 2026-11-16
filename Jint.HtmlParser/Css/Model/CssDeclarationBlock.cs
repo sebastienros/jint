@@ -172,7 +172,7 @@ internal sealed class CssDeclarationBlock
         work = ReadWork(work);
         name = CssPropertyRegistry.NormalizeName(name, work);
         var value = Shorthand(name) is { } shorthand ? ShorthandValue(_entries, shorthand, work) :
-            ResolveProperty(name, work)?.Value ?? "";
+            ResolveProperty(name, work) is { PendingShorthand: null } declaration ? declaration.Value : "";
         work.CheckCancellation();
         return value;
     }
@@ -226,6 +226,7 @@ internal sealed class CssDeclarationBlock
             text = CssLayoutValues.NormalizeKeywords(name, text, values, work);
         }
         var replacement = Expand(name, text, !string.IsNullOrEmpty(priority), default, _context, work);
+        if (replacement.Length == 0) return;
         var entries = new List<CssDeclaration>(_entries);
         foreach (var entry in replacement)
         {
@@ -305,28 +306,19 @@ internal sealed class CssDeclarationBlock
     {
         if (context == CssDeclarationContext.FontFace || CssPropertyRegistry.Find(name) is not { Longhands.Count: > 0 } metadata)
             return [Longhand(name, text, important, span, context, work)];
-        var parts = CssTextOperations.Split(text, work);
-        if (parts.Length == 0) return [];
-        string[] values;
-        if (parts.Length == 1 && CssTextOperations.IsWide(parts[0])) values = Enumerable.Repeat(parts[0], metadata.Longhands.Count).ToArray();
-        else if (name == "flex")
-        {
-            values = text switch
-            {
-                "none" => ["0", "0", "auto"],
-                "auto" => ["1", "1", "auto"],
-                _ => parts.Length == 1 && !char.IsDigit(parts[0][0]) ? ["1", "1", parts[0]] :
-                    [parts[0], parts.Length > 1 ? parts[1] : "1", parts.Length > 2 ? parts[2] : "0%"]
-            };
-        }
-        else if (name == "flex-flow") values = parts[0] is "wrap" or "nowrap" or "wrap-reverse"
-            ? [parts.Length > 1 ? parts[1] : "row", parts[0]]
-            : [parts[0], parts.Length > 1 ? parts[1] : "nowrap"];
-        else if (metadata.Longhands.Count == 4)
-            values = [parts[0], parts.Length > 1 ? parts[1] : parts[0], parts.Length > 2 ? parts[2] : parts[0],
-                parts.Length > 3 ? parts[3] : parts.Length > 1 ? parts[1] : parts[0]];
-        else values = [parts[0], parts.Length > 1 ? parts[1] : parts[0]];
         var result = new CssDeclaration[metadata.Longhands.Count];
+        // CSS Variables 1 §3.2: a shorthand with var() cannot be split before substitution; every longhand
+        // keeps the shorthand's text until the cascade substitutes and expands it.
+        if (text.Contains("var(", StringComparison.Ordinal))
+        {
+            for (var i = 0; i < result.Length; i++)
+            {
+                work.Charge(1);
+                result[i] = new(metadata.Longhands[i], text, important, span, name);
+            }
+            return result;
+        }
+        if (ExpandValues(metadata, text, work) is not { } values) return [];
         for (var i = 0; i < result.Length; i++)
         {
             work.Charge(1);
@@ -334,6 +326,81 @@ internal sealed class CssDeclarationBlock
         }
         return result;
     }
+
+    /// <summary>
+    /// One longhand of a shorthand whose var() references the cascade has substituted, or null when the
+    /// substituted text is not a valid value of the shorthand (invalid at computed-value time).
+    /// </summary>
+    internal static string? PendingLonghandValue(string shorthand, string longhand, string substituted, CssValueWork work)
+    {
+        if (CssPropertyRegistry.Find(shorthand) is not { Longhands.Count: > 0 } metadata ||
+            !CssLayoutValues.AcceptsText(shorthand, substituted, work, out var normalized) ||
+            ExpandValues(metadata, normalized, work) is not { } values) return null;
+        for (var i = 0; i < values.Length; i++)
+        {
+            work.Charge(1);
+            if (metadata.Longhands[i] == longhand) return NormalizeValue(longhand, values[i], work);
+        }
+        return null;
+    }
+
+    private static string[]? ExpandValues(CssPropertyMetadata metadata, string text, CssValueWork work)
+    {
+        var name = metadata.Name;
+        var parts = CssTextOperations.Split(text, work);
+        if (parts.Length == 0) return null;
+        if (parts.Length == 1 && CssTextOperations.IsWide(parts[0])) return Enumerable.Repeat(parts[0], metadata.Longhands.Count).ToArray();
+        if (CssBoxShorthands.Handles(name)) return CssBoxShorthands.Expand(name, text, work);
+        if (CssMotionShorthands.Handles(name)) return CssMotionShorthands.Expand(name, text, work);
+        if (name == "flex")
+        {
+            return text switch
+            {
+                "none" => ["0", "0", "auto"],
+                "auto" => ["1", "1", "auto"],
+                _ => ExpandFlex(parts),
+            };
+        }
+        if (name == "flex-flow") return parts[0] is "wrap" or "nowrap" or "wrap-reverse"
+            ? [parts.Length > 1 ? parts[1] : "row", parts[0]]
+            : [parts[0], parts.Length > 1 ? parts[1] : "nowrap"];
+        if (metadata.Longhands.Count == 4)
+        {
+            if (parts.Length > 4) return null;
+            return [parts[0], parts.Length > 1 ? parts[1] : parts[0], parts.Length > 2 ? parts[2] : parts[0],
+                parts.Length > 3 ? parts[3] : parts.Length > 1 ? parts[1] : parts[0]];
+        }
+        return [parts[0], parts.Length > 1 ? parts[1] : parts[0]];
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-flexbox/#flex-property — <c>[ &lt;'flex-grow'&gt; &lt;'flex-shrink'&gt;? ||
+    /// &lt;'flex-basis'&gt; ]</c>: the factors are the numbers, the first growth and the next shrinkage, and the
+    /// basis is the one other part, before or after them. An omitted shrinkage is 1, an omitted basis 0% and,
+    /// when only a basis is given, the growth is 1. "A unitless zero that is not already preceded by two flex
+    /// factors must be interpreted as a flex factor." So <c>0 auto</c> is <c>0 1 auto</c>, not a shrinkage of
+    /// <c>auto</c>.
+    /// </summary>
+    private static string[] ExpandFlex(string[] parts)
+    {
+        string? grow = null, shrink = null, basis = null;
+        foreach (var part in parts)
+        {
+            var isFactor = IsFlexFactor(part) && (part != "0" || shrink is null);
+            if (isFactor && grow is null && basis is null) grow = part;
+            else if (isFactor && grow is not null && shrink is null && basis is null) shrink = part;
+            else if (isFactor && grow is null) grow = part;
+            else if (isFactor && shrink is null) shrink = part;
+            else basis ??= part;
+        }
+
+        return grow is null
+            ? ["1", "1", basis ?? "0%"]
+            : [grow, shrink ?? "1", basis ?? "0%"];
+    }
+
+    private static bool IsFlexFactor(string part) =>
+        part.Length > 0 && double.TryParse(part, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _);
 
     private static CssDeclaration Longhand(string name, string text, bool important, CssSourceSpan span,
         CssDeclarationContext context, CssValueWork work) =>
@@ -343,8 +410,8 @@ internal sealed class CssDeclarationBlock
     {
         work.Charge(text.Length);
         if (name.StartsWith("--", StringComparison.Ordinal)) return text;
-        if (text.StartsWith('.') && text.Length > 1 && char.IsAsciiDigit(text[1])) return "0" + text;
-        if (text.StartsWith("-.", StringComparison.Ordinal) && text.Length > 2 && char.IsAsciiDigit(text[2])) return "-0" + text[1..];
+        var zeroed = CssTextOperations.WithLeadingZero(text);
+        if (!ReferenceEquals(zeroed, text)) return zeroed;
         if (text == "0" && (name is "width" or "height" or "top" or "right" or "bottom" or "left" or "flex-basis" ||
             name.StartsWith("margin-", StringComparison.Ordinal) || name.StartsWith("padding-", StringComparison.Ordinal) ||
             name.EndsWith("-width", StringComparison.Ordinal) || name.EndsWith("-height", StringComparison.Ordinal) ||
@@ -352,10 +419,14 @@ internal sealed class CssDeclarationBlock
         return text;
     }
 
-    internal static string ShorthandValue(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work)
+    // computed: the entries are computed values, whose comma-separated lists repeat to the shorthand's layer
+    // count instead of leaving it without a serialization.
+    internal static string ShorthandValue(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work,
+        bool computed = false)
     {
         var values = new string[shorthand.Longhands.Count];
         bool? important = null;
+        var pending = false;
         for (var i = 0; i < values.Length; i++)
         {
             CssDeclaration? found = null;
@@ -366,11 +437,20 @@ internal sealed class CssDeclarationBlock
             }
             if (found is null || important is not null && found.IsImportant != important) return "";
             important = found.IsImportant;
+            // A pending value serializes only through the shorthand that declared it, and only whole.
+            if (found.PendingShorthand is not null || pending)
+            {
+                if (found.PendingShorthand != shorthand.Name || i > 0 && !pending || i > 0 && found.Value != values[0]) return "";
+                pending = true;
+            }
             values[i] = found.Value;
         }
+        if (pending) return values[0];
         work.Charge(values.Sum(static value => value.Length));
         if (values.Any(CssTextOperations.IsWide) && values.Any(value => value != values[0])) return "";
         if (values.All(value => value == values[0]) && CssTextOperations.IsWide(values[0])) return values[0];
+        if (CssBoxShorthands.Handles(shorthand.Name)) return CssBoxShorthands.Serialize(shorthand.Name, values, work);
+        if (CssMotionShorthands.Handles(shorthand.Name)) return CssMotionShorthands.Serialize(shorthand.Name, values, computed, work);
         var count = values.Length;
         if (count == 4 && values[3] == values[1]) count--;
         if (count == 3 && shorthand.Name != "flex" && values[2] == values[0]) count--;
@@ -444,4 +524,6 @@ internal sealed class CssDeclarationBlock
     }
 }
 
-internal sealed record CssDeclaration(string Name, string Value, bool IsImportant, CssSourceSpan Span);
+// PendingShorthand names the shorthand whose unsubstituted var() text this longhand holds as its Value.
+internal sealed record CssDeclaration(string Name, string Value, bool IsImportant, CssSourceSpan Span,
+    string? PendingShorthand = null);

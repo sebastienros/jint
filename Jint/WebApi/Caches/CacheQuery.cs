@@ -256,8 +256,8 @@ internal static class CacheQuery
         var dictionary = ToDictionary(realm, value, operation, target);
 
         return new CacheQueryOptions(
-            IgnoreSearch: ReadFlag(dictionary, "ignoreSearch"),
             IgnoreMethod: ReadFlag(dictionary, "ignoreMethod"),
+            IgnoreSearch: ReadFlag(dictionary, "ignoreSearch"),
             IgnoreVary: ReadFlag(dictionary, "ignoreVary"));
     }
 

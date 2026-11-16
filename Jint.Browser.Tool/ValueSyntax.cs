@@ -25,6 +25,22 @@ internal static class ValueSyntax
         return TimeSpan.FromSeconds(value * factor);
     }
 
+    /// <summary>Writes a duration back the way <see cref="Duration"/> reads one: <c>500ms</c>, <c>5s</c>, <c>2m</c>.</summary>
+    internal static string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalSeconds < 1)
+        {
+            return duration.TotalMilliseconds.ToString("0.###", CultureInfo.InvariantCulture) + "ms";
+        }
+
+        if (duration.Ticks % TimeSpan.TicksPerMinute == 0)
+        {
+            return duration.TotalMinutes.ToString("0", CultureInfo.InvariantCulture) + "m";
+        }
+
+        return duration.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture) + "s";
+    }
+
     /// <summary>Reads <c>256mb</c>, <c>512kb</c>, <c>1gb</c>, or a bare number of bytes.</summary>
     /// <remarks>The multipliers are binary — <c>1kb</c> is 1024 bytes — which is what every byte budget in
     /// <c>BrowserOptions</c> is expressed in.</remarks>

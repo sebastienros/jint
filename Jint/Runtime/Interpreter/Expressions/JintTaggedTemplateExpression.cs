@@ -18,6 +18,7 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
     public JintTaggedTemplateExpression(TaggedTemplateExpression expression) : base(expression)
     {
         _tagIdentifier = Build(expression.Tag);
+        (_tagIdentifier as JintMemberExpression)?.HandsOnBaseAsReceiver();
         _quasi = new JintTemplateLiteralExpression(expression.Quasi);
         _isTailPosition = ReferenceEquals(expression.UserData, TailCallMarker.Instance);
     }

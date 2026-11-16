@@ -58,7 +58,8 @@ public sealed class ComputedStyleTests
             $"<div style='display:flex'><div id=sized style='{(inline ? dimensions : "")}'>sized text</div></div>");
         (await page.EvaluateAsync<string>("getComputedStyle(hidden).display")).Should().Be("none");
         (await page.EvaluateAsync<string>("getComputedStyle(invisible).visibility")).Should().Be("hidden");
-        (await page.EvaluateAsync<int>("hidden.getClientRects().length + invisible.getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<int>("hidden.getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<int>("invisible.getClientRects().length")).Should().Be(1, "a visibility: hidden box is still laid out");
         (await page.EvaluateAsync<string>("document.body.innerText")).Should().Be("sized text");
         (await page.EvaluateAsync<string>("getComputedStyle(sized).width + '|' + getComputedStyle(sized).height + '|' + getComputedStyle(sized).paddingLeft"))
             .Should().Be("24px|16px|3px");
@@ -87,7 +88,7 @@ public sealed class ComputedStyleTests
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<div style='visibility:hidden'><div id=t style='--d:bogus;--v:bogus;display:none;display:var(--d);visibility:visible;visibility:var(--v);width:24px;width:var(--d);padding-left:3px;padding-left:var(--d)'>text</div></div>");
+        await page.SetContentAsync("<div style='visibility:hidden;display:none'><div id=t style='--d:bogus;--v:bogus;display:none;display:var(--d);visibility:visible;visibility:var(--v);width:24px;width:var(--d);padding-left:3px;padding-left:var(--d)'>text</div></div>");
         (await Read(page, "display")).Should().Be("inline");
         (await Read(page, "visibility")).Should().Be("hidden");
         (await Read(page, "width")).Should().Be("auto");
@@ -346,10 +347,11 @@ public sealed class ComputedStyleTests
     [TestCase("100%", "100%")]
     [TestCase("50%", "50%")]
     [TestCase("calc(100% - 10px)", "calc(100% - 10px)")]
-    [TestCase("2em", "2em")]
-    [TestCase("2rem", "2rem")]
-    [TestCase("10vw", "10vw")]
-    [TestCase("10vh", "10vh")]
+    // CSS Values 4 §6: font- and viewport-relative lengths compute to px (#4615).
+    [TestCase("2em", "32px")]
+    [TestCase("2rem", "32px")]
+    [TestCase("10vw", "128px")]
+    [TestCase("10vh", "72px")]
     public async Task MinimumWidthKeepsComputedPercentages(string value, string expected)
     {
         await using var browser = new Browser();
@@ -372,16 +374,16 @@ public sealed class ComputedStyleTests
             await page.SetContentAsync($"<div id='t' style='{property}:auto'>g</div>");
             (await Read(page, property)).Should().Be(expected);
         }
-        await page.SetContentAsync("<div id='t' style='width:20ch;visibility:hidden'>g</div>");
+        await page.SetContentAsync("<div id='t' style='width:20ch;visibility:hidden;display:none'>g</div>");
         (await Read(page, "visibility")).Should().Be("hidden");
         (await page.EvaluateAsync<int>("document.getElementById('t').getClientRects().length")).Should().Be(0);
-        // A missing box retains declaration text without requiring a font metric.
+        // A missing box keeps the computed value, which needs no font metric: ch takes CSS Values 4's 0.5em fallback.
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
             var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "t")!;
             var style = CssCascade.Traversal.For(runtime.Document)!.Of(element);
-            ResolvedStyle.ValueOf("width", style, element, runtime).Should().Be("20ch");
+            ResolvedStyle.ValueOf("width", style, element, runtime).Should().Be("160px");
             return true;
         });
     }
@@ -603,18 +605,102 @@ public sealed class ComputedStyleTests
         (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p')).getPropertyValue('font-weight')")).Should().Be("bold");
     }
 
+    // https://github.com/sebastienros/jint/issues/4594: the ::before/::after cascade answers from the rules whose
+    // subject is that pseudo-element, and inherits from the originating element.
     [Test]
-    public async Task ThePseudoElementArgumentIsAcceptedAndIgnored()
+    public async Task BeforeAndAfterPseudoElementsAnswerFromTheirOwnRules()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        await page.SetContentAsync("<style>#p::before { content: 'x' }</style><p id='p' style='color: rgb(9, 9, 9)'>text</p>");
+        await page.SetContentAsync("""
+            <!doctype html>
+            <style>
+              #x::after { content: ""; display: block; transform: scaleX(0); opacity: .28; color: rgb(1, 2, 3) }
+              #x::before { content: "b"; opacity: .5 }
+            </style>
+            <p id=x>x</p>
+            """);
 
-        // Documented divergence: the pseudo-element selector is ignored, so the answer is the element's own
-        // computed style rather than the pseudo-element's.
-        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p'), '::before').color"))
-            .Should().Contain("9, 9, 9");
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const el = document.getElementById('x');
+              const a = getComputedStyle(el, '::after'), b = getComputedStyle(el, '::before');
+              return [a.content, a.display, a.transform, a.opacity, a.color, b.opacity, b.content].join(' | ');
+            })()
+            """)).Should().Be("\"\" | block | matrix(0, 0, 0, 1, 0, 0) | 0.28 | rgb(1, 2, 3) | 0.5 | \"b\"");
+        // The originating element itself is untouched by its pseudo-elements' rules.
+        (await page.EvaluateAsync<string>("""
+            (() => { const s = getComputedStyle(x); return [s.content, s.opacity, s.transform, s.color].join(' | '); })()
+            """)).Should().Be("normal | 1 | none | rgb(0, 0, 0)");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task NestedAndShadowHostPseudoElementRulesApply()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>.card { &::after { opacity: .25 } }</style><p id=n class=card>n</p><div id=h></div>");
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const root = h.attachShadow({ mode: 'open' });
+              root.innerHTML = '<style>:host::before { opacity: .75 }</style><span>s</span>';
+              return getComputedStyle(n, '::after').opacity + ' | ' + getComputedStyle(h, '::before').opacity + ' | ' + getComputedStyle(h).opacity;
+            })()
+            """)).Should().Be("0.25 | 0.75 | 1");
+        page.Errors.Should().BeEmpty();
+    }
+
+    // CSSOM §9: transform resolves to one matrix; a list that needs a box to resolve keeps its computed text.
+    [TestCase("none", "none")]
+    [TestCase("translate(10px, 20px) scale(2)", "matrix(2, 0, 0, 2, 10, 20)")]
+    [TestCase("rotate(30deg)", "matrix(0.866025, 0.5, -0.5, 0.866025, 0, 0)")]
+    [TestCase("translateZ(5px)", "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 5, 1)")]
+    [TestCase("translateX(2em)", "matrix(1, 0, 0, 1, 32, 0)")]
+    [TestCase("translateX(50%)", "translateX(50%)")]
+    public async Task TransformResolvesToAMatrix(string declared, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=t style='transform: " + declared + "'>t</div>");
+        (await page.EvaluateAsync<string>("getComputedStyle(t).transform")).Should().Be(expected);
+    }
+
+    [Test]
+    public async Task PseudoElementsInheritFromTheOriginatingElementAndCascadeBySpecificity()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync("""
+            <style>
+              #p { opacity: .3; display: flex }
+              #p::after { color: rgb(0, 128, 0) }
+              p::after { color: rgb(255, 0, 0); display: inline }
+              #p:before { content: "legacy" }
+              #q, #q::before { opacity: .5 }
+              #q::BEFORE { content: counter(n) }
+            </style>
+            <p id='p' style='color: rgb(9, 9, 9)'>text</p><p id='q'>q</p>
+            """);
+
+        // Inherited color reaches the pseudo-element; the element's non-inherited opacity does not.
+        (await page.EvaluateAsync<string>("getComputedStyle(p, '::before').color + ' | ' + getComputedStyle(p, '::before').opacity"))
+            .Should().Be("rgb(9, 9, 9) | 1");
+        // An id beats a type selector; a flex originating element blockifies its pseudo-element's box.
+        (await page.EvaluateAsync<string>("getComputedStyle(p, '::after').color + ' | ' + getComputedStyle(p, '::after').display"))
+            .Should().Be("rgb(0, 128, 0) | block");
+        // The legacy single-colon spelling is accepted on both sides; content: normal computes to none.
+        (await page.EvaluateAsync<string>("getComputedStyle(p, ':before').content + ' | ' + getComputedStyle(p, '::after').content"))
+            .Should().Be("\"legacy\" | none");
+        // A selector list applies each branch to its own subject; names are ASCII case-insensitive.
+        (await page.EvaluateAsync<string>("getComputedStyle(q).opacity + ' | ' + getComputedStyle(q, '::before').opacity + ' | ' + getComputedStyle(q, '::Before').content + ' | ' + getComputedStyle(q, '::after').opacity"))
+            .Should().Be("0.5 | 0.5 | counter(n) | 1");
+        // A pseudo-element string without a leading colon names no pseudo-element: the element answers.
+        (await page.EvaluateAsync<string>("getComputedStyle(p, 'after').opacity + ' | ' + getComputedStyle(p, '').opacity + ' | ' + getComputedStyle(p, null).opacity"))
+            .Should().Be("0.3 | 0.3 | 0.3");
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]

@@ -18,13 +18,18 @@ internal static class PageDocument
     /// Opens <paramref name="markup"/> as <paramref name="url"/>, read the way <paramref name="contentType"/>
     /// says, and runs its scripts.
     /// </summary>
+    /// <remarks>
+    /// <c>beforeParse</c> runs once the empty document is the runtime's, with <c>readyState</c>
+    /// <c>loading</c>, and before the parser reads a byte: where the init scripts run.
+    /// </remarks>
     internal static PageLoad Load(
         PageRuntime runtime,
         string markup,
         string url,
         string contentType,
-        Action<NavigationPhase>? onPhase = null, DateTimeOffset? lastModified = null, string? defaultStyle = null)
-        => ParserDriver.Load(runtime, markup, url, contentType, onPhase, lastModified, defaultStyle);
+        Action<NavigationPhase>? onPhase = null, DateTimeOffset? lastModified = null, string? defaultStyle = null,
+        Action<ParserDriver>? beforeParse = null)
+        => ParserDriver.Load(runtime, markup, url, contentType, onPhase, lastModified, defaultStyle, beforeParse);
 }
 
 /// <summary>What one parse produced: the document, the context that owns it, and how much script ran.</summary>

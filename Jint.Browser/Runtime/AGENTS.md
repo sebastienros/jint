@@ -82,7 +82,9 @@ empty pass, not these potentially nested budget scopes. Four consequences are ea
 
 - **A request's bracket is outside `PostAsync`'s own `try`/`catch`**, which is what makes a budget failure the
   *caller's*: `Page.EvaluateAsync` faults with `TimeoutException`. A task's erupts into the pump, becomes a
-  `PageErrorKind.BudgetExceeded` entry, and the loop goes on — a page survives its scripts.
+  `PageErrorKind.BudgetExceeded` entry, and the loop goes on — a page survives its scripts. A protocol command
+  is told which budget stopped it (`PageBudget.Describe`), and one awaiting a promise of the stopped turn is
+  answered through `IPageObserver.TaskStopped` (#4619).
 - **A request that pumps is posted `bracketed: false`.** `WaitForIdleAsync` is one; the engine brackets each
   task, so bracketing the wait would charge unrelated tasks and parks to one budget. Page, parser and worker
   pumps use internal `ProcessTask`, returning after one task and its checkpoint so a busy task source cannot
@@ -231,7 +233,8 @@ is built the same way rather than the obvious way: the page is looked at from **
 `WaitPoll`, through one mailbox request per look. Holding the loop and pumping inside a single request —
 which is what `WaitForIdleAsync` does — would be a wait for something the page could never do, because the
 loop it is holding is the one a navigation commits on and the one a mailbox request runs on. One wait
-mechanism, three public members over it.
+mechanism, every native `WaitFor*` member over it. **A caller's `Regex` or predicate runs off the loop**,
+over the detached value a look read (`Page.States.cs`), so it can neither touch page state nor hold the loop.
 
 **An expression that throws is not yet true**, so a condition written against an element a framework has
 not rendered is usable; the last failure is kept, and a timeout rethrows it rather than answering
@@ -252,8 +255,8 @@ must enter the same scope through `DomRealm.MutateLayout()` or `PageLayout.Begin
 queries on entry and exit and disables reuse inside callbacks, including exceptional exits. Typed native
 dirty summaries may preserve unrelated rendered flags/rows/children, never old cascade/work/token ownership;
 unknown writes and unclassified callbacks discard them. Never
-add a native write without this bracket. Document replacement clears the cache; media, URL, focus and
-pointer-press state are also checked before reuse. Construction, unclassified `RunOnLoopAsync` callbacks,
+add a native write without this bracket. Document replacement clears the cache; media and URL are also checked before reuse, and focus,
+press and hover only when the rule plan says a selector names them. Construction, unclassified `RunOnLoopAsync` callbacks,
 any `ConfigureEngine` customization and active CSS coverage keep query-local behavior. External stylesheet
 attachment/import changes have independent resource and CSSOM witnesses. No document-wide layout mutation
 observer is installed; the first eligible geometry read installs only a bounded native dirty sink. The complete contract
@@ -328,8 +331,9 @@ the first call. Everything a client is told about a page is one of its calls; no
 
 - **`DocumentCreated` is the load-bearing one.** It fires in `LoadInto`, after the engine is built and its
   window installed and **before `ParserDriver.Load`**, on the loop — the only moment at which a watcher can
-  replace its engine, re-install what a client added and run what a client asked to run on every new
-  document, all of which must be in place before the document's first script.
+  replace its engine and re-install what a client added. The init scripts (`Runtime/NewDocumentScripts`: the
+  context's, then the page's, which CDP shares) run after it, from `ParserDriver.Run`'s `beforeParse`: the
+  empty document exists and is `loading`, and nothing is parsed. Child frames run none.
 - **A `loaderId` names one committed document**, minted when the navigation starts so that
   `NavigationStarted` and every `Phase` of that load agree, and carried by a same-document move because the
   document did not change. Each is prefixed per page, so two pages never mint the same.

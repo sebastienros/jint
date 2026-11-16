@@ -101,7 +101,10 @@ internal static class CssLayoutValues
             for (var i = 0; i < items.Count; i++)
             {
                 if (Math(items[i])) math++;
-                else if (Number(items[i], work)) numbers++;
+                // "A unitless zero that is not already preceded by two flex factors must be interpreted as a flex
+                // factor" — so one that is, is the basis: `flex: 1 0 0`.
+                else if (Number(items[i], work) && !(numbers == 2 && IsUnitlessZero(items[i])))
+                    numbers++;
                 else if (Size(items[i], "flex-basis", work))
                 {
                     bases++;
@@ -135,7 +138,7 @@ internal static class CssLayoutValues
                 "flex-grow" or "flex-shrink" => Number(item, work),
                 "overflow" or "overflow-x" or "overflow-y" => keyword is "visible" or "hidden" or "clip" or "scroll" or "auto" or "overlay",
                 "z-index" => keyword == "auto" || Math(item) || item.TokenKind == CssTokenKind.Number && item.Token.IsInteger,
-                _ when name.EndsWith("-style", StringComparison.Ordinal) => keyword is "none" or "hidden" or "dotted" or "dashed" or "solid" or "double" or "groove" or "ridge" or "inset" or "outset",
+                _ when name.EndsWith("-style", StringComparison.Ordinal) => IsLineStyle(keyword),
                 _ => Size(item, name, work)
             };
             if (!valid) return false;
@@ -244,13 +247,19 @@ internal static class CssLayoutValues
         };
     }
 
+    internal static bool IsLineStyle(string keyword) => keyword is
+        "none" or "hidden" or "dotted" or "dashed" or "solid" or "double" or "groove" or "ridge" or "inset" or "outset";
+
+    private static bool IsUnitlessZero(CssComponentValue item) =>
+        item.TokenKind == CssTokenKind.Number && item.Token.NumberText.Trim('+', '-').TrimStart('0') is "" or "." or ".0";
+
     private static bool Number(CssComponentValue item, CssValueWork work) =>
         Math(item) || item.TokenKind == CssTokenKind.Number && CssNumber.FromValidatedToken(item.Token.NumberText, work).Sign >= 0;
-    private static bool Math(CssComponentValue item) => item.Kind == CssComponentKind.Function &&
+    internal static bool Math(CssComponentValue item) => item.Kind == CssComponentKind.Function &&
         item.FunctionName.ToLowerInvariant() is "calc" or "min" or "max" or "clamp" or "round" or "mod" or "rem" or
             "sin" or "cos" or "tan" or "asin" or "acos" or "atan" or "atan2" or "pow" or "sqrt" or "hypot" or
             "log" or "exp" or "abs" or "sign";
-    private static string Keyword(CssComponentValue item)
+    internal static string Keyword(CssComponentValue item)
     {
         if (item.TokenKind != CssTokenKind.Ident) return "";
         var text = item.Token.Text;

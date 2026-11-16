@@ -224,9 +224,10 @@ never straddle, and the deepest box containing a point is always the owner of th
 a hit test is a division, the centre of a leaf hits the leaf, the centre of a container hits a descendant as a
 browser does, and the click bubbles back up. Rendered is HTML's set minus what a rendering would have needed:
 `<head>` and its subtree, `<script>`/`<style>`/`<template>`/`<noscript>` wherever they sit, and whatever the
-accessibility layer's `ElementVisibility` calls not rendered (`hidden`, `display: none`,
-`visibility: hidden|collapse`); `aria-hidden` does not remove a box. An element with no box answers zeros in
-script and `-32000` over the protocol, because a client reads zeros as a real box at the origin.
+accessibility layer's `ElementVisibility` calls not rendered (`hidden`, `display: none`); `aria-hidden` does
+not remove a box, and a `visibility: hidden|collapse` box keeps its rows but is never hit. An element with no
+box answers zeros in script and `-32000` over the protocol, because a client reads zeros as a real box at the
+origin.
 
 **Single-line horizontal flex rows refine that model.** Computed flex bases, growth and shrinkage partition
 the containing width; direct children share vertical space, with stretch/start/center/end cross-axis
@@ -305,8 +306,10 @@ a value of the document that replaced it.
 
 `Jint.Browser` reaches all of that through one seam, `IPageObserver`, and a page has exactly one observer.
 `DocumentCreated` fires after the window installer and before the parse, on the loop thread, which is what
-makes it the place to replace the engine, re-install the bindings and run the new-document scripts: every one
-of them has to be in place before the document's first inline script. `Phase`, `SameDocumentNavigated`,
+makes it the place to replace the engine and re-install the bindings: both have to be in place before the
+document's first inline script. The new-document scripts are the page's (`Page.AddInitScriptAsync` adds to the
+same store, `BrowserContext.AddInitScriptAsync` to one run first), and the page runs them a moment later, once
+the empty document exists with `readyState` `loading` and before the parser reads a byte. `Phase`, `SameDocumentNavigated`,
 `TitleChanged`, `DialogOpening`/`DialogClosed`, `NetworkIdle` and `Closed` are the rest.
 
 The events of a cross-document navigation, in the order the recordings show Chrome sending them:

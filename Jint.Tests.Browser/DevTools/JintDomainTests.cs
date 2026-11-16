@@ -29,7 +29,7 @@ public class JintDomainTests
     [Test]
     public async Task MarkdownRendersTheDocument()
     {
-        await using var session = await PageSession.CreateAsync();
+        await using var session = await CreateSessionAsync();
         var attachment = await OpenAsync(session);
 
         var result = await session.ResultAsync("Jint.getMarkdown", "{}", attachment);
@@ -46,7 +46,7 @@ public class JintDomainTests
     [Test]
     public async Task MarkdownHonoursTheOptionsTheExtractorAlreadyHas()
     {
-        await using var session = await PageSession.CreateAsync();
+        await using var session = await CreateSessionAsync();
         var attachment = await OpenAsync(session);
 
         var main = await session.ResultAsync("Jint.getMarkdown", """{"mainContentOnly":true,"includeImages":false}""", attachment);
@@ -65,7 +65,7 @@ public class JintDomainTests
     [Test]
     public async Task TextRendersTheDocumentTheWayInnerTextDoes()
     {
-        await using var session = await PageSession.CreateAsync();
+        await using var session = await CreateSessionAsync();
         var attachment = await OpenAsync(session);
 
         var text = (await session.ResultAsync("Jint.getText", "{}", attachment)).GetProperty("text").GetString()!;
@@ -78,7 +78,7 @@ public class JintDomainTests
     [Test]
     public async Task TheAccessibilitySnapshotIsTheTreeAnAgentReads()
     {
-        await using var session = await PageSession.CreateAsync();
+        await using var session = await CreateSessionAsync();
         var attachment = await OpenAsync(session);
 
         var snapshot = (await session.ResultAsync("Jint.getAccessibilitySnapshot", "{}", attachment))
@@ -105,7 +105,7 @@ public class JintDomainTests
     [Test]
     public async Task TheRefusalToRenderPixelsNamesWhatToAskInstead()
     {
-        await using var session = await PageSession.CreateAsync();
+        await using var session = await CreateSessionAsync();
         var attachment = await OpenAsync(session);
 
         var error = await session.ErrorAsync("Page.captureScreenshot", "{}", attachment);
@@ -115,6 +115,13 @@ public class JintDomainTests
         message.Should().Contain("Jint.getMarkdown");
         await session.ResultAsync("Jint.getMarkdown", "{}", attachment);
     }
+
+    /// <summary>
+    /// These tests read what a page renders, not how long it took, so a turn gets the wedge ceiling rather than the
+    /// five-second default: a cold first load on a saturated runner used to spend that on parsing alone.
+    /// </summary>
+    private static Task<PageSession> CreateSessionAsync()
+        => PageSession.CreateAsync(options: new global::Jint.Browser.BrowserOptions { MaxTaskDuration = Jint.Tests.TestBudgets.WedgeCeiling });
 
     private static async Task<string> OpenAsync(PageSession session)
     {

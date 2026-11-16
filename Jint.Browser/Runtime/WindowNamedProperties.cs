@@ -38,6 +38,15 @@ namespace Jint.Browser.Runtime;
 /// than installed, so a frame the parse has not reached yet appears the moment it does.
 /// </para>
 /// <para>
+/// <b>A name an object further up the chain owns is not visible here</b>, which is WebIDL's <i>named property
+/// visibility algorithm</i>: <c>hasOwnProperty</c>, <c>toString</c> and <c>addEventListener</c> resolve on
+/// <c>Object.prototype</c> and <c>EventTarget.prototype</c>, which sit <i>below</i> this object, so every bare
+/// call to one used to reach the document first — and walked every element looking for a <c>name</c>
+/// attribute. axe-core calls a bare <c>hasOwnProperty</c> about 140 000 times scanning a 3 000-element page,
+/// which made that walk a quarter of the scan and the scan quadratic in the page (#4619). The check is the
+/// specification's, so it is also what stops <c>&lt;div id=hasOwnProperty&gt;</c> shadowing the method.
+/// </para>
+/// <para>
 /// <b>One divergence, about a name several elements answer to.</b> HTML collects every matching element in
 /// tree order and answers with an <c>HTMLCollection</c> when there is more than one; this answers the first
 /// it finds, preferring an <c>id</c> to a <c>name</c>. An <c>&lt;iframe name=x&gt;</c> used to be a second:
@@ -55,6 +64,9 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
         _runtime = runtime;
         _document = document;
     }
+
+    /// <summary>The window whose prototype chain this object sits on, which the visibility algorithm starts from.</summary>
+    internal ObjectInstance? Global { get; init; }
 
     /// <inheritdoc />
     /// <remarks>
@@ -79,7 +91,7 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
             return !value.IsUndefined();
         }
 
-        if (name.Length != 0 && (_document ?? _runtime.Document) is { } document)
+        if (name.Length != 0 && !IsOwnedFurtherUp(name) && (_document ?? _runtime.Document) is { } document)
         {
             if (DomDocumentReads.ById(_runtime.Dom, document, name) is { } byId)
             {
@@ -125,6 +137,38 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
     /// <inheritdoc />
     /// <remarks>The other half of the paragraph above: there is nowhere to write, and nothing may be.</remarks>
     protected override bool TrySetNamedValue(string name, JsValue value) => false;
+
+    /// <summary>
+    /// Whether an object above this one in the prototype chain owns <paramref name="name"/>, which makes the
+    /// name invisible here.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://webidl.spec.whatwg.org/#dfn-named-property-visibility — run with the global object: an own
+    /// property of the window hides P (step 3), and so does an own property of any prototype on its chain that
+    /// is not a named properties object (step 4). That is the window, <c>Window.prototype</c>,
+    /// <c>EventTarget.prototype</c> and <c>Object.prototype</c>, skipping this object itself.
+    /// </para>
+    /// <para>
+    /// For an identifier read the first two have already been asked by the time this object is, so what saves
+    /// the document walk is the last two; asking all four is what keeps a direct read of this object and its
+    /// listed names consistent with the identifier. Four own-property probes, no getter run and no script, in
+    /// place of a walk of every element. A page that adds a property to any of them hides an element of that
+    /// name from then on, which is what the algorithm says too.
+    /// </para>
+    /// </remarks>
+    private bool IsOwnedFurtherUp(string name)
+    {
+        for (var holder = Global ?? Prototype; holder is not null; holder = holder.Prototype)
+        {
+            if (holder is not NamedPropertyObject && holder.HasOwnProperty(name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// The array index a property key is, or <see langword="null"/> when it is not one.
@@ -196,14 +240,17 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
         work.Check();
         foreach (var element in NodeTraversal.DescendantElements(document, work.Check, work.Token))
         {
-            if (work.Attribute(element, "id") is { Length: > 0 } id && seen.Add(id))
+            // A name the chain above owns is not a name of this object at all, so it is not listed either:
+            // NameAt may advertise only what TryGetNamedValue answers.
+            if (work.Attribute(element, "id") is { Length: > 0 } id && seen.Add(id) && !IsOwnedFurtherUp(id))
             {
                 names.Add(id);
             }
 
             if (IsNamedAccessKind(element)
                 && work.Attribute(element, "name") is { Length: > 0 } name
-                && seen.Add(name))
+                && seen.Add(name)
+                && !IsOwnedFurtherUp(name))
             {
                 names.Add(name);
             }

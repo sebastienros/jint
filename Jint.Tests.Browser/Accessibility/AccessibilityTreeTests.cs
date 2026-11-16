@@ -272,6 +272,19 @@ public sealed class AccessibilityTreeTests
         property.Value.ToDisplayString().Should().Be(expected);
     }
 
+    [TestCase("<div inert><button id=t>x</button></div>")]
+    [TestCase("<button id=t inert>x</button>")]
+    [TestCase("<div inert><section><a id=t href='/x'>x</a></section></div>")]
+    public void AnInertSubtreeIsNotFocusable(string html)
+    {
+        // The answer FocusController gives the same element, so a snapshot never offers a ref= that
+        // Page.FocusAsync and PressAsync(target, key) would then wait on in vain.
+        var document = PageFixture.Parse(html);
+        var node = AccessibilityTree.Build(ContentDom.ElementById(document, "t")!, AccessibilityOptions.Full)!;
+
+        node.Properties.Should().NotContain(p => p.Name == AxPropertyName.Focusable);
+    }
+
     [Test]
     public void PublishesTheUrlOfALinkAndAnImage()
     {

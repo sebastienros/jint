@@ -20,7 +20,7 @@ internal static partial class NativeCssStyleSheets
     internal static Jint.HtmlParser.Css.Model.CssStyleSheet? SheetOf(DomRealm realm, Element owner)
     {
         if (owner.OwnerDocument is not { } document) return null;
-        var work = new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check);
+        var work = new CssValueWork(realm.CancellationToken, realm.CssCheckpoint);
         foreach (var input in Get(document, work, includeShadow: true))
         {
             work.Charge(1);
@@ -41,20 +41,20 @@ internal static partial class NativeCssStyleSheets
     internal static void AssociateOwner(DomRealm realm, Element owner)
     {
         if (owner.OwnerDocument is { } document)
-            AssociateOwner(document, owner, new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
+            AssociateOwner(document, owner, new CssValueWork(realm.CancellationToken, realm.CssCheckpoint));
     }
 
     internal static void PrepareOwner(DomRealm realm, Element owner)
     {
         if (owner.OwnerDocument is { } document)
-            PrepareOwner(document, owner, new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
+            PrepareOwner(document, owner, new CssValueWork(realm.CancellationToken, realm.CssCheckpoint));
     }
 
     internal static void DisassociateOwner(DomRealm realm, Document document, Element owner) =>
-        DisassociateOwner(document, owner, new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
+        DisassociateOwner(document, owner, new CssValueWork(realm.CancellationToken, realm.CssCheckpoint));
 
     internal static void SetDefaultStyle(DomRealm realm, Document document, string name) =>
-        SetDefaultStyle(document, name, new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
+        SetDefaultStyle(document, name, new CssValueWork(realm.CancellationToken, realm.CssCheckpoint));
 
     internal static DomRealm? RealmOf(Document document) =>
         Hosts.TryGetValue(document, out var reference) && reference.TryGetTarget(out var realm) ? realm : null;
@@ -62,7 +62,7 @@ internal static partial class NativeCssStyleSheets
     internal static void Install(DomRealm realm, Element owner, string text, string sourceUrl)
     {
         var document = owner.OwnerDocument ?? throw new ArgumentException("A stylesheet owner needs a document.", nameof(owner));
-        var work = new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check);
+        var work = new CssValueWork(realm.CancellationToken, realm.CssCheckpoint);
         var baseUrl = DomDocumentState.BaseUri(document, realm.Engine.Constraints.Check, realm.CancellationToken);
         Associate(realm, document);
         Install(document, owner, text, sourceUrl, owner.LocalName == "link" ? sourceUrl : baseUrl, work);
@@ -76,7 +76,7 @@ internal static partial class NativeCssStyleSheets
         void Check()
         {
             realm.CancellationToken.ThrowIfCancellationRequested();
-            realm.Engine.Constraints.Check();
+            realm.CssCheckpoint();
             checkpoint?.Invoke();
             realm.CancellationToken.ThrowIfCancellationRequested();
         }
@@ -112,12 +112,16 @@ internal static partial class NativeCssStyleSheets
         var events = BrowserEventRealm.Of(realm.Engine);
         var focus = events.FocusedElement;
         var press = events.MousePressTarget;
+        var hover = events.MouseHoverTarget;
         var target = DomDocumentState.Of(document).TargetElement;
+        if (focus?.OwnerDocument != document) focus = null;
         var selectors = new SelectorEnvironment(document,
-            focus?.OwnerDocument == document ? focus : null,
+            focus,
             press?.OwnerDocument == document ? press : null,
             target?.OwnerDocument == document ? target : null, BrowserSelectorControlFacts.Factory,
-            realm, BrowserSelectorSemanticRevision.Read(document));
+            realm, BrowserSelectorSemanticRevision.Read(document),
+            hover?.OwnerDocument == document ? hover : null,
+            focus is not null && FocusController.IsFocusVisible(realm, events, focus));
         return CreateQuery(document, media, selectors, work, Check, diagnostics);
     }
 
@@ -142,7 +146,7 @@ internal sealed class NativeCssStyleSheetList(DomRealm realm, Node root)
     {
         var document = root as Document ?? root.OwnerDocument;
         var host = document is not null ? NativeCssStyleSheets.RealmOf(document) ?? realm : realm;
-        var work = new CssValueWork(host.CancellationToken, host.Engine.Constraints.Check);
+        var work = new CssValueWork(host.CancellationToken, host.CssCheckpoint);
         return root switch
         {
             Document owner => NativeCssStyleSheets.Get(owner, work),

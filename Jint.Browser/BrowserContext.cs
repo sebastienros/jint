@@ -25,6 +25,7 @@ public sealed class BrowserContext : IAsyncDisposable
     private readonly List<Page> _pages = [];
     private readonly List<BrowsingContextHandle> _openingPopups = [];
     private readonly List<TaskCompletionSource> _openingPages = [];
+    private VirtualAuthenticator[] _authenticators = [];
     private readonly int _maxPages;
     private readonly object _gate = new();
     private volatile bool _closed;
@@ -41,10 +42,80 @@ public sealed class BrowserContext : IAsyncDisposable
             maxStorage = browser.Options.MaxTotalStorageBytes;
         Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault,
             browser.Options.MaxCacheStorageBytes, browser.Options.MaxIndexedDbBytes, maxStorage);
+        Viewport = options.Viewport ?? browser.Options.Viewport;
+        HasTouch = options.HasTouch ?? browser.Options.HasTouch;
+        MediaEmulation = options.MediaEmulation;
+        BaseUrl = options.BaseUrl;
+        ActionTimeout = options.ActionTimeout;
     }
+
+    /// <summary><see cref="BrowserContextOptions.ActionTimeout"/>, read once when the context was created.</summary>
+    internal TimeSpan ActionTimeout { get; }
+
+    /// <summary><see cref="BrowserContextOptions.BaseUrl"/>, read once when the context was created.</summary>
+    internal string? BaseUrl { get; }
+
+    /// <summary>
+    /// The viewport this context's pages open with: <see cref="BrowserContextOptions.Viewport"/>, or the
+    /// browser's when the context named none.
+    /// </summary>
+    internal Viewport Viewport { get; }
+
+    /// <summary>
+    /// Whether this context's pages open as touch devices: <see cref="BrowserContextOptions.HasTouch"/>, or the
+    /// browser's when the context named none.
+    /// </summary>
+    internal bool HasTouch { get; }
+
+    /// <summary>
+    /// <see cref="BrowserContextOptions.MediaEmulation"/>, read once when the context was created and applied
+    /// over the browser's own to every page the context opens.
+    /// </summary>
+    internal MediaEmulation? MediaEmulation { get; }
 
     /// <summary>The browser this context belongs to.</summary>
     public Browser Browser { get; }
+
+    /// <summary>
+    /// Lets this context's pages run WebAuthn ceremonies against <paramref name="authenticator"/>, as the DevTools
+    /// protocol's <c>WebAuthn.addVirtualAuthenticator</c> does for a Chromium page.
+    /// </summary>
+    /// <param name="authenticator">The authenticator, which other contexts may share to share its credentials.</param>
+    /// <remarks>
+    /// A document created once the context has an authenticator has <c>navigator.credentials</c> and
+    /// <c>PublicKeyCredential</c>; one created before has no WebAuthn, as a browser without it, so add the
+    /// authenticator before navigating. Each ceremony reads the context's authenticators when it runs: with none
+    /// left, <c>create()</c> and a modal <c>get()</c> reject with <c>NotAllowedError</c>, as a browser whose user
+    /// dismissed the prompt does, and a conditional <c>get()</c> waits, as an autofill with no passkey to offer does.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="authenticator"/> is null.</exception>
+    public void AddVirtualAuthenticator(VirtualAuthenticator authenticator)
+    {
+        ArgumentNullException.ThrowIfNull(authenticator);
+        lock (_gate)
+        {
+            if (Array.IndexOf(_authenticators, authenticator) < 0)
+            {
+                _authenticators = [.. _authenticators, authenticator];
+            }
+        }
+    }
+
+    /// <summary>Stops this context's pages from using <paramref name="authenticator"/>.</summary>
+    /// <param name="authenticator">An authenticator <see cref="AddVirtualAuthenticator"/> added.</param>
+    /// <returns><see langword="true"/> when it had been added.</returns>
+    public bool RemoveVirtualAuthenticator(VirtualAuthenticator authenticator)
+    {
+        lock (_gate)
+        {
+            var before = _authenticators.Length;
+            _authenticators = [.. _authenticators.Where(candidate => !ReferenceEquals(candidate, authenticator))];
+            return _authenticators.Length != before;
+        }
+    }
+
+    /// <summary>The authenticators the context's ceremonies use, read by a page's loop.</summary>
+    internal VirtualAuthenticator[] VirtualAuthenticators => Volatile.Read(ref _authenticators);
 
     /// <summary>The pages currently open in this context.</summary>
     public IReadOnlyList<Page> Pages
@@ -78,6 +149,87 @@ public sealed class BrowserContext : IAsyncDisposable
     internal PageNetwork Network { get; }
 
     internal SharedWorkerRegistry SharedWorkers { get; } = new();
+
+    /// <summary>The routes this context registered, consulted after a page's own.</summary>
+    internal PageRouteTable Routes { get; } = new();
+
+    /// <summary>
+    /// Routes every request of every page in this context — open now or opened later — whose URL
+    /// <paramref name="match"/> accepts to <paramref name="handler"/>.
+    /// </summary>
+    /// <param name="match">Which URLs to route; called off the page's loop for every hop.</param>
+    /// <param name="handler">What to do with a matching request; see <see cref="RoutedRequest"/>.</param>
+    /// <returns>A task that completes once the route applies to every request sent after it.</returns>
+    /// <remarks>
+    /// A page's own routes (<see cref="Page.RouteAsync"/>) are asked first; a context route is asked when none
+    /// of them decided the request. Shared workers' loads are routed here too, since they belong to no page.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="match"/> or <paramref name="handler"/> is null.</exception>
+    public Task RouteAsync(Func<Uri, bool> match, Func<RoutedRequest, Task> handler)
+    {
+        ArgumentNullException.ThrowIfNull(match);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        if (_closed)
+        {
+            return Task.FromException(new ObjectDisposedException(nameof(BrowserContext)));
+        }
+
+        Routes.Add(new PageRoute(match, handler));
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Removes the routes this context registered with <paramref name="match"/>, or only the one with
+    /// <paramref name="handler"/> as well when it is named.
+    /// </summary>
+    /// <param name="match">The predicate a route was registered with, compared as a delegate.</param>
+    /// <param name="handler">The handler to remove, or <see langword="null"/> for every handler of <paramref name="match"/>.</param>
+    /// <returns>A task that completes once no request sent afterwards reaches the removed routes.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="match"/> is null.</exception>
+    public Task UnrouteAsync(Func<Uri, bool> match, Func<RoutedRequest, Task>? handler = null)
+    {
+        ArgumentNullException.ThrowIfNull(match);
+        Routes.Remove(match, handler);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The init scripts every page of this context runs before its own, in each new document.</summary>
+    internal NewDocumentScripts NewDocumentScripts { get; } = new();
+
+    /// <summary>Adds a script that runs in every new document of every page of this context, before the document's own scripts.</summary>
+    /// <param name="script">The script source.</param>
+    /// <returns>A task that completes once the script is installed.</returns>
+    /// <remarks>
+    /// It reaches pages already open as well as later ones and popups, from their next document onwards,
+    /// including the <c>about:blank</c> a new page starts on. A context's scripts run before a page's own
+    /// <see cref="Page.AddInitScriptAsync(string)"/> scripts, with the same timing and error handling.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The context has been closed.</exception>
+    public Task AddInitScriptAsync(string script)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        ObjectDisposedException.ThrowIf(_closed, this);
+        NewDocumentScripts.Add(this, "BrowserContext.AddInitScriptAsync", script);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Adds a function invoked with one JSON-data argument in every new document of every page of this context.</summary>
+    /// <param name="function">A JavaScript function expression.</param>
+    /// <param name="argument">The argument, snapshotted as JSON data now and bound in each document.</param>
+    /// <returns>A task that completes once the script is installed.</returns>
+    /// <remarks>
+    /// The argument is bound as <see cref="Page.EvaluateAsync(string, object?)"/> binds one. Otherwise this
+    /// runs where and when <see cref="AddInitScriptAsync(string)"/> does.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The context has been closed.</exception>
+    public Task AddInitScriptAsync(string function, object? argument)
+    {
+        ArgumentNullException.ThrowIfNull(function);
+        ObjectDisposedException.ThrowIf(_closed, this);
+        NewDocumentScripts.Add(this, "BrowserContext.AddInitScriptAsync", function, System.Text.Json.JsonSerializer.SerializeToElement(argument));
+        return Task.CompletedTask;
+    }
 
     /// <summary>Opens a new page on <c>about:blank</c>, with its own engine and its own thread.</summary>
     /// <returns>The page, once its thread is running and the blank document has loaded.</returns>

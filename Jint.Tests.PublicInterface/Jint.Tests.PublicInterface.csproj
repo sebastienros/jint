@@ -18,6 +18,14 @@
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
     <ProjectReference Include="..\Jint.HtmlParser\Jint.HtmlParser.csproj" Condition="'$(TargetFramework)' != 'net472'" />
+    <!-- Jint.Browser grants InternalsVisibleTo to Jint.Tests.Browser alone, so a test here is what proves an
+         embedder driving a Page reaches the members it calls. -->
+    <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" Condition="'$(TargetFramework)' != 'net472'" />
+    <!--
+      Jint.Browser grants InternalsVisibleTo to Jint.Tests.Browser only, so a page driven from here reaches
+      exactly what an embedder's `new Browser()` reaches.
+    -->
+    <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" Condition="'$(TargetFramework)' != 'net472'" />
     <!--
       The [JsAccessible] generator is consumed here the way a third party consumes it, which is the whole
       reason the fixture is in this project and not in Jint.Tests: this is the only suite without

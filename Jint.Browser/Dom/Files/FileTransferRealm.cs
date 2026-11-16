@@ -76,6 +76,13 @@ internal sealed class FileTransferRealm
         }
     }
 
+    /// <summary>A new, empty drag data store, as the user agent creates one for a drag operation.</summary>
+    internal JsDataTransfer CreateDataTransfer()
+    {
+        _ = DataTransferInterface;
+        return new JsDataTransfer(this, _dataTransferPrototype!);
+    }
+
     internal HostInterfaceObject DataTransferItemListInterface
     {
         get

@@ -71,6 +71,25 @@ internal static class DomTextAreaMembers
         return JsValue.Undefined;
     }
 
+    /// <summary>The textarea's <c>setRangeText</c>, as <see cref="DomInputMembers.SetRangeText"/> describes it.</summary>
+    internal static JsValue SetRangeText(DomRealm realm, Element element, JsValue[] arguments)
+    {
+        var range = DomInputMembers.RangeTextArguments(arguments, "HTMLTextAreaElement.setRangeText");
+        var state = State(element);
+        var previous = state.Selection;
+        if (range.Ranged)
+        {
+            state.SetRangeText(range.Replacement, range.Start, range.End, range.Mode, realm.NativeReadCheckpoint, realm.CancellationToken);
+        }
+        else
+        {
+            state.SetRangeText(range.Replacement, realm.NativeReadCheckpoint, realm.CancellationToken);
+        }
+
+        SelectionChanged(realm, element, previous, state.Selection, fireSelect: true);
+        return JsValue.Undefined;
+    }
+
     internal static JsValue Select(DomRealm realm, Element element)
     {
         var state = State(element);

@@ -24,7 +24,7 @@ internal sealed class PageRecorder
 {
     private readonly object _gate = new();
     private readonly Queue<PageError> _errors = new();
-    private readonly Queue<string> _console = new();
+    private readonly Queue<PageConsoleMessage> _console = new();
     private readonly int _max;
 
     internal PageRecorder(int max)
@@ -61,6 +61,25 @@ internal sealed class PageRecorder
         {
             lock (_gate)
             {
+                var messages = new string[_console.Count];
+                var i = 0;
+                foreach (var entry in _console)
+                {
+                    messages[i++] = entry.Text;
+                }
+
+                return messages;
+            }
+        }
+    }
+
+    /// <summary>A snapshot of the console messages recorded so far with their levels, oldest first.</summary>
+    internal IReadOnlyList<PageConsoleMessage> ConsoleEntries
+    {
+        get
+        {
+            lock (_gate)
+            {
                 return _console.ToArray();
             }
         }
@@ -89,11 +108,11 @@ internal sealed class PageRecorder
         }
     }
 
-    internal void AddConsole(string message)
+    internal void AddConsole(ConsoleLogLevel level, string message)
     {
         lock (_gate)
         {
-            _console.Enqueue(message);
+            _console.Enqueue(new PageConsoleMessage(level, message));
             while (_console.Count > _max)
             {
                 _console.Dequeue();
@@ -164,7 +183,7 @@ internal sealed class PageRecorder
             _recorder = recorder;
         }
 
-        public override void Write(ConsoleLogLevel level, string message) => _recorder.AddConsole(message);
+        public override void Write(ConsoleLogLevel level, string message) => _recorder.AddConsole(level, message);
 
         public override void Write(in ConsoleRecord record)
         {
@@ -172,7 +191,7 @@ internal sealed class PageRecorder
             // A browser's console shows no line for those either.
             if (record.Message is { } message)
             {
-                _recorder.AddConsole(message);
+                _recorder.AddConsole(record.Level, message);
             }
         }
     }

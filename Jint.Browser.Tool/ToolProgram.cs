@@ -165,11 +165,14 @@ internal static class ToolProgram
         output.WriteLine();
         output.WriteLine("serve, fetch and eval:");
         output.WriteLine("  --no-images               Fetch no image; <img> stays incomplete and fires nothing");
+        output.WriteLine("  --animation-frame-interval <d>   Delay before a requested animation frame runs;");
+        output.WriteLine("                            1ms for serve, 16ms for fetch and eval");
         output.WriteLine();
         output.WriteLine("Every command:");
         output.WriteLine("  --untrusted               Harden the pages for content nobody vouches for");
         output.WriteLine("  --user-agent <string>     What a page reports itself as, in script and on the wire");
-        output.WriteLine("  --max-task-duration <d>   Ceiling on one turn of a page; 5s");
+        output.WriteLine("  --max-task-duration <d>   Ceiling on one turn of a page; 5s, 2m for serve");
+        output.WriteLine("                            unless --untrusted; 0 for no ceiling");
         output.WriteLine("  --memory-limit <size>     Allocation budget for one turn of a page");
         output.WriteLine("  --block-private-network   Refuse loopback and private addresses");
         output.WriteLine("  --allow-private-network   Allow them, even under --untrusted");

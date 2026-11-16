@@ -420,11 +420,7 @@ internal sealed class InteropHelper
         var worstElementScore = 0;
         for (uint i = 0; i < scoredElements; i++)
         {
-            if (!array.TryGetValue(i, out var element))
-            {
-                element = JsValue.Undefined;
-            }
-
+            var element = array.GetElement(i);
             var elementScore = CalculateParameterTypeScore(engine, elementType, isOptional: false, element);
             if (elementScore < 0)
             {

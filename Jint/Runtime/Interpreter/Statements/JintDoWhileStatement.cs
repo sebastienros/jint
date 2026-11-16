@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// <summary>
 /// http://www.ecma-international.org/ecma-262/5.1/#sec-12.6.1
 /// </summary>
-internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
+internal sealed class JintDoWhileStatement : JintIterationStatement<DoWhileStatement>
 {
     private readonly ProbablyBlockStatement _body;
     private readonly string? _labelSetName;
@@ -84,7 +84,7 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
                     return new Completion(CompletionType.Return, suspendedValue, _statement);
                 }
 
-                if (completion.Type != CompletionType.Continue || !string.Equals(completion.Target, _labelSetName, StringComparison.Ordinal))
+                if (completion.Type != CompletionType.Continue || (completion.Target is { } target && !LabelSetContains(target)))
                 {
                     if (completion.Type == CompletionType.Break && (completion.Target == null || string.Equals(completion.Target, _labelSetName, StringComparison.Ordinal)))
                     {

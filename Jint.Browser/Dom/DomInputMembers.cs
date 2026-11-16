@@ -90,6 +90,61 @@ internal static class DomInputMembers
         return JsValue.Undefined;
     }
 
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-textarea/input-setrangetext —
+    /// replaces a range of the value (the selection, without a range), leaving the selection as
+    /// <c>selectionMode</c> says. It fires no <c>input</c> event: script changed the value, not the user.
+    /// </summary>
+    internal static JsValue SetRangeText(DomRealm realm, Element input, JsValue[] arguments)
+    {
+        var range = RangeTextArguments(arguments, "HTMLInputElement.setRangeText");
+        var state = ValueState(realm, input);
+        var previous = state.Selection;
+        if (range.Ranged)
+        {
+            state.SetRangeText(range.Replacement, range.Start, range.End, range.Mode, realm.CancellationToken);
+        }
+        else
+        {
+            state.SetRangeText(range.Replacement, realm.CancellationToken);
+        }
+
+        SelectionChanged(realm, input, previous, state.Selection);
+        return JsValue.Undefined;
+    }
+
+    /// <summary>
+    /// The WebIDL overloads of <c>setRangeText</c>: <c>(replacement)</c>, or <c>(replacement, start, end,
+    /// optional selectionMode = "preserve")</c>; two arguments match neither, which is a <c>TypeError</c>.
+    /// </summary>
+    internal static (string Replacement, bool Ranged, uint Start, uint End, HtmlRangeTextMode Mode) RangeTextArguments(JsValue[] arguments, string member)
+    {
+        var replacement = DomConvert.RequiredText(arguments, 0, member);
+        if (arguments.Length < 2)
+        {
+            return (replacement, false, 0, 0, HtmlRangeTextMode.Preserve);
+        }
+
+        if (arguments.Length == 2)
+        {
+            Throw.TypeErrorNoEngine("Failed to execute '" + member + "': 3 arguments required, but only 2 present.");
+        }
+
+        var start = DomConvert.RequiredUInt32(arguments, 1, member);
+        var end = DomConvert.RequiredUInt32(arguments, 2, member);
+        var text = DomConvert.OptionalText(arguments, 3, "preserve");
+        var mode = text switch
+        {
+            "select" => HtmlRangeTextMode.Select,
+            "start" => HtmlRangeTextMode.Start,
+            "end" => HtmlRangeTextMode.End,
+            "preserve" => HtmlRangeTextMode.Preserve,
+            _ => DomConvert.BadEnumValue<HtmlRangeTextMode>(arguments[3], member),
+        };
+
+        return (replacement, true, start, end, mode);
+    }
+
     internal static JsValue Select(DomRealm realm, Element input)
     {
         var state = ValueState(realm, input);

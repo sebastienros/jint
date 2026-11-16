@@ -1,3 +1,5 @@
+using Jint.WebApi;
+
 namespace Jint.Browser;
 
 /// <summary>
@@ -86,3 +88,8 @@ public enum PageErrorKind
     /// </remarks>
     BudgetExceeded,
 }
+
+/// <summary>One message a page's script printed through <c>console</c>.</summary>
+/// <param name="Level">The severity of the method that printed it: <c>console.error</c> is <see cref="ConsoleLogLevel.Error"/>.</param>
+/// <param name="Text">The message, formatted the way a console would show it.</param>
+public readonly record struct PageConsoleMessage(ConsoleLogLevel Level, string Text);

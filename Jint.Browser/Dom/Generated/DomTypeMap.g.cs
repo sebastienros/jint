@@ -21,6 +21,7 @@ internal static partial class DomTypeMap
         DomInterfaces.CSSSupportsRule,
         DomInterfaces.CSSConditionRule,
         DomInterfaces.CSSLayerBlockRule,
+        DomInterfaces.CSSScopeRule,
         DomInterfaces.CSSFontFaceDescriptors,
         DomInterfaces.CSSFontFaceRule,
         DomInterfaces.CSSGroupingRule,

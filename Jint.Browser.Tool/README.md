@@ -116,6 +116,12 @@ console.log(await page.title());
 unauthenticated**, exactly as it is in Chrome: anything that can reach it can run script in this process, so
 `--host` defaults to `127.0.0.1` and should stay there.
 
+`--animation-frame-interval` is how long after `requestAnimationFrame` a frame runs. Nothing is painted, so
+a frame is only a scheduling point, and automation waits for them: Playwright's actionability check waits for
+two animation frames before every click. `serve` therefore defaults to `1ms`, against `16ms` for `fetch` and
+`eval`; a page that animates continuously runs its frames that much more often, and `--animation-frame-interval 16ms`
+restores the 60 Hz cadence.
+
 `--no-images` fetches no image at all, which is what a crawler that only reads the DOM wants: each `<img>`
 is still listed among the page's requests with the reason it was not fetched, but no socket is opened and
 the element fires neither `load` nor `error`, so `img.complete` stays `false`. `fetch` and `eval` take it too.
@@ -168,6 +174,14 @@ on by default, so a page cannot reach `localhost`, a private address or a cloud 
 `--max-task-duration` and `--memory-limit` bound **one turn** of a page — one call the tool makes, one drain
 of the event loop, one inline `<script>` — rather than the run as a whole, which is what a pumped event loop
 allows anyone to bound.
+
+The ceiling is five seconds for `fetch` and `eval`, and the hardened profile's own under `--untrusted` (and for
+`mcp`, which hardens by default). **`serve` gives trusted pages two minutes**, past any protocol client's
+own bound (Playwright gives a whole test 30 seconds), because Chromium has no per-task ceiling and a slow task
+such as one `axe.run` over a large page should meet the client's timeout first; it is still finite so that a
+runaway script a killed client left behind cannot hold a core for ever. A task stopped by the ceiling is
+reported to the client as an error naming it — `Task exceeded MaxTaskDuration (2m)` — and the page stays
+usable.
 
 ## HTTP response caching
 

@@ -11,18 +11,13 @@ using Browser = global::Jint.Browser.Browser;
 /// <c>matchMedia</c>'s <c>change</c> event: what a page hears when the viewport moves under it.
 /// </summary>
 /// <remarks>
-/// The viewport is set through the internal runtime seam rather than through a public member, because device
-/// emulation (campaign item C5) is what will own the public one. That seam is the whole of "the window
-/// resized" in a browser with no window.
+/// The viewport is set through <see cref="Page.SetViewportAsync(Viewport)"/>, the same write
+/// <c>Emulation.setDeviceMetricsOverride</c> makes, which is the whole of "the window resized" in a browser with
+/// no window.
 /// </remarks>
 public sealed class MediaQueryChangeTests
 {
-    private static Task SetViewportAsync(Page page, Viewport viewport)
-        => page.RunOnLoopAsync(engine =>
-        {
-            PageRuntime.Find(engine)!.SetViewport(viewport);
-            return 0;
-        });
+    private static Task SetViewportAsync(Page page, Viewport viewport) => page.SetViewportAsync(viewport);
 
     [Test]
     public async Task AListWhoseAnswerMovedFiresChangeAndOneWhoseDidNotStaysQuiet()

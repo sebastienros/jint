@@ -12,6 +12,11 @@ internal sealed class SelectorSiblingPositions
 internal readonly record struct SelectorFilteredPositionKey(Node Parent, CompiledSelector Filter,
     Node? Scope, ShadowRoot? ShadowScope, SelectorEnvironment Environment);
 
+// Selectors §4.5: a :has() result for one anchor. The same inputs as a filtered position key, with the anchor
+// rather than its parent, since the relative selectors are evaluated from the anchor.
+internal readonly record struct SelectorRelativeMatchKey(Node Anchor, CompiledSelector Relative,
+    Node? Scope, ShadowRoot? ShadowScope, SelectorEnvironment Environment);
+
 internal sealed class SelectorFilteredPositions
 {
     internal readonly Dictionary<Element, int> Elements = new(ReferenceEqualityComparer.Instance);
@@ -59,6 +64,17 @@ internal static partial class SelectorMatcher
         Node element, Node? scope, ref Work work)
     {
         var filter = predicate.Arguments!;
+        return new(element.ParentNode ?? element, filter, UsesScope(filter, ref work) ? scope : null,
+            work.ShadowScope, work.Environment);
+    }
+
+    private static SelectorRelativeMatchKey RelativeMatchKey(CompiledSelector relative, Node anchor, Node? scope,
+        ref Work work)
+        => new(anchor, relative, UsesScope(relative, ref work) ? scope : null, work.ShadowScope, work.Environment);
+
+    // Whether a selector reads the scoping root (:scope, or a & that may stand for it), memoized per selector.
+    private static bool UsesScope(CompiledSelector filter, ref Work work)
+    {
         var cell = work.Shared.EnsureCell();
         cell.ScopeDependencies ??= new();
         if (!cell.ScopeDependencies.TryGetValue(filter, out var usesScope))
@@ -82,7 +98,6 @@ internal static partial class SelectorMatcher
             }
             cell.ScopeDependencies.Add(filter, usesScope);
         }
-        return new(element.ParentNode ?? element, filter, usesScope ? scope : null,
-            work.ShadowScope, work.Environment);
+        return usesScope;
     }
 }

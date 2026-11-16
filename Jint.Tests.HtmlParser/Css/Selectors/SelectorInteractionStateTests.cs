@@ -84,7 +84,6 @@ public sealed class SelectorInteractionStateTests
         Match("col:has(|| td > :active)", col, environment).Should().BeTrue();
     }
 
-    [TestCase(":hover")]
     [TestCase(":focus-visible")]
     [TestCase(":autofill")]
     [TestCase(":-webkit-autofill")]
@@ -95,6 +94,41 @@ public sealed class SelectorInteractionStateTests
         Match(selector, input, new SelectorEnvironment(document, input, input, input)).Should().BeFalse();
         SelectorMatcher.Matches(Parse(selector), input).Should().BeFalse();
         SelectorMatcher.Matches(Parse("input, " + selector), input).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Selectors 4 §9.4: whether focus is indicated is the host's heuristic; given it, <c>:focus-visible</c>
+    /// is the focused element alone — not a shadow host <c>:focus</c> answers for, not a frame, not an
+    /// element that has left the document.
+    /// </summary>
+    [Test]
+    public void FocusVisibleIsTheIndicatedFocusedElementAlone()
+    {
+        var document = Document.CreateHtml();
+        var root = Add(document, "main");
+        var link = Add(root, "a");
+        var other = Add(root, "a");
+        var indicated = new SelectorEnvironment(document, link, null, null, FocusVisible: true);
+        Match(":focus-visible", link, indicated).Should().BeTrue();
+        Match("main:has(> :focus-visible)", root, indicated).Should().BeTrue();
+        Match(":not(:focus-visible)", other, indicated).Should().BeTrue();
+        Match(":focus-visible", root, indicated).Should().BeFalse("focus-visible does not propagate to ancestors");
+        Match(":focus-visible", link, indicated with { FocusVisible = false }).Should().BeFalse();
+        Match(":focus-visible", link, new SelectorEnvironment(document, null, null, null, FocusVisible: true)).Should().BeFalse();
+
+        var host = Add(root, "section");
+        var shadow = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var inner = Add(shadow, "input");
+        var inShadow = indicated with { FocusedElement = inner };
+        Match(":focus", host, inShadow).Should().BeTrue();
+        Match(":focus-visible", host, inShadow).Should().BeFalse();
+        Match(":focus-visible", inner, inShadow).Should().BeTrue();
+
+        var frame = Add(root, "iframe");
+        Match(":focus-visible", frame, indicated with { FocusedElement = frame }).Should().BeFalse();
+
+        root.RemoveChild(link);
+        Match(":focus-visible", link, indicated).Should().BeFalse();
     }
 
     [Test]
@@ -204,6 +238,31 @@ public sealed class SelectorInteractionStateTests
         root.InsertBefore(duplicate, separate);
         outer.SetAttribute("for", "control");
         Match(":active", control, environment).Should().BeFalse();
+    }
+
+    [Test]
+    public void HoverIsTheSeedItsAncestorsAndAHoveredLabelsControl()
+    {
+        var document = Document.CreateHtml();
+        var root = Add(document, "main");
+        var label = Add(root, "label");
+        label.SetAttribute("for", "control");
+        var text = Add(label, "span");
+        var control = Add(root, "input", "control");
+        var other = Add(root, "div");
+        var environment = new SelectorEnvironment(document, null, null, null, HoverTarget: text);
+        Match(":hover", text, environment).Should().BeTrue();
+        Match(":hover", label, environment).Should().BeTrue();
+        Match(":hover", root, environment).Should().BeTrue();
+        Match(":hover", control, environment).Should().BeTrue();
+        Match(":hover", other, environment).Should().BeFalse();
+        Match(":active", text, environment).Should().BeFalse();
+        Match(":hover", text, new SelectorEnvironment(document, null, text, null)).Should().BeFalse();
+        SelectorMatcher.Matches(Parse(":hover"), text).Should().BeFalse();
+        label.RemoveChild(text);
+        Match(":hover", root, environment).Should().BeFalse("a detached seed designates nothing");
+        Assert.Throws<ArgumentException>(() => Match(":hover", other,
+            new SelectorEnvironment(document, null, null, null, HoverTarget: Document.CreateHtml().CreateElement("p"))));
     }
 
     [TestCase(":is(#hit, :valid)")]

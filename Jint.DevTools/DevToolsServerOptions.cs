@@ -50,7 +50,10 @@ public sealed class DevToolsServerOptions
     /// </summary>
     /// <remarks>
     /// It bounds the client's wait, not the command: a command that times out still runs when the engine is
-    /// next pumped. See <see cref="ThreadMode.HostOwned"/>.
+    /// next pumped. See <see cref="ThreadMode.HostOwned"/>. It does not bound a command the engine has
+    /// already run and that is waiting on a promise — <c>Runtime.evaluate</c> with <c>awaitPromise</c> —
+    /// because that engine is being pumped, which is all the timeout diagnoses; such a command waits for as
+    /// long as the promise takes, as it does in Chrome, and is answered when the engine is replaced under it.
     /// </remarks>
     public TimeSpan CommandTimeout { get; set; } = DefaultCommandTimeout;
 

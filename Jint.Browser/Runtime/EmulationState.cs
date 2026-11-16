@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Jint.Browser.Runtime;
@@ -24,10 +25,10 @@ namespace Jint.Browser.Runtime;
 /// says so. Script execution is the document's, decided when its parse starts.
 /// </para>
 /// <para>
-/// Written on the page loop and read from a transport thread by <c>Browser.getWindowForTarget</c>, which is
-/// why the viewport is a plain property of a reference type rather than something torn: a window's size is
-/// two integers a client asked for moments ago, and a round trip to the loop for it would be a command
-/// waiting behind a page's own script.
+/// Written on the page loop and read from other threads, by <c>Browser.getWindowForTarget</c> and by
+/// <see cref="Page.Viewport"/>, which is why the viewport is published whole rather than written in place: a
+/// window's size is a value a client asked for moments ago, and a round trip to the loop for it would be a
+/// command waiting behind a page's own script.
 /// </para>
 /// </remarks>
 internal sealed class EmulationState
@@ -39,7 +40,7 @@ internal sealed class EmulationState
     {
         DefaultViewport = defaultViewport;
         DefaultUserAgent = defaultUserAgent;
-        Viewport = defaultViewport;
+        _viewport = new StrongBox<Viewport>(defaultViewport);
     }
 
     /// <summary>The viewport the page opened with, which clearing an override restores.</summary>
@@ -52,9 +53,32 @@ internal sealed class EmulationState
     /// <remarks>
     /// Kept here as well as on the page runtime so that <c>Browser.getWindowForTarget</c> can answer it from
     /// a transport thread: the runtime's copy belongs to the page loop, and a window's size is not worth a
-    /// round trip to it.
+    /// round trip to it. <see cref="Jint.Browser.Viewport"/> is two integers and a double, too wide to be read in one piece, so each
+    /// write publishes a new box and a reader on another thread sees one whole value, old or new, never a mix
+    /// of the two.
     /// </remarks>
-    internal Viewport Viewport { get; set; }
+    internal Viewport Viewport => Volatile.Read(ref _viewport).Value;
+
+    private StrongBox<Viewport> _viewport;
+
+    /// <summary>
+    /// What <c>Emulation.setDeviceMetricsOverride</c>, <c>setVisibleSize</c>, <c>clearDeviceMetricsOverride</c>
+    /// and <see cref="Page.SetViewportAsync(Jint.Browser.Viewport)"/> all do: record the viewport, then move the
+    /// document that is already loaded to it.
+    /// </summary>
+    /// <remarks>
+    /// One implementation with two entry points, the way <see cref="TouchEmulation.Set"/> is, so a host in this
+    /// process and a protocol client on the socket cannot leave a page in two different states. Recording it
+    /// here first is what makes it outlive the document: the next engine's media environment is built from
+    /// this object. <see cref="PageRuntime.SetMedia"/> is what the loaded document hears — <c>resize</c>, the
+    /// visual viewport, every <c>MediaQueryList</c> whose answer moved and the image source sets. Called on the
+    /// page loop by both.
+    /// </remarks>
+    internal void SetViewport(Viewport viewport, PageRuntime? runtime)
+    {
+        Volatile.Write(ref _viewport, new StrongBox<Viewport>(viewport));
+        runtime?.SetMedia(MediaEnvironment);
+    }
 
     /// <summary>Whether a client told the page it is offline, which is what <c>navigator.onLine</c> answers.</summary>
     /// <remarks>
@@ -86,11 +110,186 @@ internal sealed class EmulationState
     /// </remarks>
     internal bool? FocusEmulation { get; set; }
 
-    /// <summary>The media type a client emulated, or <see langword="null"/> for the page's own.</summary>
-    internal string? EmulatedMedia { get; set; }
+    /// <summary>
+    /// The media type the page opened with — <see cref="BrowserOptions.MediaEmulation"/> under
+    /// <see cref="BrowserContextOptions.MediaEmulation"/> — or <see langword="null"/> for <c>screen</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>The host's defaults are a layer of their own, beneath the overrides</b>, as
+    /// <see cref="DefaultViewport"/> is beneath <see cref="Viewport"/>: they stand where a real browser's
+    /// operating-system preference stands, so clearing an override — <c>Emulation.setEmulatedMedia</c> with
+    /// nothing in it, or an empty value from <see cref="Page.EmulateMediaAsync"/> — goes back to them rather
+    /// than past them to the headless baseline.
+    /// </remarks>
+    internal string? DefaultEmulatedMedia { get; private set; }
 
-    /// <summary>The media features a client emulated, name to value.</summary>
-    internal IReadOnlyDictionary<string, string> MediaFeatures { get; set; } = _noFeatures;
+    /// <summary>The media features the page opened with, name to value; see <see cref="DefaultEmulatedMedia"/>.</summary>
+    internal IReadOnlyDictionary<string, string> DefaultMediaFeatures { get; private set; } = _noFeatures;
+
+    /// <summary>The media type a client or host emulated, or <see langword="null"/> for the page's default.</summary>
+    internal string? EmulatedMedia { get; private set; }
+
+    /// <summary>The media features a client or host emulated, name to value.</summary>
+    internal IReadOnlyDictionary<string, string> MediaFeatures { get; private set; } = _noFeatures;
+
+    /// <summary>
+    /// <see cref="MediaFeatures"/> over <see cref="DefaultMediaFeatures"/>, built only when either moves.
+    /// </summary>
+    /// <remarks>
+    /// Never mutated once built: <see cref="MediaEnvironment"/> hands this very instance to the page, and
+    /// <see cref="PageRuntime.SetMedia"/> compares environments by it, so an unchanged state has to hand out
+    /// the same reference again for a repeated call to be the no-op it is.
+    /// </remarks>
+    private IReadOnlyDictionary<string, string> _effectiveMediaFeatures = _noFeatures;
+
+    /// <summary>
+    /// Folds the host's browser and context defaults into the layer a page opens with. Called by the page's
+    /// constructor, before the loop builds the first engine, so there is no runtime to tell yet.
+    /// </summary>
+    internal void ApplyMediaDefaults(MediaEmulation? emulation)
+    {
+        if (emulation is null)
+        {
+            return;
+        }
+
+        var media = DefaultEmulatedMedia;
+        var features = DefaultMediaFeatures;
+        if (Merge(ref media, ref features, emulation))
+        {
+            DefaultEmulatedMedia = media;
+            DefaultMediaFeatures = features;
+            _effectiveMediaFeatures = Layer(DefaultMediaFeatures, MediaFeatures);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="Page.EmulateMediaAsync"/>: merges into the overrides — a <see langword="null"/> property is
+    /// left as it is, an empty one removes its override, any other value replaces it — and re-evaluates the
+    /// page's media queries. Called on the page loop.
+    /// </summary>
+    /// <remarks>
+    /// <b>One state, two writers.</b> The protocol's <see cref="ReplaceMedia"/> replaces the media type and
+    /// the whole feature list, because that is what Chrome's command means; this merges, because that is
+    /// what Playwright's <c>emulateMedia</c> means. A feature a protocol client emulated that this does not
+    /// name survives it.
+    /// </remarks>
+    internal void EmulateMedia(MediaEmulation emulation, PageRuntime? runtime)
+    {
+        var media = EmulatedMedia;
+        var features = MediaFeatures;
+        if (Merge(ref media, ref features, emulation))
+        {
+            SetOverrides(media, features);
+        }
+
+        runtime?.SetMedia(MediaEnvironment);
+    }
+
+    /// <summary>
+    /// <c>Emulation.setEmulatedMedia</c>: replaces the media type and every feature override, then
+    /// re-evaluates the page's media queries. Called on the page loop.
+    /// </summary>
+    /// <param name="media">The media type, or <see langword="null"/> or empty for the page's default.</param>
+    /// <param name="features">Every feature override; an empty value is no override, as Chromium reads it.</param>
+    /// <param name="runtime">The page's current runtime, if it has one.</param>
+    internal void ReplaceMedia(string? media, IEnumerable<KeyValuePair<string, string>>? features, PageRuntime? runtime)
+    {
+        Dictionary<string, string>? map = null;
+        foreach (var (name, value) in features ?? [])
+        {
+            map ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (value.Length == 0)
+            {
+                // Playwright sends every preference it does not emulate with an empty value: no override.
+                map.Remove(name);
+            }
+            else
+            {
+                map[name] = value;
+            }
+        }
+
+        SetOverrides(media is { Length: > 0 } ? media : null, map is { Count: > 0 } ? map : _noFeatures);
+        runtime?.SetMedia(MediaEnvironment);
+    }
+
+    private void SetOverrides(string? media, IReadOnlyDictionary<string, string> features)
+    {
+        EmulatedMedia = media;
+        if (!ReferenceEquals(features, MediaFeatures))
+        {
+            MediaFeatures = features;
+            _effectiveMediaFeatures = Layer(DefaultMediaFeatures, MediaFeatures);
+        }
+    }
+
+    /// <summary>
+    /// Applies <paramref name="emulation"/> to one layer, copying its features only when one actually changes.
+    /// </summary>
+    /// <returns>Whether anything changed.</returns>
+    private static bool Merge(ref string? media, ref IReadOnlyDictionary<string, string> features, MediaEmulation emulation)
+    {
+        var changed = false;
+        if (emulation.Media is { } type)
+        {
+            var next = type.Length == 0 ? null : type;
+            changed = !string.Equals(next, media, StringComparison.Ordinal);
+            media = next;
+        }
+
+        Dictionary<string, string>? copy = null;
+        foreach (var (name, value) in emulation.FeatureChanges())
+        {
+            var present = features.TryGetValue(name, out var current);
+            if (value.Length == 0 ? !present : present && string.Equals(current, value, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            copy ??= new Dictionary<string, string>(features, StringComparer.OrdinalIgnoreCase);
+            if (value.Length == 0)
+            {
+                copy.Remove(name);
+            }
+            else
+            {
+                copy[name] = value;
+            }
+        }
+
+        if (copy is not null)
+        {
+            features = copy.Count == 0 ? _noFeatures : copy;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary><paramref name="overrides"/> over <paramref name="defaults"/>, sharing either when the other is empty.</summary>
+    private static IReadOnlyDictionary<string, string> Layer(
+        IReadOnlyDictionary<string, string> defaults,
+        IReadOnlyDictionary<string, string> overrides)
+    {
+        if (defaults.Count == 0)
+        {
+            return overrides;
+        }
+
+        if (overrides.Count == 0)
+        {
+            return defaults;
+        }
+
+        var merged = new Dictionary<string, string>(defaults, StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, value) in overrides)
+        {
+            merged[name] = value;
+        }
+
+        return merged;
+    }
 
     /// <summary>The user agent a client set, or <see langword="null"/> for the browser's own.</summary>
     /// <remarks>
@@ -213,10 +412,10 @@ internal sealed class EmulationState
     internal PageMediaEnvironment MediaEnvironment => new()
     {
         Viewport = Viewport,
-        MediaType = EmulatedMedia is { Length: > 0 } media ? media : "screen",
+        MediaType = EmulatedMedia ?? DefaultEmulatedMedia ?? "screen",
         CoarsePointer = TouchEnabled,
         ScriptingEnabled = !ScriptExecutionDisabled,
-        Features = MediaFeatures,
+        Features = _effectiveMediaFeatures,
     };
 }
 

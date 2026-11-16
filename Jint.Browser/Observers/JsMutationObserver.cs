@@ -75,18 +75,23 @@ internal sealed class JsMutationObserver : ObjectInstance, IDisposable
             return JsValue.Undefined;
         }
 
+        // https://webidl.spec.whatwg.org/#es-dictionary step 4: the members are read in lexicographic order
+        // of their names, which is what decides whose getter runs first and which failure throws first
+        // (sebastienros/jint#4530).
         var options = arguments.At(1) as ObjectInstance;
+        var filter = Filter(realm, options);
+        var attributeOldValue = Flag(options, "attributeOldValue");
+        var attributesMember = Flag(options, "attributes");
+        var characterDataMember = Flag(options, "characterData");
+        var characterDataOldValue = Flag(options, "characterDataOldValue");
         var childList = Flag(options, "childList") ?? false;
         var subtree = Flag(options, "subtree") ?? false;
-        var attributeOldValue = Flag(options, "attributeOldValue");
-        var characterDataOldValue = Flag(options, "characterDataOldValue");
-        var filter = Filter(realm, options);
 
         // Steps 2-4: an option that only makes sense with attributes (or with characterData) turns that one
         // on when the dictionary left it out. "Left out" and "present and false" are different: { attributes:
         // false, attributeOldValue: false } is a TypeError, { attributeOldValue: false } is not.
-        var attributes = Flag(options, "attributes") ?? (attributeOldValue is not null || filter is not null);
-        var characterData = Flag(options, "characterData") ?? characterDataOldValue is not null;
+        var attributes = attributesMember ?? (attributeOldValue is not null || filter is not null);
+        var characterData = characterDataMember ?? characterDataOldValue is not null;
 
         if (!childList && !attributes && !characterData)
         {

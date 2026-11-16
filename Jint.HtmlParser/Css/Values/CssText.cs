@@ -25,6 +25,11 @@ internal static class CssText
         return true;
     }
 
+    // CSSOM's shortest serialization of a number spells the zero before its decimal point: .5s and -.5 read 0.5s and -0.5.
+    internal static string WithLeadingZero(string text) =>
+        text.Length > 1 && text[0] == '.' && char.IsAsciiDigit(text[1]) ? "0" + text :
+        text.Length > 2 && text.StartsWith("-.", StringComparison.Ordinal) && char.IsAsciiDigit(text[2]) ? "-0" + text[1..] : text;
+
     internal static bool IsWide(string value) =>
         value is "initial" or "inherit" or "unset" or "revert" or "revert-layer" or "revert-rule";
 
