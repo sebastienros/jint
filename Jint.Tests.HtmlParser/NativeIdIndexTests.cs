@@ -77,6 +77,63 @@ public sealed class NativeIdIndexTests
         Find(shadow, "x").Should().BeSameAs(dark);
     }
 
+    private static IReadOnlyList<Element> All(Node root, string selector, Action? checkpoint = null)
+    {
+        var work = new SelectorMatchWork(root, default, checkpoint);
+        return SelectorMatcher.QuerySelectorAll(SelectorCompiler.Compile(selector, null, default), root, default, ref work);
+    }
+
+    // querySelectorAll('#id') answers from the index when at most one descendant carries the ID, and walks when
+    // more do, so it always lists them all in tree order, as the walk did.
+    [Test]
+    public void QuerySelectorAllOfALoneIdListsEveryCarrierInTreeOrder()
+    {
+        var document = Document.CreateHtml();
+        var root = Add(document, "root");
+        var first = Add(root, "x");
+        var unique = Add(root, "u");
+        var second = Add(first, "x");
+        All(document, "#x").Should().Equal(first, second);
+        All(document, "#u").Should().Equal(unique);
+        All(document, "#absent").Should().BeEmpty();
+        All(root, "#root").Should().BeEmpty();
+        All(first, "#x").Should().Equal(second);
+
+        // The index follows ID changes: a second carrier, then a removed one.
+        var late = Add(root, "u");
+        All(document, "#u").Should().Equal(unique, late);
+        late.RemoveAttribute("id");
+        All(document, "#u").Should().Equal(unique);
+        second.SetAttribute("id", "y");
+        All(document, "#x").Should().Equal(first);
+        All(document, "#y").Should().Equal(second);
+
+        // An ID in a compound or a list is matched as before.
+        All(document, "div#u").Should().Equal(unique);
+        All(document, "#u, #y").Should().Equal(second, unique);
+
+        // Quirks mode matches IDs ASCII case-insensitively, which the index does not.
+        var quirks = Document.CreateHtml();
+        quirks.SetParserMode(DocumentMode.Quirks);
+        var mixed = Add(quirks, "Mixed");
+        All(quirks, "#mixed").Should().Equal(mixed);
+    }
+
+    // axe-core checks that an ID is unique with querySelectorAll('#' + id) for every ancestor of every node it
+    // reports: once the index is built, each check costs the ID's length, not a walk of the document.
+    [Test]
+    public void RepeatedLoneIdQueriesDoNotWalkTheDocument()
+    {
+        var document = Document.CreateHtml();
+        var root = Add(document, "root");
+        for (var i = 0; i < 4096; i++) Add(root, "item" + i);
+        All(document, "#item7").Should().HaveCount(1);
+        var polls = 0;
+        for (var i = 0; i < 1000; i++) All(document, "#item" + (i % 4096), () => polls++).Should().HaveCount(1);
+        // A query polls on entry and on its answer; a walk of the 4,096 elements polled about 113 times per query.
+        polls.Should().BeLessThan(1000 * 4);
+    }
+
     [TestCase(128)]
     [TestCase(512)]
     [TestCase(2048)]
