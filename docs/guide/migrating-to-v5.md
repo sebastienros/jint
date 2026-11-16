@@ -8540,6 +8540,77 @@ has a `navigate` member that Chromium does not read, and neither does Jint, so a
 action is stored: a non-persistent notification refuses a non-empty list, and `actions` reads back as an empty frozen
 array. There is no switch back.
 
+### 4.230 A wrapped dictionary keeps a name it cannot hold as a key on the wrapper, and a read-only one refuses a write ([#4518](https://github.com/sebastienros/jint/issues/4518))
+
+Under `Options.Interop.AllowWrite`, assigning a name to a wrapped dictionary whose key type is not `string` let the
+dictionary's own exception out of `Evaluate` when the name did not convert to that key type: an `ArgumentException`
+from a `Dictionary<int, string>`, a `NotSupportedException` from a `ReadOnlyDictionary<int, string>`. Script could not
+catch it. The name reached the dictionary through the non-generic `IDictionary` indexer every base class library
+dictionary implements, which refuses a key of the wrong type. Now the name is a property of the wrapper, as a name
+with no CLR member is on any wrapped object, and as it already was on a dictionary that implements only the generic
+`IDictionary<TKey, TValue>`:
+
+```js
+// host: engine.SetValue("d", new Dictionary<int, string> { [1] = "a" });   AllowWrite = true
+d.expando = 2;
+d.expando
+// earlier previews: ArgumentException out of Evaluate    5.x: 2, and the dictionary still holds one entry
+```
+
+- It is an ordinary property. `in`, `hasOwnProperty`, `Object.getOwnPropertyDescriptor` and `delete` see it,
+  `Object.preventExtensions` stops it being added, and the host's dictionary never holds it.
+  `Options.Interop.ThrowOnUnresolvedMember` raises nothing for it, as it raises nothing when script reads the same
+  name.
+- It is listed like any property the script creates on a wrapper
+  ([§4.223](#4-223-a-wrapped-clr-object-lists-the-properties-the-script-defined-on-it-4503)): `Object.keys`,
+  `for..in`, `Reflect.ownKeys`, `Object.entries`, spread and `JSON.stringify` yield it after the dictionary's entries,
+  in creation order, a symbol last, and `delete` forgets it. An array index the key type cannot hold, such as
+  `'3000000000'` for an `int` key, sorts among the leading indices as on any object. A name the dictionary refused is
+  never listed.
+- A name that is a read-only member of the dictionary, such as `Count`, is refused instead: `false` from
+  `Reflect.set`, and a `TypeError` in strict mode. It used to reach the indexer too.
+- A name that converts to the key type is still an entry: `"5"` and `"-1"` for an `int` key, `"Monday"` for a
+  `DayOfWeek` key, `"2020-01-01"` for a `DateTime` key. A `Guid`-shaped string is not one, because the default
+  converter makes no `Guid` from a string.
+- Without `AllowWrite` nothing changes. The assignment is refused, as every assignment to a string-keyed dictionary
+  is, and `Object.defineProperty` defines the property on the wrapper, as it did before in both modes.
+
+A read-only dictionary now refuses a write or `delete` of an entry under `AllowWrite`, instead of letting its
+`NotSupportedException` out of `Evaluate`, raw or wrapped in a `TargetInvocationException`. That applies to
+`ReadOnlyDictionary`, `ImmutableDictionary`, `ImmutableSortedDictionary`, `FrozenDictionary`, and any
+`IDictionary` or `IDictionary<TKey, TValue>` that throws it. `Reflect.set` and `Reflect.deleteProperty` return
+`false`, an assignment or `delete` in strict mode is a `TypeError`, and the dictionary does not change:
+
+```js
+// host: engine.SetValue("d", new ReadOnlyDictionary<int, string>(new Dictionary<int, string> { [1] = "a" }));
+d[5] = 'b';      // earlier previews: TargetInvocationException out of Evaluate    5.x: refused
+delete d[1]     // earlier previews: TargetInvocationException out of Evaluate    5.x: false
+```
+
+- **Only a dictionary refuses.** A keyed host type that is not one (an indexer and a `ContainsKey`, but no
+  dictionary interface) has no read-only contract, so its setter's `NotSupportedException` still reaches the host
+  unwrapped, as before, whichever way the script writes.
+- **The host's exception handler is no longer asked about it.** The exception from a string-named write, such
+  as `d.k = 'z'` through a dictionary's indexer whose setter throws, reached `Options.Interop.ExceptionHandler`. Under
+  `CatchClrExceptions` (or a handler that answers `true`) script saw a catchable `Error`. A refusal is not an
+  error, so sloppy mode now raises nothing and strict mode raises the `TypeError` above. The number-key write
+  and `delete` never reached the handler.
+- **`PlatformNotSupportedException` is not a refusal**, although it derives from `NotSupportedException`. It is
+  one of the exceptions the engine always lets through to the host, and it does so here as before:
+  unwrapped from a string-named write, inside the `TargetInvocationException` from a number-key write or a
+  `delete`.
+- **`IReadOnlyDictionary<TKey, TValue>` alone has no `Remove`.** A `delete` of one of its entries used to answer
+  `true` and leave the entry where it was; it answers `false` now. A property the script defined on such a
+  wrapper is still deleted as on any object.
+- **`ObjectWrapper` overrides `Delete`** for the refusal, and seals its `RemoveOwnProperty` override. Neither
+  can break a host, because `ObjectWrapper`'s constructor is internal and so nothing outside Jint derives from it.
+
+A non-string-keyed `ImmutableDictionary` or
+`ImmutableSortedDictionary` no longer throws `InvalidCastException` when script reads a name it cannot hold as a
+key: the name reads `undefined`, in both modes.
+
+There is no switch back.
+
 ### 4.232 An execution constraint that trips inside an iterator's `return` ends the run while a throw is closing the iterator ([#4547](https://github.com/sebastienros/jint/pull/4547))
 
 A loop, a destructuring pattern or a built-in that is left by a throw closes its iterator by calling `return`, and the
@@ -8641,6 +8712,150 @@ The elements `drop` keeps still read `value`, an iterator that finishes while `d
 `value` a script could observe, behaves as it did. No other iterator helper changed: each already read `value` exactly
 where its steps perform IteratorStepValue, and `AsyncIterator.prototype.drop` already skipped without reading it. There
 is no switch back.
+
+### 4.235 A parameter's array pattern over an array reads only the elements it steps to ([#4559](https://github.com/sebastienros/jint/pull/4559))
+
+An array pattern in a parameter list, over an array whose iterator is the built-in one, stands for that iterator: each
+element makes one step, which reads the array's `length` and then the element at the next index, and it steps only
+after the element before it has bound. Jint copied the whole array before binding anything. A getter at an index past
+the pattern therefore ran, and one that threw failed a call that bound nothing from it; a getter inside the pattern ran
+before the initializers of the elements ahead of it; and an initializer that pushed to or popped from the array was
+invisible to the elements after it, a rest element included:
+
+```js
+const log = [];
+const arr = [1, 2];
+Object.defineProperty(arr, 2, { get() { log.push('get 2'); return 3; } });
+(function ([a]) {})(arr);
+log.length
+// 4.16.x / earlier 5.0: 1    5.x: 0
+
+const grow = [undefined];
+(function ([a = grow.push('pushed'), b]) { return b; })(grow)
+// 4.16.x / earlier 5.0: undefined    5.x: 'pushed'
+```
+
+This holds for every function a parameter list belongs to: a function, an arrow, a method, a class constructor, and
+the async and generator forms of each. A rest element reads the length again at each step, so a getter that grows or
+shrinks the array while the rest collects changes what it collects. A getter an array inherits from `Array.prototype`
+at an index past the pattern no longer runs either, and an array whose `length` is `2 ** 32 - 1`, over which any such
+pattern used to throw a CLR `OverflowException` out of `Execute`, now binds, a rest collecting it under the engine's
+constraints. Otherwise a parameter pattern over an array that holds no getter and that no initializer changes binds
+what it did, and declarations and assignments follow in 4.236. There is no switch back.
+
+### 4.236 A declaration's or an assignment's array pattern over an array reads only the elements it steps to ([#4564](https://github.com/sebastienros/jint/pull/4564))
+
+An array pattern in a declaration, an assignment, a `for`-`of` head or a `catch` parameter, over an array whose
+iterator is the built-in one, stands for that iterator just as a parameter's does (4.235): each element makes one step,
+which reads the array's `length` and then the element at the next index, or reports done once the index reaches the
+length, and after that no element reads anything. Jint read the element at each element's own index whatever the
+length. An index past the end therefore fell through to the prototype chain, so a getter `Array.prototype` held there
+ran and its answer was bound; an element after the end bound whatever an initializer, a getter or a setter had pushed
+onto the array since; and a rest element collected up to the length from before its first read:
+
+```js
+Object.defineProperty(Array.prototype, 1, { get() { return 7; }, configurable: true });
+var [a, b] = [1];
+b
+// 4.16.x / earlier 5.0: 7    5.x: undefined
+
+const arr = [1];
+const [x, y = arr.push(8, 9), z] = arr;
+z
+// 4.16.x / earlier 5.0: 9    5.x: undefined
+```
+
+A host `ArrayLikeObject` whose prototype gives it the array iterator is read the same way: its `length` at every
+step, and an element with one `[[Get]]` and no `[[HasProperty]]` before it. An array whose prototype chain holds a
+`Proxy` now sees the traps Jint's own array iterator causes, for a hole the proxy's `get` trap alone (4.237), where it
+saw a `has` trap before. A rest element over an array whose reads may run script, such as one whose length runs past
+its stored elements (`new Array(n)`), one with an accessor or a frozen one, now checks the engine's constraints as it
+collects, and a parameter's rest is now bounded by `MaxArraySize` as a declaration's always was.
+Otherwise a pattern over an array that holds no getter and that nothing changes while it binds binds what it did.
+There is no switch back.
+
+### 4.237 A hole in an array is read through an exotic prototype's own `[[Get]]` ([#4566](https://github.com/sebastienros/jint/pull/4566))
+
+A read of an index an array does not hold, a hole or an index past the end, goes on to the array's prototype chain,
+and the spec asks the prototype's `[[Get]]` with the array as the receiver. Jint walked the chain itself, asking each
+object on it for an own property. That is the same thing only while every object on the chain reads like an ordinary
+one. With a Proxy on the chain the read ran the proxy's `getOwnPropertyDescriptor` and `getPrototypeOf` traps instead
+of its `get` trap. With a typed array on the chain, whose `[[Get]]` answers every numeric key itself, an index on
+`Object.prototype` showed through it:
+
+```js
+const log = [];
+const arr = [1, , 3];
+Object.setPrototypeOf(arr, new Proxy(Array.prototype, {
+  get(t, k, r) { log.push('get ' + String(k)); return k === '1' ? 'P' : Reflect.get(t, k, r); },
+  getOwnPropertyDescriptor(t, k) { log.push('gopd ' + String(k)); return Reflect.getOwnPropertyDescriptor(t, k); },
+  getPrototypeOf(t) { log.push('getPrototypeOf'); return Reflect.getPrototypeOf(t); }
+}));
+log.length = 0; arr[1]; log.join()
+// 4.16.x / earlier 5.0: 'gopd 1,getPrototypeOf,get 1'    5.x: 'get 1'
+log.length = 0; [...arr].join()
+// 4.16.x / earlier 5.0: '1,,3'    5.x: '1,P,3'
+
+const typed = [1, , 3];
+Object.setPrototypeOf(typed, Object.create(new Int8Array(0)));
+Object.prototype[1] = 'o';
+typed[1]
+// 4.16.x / earlier 5.0: 'o'    5.x: undefined
+```
+
+These readers now ask an exotic prototype its `[[Get]]` and nothing else:
+
+- a computed member read and `Reflect.get`;
+- the array iterator's values and entries, which is what `for`-`of`, spread and `Array.from` over an array use;
+- `join`, `at`, `find`, `findIndex`, `findLast` and `findLastIndex`;
+- an array pattern: a parameter's, a declaration's and an assignment's (4.235, 4.236);
+- from C#, the `JsArray` indexer, its enumerator and `ToArray()`.
+
+A host `ObjectInstance` on the chain that overrides `Get` is now asked for the index, with the array as the receiver,
+instead of being probed for an own property and passed over. A getter on an ordinary prototype runs with the array as
+its receiver, as before.
+
+The array iterator's keys (`arr.keys()`) no longer read the element at each step, which they never needed to. A getter
+at an index, own or inherited, therefore no longer runs while the keys are listed.
+
+The `Array.prototype` methods whose spec asks `HasProperty` before `Get` (`forEach`, `map`, `filter`, `some`, `every`,
+`reduce`, `indexOf` and the rest) still ask both, so a Proxy prototype sees its `has` trap first. So does
+`ArrayInstance.TryGetValue(uint, out JsValue)`, which stays hole-aware: it reports `false` when `HasProperty` does, and
+otherwise returns what `Get` returns. An array whose prototype chain is the intrinsic `Array.prototype` and
+`Object.prototype`, with no index on either, reads what it did. There is no switch back.
+
+### 4.238 A CDP evaluation stopped by an execution limit is a thrown error naming it, and `jint-browser serve` allows two minutes per task ([#4619](https://github.com/sebastienros/jint/issues/4619))
+
+**What a client is told.** `Runtime.evaluate`, `Runtime.callFunctionOn` and `Runtime.runScript` answer a script that
+an execution limit stopped — a page's `BrowserOptions.MaxTaskDuration` or `MemoryLimit`, or an engine's
+`LimitExecutionTime`, `LimitStatements`, `LimitMemory` or `MaxRecursionDepth` — with `exceptionDetails` carrying an
+`Error` whose description names the limit, for a page
+`Error: Task exceeded MaxTaskDuration (5s): … Raise BrowserOptions.MaxTaskDuration (jint-browser --max-task-duration)`.
+They used to answer `-32000 "Command timed out"` at exactly the budget, because the mailbox read the limit's
+`TimeoutException` as its own command timeout, and Playwright reports any such protocol error from an evaluation as
+*"Execution context was destroyed, most likely because of a navigation"*. The context is not destroyed: the next
+command runs in the same document. A command awaiting a promise whose reaction the limit discarded with the turn's
+checkpoint is answered the same way rather than never. Every other command stopped by a limit is a `-32000` whose
+message names it.
+
+**`serve`'s default.** Trusted pages under `jint-browser serve` get two minutes per task unless
+`--max-task-duration` says otherwise: past any protocol client's own timeout, since Chromium has no per-task
+ceiling, and still finite so a page a killed client left running cannot spin for ever. `--untrusted` keeps its
+profile's ceiling; `fetch` and `eval` keep five seconds; `BrowserOptions.MaxTaskDuration`'s own default is
+unchanged. Pass `--max-task-duration 5s` for the old one, or `0` for none.
+
+**Named access on the window.** A name that `EventTarget.prototype` or `Object.prototype` owns is no longer looked
+up among the document's elements, which is WebIDL's named property visibility: `<div id="hasOwnProperty">` no longer
+shadows `hasOwnProperty`, and is not listed by `Object.getOwnPropertyNames` of the named-properties object. Every
+bare call to an inherited global used to walk the whole document first.
+
+### 4.239 A wrapped CLR object lists its reflected members in declaration order on .NET Framework too ([#4638](https://github.com/sebastienros/jint/pull/4638))
+
+`Reflect.ownKeys`, `Object.getOwnPropertyNames`, `Object.keys` and `for..in` over an `ObjectWrapper` list its
+properties, then its fields, then its methods, each the most-derived type's first and in declaration order. That is
+the order .NET already reported, so nothing changes there. On .NET Framework the order was whatever its reflection
+cache held: a member somebody had looked up by name came first, so two listings of one wrapper could disagree, with a
+`ContainsKey` call or a garbage collection in between. A host that sorted the keys itself is unaffected.
 
 ## 5. New in v5
 

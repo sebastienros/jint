@@ -76,7 +76,7 @@ internal sealed partial class PageLayout
     {
         var document = _runtime.Document;
         var traversal = document is not null && Visibility.CascadeAvailable ? CssCascade.Traversal.Current(document) : null;
-        return new(document, Visibility, _runtime.Viewport.Width, traversal, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+        return new(document, Visibility, _runtime.Viewport.Width, traversal, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
     }
 
     private FlatLayout.SizeQuery CreateSizes()
@@ -84,7 +84,7 @@ internal sealed partial class PageLayout
         var traversal = _runtime.Document is { } document && Visibility.CascadeAvailable
             ? CssCascade.Traversal.Current(document) : null;
         return traversal?.ReadContext is { } context ? RetainedSizes(context)
-            : new(_runtime.Document, Visibility, _runtime.Viewport.Width, traversal, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+            : new(_runtime.Document, Visibility, _runtime.Viewport.Width, traversal, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
     }
 
     /// <summary>A single rectangle using the same placement and scroll clamp as a complete layout.</summary>
@@ -127,7 +127,7 @@ internal sealed partial class PageLayout
         var viewport = _runtime.Viewport;
         var sizes = MeasureSizes();
         Diagnostics?.FullLayoutBuilt();
-        var layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, _scrollY, sizes, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+        var layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, _scrollY, sizes, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
 
         // A document that shrank under a scrolled page leaves the offset past its end, so the clamp is read
         // here rather than only written in ScrollTo: what a box answers must agree with what scrollY reads.
@@ -143,7 +143,7 @@ internal sealed partial class PageLayout
 
         _scrollY = clamped;
         Diagnostics?.FullLayoutBuilt();
-        layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, clamped, sizes, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+        layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, clamped, sizes, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
         if (reuse)
         {
             _layout = layout;

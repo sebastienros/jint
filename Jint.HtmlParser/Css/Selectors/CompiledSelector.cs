@@ -28,6 +28,10 @@ internal sealed class CompiledSelector
     // A racing write recomputes the same value.
     internal byte DirectMatchShape;
 
+    // SelectorMatcher's originating-element programs for ::before and ::after, indexed by
+    // SelectorPseudoElement and derived once from the immutable program (null entry: no such branch).
+    internal CompiledSelector?[]? OriginatingPrograms;
+
     internal static IReadOnlyList<T> Freeze<T>(List<T> values) => values.Count == 0 ? [] : values.ToArray();
 
     private static T[] AsArray<T>(IReadOnlyList<T> values) => values as T[] ?? [.. values];
@@ -70,6 +74,10 @@ internal sealed class CompiledSelector
 
     internal sealed class Compound
     {
+        // SelectorMatcher.Direct: 0 until classified, then whether this compound alone can be matched by the
+        // allocation-free matcher (used for :has() candidates).
+        internal byte DirectShape;
+
         internal Compound(NamespaceMode namespaceMode, string? namespaceUri, string? typeName,
             bool explicitType, IReadOnlyList<Predicate> predicates, CssSourceSpan span)
         {

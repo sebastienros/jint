@@ -92,7 +92,7 @@ internal static partial class NativeCssStyleSheets
         guarded.CheckCancellation();
         var resource = source.Resource;
         if (ReferenceEquals(resource.ImportHintGeneration, source.SourceGeneration)) return resource.ImportHint;
-        var result = CssImportPrelude.MayContainImport(source.Source, null, guarded, guarded.Token);
+        var result = NativeCssParsing.HasImportRule(source.Source, guarded);
         guarded.CheckCancellation();
         if (!IsCurrent(source)) throw new CssImportSourceStaleException();
         resource.ImportHint = result;

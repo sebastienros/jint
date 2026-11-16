@@ -101,6 +101,29 @@ internal sealed class BrowserEventRealm
     internal bool ActivationIsUserInitiated { get; set; }
 
     /// <summary>
+    /// Whether the focused element indicates its focus — the user agent's half of <c>:focus-visible</c>,
+    /// to which a text-entry control adds its own (<see cref="FocusController.IsFocusVisible"/>).
+    /// </summary>
+    /// <remarks>
+    /// https://drafts.csswg.org/selectors-4/#the-focus-visible-pseudo leaves the heuristics to the user
+    /// agent; these are Chromium's, decided by <see cref="FocusController.Focus"/> and by a key press. Per
+    /// engine, like the focused element they describe, and meaningless while nothing is focused.
+    /// </remarks>
+    internal bool FocusIndicated { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="FocusIndicated"/> came from <c>focus({ focusVisible })</c>, which a later key press
+    /// does not override.
+    /// </summary>
+    internal bool FocusIndicationRequested { get; set; }
+
+    /// <summary>
+    /// Whether the last focus a user moved was moved with a pointer and no key has been pressed since — what
+    /// a script's <c>focus()</c> inherits when the element it takes focus from indicated none.
+    /// </summary>
+    internal bool LastFocusByPointer { get; set; }
+
+    /// <summary>
     /// The element the last <c>mousedown</c> was dispatched at, which is half of where a <c>click</c> goes.
     /// </summary>
     /// <remarks>
@@ -110,6 +133,17 @@ internal sealed class BrowserEventRealm
     /// navigation between a press and a release leaves the new document with no press outstanding.
     /// </remarks>
     internal Element? MousePressTarget { get; set; }
+
+    /// <summary>
+    /// The element the pointer was last over, which is what <c>:hover</c> matches with its ancestors.
+    /// </summary>
+    /// <remarks>
+    /// https://html.spec.whatwg.org/multipage/semantics-other.html#selector-hover — the user designates an
+    /// element with a pointing device; for a headless page the pointer is wherever the client's last mouse
+    /// event put it. Per engine, like <see cref="MousePressTarget"/>, so a navigation starts with nothing
+    /// hovered until the next mouse event.
+    /// </remarks>
+    internal Element? MouseHoverTarget { get; set; }
 
     /// <summary>The button awaiting Space's keyup activation; changing focus abandons the press.</summary>
     internal Element? SpacePressTarget { get; set; }
@@ -141,6 +175,12 @@ internal sealed class BrowserEventRealm
     /// <see cref="MousePressTarget"/>, which is why it holds no wrapper and pins no document.
     /// </remarks>
     internal (Element Image, int X, int Y)? PendingImagePoint { get; set; }
+
+    /// <summary>
+    /// The drag-and-drop operation the mouse is in, or about to start: see <c>InputDispatcher.Drag</c>. Per
+    /// engine, like <see cref="MousePressTarget"/>, so a navigation in the middle of a drag ends it.
+    /// </summary>
+    internal DragOperation? Drag { get; set; }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — the coordinate

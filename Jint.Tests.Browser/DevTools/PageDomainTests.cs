@@ -214,6 +214,43 @@ public class PageDomainTests
         loaderIds[0].Should().Be(navigated.GetProperty("frame").GetProperty("loaderId").GetString());
     }
 
+    /// <summary>
+    /// <c>document.open()</c>, <c>write</c> and <c>close()</c> on a loaded document end in the
+    /// <c>DOMContentLoaded</c> and <c>load</c> lifecycle events of the same document, which is what Playwright's
+    /// <c>setContent</c> waits for after it runs exactly that sequence (#4595).
+    /// </summary>
+    [Test]
+    public async Task DocumentOpenWriteCloseAfterLoadEmitsTheLoadLifecycleAgain()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/one", "<html><body><p>original</p></body></html>");
+
+        await using var session = await PageSession.CreateAsync(Options(server));
+        var attachment = await session.OpenPageAsync();
+        await session.EnablePageAsync(attachment);
+
+        var navigated = await session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/one")}}"}""", attachment);
+        await session.EventAsync("Page.frameStoppedLoading", sessionId: attachment);
+        var before = session.EventsOf("Page.lifecycleEvent", attachment).Count;
+        var stops = session.EventsOf("Page.frameStoppedLoading", attachment).Count;
+
+        await session.EvaluateAsync(
+            "document.open(); document.write('<p>written</p>'); document.close();",
+            attachment);
+
+        (await session.EvaluateAsync("document.body.innerHTML", attachment)).GetProperty("value").GetString()
+            .Should().Be("<p>written</p>");
+        await session.EventAsync("Page.frameStoppedLoading", index: stops, sessionId: attachment);
+
+        var after = session.EventsOf("Page.lifecycleEvent", attachment)
+            .Skip(before)
+            .Select(e => e.GetProperty("params"))
+            .ToArray();
+        after.Select(p => p.GetProperty("name").GetString()).Should().ContainInOrder("DOMContentLoaded", "load");
+        after.Select(p => p.GetProperty("loaderId").GetString()).Distinct().Should().Equal(
+            navigated.GetProperty("loaderId").GetString());
+    }
+
     [Test]
     public async Task NavigateAnswersAtTheCommitWithTheFrameAndTheLoader()
     {
@@ -273,6 +310,34 @@ public class PageDomainTests
         order.GetProperty("value").GetString().Should().Be(
             "instrumentation:document",
             "a client's instrumentation is owed the document before the document's own script runs");
+    }
+
+    [Test]
+    public async Task AClientAndTheHostShareOneInitScriptListButAClientRemovesOnlyItsOwn()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/one", "<html><body><script>window.order = (window.order || '') + 'document';</script></body></html>");
+
+        await using var session = await PageSession.CreateAsync(Options(server));
+        var page = await session.NewPageAsync();
+        var attachment = await session.AttachAsync(await session.TargetForAsync(page));
+        await session.EnablePageAsync(attachment);
+
+        await page.AddInitScriptAsync("window.order = (window.order || '') + 'host:';");
+        var added = await session.ResultAsync(
+            "Page.addScriptToEvaluateOnNewDocument",
+            """{"source":"window.order = (window.order || '') + 'client:';"}""",
+            attachment);
+        added.GetProperty("identifier").GetString().Should().Be("2", "the client's identifier comes from the page's one list");
+
+        // "1" is the host's, and a client tidying up must not be able to remove it.
+        await session.ResultAsync("Page.removeScriptToEvaluateOnNewDocument", """{"identifier":"1"}""", attachment);
+        await page.NavigateAsync(server.Url("/one"));
+        (await page.EvaluateAsync<string>("window.order")).Should().Be("host:client:document");
+
+        await session.ResultAsync("Page.removeScriptToEvaluateOnNewDocument", """{"identifier":"2"}""", attachment);
+        await page.NavigateAsync(server.Url("/one"));
+        (await page.EvaluateAsync<string>("window.order")).Should().Be("host:document");
     }
 
     [Test]
@@ -361,6 +426,79 @@ public class PageDomainTests
 
         var after = await session.ResultAsync("Page.getNavigationHistory", null, attachment);
         after.GetProperty("currentIndex").GetInt32().Should().Be(0);
+    }
+
+    /// <summary>
+    /// <c>Page.reload</c>, what Playwright's <c>page.reload()</c> sends, rewrites the current entry rather than
+    /// pushing the reloaded URL again: the length stays, and back lands on the entry before it (#4639).
+    /// </summary>
+    [Test]
+    public async Task AReloadRewritesTheCurrentEntrySoBackLandsOnTheOneBeforeIt()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/app", "<html><body>app</body></html>");
+
+        await using var session = await PageSession.CreateAsync(Options(server));
+        var page = await session.NewPageAsync();
+        var target = await session.TargetForAsync(page);
+        var attachment = await session.AttachAsync(target);
+        await session.EnablePageAsync(attachment);
+
+        await session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/app?type=blog")}}"}""", attachment);
+        await session.EvaluateAsync("history.pushState({}, '', '?type=blog&title=desc')", attachment);
+        await session.EvaluateAsync("history.pushState({}, '', '?type=blog&sort=oldest&title=desc')", attachment);
+        var before = (await session.EvaluateAsync("history.length", attachment)).GetProperty("value").GetInt32();
+
+        await session.ResultAsync("Page.reload", null, attachment);
+
+        server.Received.Count(r => r.Path == "/app").Should().Be(2, "a reload fetches the document again");
+        (await session.EvaluateAsync("history.length", attachment)).GetProperty("value").GetInt32()
+            .Should().Be(before, "a reload replaces the current entry, it does not add one");
+        (await session.EvaluateAsync("performance.getEntriesByType('navigation')[0].type", attachment))
+            .GetProperty("value").GetString().Should().Be("reload");
+
+        var history = await session.ResultAsync("Page.getNavigationHistory", null, attachment);
+        history.GetProperty("entries").EnumerateArray().Select(entry => entry.GetProperty("url").GetString())
+            .Should().Equal([
+                server.Url("/app?type=blog"),
+                server.Url("/app?type=blog&title=desc"),
+                server.Url("/app?type=blog&sort=oldest&title=desc"),
+            ]);
+        var current = history.GetProperty("currentIndex").GetInt32();
+        current.Should().Be(2);
+
+        var previous = history.GetProperty("entries")[current - 1].GetProperty("id").GetInt32();
+        var navigated = page.WaitForNavigationAsync(TimeSpan.FromSeconds(30));
+        await session.ResultAsync("Page.navigateToHistoryEntry", $$"""{"entryId":{{previous}}}""", attachment);
+        (await navigated).Should().BeTrue();
+
+        page.Url.Should().Be(server.Url("/app?type=blog&title=desc"));
+    }
+
+    /// <summary>
+    /// A reload of a URL with a fragment fetches the document again; navigating to that same URL would be a
+    /// same-document fragment move and reload nothing.
+    /// </summary>
+    [Test]
+    public async Task AReloadOfAUrlWithAFragmentFetchesTheDocumentAgain()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><body>page</body></html>");
+
+        await using var session = await PageSession.CreateAsync(Options(server));
+        var attachment = await session.OpenPageAsync();
+        await session.EnablePageAsync(attachment);
+
+        await session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/page#section")}}"}""", attachment);
+        await session.EvaluateAsync("window.marker = 'first load'", attachment);
+
+        await session.ResultAsync("Page.reload", null, attachment);
+
+        server.Received.Count(r => r.Path == "/page").Should().Be(2);
+        (await session.EvaluateAsync("typeof window.marker", attachment)).GetProperty("value").GetString()
+            .Should().Be("undefined", "the document and its engine were replaced");
+        (await session.EvaluateAsync("location.hash", attachment)).GetProperty("value").GetString().Should().Be("#section");
+        (await session.EvaluateAsync("history.length", attachment)).GetProperty("value").GetInt32().Should().Be(1);
     }
 
     [Test]

@@ -288,6 +288,15 @@ public sealed class SharedWorkerTests
         await Connect(fixture.Page);
         await fixture.Page.WaitForIdleAsync(TimeSpan.FromMilliseconds(100));
         (await fixture.Page.EvaluateAsync<string>("messages.join(',')")).Should().Be("before");
+
+        // close() ends the worker's own thread, which retires it from the registry when it is done: an idle page
+        // says nothing about when that is.
+        var deadline = DateTime.UtcNow + _wait;
+        while (fixture.Context.SharedWorkers.LiveCount != 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
         fixture.Context.SharedWorkers.LiveCount.Should().Be(0);
         await Connect(fixture.Page);
         (await fixture.Page.EvaluateAsync<string>("messages.join(',')")).Should().Be("before");

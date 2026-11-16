@@ -11,12 +11,7 @@ using Browser = global::Jint.Browser.Browser;
 // answers a page reads to decide what kind of browser it runs in.
 public sealed class NavigatorSystemStateTests
 {
-    private static Task SetViewportAsync(Page page, Viewport viewport)
-        => page.RunOnLoopAsync(engine =>
-        {
-            PageRuntime.Find(engine)!.SetViewport(viewport);
-            return 0;
-        });
+    private static Task SetViewportAsync(Page page, Viewport viewport) => page.SetViewportAsync(viewport);
 
     [Test]
     public async Task TheCompatibilityConstantsAreTheOnesHtmlAllows()

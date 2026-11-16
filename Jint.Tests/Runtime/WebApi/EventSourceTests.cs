@@ -2045,5 +2045,37 @@ public class EventSourceTests
 
         stream.Complete();
     }
+
+    /// <summary>
+    /// HTML's <c>EventSource</c> constructor (step 6) gives the request the credentials mode <c>same-origin</c>,
+    /// or <c>include</c> with <c>withCredentials</c>, so the host's cookie jar answers a stream as it answers a
+    /// fetch. Without it a stream behind a login — a SignalR hub — was answered 401.
+    /// </summary>
+    [TestCase("https://example.org/stream", false, true)]
+    [TestCase("https://other.example/stream", false, false)]
+    [TestCase("https://other.example/stream", true, true)]
+    public void AStreamCarriesTheJarsCookiesAsItsCredentialsModeAllows(string url, bool withCredentials, bool expectCookie)
+    {
+        var jar = new CookieContainerCookieJar();
+        jar.StoreResponseCookies(new Uri(url), ["sid=abc; Path=/"]);
+        var handler = new StubHandler { Responder = _ => Answer("data: x\n\n") };
+        var (engine, _) = SseEngine(handler, net =>
+        {
+            net.CookieJar = jar;
+            net.BaseUrl = new Uri("https://example.org/page");
+        });
+
+        engine.Execute($"var es = watch(new EventSource('{url}', {{ withCredentials: {(withCredentials ? "true" : "false")} }}));");
+        Pump(engine, () => { lock (handler.Requests) { return handler.Requests.Count > 0; } }, "the stream's request");
+
+        RecordedRequest request;
+        lock (handler.Requests)
+        {
+            request = handler.Requests[0];
+        }
+
+        request.Header("Cookie").Should().Be(expectCookie ? "sid=abc" : null);
+        engine.Execute("es.close();");
+    }
 }
 #endif

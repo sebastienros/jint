@@ -1,0 +1,9 @@
+<!--
+  Empty on purpose, and it is the point of this file existing. MSBuild walks up for the nearest
+  Directory.Build.props, and finding Jint's own would give these two recording harnesses Jint's
+  TreatWarningsAsErrors, artifacts layout, SourceLink, version, signing and implicit usings. They are
+  disposable tools that drive a browser and write JSON; none of that applies, and inheriting it would mean
+  every change to Jint's build could break a tool that is not part of the product. The walk stops here.
+-->
+<Project>
+</Project>

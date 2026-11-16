@@ -13,16 +13,16 @@ public sealed class CssDeclarationResolutionTests
     [Test]
     public void TargetReadsAndSettersLeaveUnrelatedPendingSyntaxUnmaterialized()
     {
-        var block = Syntax("background:red; display:inline");
+        var block = Syntax("background-color:red; display:inline");
         var work = new CssValueWork(default);
         var stamp = block.Stamp;
         block.ResolveProperty("display", work)!.Value.Should().Be("inline");
         block.Stamp.Should().Be(stamp);
         block.SetProperty("display", "block");
         block.ResolveProperty("display", work)!.Value.Should().Be("block");
-        block.SerializeSource(work).Should().Contain("background: red;");
+        block.SerializeSource(work).Should().Contain("background-color: red;");
         block.ResolveAll(work).Should().HaveCount(2);
-        block.ResolveProperty("background", work)!.Value.Should().Be("red");
+        block.ResolveProperty("background-color", work)!.Value.Should().Be("red");
     }
 
     [Test]

@@ -327,6 +327,7 @@ public sealed class LayoutInvalidationTests
             """);
 
         (await page.SelectAsync("#pick", "c")).Should().BeTrue();
+        (await page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
 
         (await page.EvaluateAsync<string>("before + '|' + seen.join()")).Should().Be("1|2/2");
     }

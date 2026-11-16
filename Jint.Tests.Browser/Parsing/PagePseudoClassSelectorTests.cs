@@ -1199,12 +1199,11 @@ public sealed class PagePseudoClassSelectorTests
     /// <summary>
     /// Selectors §9.5: <c>:focus-within</c> is the focused element together with every element containing it,
     /// so it answers for the ancestors of whatever <c>:focus</c> answers for and for nothing else.
-    /// <c>:focus-visible</c> is deliberately not answered — Selectors §9.4 makes it a decision about drawing a
-    /// focus indicator, which this browser has no rendering to draw — so it stays the former DOM integration's and matches
-    /// nothing, which this pins rather than leaves to be discovered.
+    /// <c>:focus-visible</c> is the focused element alone, never an ancestor; when it matches is
+    /// <c>Events/FocusVisibleTests</c>'s.
     /// </summary>
     [Test]
-    public async Task FocusWithinMatchesTheFocusedElementAndItsAncestorsAndFocusVisibleStaysUnanswered()
+    public async Task FocusWithinMatchesTheFocusedElementAndItsAncestorsAndFocusVisibleOnlyTheElement()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -1231,7 +1230,7 @@ public sealed class PagePseudoClassSelectorTests
               return answers.join('|');
             })()
             """)).Should().Be(
-            "/|html+body+outer+inner+field/|true:false:true|html+body+sibling+other|[]");
+            "/|html+body+outer+inner+field/field|true:false:true|html+body+sibling+other|[]");
 
         page.Errors.Should().BeEmpty();
     }
@@ -1325,6 +1324,53 @@ public sealed class PagePseudoClassSelectorTests
 
         (await page.EvaluateAsync<string>(State))
             .Should().Be("label:false,button:false,parent:false,child:false,input:false");
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:hover</c> is the element the pointer is over, its flat-tree ancestors and the
+    /// labeled control of a hovered label — and it follows the pointer, both for <c>matches</c> and for the
+    /// cascade a computed style reads (issue #4598: a CDP <c>mouseMoved</c> matched nothing).
+    /// </summary>
+    [Test]
+    public async Task HoverFollowsThePointerForSelectorsAndTheCascade()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><head><style>
+              div { width:100px; height:40px }
+              #h:hover { background-color:rgb(1, 2, 3) }
+            </style></head><body>
+              <div id="h"><span id="child">h</span></div>
+              <div id="other">other</div>
+              <label id="label" for="input">label</label><input id="input">
+            </body></html>
+            """);
+
+        const string State = """
+            (() => ['h', 'child', 'other', 'label', 'input']
+              .map(id => id + ':' + document.getElementById(id).matches(':hover')).join(',')
+              + '|' + getComputedStyle(document.getElementById('h')).backgroundColor)()
+            """;
+
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("h:false,child:false,other:false,label:false,input:false|rgba(0, 0, 0, 0)");
+
+        (await page.HoverAsync("#child")).Should().BeTrue();
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("h:true,child:true,other:false,label:false,input:false|rgb(1, 2, 3)");
+        (await page.EvaluateAsync<string>(
+            "Array.from(document.querySelectorAll(':hover'), e => e.id || e.localName).join('+')"))
+            .Should().Be("html+body+h+child", "Selectors §9.1 adds every ancestor of the hovered element");
+
+        await DispatchAsync(page, "other", MouseInputKind.Moved, buttons: 0);
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("h:false,child:false,other:true,label:false,input:false|rgba(0, 0, 0, 0)");
+
+        await DispatchAsync(page, "label", MouseInputKind.Moved, buttons: 0);
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("h:false,child:false,other:false,label:true,input:true|rgba(0, 0, 0, 0)");
         page.Errors.Should().BeEmpty();
     }
 

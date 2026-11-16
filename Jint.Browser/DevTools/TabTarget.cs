@@ -54,6 +54,13 @@ internal sealed class TabTarget : DevToolsTarget
     /// <inheritdoc/>
     internal override ValueTask CloseAsync() => _page.CloseAsync();
 
+    /// <inheritdoc/>
+    /// <remarks>The page's, since the tab answers about the page's engine and the page's budget stops it.</remarks>
+    internal override string? DescribeExecutionStop(Exception exception) => _page.DescribeExecutionStop(exception);
+
+    /// <inheritdoc/>
+    internal override long CurrentTurn => _page.CurrentTurn;
+
     /// <summary>Keeps what a client is told about the tab in step with the page inside it.</summary>
     internal void Follow() => UpdateInfo(_page.Title, _page.Url);
 }

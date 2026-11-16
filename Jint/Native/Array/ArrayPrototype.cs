@@ -1163,6 +1163,25 @@ public sealed partial class ArrayPrototype : ArrayInstance
         if (thisObject is JsArray { CanUseFastAccess: true } fast && fast._dense is { } dense)
         {
             var actualLen = (int) System.Math.Min((uint) dense.Length, (uint) len);
+
+            // IsStrictlyEqual of an object is identity (https://tc39.es/ecma262/#sec-isstrictlyequal step 2 ->
+            // SameValueNonNumber step 7), so searching for one needs no virtual Equals per element. Searching
+            // an array of DOM nodes for a node is how axe-core deduplicates, and this loop is the scan. Not for
+            // a type whose Equals says more than identity: two ObjectWrappers of one CLR object are ===. An
+            // element of such a type compares itself to an identity-equal search value by identity too.
+            if (searchElement is ObjectInstance { EqualityIsIdentity: true })
+            {
+                for (var i = (int) k; i < actualLen; i++)
+                {
+                    if (ReferenceEquals(dense[i], searchElement))
+                    {
+                        return JsNumber.Create((uint) i);
+                    }
+                }
+
+                return JsNumber.IntegerNegativeOne;
+            }
+
             for (var i = (int) k; i < actualLen; i++)
             {
                 var v = dense[i];
@@ -1740,7 +1759,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // arguments are in range on this lane whatever the generic one above had to allow for.
         if (thisObject is JsArray ai && a is JsArray a2)
         {
-            a2.CopyValues(ai, (uint) k, 0, (uint) length);
+            a2.CopySlice(ai, (uint) k, (uint) length);
         }
         else
         {
@@ -2073,8 +2092,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
             {
                 if (e is JsArray eArray && a is JsArray a2)
                 {
-                    a2.CopyValues(eArray, 0, n, eArray.GetLength());
-                    n += eArray.GetLength();
+                    // the length is read once, before any element: an inherited getter the copy runs can change it
+                    var length = eArray.GetLength();
+                    a2.CopyValues(eArray, 0, n, length);
+                    n += length;
                 }
                 else
                 {
@@ -2146,7 +2167,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
         {
             if (arguments[i] is JsArray ja)
             {
-                if (ja._dense is null || ja.GetLength() > (ulong) ja._dense.Length + 50)
+                // CanUseFastAccess too: AppendConcatItem copies a null slot as a hole, which is right only while
+                // nothing inherited can fill it (HasProperty in https://tc39.es/ecma262/#sec-array.prototype.concat
+                // asks the prototype chain). The receiver passed that test at the call site.
+                if (ja._dense is null || ja.GetLength() > (ulong) ja._dense.Length + 50 || !ja.CanUseFastAccess)
                 {
                     return false;
                 }

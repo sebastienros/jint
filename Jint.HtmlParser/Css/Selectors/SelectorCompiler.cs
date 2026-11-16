@@ -82,7 +82,10 @@ internal static class SelectorCompiler
                         Check();
                         return result;
                     }
-                    stack[^1].Accept(result);
+                    var parent = stack[^1];
+                    parent.BranchContainsNesting |= frame.ContainsScope;
+                    parent.ContainsScope |= frame.ContainsScope;
+                    parent.Accept(result);
                 }
                 catch (SelectorParseException)
                 {
@@ -320,6 +323,9 @@ internal static class SelectorCompiler
             if (pseudoElement || kind == PredicateKind.PseudoElement)
                 compound.LastPseudoElement = kind;
             f.Index = nameIndex + 1;
+            // CSS Cascade 6 §3.5.3: a scoped selector naming :scope is not relative to it.
+            // Functional arguments propagate it to the enclosing branch in Compile.
+            if (kind == PredicateKind.Scope && _context.ScopedStyle) f.BranchContainsNesting = f.ContainsScope = true;
             if (!function)
             {
                 compound.Predicates.Add(new Predicate(kind, span,
@@ -845,6 +851,8 @@ internal static class SelectorCompiler
             internal readonly bool NestingRoot;
             internal bool BranchContainsNesting;
             internal bool ContainsNesting;
+            // A scoped-style :scope anywhere in this frame (CSS Cascade 6 §3.5.3).
+            internal bool ContainsScope;
             internal bool InsideHas;
             internal readonly bool AllowPseudoElements;
             internal readonly bool CompoundOnly;

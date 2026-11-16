@@ -23,13 +23,17 @@ internal Jint.HtmlParser.Css.CssRawRule
     get_Text
 internal Jint.HtmlParser.Css.CssRuleBody
     (constructor)
+    get_IsClosed
+    get_Kind
+    get_Text
 internal Jint.HtmlParser.Css.CssRuleBodyKind
 internal Jint.HtmlParser.Css.CssSourceText
     From
+    get_Source
     get_Span
-    get_Text
 internal Jint.HtmlParser.Css.Media.CssMediaEnvironment
     (constructor)
+    get_ForcedColors
     op_Inequality
     set_AnyHover
     set_AnyPointer
@@ -54,6 +58,7 @@ internal Jint.HtmlParser.Css.Model.CssDeclaration
     (constructor)
     get_IsImportant
     get_Name
+    get_PendingShorthand
     get_Value
 internal Jint.HtmlParser.Css.Model.CssDeclarationBlock
     Copy
@@ -63,6 +68,7 @@ internal Jint.HtmlParser.Css.Model.CssDeclarationBlock
     GetPropertyValue
     HasPropertyInput
     Parse
+    PendingLonghandValue
     RemoveProperty
     ReplaceText
     ResolveAll
@@ -78,13 +84,12 @@ internal Jint.HtmlParser.Css.Model.CssFontFaceRule
 internal Jint.HtmlParser.Css.Model.CssGroupingRule
     DeleteRule
     InsertRule
-internal Jint.HtmlParser.Css.Model.CssImportPrelude
-    MayContainImport
 internal Jint.HtmlParser.Css.Model.CssImportRule
     SetStyleSheet
     get_Href
     get_Media
     get_StyleSheet
+internal Jint.HtmlParser.Css.Model.CssIncompleteRuleGrammarException
 internal Jint.HtmlParser.Css.Model.CssLayerBlockRule
     get_LayerName
     get_Name
@@ -121,6 +126,12 @@ internal Jint.HtmlParser.Css.Model.CssRuleList
     get_Item
     get_Stamp
 internal Jint.HtmlParser.Css.Model.CssRuleType
+internal Jint.HtmlParser.Css.Model.CssScopeRule
+    NestingContextOf
+    get_End
+    get_EndSelector
+    get_Start
+    get_StartSelector
 internal Jint.HtmlParser.Css.Model.CssSerializationSnapshot
     get_Ranges
     get_Text
@@ -128,6 +139,7 @@ internal Jint.HtmlParser.Css.Model.CssStyleRule
     (constructor)
     SetSelectorText
     TryMatch
+    TryMatchPseudoElement
     get_Selector
     get_SelectorText
     get_Style
@@ -222,12 +234,18 @@ internal Jint.HtmlParser.Css.Selectors.SelectorMatcher
     Matches
     QuerySelector
     QuerySelectorAllSnapshot
+    TryMatch
+internal Jint.HtmlParser.Css.Selectors.SelectorPseudoElement
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKey
     get_Kind
     get_Name
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKeyKind
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKeys
+    AllSubjectsArePseudoElements
+    AncestorKeyOf
+    NoSubjectIsAPseudoElement
     TryCollect
+    TryCollectAncestorKeys
 internal Jint.HtmlParser.Css.Serialization.CssRuleSerializer
     Serialize
 internal Jint.HtmlParser.Css.Syntax.CssAscii
@@ -269,9 +287,14 @@ internal Jint.HtmlParser.Css.Values.CssValueWork
     CheckCancellation
     Guard
     get_Token
+internal Jint.HtmlParser.Css.Values.Properties.CssBoxShorthands
+    ComputedPosition
 internal Jint.HtmlParser.Css.Values.Properties.CssDeclarationContext
 internal Jint.HtmlParser.Css.Values.Properties.CssLayoutValues
     AcceptsText
+internal Jint.HtmlParser.Css.Values.Properties.CssMotionShorthands
+    ComputedTimes
+    IsTimeList
 internal Jint.HtmlParser.Css.Values.Properties.CssPropertyCatalog
     get_Names
 internal Jint.HtmlParser.Css.Values.Properties.CssPropertyMetadata
@@ -394,6 +417,7 @@ internal Jint.HtmlParser.HtmlInputValueState
     ResetValue
     Select
     SetEditingSelection
+    SetRangeText
     SetSelectionDirection
     SetSelectionEnd
     SetSelectionRange
@@ -429,6 +453,7 @@ internal Jint.HtmlParser.HtmlOptionState
 internal Jint.HtmlParser.HtmlRadioGroupFacts
     get_CheckedCount
     get_RequiredCount
+internal Jint.HtmlParser.HtmlRangeTextMode
 internal Jint.HtmlParser.HtmlScriptState
     get_AlreadyStarted
     get_ForceAsync
@@ -474,6 +499,7 @@ internal Jint.HtmlParser.HtmlTextAreaState
     Select
     SetDefaultValue
     SetEditingSelection
+    SetRangeText
     SetSelectionEnd
     SetSelectionRange
     SetSelectionStart

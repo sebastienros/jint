@@ -33,7 +33,15 @@ Four consequences that are not negotiable:
   it. Never fold the queue back into one job: an expensive actionability burst would spend a later Vue
   reaction's deadline. The paused drain remains inline inside the suspended task and does not re-arm it.
 - **A command that times out is answered, not cancelled.** `CommandTimeout` bounds the *client's* wait; the
-  item stays queued and still runs when the engine is next pumped. The two messages are told apart
+  item stays queued and still runs when the engine is next pumped. **It never ends a command that is
+  awaiting a promise of its engine** (`CommandContext.MarkAwaitingScript`, set by `RuntimeDomain.Settled`):
+  that engine ran the command, so it is pumped, and Chrome waits as long as the promise takes — a 30 s
+  ceiling there failed long `axe.run()` scans, which Playwright reports as a destroyed context (#4590).
+  `Abandon` answers those awaits instead, since a replaced realm never settles them. **A `TimeoutException` the
+  command itself threw is not the client's bound** — an execution limit's, which `Run` translates through
+  `DevToolsTarget.DescribeExecutionStop` into a reply naming the limit; reading it as the timeout answered a
+  page's five-second budget "Command timed out", which Playwright reports as a destroyed context (#4619). Never mark a command
+  awaiting host work: `Page.navigate` awaits the very swap that would then abandon it. The two messages are told apart
   deliberately — an item nothing dequeued says `Engine is not being pumped`, one that started and did not
   finish says `Command timed out` — because a host debugging the wrong one wastes an afternoon.
 - **Host work and protocol commands share the queue**, so a host's `target.Post` runs in order with the

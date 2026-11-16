@@ -76,15 +76,34 @@ internal sealed partial class ParserDriver : IDisposable
         string contentType,
         Action<NavigationPhase>? onPhase,
         DateTimeOffset? lastModified = null,
-        string? defaultStyle = null)
+        string? defaultStyle = null,
+        Action<ParserDriver>? beforeParse = null)
     {
-        using var construction = runtime.Layout.BeginMutation();
+        // Tree construction is a native writer geometry cannot track, so retained measurements are suspended until
+        // the parser reaches the end; what runs after it — deferred and module scripts, DOMContentLoaded, load —
+        // writes through tracked bindings and attaches resources in scopes of its own.
+        var construction = runtime.Layout.BeginMutation();
+        var constructing = true;
         var driver = new ParserDriver(runtime, url, runtime.Cancellation?.Token ?? CancellationToken.None);
+        driver._endConstruction = EndConstruction;
         runtime.Parser = driver;
         runtime.Engine.Disposed += (_, _) => driver.Dispose();
-        try { return driver.Run(markup, contentType, onPhase, lastModified, defaultStyle); }
+        try { return driver.Run(markup, contentType, onPhase, lastModified, defaultStyle, beforeParse); }
         catch { driver.Dispose(); runtime.Parser = null; throw; }
+        finally { EndConstruction(); }
+
+        void EndConstruction()
+        {
+            if (constructing)
+            {
+                constructing = false;
+                construction.Dispose();
+            }
+        }
     }
+
+    // Ends the initial tree construction's mutation scope, once; see Load.
+    private Action? _endConstruction;
 
     /// <summary>Releases the baton, once the parse it served has finished.</summary>
     private bool _disposed;
@@ -109,7 +128,7 @@ internal sealed partial class ParserDriver : IDisposable
     }
 
     private PageLoad Run(string markup, string contentType, Action<NavigationPhase>? onPhase,
-        DateTimeOffset? lastModified, string? defaultStyle)
+        DateTimeOffset? lastModified, string? defaultStyle, Action<ParserDriver>? beforeParse)
     {
         var document = new Document(DomContentType.IsXml(contentType) ? DocumentKind.Xml : DocumentKind.Html, contentType, new CustomElementRegistryIdentity(isScoped: false));
         DomDocumentMetadata.Initialize(document, _runtime.DocumentCreationOrigin ?? DomDocumentOrigin.FromUrl(_url), lastModified);
@@ -121,6 +140,9 @@ internal sealed partial class ParserDriver : IDisposable
         _runtime.Document = document;
         try
         {
+            // The document exists, is empty and is loading, which is where Chromium runs a client's
+            // new-document scripts: after the window object is cleared and before the parser reads a byte.
+            if (beforeParse is not null) RunBeforeParse(document, beforeParse);
             Parse(document, markup);
             // Parsed nodes default to the document's realm; adoption captures the brand lazily.
             _runtime.Dom.CreationRealmOf(document);
@@ -140,6 +162,58 @@ internal sealed partial class ParserDriver : IDisposable
             _runtime.Document = null;
             context.Dispose();
             throw;
+        }
+    }
+
+    /// <summary>Runs the init scripts into the empty document, which counts as being parsed while they run.</summary>
+    /// <remarks>
+    /// Registered as parsing so a <c>document.write</c> or <c>document.open</c> from one is refused and
+    /// recorded, as it is during this document's own parse outside a script, rather than taking HTML's open
+    /// steps on the document the parse below is about to fill.
+    /// </remarks>
+    private void RunBeforeParse(Document document, Action<ParserDriver> beforeParse)
+    {
+        ActiveParsers.AddOrUpdate(document, this);
+        try
+        {
+            beforeParse(this);
+        }
+        finally
+        {
+            ActiveParsers.Remove(document);
+        }
+    }
+
+    /// <summary>Runs one init script the way an inline classic script runs, before the document is parsed.</summary>
+    /// <param name="run">What runs the script in the engine.</param>
+    /// <param name="location">What a page error names the script by.</param>
+    /// <remarks>
+    /// A turn of its own, so each script is bounded and a script that exhausts its budget does not fail the
+    /// parse that follows; a throw is reported as HTML reports one, the global <c>error</c> event first.
+    /// Cancellation is not a script failure, and ends the load.
+    /// </remarks>
+    internal void RunInitScript(Action<Engine> run, string location)
+    {
+        try
+        {
+            using (_runtime.Budget.BeginTurn())
+            {
+                RecoverNativeMutationNotifications();
+                using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
+                run(_runtime.Engine);
+            }
+        }
+        catch (JavaScriptException exception)
+        {
+            ReportException(exception, location);
+        }
+        catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))
+        {
+            Report(PageErrorKind.BudgetExceeded, exception.Message, location);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Report(PageErrorKind.ScriptError, exception.Message, location);
         }
     }
 
@@ -382,6 +456,11 @@ internal sealed partial class ParserDriver : IDisposable
         return Serve(() =>
         {
             var images = _runtime.Images;
+
+            if (Media.ImageSourceSet.UsesSourceSet(_runtime, image))
+            {
+                images.RememberSourceSet(image);
+            }
 
             // https://html.spec.whatwg.org/multipage/images.html#update-the-source-set
             // Select from the native element's attributes using the page's viewport and media state.
@@ -786,7 +865,7 @@ internal sealed partial class ParserDriver : IDisposable
             {
                 RecoverNativeMutationNotifications();
                 using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
-                _runtime.Engine.Execute(text, source, ParsingFrom(line));
+                ExecuteClassic(text, source, line);
             }
         }
         catch (JavaScriptException exception)
@@ -850,7 +929,16 @@ internal sealed partial class ParserDriver : IDisposable
     // After the parse: modules, then the lifecycle.
     // ---------------------------------------------------------------------------------------------------
 
-    private void FinishLoad(Document document, Action<NavigationPhase>? onPhase)
+    /// <param name="document">The document whose parse ended.</param>
+    /// <param name="onPhase">Who hears <c>DOMContentLoaded</c> and <c>Loaded</c>.</param>
+    /// <param name="recordTiming">Whether the navigation-timing entry records the moments.</param>
+    /// <param name="isCurrent">
+    /// <see langword="null"/> for a navigation's parse, which waits for its resource events by pumping. A
+    /// <c>document.open()</c> parse ends in a task and never pumps: it finishes once its last resource event
+    /// is delivered, if this still answers <see langword="true"/> by then.
+    /// </param>
+    private void FinishLoad(Document document, Action<NavigationPhase>? onPhase, bool recordTiming = true,
+        Func<bool>? isCurrent = null)
     {
         if (_runtime.Document is { } nativeDocument) DomDocumentState.SelectNavigationTarget(_runtime.Dom, nativeDocument);
 
@@ -870,7 +958,8 @@ internal sealed partial class ParserDriver : IDisposable
 
         // https://html.spec.whatwg.org/multipage/parsing.html#the-end step 2. Browser owns readiness and
         // its events; native tree construction does not advance the page lifecycle.
-        SetReadyState("interactive");
+        SetReadyState("interactive", recordTiming);
+        _endConstruction?.Invoke();
 
         // Module execution is Browser work and must honor the same scripting policy as classic scripts.
         if (_runtime.ScriptingEnabled)
@@ -878,19 +967,18 @@ internal sealed partial class ParserDriver : IDisposable
             RunModules(document);
         }
 
-        var window = _runtime.Engine._webApi?.GlobalEventTarget;
         var wrapper = _runtime.DocumentWrapper;
 
         if (wrapper is not null)
         {
-            if (_runtime.NavigationTiming is { } start) start.DomContentLoadedEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+            if (recordTiming && _runtime.NavigationTiming is { } start) start.DomContentLoadedEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             PageEvents.Dispatch(
                 _runtime,
                 wrapper,
                 _runtime.Engine._mainRealm.Intrinsics.Event.CreateTrustedEvent(
                     JsString.Create("DOMContentLoaded"),
                     new EventInit(Bubbles: true, Cancelable: false, Composed: false)));
-            if (_runtime.NavigationTiming is { } end) end.DomContentLoadedEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+            if (recordTiming && _runtime.NavigationTiming is { } end) end.DomContentLoadedEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
         }
 
         onPhase?.Invoke(NavigationPhase.DomContentLoaded);
@@ -912,20 +1000,59 @@ internal sealed partial class ParserDriver : IDisposable
 
         // A style sheet's or an image's completion handler can insert further subresources. Keep their
         // load-event delay until the entire chain has delivered, each event on its own budgeted task.
+        if (isCurrent is not null)
+        {
+            CompleteLoadAfterResourceEvents(onPhase, recordTiming, isCurrent);
+            return;
+        }
+
         while (_pendingResourceEvents > 0 && !_cancellationToken.IsCancellationRequested)
         {
             _baton.PumpUntil(_resourceEventsCompleted!.Task);
         }
 
+        CompleteLoad(onPhase, recordTiming);
+    }
+
+    /// <summary>
+    /// The end's steps 6 and 7 for a parse that may not pump: wait for the resource events as tasks, then
+    /// complete the load in a task of its own.
+    /// </summary>
+    private void CompleteLoadAfterResourceEvents(Action<NavigationPhase>? onPhase, bool recordTiming, Func<bool> isCurrent)
+    {
+        if (_cancellationToken.IsCancellationRequested || !isCurrent())
+        {
+            return;
+        }
+
+        if (_pendingResourceEvents > 0)
+        {
+            var tasks = _runtime.Engine.Tasks;
+            _resourceEventsCompleted!.Task.ContinueWith(
+                _ => tasks.Post(() => CompleteLoadAfterResourceEvents(onPhase, recordTiming, isCurrent)),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            return;
+        }
+
+        CompleteLoad(onPhase, recordTiming);
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/parsing.html#the-end steps 9 onward.</summary>
+    private void CompleteLoad(Action<NavigationPhase>? onPhase, bool recordTiming)
+    {
+        var window = _runtime.Engine._webApi?.GlobalEventTarget;
+
         // Step 9: readiness becomes "complete" and only then does load fire, which is why a load listener
         // reads "complete" rather than "interactive".
-        SetReadyState("complete");
+        SetReadyState("complete", recordTiming);
 
         if (window is not null)
         {
-            if (_runtime.NavigationTiming is { } start) start.LoadEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+            if (recordTiming && _runtime.NavigationTiming is { } start) start.LoadEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             PageEvents.Fire(_runtime, window, "load");
-            if (_runtime.NavigationTiming is { } end)
+            if (recordTiming && _runtime.NavigationTiming is { } end)
             {
                 end.LoadEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
                 _runtime.Engine._webApi.PerformanceObservers.QueuePerformanceEntry(end);
@@ -1022,7 +1149,12 @@ internal sealed partial class ParserDriver : IDisposable
     }
 
     /// <summary>Moves the page's <c>document.readyState</c> and fires <c>readystatechange</c> at the document.</summary>
-    internal void SetReadyState(string state)
+    /// <param name="state">The readiness to move to.</param>
+    /// <param name="recordTiming">
+    /// Whether the navigation-timing entry records the moment; <see langword="false"/> for the readiness a
+    /// <c>document.open()</c> moves, which belongs to no navigation.
+    /// </param>
+    internal void SetReadyState(string state, bool recordTiming = true)
     {
         if (string.Equals(_runtime.ReadyState, state, StringComparison.Ordinal))
         {
@@ -1030,7 +1162,7 @@ internal sealed partial class ParserDriver : IDisposable
         }
 
         _runtime.ReadyState = state;
-        if (_runtime.NavigationTiming is { } navigation)
+        if (recordTiming && _runtime.NavigationTiming is { } navigation)
         {
             if (state == "interactive") navigation.DomInteractive = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             else if (state == "complete") navigation.DomComplete = _runtime.Engine._webApi!.CurrentHighResolutionTime;
@@ -1352,6 +1484,41 @@ internal sealed partial class ParserDriver : IDisposable
         => DomDocumentState.BaseUri(document, _runtime.Engine.Constraints.Check, _cancellationToken);
 
     /// <summary>
+    /// Runs a classic script's text, through the process's parse of it when <see cref="BrowserOptions.ShareParsedScripts"/>
+    /// allows and the engine parses with the defaults.
+    /// </summary>
+    /// <remarks>
+    /// A bundle every page of a test suite loads is the same program every time, and a prepared script is
+    /// shareable between engines; React's two files were parsed again for every page. A script that does not
+    /// parse is handed to the engine's own parse, which reports the <c>SyntaxError</c> the way it always has.
+    /// </remarks>
+    private void ExecuteClassic(string text, string? source, int line)
+    {
+        var engine = _runtime.Engine;
+        if (text.Length >= Jint.DevTools.PreparedScriptCache.MinimumLength && _runtime.Options.ShareParsedScripts
+            && Jint.DevTools.PreparedScriptCache.Suits(engine.Options))
+        {
+            Prepared<Acornima.Ast.Script> prepared = default;
+            try
+            {
+                prepared = Jint.DevTools.PreparedScriptCache.GetOrPrepare(
+                    text, source, line, engine.Options.Strict, engine.Options.RetainFunctionSourceText);
+            }
+            catch (ScriptPreparationException)
+            {
+            }
+
+            if (prepared.IsValid)
+            {
+                engine.Execute(prepared);
+                return;
+            }
+        }
+
+        engine.Execute(text, source, ParsingFrom(line));
+    }
+
+    /// <summary>
     /// The parsing options an inline script gets: the engine's own, plus the position in the document its
     /// text begins at, so a syntax error and a stack frame both name a line of the <i>document</i>.
     /// </summary>
@@ -1428,15 +1595,27 @@ internal sealed partial class ParserDriver : IDisposable
     /// aborting one.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// It is the same debt <c>PageLoop.Pump</c> pays to its own <c>onPumpError</c>: the pump must not end
     /// the load, and what it swallows must not vanish. A constraint abort in particular is the whole reason
     /// this exists — a page bounded by a budget that fires into nothing is a page nobody can debug.
+    /// </para>
+    /// <para>
+    /// A budget stop is also told to the page's watcher, as <c>Page</c>'s own pump tells it: a protocol command
+    /// drained by this pump while the parse waits on the network is a task like any other, and one awaiting a
+    /// promise of the turn that stopped would otherwise wait for ever (#4619).
+    /// </para>
     /// </remarks>
     private void OnPumpError(Exception exception)
-        => Report(
-            PageBudget.IsBudgetFailure(exception) ? PageErrorKind.BudgetExceeded : PageErrorKind.UncaughtCallbackError,
-            exception.Message,
-            "ParserDriver");
+    {
+        var budget = PageBudget.IsBudgetFailure(exception);
+        Report(budget ? PageErrorKind.BudgetExceeded : PageErrorKind.UncaughtCallbackError, exception.Message, "ParserDriver");
+
+        if (budget)
+        {
+            _runtime.Page.Observer?.TaskStopped(exception);
+        }
+    }
 
     // Primary parser coordinates are exact. Inserted or mixed text is script-relative.
     private static int LineOf(Element element, string text)

@@ -126,7 +126,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.focus", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.focus");
-                    global::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);
+                    global::Jint.Browser.Events.FocusController.FocusFromScript(self.Realm, self.Target, args, "HTMLElement");
                     return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
@@ -2954,6 +2954,13 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.setCustomValidity");
                     global::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
+                }),
+                length: 1)
+            .Method("setRangeText",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.setRangeText", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.setRangeText");
+                    return global::Jint.Browser.Dom.DomInputMembers.SetRangeText(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("setSelectionRange",
@@ -5958,6 +5965,13 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.setCustomValidity");
                     global::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
+                }),
+                length: 1)
+            .Method("setRangeText",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.setRangeText", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.setRangeText");
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetRangeText(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("setSelectionRange",

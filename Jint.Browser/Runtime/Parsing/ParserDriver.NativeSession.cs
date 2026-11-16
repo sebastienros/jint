@@ -19,6 +19,8 @@ internal sealed partial class ParserDriver
         internal HtmlParserSession Session { get; } = session;
         internal MutationSubscription Mutations { get; } = mutations;
         internal HtmlScriptFrame? Frame { get; set; }
+        internal bool ScriptCreated { get; init; }
+        internal bool Driving { get; set; }
         internal readonly List<(Element Element, FetchedBody? Source)> Deferred = [];
         internal readonly Dictionary<Element, FetchedBody?> PendingScripts = new();
     }
@@ -37,6 +39,188 @@ internal sealed partial class ParserDriver
         parse.Session.InsertInput(frame, text, driver._cancellationToken);
         driver._runtime.Engine.Constraints.Check();
         if (!parse.Session.ParserPaused) driver.Drive(parse, frame);
+    }
+
+    /// <summary>Whether <paramref name="document"/> is being read by a parser <c>document.open()</c> created.</summary>
+    internal static bool HasScriptCreatedParser(Document document)
+        => ScriptCreatedParse(document) is not null;
+
+    /// <summary>
+    /// Whether the script-created parser is mid-drive with no script of its own running — a custom-element
+    /// reaction or a microtask checkpoint it yielded to — where HTML's throw-on-dynamic-markup-insertion
+    /// counter refuses <c>open</c> and <c>close</c>.
+    /// </summary>
+    internal static bool IsDrivingScriptCreatedParser(Document document)
+        => ScriptCreatedParse(document) is { Driving: true };
+
+    private static NativeParse? ScriptCreatedParse(Document document)
+        => ActiveParsers.TryGetValue(document, out var driver) && driver._nativeParses.TryGetValue(document, out var parse)
+            && parse.ScriptCreated ? parse : null;
+
+    /// <summary>Bumped by every <c>document.open()</c>, so a queued end of an earlier parse can tell it lost.</summary>
+    private int _openGeneration;
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#document-open-steps, for the
+    /// document the page is showing once its own parse has finished.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The document, its window and its engine all survive.</b> HTML stopped replacing the global object
+    /// on <c>document.open()</c> in 2019 (whatwg/html#3946): the steps erase listeners, empty the tree in
+    /// place and associate a script-created parser with the same document. So nothing here unloads,
+    /// navigates or swaps the engine, and every wrapper a script holds — <c>document</c> above all — stays
+    /// the identity it was.
+    /// </para>
+    /// <para>
+    /// Steps 1 to 6 (XML, the throw-on-dynamic-markup-insertion counter, origin, an active parser's script
+    /// nesting, unload) are decided by the caller: it routes here only for an HTML document with no active
+    /// parser. Step 12's URL update is a no-op because the entry document is this one — a script of another
+    /// document reaches a displayed one only through a frame, which is still refused. Erasing listeners
+    /// covers the document and its window; a removed descendant a script kept keeps its own (step 9 names
+    /// every shadow-including inclusive descendant), which no automation client can observe.
+    /// </para>
+    /// </remarks>
+    internal void OpenDisplayedDocument(Document document)
+    {
+        _runtime.Engine.Constraints.Check();
+        if (_nativeParses.TryGetValue(document, out var previous))
+        {
+            // Only a script-created parse can be here: the caller refuses a document whose own parse runs.
+            while (previous.Session.Abort().Kind == HtmlParseStepKind.Yielded) _runtime.Engine.Constraints.Check();
+            _nativeParses.Remove(document);
+            ActiveParsers.Remove(document);
+        }
+
+        // Steps 9 and 10: erase all event listeners and handlers of the document and of its window.
+        _runtime.DocumentWrapper?.EraseEventListeners();
+        _runtime.Engine._webApi?.GlobalEventTarget.EraseEventListeners();
+
+        // Step 11: replace all with null within the document — the same identity, emptied.
+        while (document.LastChild is { } child)
+        {
+            _runtime.Engine.Constraints.Check();
+            document.RemoveChild(child);
+        }
+
+        // Step 15: a new HTML parser, script-created, with an insertion point at the end of its input.
+        var session = new HtmlParserSession(document,
+            new HtmlParseOptions { ScriptingEnabled = _runtime.ScriptingEnabled },
+            new HtmlDocumentContext(IsSrcdoc: false, AllowDeclarativeShadowRoots: true,
+                ShadowHostContextProvider: new BrowserShadowHostContextProvider(_runtime, RecordCandidateShadowHost)), enableScriptRequests: true);
+        var parse = new NativeParse(document, session, WatchDocument(document).Subscription) { ScriptCreated = true };
+        _openGeneration++;
+        _nativeParses.Add(document, parse);
+        ActiveParsers.AddOrUpdate(document, this);
+
+        // Step 17: update the current document readiness to "loading".
+        SetReadyState("loading", recordTiming: false);
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#document-write-steps step 6,
+    /// for a script-created parser read from outside its own scripts: append at the insertion point and run
+    /// the parser until it needs more input — executing any script the markup holds on the way.
+    /// </summary>
+    internal static void WriteScriptCreated(Document document, string text)
+    {
+        if (!ActiveParsers.TryGetValue(document, out var driver) ||
+            !driver._nativeParses.TryGetValue(document, out var parse) || !parse.ScriptCreated)
+            throw new InvalidOperationException("The document has no script-created parser.");
+        driver._runtime.Engine.Constraints.Check();
+        parse.Session.AppendInput(text);
+
+        // Written from inside the parser's own drive (a reaction or a checkpoint it yielded to): the outer
+        // loop goes on to consume what was appended, and a nested drive would step the session under it.
+        if (parse.Driving) return;
+        try
+        {
+            driver.DriveScriptCreated(parse);
+        }
+        catch
+        {
+            // A budget or cancellation failure leaves the session mid-step; nothing may drive it again.
+            driver.AbandonScriptCreated(parse);
+            throw;
+        }
+    }
+
+    private void AbandonScriptCreated(NativeParse parse)
+    {
+        while (parse.Session.Abort().Kind == HtmlParseStepKind.Yielded) { }
+        ActiveParsers.Remove(parse.Document);
+        _nativeParses.Remove(parse.Document);
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-close steps 4 to 6:
+    /// insert an explicit end of file, run the parser to it, then
+    /// <a href="https://html.spec.whatwg.org/multipage/parsing.html#the-end">the end</a> — deferred scripts,
+    /// <c>DOMContentLoaded</c>, readiness <c>complete</c> and the window's <c>load</c>, which are what a
+    /// protocol client's <c>setContent</c> waits for.
+    /// </summary>
+    /// <remarks>
+    /// Readiness becomes <c>interactive</c> before <c>close()</c> returns (the end, step 2); the rest is a
+    /// queued task, as HTML queues <c>DOMContentLoaded</c> and <c>load</c>, so nothing pumps the page's other
+    /// tasks inside the script that called <c>close()</c>.
+    /// </remarks>
+    internal static void CloseScriptCreated(Document document)
+    {
+        if (!ActiveParsers.TryGetValue(document, out var driver) ||
+            !driver._nativeParses.TryGetValue(document, out var parse) || !parse.ScriptCreated)
+            return;
+        driver.FinishScriptCreated(parse);
+    }
+
+    private void FinishScriptCreated(NativeParse parse)
+    {
+        var document = parse.Document;
+        try
+        {
+            parse.Session.AppendInput("", isFinal: true);
+            DriveScriptCreated(parse);
+        }
+        catch
+        {
+            while (parse.Session.Abort().Kind == HtmlParseStepKind.Yielded) { }
+            throw;
+        }
+        finally
+        {
+            ActiveParsers.Remove(document);
+            _nativeParses.Remove(document);
+            var watch = WatchDocument(document);
+            if (watch.Deferred) { watch.Deferred = false; QueueResourceDrain(watch); }
+        }
+
+        _runtime.CustomElementsIfCreated?.UpgradeParsedElements();
+        SetReadyState("interactive", recordTiming: false);
+        var generation = _openGeneration;
+        _runtime.Engine.Tasks.Post(() =>
+        {
+            // A later open() replaced this parse's document content; its end is no longer this one's.
+            if (generation != _openGeneration || _cancellationToken.IsCancellationRequested) return;
+            foreach (var entry in parse.Deferred)
+            {
+                _runtime.Engine.Constraints.Check();
+                RunNativeClassic(entry.Element, entry.Source);
+            }
+            FinishLoad(document, _runtime.DocumentPhase, recordTiming: false,
+                isCurrent: () => generation == _openGeneration);
+        });
+    }
+
+    private void DriveScriptCreated(NativeParse parse)
+    {
+        var wasTokenizing = _tokenizing;
+        _tokenizing = true;
+        parse.Driving = true;
+        try { Drive(parse, null); }
+        finally
+        {
+            parse.Driving = false;
+            _tokenizing = wasTokenizing;
+        }
     }
 
     private void Parse(Document document, string markup, bool isSrcdoc = false)
@@ -141,6 +325,9 @@ internal sealed partial class ParserDriver
                 case HtmlParseStepKind.Yielded:
                     continue;
                 case HtmlParseStepKind.Complete:
+                    return;
+                case HtmlParseStepKind.NeedInput when insertion is null && parse.ScriptCreated:
+                    // A script-created parser waits at its insertion point for the next write or for close().
                     return;
                 case HtmlParseStepKind.InsertionBoundary or HtmlParseStepKind.PendingBlocker or HtmlParseStepKind.ParserPaused
                     when insertion is not null:

@@ -49,10 +49,12 @@ internal static class DomStaticRange
         // required and so an empty dictionary can never be accepted.
         var members = init as ObjectInstance;
 
-        var startContainer = RequiredNode(realm, members, "startContainer");
-        var startOffset = RequiredOffset(realm, members, "startOffset");
+        // Lexicographic order of the member names (https://webidl.spec.whatwg.org/#es-dictionary step 4), so
+        // the end boundary is read, and refused, before the start one.
         var endContainer = RequiredNode(realm, members, "endContainer");
         var endOffset = RequiredOffset(realm, members, "endOffset");
+        var startContainer = RequiredNode(realm, members, "startContainer");
+        var startOffset = RequiredOffset(realm, members, "startOffset");
 
         // Step 1. A DocumentType has no position inside the tree a range names, and an Attr is not in the
         // node tree at all, so neither can be a boundary point.

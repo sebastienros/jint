@@ -32,13 +32,14 @@ namespace Jint.Browser.Runtime.Parsing;
 /// <c>./lodash</c> would do.
 /// </para>
 /// </remarks>
-internal sealed class PageModuleScriptLoader : AsyncModuleLoader
+internal sealed class PageModuleScriptLoader : AsyncModuleLoader, IAsyncModuleLoader
 {
     private readonly PageNetwork _network;
     private readonly PageNetworkRecorder _requests;
     private readonly EmulationState _emulation;
     private readonly Dictionary<string, string> _inline = new(StringComparer.Ordinal);
     private readonly long _maxBytes;
+    private readonly bool _shareParses;
 
     private int _inlineCount;
 
@@ -47,13 +48,91 @@ internal sealed class PageModuleScriptLoader : AsyncModuleLoader
         PageNetworkRecorder requests,
         EmulationState emulation,
         string documentUrl,
-        long maxBytes)
+        long maxBytes,
+        bool shareParses = false)
     {
+        _shareParses = shareParses;
         _emulation = emulation;
         _network = network;
         _requests = requests;
         _maxBytes = maxBytes;
         BaseUrl = documentUrl;
+    }
+
+    /// <summary>
+    /// Loads a module through the process's parse of its text when <see cref="BrowserOptions.ShareParsedScripts"/>
+    /// allows it, as classic scripts are: an admin's modules are the same programs on every page of a test suite.
+    /// A module that does not parse, or another kind of module, is handed to the engine's own load, which reports
+    /// it the way it always has.
+    /// </summary>
+    void IAsyncModuleLoader.LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
+    {
+        var request = resolved.ModuleRequest;
+        if (!_shareParses || request.IsBytesModule() || request.IsTextModule() || request.IsJsonModule()
+            || !Jint.DevTools.PreparedScriptCache.Suits(engine.Options))
+        {
+            LoadModuleAsync(engine, resolved, completion);
+            return;
+        }
+
+        var retain = engine.Options.RetainFunctionSourceText;
+        var task = LoadModuleContentsAsync(engine, resolved, completion.CancellationToken);
+        if (task.IsCompleted)
+        {
+            Settle(task, resolved, completion, retain);
+            return;
+        }
+
+        _ = task.ContinueWith(
+            t => Settle(t, resolved, completion, retain),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private static void Settle(Task<string> task, ResolvedSpecifier resolved, ModuleLoadCompletion completion, bool retain)
+    {
+        if (task.IsFaulted)
+        {
+            var exception = task.Exception?.InnerExceptions.Count == 1 ? task.Exception.InnerExceptions[0] : task.Exception;
+            completion.SetError(exception ?? new InvalidOperationException("Module load failed"));
+            return;
+        }
+
+        if (task.IsCanceled)
+        {
+            if (completion.CancellationToken.IsCancellationRequested)
+            {
+                completion.SetConstraintError(new OperationCanceledException(completion.CancelledToken));
+            }
+            else
+            {
+                completion.SetError(new TaskCanceledException(task));
+            }
+
+            return;
+        }
+
+        var code = task.Result;
+        if (code is not null && code.Length >= PreparedModuleCache.MinimumLength)
+        {
+            try
+            {
+                completion.SetSource(code, PreparedModuleCache.GetOrPrepare(code, ModuleFactory.LocationOf(resolved), retain));
+                return;
+            }
+            catch (ScriptPreparationException)
+            {
+            }
+        }
+
+        if (code is null)
+        {
+            completion.SetError(new InvalidOperationException("'LoadModuleContentsAsync' returned null for '" + resolved.ModuleRequest.Specifier + "'."));
+            return;
+        }
+
+        completion.SetSource(code);
     }
 
     /// <summary>The document's base URL, which relative specifiers resolve against.</summary>

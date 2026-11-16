@@ -55,6 +55,14 @@ public class NumberTests
     }
 
     [TestCase("1.7976931348623157e+308", double.MaxValue)]
+    // The longest prefix that is a StrDecimalLiteral: a point after the exponent ends it (sebastienros/jint#4579).
+    [TestCase("1e5.5", 100000d)]
+    [TestCase("1e-7123.456", 0d)]
+    [TestCase("1.5e3.2", 1500d)]
+    [TestCase("1e.5", 1d)]
+    [TestCase("1.e5", 100000d)]
+    [TestCase(".5e1.5", 5d)]
+    [TestCase("1e5e5", 100000d)]
     public void ParseFloat(string input, double result)
     {
         var value = _engine.Evaluate($"parseFloat('{input}')").AsNumber();
@@ -733,5 +741,27 @@ public class NumberTests
         BitConverter.DoubleToInt64Bits(actual).Should().Be(
             BitConverter.DoubleToInt64Bits(expected),
             $"{source} should be {expected:R} but was {actual:R}");
+    }
+
+    // Number::toString spells an integral Number by its shortest round-tripping digits, which above 2^53 is not
+    // its exact value (https://tc39.es/ecma262/#sec-numeric-types-number-tostring, sebastienros/jint#4579).
+    // The expected strings are Node's.
+    [TestCase("String(2 ** 60)", "1152921504606847000")]
+    [TestCase("String(-(2 ** 60))", "-1152921504606847000")]
+    [TestCase("String(0xFFFFFFFFFFFFF8)", "72057594037927930")]
+    [TestCase("(0xFFFFFFFFFFFFF8).toString()", "72057594037927930")]
+    [TestCase("'' + 0xFFFFFFFFFFFFF8", "72057594037927930")]
+    [TestCase("var o = {}; o[0xFFFFFFFFFFFFF8] = 1; Object.keys(o)[0]", "72057594037927930")]
+    [TestCase("Object.keys({ 0xFFFFFFFFFFFFF8: 1 })[0]", "72057594037927930")]
+    [TestCase("JSON.stringify([2 ** 60, 0xFFFFFFFFFFFFF8])", "[1152921504606847000,72057594037927930]")]
+    [TestCase("String(2 ** 53)", "9007199254740992")]
+    [TestCase("String(2 ** 53 + 2)", "9007199254740994")]
+    [TestCase("String(9007199254740991)", "9007199254740991")]
+    [TestCase("String(-9007199254740991)", "-9007199254740991")]
+    [TestCase("String(1e20)", "100000000000000000000")]
+    [TestCase("String(-0)", "0")]
+    public void IntegralNumbersUseTheShortestSpelling(string source, string expected)
+    {
+        _engine.Evaluate(source).AsString().Should().Be(expected);
     }
 }

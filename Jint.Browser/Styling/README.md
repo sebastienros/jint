@@ -43,14 +43,16 @@ response/URL cache and changes no fetch, credentials, ETag, origin or content va
 
 Values are text, not typed grammars. Custom properties inherit declared text. Ordinary values may
 use bounded textual `var()` substitution with fallbacks (depth 32; expansion limit 1,000,000 characters).
-It is not token substitution: no declaration-scope resolution, deferred shorthand evaluation, typed
+It is not token substitution: no declaration-scope resolution, typed
 functions, URL resolution or unit computation. Colors stay declared text in the cascade; `ResolvedStyle`
 serializes color longhands as `rgb()`/`rgba()` only at the CSSOM and DevTools read boundary. A missing/cyclic expansion defaults
 the property rather than selecting an earlier declaration. Substitution-produced rollback keywords
 remain text. Simple display blockification stays; overflow axes no longer compute together.
 
 The data catalog supplies a small initial-value table and inherited flags; other known names have
-empty initial text. Only layout-used shorthands expand by whitespace splitting. `ResolvedStyle`
+empty initial text. Layout-used shorthands expand by whitespace splitting; the background, border and mask
+shorthands, and `animation`/`transition`, classify their order-free components; the animation and transition
+`<time>` longhands compute to seconds. A shorthand with `var()` expands after substitution. `ResolvedStyle`
 returns synthetic box width/height where available and text otherwise. Text extraction interprets
 white-space keywords locally. DevTools and CSSOM consume the same values and native rule identities.
 

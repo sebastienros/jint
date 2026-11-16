@@ -316,6 +316,88 @@ public class InputDomainTests
         (await Evaluate(session, attachment, "window.seen")).Should().Be("BODY:Escape:true");
     }
 
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/semantics-other.html#selector-hover — a <c>mouseMoved</c> is
+    /// how a client designates an element with the pointer, so <c>:hover</c> and the rules it gates follow
+    /// it (issue #4598, Playwright's <c>page.hover</c>).
+    /// </summary>
+    [Test]
+    public async Task MouseMovedMakesTheElementUnderThePointerMatchHover()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+
+        await Content(
+            session,
+            attachment,
+            "<style>#h{width:100px;height:40px} #h:hover{background-color:rgb(1,2,3)}</style><div id=h>h</div>");
+
+        const string State = "(() => { const h = document.getElementById('h'); return h.matches(':hover') + ' / ' + getComputedStyle(h).backgroundColor; })()";
+        var centre = await Evaluate(session, attachment,
+            "(() => { const r = document.getElementById('h').getBoundingClientRect(); return (r.x + r.width / 2) + ',' + (r.y + r.height / 2); })()");
+        var point = centre!.Split(',');
+
+        await session.ResultAsync("Input.dispatchMouseEvent",
+            $$"""{"type":"mouseMoved","x":{{point[0]}},"y":{{point[1]}},"button":"none"}""", attachment);
+        (await Evaluate(session, attachment, State)).Should().Be("true / rgb(1, 2, 3)");
+
+        await session.ResultAsync("Input.dispatchMouseEvent",
+            """{"type":"mouseMoved","x":5,"y":300,"button":"none"}""", attachment);
+        (await Evaluate(session, attachment, State)).Should().Be("false / rgba(0, 0, 0, 0)");
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/selectors-4/#the-focus-visible-pseudo — a client's click and key are a
+    /// user's, so they decide <c>:focus-visible</c> as trusted input in process does (issue #4640): a script
+    /// focus with no pointer before it is indicated, a press is not and neither is the script focus after
+    /// it, a key — <kbd>Tab</kbd> or any other — is, and a text field always is.
+    /// </summary>
+    [Test]
+    public async Task MouseAndKeyEventsDecideWhetherFocusIsVisible()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+
+        await Content(
+            session,
+            attachment,
+            """
+            <style>a { display: block; width: 100px; height: 40px } a:focus-visible span { color: rgb(0, 128, 0) }</style>
+            <input id=search><a id=link href="#x"><span>Title</span></a><a id=other href="#y"><span>Other</span></a>
+            """);
+
+        const string State = "(() => { const a = document.activeElement; return a.id + ' ' + a.matches(':focus-visible') + ' ' + getComputedStyle(a.firstElementChild ?? a).color; })()";
+        async Task Click(string id)
+        {
+            var centre = await Evaluate(session, attachment,
+                $"(() => {{ const r = document.getElementById('{id}').getBoundingClientRect(); return (r.x + r.width / 2) + ',' + (r.y + r.height / 2); }})()");
+            var point = centre!.Split(',');
+            foreach (var type in new[] { "mousePressed", "mouseReleased" })
+                await session.ResultAsync("Input.dispatchMouseEvent",
+                    $$"""{"type":"{{type}}","x":{{point[0]}},"y":{{point[1]}},"button":"left","clickCount":1}""", attachment);
+        }
+
+        await Evaluate(session, attachment, "document.getElementById('search').focus(), document.getElementById('link').focus(), ''");
+        (await Evaluate(session, attachment, State)).Should().Be("link true rgb(0, 128, 0)");
+
+        await Click("other");
+        (await Evaluate(session, attachment, State)).Should().Be("other false rgb(0, 0, 0)");
+        await Evaluate(session, attachment, "document.getElementById('link').focus(), ''");
+        (await Evaluate(session, attachment, State)).Should().Be("link false rgb(0, 0, 0)");
+
+        await Key(session, attachment, """{"type":"rawKeyDown","key":"Tab","code":"Tab","windowsVirtualKeyCode":9}""");
+        await Key(session, attachment, """{"type":"keyUp","key":"Tab","code":"Tab","windowsVirtualKeyCode":9}""");
+        (await Evaluate(session, attachment, State)).Should().Be("other true rgb(0, 128, 0)");
+
+        await Click("search");
+        (await Evaluate(session, attachment, "document.activeElement.id + ' ' + document.activeElement.matches(':focus-visible')"))
+            .Should().Be("search true", "a text field always indicates focus");
+        await Evaluate(session, attachment, "document.getElementById('link').focus(), ''");
+        (await Evaluate(session, attachment, State)).Should().Be("link false rgb(0, 0, 0)");
+        await Key(session, attachment, """{"type":"rawKeyDown","key":"ArrowDown","code":"ArrowDown","windowsVirtualKeyCode":40}""");
+        (await Evaluate(session, attachment, State)).Should().Be("link true rgb(0, 128, 0)");
+    }
+
     private static Task Key(PageSession session, string attachment, string parameters)
         => session.ResultAsync("Input.dispatchKeyEvent", parameters, attachment);
 

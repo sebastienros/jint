@@ -15,13 +15,14 @@ internal static partial class SelectorMatcher
     {
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(element);
-        work.Enter(element, shadowScope ?? scopingRoot, environment);
+        // An explicit scoping root (CSS Cascade 6 @scope) wins over the shadow tree's own :scope.
+        work.Enter(element, scopingRoot ?? shadowScope, environment);
         try
         {
             work.VerifyRead();
-            var local = new Work(ref work, environment, shadowScope);
+            var local = new Work(ref work, environment, shadowScope, ReferenceEquals(scopingRoot, shadowScope));
             ValidateImplemented(program, ref local, work.Token);
-            var matched = TryMatchCore(program, element, ScopeFor(shadowScope ?? scopingRoot ?? element, ref local),
+            var matched = TryMatchCore(program, element, ScopeFor(scopingRoot ?? (Node?) shadowScope ?? element, ref local),
                 ref local, out specificity);
             work.VerifyRead();
             return matched;
@@ -197,11 +198,25 @@ internal static partial class SelectorMatcher
                 }
                 work.Step();
                 return (kind == PredicateKind.Focus ? cell.Focus! : cell.FocusWithin!).Contains(element);
+            case PredicateKind.FocusVisible:
+                // Selectors 4 §9.4: https://drafts.csswg.org/selectors-4/#the-focus-visible-pseudo — the
+                // focused element when the host's heuristics indicate focus. A shadow host matches :focus
+                // for a focused descendant but is not itself the element whose focus is indicated.
+                if (!environment.FocusVisible || !ReferenceEquals(element, environment.FocusedElement)) return false;
+                if (cell.Focus is null)
+                    SelectorStateTraversal.BuildFocus(environment, ref work.Shared);
+                work.Step();
+                return cell.Focus!.Contains(element);
             case PredicateKind.Active:
                 if (cell.ActiveElements is null)
                     SelectorStateTraversal.BuildActive(environment, ref work.Shared);
                 work.Step();
                 return cell.ActiveElements!.Contains(element);
+            case PredicateKind.Hover:
+                if (cell.HoverElements is null)
+                    SelectorStateTraversal.BuildHover(environment, ref work.Shared);
+                work.Step();
+                return cell.HoverElements!.Contains(element);
             default:
                 throw Unsupported(kind.ToString());
         }

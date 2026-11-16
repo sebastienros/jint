@@ -34,8 +34,9 @@ two different things, or be told different things about one document:
 | `serve --http-cache`, including protocol-created contexts | `BrowserOptions.ConfigureContext` | context construction before its network position is created | reaching into `PageNetwork`, or sharing one persistent identity across incognito contexts |
 | `click`, `fill`, `type`, `press`, `select`, `hover`, `scroll` | `Page.ClickAsync` and its siblings | `Events/InputDispatcher`, `Layout/`, `ActivationBehaviors.SelectOption` — the `Input` domain's own paths | a third input implementation, or `element.click()`, which is untrusted |
 | `back`, `forward`, `reload` | `Page.GoBackAsync`, `GoForwardAsync`, `ReloadAsync` | `Runtime/SessionHistory` and the navigation gate | `evaluate("history.back()")`, which answers before the traversal commits |
+| `getByRole`/`getByLabel`/`getByText` in a ported suite (#4624) | `role=`, `label=`, `text=`, `aria/` and `>>` in every `Page` target | `AccessibilityTree.Query` — the snapshot's own role, name and hidden walk — and `Accessibility/TextQuery` | a snapshot per lookup, or a JavaScript search on `aria-label`/`textContent` through `WaitForAsync` |
 
-**A target is a selector or a `ref=`**, and `Runtime/ElementLocator` is the one place that decides: an agent
+**A target is a selector, a `ref=` or a role/label/text locator**, and `Runtime/ElementLocator` is the one place that decides: an agent
 reading `- button "Save" [ref=42]` out of a snapshot has no selector to write. The number is the
 accessibility tree's own identifier and **deliberately not the protocol's `backendNodeId`** — that one is
 `DevTools/DomNodeTracker`'s, which belongs to a page *target*, and a caller with no client attached has none.
@@ -56,7 +57,8 @@ which is the opposite of every other command here and is why it takes `--trusted
 (the plugin is [`tools/wpt-scoreboard/`](../tools/wpt-scoreboard/README.md)). It needed no new seam — but it
 did need two options to *not* be defaults, and the reasons are worth knowing before either is changed.
 `--max-task-duration 0` is passed because a five-second turn cuts a legitimately slow conformance file
-mid-script, and `--untrusted` is deliberately **not**, because `ForUntrustedContent` applies
+mid-script, even past `serve`'s own two-minute default (#4619: above any client's timeout, finite so a killed
+client cannot leave a page spinning for ever) — and `--untrusted` is deliberately **not**, because `ForUntrustedContent` applies
 `UntrustedCodeLimits.Default` — one second per engine entry, 50 000 statements, 10 000-element arrays,
 recursion depth 64, and four more — and no option here can move any of the eight it sets. A measurement taken under that profile
 would be a report on the profile.

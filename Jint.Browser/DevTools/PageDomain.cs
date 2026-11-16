@@ -111,17 +111,23 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
 
     /// <inheritdoc/>
     /// <remarks>
+    /// <para>
+    /// It is the page's own <see cref="Page.ReloadAsync"/>, not a navigation to <see cref="Page.Url"/>: a
+    /// reload rewrites the current history entry, so <c>history.length</c> stays and a later back lands on the
+    /// entry before the reloaded one, and a URL with a fragment is fetched again rather than taken as a
+    /// same-document fragment move (#4639).
+    /// </para>
+    /// <para>
     /// <c>ignoreCache</c> is accepted and ignored; use <c>Network.setCacheDisabled</c> for a cache bypass.
     /// <c>scriptToEvaluateOnLoad</c> is the deprecated half of
     /// <c>addScriptToEvaluateOnNewDocument</c>, which is the one every recorded client sends.
+    /// </para>
     /// </remarks>
     protected override async ValueTask<EmptyResult> ReloadAsync(ReloadRequest parameters, CommandContext context)
     {
-        var url = Page.Url;
-
         try
         {
-            await Page.NavigateAsync(url, new NavigationOptions { WaitUntil = WaitUntilState.Commit }).ConfigureAwait(false);
+            await Page.ReloadAsync(new NavigationOptions { WaitUntil = WaitUntilState.Commit }).ConfigureAwait(false);
         }
         catch (NavigationFailedException)
         {
@@ -221,7 +227,7 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
         AddScriptToEvaluateOnNewDocumentRequest parameters,
         CommandContext context)
     {
-        var identifier = _target.NewDocumentScripts.Add(parameters.Source);
+        var identifier = _target.NewDocumentScripts.Add(_target, "Page.addScriptToEvaluateOnNewDocument", parameters.Source);
         return new ValueTask<AddScriptToEvaluateOnNewDocumentResponse>(new AddScriptToEvaluateOnNewDocumentResponse { Identifier = identifier });
     }
 
@@ -231,7 +237,8 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
         CommandContext context)
     {
         // A script nobody knows about is not an error: a client removing what it already removed is tidying.
-        _target.NewDocumentScripts.Remove(parameters.Identifier);
+        // Only a script a client added is removable here; the page's own init scripts are the host's.
+        _target.NewDocumentScripts.Remove(_target, parameters.Identifier);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -396,7 +403,7 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
     }
 
     private Viewport Viewport()
-        => PageRuntime.Find(_target.Runtime.Engine)?.Viewport ?? _target.Emulation.DefaultViewport;
+        => PageRuntime.Find(_target.Runtime.Engine)?.Viewport ?? _target.Emulation.Viewport;
 
     /// <summary>Refuses a frame identifier that is not the page's one scripted frame.</summary>
     private void RequireMainFrame(string? frameId)

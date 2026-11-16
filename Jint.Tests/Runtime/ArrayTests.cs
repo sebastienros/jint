@@ -17,6 +17,45 @@ public class ArrayTests
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
+    /// <summary>
+    /// The dense <c>indexOf</c> scan compares an object by identity, which is what IsStrictlyEqual says, and
+    /// keeps every other kind of search value on the strict-equality comparison.
+    /// </summary>
+    [Test]
+    public void IndexOfAnObjectIsByIdentity()
+    {
+        _engine.Evaluate(
+            """
+            (() => {
+              var a = {}, b = {}, list = [a, 1, 'x', b, NaN, a];
+              return [
+                list.indexOf(a), list.indexOf(b), list.indexOf({}), list.indexOf(a, 1), list.indexOf(b, -3),
+                list.indexOf('x'), list.indexOf(1), list.indexOf(NaN), [,a].indexOf(a), [,].indexOf(undefined)
+              ].join();
+            })()
+            """).AsString().Should().Be("0,3,-1,5,3,2,1,-1,1,-1");
+    }
+
+    /// <summary>
+    /// Two wrappers of one CLR object are <c>===</c> in Jint, so the identity shortcut must not apply to them:
+    /// <c>indexOf</c> answers what a <c>===</c> loop over the array answers.
+    /// </summary>
+    [Test]
+    public void IndexOfAWrappedHostObjectAgreesWithStrictEquality()
+    {
+        var target = new IndexOfHost();
+        var engine = new Engine(options => options.Interop.TrackObjectWrapperIdentity = false);
+        engine.SetValue("first", target).SetValue("second", target);
+
+        engine.Evaluate("first === second").AsBoolean().Should().BeTrue("both wrap the same CLR object");
+        engine.Evaluate("[{}, first].indexOf(second)").AsNumber().Should().Be(1);
+    }
+
+    private sealed class IndexOfHost
+    {
+        public int Value { get; } = 1;
+    }
+
     [Test]
     public void FilterSkipsHoles()
     {

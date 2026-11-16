@@ -161,10 +161,18 @@ During HTML parsing, `ParserDriver.Write` inserts into the active native `HtmlSc
 `InsertInput` and drives inserted input when the parser is not paused. The session owns insertion-point
 and nesting state; Browser must not replace it with concatenation and whole-document reparsing.
 
-After parsing, `DomHostHooks.TargetOf` distinguishes displayed from secondary documents. Replacing a
-displayed page/frame document through `open` or `write` remains a no-op with a recorded page error; `close`
-does nothing for a displayed document. Unloading, engine replacement and navigation cannot be smuggled
-into a DOM setter. XML rejects dynamic markup insertion with `InvalidStateError`.
+After parsing, `DomHostHooks.TargetOf` distinguishes the page's own document, frame documents and
+secondary documents. **`open` on the page's loaded document is not a navigation**: since whatwg/html#3946
+HTML keeps the document, window and engine, so `ParserDriver.OpenDisplayedDocument` erases document and
+window listeners, empties the tree in place and registers a script-created `NativeParse`. A later `write`
+appends and drives it to `NeedInput`, running written scripts through the ordinary host requests; `close`
+drives it to `Complete` and sets `interactive`, then **queues** the deferred scripts and `FinishLoad` as a task
+that never pumps (resource events chain as tasks), reporting `DOMContentLoaded`/`Loaded` through
+`PageRuntime.DocumentPhase` (Playwright's `setContent` waits for those). A write made while that parser is
+mid-drive only appends; `open`/`close` there are `InvalidStateError`, and a failed drive abandons the parser.
+A frame document, or the page's while its navigation parse runs outside a script, remains a no-op with a
+recorded page error. Unloading, engine replacement and navigation still cannot be smuggled into a DOM
+setter. XML rejects dynamic markup insertion with `InvalidStateError`.
 
 For a secondary document, `Dom/DynamicMarkupInsertion` keeps a native `HtmlParserSession` across writes.
 `open` clears the existing document and sets `loading`; successive writes preserve nodes and tokenizer

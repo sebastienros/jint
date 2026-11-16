@@ -7,7 +7,7 @@ using Jint.HtmlParser.Css.Selectors;
 
 namespace Jint.HtmlParser.Css.Model;
 
-internal enum CssRuleType { Unknown = 0, Layer = Unknown, Style = 1, Import = 3, Media = 4, FontFace = 5, Supports = 12 }
+internal enum CssRuleType { Unknown = 0, Layer = Unknown, Scope = Unknown, Style = 1, Import = 3, Media = 4, FontFace = 5, Supports = 12 }
 
 // CSSOM §6.4: exposed parent links and attachment ownership are deliberately separate.
 internal abstract class CssRule
@@ -101,9 +101,10 @@ internal sealed class CssStyleRule : CssRule
     private string _selectorText;
 
     internal CssStyleRule(CompiledSelector selector, string selectorText, CssDeclarationBlock style, CssSourceSpan span,
-        ParseLimits? limits = null, CssStyleRule? nestingParent = null)
+        ParseLimits? limits = null, CssStyleRule? nestingParent = null, bool scopeAnchor = false)
         : base(span)
     {
+        IsScopeAnchor = scopeAnchor;
         _selector = selector;
         _selectorText = selectorText;
         Style = style;
@@ -114,6 +115,8 @@ internal sealed class CssStyleRule : CssRule
     }
 
     internal override CssRuleType Type => CssRuleType.Style;
+    // CSS Cascade 6 §3.5.1: the unattached `:where(:scope)` parent of an @scope rule's scoped style rules.
+    internal bool IsScopeAnchor { get; }
     internal CssDeclarationBlock Style { get; }
     internal override CssRuleList Rules { get; }
     internal void AddProjected(CssRule rule) => _rules.Add(rule);
@@ -129,6 +132,12 @@ internal sealed class CssStyleRule : CssRule
         in SelectorEnvironment environment, ref SelectorMatchWork work, ShadowRoot? shadowScope = null) =>
         SelectorMatcher.TryMatch(_selector, element, out specificity, scopingRoot, environment, ref work, shadowScope);
 
+    // Whether a branch of this rule's selector has the element's pseudoElement as its subject.
+    internal bool TryMatchPseudoElement(Element element, SelectorPseudoElement pseudoElement, out SelectorSpecificity specificity,
+        Node? scopingRoot, in SelectorEnvironment environment, ref SelectorMatchWork work, ShadowRoot? shadowScope = null) =>
+        SelectorMatcher.TryMatchPseudoElement(_selector, element, pseudoElement, out specificity, scopingRoot, environment,
+            ref work, shadowScope);
+
     internal void SetSelectorText(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
         => SetSelectorText(source, options, new CssValueWork(cancellationToken), cancellationToken);
@@ -142,7 +151,7 @@ internal sealed class CssStyleRule : CssRule
             using var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
             var values = parser.ParseComponentValues();
             var selector = new SelectorCompiler.Worker(source,
-                new SelectorParseContext(limits: options.Limits, nestingParent: _nestingParent?.Selector),
+                SelectorParseContext.For(options.Limits, _nestingParent),
                 cancellationToken, work.CheckCancellation).Compile(values);
             var text = CssStyleSheet.SelectorText(source, values, parser, work);
             // Stage the entire subtree so a cancelled mutation cannot publish stale child programs.

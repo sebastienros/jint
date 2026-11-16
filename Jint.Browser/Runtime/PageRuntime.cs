@@ -300,6 +300,16 @@ internal sealed class PageRuntime
     /// <summary>The <c>&lt;script&gt;</c> whose text is running, for <c>document.currentScript</c>.</summary>
     internal Parsing.ParserDriver? Parser { get; set; }
 
+    /// <summary>
+    /// Tells the page's observer that the displayed document reached a lifecycle phase outside a navigation —
+    /// the <c>DOMContentLoaded</c> and <c>load</c> a <c>document.open()</c>/<c>close()</c> pair ends in.
+    /// </summary>
+    /// <remarks>
+    /// Set per committed document by the page, so it names that document's <c>loaderId</c>; never the
+    /// navigation's own phase callback, whose waiters already completed for the parse that committed it.
+    /// </remarks>
+    internal Action<NavigationPhase>? DocumentPhase { get; set; }
+
     internal Node? CurrentScript { get; set; }
 
     /// <summary><c>Window.prototype</c>, which is the global object's <c>[[Prototype]]</c>.</summary>
@@ -398,9 +408,20 @@ internal sealed class PageRuntime
     /// </para>
     /// <para>
     /// It runs on the page loop, like everything else here, and it dispatches synchronously — a listener runs
-    /// before this returns, exactly as it does for any other dispatch. A <c>resize</c> event at the window is
-    /// deliberately not fired: HTML fires it from the "run the resize steps" of update-the-rendering, and
-    /// this package has no rendering step to hang it on.
+    /// before this returns, exactly as it does for any other dispatch.
+    /// </para>
+    /// <para>
+    /// <b>A width or height change runs the resize steps here, at the change.</b> HTML runs them from
+    /// <a href="https://html.spec.whatwg.org/multipage/webappapis.html#update-the-rendering">update the
+    /// rendering</a>, and this package has no rendering step to wait for; the change is the only moment
+    /// there is. The order is that algorithm's: <c>resize</c> at the window
+    /// (<a href="https://drafts.csswg.org/cssom-view/#run-the-resize-steps">CSSOM View's resize steps</a>),
+    /// then the visual viewport's own <c>resize</c> and the screen orientation, then
+    /// <a href="https://drafts.csswg.org/cssom-view/#evaluate-media-queries-and-report-changes">evaluate media
+    /// queries and report changes</a>. A device-scale-factor change alone is not a resize. Last, every image
+    /// whose source set now selects another candidate is told — HTML's
+    /// <a href="https://html.spec.whatwg.org/multipage/images.html#img-environment-changes">reacting to
+    /// environment changes</a>, which a user agent may run at any time and this runs on every change.
     /// </para>
     /// </remarks>
     internal void SetMedia(PageMediaEnvironment media)
@@ -410,30 +431,32 @@ internal sealed class PageRuntime
             return;
         }
 
-        var viewportChanged = Media.Viewport != media.Viewport;
+        var previous = Media.Viewport;
         Media = media;
 
-        if (viewportChanged)
+        if (previous != media.Viewport)
         {
+            if ((previous.Width != media.Viewport.Width || previous.Height != media.Viewport.Height)
+                && Engine._webApi?.GlobalEventTarget is { } window)
+            {
+                PageEvents.Fire(this, window, "resize");
+            }
+
             _systemState?.ViewportChanged();
         }
 
-        if (_mediaQueryLists is null)
+        if (_mediaQueryLists is not null)
         {
-            return;
+            // A copy, because a listener may call matchMedia and append to the list being walked; a list
+            // created during the notification cannot have a stale answer to report.
+            foreach (var list in _mediaQueryLists.ToArray())
+            {
+                list.MediaChanged();
+            }
         }
 
-        // A copy, because a listener may call matchMedia and append to the list being walked; a list created
-        // during the notification cannot have a stale answer to report.
-        foreach (var list in _mediaQueryLists.ToArray())
-        {
-            list.MediaChanged();
-        }
+        Parser?.ReactToEnvironmentChange();
     }
-
-
-    /// <summary>Replaces the viewport alone, leaving the emulated media and preferences where they are.</summary>
-    internal void SetViewport(Viewport viewport) => SetMedia(Media with { Viewport = viewport });
 
     /// <summary>
     /// Remembers a <c>MediaQueryList</c> so that a viewport change can reach it.

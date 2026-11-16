@@ -31,6 +31,9 @@ internal sealed class NativeCssReadContext
         _token = token;
     }
 
+    /// <summary>The viewport width the document's boxes are laid out in.</summary>
+    internal double ViewportWidth => _viewportWidth;
+
     internal NativeCssQuery Query { get; }
     internal CssCascade.Traversal Traversal { get; }
     internal bool HasSizeQuery => _sizes is not null;
