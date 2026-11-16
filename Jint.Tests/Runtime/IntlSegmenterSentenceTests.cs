@@ -1,5 +1,7 @@
 #nullable enable
 
+using Jint.Native.Intl;
+
 namespace Jint.Tests.Runtime;
 
 /// <summary>
@@ -155,5 +157,45 @@ public class IntlSegmenterSentenceTests
         var actual = engine.Evaluate("[...new Intl.Segmenter('en', { granularity: 'sentence' }).segment(input)].map(x => x.segment.length).join()").AsString();
 
         actual.Should().Be(expectedLengths);
+    }
+
+    /// <summary>
+    /// The class of every ASCII character comes from a switch and the rest from the table of the Unicode Character
+    /// Database; the two must be one property.
+    /// </summary>
+    [Test]
+    public void TheAsciiFastPathAgreesWithTheTable()
+    {
+        for (var c = 0; c < 0x80; c++)
+        {
+            SentenceBreaker.ClassOfAscii((char) c).Should().Be(SentenceBreaker.ClassOfNonAscii(c), "U+{0:X4} is ASCII", c);
+        }
+    }
+
+    /// <summary>
+    /// Sentence_Break values of Unicode 17.0.0 (SentenceBreakProperty.txt), on every target framework: the table does not
+    /// depend on the general categories the runtime knows, so a character added after .NET Framework's data, such as a
+    /// CJK extension ideograph, is a letter there as well.
+    /// </summary>
+    [TestCase(0x0085, "ParaSep")]
+    [TestCase(0x00A0, "Sp")]
+    [TestCase(0x00AD, "Extend")]
+    [TestCase(0x0589, "STerm")]
+    [TestCase(0x0663, "Numeric")]
+    [TestCase(0x10D0, "OLetter")]
+    [TestCase(0x2014, "SContinue")]
+    [TestCase(0x2024, "ATerm")]
+    [TestCase(0x2029, "ParaSep")]
+    [TestCase(0x201C, "Close")]
+    [TestCase(0x24D0, "Lower")]
+    [TestCase(0x1D400, "Upper")]
+    [TestCase(0xE0020, "Extend")]
+    [TestCase(0x20000, "OLetter")]
+    [TestCase(0x323B0, "OLetter")]
+    [TestCase(0x20AC, "Other")]
+    [TestCase(0x10FFFF, "Other")]
+    public void ClassesComeFromTheUnicodeTable(int codePoint, string expected)
+    {
+        SentenceBreaker.ClassOf(codePoint).ToString().Should().Be(expected);
     }
 }

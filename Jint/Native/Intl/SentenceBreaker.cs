@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.Runtime.InteropServices;
-
 namespace Jint.Native.Intl;
 
 /// <summary>
@@ -182,7 +179,7 @@ internal static partial class SentenceBreaker
         while (index < input.Length)
         {
             var codePoint = ReadCodePoint(input, index, out var length);
-            switch (ClassOf(input, index, codePoint))
+            switch (ClassOf(codePoint))
             {
                 case SentenceClass.Lower:
                     end = index;
@@ -210,7 +207,7 @@ internal static partial class SentenceBreaker
     private static SentenceClass ReadLogical(string input, ref int position)
     {
         var codePoint = ReadCodePoint(input, position, out var length);
-        var result = ClassOf(input, position, codePoint);
+        var result = ClassOf(codePoint);
         position += length;
 
         if (result == SentenceClass.ParaSep)
@@ -226,7 +223,7 @@ internal static partial class SentenceBreaker
         while (position < input.Length)
         {
             var nextCodePoint = ReadCodePoint(input, position, out var nextLength);
-            if (ClassOf(input, position, nextCodePoint) != SentenceClass.Extend)
+            if (ClassOf(nextCodePoint) != SentenceClass.Extend)
             {
                 break;
             }
@@ -250,48 +247,20 @@ internal static partial class SentenceBreaker
         return c;
     }
 
-    internal static SentenceClass ClassOf(string input, int index, int codePoint)
+    /// <summary>
+    /// The Sentence_Break class of a code point (https://www.unicode.org/reports/tr29/#Sentence_Break_Values), CR and LF
+    /// being ParaSep and Format being Extend, as the rules treat them.
+    /// </summary>
+    internal static SentenceClass ClassOf(int codePoint)
     {
-        if (codePoint < 0x80)
-        {
-            return ClassOfAscii((char) codePoint);
-        }
-
-        return ClassOfNonAscii(input, index, codePoint);
+        return codePoint < 0x80 ? ClassOfAscii((char) codePoint) : ClassOfNonAscii(codePoint);
     }
 
-    private static bool TryFindException(int codePoint, out SentenceClass result)
-    {
-        var exceptions = _exceptions;
-        var low = 0;
-        var high = exceptions.Length - 1;
-        while (low <= high)
-        {
-            var middle = (int) ((uint) (low + high) >> 1);
-            ref readonly var range = ref exceptions[middle];
-            if (codePoint < range.Start)
-            {
-                high = middle - 1;
-            }
-            else if (codePoint > range.End)
-            {
-                low = middle + 1;
-            }
-            else
-            {
-                result = range.Class;
-                return true;
-            }
-        }
-
-        result = SentenceClass.Other;
-        return false;
-    }
-
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct ClassRange(int Start, int End, SentenceClass Class);
-
-    private static SentenceClass ClassOfAscii(char c)
+    /// <summary>
+    /// The same class for ASCII, without a search: <see cref="ClassOfNonAscii"/> gives the identical answer for these code points,
+    /// which a test holds the two to.
+    /// </summary>
+    internal static SentenceClass ClassOfAscii(char c)
     {
         switch (c)
         {
@@ -333,48 +302,29 @@ internal static partial class SentenceBreaker
         }
     }
 
-    private static SentenceClass ClassOfNonAscii(string input, int index, int codePoint)
+    /// <summary>
+    /// A binary search of <see cref="_runs"/> for the last run that starts at or before the code point. The table is the
+    /// Unicode Character Database's, not .NET's general categories: those are the Unicode data of the runtime, which
+    /// differs between the target frameworks Jint runs on.
+    /// </summary>
+    internal static SentenceClass ClassOfNonAscii(int codePoint)
     {
-        if (TryFindException(codePoint, out var exception))
+        var runs = _runs;
+        var low = 0;
+        var high = runs.Length - 1;
+        while (low < high)
         {
-            return exception;
+            var middle = (int) ((uint) (low + high + 1) >> 1);
+            if ((runs[middle] >> 4) <= codePoint)
+            {
+                low = middle;
+            }
+            else
+            {
+                high = middle - 1;
+            }
         }
 
-        if (codePoint == 0x85)
-        {
-            return SentenceClass.ParaSep;
-        }
-
-        switch (CharUnicodeInfo.GetUnicodeCategory(input, index))
-        {
-            case UnicodeCategory.LowercaseLetter:
-                return SentenceClass.Lower;
-            case UnicodeCategory.UppercaseLetter:
-            case UnicodeCategory.TitlecaseLetter:
-                return SentenceClass.Upper;
-            case UnicodeCategory.OtherLetter:
-            case UnicodeCategory.ModifierLetter:
-            case UnicodeCategory.LetterNumber:
-                return SentenceClass.OLetter;
-            case UnicodeCategory.DecimalDigitNumber:
-                return SentenceClass.Numeric;
-            case UnicodeCategory.NonSpacingMark:
-            case UnicodeCategory.EnclosingMark:
-            case UnicodeCategory.SpacingCombiningMark:
-            case UnicodeCategory.Format:
-                return SentenceClass.Extend;
-            case UnicodeCategory.SpaceSeparator:
-                return SentenceClass.Sp;
-            case UnicodeCategory.LineSeparator:
-            case UnicodeCategory.ParagraphSeparator:
-                return SentenceClass.ParaSep;
-            case UnicodeCategory.OpenPunctuation:
-            case UnicodeCategory.ClosePunctuation:
-            case UnicodeCategory.InitialQuotePunctuation:
-            case UnicodeCategory.FinalQuotePunctuation:
-                return SentenceClass.Close;
-            default:
-                return SentenceClass.Other;
-        }
+        return (SentenceClass) (runs[low] & 0xF);
     }
 }
