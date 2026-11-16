@@ -212,6 +212,8 @@ internal struct SelectorMatchWork
     {
         internal Dictionary<CompiledSelector, bool>? ScopeDependencies;
         internal Dictionary<Node, SelectorSiblingPositions>? SiblingPositions;
+        // The parents whose children one question has been answered about by counting, which the next indexes.
+        internal HashSet<Node>? CountedSiblingParents;
         internal Dictionary<SelectorFilteredPositionKey, SelectorFilteredPositions>? FilteredPositions;
         // :has() results per anchor. Like the positions above they hold as long as this cell: each invocation
         // verifies the document stamp, and the key carries the scope, the shadow scope and the environment.
