@@ -1,10 +1,10 @@
-"""Generate the Unicode 17.0.0 tables of Intl.Segmenter's sentence and word granularities.
+"""Generate the Unicode 17.0.0 tables of Intl.Segmenter's grapheme, sentence and word granularities.
 
 Usage: python3 tools/text-segmentation/generate.py /path/to/ucd
 Source: https://www.unicode.org/Public/17.0.0/ucd/, the files of PINNED below, all in the one directory given.
 
-Writes Jint/Native/Intl/SentenceBreaker.Data.cs and Jint/Native/Intl/WordBreaker.Data.cs. Run it from the repository
-root. The build never runs it.
+Writes Jint/Native/Intl/GraphemeBreaker.Data.cs, Jint/Native/Intl/SentenceBreaker.Data.cs and
+Jint/Native/Intl/WordBreaker.Data.cs. Run it from the repository root. The build never runs it.
 """
 import hashlib
 import pathlib
@@ -21,6 +21,7 @@ PINNED = {
     'PropList.txt': ('# PropList-17.0.0.txt', '130dcddcaadaf071008bdfce1e7743e04fdfbc910886f017d9f9ac931d8c64dd'),
     'LineBreak.txt': ('# LineBreak-17.0.0.txt', 'e6a18fa91f8f6a6f8e534b1d3f128c21ada45bfe152eb6b1bcc5e15fd8ac92e6'),
     'GraphemeBreakProperty.txt': ('# GraphemeBreakProperty-17.0.0.txt', 'd6b51d1d2ae5c33b451b7ed994b48f1f4dc62b2272a5831e7fd418514a6bae89'),
+    'DerivedCoreProperties.txt': ('# DerivedCoreProperties-17.0.0.txt', '24c7fed1195c482faaefd5c1e7eb821c5ee1fb6de07ecdbaa64b56a99da22c08'),
 }
 
 UCD = pathlib.Path(sys.argv[1])
@@ -76,6 +77,14 @@ internal static partial class {class_name}
     for i in range(0, len(entries_), 8):
         output += '        ' + ', '.join(f'0x{x:X}' for x in entries_[i:i + 8]) + ',\n'
     output += '    ];\n'
+    return output
+
+
+def ascii_table(values):
+    """The properties of the 128 ASCII characters, as the body of a ReadOnlySpan<byte> property."""
+    output = ''
+    for i in range(0, 0x80, 16):
+        output += '        ' + ', '.join(f'0x{x:02X}' for x in values[i:i + 16]) + ',\n'
     return output
 
 
@@ -195,8 +204,7 @@ def word():
     private static ReadOnlySpan<byte> AsciiProperties =>
     [
 '''
-    for i in range(0, 0x80, 16):
-        output += '        ' + ', '.join(f'0x{x:02X}' for x in values[i:i + 16]) + ',\n'
+    output += ascii_table(values)
     output += '''    ];
 }
 '''
@@ -204,5 +212,82 @@ def word():
     print(f'Word_Break: {len(result)} runs')
 
 
+# The order is the order of GraphemeBreaker.GraphemeClass.
+GRAPHEME_CLASSES = [
+    'Other', 'CR', 'LF', 'Control', 'Extend', 'ZWJ', 'RegionalIndicator', 'Prepend', 'SpacingMark', 'L', 'V', 'T', 'LV',
+    'LVT',
+]
+GRAPHEME_BREAK_TO_CLASS = {
+    'CR': 'CR', 'LF': 'LF', 'Control': 'Control', 'Extend': 'Extend', 'ZWJ': 'ZWJ',
+    'Regional_Indicator': 'RegionalIndicator', 'Prepend': 'Prepend', 'SpacingMark': 'SpacingMark',
+    'L': 'L', 'V': 'V', 'T': 'T', 'LV': 'LV', 'LVT': 'LVT',
+}
+# The flags of GraphemeBreaker, above the four bits of the class: Extended_Pictographic, and Indic_Conjunct_Break in two
+# bits (None is zero).
+GRAPHEME_EXTENDED_PICTOGRAPHIC = 0x10
+INDIC_CONJUNCT_BREAK = {'Consonant': 0x20, 'Extend': 0x40, 'Linker': 0x60}
+
+
+def grapheme():
+    grapheme_break = bytearray(0x110000)  # everything not listed is Other (the @missing line of the file)
+    seen = set()
+    for first, last, name in entries('GraphemeBreakProperty.txt'):
+        seen.add(name)
+        grapheme_break[first:last + 1] = bytes([GRAPHEME_CLASSES.index(GRAPHEME_BREAK_TO_CLASS[name])]) * (last - first + 1)
+    assert seen == set(GRAPHEME_BREAK_TO_CLASS), seen ^ set(GRAPHEME_BREAK_TO_CLASS)
+
+    # Indic_Conjunct_Break is the one enumerated property of DerivedCoreProperties.txt, a line of which reads
+    # "094D ; InCB; Linker # ..."; everything not listed is None.
+    indic_conjunct_break = bytearray(0x110000)
+    seen = set()
+    for match in re.finditer(r'^([0-9A-F]+)(?:\.\.([0-9A-F]+))?\s*;\s*InCB\s*;\s*(\w+)', read('DerivedCoreProperties.txt'), re.M):
+        first, last, name = int(match.group(1), 16), int(match.group(2) or match.group(1), 16), match.group(3)
+        seen.add(name)
+        indic_conjunct_break[first:last + 1] = bytes([INDIC_CONJUNCT_BREAK[name]]) * (last - first + 1)
+    assert seen == set(INDIC_CONJUNCT_BREAK), seen ^ set(INDIC_CONJUNCT_BREAK)
+
+    extended_pictographic = code_points('emoji-data.txt', 'Extended_Pictographic')
+
+    cls = GRAPHEME_CLASSES.index
+    values = bytearray(0x110000)
+    for c in range(0x110000):
+        value = grapheme_break[c]
+        incb = indic_conjunct_break[c]
+        # What GraphemeBreaker assumes of the flags: a line break or a control has none, so GB4 and GB5 need not look
+        # at them; the characters GB9c reads between two consonants are ones GB9 joins anyway (Extend and ZWJ), and a
+        # consonant and an Extended_Pictographic are ordinary characters, so only GB9c and GB11 join them.
+        if value in (cls('CR'), cls('LF'), cls('Control')):
+            assert not incb and not extended_pictographic[c], hex(c)
+        if incb == INDIC_CONJUNCT_BREAK['Linker']:
+            assert value == cls('Extend'), (hex(c), GRAPHEME_CLASSES[value])
+        elif incb == INDIC_CONJUNCT_BREAK['Extend']:
+            assert value in (cls('Extend'), cls('ZWJ')), (hex(c), GRAPHEME_CLASSES[value])
+        elif incb == INDIC_CONJUNCT_BREAK['Consonant']:
+            assert value == cls('Other'), (hex(c), GRAPHEME_CLASSES[value])
+        if extended_pictographic[c]:
+            assert value == cls('Other') and not incb, (hex(c), GRAPHEME_CLASSES[value])
+            value |= GRAPHEME_EXTENDED_PICTOGRAPHIC
+        values[c] = value | incb
+
+    result = runs(values, 8)
+    output = write('GraphemeBreakProperty.txt, emoji-data.txt and DerivedCoreProperties.txt', 'GraphemeBreaker', '''\
+    // The grapheme cluster break properties of every code point, as runs: each entry is the first code point of a run
+    // shifted left by eight, with the properties of the whole run in the low eight bits: the GraphemeClass
+    // (https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Break_Property_Values) in the low four, Extended_Pictographic
+    // above it, and Indic_Conjunct_Break in the two bits above that. A run lasts until the start of the next entry.''', result)
+    output += '''
+    // The same properties for the ASCII characters, read without a search.
+    private static ReadOnlySpan<byte> AsciiProperties =>
+    [
+'''
+    output += ascii_table(values)
+    output += '''    ];
+}
+'''
+    pathlib.Path('Jint/Native/Intl/GraphemeBreaker.Data.cs').write_text(output, encoding='utf-8', newline='\n')
+    print(f'Grapheme_Cluster_Break: {len(result)} runs')
+
+
+grapheme()
 sentence()
 word()

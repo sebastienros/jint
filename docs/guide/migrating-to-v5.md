@@ -9125,6 +9125,30 @@ to follow the runtime's own Unicode data, which on `net472` predates emoji seque
 run of Chinese, Japanese, Thai, Lao, Khmer or Myanmar text into words with a dictionary that Jint does not have, so
 such a run is still one word-like segment, as it was before. There is no switch back.
 
+### 4.252 `Intl.Segmenter` finds grapheme clusters by the Unicode rules, the same on every target framework
+
+`Intl.Segmenter` with `granularity: "grapheme"`, the default, now applies the extended grapheme cluster rules of
+[UAX #29](https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundary_Rules) with Unicode 17.0 data of its own,
+as ICU and therefore V8 and SpiderMonkey do. It used to return .NET's text elements (`StringInfo`), which follow the
+runtime's own Unicode data. On `net472` that data predates emoji sequences, CR LF and conjoining Hangul jamo, so a host
+that counts or indexes the characters a user sees gets different segments there:
+
+| Input (code points) | `net472` before | `net10.0`, `net11.0` before | 5.x on every target, and Node 26 |
+| --- | --- | --- | --- |
+| U+1F44D U+1F3FD (thumbs up, skin tone) | 2 segments | 1 | 1 |
+| U+1F469 U+200D U+1F4BB (woman technologist) | 3 segments | 1 | 1 |
+| U+1F1EB U+1F1EE (flag of Finland) | 2 segments | 1 | 1 |
+| `\r\n` | 2 segments | 1 | 1 |
+| U+1100 U+1161 U+11A8 (Hangul jamo) | 3 segments | 1 | 1 |
+| U+0600 `a` (Arabic number sign, a prepended mark) | 2 segments | 1 | 1 |
+| U+1E4D0 U+0301 (a Nag Mundari letter, a mark) | 2 segments | 1 | 1 |
+| U+0915 U+094D U+0937 (Devanagari conjunct) | 2 segments | 2 | 1 |
+
+The last row is GB9c, which no .NET runtime applies: a consonant joined to the one before it by a virama is one
+cluster, in Devanagari, Bengali, Gujarati, Oriya, Telugu, Malayalam, Khmer, Myanmar, Balinese and the other scripts
+Unicode marks `Indic_Conjunct_Break`, on every target framework. A lone surrogate is a segment of its own unless a mark
+follows it, as in Node. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
