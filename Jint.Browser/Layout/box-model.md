@@ -43,6 +43,8 @@ fall out of the row rule and every one of them is load-bearing:
   `visibility: visible` descendant is hit, since visibility is checked box by box. An invisible absolutely
   or fixed positioned box has no box at all: it takes no space in a browser, so showing a hover overlay moves
   nothing either. A document with an invisible box takes the rectangle hit test, as one with a flex row does.
+  A box whose `pointer-events` computes to `none` (CSS UI 4 §6.2), which its descendants inherit, keeps its
+  rows and is never hit either: a press passes through a canvas grid drawn over its toolbox to the toolbox.
 
 **An absolutely or fixed positioned box is as wide as CSS 2 §10.3.7 makes it, and covers its own pixel height.**
 Its `width`, else, when its `left` or `right` is `auto`, its shrink-to-fit width: the preferred width of its
@@ -52,8 +54,13 @@ CodeMirror gutter is then as wide as its line numbers, not the editor. An `absol
 covers it, up to its parent's bottom — Monaco's lines are as tall as the editor, so a press below the last
 line is on them — or less than its row when no box is inside it. It is out of flow, so its rows are its
 content's and nothing else moves: growing its parent would feed back into an editor that sizes its layers
-from its container. Its offsets are not applied: it stays at its parent's left edge, on its row. A document
-with a positioned box takes the rectangle hit test.
+from its container. Horizontally it is placed in its containing block, the nearest positioned ancestor or
+else the viewport: `left` from that block's left edge, or, with `left: auto`, `right` from its right edge,
+then moved by a transform made of one translation (`translate()`, `translateX()`, `translate3d()`, or a
+`matrix()` that only translates), and its content moves with it. With both insets `auto` it stays where the
+flow puts it. A menu Popper aligns to the end of a toggle at the viewport's edge opens back into the
+viewport, as in a browser. Vertically it keeps its row. A document with a positioned box takes the rectangle
+hit test.
 
 **A column flex container with a pixel height shares it with its growing items.** Its own `height` (resolved
 as `getComputedStyle` does, so `calc(100vh - 5rem)` is pixels) is at least that many rows, and the height its
@@ -163,8 +170,8 @@ projection and queues the existing scroll event; it does not discard unchanged d
 Their option getters may still execute script, whose actual mutations invalidate the next read.
 Scroll alignment measures the target and establishes only enough document height to prove its clamp.
 It does not construct unrelated hit-test boxes; actual pointer hit testing still uses the complete
-current layout. `offsetTop` and `offsetLeft` place the element and its synthetic offset parent through the
-shared size query, without constructing unrelated hit-test boxes. None of these shortcuts bypasses
+current layout. `offsetTop` and `offsetLeft` place the element and its offset parent — the nearest positioned
+ancestor, the table cell or table around a static element, or the body — through the shared size query, without constructing unrelated hit-test boxes. None of these shortcuts bypasses
 native input, activation or pointer-target validation.
 
 **Native measurement data can outlive a query, not its witnesses.** The first eligible geometry read

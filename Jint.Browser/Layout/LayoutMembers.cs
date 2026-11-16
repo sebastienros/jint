@@ -258,7 +258,7 @@ internal static class LayoutMembers
             return JsNumber.PositiveZero;
         }
 
-        var parent = OffsetParentOf(element);
+        var parent = OffsetParentOf(element, sizes);
         var box = sizes.Place(element);
         var origin = parent is not null ? sizes.Place(parent).X : 0;
         return JsNumber.Create(Round(box.X - origin));
@@ -275,28 +275,28 @@ internal static class LayoutMembers
             return JsNumber.PositiveZero;
         }
 
-        var parent = OffsetParentOf(element);
+        var parent = OffsetParentOf(element, sizes);
         var box = sizes.Place(element);
         var origin = parent is not null ? sizes.Place(parent).Y : 0;
         return JsNumber.Create(Round(box.Y - origin));
     }
 
     /// <summary>
-    /// https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetparent — the body, or nothing.
+    /// https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetparent — the nearest positioned ancestor, a table
+    /// cell or table around a static element, or the body.
     /// </summary>
     /// <remarks>
-    /// Nothing here is positioned, so HTML's walk up to the nearest positioned ancestor always ends at the
-    /// body — which is exactly what a browser answers for an unpositioned element. The body itself, the
-    /// document element and an element with no box answer <see langword="null"/>, as they do in Chrome.
+    /// The body itself, the document element, a fixed box and an element with no box answer
+    /// <see langword="null"/>, as they do in Chrome.
     /// </remarks>
     internal static JsValue OffsetParent(DomRealm realm, Element element)
     {
-        if (PageOf(realm, element)?.Layout.MeasureSizes().HasBox(element) != true)
+        if (PageOf(realm, element)?.Layout.MeasureSizes() is not { } sizes || !sizes.HasBox(element))
         {
             return JsValue.Null;
         }
 
-        return OffsetParentOf(element) is { } parent ? realm.WrapNode(parent) : JsValue.Null;
+        return OffsetParentOf(element, sizes) is { } parent ? realm.WrapNode(parent) : JsValue.Null;
     }
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-document-elementfrompoint.</summary>
@@ -340,12 +340,42 @@ internal static class LayoutMembers
         => ReferenceEquals(element, element.OwnerDocument?.DocumentElement);
 
     /// <summary>The offset parent of <paramref name="element"/>, which is the body or nothing.</summary>
-    private static Element? OffsetParentOf(Element element)
+    // https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetparent: null for the body, the root and a fixed box;
+    // else the nearest positioned ancestor — the containing block the layout places an absolute box in — then, for a
+    // static element, the nearest td, th or table; else the body.
+    private static Element? OffsetParentOf(Element element, FlatLayout.SizeQuery? sizes = null)
     {
         var body = element.OwnerDocument is { } owner ? Dom.DomDocumentElements.Body(owner) : null;
-        return body is null || ReferenceEquals(element, body) || ReferenceEquals(element, element.OwnerDocument?.DocumentElement)
-            ? null
-            : body;
+        if (body is null || ReferenceEquals(element, body) || ReferenceEquals(element, element.OwnerDocument?.DocumentElement))
+        {
+            return null;
+        }
+
+        var cascade = sizes?.Cascade;
+        var position = cascade?.LayoutOf(element) is { } style ? CssCascade.ValueOf(style, "position") : null;
+        if (position == "fixed")
+        {
+            return null;
+        }
+
+        if (sizes?.PositionedAncestor(element) is { } positioned)
+        {
+            return positioned;
+        }
+
+        if (position is null or "" or "static")
+        {
+            for (var ancestor = element.ParentNode as Element; ancestor is not null && !ReferenceEquals(ancestor, body);
+                ancestor = ancestor.ParentNode as Element)
+            {
+                if (ancestor.NamespaceUri == Jint.HtmlParser.Namespaces.Html && ancestor.LocalName is "td" or "th" or "table")
+                {
+                    return ancestor;
+                }
+            }
+        }
+
+        return body;
     }
 
     /// <summary>The element's viewport-relative box, or the empty one when it has none.</summary>

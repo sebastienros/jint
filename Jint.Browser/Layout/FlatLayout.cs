@@ -181,6 +181,19 @@ internal sealed class FlatLayout
     internal static bool IsInvisible(Element element, ElementVisibility visibility, CssCascade.Traversal? cascade)
         => visibility.RenderingReasonFor(element, cascade) == AxIgnoredReason.NotVisible;
 
+    /// <summary>
+    /// Whether <paramref name="element"/> is never the target of a pointer: CSS UI 4 §6.2 makes an element whose
+    /// <c>pointer-events</c> computes to <c>none</c> — which its descendants inherit — transparent to the hit test,
+    /// so a press lands on what is under it. A canvas grid drawn over its toolbox, a backdrop's decoration, an
+    /// overlay that only shows.
+    /// </summary>
+    internal static bool TakesNoPointer(Element element, CssCascade.Traversal? cascade)
+        => cascade?.LayoutOf(element) is { } style && CssCascade.ValueOf(style, "pointer-events") == "none";
+
+    // Not the target of a hit test: invisible, or transparent to the pointer.
+    private static bool IsUnhittable(Element element, ElementVisibility visibility, CssCascade.Traversal? cascade)
+        => IsInvisible(element, visibility, cascade) || TakesNoPointer(element, cascade);
+
     /// <summary>Whether <paramref name="element"/> is metadata content that a rendering never draws.</summary>
     internal static bool IsMetadata(Element element)
     {
@@ -365,7 +378,7 @@ internal sealed class FlatLayout
             var (element, depth) = stack.Pop();
             _elements.Add(element);
             _depths.Add(depth);
-            var invisible = IsInvisible(element, visibility, cascade);
+            var invisible = IsUnhittable(element, visibility, cascade);
             _invisible.Add(invisible);
             // A positioned box can be narrower than its parent, which the row division cannot answer either.
             // So can an invisible one, which the row division would hit, and a column whose height or growth
@@ -455,7 +468,7 @@ internal sealed class FlatLayout
                 if (y < box.Y || y >= box.Bottom) continue;
                 if (frame.Visited)
                 {
-                    if (x >= box.X && x < box.Right && !IsInvisible(frame.Element, visibility, cascade))
+                    if (x >= box.X && x < box.Right && !IsUnhittable(frame.Element, visibility, cascade))
                     {
                         token.ThrowIfCancellationRequested();
                         checkpoint?.Invoke();
@@ -525,7 +538,7 @@ internal sealed class FlatLayout
                     {
                         // Its height affects the next sibling, not its own vertical origin. Leave
                         // this index pending so a later sibling query measures it when needed.
-                        _positions[child] = new FlatBox(parentBox.X, parentBox.Y + offset, 0, 0);
+                        _positions[child] = new FlatBox(PlacedX(child, parentBox.X), parentBox.Y + offset, 0, 0);
                         break;
                     }
 
@@ -543,7 +556,7 @@ internal sealed class FlatLayout
                     }
 
                     _positions[child] = new FlatBox(
-                        parentBox.X + (horizontal ? offset : 0),
+                        PlacedX(child, parentBox.X + (horizontal ? offset : 0)),
                         parentBox.Y + (horizontal ? RowHeight + cross : offset), 0, 0);
                     offset += horizontal ? (reverse ? 0 : width) : HeightOf(child);
                     if (ReferenceEquals(child, element))
@@ -559,6 +572,112 @@ internal sealed class FlatLayout
             var position = _positions[target];
             var measured = Measure(target);
             return Overlay(target, measured with { X = position.X, Y = position.Y });
+        }
+
+        /// <summary>
+        /// The left edge of <paramref name="child"/>: <paramref name="staticX"/>, where the flow puts it, unless it is
+        /// absolutely positioned. CSS 2 §10.3.7: such a box starts its containing block's <c>left</c> from that block's
+        /// left edge, or, with <c>left: auto</c>, ends its <c>right</c> from that block's right edge; with both auto it
+        /// keeps its static position. CSS Transforms 1 §6: a translation then moves it, and nothing else. Popper
+        /// places dropdown menus, tooltips and popovers this way — <c>inset: 0 0 auto auto</c> and a
+        /// <c>translate()</c> it works out from the offset parent — so a menu wider than its toggle opens back
+        /// into the viewport instead of past its edge. Vertically, the box keeps its row.
+        /// </summary>
+        private double PlacedX(Element child, double staticX)
+        {
+            if (cascade?.LayoutOf(child) is not { } style
+                || CssCascade.ValueOf(style, "position") is not ({ } position and ("absolute" or "fixed")))
+            {
+                return staticX;
+            }
+
+            // CSS 2 §10.1: the nearest positioned ancestor's box, or the viewport's for a fixed box or when there is none.
+            var block = position == "absolute" ? PositionedAncestor(child) : null;
+            var blockX = block is not null && _positions.TryGetValue(block, out var placed) ? placed.X : 0;
+            var blockWidth = block is not null ? WidthOf(block) : ViewportOf().Width;
+            var x = staticX;
+            if (OffsetOf(style, "left", blockWidth) is { } left)
+            {
+                x = blockX + left;
+            }
+            else if (OffsetOf(style, "right", blockWidth) is { } right)
+            {
+                x = blockX + blockWidth - right - WidthOf(child);
+            }
+
+            return x + TranslationX(style, child);
+        }
+
+        /// <summary>
+        /// https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetparent: the nearest ancestor that is positioned —
+        /// whose <c>position</c> is not <c>static</c> — below the body, or <see langword="null"/>. It is both the
+        /// containing block an absolutely positioned box is placed in and the offset parent script measures from,
+        /// which Popper's placement relies on agreeing.
+        /// </summary>
+        internal Element? PositionedAncestor(Element element)
+        {
+            var body = element.OwnerDocument is { } owner ? Dom.DomDocumentElements.Body(owner) : null;
+            for (var ancestor = element.ParentNode as Element; ancestor is not null && !ReferenceEquals(ancestor, body);
+                ancestor = ancestor.ParentNode as Element)
+            {
+                Step();
+                if (cascade?.LayoutOf(ancestor) is { } style && CssCascade.ValueOf(style, "position") is { } position
+                    && position is not ("" or "static"))
+                {
+                    return ancestor;
+                }
+            }
+
+            return null;
+        }
+
+        // An inset in pixels, negative ones included, resolved as getComputedStyle resolves it; a percentage is of the
+        // containing block's width. Null for auto.
+        private double? OffsetOf(Styling.NativeCssComputedStyle style, string name, double basis)
+            => SignedLength(ResolvedLengths.Resolve(name, style.GetNormalizedProperty(name), style, ViewportOf()), basis);
+
+        // The horizontal distance a transform made of one translation moves the box: translate(), translateX(),
+        // translate3d(), or a matrix() that only translates, as Popper and Bootstrap write them. A percentage is of the
+        // box's own width. Anything else — a rotation, a scale, several functions — moves nothing here.
+        private double TranslationX(Styling.NativeCssComputedStyle style, Element element)
+        {
+            var text = CssCascade.ValueOf(style, "transform")?.Trim();
+            if (text is null or "" or "none" || !text.EndsWith(')'))
+            {
+                return 0;
+            }
+
+            var open = text.IndexOf('(', StringComparison.Ordinal);
+            if (open <= 0 || text.IndexOf(')', StringComparison.Ordinal) != text.Length - 1)
+            {
+                return 0;
+            }
+
+            var arguments = text[(open + 1)..^1].Split(',', StringSplitOptions.TrimEntries);
+            var argument = text[..open].Trim().ToLowerInvariant() switch
+            {
+                "translate" or "translatex" or "translate3d" => arguments[0],
+                "matrix" when arguments is ["1", "0", "0", "1", var e, _] => e + "px",
+                _ => null,
+            };
+
+            return SignedLength(argument, WidthOf(element)) ?? 0;
+        }
+
+        private static double? SignedLength(string? value, double basis)
+        {
+            if (value is null)
+            {
+                return null;
+            }
+
+            static double? Number(string text)
+                => double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number)
+                    && double.IsFinite(number) ? number : null;
+
+            if (value.EndsWith("px", StringComparison.Ordinal)) return Number(value[..^2]);
+            if (value.EndsWith('%')) return Number(value[..^1]) * basis / 100;
+            return value == "0" ? 0 : null;
         }
 
         /// <summary>
