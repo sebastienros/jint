@@ -36,6 +36,11 @@ namespace Jint.Benchmark;
 /// last one: the dense scan that compared every element through a virtual <c>Equals</c>. 20 passes.
 /// </description></item>
 /// <item><description>
+/// <see cref="NthChildOfManySiblings"/> — <c>li.matches('li:nth-child(k)')</c> for every item of the 700-item list
+/// and ten values of <c>k</c>, the shape of axe-core's unique-selector generation: each call is its own traversal,
+/// which indexed all 700 siblings to answer one position. 7,000 calls.
+/// </description></item>
+/// <item><description>
 /// <see cref="Control"/> — an arithmetic loop that reaches none of the five changes, sized like the others: it
 /// is the cross-process floor, and a delta on it is not a result.
 /// </description></item>
@@ -99,6 +104,17 @@ public class BrowserAuditPatternsBenchmark
         })()
         """;
 
+    private const string NthChildScript = """
+        (function () {
+            var items = document.getElementById('list').children, n = 0;
+            for (var k = 1; k <= 700; k += 70) {
+                var selector = 'li:nth-child(' + k + ')';
+                for (var j = 0; j < items.length; j++) { if (items[j].matches(selector)) n++; }
+            }
+            return n;
+        })()
+        """;
+
     private const string ControlScript = """
         (function () {
             var n = 0;
@@ -113,6 +129,7 @@ public class BrowserAuditPatternsBenchmark
     private Page _matches = null!;
     private Page _arguments = null!;
     private Page _indexOf = null!;
+    private Page _nthChild = null!;
     private Page _control = null!;
 
     [GlobalSetup]
@@ -124,6 +141,7 @@ public class BrowserAuditPatternsBenchmark
         _matches = await CreatePageAsync(MatchesScript);
         _arguments = await CreatePageAsync(ArgumentsScript);
         _indexOf = await CreatePageAsync(IndexOfScript);
+        _nthChild = await CreatePageAsync(NthChildScript);
         _control = await CreatePageAsync(ControlScript);
     }
 
@@ -164,6 +182,9 @@ public class BrowserAuditPatternsBenchmark
 
     [Benchmark]
     public Task<double> IndexOfNode() => _indexOf.EvaluateAsync<double>(IndexOfScript);
+
+    [Benchmark]
+    public Task<double> NthChildOfManySiblings() => _nthChild.EvaluateAsync<double>(NthChildScript);
 
     [Benchmark(Baseline = true)]
     public Task<double> Control() => _control.EvaluateAsync<double>(ControlScript);

@@ -38,6 +38,19 @@ internal static partial class SelectorMatcher
         cell.SiblingPositions ??= new(ReferenceEqualityComparer.Instance);
         if (!cell.SiblingPositions.TryGetValue(parent, out var positions))
         {
+            // The first question a traversal asks about a parent's children is answered by counting them from the
+            // element, as Chromium does outside its nth-index cache: el.matches(':nth-child(k) > …') asks once, and
+            // indexing a list of 700 cards to answer it made each call linear in the list, with a table to throw
+            // away. The second question indexes them all, so a querySelectorAll or a cascade over the list stays
+            // linear.
+            cell.CountedSiblingParents ??= new(ReferenceEqualityComparer.Instance);
+            if (cell.CountedSiblingParents.Add(parent))
+            {
+                var counted = CountSiblings(element, ofType, fromEnd, ref work);
+                work.Shared.VerifyRead();
+                return counted;
+            }
+
             positions = new SelectorSiblingPositions();
             var types = new Dictionary<(string? Namespace, string Name), SelectorSiblingPositions.TypeCount>();
             for (var node = parent.FirstChild; node is not null; node = node.NextSibling)
@@ -58,6 +71,28 @@ internal static partial class SelectorMatcher
         var position = positions.Elements[element];
         var index = ofType ? position.TypeIndex : position.ChildIndex;
         return fromEnd ? (ofType ? position.Type.Count : positions.Count) - index + 1 : index;
+    }
+
+    // An element's 1-based index among its element siblings, or among those of its expanded name, counted from
+    // the start or the end without indexing the others.
+    private static int CountSiblings(Element element, bool ofType, bool fromEnd, ref Work work)
+    {
+        var index = 1;
+        for (var node = fromEnd ? element.NextSibling : element.PreviousSibling; node is not null;
+             node = fromEnd ? node.NextSibling : node.PreviousSibling)
+        {
+            work.Step();
+            if (node is not Element sibling) continue;
+            if (ofType)
+            {
+                // Comparing names is real work, as the index's hashing is.
+                foreach (var _ in sibling.LocalName) work.Step();
+                if (!string.Equals(sibling.LocalName, element.LocalName, StringComparison.Ordinal)
+                    || !string.Equals(sibling.NamespaceUri, element.NamespaceUri, StringComparison.Ordinal)) continue;
+            }
+            index++;
+        }
+        return index;
     }
 
     private static SelectorFilteredPositionKey FilteredKey(CompiledSelector.Predicate predicate,
