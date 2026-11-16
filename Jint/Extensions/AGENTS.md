@@ -9,7 +9,7 @@
 
 ### Write against the modern BCL, and polyfill downwards
 
-`Jint` multi-targets `net472;netstandard2.0;netstandard2.1;net8.0;net10.0`, so the oldest target decides what compiles. **Write the call site the way you would on .NET 10 anyway, and add the missing API to `Jint/Extensions/Polyfills.cs`** rather than open-coding the old-framework equivalent everywhere or scattering `#if` through the logic.
+`Jint` multi-targets `net472;netstandard2.0;netstandard2.1;net10.0;net11.0`, so the oldest target decides what compiles. **Write the call site the way you would on .NET 10 anyway, and add the missing API to `Jint/Extensions/Polyfills.cs`** rather than open-coding the old-framework equivalent everywhere or scattering `#if` through the logic.
 
 Use a C# extension member so the call reads identically on every target framework, and guard it with the narrowest symbol for the frameworks that actually lack the API:
 

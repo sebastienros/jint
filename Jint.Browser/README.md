@@ -29,7 +29,7 @@ Driving it from Playwright or from a test suite has three settings worth knowing
 interval, the shared script parse and the test process's own JIT settings; see
 [automation performance](../docs/packages/jint-browser/performance.md).
 
-Requires .NET 8 or later. The Browser library does not currently declare trimming or NativeAOT
+Requires .NET 10 or later. The Browser library does not currently declare trimming or NativeAOT
 compatibility. Native publication of the closed browser tool is a separate consumer contract.
 
 Stylesheet installation loads native `@import` graphs in source order, resolves nested URLs against

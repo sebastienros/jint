@@ -241,8 +241,10 @@ internal enum WptDivergence
     /// The test asserts one of the two lenient-decompression divergences <c>DecompressionCodec</c> documents
     /// on itself: https://compression.spec.whatwg.org/#decompressionstream makes it an error for a stream to
     /// end before its member is complete, and an error for anything to follow the member. Detecting either
-    /// needs to know how many of the bytes handed over the decompressor actually consumed, and .NET exposes
-    /// no incremental inflater or decoder — only <c>GZipStream</c>, <c>ZLibStream</c>, <c>DeflateStream</c>
+    /// needs to know how many of the bytes handed over the decompressor actually consumed. Targets before
+    /// .NET 11 use the pull streams and retain this divergence; .NET 11 uses incremental codecs and has no
+    /// exclusions in this category. The older implementation uses
+    /// <c>GZipStream</c>, <c>ZLibStream</c>, <c>DeflateStream</c>
     /// and <c>BrotliStream</c>, which pull from a source stream, buffer input internally and report neither
     /// figure. So a truncated stream ends its readable side cleanly and trailing bytes are ignored.
     /// </para>

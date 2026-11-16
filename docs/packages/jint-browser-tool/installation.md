@@ -7,7 +7,7 @@ dotnet tool install -g Jint.Browser.Tool
 ```
 
 The SDK selects a Native AOT executable for Linux, macOS or Windows on x64 or arm64. No .NET runtime is
-needed to run it. The browser libraries still target .NET 8 and .NET 10; the SDK requirement is for the
+needed to run it. The browser libraries target .NET 10 and .NET 11; the SDK requirement is for the
 native tool package format.
 
 ## Without .NET

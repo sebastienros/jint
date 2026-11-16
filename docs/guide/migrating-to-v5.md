@@ -23,11 +23,21 @@ withdrawn before it ships. Anything not listed here is intended to keep working 
 | `net472` | — | **added** |
 | `netstandard2.0` | yes | yes |
 | `netstandard2.1` | yes | yes |
-| `net8.0` | yes | yes |
+| `net8.0` | yes | **dropped** |
 | `net10.0` | yes | yes |
+| `net11.0` | — | **added** |
 
 > **Status: landed** ([#3296](https://github.com/sebastienros/jint/pull/3296)). `Jint/Jint.csproj`
-> targets `net472;netstandard2.0;netstandard2.1;net8.0;net10.0`.
+> targets `net472;netstandard2.0;netstandard2.1;net10.0;net11.0`.
+
+The dedicated `net8.0` asset is removed as .NET 8 leaves support. Modern libraries and their tests
+target .NET 10 and .NET 11; Jint retains its .NET Standard assets for downlevel embedders.
+Building the repository requires the .NET 11 SDK selected by `global.json` (11.0.100 or a later feature band).
+
+The .NET 11 asset also tightens `DecompressionStream` to the Compression Standard: truncated input,
+trailing bytes, and concatenated gzip members now error both sides with a `TypeError`. Supply one complete
+member per stream and handle rejection from the writable and readable sides. The .NET 10 asset retains its
+previous lenient stream-based decoder; valid compressed input works on both targets.
 
 The `netstandard` and modern .NET targets are deliberately kept. `netstandard2.0` in particular is
 what game engines and other embedded runtimes resolve against, and it costs far more to drop than
@@ -8855,6 +8865,39 @@ not a list is wrapped as before unless its runtime type is addressed by key alon
 wrapped as before whatever it is declared as. The same holds for any host type, not only Newtonsoft's: a host list
 type that crosses as a base class is wrapped as its own type, with its own list view. There is no switch back.
 
+### 4.242 An `OrderedDictionary<int, TValue>` is the keyed object a `Dictionary<int, TValue>` is ([#4527](https://github.com/sebastienros/jint/issues/4527))
+
+[§4.222](#4-222-an-index-on-a-wrapped-jobject-is-one-more-of-its-keys-4501) applied to string-keyed dictionaries
+only. A dictionary with any other key type that is also a list of its entries, such as `OrderedDictionary<int, TValue>`
+(.NET 9 and later), was still wrapped as a view of that list, while `Reflect.ownKeys` listed its keys:
+
+```js
+// host: engine.SetValue("x", new OrderedDictionary<int, string> { [5] = "a", [7] = "b" });
+x[0]              // earlier previews: the KeyValuePair at position 0    5.x: undefined
+x[5]              // earlier previews: undefined (past the list's end)   5.x: "a"
+x["5"], 5 in x    // "a", true before and after
+Reflect.ownKeys(x)                       // ["5", "7"] before and after
+Array.prototype.slice.call(x).length     // earlier previews: 2 (the entries)   5.x: 0
+```
+
+Under `AllowWrite`, `x[0] = "z"` was an `InvalidCastException` out of `Evaluate` (the string converted to a
+`KeyValuePair` for position 0), and `delete x[5]` answered `true` with the entry still there.
+
+Now such a type answers every lane the way a `Dictionary<int, TValue>` holding the same entries does: reads, `in`,
+`hasOwnProperty`, `Reflect.ownKeys`, `for..in`, `JSON.stringify`, writes and deletes under `AllowWrite`, and
+`x["5"]` reads the same key as `x[5]`. Through a member, the [§4.241](#4-241-a-jobject-or-jarray-that-crosses-as-jtoken-is-the-object-it-is-as-itself-4524)
+rules apply unchanged. A host dictionary with a non-string key that implements only the generic dictionary contracts,
+and not the non-generic `IDictionary`, now lists its keys from `Reflect.ownKeys`, `Object.keys`, `for..in` and
+`JSON.stringify`, where it listed its CLR members (`Keys`, `Values`, `Count`, ...) before.
+
+**What could break:** script that read an `OrderedDictionary<TKey, TValue>` with a non-string key by position, or
+relied on it being on `Array.prototype`, a host `catch` written for the exception above, and script that enumerated
+the CLR members of such a generic-only dictionary. What did not change: `Dictionary<TKey, TValue>`, `SortedList<TKey, TValue>` and
+`SortedDictionary<TKey, TValue>`, which are no list; a member declared as a list interface (`IList<T>`,
+`IReadOnlyList<T>`, `IList`) keeps the list view it names; and a dictionary whose list holds its values and that
+declares an integer indexer of its own for that list, other than the one taking its key, keeps its positions.
+`GetAt` and `SetAt` remain callable for positional access. There is no switch back.
+
 ### 4.243 A wrapped CLR object lists a projection once the script redefines it or the object stops being extensible ([#4528](https://github.com/sebastienros/jint/issues/4528))
 
 A wrapped CLR object makes a few properties of its own that its target does not report: the `length` forwarder of a
@@ -8932,6 +8975,41 @@ extensible wrapper nothing changes: a deleted projection is made again on the ne
 **What could break:** a script that redefines `length` on a wrapped collection and expects reads to go on answering
 the count, or a write to resize the collection. Leave the forwarder alone, or delete the redefinition, after which a
 read answers `Count` again. There is no switch back.
+
+### 4.245 A wrapped dictionary's entry is a data property, writable and configurable where the host allows it to change ([#4679](https://github.com/sebastienros/jint/pull/4679))
+
+An entry of a wrapped dictionary whose key type is not `string` (`Dictionary<int, T>`, `Dictionary<long, T>`,
+`IReadOnlyDictionary<int, T>`, a `DayOfWeek`-keyed one, and so on) reported the indexer's accessor pair:
+`Object.getOwnPropertyDescriptor` returned `get` and `set` functions and no `value`, and the entry was never
+configurable, so `delete d[5]` answered `false` and kept it and `Object.defineProperty` threw. A string-keyed
+dictionary's entry was already a data property, but it reported `writable: false` even when an assignment would change
+it. Now every entry is a data property whatever the key type, as the same key on an ordinary object is:
+
+```js
+// host: engine.SetValue("d", new Dictionary<int, string> { [5] = "a" });   AllowWrite = true
+Object.getOwnPropertyDescriptor(d, 5)
+// earlier previews: { get: f, set: f, enumerable: true, configurable: false }
+// 5.x:              { value: 'a', writable: true, enumerable: true, configurable: true }
+delete d[5]     // earlier previews: false, the entry stays    5.x: true, the dictionary no longer holds 5
+```
+
+- **`writable` and `configurable` say whether script may change the entry**: both are `true` under
+  `Options.Interop.AllowWrite` when the dictionary accepts writes, and both are `false` without `AllowWrite`, for an
+  `IReadOnlyDictionary<TKey, TValue>` that is not also an `IDictionary<TKey, TValue>`, and for a dictionary that
+  reports itself read-only (`ReadOnlyDictionary`, `ImmutableDictionary`, `FrozenDictionary`). `enumerable` is `true`.
+  That applies to string keys too, so `writable` of a string-keyed entry changes from `false` to `true` under
+  `AllowWrite`, and `configurable` of a read-only dictionary's entry changes from `true` to `false`.
+- **`Object.freeze`, `Object.isFrozen` and `Object.defineProperty` read the same answer.** Freezing makes each entry
+  non-writable and non-configurable, as for a string-keyed dictionary. `Object.defineProperty` over a read-only
+  dictionary's entry now throws a `TypeError` for a new value, where it used to define a property on the wrapper that
+  shadowed the entry; over a writable entry it defines that property, now for any key type, and `d[5]` reads it.
+- **The entry is the dictionary's at the moment it is asked.** A non-string-keyed entry's descriptor used to be
+  stored on the wrapper by the first read, so an entry the host removed afterwards stayed an own property: `5 in d`
+  answered `true` and `d[5]` read `undefined`. Neither happens now.
+- Reads, writes and enumeration of entries do not change, nor do the dictionary's own members, such as `Count`.
+  A non-generic `IDictionary` such as `Hashtable` keeps its accessor pair.
+
+There is no switch back.
 
 ### 4.246 `Array.fromAsync` hands its mapper the iterator's value as it is, and awaits the source's `return` when it closes it ([#4526](https://github.com/sebastienros/jint/issues/4526))
 
