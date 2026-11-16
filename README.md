@@ -90,8 +90,9 @@ Projects using Jint include
 [EventStoreDB](https://github.com/EventStore/EventStore),
 [Orchard Core](https://github.com/OrchardCMS/OrchardCore),
 [Elsa Workflows](https://github.com/elsa-workflows/elsa-core),
-[Docfx](https://github.com/dotnet/docfx), and
-[JavaScript Engine Switcher](https://github.com/Taritsyn/JavaScriptEngineSwitcher).
+[Docfx](https://github.com/dotnet/docfx),
+[JavaScript Engine Switcher](https://github.com/Taritsyn/JavaScriptEngineSwitcher), and
+[CodeAlta](https://github.com/CodeAlta/CodeAlta).
 
 ## Additional packages
 
