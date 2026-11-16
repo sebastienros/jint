@@ -260,14 +260,31 @@ internal sealed partial class NativeCssQuery
     {
         _ancestorFilters ??= new();
         if (_ancestorFilters.TryGetValue(element, out var known)) return known;
+
+        // Climb to the nearest ancestor already known, or to the root, then fill the chain back down: a document
+        // can nest deeper than a recursion's stack allows.
+        var chain = new List<Element> { element };
         var filter = default(AncestorFilter);
-        if (element.ParentNode is Element parent)
+        while (chain[^1].ParentNode is Element parent)
         {
-            filter = AncestorsOf(parent);
-            RuleIndex.AddKeys(ref filter, parent);
+            if (_ancestorFilters.TryGetValue(parent, out filter))
+            {
+                break;
+            }
+
+            chain.Add(parent);
         }
 
-        _ancestorFilters[element] = filter;
+        for (var i = chain.Count - 1; i >= 0; i--)
+        {
+            if (chain[i].ParentNode is Element parent)
+            {
+                RuleIndex.AddKeys(ref filter, parent);
+            }
+
+            _ancestorFilters[chain[i]] = filter;
+        }
+
         return filter;
     }
 

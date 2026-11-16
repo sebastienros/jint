@@ -10,9 +10,9 @@ namespace Jint.Browser.Styling;
 internal sealed class NativeCssRuleCache
 {
     // A Bootstrap-based admin theme alone has several thousand rules; every page of a site shares them.
-    private const int MaxEntries = 32768;
-    private const int MaxUnits = 32 * 1024 * 1024;
-    private const int MaxRuleLength = 64 * 1024;
+    internal const int MaxEntries = 32768;
+    internal const int MaxUnits = 32 * 1024 * 1024;
+    internal const int MaxRuleLength = 64 * 1024;
     private readonly object _gate = new();
     private readonly Dictionary<Key, Entry> _entries = new(KeyComparer.Instance);
     private readonly Queue<Key> _order = new();

@@ -16,7 +16,7 @@ public sealed class NativeCssSyntaxCacheTests
         var boundaries = cache.Parse(first, work);
         cache.Parse(new string(first.ToCharArray()), work).Should().BeSameAs(boundaries);
         cache.Parse("a {display:flex}", work).Should().NotBeSameAs(boundaries);
-        for (var i = 0; i < 16; i++) cache.Parse($".entry{i} {{}}", work);
+        for (var i = 0; i < NativeCssSyntaxCache.MaxEntries; i++) cache.Parse($".entry{i} {{}}", work);
         cache.Parse(first, work).Should().NotBeSameAs(boundaries);
     }
 
@@ -25,9 +25,9 @@ public sealed class NativeCssSyntaxCacheTests
     {
         var cache = new NativeCssSyntaxCache();
         var work = new CssValueWork(default);
-        var oversizedText = "a{}" + new string(' ', 2 * 1024 * 1024);
+        var oversizedText = "a{}" + new string(' ', NativeCssSyntaxCache.MaxUnits);
         cache.Parse(oversizedText, work).Should().NotBeSameAs(cache.Parse(oversizedText, work));
-        var oversizedRules = string.Concat(Enumerable.Repeat("a{}", 40000));
+        var oversizedRules = string.Concat(Enumerable.Repeat("a{}", (NativeCssSyntaxCache.MaxUnits / 64) + 1));
         cache.Parse(oversizedRules, work).Should().NotBeSameAs(cache.Parse(oversizedRules, work));
     }
 
