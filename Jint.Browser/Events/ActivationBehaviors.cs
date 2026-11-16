@@ -434,7 +434,7 @@ internal static class ActivationBehaviors
     /// The first <c>&lt;summary&gt;</c> child, which is the only one that is "the summary for" a details —
     /// https://html.spec.whatwg.org/multipage/interactive-elements.html#the-summary-element.
     /// </summary>
-    private static Element? FirstSummaryOf(Element details)
+    internal static Element? FirstSummaryOf(Element details)
     {
         for (var node = details.FirstChild; node is not null; node = node.NextSibling)
         {
