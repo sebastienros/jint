@@ -8855,6 +8855,39 @@ not a list is wrapped as before unless its runtime type is addressed by key alon
 wrapped as before whatever it is declared as. The same holds for any host type, not only Newtonsoft's: a host list
 type that crosses as a base class is wrapped as its own type, with its own list view. There is no switch back.
 
+### 4.242 An `OrderedDictionary<int, TValue>` is the keyed object a `Dictionary<int, TValue>` is ([#4527](https://github.com/sebastienros/jint/issues/4527))
+
+[§4.222](#4-222-an-index-on-a-wrapped-jobject-is-one-more-of-its-keys-4501) applied to string-keyed dictionaries
+only. A dictionary with any other key type that is also a list of its entries, such as `OrderedDictionary<int, TValue>`
+(.NET 9 and later), was still wrapped as a view of that list, while `Reflect.ownKeys` listed its keys:
+
+```js
+// host: engine.SetValue("x", new OrderedDictionary<int, string> { [5] = "a", [7] = "b" });
+x[0]              // earlier previews: the KeyValuePair at position 0    5.x: undefined
+x[5]              // earlier previews: undefined (past the list's end)   5.x: "a"
+x["5"], 5 in x    // "a", true before and after
+Reflect.ownKeys(x)                       // ["5", "7"] before and after
+Array.prototype.slice.call(x).length     // earlier previews: 2 (the entries)   5.x: 0
+```
+
+Under `AllowWrite`, `x[0] = "z"` was an `InvalidCastException` out of `Evaluate` (the string converted to a
+`KeyValuePair` for position 0), and `delete x[5]` answered `true` with the entry still there.
+
+Now such a type answers every lane the way a `Dictionary<int, TValue>` holding the same entries does: reads, `in`,
+`hasOwnProperty`, `Reflect.ownKeys`, `for..in`, `JSON.stringify`, writes and deletes under `AllowWrite`, and
+`x["5"]` reads the same key as `x[5]`. Through a member, the [§4.241](#4-241-a-jobject-or-jarray-that-crosses-as-jtoken-is-the-object-it-is-as-itself-4524)
+rules apply unchanged. A host dictionary with a non-string key that implements only the generic dictionary contracts,
+and not the non-generic `IDictionary`, now lists its keys from `Reflect.ownKeys`, `Object.keys`, `for..in` and
+`JSON.stringify`, where it listed its CLR members (`Keys`, `Values`, `Count`, ...) before.
+
+**What could break:** script that read an `OrderedDictionary<TKey, TValue>` with a non-string key by position, or
+relied on it being on `Array.prototype`, a host `catch` written for the exception above, and script that enumerated
+the CLR members of such a generic-only dictionary. What did not change: `Dictionary<TKey, TValue>`, `SortedList<TKey, TValue>` and
+`SortedDictionary<TKey, TValue>`, which are no list; a member declared as a list interface (`IList<T>`,
+`IReadOnlyList<T>`, `IList`) keeps the list view it names; and a dictionary whose list holds its values and that
+declares an integer indexer of its own for that list, other than the one taking its key, keeps its positions.
+`GetAt` and `SetAt` remain callable for positional access. There is no switch back.
+
 ### 4.243 A wrapped CLR object lists a projection once the script redefines it or the object stops being extensible ([#4528](https://github.com/sebastienros/jint/issues/4528))
 
 A wrapped CLR object makes a few properties of its own that its target does not report: the `length` forwarder of a

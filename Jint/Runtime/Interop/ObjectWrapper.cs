@@ -1770,6 +1770,22 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 }
             }
         }
+        else if (includeStrings && _typeDescriptor.IsNonStringKeyedGenericDictionary && _typeDescriptor.KeysAccessor is { } keysAccessor)
+        {
+            // a non-string-keyed dictionary implementing only the generic contracts lists its keys as the branch
+            // above does, not its CLR members: every other lane answers the keys (#4527)
+            var keys = (IEnumerable) keysAccessor.GetValue(Target)!;
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            foreach (var key in keys)
+            {
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (key is not null
+                    && _engine._typeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out var stringKey))
+                {
+                    yield return JsString.Create((string) stringKey!);
+                }
+            }
+        }
         else if (includeStrings && this is ArrayLikeWrapper arrayLike)
         {
             // array-like views enumerate like JS arrays: index keys, not reflected CLR member names —

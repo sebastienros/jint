@@ -25,11 +25,11 @@ internal abstract class ArrayLikeWrapperFactory
 }
 
 /// <summary>
-/// What the resolution cache holds for a list that script addresses by its string keys alone
+/// What the resolution cache holds for a list that script addresses by its keys alone
 /// (<see cref="TypeDescriptor.IsAddressedByKeyOnly"/>, such as Newtonsoft's <c>JObject</c>): no view, not even the
 /// non-generic <see cref="ListWrapper"/> an <see cref="IList"/> target otherwise falls back to, so the target is
-/// wrapped as the ordinary object a dictionary is (#4501). A cached answer like the others, so a crossing pays
-/// the one virtual call it already made.
+/// wrapped as the ordinary object a dictionary is (#4501), whatever its key type (#4527). A cached answer like the
+/// others, so a crossing pays the one virtual call it already made.
 /// </summary>
 internal sealed class NoArrayLikeViewFactory : ArrayLikeWrapperFactory
 {
