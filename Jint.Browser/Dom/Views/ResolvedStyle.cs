@@ -47,6 +47,10 @@ internal static class ResolvedStyle
         }
         // CSSOM §9: a computed value holds absolute lengths and reduced math (CSS Values 4 §6, §10.13).
         value = ResolvedLengths.Resolve(name, property, style, viewport);
+        if (name == "grid-template-rows" && style.Pseudo is null)
+        {
+            value = ResolvedValueText.GridRows(value, style);
+        }
         // CSSOM §9: transform's resolved value is its matrix. A list that needs a box to resolve stays text.
         if (name == "transform" && value != "none" &&
             Geometry.GeometryConversion.TryParse(value, style.Work, out var matrix, out var is2D))

@@ -22,18 +22,23 @@ namespace Jint.Browser
         public Jint.Browser.StoragePartitionProvider StoragePartition { get; }
         public System.Threading.Tasks.Task AddInitScriptAsync(string script) { }
         public System.Threading.Tasks.Task AddInitScriptAsync(string function, object? argument) { }
+        public void AddVirtualAuthenticator(Jint.Browser.VirtualAuthenticator authenticator) { }
         public void ClearHttpCache() { }
         public System.Threading.Tasks.Task CloseAsync() { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
         public System.Threading.Tasks.Task<Jint.Browser.Page> NewPageAsync() { }
+        public bool RemoveVirtualAuthenticator(Jint.Browser.VirtualAuthenticator authenticator) { }
         public System.Threading.Tasks.Task RouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task> handler) { }
         public System.Threading.Tasks.Task UnrouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task>? handler = null) { }
     }
     public sealed class BrowserContextOptions
     {
         public BrowserContextOptions() { }
+        public System.TimeSpan ActionTimeout { get; set; }
+        public string? BaseUrl { get; set; }
         public bool BlockPrivateNetwork { get; set; }
         public Jint.WebApi.Fetch.CookieJar? CookieJar { get; set; }
+        public bool? HasTouch { get; set; }
         public Jint.Browser.BrowserHttpCacheOptions HttpCache { get; }
         public System.Net.Http.HttpClient? HttpClient { get; set; }
         public System.Func<Jint.Engine, System.Net.Http.HttpClient>? HttpClientFactory { get; set; }
@@ -42,6 +47,7 @@ namespace Jint.Browser
         public Jint.Browser.MediaEmulation? MediaEmulation { get; set; }
         public Jint.Browser.StoragePartitionProvider? StoragePartition { get; set; }
         public System.Func<System.Uri, bool>? UrlFilter { get; set; }
+        public Jint.Browser.Viewport? Viewport { get; set; }
     }
     public sealed class BrowserHttpCacheOptions
     {
@@ -115,6 +121,14 @@ namespace Jint.Browser
         Confirm = 1,
         Prompt = 2,
     }
+    public readonly struct ElementBox : System.IEquatable<Jint.Browser.ElementBox>
+    {
+        public ElementBox(double X, double Y, double Width, double Height) { }
+        public double Height { get; init; }
+        public double Width { get; init; }
+        public double X { get; init; }
+        public double Y { get; init; }
+    }
     public sealed class Frame
     {
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.Frame> Frames { get; }
@@ -150,6 +164,12 @@ namespace Jint.Browser
         public string? Media { get; init; }
         public string? ReducedMotion { get; init; }
     }
+    public enum MouseButton
+    {
+        Left = 0,
+        Middle = 1,
+        Right = 2,
+    }
     public sealed class NavigationFailedException : System.Exception
     {
         public NavigationFailedException() { }
@@ -168,6 +188,7 @@ namespace Jint.Browser
     }
     public sealed class Page : System.IAsyncDisposable
     {
+        public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageConsoleMessage> ConsoleEntries { get; }
         public System.Collections.Generic.IReadOnlyList<string> ConsoleMessages { get; }
         public Jint.Browser.BrowserContext Context { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageError> Errors { get; }
@@ -177,6 +198,7 @@ namespace Jint.Browser
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageRequest> Requests { get; }
         public Jint.Browser.PageResponse? Response { get; }
         public string Url { get; }
+        public Jint.Browser.Viewport Viewport { get; }
         public int Workers { get; }
         public event System.EventHandler<Jint.Browser.DialogEventArgs>? DialogOpened;
         public event System.EventHandler<Jint.Browser.Page>? Popup;
@@ -184,12 +206,14 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task AddInitScriptAsync(string script) { }
         public System.Threading.Tasks.Task AddInitScriptAsync(string function, object? argument) { }
         public System.Threading.Tasks.Task<bool> BlurAsync(string target, int index = 0, System.TimeSpan? timeout = default) { }
+        public System.Threading.Tasks.Task<Jint.Browser.ElementBox?> BoundingBoxAsync(string target, int index = 0) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, int index, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task CloseAsync() { }
         public System.Threading.Tasks.Task<string> ContentAsync() { }
         public System.Threading.Tasks.Task<int> CountAsync(string selector, bool visibleOnly = false) { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public System.Threading.Tasks.Task<bool> DoubleClickAsync(string target, int index = 0, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task EmulateMediaAsync(Jint.Browser.MediaEmulation emulation) { }
         public System.Threading.Tasks.Task<object?> EvaluateAndAwaitAsync(string script, System.Threading.CancellationToken cancellationToken = default) { }
         public System.Threading.Tasks.Task<object?> EvaluateAndAwaitAsync(string function, object? argument, System.Threading.CancellationToken cancellationToken = default) { }
@@ -213,6 +237,9 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> IsFocusedAsync(string target, int index = 0) { }
         public System.Threading.Tasks.Task<bool> IsVisibleAsync(string target, int index = 0) { }
         public System.Threading.Tasks.Task<string> MarkdownAsync(bool mainContentOnly = false, int maxLength = 0) { }
+        public System.Threading.Tasks.Task MouseDownAsync(Jint.Browser.MouseButton button = 0) { }
+        public System.Threading.Tasks.Task MouseMoveAsync(double x, double y, int steps = 1) { }
+        public System.Threading.Tasks.Task MouseUpAsync(Jint.Browser.MouseButton button = 0, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> NavigateAsync(string url, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> PressAsync(string key, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> PressAsync(string key, Jint.Browser.KeyModifiers modifiers, Jint.Browser.NavigationOptions? options = null) { }
@@ -228,6 +255,8 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> SetInputFilesAsync(string target, int index, System.Collections.Generic.IReadOnlyList<Jint.Browser.PageFile> files) { }
         public System.Threading.Tasks.Task<bool> SetInputFilesAsync(string target, int index, System.Collections.Generic.IReadOnlyList<string> paths) { }
         public System.Threading.Tasks.Task SetTouchEmulationAsync(bool enabled, int maxTouchPoints = 1) { }
+        public System.Threading.Tasks.Task SetViewportAsync(Jint.Browser.Viewport viewport) { }
+        public System.Threading.Tasks.Task SetViewportSizeAsync(int width, int height) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> SubmitFormAsync(string selector, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> TapAsync(string target, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task TapAsync(double x, double y, Jint.Browser.NavigationOptions? options = null) { }
@@ -235,6 +264,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<string> TextAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<string[]> TextsAsync(string selector, bool visibleOnly = false) { }
         public System.Threading.Tasks.Task<string> TitleAsync() { }
+        public System.Threading.Tasks.Task<bool> TypeAsync(string text) { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, string text) { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, int index, string text) { }
         public System.Threading.Tasks.Task UnrouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task>? handler = null) { }
@@ -248,9 +278,11 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> WaitForIdleAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNavigationAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNetworkIdleAsync(System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<Jint.Browser.PageRequest?> WaitForResponseAsync(System.Func<Jint.Browser.PageRequest, bool> predicate, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForSelectorAsync(string selector, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForSelectorAsync(string selector, int index, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForTextAsync(string text, System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForTextAsync(string target, System.Text.RegularExpressions.Regex pattern, System.TimeSpan timeout, int index = 0) { }
         public System.Threading.Tasks.Task<bool> WaitForTextAsync(string target, string text, System.TimeSpan timeout, int index = 0) { }
         public System.Threading.Tasks.Task<bool> WaitForUrlAsync(System.Func<System.Uri, bool> predicate, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForUrlAsync(System.Text.RegularExpressions.Regex pattern, System.TimeSpan timeout) { }
@@ -258,6 +290,12 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> WaitForValueAsync(string target, System.Text.RegularExpressions.Regex pattern, System.TimeSpan timeout, int index = 0) { }
         public System.Threading.Tasks.Task<bool> WaitForValueAsync(string target, string value, System.TimeSpan timeout, int index = 0) { }
         public System.Threading.Tasks.Task<bool> WaitForVisibleAsync(string target, System.TimeSpan timeout, bool visible = true, int index = 0) { }
+    }
+    public readonly struct PageConsoleMessage : System.IEquatable<Jint.Browser.PageConsoleMessage>
+    {
+        public PageConsoleMessage(Jint.WebApi.ConsoleLogLevel Level, string Text) { }
+        public Jint.WebApi.ConsoleLogLevel Level { get; init; }
+        public string Text { get; init; }
     }
     public sealed class PageError
     {
@@ -380,6 +418,29 @@ namespace Jint.Browser
         public int Height { get; init; }
         public int Width { get; init; }
         public static Jint.Browser.Viewport Default { get; }
+    }
+    public sealed class VirtualAuthenticator
+    {
+        public VirtualAuthenticator(Jint.Browser.VirtualAuthenticatorOptions? options = null) { }
+        public System.Collections.Generic.IReadOnlyList<Jint.Browser.VirtualAuthenticatorCredential> Credentials { get; }
+        public Jint.Browser.VirtualAuthenticatorOptions Options { get; }
+        public void RemoveAllCredentials() { }
+    }
+    public sealed class VirtualAuthenticatorCredential
+    {
+        public System.ReadOnlyMemory<byte> CredentialId { get; }
+        public bool IsResidentCredential { get; }
+        public string RpId { get; }
+        public uint SignCount { get; }
+        public System.ReadOnlyMemory<byte>? UserHandle { get; }
+    }
+    public sealed class VirtualAuthenticatorOptions : System.IEquatable<Jint.Browser.VirtualAuthenticatorOptions>
+    {
+        public VirtualAuthenticatorOptions() { }
+        public bool HasResidentKey { get; init; }
+        public bool HasUserVerification { get; init; }
+        public bool IsUserVerified { get; init; }
+        public string Transport { get; init; }
     }
     public enum WaitUntilState
     {

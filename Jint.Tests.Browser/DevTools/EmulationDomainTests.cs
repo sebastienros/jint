@@ -70,7 +70,7 @@ public class EmulationDomainTests
             """
             <style>
               #t { position: relative }
-              @media (max-width: 600px) { #t { position: absolute } }
+              @media (max-width: 600px) { #t { position: sticky } }
             </style>
             <div id="t">g</div>
             """);
@@ -88,8 +88,57 @@ public class EmulationDomainTests
             attachment);
 
         (await Text(session, attachment, width)).Should().Be("390px", "the same document, against the emulated viewport");
-        (await Text(session, attachment, position)).Should().Be("absolute", "the @media rule is active now");
+        (await Text(session, attachment, position)).Should().Be("sticky", "the @media rule is active now");
         (await Flag(session, attachment, "matchMedia('(max-width: 600px)').matches")).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The metrics override and <see cref="Page.SetViewportAsync(Viewport)"/> are one write: either fires
+    /// <c>resize</c>, each sees the other's value, and clearing goes back to the <i>context's</i> viewport.
+    /// </summary>
+    [Test]
+    public async Task DeviceMetricsAndTheHostApiAreOneViewportAndBothFireResize()
+    {
+        await using var session = await PageSession.CreateAsync(
+            new BrowserContextOptions { Viewport = new Viewport(1024, 768, 2) });
+        var page = await session.NewPageAsync();
+        var attachment = await session.AttachAsync(await session.TargetForAsync(page));
+
+        await session.EvaluateAsync(
+            "window.sizes = []; addEventListener('resize', () => sizes.push(innerWidth + 'x' + innerHeight));",
+            attachment);
+
+        await session.ResultAsync(
+            "Emulation.setDeviceMetricsOverride",
+            """{"width":390,"height":844,"deviceScaleFactor":3,"mobile":true}""",
+            attachment);
+        page.Viewport.Should().Be(new Viewport(390, 844, 3));
+
+        await page.SetViewportSizeAsync(600, 844);
+        (await Text(session, attachment, "innerWidth + '@' + devicePixelRatio")).Should().Be("600@3");
+
+        await session.ResultAsync("Emulation.clearDeviceMetricsOverride", null, attachment);
+        page.Viewport.Should().Be(new Viewport(1024, 768, 2));
+        (await Text(session, attachment, "sizes.join(' ')")).Should().Be("390x844 600x844 1024x768");
+    }
+
+    /// <summary>A zero width or height is the protocol's "no override" for that dimension.</summary>
+    [Test]
+    public async Task AZeroDimensionLeavesTheOpenedOneAndOnlyTheScaleFactorMoves()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var page = await session.NewPageAsync();
+        var attachment = await session.AttachAsync(await session.TargetForAsync(page));
+
+        await session.EvaluateAsync("window.resized = 0; addEventListener('resize', () => resized++);", attachment);
+        await session.ResultAsync(
+            "Emulation.setDeviceMetricsOverride",
+            """{"width":0,"height":0,"deviceScaleFactor":2,"mobile":false}""",
+            attachment);
+
+        (await Text(session, attachment, "innerWidth + 'x' + innerHeight + '@' + devicePixelRatio + ' ' + resized"))
+            .Should().Be("1280x720@2 0");
+        page.Viewport.Should().Be(new Viewport(1280, 720, 2));
     }
 
     [Test]
@@ -204,6 +253,44 @@ public class EmulationDomainTests
         (await Flag(session, attachment, "matchMedia('(color-gamut: srgb)').matches")).Should().BeTrue();
         (await Flag(session, attachment, "matchMedia('(color-gamut: p3)').matches")).Should().BeTrue();
         (await Flag(session, attachment, "matchMedia('(color-gamut: rec2020)').matches")).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// #4641 over the protocol, as Playwright's <c>emulateMedia({ forcedColors: 'active' })</c> sends it: the
+    /// cascade forces a gradient <c>background-image</c> to <c>none</c>, on a <c>::before</c> too, and keeps a
+    /// <c>url()</c>; clearing the feature restores the gradient.
+    /// </summary>
+    [Test]
+    public async Task ForcedColorsForceAGradientBackgroundImageToNone()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+        await SetContentAsync(
+            session,
+            attachment,
+            """
+            <style>
+              #g, #p::before { background-image: linear-gradient(red, blue) }
+              #p::before { content: '' }
+              #u { background-image: url("data:image/gif;base64,R0lGODlhAQABAAAAACw=") }
+            </style>
+            <div id="g"></div><div id="p"></div><div id="u"></div>
+            """);
+        const string Images =
+            "['#g', '#u'].map(s => getComputedStyle(document.querySelector(s)).backgroundImage.slice(0, 16))" +
+            ".concat(getComputedStyle(document.querySelector('#p'), '::before').backgroundImage.slice(0, 16)).join('|')";
+
+        await session.ResultAsync(
+            "Emulation.setEmulatedMedia",
+            """{"media":"","features":[{"name":"forced-colors","value":"active"}]}""",
+            attachment);
+        (await Text(session, attachment, Images)).Should().Be("none|url(\"data:image/|none");
+
+        await session.ResultAsync(
+            "Emulation.setEmulatedMedia",
+            """{"media":"","features":[{"name":"forced-colors","value":""}]}""",
+            attachment);
+        (await Text(session, attachment, Images)).Should().Be("linear-gradient(|url(\"data:image/|linear-gradient(");
     }
 
     [Test]

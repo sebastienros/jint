@@ -191,7 +191,11 @@ interfaces.
 **`Runtime/PageMediaEnvironment` is the page's immutable media input**, replaced through
 `PageRuntime.SetMedia`. It carries viewport, media type, pointer capability, scripting and preferences.
 Every retained `MediaQueryList` recomputes against the whole new value and fires a real
-`MediaQueryListEvent` only if its answer changed. No window `resize` is synthesized.
+`MediaQueryListEvent` only if its answer changed. A width/height change first runs the resize steps at the
+change (window `resize`, then `visualViewport`), and afterwards `ParserDriver.ReactToEnvironmentChange`
+queues a fetch task for each recorded source-set image that now selects another URL. **`EmulationState.SetViewport` is the one viewport write**:
+`Emulation.setDeviceMetricsOverride` and `Page.SetViewportAsync` both call it, and
+`BrowserContextOptions.Viewport` is only where a page starts.
 
 `Styling/NativeCssStyleSheets.Browser.cs` builds a native `CssMediaEnvironment` from those values for
 stylesheet queries. `matchMedia` uses `Runtime/MediaQuery`; both receive page state, not process-global

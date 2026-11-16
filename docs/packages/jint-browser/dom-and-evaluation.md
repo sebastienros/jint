@@ -146,7 +146,8 @@ and occlusion are not visibility tests. The synthetic box model is not a renderi
 `WaitForCountAsync` requires an exact nonnegative count; zero is useful for disappearance.
 `WaitForVisibleAsync(target, timeout, visible: false, index: 0)` succeeds for hidden or missing targets.
 `WaitForTextAsync(target, text, timeout, index = 0)` checks a literal ordinal substring of innerText
-and requires a matching element. These waits observe mutations and navigation without retaining DOM
+and requires a matching element; `WaitForTextAsync(target, pattern, timeout, index = 0)` matches a `Regex`
+against the same text off the page thread, so `new Regex("^3$")` tells an exact `3` from a `13`. These waits observe mutations and navigation without retaining DOM
 handles. Timeout returns `false`, including a zero timeout whose first probe fails.
 
 ## Role, label and text targets
@@ -176,8 +177,12 @@ int headings = await page.CountAsync("role=heading[level=2]");
 | `internal:role=…`, `internal:label=…`, `internal:text=…`, `css=…` | The spellings a Playwright locator serializes to, and an explicit CSS part. |
 | `aria/Next[role="button"]` | Puppeteer's ARIA query: an exact accessible name, with an optional role. |
 | `a >> b` | `b` resolved inside every element `a` found, in document order; any part may be CSS, `ref=` or a locator. |
+| `a >> nth=1`, `a >> nth=-1` | The second, or the last, of `a`'s matches: what a locator's `Nth`, `First` and `Last` serialize to. |
+| `a >> visible=true` / `visible=false` | `a`'s matches that pass, or fail, the visibility test above. |
+| `a >> has-text=Save` / `has-text="Save"s` | `a`'s matches whose text contains `Save`, case-insensitively, or is exactly `Save` with the `s` flag; `has-not-text=` keeps the others. `internal:has-text=` is the spelling `Filter(HasText)` serializes to. |
 
-A role target matches by role, not by what the snapshot keeps: a `generic` wrapper or a `role=none` element
+`nth=`, `visible=` and `has-text=` are filters: they narrow the matches of the part before them instead of
+searching inside them, so they cannot come first. A role target matches by role, not by what the snapshot keeps: a `generic` wrapper or a `role=none` element
 the snapshot prunes is still found by `role=generic` or `role=none`. An unescaped apostrophe in an unquoted
 `text=` body opens a string, as in Playwright, so quote such a body before chaining after it.
 

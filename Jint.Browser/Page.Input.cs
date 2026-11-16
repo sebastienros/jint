@@ -91,29 +91,68 @@ public sealed partial class Page
     /// <param name="options">How far to wait for a navigation the click causes; the defaults when omitted.</param>
     /// <returns><see langword="true"/> when the indexed element matched and was clicked.</returns>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public async Task<bool> ClickAsync(string target, int index, NavigationOptions? options = null)
+    public Task<bool> ClickAsync(string target, int index, NavigationOptions? options = null)
+        => ClickAsync(target, index, options, clickCount: 1);
+
+    /// <summary>Double-clicks what <paramref name="target"/> names, and waits for any navigation it causes.</summary>
+    /// <param name="target">A target: a CSS selector, a <c>ref=</c> from an accessibility snapshot, or a <c>role=</c>, <c>label=</c> or <c>text=</c> locator, optionally chained with <c>&gt;&gt;</c>.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="options">How far to wait for a navigation the clicks cause; the defaults when omitted.</param>
+    /// <returns><see langword="true"/> when the indexed element matched and was double-clicked.</returns>
+    /// <remarks>
+    /// Two presses and releases at the centre of the element's box, then <c>dblclick</c>: the sequence
+    /// <a href="https://w3c.github.io/uievents/#events-mouseevent-event-order">UI Events</a> orders —
+    /// <c>mousedown</c>, <c>mouseup</c>, <c>click</c> with <c>detail</c> 1, the same with <c>detail</c> 2, then
+    /// <c>dblclick</c>. The target is hit-tested once, as for <see cref="ClickAsync(string, NavigationOptions)"/>.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> DoubleClickAsync(string target, int index = 0, NavigationOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ClickAsync(target, index, options, clickCount: 2);
+    }
+
+    private async Task<bool> ClickAsync(string target, int index, NavigationOptions? options, int clickCount)
     {
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        var captured = await _loop.PostAsync((bool Clicked, NavigationRequest? Navigation) (engine) =>
+        await SettleFrameAsync().ConfigureAwait(false);
+
+        // An attempt that dispatched nothing — no match, no box, another element on top — may be retried while
+        // the context's action timeout lasts; one that dispatched input is never repeated.
+        (bool Clicked, NavigationRequest? Navigation, bool Dispatched) captured = default;
+        await ActAsync(async () =>
+        {
+            captured = await _loop.PostAsync(ClickOnce).ConfigureAwait(false);
+            return captured.Clicked || captured.Dispatched;
+        }).ConfigureAwait(false);
+
+        if (captured.Navigation is { } navigation)
+        {
+            await NavigateCoreAsync(navigation with { Options = options ?? NavigationOptions.Default }).ConfigureAwait(false);
+        }
+
+        return captured.Clicked;
+
+        (bool Clicked, NavigationRequest? Navigation, bool Dispatched) ClickOnce(Engine engine)
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
-                return (Clicked: false, Navigation: (NavigationRequest?) null);
+                return (false, null, false);
             }
 
             runtime.Layout.ScrollIntoView(element, "nearest");
 
             if (runtime.Layout.ClientBoxOf(element) is not { } box)
             {
-                return (false, null);
+                return (false, null, false);
             }
 
             var x = box.X + (box.Width / 2);
             var y = box.Y + (box.Height / 2);
             if (!InputDispatcher.IsWithin(engine, runtime.Layout.ReadPoint().ElementFromPoint(x, y), element))
-                return (false, null);
+                return (false, null, false);
 
             // Captured rather than started, for the reason SubmitFormAsync captures: the navigation a click
             // causes is one this caller can be handed instead of one that runs off on its own.
@@ -123,24 +162,34 @@ public sealed partial class Page
             try
             {
                 InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Moved, x, y, 0, 0, 0, EventModifiers.None, 0, 0));
-                InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Pressed, x, y, 0, 1, 1, EventModifiers.None, 0, 0));
-                var clicked = InputDispatcher.DispatchMouse(runtime,
-                    new MouseInput(MouseInputKind.Released, x, y, 0, 0, 1, EventModifiers.None, 0, 0), element);
-                return (clicked, _capturedNavigation);
+
+                // Moving the pointer moves :hover, and a rule keyed on it can show or hide content around the
+                // element - a toolbar revealed on hover above it - and move it. A user aims at where the element
+                // is once the pointer is over it, as Playwright re-checks its target before pressing, so the press
+                // goes to the element's box after the move, not before it.
+                if (runtime.Layout.ClientBoxOf(element) is { } moved && (moved.X != box.X || moved.Y != box.Y || moved.Width != box.Width || moved.Height != box.Height))
+                {
+                    x = moved.X + (moved.Width / 2);
+                    y = moved.Y + (moved.Height / 2);
+                    InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Moved, x, y, 0, 0, 0, EventModifiers.None, 0, 0));
+                }
+
+                var clicked = true;
+                for (var count = 1; count <= clickCount; count++)
+                {
+                    InputDispatcher.DispatchMouse(runtime, new MouseInput(MouseInputKind.Pressed, x, y, 0, 1, count, EventModifiers.None, 0, 0));
+                    clicked &= InputDispatcher.DispatchMouse(runtime,
+                        new MouseInput(MouseInputKind.Released, x, y, 0, 0, count, EventModifiers.None, 0, 0), element);
+                }
+
+                return (clicked, _capturedNavigation, true);
             }
             finally
             {
                 _capturingNavigation = false;
                 _capturedNavigation = null;
             }
-        }).ConfigureAwait(false);
-
-        if (captured.Navigation is { } navigation)
-        {
-            await NavigateCoreAsync(navigation with { Options = options ?? NavigationOptions.Default }).ConfigureAwait(false);
         }
-
-        return captured.Clicked;
     }
 
     /// <summary>Makes the page report itself as a touch device, or stop reporting itself as one.</summary>
@@ -313,7 +362,7 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return _loop.PostAsync(engine =>
+        return ActAsync(() => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
@@ -330,7 +379,7 @@ public sealed partial class Page
                 new MouseInput(MouseInputKind.Moved, box.X + (box.Width / 2), box.Y + (box.Height / 2), 0, 0, 0, EventModifiers.None, 0, 0));
 
             return true;
-        });
+        }));
     }
 
     /// <summary>Replaces the value of the control <paramref name="target"/> names with <paramref name="text"/>.</summary>
@@ -363,7 +412,7 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(text);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return _loop.PostAsync(engine =>
+        return ActAsync(() => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
@@ -408,7 +457,7 @@ public sealed partial class Page
 
             InputDispatcher.InsertText(runtime, text);
             return true;
-        });
+        }));
     }
 
     /// <summary>Types <paramref name="text"/> into what <paramref name="target"/> names, one key at a time.</summary>
@@ -439,7 +488,7 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(text);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return _loop.PostAsync(engine =>
+        return ActAsync(() => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
@@ -452,6 +501,41 @@ public sealed partial class Page
             }
 
             FocusController.Focus(runtime.Dom, element);
+
+            foreach (var rune in text.EnumerateRunes())
+            {
+                var key = rune.ToString();
+                InputDispatcher.DispatchKey(runtime, KeyOptions.For(key), KeyInputKind.KeyDown);
+                InputDispatcher.DispatchKey(runtime, KeyOptions.For(key), KeyInputKind.KeyUp);
+            }
+
+            return true;
+        }));
+    }
+
+    /// <summary>Types <paramref name="text"/> at whatever the page has focused.</summary>
+    /// <param name="text">The characters to type.</param>
+    /// <returns><see langword="true"/> always, because keys always reach something — the body when nothing is focused.</returns>
+    /// <remarks>
+    /// The keyboard half of <see cref="TypeAsync(string, string)"/> without the focusing: each character is the
+    /// same <c>keydown</c>, <c>keypress</c>, insertion and <c>keyup</c>, dispatched at the focused element. It is
+    /// what a client library's <c>keyboard.type</c> does, for an editor that moves focus into an element of its
+    /// own on a click — CodeMirror's or Monaco's hidden input — so a caller clicks the editor and types, without
+    /// knowing which element took the focus.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> TypeAsync(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        return _loop.PostAsync(engine =>
+        {
+            if (PageRuntime.Find(engine) is not { } runtime)
+            {
+                return false;
+            }
 
             foreach (var rune in text.EnumerateRunes())
             {
@@ -740,7 +824,7 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(value);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return _loop.PostAsync(engine =>
+        return ActAsync(() => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not Element { NamespaceUri: Namespaces.Html, LocalName: "select" } select)
             {
@@ -793,7 +877,7 @@ public sealed partial class Page
             // option change the same state and fire the same two events at the same element.
             ActivationBehaviors.SelectOption(runtime.Dom, option);
             return true;
-        });
+        }));
     }
 
     /// <summary>Selects host files into the file input <paramref name="target"/> names.</summary>
@@ -897,7 +981,7 @@ public sealed partial class Page
 
     /// <summary>The one place a selection is made, whatever the files came from.</summary>
     private Task<bool> SelectFilesAsync(string target, int index, List<SelectedFile> files)
-        => _loop.PostAsync(engine =>
+        => ActAsync(() => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime
                 || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not Element { NamespaceUri: Namespaces.Html, LocalName: "input" } input
@@ -908,7 +992,7 @@ public sealed partial class Page
 
             FileSelection.Update(runtime, input, files);
             return true;
-        });
+        }));
 
     /// <summary>Scrolls the page to <paramref name="y"/>, clamped to the document.</summary>
     /// <param name="y">The offset from the top of the document, in CSS pixels.</param>
@@ -1026,10 +1110,19 @@ public sealed partial class Page
 
         while (true)
         {
+            // Taken before the look, so a turn that ends while it is posted or running still wakes the wait.
+            var turned = Volatile.Read(ref _turnEnded).Task;
+
             T reading;
             try
             {
-                reading = await _loop.PostAsync(read).ConfigureAwait(false);
+                // A look only reads, so a parse waiting for a script answers it too, as a browser's page does.
+                reading = await _loop.PostReentrantAsync(engine =>
+                {
+                    // The look is a turn of its own, and the end of it must not wake the wait that made it.
+                    _waitLooking = true;
+                    return read(engine);
+                }).ConfigureAwait(false);
             }
             catch (ObjectDisposedException) when (_closed)
             {
@@ -1056,7 +1149,140 @@ public sealed partial class Page
                 return false;
             }
 
-            await Task.Delay(WaitPoll).ConfigureAwait(false);
+            // The document only changes in a turn of the loop — a task, a timer, a fetch's completion, a host
+            // call — so the next look waits for one to end rather than sleeping a fixed interval. The poll is
+            // the ceiling, for what changes off the loop: the request log, a navigation committing.
+            await turned.WaitAsync(WaitPoll).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
     }
+
+    /// <summary>
+    /// Lets a frame the page asked for run before a click lands: a component that renders in
+    /// <c>requestAnimationFrame</c> — Monaco lays its lines out there once it is created — is not clicked
+    /// half-drawn, which is what Playwright's wait for a box that is stable across frames gives a page too.
+    /// One frame, and only when a callback is waiting for one; a page that requests a frame from every frame
+    /// costs a click one frame, not a timeout.
+    /// </summary>
+    private async Task SettleFrameAsync()
+    {
+        long frame;
+        try
+        {
+            frame = await _loop.PostAsync(engine =>
+                PageRuntime.Find(engine)?.AnimationFrames is { HasCallbacks: true } lane ? lane.FramesRun : -1L).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException) when (_closed)
+        {
+            return;
+        }
+
+        if (frame >= 0)
+        {
+            await WaitForAsync(
+                engine => PageRuntime.Find(engine)?.AnimationFrames.FramesRun ?? long.MaxValue,
+                run => run > frame,
+                FrameSettleTimeout).ConfigureAwait(false);
+        }
+
+        await SettleImminentTimersAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Lets the timers due within a frame run before a click lands, as they do while Playwright waits for the
+    /// target's box to be stable across two animation frames. Bootstrap ends a collapse's transition on a timer
+    /// due 5 ms after it starts, even when the transition lasts nothing, and ignores a toggle until it has: a click
+    /// that follows another sooner than a browser can is lost. Nothing is waited for when no timer is that close.
+    /// </summary>
+    private async Task SettleImminentTimersAsync()
+    {
+        var start = System.Diagnostics.Stopwatch.GetTimestamp();
+        bool Settled(Engine engine)
+        {
+            var remaining = ImminentTimerWindow - System.Diagnostics.Stopwatch.GetElapsedTime(start);
+            return engine._webApi?.TimeUntilNextDueTimer() is not { } due || due > remaining;
+        }
+
+        bool settled;
+        try
+        {
+            settled = await _loop.PostAsync(Settled).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException) when (_closed)
+        {
+            return;
+        }
+
+        if (!settled)
+        {
+            await WaitForAsync(Settled, done => done, FrameSettleTimeout).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>How close a timer must be due for a click to let it run first: a frame.</summary>
+    private static readonly TimeSpan ImminentTimerWindow = TimeSpan.FromMilliseconds(16);
+
+    /// <summary>The longest a click waits for a pending frame: a few frames' worth, for a loop that is busy.</summary>
+    private static readonly TimeSpan FrameSettleTimeout = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>Completed, and replaced, at the end of every turn of the loop that was not a wait's own look.</summary>
+    private TaskCompletionSource _turnEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Whether the turn now ending was a wait's look; written and read on the loop thread only.</summary>
+    private bool _waitLooking;
+
+    /// <summary>Wakes every wait parked on the turn that just ended; called on the loop thread.</summary>
+    private void SignalTurnEnded()
+    {
+        if (_waitLooking)
+        {
+            _waitLooking = false;
+            return;
+        }
+
+        Interlocked.Exchange(ref _turnEnded, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).TrySetResult();
+    }
+    /// <summary>
+    /// Runs an action's attempt, and repeats it while it answers <see langword="false"/> and the context's
+    /// <see cref="BrowserContextOptions.ActionTimeout"/> lasts.
+    /// </summary>
+    /// <remarks>
+    /// An attempt answers <see langword="false"/> only when it did nothing — no match, a match that is not being
+    /// rendered or not editable, an element on top of it — so repeating it is what a user waiting for the page
+    /// to be ready does. Between two attempts the page runs: the look is posted to the loop like any other.
+    /// </remarks>
+    private async Task<bool> ActAsync(Func<Task<bool>> attempt)
+    {
+        if (await attempt().ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        var timeout = Context.ActionTimeout;
+        if (timeout <= TimeSpan.Zero)
+        {
+            return false;
+        }
+
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        while (!_closed && (timeout == System.Threading.Timeout.InfiniteTimeSpan || System.Diagnostics.Stopwatch.GetElapsedTime(started) < timeout))
+        {
+            // Taken after the attempt, whose own turn has ended by now, so only the page's next turn wakes it.
+            var turned = Volatile.Read(ref _turnEnded).Task;
+            await turned.WaitAsync(WaitPoll).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            try
+            {
+                if (await attempt().ConfigureAwait(false))
+                {
+                    return true;
+                }
+            }
+            catch (ObjectDisposedException) when (_closed)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
 }

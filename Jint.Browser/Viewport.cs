@@ -31,4 +31,22 @@ public readonly record struct Viewport(int Width, int Height, double DeviceScale
     public Viewport(int width, int height) : this(width, height, 1)
     {
     }
+
+    /// <summary>
+    /// Refuses a viewport a page cannot be given: a width or height below 1, or a device scale factor that is
+    /// not a positive, finite number.
+    /// </summary>
+    /// <remarks>
+    /// The one rule <see cref="Page.SetViewportAsync(Viewport)"/>, <see cref="Page.SetViewportSizeAsync"/> and
+    /// <see cref="BrowserContextOptions.Viewport"/> apply.
+    /// </remarks>
+    internal static void ThrowIfUnusable(Viewport viewport, string? paramName)
+    {
+        if (viewport.Width < 1 || viewport.Height < 1
+            || !(viewport.DeviceScaleFactor > 0) || double.IsInfinity(viewport.DeviceScaleFactor))
+        {
+            throw new ArgumentOutOfRangeException(paramName, viewport,
+                "A viewport needs a width and a height of at least 1 and a positive, finite device scale factor.");
+        }
+    }
 }

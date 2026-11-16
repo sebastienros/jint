@@ -34,6 +34,7 @@ internal static class DomConstructors
     internal static readonly DomLegacyFactoryDefinition[] LegacyFactories =
     [
         new("Image", DomInterfaces.HTMLImageElement, 0, ConstructImage),
+        new("Option", DomInterfaces.HTMLOptionElement, 0, ConstructOption),
     ];
 
     /// <summary>
@@ -115,6 +116,44 @@ internal static class DomConstructors
         }
 
         return realm.WrapNode(image);
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/form-elements.html#dom-option —
+    /// <c>Option(optional DOMString text = "", optional DOMString value, optional boolean defaultSelected = false,
+    /// optional boolean selected = false)</c>.
+    /// </summary>
+    private static DomNodeObject ConstructOption(DomRealm realm, JsValue[] arguments)
+    {
+        var document = NodeDocument(realm);
+        var option = document.CreateElementNS(Namespaces.Html, "option");
+
+        // Step 3: a text child only when the text is not empty.
+        var text = DomConvert.OptionalText(arguments, 0, string.Empty)!;
+        if (text.Length != 0)
+        {
+            option.AppendChild(document.CreateTextNode(text));
+        }
+
+        // Step 4: the value attribute only when the argument was given, undefined counting as not given.
+        if (arguments.Length > 1 && !arguments[1].IsUndefined())
+        {
+            option.SetAttribute("value", DomConvert.OptionalText(arguments, 1, string.Empty)!);
+        }
+
+        // Step 5: defaultSelected is the selected content attribute.
+        if (DomConvert.OptionalBool(arguments, 2, fallback: false))
+        {
+            option.SetAttribute("selected", string.Empty);
+        }
+
+        // Step 6: selected is the selectedness, set after the attribute so it wins.
+        if (DomConvert.OptionalBool(arguments, 3, fallback: false))
+        {
+            option.GetHtmlState()!.GetOptionState(realm.CancellationToken)!.SetSelected(true, realm.CancellationToken);
+        }
+
+        return realm.WrapNode(option);
     }
 
     /// <summary>The current global object's associated <c>Document</c>, or an empty one when there is none.</summary>

@@ -56,7 +56,7 @@ internal static partial class InputDispatcher
         // is what makes a click on a <span> inside a <button> focus the button.
         if (target.Node is Element clicked && NearestFocusable(dom, clicked) is { } focusTarget)
         {
-            FocusController.Focus(dom, focusTarget);
+            FocusController.Focus(dom, focusTarget, FocusOrigin.Pointer);
         }
 
         DispatchClickEvent(target, options, trusted: true);
@@ -128,6 +128,12 @@ internal static partial class InputDispatcher
         var target = dom.WrapNode(hit);
         var options = input.ToClickOptions();
 
+        // Everything this hit test measures is measured before anything changes. Moving :hover below is a
+        // style change, and it ends the query the hit test ran on: a box read from it afterwards would be a
+        // read of a stale query, which the CSS read witness refuses with an exception rather than answering.
+        var hitBox = layout.ClientBoxOf(hit);
+        var imagePoint = input.Kind == MouseInputKind.Released ? ImagePointOf(hit, input.X, input.Y, layout.ClientBoxOf) : null;
+
         // https://html.spec.whatwg.org/multipage/semantics-other.html#selector-hover — every mouse event
         // tells the page where the pointer is, and :hover follows it before any listener runs.
         events.MouseHoverTarget = hit;
@@ -135,33 +141,53 @@ internal static partial class InputDispatcher
         switch (input.Kind)
         {
             case MouseInputKind.Moved:
-                Pointer(target, "pointermove", options, cancelable: true, layout);
+                // A drag under way turns the mouse's moves into drag events; no mouse event goes with them.
+                if (MoveDrag(dom, events, hit, input, options))
+                {
+                    return false;
+                }
+
+                Pointer(target, "pointermove", options, cancelable: true, hitBox);
                 Mouse(target, "mousemove", options, cancelable: true);
                 return false;
 
             case MouseInputKind.Pressed:
-                Pointer(target, "pointerdown", options, cancelable: true, layout);
+                Pointer(target, "pointerdown", options, cancelable: true, hitBox);
 
-                if (Mouse(target, "mousedown", options, cancelable: true)
-                    && NearestFocusable(dom, hit) is { } focusTarget)
+                if (Mouse(target, "mousedown", options, cancelable: true))
                 {
-                    FocusController.Focus(dom, focusTarget);
+                    if (NearestFocusable(dom, hit) is { } focusTarget)
+                    {
+                        FocusController.Focus(dom, focusTarget, FocusOrigin.Pointer);
+                    }
+
+                    // A cancelled mousedown starts no drag, as in every browser.
+                    ArmDrag(events, hit, input);
+                }
+                else
+                {
+                    events.Drag = null;
                 }
 
                 events.MousePressTarget = hit;
                 return false;
 
             case MouseInputKind.Released:
+                if (ReleaseDrag(dom, events, options))
+                {
+                    return false;
+                }
+
                 // https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — an
                 // image button's selected coordinate is measured from the hit test that already preceded
                 // every listener, because the activation behaviour that reads it runs after all three of
                 // them and any one of them may move, adopt or detach the input first. Nothing is selected
                 // by measuring: the activation behaviour promotes it, or nothing does.
-                events.PendingImagePoint = ImagePointOf(hit, input.X, input.Y, layout.ClientBoxOf);
+                events.PendingImagePoint = imagePoint;
 
                 try
                 {
-                    return Release(dom, events, target, hit, options, input, layout, expectedClickTarget);
+                    return Release(dom, events, target, hit, options, input, hitBox, expectedClickTarget);
                 }
                 finally
                 {
@@ -169,7 +195,7 @@ internal static partial class InputDispatcher
                 }
 
             case MouseInputKind.Wheel:
-                if (Wheel(target, options, input.DeltaX, input.DeltaY, layout))
+                if (Wheel(target, options, input.DeltaX, input.DeltaY, hitBox))
                 {
                     runtime.Layout.ScrollBy(input.DeltaY);
                 }
@@ -192,10 +218,10 @@ internal static partial class InputDispatcher
         Element hit,
         in ClickOptions options,
         in MouseInput input,
-        FlatLayout.PointQuery layout,
+        FlatBox? hitBox,
         Element? expectedClickTarget)
     {
-        Pointer(target, "pointerup", options, cancelable: true, layout);
+        Pointer(target, "pointerup", options, cancelable: true, hitBox);
         Mouse(target, "mouseup", options, cancelable: true);
 
         var clicked = dom.WrapNode(CommonAncestor(events.MousePressTarget, hit) ?? hit);
@@ -292,10 +318,10 @@ internal static partial class InputDispatcher
     }
 
     /// <summary>Dispatches one <c>PointerEvent</c>, answering whether nothing cancelled it.</summary>
-    private static bool Pointer(DomNodeObject target, string type, in ClickOptions options, bool cancelable, FlatLayout.PointQuery layout)
+    private static bool Pointer(DomNodeObject target, string type, in ClickOptions options, bool cancelable, FlatBox? targetBox)
     {
         var ev = PointerEvent(target, type, options, cancelable);
-        PrepareOffsets(ev, target, layout);
+        PrepareOffsets(ev, targetBox);
         return target.DispatchEvent(ev);
     }
 
@@ -319,7 +345,7 @@ internal static partial class InputDispatcher
     }
 
     /// <summary>Dispatches one <c>WheelEvent</c>, answering whether nothing cancelled it.</summary>
-    private static bool Wheel(DomNodeObject target, in ClickOptions options, double deltaX, double deltaY, FlatLayout.PointQuery layout)
+    private static bool Wheel(DomNodeObject target, in ClickOptions options, double deltaX, double deltaY, FlatBox? targetBox)
     {
         var realm = BrowserEventRealm.Of(target.DomRealm.Engine);
         var ev = new JsWheelEvent(
@@ -340,16 +366,16 @@ internal static partial class InputDispatcher
 
         ev._prototype = realm.PrototypeOf(BrowserEventInterfaces.WheelEvent);
         ev.IsTrusted = true;
-        PrepareOffsets(ev, target, layout);
+        PrepareOffsets(ev, targetBox);
         return target.DispatchEvent(ev);
     }
 
-    private static void PrepareOffsets(JsMouseEvent ev, DomNodeObject target, FlatLayout.PointQuery layout)
+    private static void PrepareOffsets(JsMouseEvent ev, FlatBox? targetBox)
     {
-        // The hit-test query precedes every listener. Reuse it only for the first event: a pointer
-        // listener can move the target before the following mouse/click event begins. Keeping just
-        // these numbers adds no layout walk and retains no query across a callback.
-        if (target.Node is Element element && layout.ClientBoxOf(element) is { } box)
+        // The box is the hit-test query's, read before any listener ran and before :hover moved. Only the
+        // first event uses it: a pointer listener can move the target before the following mouse/click
+        // event begins. Keeping just these numbers adds no layout walk and retains no query across a callback.
+        if (targetBox is { } box)
         {
             ev.PrepareOffsets(ev.ClientX - box.X, ev.ClientY - box.Y);
         }
@@ -522,6 +548,14 @@ internal static partial class InputDispatcher
 
         var dom = runtime.Dom;
         var realm = BrowserEventRealm.Of(dom.Engine);
+
+        // https://drafts.csswg.org/selectors-4/#the-focus-visible-pseudo — a key press, modifiers included as
+        // in Chromium, makes the focused element indicate its focus before any listener hears the key.
+        if (kind is KeyInputKind.KeyDown or KeyInputKind.RawKeyDown)
+        {
+            FocusController.NoteKeyPress(realm);
+        }
+
         var focused = FocusController.InteractionTarget(realm, document);
 
         if (focused is null)
@@ -695,7 +729,7 @@ internal static partial class InputDispatcher
     {
         if (FocusController.NextInTabOrder(dom, document, from, backwards) is { } next)
         {
-            FocusController.Focus(dom, next);
+            FocusController.Focus(dom, next, FocusOrigin.Keyboard);
         }
         else
         {

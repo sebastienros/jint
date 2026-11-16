@@ -20,6 +20,17 @@ The timeout covers fetching, parsing, and waiting. `NavigationFailedException` m
 
 `PageResponse` exposes the final URL, status, status text, headers, redirect state, and `Ok`.
 
+`BrowserContextOptions.BaseUrl` names a server once for every page of a context: a relative address passed to
+`NavigateAsync` or `WaitForUrlAsync(string)` resolves against it with the URL standard's rules, so
+`NavigateAsync("/admin")` keeps its host. It is the host's address bar only; links, forms and `location`
+writes resolve against the document, and an absolute address is used as given.
+
+```csharp
+var context = await browser.NewContextAsync(new BrowserContextOptions { BaseUrl = "http://127.0.0.1:5000" });
+var page = await context.NewPageAsync();
+await page.NavigateAsync("/login");
+```
+
 ## Script-triggered navigation
 
 Arm the wait before triggering a navigation that does not return its own task:

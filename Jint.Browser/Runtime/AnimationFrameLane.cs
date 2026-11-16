@@ -43,6 +43,12 @@ internal sealed class AnimationFrameLane
 
     internal double? FrameTime { get; private set; }
 
+    /// <summary>How many frames have run, which a caller waiting for the next one compares.</summary>
+    internal long FramesRun { get; private set; }
+
+    /// <summary>Whether a <c>requestAnimationFrame</c> callback is waiting for the next frame.</summary>
+    internal bool HasCallbacks => _pending.Count != 0;
+
     /// <summary>Queues <paramref name="callback"/> for the next frame and answers its cancellation handle.</summary>
     internal int Request(ICallable callback)
     {
@@ -193,6 +199,7 @@ internal sealed class AnimationFrameLane
         }
         finally
         {
+            FramesRun++;
             FrameTime = null;
             _running = false;
             _cancelledDuringFrame.Clear();

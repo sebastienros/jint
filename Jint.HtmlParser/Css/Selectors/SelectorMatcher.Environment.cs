@@ -198,6 +198,15 @@ internal static partial class SelectorMatcher
                 }
                 work.Step();
                 return (kind == PredicateKind.Focus ? cell.Focus! : cell.FocusWithin!).Contains(element);
+            case PredicateKind.FocusVisible:
+                // Selectors 4 §9.4: https://drafts.csswg.org/selectors-4/#the-focus-visible-pseudo — the
+                // focused element when the host's heuristics indicate focus. A shadow host matches :focus
+                // for a focused descendant but is not itself the element whose focus is indicated.
+                if (!environment.FocusVisible || !ReferenceEquals(element, environment.FocusedElement)) return false;
+                if (cell.Focus is null)
+                    SelectorStateTraversal.BuildFocus(environment, ref work.Shared);
+                work.Step();
+                return cell.Focus!.Contains(element);
             case PredicateKind.Active:
                 if (cell.ActiveElements is null)
                     SelectorStateTraversal.BuildActive(environment, ref work.Shared);

@@ -41,6 +41,9 @@ namespace Jint.Browser;
 public sealed partial class Page : IAsyncDisposable
 {
     private readonly PageLoop _loop;
+
+    /// <summary>The page's loop, which a parse waiting for a script lets serve the reads a caller is polling with.</summary>
+    internal PageLoop Loop => _loop;
     private readonly PageRecorder _recorder;
     private readonly PageNetworkRecorder _requests;
     private readonly BrowserOptions _options;
@@ -98,7 +101,7 @@ public sealed partial class Page : IAsyncDisposable
         WindowHandle = windowHandle ?? new BrowsingContextHandle();
         _options = options;
         _recorder = recorder;
-        Emulation = new EmulationState(options.Viewport, options.UserAgent) { TouchEnabled = options.HasTouch };
+        Emulation = new EmulationState(context.Viewport, options.UserAgent) { TouchEnabled = context.HasTouch };
 
         // The browser's defaults, then the context's over them, before the loop builds the first engine — so
         // the blank document and the first one navigated to both parse in the emulated media.
@@ -131,6 +134,8 @@ public sealed partial class Page : IAsyncDisposable
     /// </remarks>
     private void ReportTitleAtEndOfTurn(Engine engine)
     {
+        SignalTurnEnded();
+
         if (_observer is null)
         {
             return;
@@ -194,8 +199,9 @@ public sealed partial class Page : IAsyncDisposable
     /// It outlives every document, because that is what an override means: the engine factory reads it when
     /// it builds the next one, and the window installer reads it on every access. The <c>Emulation</c>
     /// domain is what writes it, on the loop thread, and so do the public emulation members —
-    /// <see cref="SetTouchEmulationAsync"/> and <see cref="EmulateMediaAsync"/> — which are mailbox requests
-    /// over the same state rather than a second copy of it.
+    /// <see cref="SetViewportAsync(Jint.Browser.Viewport)"/>, <see cref="SetTouchEmulationAsync"/> and
+    /// <see cref="EmulateMediaAsync"/> — which are mailbox requests over the same state rather than a second
+    /// copy of it.
     /// </remarks>
     internal EmulationState Emulation { get; }
 
@@ -238,6 +244,13 @@ public sealed partial class Page : IAsyncDisposable
 
     /// <summary>What the page's scripts printed, oldest first, formatted the way a console would.</summary>
     public IReadOnlyList<string> ConsoleMessages => _recorder.ConsoleMessages;
+
+    /// <summary>
+    /// What the page's scripts printed, oldest first, each with the level of the <c>console</c> method that
+    /// printed it — so a caller can ask for the errors without parsing text.
+    /// </summary>
+    /// <remarks>The same messages, and the same bound, as <see cref="ConsoleMessages"/>.</remarks>
+    public IReadOnlyList<PageConsoleMessage> ConsoleEntries => _recorder.ConsoleEntries;
 
     /// <summary>Raised when the page calls <c>alert</c>, <c>confirm</c> or <c>prompt</c>.</summary>
     /// <remarks>
@@ -640,14 +653,6 @@ public sealed partial class Page : IAsyncDisposable
     /// under one identifier, and a failure has to name that one rather than the document still showing.
     /// </remarks>
     internal string PendingLoaderId => _pendingLoaderId;
-
-    /// <summary>The page's viewport, which is a document's rather than the browser's once one overrides it.</summary>
-    internal Task<Viewport> ViewportAsync()
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Viewport ?? _options.Viewport);
-
-    /// <summary>Overrides what the page believes its window to be, announcing the change to its media queries.</summary>
-    internal Task SetViewportAsync(Viewport viewport)
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.SetViewport(viewport));
 
     /// <summary>The context's network position, which owns the cookie jar every document read shares.</summary>
     internal PageNetwork Network => _network;

@@ -58,7 +58,8 @@ public sealed class ComputedStyleTests
             $"<div style='display:flex'><div id=sized style='{(inline ? dimensions : "")}'>sized text</div></div>");
         (await page.EvaluateAsync<string>("getComputedStyle(hidden).display")).Should().Be("none");
         (await page.EvaluateAsync<string>("getComputedStyle(invisible).visibility")).Should().Be("hidden");
-        (await page.EvaluateAsync<int>("hidden.getClientRects().length + invisible.getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<int>("hidden.getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<int>("invisible.getClientRects().length")).Should().Be(1, "a visibility: hidden box is still laid out");
         (await page.EvaluateAsync<string>("document.body.innerText")).Should().Be("sized text");
         (await page.EvaluateAsync<string>("getComputedStyle(sized).width + '|' + getComputedStyle(sized).height + '|' + getComputedStyle(sized).paddingLeft"))
             .Should().Be("24px|16px|3px");
@@ -87,7 +88,7 @@ public sealed class ComputedStyleTests
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<div style='visibility:hidden'><div id=t style='--d:bogus;--v:bogus;display:none;display:var(--d);visibility:visible;visibility:var(--v);width:24px;width:var(--d);padding-left:3px;padding-left:var(--d)'>text</div></div>");
+        await page.SetContentAsync("<div style='visibility:hidden;display:none'><div id=t style='--d:bogus;--v:bogus;display:none;display:var(--d);visibility:visible;visibility:var(--v);width:24px;width:var(--d);padding-left:3px;padding-left:var(--d)'>text</div></div>");
         (await Read(page, "display")).Should().Be("inline");
         (await Read(page, "visibility")).Should().Be("hidden");
         (await Read(page, "width")).Should().Be("auto");
@@ -373,7 +374,7 @@ public sealed class ComputedStyleTests
             await page.SetContentAsync($"<div id='t' style='{property}:auto'>g</div>");
             (await Read(page, property)).Should().Be(expected);
         }
-        await page.SetContentAsync("<div id='t' style='width:20ch;visibility:hidden'>g</div>");
+        await page.SetContentAsync("<div id='t' style='width:20ch;visibility:hidden;display:none'>g</div>");
         (await Read(page, "visibility")).Should().Be("hidden");
         (await page.EvaluateAsync<int>("document.getElementById('t').getClientRects().length")).Should().Be(0);
         // A missing box keeps the computed value, which needs no font metric: ch takes CSS Values 4's 0.5em fallback.

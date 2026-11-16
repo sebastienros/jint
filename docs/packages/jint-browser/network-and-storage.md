@@ -53,6 +53,19 @@ Use `UrlFilter` for an application allow-list. `BlockPrivateNetwork` is a coarse
 
 ## Routing requests
 
+`Page.WaitForResponseAsync(predicate, timeout)` waits for the first request sent after the call whose response
+the predicate accepts, and returns its `PageRequest`, or `null` at the timeout. Start it before the action that
+sends the request:
+
+```csharp
+var saved = page.WaitForResponseAsync(r => r.Url.EndsWith("/api/save", StringComparison.Ordinal), TimeSpan.FromSeconds(5));
+await page.ClickAsync("#save");
+PageRequest? response = await saved;
+```
+
+A request counts once its headers are in, or once it failed. It reads the same log as `Page.Requests`, so it has
+no body and no request headers: a route that records them and continues answers those questions.
+
 `Page.RouteAsync` and `BrowserContext.RouteAsync` answer a request in process — with a response of your own,
 a network failure, or the request sent on, optionally rewritten:
 

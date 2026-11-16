@@ -132,7 +132,7 @@ public sealed partial class Page
         ObjectDisposedException.ThrowIf(_closed, this);
         return WaitForAsync(
             ReadUrl,
-            current => string.Equals(current, PageUrl.Resolve(url, current), StringComparison.Ordinal),
+            current => string.Equals(current, PageUrl.Resolve(ResolveHostUrl(url), current), StringComparison.Ordinal),
             timeout);
     }
 

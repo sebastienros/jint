@@ -56,6 +56,7 @@ the [package limitations](../../docs/packages/jint-browser/limitations.md) list 
 | Canvas | [HTML 2D canvas](https://html.spec.whatwg.org/multipage/canvas.html#2dcontext) has stateful no-op contexts, Path2D, gradients, patterns, ImageData and window-scoped OffscreenCanvas. Hand-written shared shapes follow Geometry; a per-realm weak element table owns contexts, with dimension-only native subscriptions created on demand. No pixels, taint, path hit-testing or font shaping: reads are transparent black and PNG exports are blank, including alpha-disabled contexts. Metrics use half an em per code point plus spacing, with 0.8/0.2 em ascent/descent. Colors support named/hex/RGB/HSL/HWB only; currentColor is black, filters omit URL/drop-shadow, and negotiation stays sRGB/unorm8. Float16 ImageData, workers, structured clone/transfer, ImageBitmap, capture and transferControlToOffscreen are omitted. Encoding and ImageData allocation cap at 16,777,216 pixels; PNG rows stream through zlib without a raster allocation. `Dom/CanvasTests` pins state, conversions, PNG bytes and asynchronous delivery; see the [package limitations](../../docs/packages/jint-browser/limitations.md). |
 | Web Animations | [Web Animations Level 1](https://drafts.csswg.org/web-animations-1/) timing, document timelines, playback promises/events and keyframes run on the page's 16 ms frame lane before rAF. Effects do not enter the computed-style cascade; stylesheets create no CSS animations/transitions. `commitStyles()` writes discrete values on connected HTML/SVG targets, without interpolation or additive composition. Keyframe values remain CSS text, and pseudo-elements are limited to supported simple selectors. `Animations/WebAnimationsTests` covers playback, replacement, discrete commits and quiescence. |
 | Media | Stylesheets use native CSS media evaluation; `matchMedia` uses `Runtime/MediaQuery`'s subset. Both read page media inputs, but their supported grammars are not identical. |
+| Forced colors | With `forced-colors: active` emulated, `Styling/NativeCssQuery.ForcedColors` applies [CSS Color Adjustment 1 §3.1](https://drafts.csswg.org/css-color-adjust-1/#forced-colors-properties) at computed-value time to elements (and pseudo-elements) whose inherited `forced-color-adjust` is `auto` (#4641): `background-image` keeps a list with any `url()` layer whole, gradients included, and is otherwise `none` (Chromium's reading); `box-shadow` and `text-shadow` are `none`, `color-scheme` is `light dark`, `accent-color` and `scrollbar-color` are `auto`. `none` and `preserve-parent-color` opt out; an opted-out child still inherits its parent's forced value, as in Chromium. **The `<color>` properties are not forced**: `color`, `background-color`, border, outline and other colors keep their cascaded value where Chromium answers the system colors (`CanvasText`, `Canvas` with the original alpha, ...), the UA sheet has no forced-colors rules (`LinkText`, `ButtonText`), and `accent-color` is forced even when it names a system color, which Chromium keeps. `Views/ForcedColorsComputedStyleTests` pins this. |
 | XPath | Native XPath preserves namespaces. `BrowserXPathNavigator` deliberately hides namespaces and the namespace axis so unprefixed names match HTML. Prefixed name tests therefore do not match through that Browser cursor. Node sets are snapshots and `invalidIteratorState` remains false; native guards still reject mutation during evaluation. |
 | Intersection/resize | Intersection reports a target once, fully intersecting. [IntersectionObserver v2](https://w3c.github.io/IntersectionObserver/#intersection-observer-interface) `delay` and `trackVisibility` follow headless Chromium rather than the draft: `delay` converts as a restricted `double` truncated toward zero (the draft says `long`), and `trackVisibility` with a `delay` under 100 is a `NotSupportedError`; both are reflected but change nothing, since delivery is once. `IntersectionObserverEntry.isVisible` is not exposed: without paint, occlusion, opacity or transforms, neither `true` nor `false` would be an honest answer to a page that asked for visibility tracking. `Observers/ViewportObserverTests` pins the conversion order and the checks. Resize tracks the synthetic flat model and defers callback-induced changes to another task, rather than implementing a rendering engine's resize loop. |
 | Cookie Store | [Cookie Store](https://cookiestore.spec.whatwg.org/#process-cookie-changes) is window-only, without secure-context exposure gating or service-worker subscriptions. `set()` and `delete()` on non-loopback HTTP pages reject with `SecurityError` without changing the jar; HTTPS and HTTP loopback writes remain supported. Ancestor secure-context checks are not implemented. Listener-gated snapshots detect net jar changes at page-turn/nested-rendering boundaries and idle wakes, then queue one event per interval; intermediate and identical rewrites are not observable. Results follow the spec's name/value-only dictionary rather than Chrome's extended objects. SameSite/partitioned and a public suffix list are not represented by the default jar. `Navigation/CookieStoreTests` covers operations, events, shared HttpOnly protection and the unused-API cost. See the [package limitations](../../docs/packages/jint-browser/limitations.md). |
@@ -79,6 +80,26 @@ The [LightPanda headless target](https://github.com/lightpanda-io/browser) does 
 engine. Real layout, full CSS computation beyond automation needs, exotic at-rules, DTD-entity edge cases
 and exact `document.write` insertion-point corner cases may remain outside scope. This is a scope policy,
 not a claim that the native parser lacks all support for those features.
+
+### Mouse drag and drop
+
+A mouse drag that starts on a draggable element (`draggable="true"`, an `img`, an `a` with `href`) runs the
+[drag-and-drop processing model](https://html.spec.whatwg.org/multipage/dnd.html#drag-and-drop-processing-model)
+once the pointer moves 4 CSS pixels: `dragstart`, `drag` at each move, `dragenter`/`dragleave` when the element
+under the pointer changes, `dragover`, then `drop` where the last `dragover` was cancelled (else `dragleave`)
+and `dragend`, with no `mouseup` or `click`. Two boundaries differ from the standard's text. The current target
+is always the element under the pointer, as in Blink and Gecko, rather than the body when its `dragenter` was
+not cancelled. The drag data store is never switched to protected or read-only mode, so every listener can read
+and write it. There is no drag feedback image and no `drag` event between moves.
+`PageAutomationTests.AMouseDragOnADraggableElementRunsTheDragAndDropModel` covers the sequence.
+
+### Unsupported media features
+
+Media features the native parser recognizes but does not evaluate (`color-gamut`, `dynamic-range`,
+`update`, `scan`, `overflow-block`, `device-width` and the others in its pending list) make a stylesheet or
+`@import` media list never match, as [Media Queries 4](https://drafts.csswg.org/mediaqueries-4/#evaluating)
+requires for a feature the user agent does not support. That list's `mediaText` then serializes as `not all`
+rather than its source. Previously the parser's incomplete-grammar exception escaped every style read on the page.
 
 ### Modern attribute factories and setters (#3950)
 
@@ -272,6 +293,20 @@ input and atomic tokens by `MemoryLimit / 2` units when a finite memory budget i
 entity work uses the smaller of that ceiling and the default. Parser limits are resource failures,
 not XML syntax errors or `parsererror` documents. Allocation constraints can fail before these ceilings.
 Standalone parser callers can explicitly select `ParseLimits.Unbounded` for trusted XML.
+
+### Viewport changes (#4622)
+
+`Page.SetViewportAsync`, `SetViewportSizeAsync` and `Emulation.setDeviceMetricsOverride` share
+`EmulationState.SetViewport`. With no rendering loop, HTML's
+[update the rendering](https://html.spec.whatwg.org/multipage/webappapis.html#update-the-rendering) work
+runs synchronously when the viewport changes, not at the next frame. It keeps that algorithm's order: window
+`resize`, `visualViewport` `resize`, then `MediaQueryList` `change`. Only a width or height change counts as
+a resize. [Reacting to environment changes](https://html.spec.whatwg.org/multipage/images.html#img-environment-changes)
+runs after every change, for the principal document's `<img>` elements (shadow trees included) that select
+from a `srcset` or a `<picture>`. Each image that now selects another URL queues a task to fetch it, and the
+viewport change does not wait for that task. An image whose earlier selection named nothing is included. A
+fetch that fails leaves the image broken instead of keeping the previous one. Child frames' images are not
+selected again. `Runtime/ViewportResizeTests` pins this behaviour.
 
 ### Automatic HTTP cache
 

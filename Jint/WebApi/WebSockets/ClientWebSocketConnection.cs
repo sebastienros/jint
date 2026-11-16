@@ -16,8 +16,9 @@ namespace Jint.WebApi.WebSockets;
 /// compression extension, and .NET only enables one when a host configures it; not offering it means
 /// <c>extensions</c> is always the empty string, which is the honest answer rather than a guess, and a
 /// decompression bomb cannot be built out of a message the size cap measures after inflation. And <b>no
-/// cookies and no credentials</b>: there is no cookie jar in an embedded engine, and the standard's
-/// <c>credentials: "include"</c> would mean sending some other component's.
+/// credentials of its own</b>: the only cookies a handshake carries are the ones the host's
+/// <c>Options.WebApi.Fetch.CookieJar</c> holds for the URL, which <see cref="SetCookieHeader"/> is given;
+/// without a jar it carries none, rather than some other component's.
 /// </para>
 /// <para>
 /// Redirects are not followed, which is what the standard asks for too — "redirect mode is error" — so unlike
@@ -65,6 +66,18 @@ internal sealed class ClientWebSocketConnection : IWebSocketConnection
             _socket.Options.SetRequestHeader("User-Agent", userAgent);
             _requestHeaders.Add(new Fetch.FetchHeader("user-agent", userAgent));
         }
+    }
+
+    /// <summary>Adds the <c>Cookie</c> header the host's jar answered for the handshake's URL, if any.</summary>
+    internal void SetCookieHeader(string? cookies)
+    {
+        if (string.IsNullOrEmpty(cookies))
+        {
+            return;
+        }
+
+        _socket.Options.SetRequestHeader("Cookie", cookies);
+        _requestHeaders.Add(new Fetch.FetchHeader("cookie", cookies));
     }
 
     public string SubProtocol => _socket.SubProtocol ?? string.Empty;

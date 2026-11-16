@@ -107,7 +107,10 @@ internal sealed class ElementLocator
         // The common case is a plain selector: it reaches the compiler unchanged, whitespace included.
         if (target.IndexOf(Chain, StringComparison.Ordinal) < 0)
         {
-            return new ElementLocator([Classify(target) ?? new CssPart(target)]);
+            var single = Classify(target) ?? new CssPart(target);
+            return single is FilterPart
+                ? throw Invalid(target, "a filter part with nothing before it to filter")
+                : new ElementLocator([single]);
         }
 
         var texts = Split(target);
@@ -121,6 +124,10 @@ internal sealed class ElementLocator
             }
 
             parts[i] = Classify(text) ?? new CssPart(text);
+            if (i == 0 && parts[i] is FilterPart)
+            {
+                throw Invalid(target, "a filter part with nothing before it to filter");
+            }
         }
 
         return new ElementLocator(parts);
@@ -167,7 +174,7 @@ internal sealed class ElementLocator
             found = new List<Element>();
             var last = i == _parts.Length - 1;
             _parts[i].Query(new Search(realm, document, scopes, found, first && last && scopes.Count == 1, checkpoint));
-            if (scopes.Count > 1)
+            if (scopes.Count > 1 && _parts[i] is not FilterPart)
             {
                 found = InDocumentOrder(document, found, checkpoint);
             }
@@ -256,6 +263,33 @@ internal sealed class ElementLocator
         if (TryStrip(text, "aria/", out var aria))
         {
             return new RolePart(ParseAria(text, aria));
+        }
+
+        if (TryStrip(text, "nth=", out body) || TryStrip(text, "internal:nth=", out body))
+        {
+            return int.TryParse(body.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var nth)
+                ? new NthPart(nth)
+                : throw Invalid(text, "an nth that is not an integer");
+        }
+
+        if (TryStrip(text, "visible=", out body) || TryStrip(text, "internal:visible=", out body))
+        {
+            return body.Trim() switch
+            {
+                "true" => new VisiblePart(visible: true),
+                "false" => new VisiblePart(visible: false),
+                _ => throw Invalid(text, "a visible that is not true or false"),
+            };
+        }
+
+        if (TryStrip(text, "has-text=", out body) || TryStrip(text, "internal:has-text=", out body))
+        {
+            return new HasTextPart(ParseHasText(text, body), has: true);
+        }
+
+        if (TryStrip(text, "has-not-text=", out body) || TryStrip(text, "internal:has-not-text=", out body))
+        {
+            return new HasTextPart(ParseHasText(text, body), has: false);
         }
 
         return null;
@@ -388,6 +422,31 @@ internal sealed class ElementLocator
 
             text = value;
             exact = flag != 'i';
+        }
+
+        return TextQuery.Create(text, exact) ?? throw Invalid(part, "an empty text");
+    }
+
+    /// <summary>
+    /// A <c>has-text=</c> body: a case-insensitive substring, quoted or not, and the whole text exactly with a
+    /// quoted string and Playwright's <c>s</c> flag.
+    /// </summary>
+    private static TextQuery ParseHasText(string part, string body)
+    {
+        var text = body.Trim();
+        var exact = false;
+        if (text.Length >= 2 && text[0] is '"' or '\'')
+        {
+            var reader = new Reader(part, text);
+            var value = reader.ReadQuoted();
+            var flag = reader.ReadFlag();
+            if (!reader.AtEnd)
+            {
+                throw Invalid(part, "text after a quoted string");
+            }
+
+            text = value;
+            exact = flag == 's';
         }
 
         return TextQuery.Create(text, exact) ?? throw Invalid(part, "an empty text");
@@ -562,6 +621,60 @@ internal sealed class ElementLocator
                 query.ByText(scope, search.Output, search.First, search.Checkpoint);
             }
         }
+    }
+
+    /// <summary>
+    /// A part that narrows the matches of the part before it rather than searching inside them: Playwright's
+    /// <c>nth=</c>, <c>visible=</c> and <c>internal:has-text=</c>, which a locator's <c>First</c>, <c>Nth</c>,
+    /// <c>Filter</c> and <c>visible=true</c> serialize to.
+    /// </summary>
+    /// <remarks>
+    /// Its scopes are the previous part's matches in document order, and what it keeps stays in that order.
+    /// </remarks>
+    private abstract class FilterPart : Part
+    {
+        internal override void Query(Search search)
+        {
+            foreach (var scope in search.Scopes)
+            {
+                search.Checkpoint();
+                if (scope is Element element && Keeps(search, element))
+                {
+                    search.Output.Add(element);
+                }
+            }
+        }
+
+        protected virtual bool Keeps(Search search, Element element) => true;
+    }
+
+    /// <summary><c>nth=<i>n</i></c>: the zero-based match, or a negative offset from the last.</summary>
+    private sealed class NthPart(int index) : FilterPart
+    {
+        internal override void Query(Search search) => Pick(search);
+
+        private void Pick(Search search)
+        {
+            var resolved = index >= 0 ? index : search.Scopes.Count + index;
+            if ((uint) resolved < (uint) search.Scopes.Count && search.Scopes[resolved] is Element element)
+            {
+                search.Output.Add(element);
+            }
+        }
+    }
+
+    /// <summary><c>visible=true|false</c>: the matches that do, or do not, pass <c>checkVisibility</c>.</summary>
+    private sealed class VisiblePart(bool visible) : FilterPart
+    {
+        protected override bool Keeps(Search search, Element element)
+            => Layout.LayoutMembers.IsCheckVisible(search.Realm, element, checkOpacity: false, checkVisibility: true) == visible;
+    }
+
+    /// <summary><c>has-text=</c> / <c>has-not-text=</c>: the matches whose text does, or does not, contain it.</summary>
+    private sealed class HasTextPart(TextQuery query, bool has) : FilterPart
+    {
+        protected override bool Keeps(Search search, Element element)
+            => query.Matches(TextQuery.ElementText(element)) == has;
     }
 
     private readonly record struct Value(string Text, bool Quoted);

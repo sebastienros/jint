@@ -213,6 +213,9 @@ internal struct SelectorMatchWork
         internal Dictionary<CompiledSelector, bool>? ScopeDependencies;
         internal Dictionary<Node, SelectorSiblingPositions>? SiblingPositions;
         internal Dictionary<SelectorFilteredPositionKey, SelectorFilteredPositions>? FilteredPositions;
+        // :has() results per anchor. Like the positions above they hold as long as this cell: each invocation
+        // verifies the document stamp, and the key carries the scope, the shadow scope and the environment.
+        internal Dictionary<SelectorRelativeMatchKey, bool>? RelativeMatches;
         internal HtmlDisabledWork Native;
         internal bool Active;
         internal bool InCheckpoint;

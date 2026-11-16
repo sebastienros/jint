@@ -74,6 +74,10 @@ internal sealed class CompiledSelector
 
     internal sealed class Compound
     {
+        // SelectorMatcher.Direct: 0 until classified, then whether this compound alone can be matched by the
+        // allocation-free matcher (used for :has() candidates).
+        internal byte DirectShape;
+
         internal Compound(NamespaceMode namespaceMode, string? namespaceUri, string? typeName,
             bool explicitType, IReadOnlyList<Predicate> predicates, CssSourceSpan span)
         {

@@ -7803,7 +7803,7 @@
         {
           "DomName": "focus",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.focus\");\nglobal::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);\nreturn global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.focus\");\nglobal::Jint.Browser.Events.FocusController.FocusFromScript(self.Realm, self.Target, args, \"HTMLElement\");\nreturn global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -10566,6 +10566,14 @@
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
+        },
+        {
+          "DomName": "setRangeText",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.setRangeText\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetRangeText(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTML text control selection API"
         },
         {
           "DomName": "setSelectionRange",
@@ -13613,6 +13621,14 @@
           "Origin": "IValidation.SetCustomValidity"
         },
         {
+          "DomName": "setRangeText",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.setRangeText\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetRangeText(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTML text control selection API"
+        },
+        {
           "DomName": "setSelectionRange",
           "Kind": 0,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.setSelectionRange\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionRange(self.Realm, self.Target, args);",
@@ -15412,7 +15428,7 @@
         {
           "DomName": "focus",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.focus\");\nglobal::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);\nreturn global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.focus\");\nglobal::Jint.Browser.Events.FocusController.FocusFromScript(self.Realm, self.Target, args, \"SVGElement\");\nreturn global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"

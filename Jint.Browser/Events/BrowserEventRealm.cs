@@ -101,6 +101,29 @@ internal sealed class BrowserEventRealm
     internal bool ActivationIsUserInitiated { get; set; }
 
     /// <summary>
+    /// Whether the focused element indicates its focus — the user agent's half of <c>:focus-visible</c>,
+    /// to which a text-entry control adds its own (<see cref="FocusController.IsFocusVisible"/>).
+    /// </summary>
+    /// <remarks>
+    /// https://drafts.csswg.org/selectors-4/#the-focus-visible-pseudo leaves the heuristics to the user
+    /// agent; these are Chromium's, decided by <see cref="FocusController.Focus"/> and by a key press. Per
+    /// engine, like the focused element they describe, and meaningless while nothing is focused.
+    /// </remarks>
+    internal bool FocusIndicated { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="FocusIndicated"/> came from <c>focus({ focusVisible })</c>, which a later key press
+    /// does not override.
+    /// </summary>
+    internal bool FocusIndicationRequested { get; set; }
+
+    /// <summary>
+    /// Whether the last focus a user moved was moved with a pointer and no key has been pressed since — what
+    /// a script's <c>focus()</c> inherits when the element it takes focus from indicated none.
+    /// </summary>
+    internal bool LastFocusByPointer { get; set; }
+
+    /// <summary>
     /// The element the last <c>mousedown</c> was dispatched at, which is half of where a <c>click</c> goes.
     /// </summary>
     /// <remarks>
@@ -152,6 +175,12 @@ internal sealed class BrowserEventRealm
     /// <see cref="MousePressTarget"/>, which is why it holds no wrapper and pins no document.
     /// </remarks>
     internal (Element Image, int X, int Y)? PendingImagePoint { get; set; }
+
+    /// <summary>
+    /// The drag-and-drop operation the mouse is in, or about to start: see <c>InputDispatcher.Drag</c>. Per
+    /// engine, like <see cref="MousePressTarget"/>, so a navigation in the middle of a drag ends it.
+    /// </summary>
+    internal DragOperation? Drag { get; set; }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — the coordinate

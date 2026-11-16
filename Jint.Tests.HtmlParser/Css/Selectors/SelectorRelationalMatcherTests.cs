@@ -347,4 +347,104 @@ public sealed class SelectorRelationalMatcherTests
             }, source.Token));
         checkpoints.Should().Be(1);
     }
+
+    private static Element Add(Document document, Node parent, string name, string? className = null)
+    {
+        var element = document.CreateElement(name);
+        if (className is not null) element.SetAttribute("class", className);
+        parent.AppendChild(element);
+        return element;
+    }
+
+    [Test]
+    public void HasInsideLogicalFunctionsMatchesOnTheAllocationFreePath()
+    {
+        var document = Document.CreateHtml();
+        var html = Add(document, document, "html");
+        var list = Add(document, html, "ul", "list");
+        var first = Add(document, list, "li", "a");
+        var second = Add(document, list, "li", "b");
+        Add(document, second, "span", "mark");
+
+        SelectorMatcher.Matches(Parse(":root:not(:has(.missing)) li"), first).Should().BeTrue();
+        SelectorMatcher.Matches(Parse(":root:not(:has(.mark)) li"), first).Should().BeFalse();
+        SelectorMatcher.Matches(Parse(":is(.list:has(> .b)) > li"), first).Should().BeTrue();
+        SelectorMatcher.Matches(Parse(".list:has(> .c) > li"), first).Should().BeFalse();
+        SelectorMatcher.Matches(Parse("li:has(.mark)"), second).Should().BeTrue();
+        SelectorMatcher.Matches(Parse("li:has(.mark)"), first).Should().BeFalse();
+        SelectorMatcher.Matches(Parse("li:not(:has(.mark))"), first).Should().BeTrue();
+        SelectorMatcher.Matches(Parse(":is(li:has(+ .b))"), first).Should().BeTrue();
+        SelectorMatcher.Matches(Parse(":is(li:has(+ .b))"), second).Should().BeFalse();
+        SelectorMatcher.Matches(Parse("li:has(~ .b)"), first).Should().BeTrue();
+        // A relative selector of several compounds still checks its anchor.
+        SelectorMatcher.Matches(Parse("ul:has(> li > .mark)"), list).Should().BeTrue();
+        SelectorMatcher.Matches(Parse("ul:has(> .mark)"), list).Should().BeFalse();
+        SelectorMatcher.TryMatch(Parse(":is(ul:has(.mark)) li.a"), first, out var specificity).Should().BeTrue();
+        specificity.Should().Be(new SelectorSpecificity(0, 2, 2));
+    }
+
+    [Test]
+    public void HasAnswerIsReusedForTheSameAnchorWithinOneMatchingWork()
+    {
+        var document = Document.CreateHtml();
+        var html = Add(document, document, "html");
+        var body = Add(document, html, "body");
+        for (var index = 0; index < 4096; index++) Add(document, body, "div");
+        var first = (Element) body.FirstChild!;
+        var last = (Element) body.LastChild!;
+        var program = Parse(":root:not(:has(.missing)) div");
+        var checkpoints = 0;
+        var work = new SelectorMatchWork(document, default, () => checkpoints++);
+
+        SelectorMatcher.TryMatch(program, first, out _, null, default, ref work).Should().BeTrue();
+        var scan = checkpoints;
+        scan.Should().BeGreaterThan(4, "the first answer walks the whole document");
+        SelectorMatcher.TryMatch(program, last, out _, null, default, ref work).Should().BeTrue();
+        (checkpoints - scan).Should().BeLessThan(2, "the root's :has() answer is reused for the next element");
+
+        // A mutation retires the work, and a fresh one sees the new answer.
+        Add(document, body, "p", "missing");
+        var retired = false;
+        try { SelectorMatcher.TryMatch(program, first, out _, null, default, ref work); }
+        catch (InvalidOperationException) { retired = true; }
+        retired.Should().BeTrue();
+        var fresh = new SelectorMatchWork(document, default);
+        SelectorMatcher.TryMatch(program, first, out _, null, default, ref fresh).Should().BeFalse();
+    }
+
+    [Test]
+    public void OneCompoundHasCandidatesAllocateNoFramePerCandidate()
+    {
+        var document = Document.CreateHtml();
+        var list = Add(document, document, "ul", "list");
+        for (var index = 0; index < 4096; index++) Add(document, list, "li", "item");
+        var program = Parse(".list:has(> .missing)");
+        SelectorMatcher.Matches(program, list).Should().BeFalse();
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        SelectorMatcher.Matches(program, list).Should().BeFalse();
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        // Frames per candidate were about 400 bytes each, 1.6 MB here; what is left does not grow with the list.
+        allocated.Should().BeLessThan(16 * 1024);
+    }
+
+    [Test]
+    public void NestingReferenceMatchesThroughACompoundOrARelationalParent()
+    {
+        var document = Document.CreateHtml();
+        var main = Add(document, document, "main", "page");
+        var card = Add(document, main, "article", "card");
+        var title = Add(document, card, "h3", "title");
+        var stray = Add(document, main, "h3", "title");
+
+        var compound = SelectorCompiler.Compile("& .title", new SelectorParseContext(nestingParent: Parse(".card")), default);
+        SelectorMatcher.Matches(compound, title).Should().BeTrue();
+        SelectorMatcher.Matches(compound, stray).Should().BeFalse();
+        var relational = SelectorCompiler.Compile("& .title", new SelectorParseContext(nestingParent: Parse(".page > .card")), default);
+        SelectorMatcher.Matches(relational, title).Should().BeTrue();
+        SelectorMatcher.Matches(relational, stray).Should().BeFalse();
+        var implied = SelectorCompiler.Compile(".title", new SelectorParseContext(nestingParent: Parse("article, aside")), default);
+        SelectorMatcher.Matches(implied, title).Should().BeTrue();
+        SelectorMatcher.Matches(implied, stray).Should().BeFalse();
+    }
 }

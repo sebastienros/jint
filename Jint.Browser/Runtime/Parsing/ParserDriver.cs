@@ -79,13 +79,31 @@ internal sealed partial class ParserDriver : IDisposable
         string? defaultStyle = null,
         Action<ParserDriver>? beforeParse = null)
     {
-        using var construction = runtime.Layout.BeginMutation();
+        // Tree construction is a native writer geometry cannot track, so retained measurements are suspended until
+        // the parser reaches the end; what runs after it — deferred and module scripts, DOMContentLoaded, load —
+        // writes through tracked bindings and attaches resources in scopes of its own.
+        var construction = runtime.Layout.BeginMutation();
+        var constructing = true;
         var driver = new ParserDriver(runtime, url, runtime.Cancellation?.Token ?? CancellationToken.None);
+        driver._endConstruction = EndConstruction;
         runtime.Parser = driver;
         runtime.Engine.Disposed += (_, _) => driver.Dispose();
         try { return driver.Run(markup, contentType, onPhase, lastModified, defaultStyle, beforeParse); }
         catch { driver.Dispose(); runtime.Parser = null; throw; }
+        finally { EndConstruction(); }
+
+        void EndConstruction()
+        {
+            if (constructing)
+            {
+                constructing = false;
+                construction.Dispose();
+            }
+        }
     }
+
+    // Ends the initial tree construction's mutation scope, once; see Load.
+    private Action? _endConstruction;
 
     /// <summary>Releases the baton, once the parse it served has finished.</summary>
     private bool _disposed;
@@ -438,6 +456,11 @@ internal sealed partial class ParserDriver : IDisposable
         return Serve(() =>
         {
             var images = _runtime.Images;
+
+            if (Media.ImageSourceSet.UsesSourceSet(_runtime, image))
+            {
+                images.RememberSourceSet(image);
+            }
 
             // https://html.spec.whatwg.org/multipage/images.html#update-the-source-set
             // Select from the native element's attributes using the page's viewport and media state.
@@ -936,6 +959,7 @@ internal sealed partial class ParserDriver : IDisposable
         // https://html.spec.whatwg.org/multipage/parsing.html#the-end step 2. Browser owns readiness and
         // its events; native tree construction does not advance the page lifecycle.
         SetReadyState("interactive", recordTiming);
+        _endConstruction?.Invoke();
 
         // Module execution is Browser work and must honor the same scripting policy as classic scripts.
         if (_runtime.ScriptingEnabled)

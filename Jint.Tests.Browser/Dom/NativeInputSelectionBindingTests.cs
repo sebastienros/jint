@@ -42,4 +42,27 @@ public sealed class NativeInputSelectionBindingTests
         dom.Engine.Tasks.ProcessTasks();
         dom.Bool("selects===2 && changes===1").Should().BeTrue();
     }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-textarea/input-setrangetext —
+    /// the one-argument form replaces the selection, the ranged form maps the selection by its mode, and two
+    /// arguments match no overload.
+    /// </summary>
+    [TestCase("input")]
+    [TestCase("textarea")]
+    public void SetRangeTextReplacesTheSelectionOrARangeAndMapsTheSelection(string tag)
+    {
+        using var dom = DomTestFixture.Create(tag == "input" ? "<input id=i value='Type: '>" : "<textarea id=i>Type: </textarea>");
+        dom.Execute("var i=document.getElementById('i'); i.setSelectionRange(6,6); i.setRangeText('{{ x }}');");
+        dom.Bool("i.value==='Type: {{ x }}' && i.selectionStart===6 && i.selectionEnd===6").Should().BeTrue();
+        dom.Execute("i.setRangeText('X', 0, 4, 'select');");
+        dom.Bool("i.value==='X: {{ x }}' && i.selectionStart===0 && i.selectionEnd===1").Should().BeTrue();
+        dom.Execute("i.setRangeText('YY', 0, 1, 'end');");
+        dom.Bool("i.value==='YY: {{ x }}' && i.selectionStart===2 && i.selectionEnd===2").Should().BeTrue();
+        dom.Execute("i.setSelectionRange(4, 6); i.setRangeText('--', 0, 0);");
+        dom.Bool("i.value==='--YY: {{ x }}' && i.selectionStart===6 && i.selectionEnd===8").Should().BeTrue();
+        dom.Text("(() => {try {i.setRangeText('a', 1);} catch(e) {return e.name;}})()").Should().Be("TypeError");
+        dom.Text("(() => {try {i.setRangeText('a', 2, 1);} catch(e) {return e.name;}})()").Should().Be("IndexSizeError");
+        dom.Text("(() => {try {i.setRangeText('a', 0, 1, 'bogus');} catch(e) {return e.name;}})()").Should().Be("TypeError");
+    }
 }

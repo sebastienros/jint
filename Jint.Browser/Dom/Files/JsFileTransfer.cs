@@ -117,6 +117,31 @@ internal sealed class JsDataTransfer : ObjectInstance
 
     internal JsDataTransferItemList Items { get; }
 
+    /// <summary>
+    /// A store the user agent created for a drag: https://html.spec.whatwg.org/multipage/dnd.html#dom-datatransfer-effectallowed
+    /// starts as <c>uninitialized</c>, for <c>dragstart</c> listeners to restrict.
+    /// </summary>
+    internal void InitializeForDrag()
+    {
+        EffectAllowed = "uninitialized";
+        DropEffect = "none";
+    }
+
+    /// <summary>
+    /// The drop effect a <c>dragenter</c> or <c>dragover</c> starts with, from the effect the source allowed:
+    /// https://html.spec.whatwg.org/multipage/dnd.html#dndevents, the table's default for each value.
+    /// </summary>
+    internal void PrepareDropEffect() => DropEffect = EffectAllowed switch
+    {
+        "none" => "none",
+        "copy" or "copyLink" or "copyMove" or "all" => "copy",
+        "link" or "linkMove" => "link",
+        _ => "move",
+    };
+
+    /// <summary>What a drag nobody accepted, or one that ended without a drop, reports: <c>none</c>.</summary>
+    internal void ResetDropEffect() => DropEffect = "none";
+
     internal JsValue SetDropEffect(JsValue[] arguments)
     {
         var value = TypeConverter.ToString(arguments.At(0));

@@ -226,6 +226,9 @@ internal static class SubresourceFetch
             ? string.Join(", ", values)
             : null;
 
+    // The largest declared body allocated up front, before a byte of it has arrived.
+    private const int MaxEagerBytes = 8 * 1024 * 1024;
+
     /// <summary>Reads the body, refusing one that grows past the cap rather than buffering it first.</summary>
     internal static async Task<byte[]> ReadBoundedAsync(HttpResponseMessage response, long maxBytes, CancellationToken cancellationToken)
     {
@@ -239,12 +242,49 @@ internal static class SubresourceFetch
 #pragma warning restore CA2007
 
         // Content-Length is only a capacity hint. Cap eager allocation and still read through EOF:
-        // a custom transport can declare a smaller body or provide no length at all.
-        var capacity = (int) Math.Min(response.Content.Headers.ContentLength ?? 0, 64 * 1024);
-        using var buffer = new MemoryStream(capacity);
+        // a custom transport can declare a smaller body or provide no length at all. A declared length within
+        // the cap is read straight into an array of that size, the one the body ends up in.
+        var declaredLength = response.Content.Headers.ContentLength;
+        byte[]? exact = null;
+        var filled = 0;
+        if (declaredLength is > 0 and <= MaxEagerBytes && declaredLength <= maxBytes)
+        {
+            exact = new byte[declaredLength.Value];
+            while (filled < exact.Length)
+            {
+                var read = await stream.ReadAsync(exact.AsMemory(filled), cancellationToken).ConfigureAwait(false);
+                if (read == 0)
+                {
+                    return filled == exact.Length ? exact : exact.AsSpan(0, filled).ToArray();
+                }
+
+                filled += read;
+            }
+        }
+
         var chunk = ArrayPool<byte>.Shared.Rent(16 * 1024);
         try
         {
+            var capacity = (int) Math.Min(declaredLength ?? 0, 64 * 1024);
+            using var buffer = new MemoryStream(Math.Max(capacity, filled));
+            if (exact is not null)
+            {
+                // The declared length is in: unless the transport sends more than it said, that is the body.
+                var more = await stream.ReadAsync(chunk.AsMemory(0, 16 * 1024), cancellationToken).ConfigureAwait(false);
+                if (more == 0)
+                {
+                    return exact;
+                }
+
+                if (exact.Length + more > maxBytes)
+                {
+                    throw new SubresourceFetchException("", "the resource exceeded the " + Describe(maxBytes) + " a page may load.");
+                }
+
+                buffer.Write(exact, 0, filled);
+                buffer.Write(chunk, 0, more);
+            }
+
             while (true)
             {
                 var read = await stream.ReadAsync(chunk.AsMemory(0, 16 * 1024), cancellationToken).ConfigureAwait(false);
