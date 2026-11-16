@@ -35,8 +35,9 @@ fall out of the row rule and every one of them is load-bearing:
 - **A `visibility: hidden|collapse` box is laid out and never hit**, as [CSS 2 §11.2](https://www.w3.org/TR/CSS2/visufx.html#visibility)
   says: it keeps its rows, its rectangle and its client rectangles, so hiding an editor's caret or a hover
   toolbar moves nothing after it, and a hit test passes through it to the visible box beneath. A
-  `visibility: visible` descendant is hit, since visibility is checked box by box. A document with an
-  invisible box takes the rectangle hit test, as one with a flex row does.
+  `visibility: visible` descendant is hit, since visibility is checked box by box. An invisible absolutely
+  or fixed positioned box has no box at all: it takes no space in a browser, so showing a hover overlay moves
+  nothing either. A document with an invisible box takes the rectangle hit test, as one with a flex row does.
 
 **An absolutely or fixed positioned box is as wide as CSS 2 §10.3.7 makes it, and covers its own pixel height.**
 Its `width`, else, when its `left` or `right` is `auto`, its shrink-to-fit width: the preferred width of its

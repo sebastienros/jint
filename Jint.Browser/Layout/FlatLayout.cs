@@ -162,8 +162,14 @@ internal sealed class FlatLayout
         }
 
         // A visibility: hidden box is still laid out, as CSS 2 §11.2 says, so hiding an editor's caret moves
-        // nothing; it is only not hit (IsInvisible).
-        return visibility.RenderingReasonFor(element, cascade) is AxIgnoredReason.None or AxIgnoredReason.NotVisible;
+        // nothing; it is only not hit (IsInvisible). One out of flow takes no space in a browser at all, so
+        // giving it rows would move what follows it: it keeps no box, as an overlay shown on hover is.
+        return visibility.RenderingReasonFor(element, cascade) switch
+        {
+            AxIgnoredReason.None => true,
+            AxIgnoredReason.NotVisible => !IsOutOfFlow(element, cascade),
+            _ => false,
+        };
     }
 
     /// <summary>

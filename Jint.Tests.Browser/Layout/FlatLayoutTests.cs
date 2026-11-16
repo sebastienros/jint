@@ -389,11 +389,15 @@ public class FlatLayoutTests
         await page.SetContentAsync(
             """
             <div id="wrapper"><div id="invisible" style="visibility: hidden">d</div></div>
+            <div id="overlay" style="position: absolute; visibility: hidden">out of flow</div>
             <div id="after">e</div>
             """);
 
         (await Rect(page, "document.getElementById('invisible')")).Should().Be($"0,{3 * Row},1280,{Row}");
         (await page.EvaluateAsync<int>("document.getElementById('invisible').getClientRects().length")).Should().Be(1);
+
+        // An out-of-flow one takes no space in a browser, so it has no rows to keep.
+        (await page.EvaluateAsync<int>("document.getElementById('overlay').getClientRects().length")).Should().Be(0);
         (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{4 * Row},1280,{Row}");
         (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {3.5 * Row}).id")).Should().Be("wrapper");
 
