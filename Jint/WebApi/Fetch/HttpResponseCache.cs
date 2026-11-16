@@ -282,6 +282,23 @@ internal sealed partial class HttpResponseCache : IDisposable
     private static bool Excluded(string name) => name.ToLowerInvariant() is "set-cookie" or "connection" or "keep-alive"
         or "proxy-authenticate" or "proxy-authorization" or "te" or "trailer" or "transfer-encoding" or "upgrade";
 
+    /// <summary>
+    /// A stored response's body, served as any content is, and readable as the cache's own array by a consumer that
+    /// only reads it: a page's every script and style sheet comes from here, and copying each one out on every page
+    /// allocated the whole of them again. The array is never written after it is stored; a revalidation or a new
+    /// response replaces the entry's array rather than changing it.
+    /// </summary>
+    internal sealed class StoredBodyContent : ByteArrayContent
+    {
+        internal StoredBodyContent(byte[] body) : base(body)
+        {
+            Body = body;
+        }
+
+        /// <summary>The stored bytes, which the reader must not change.</summary>
+        internal byte[] Body { get; }
+    }
+
     internal sealed class Entry
     {
         internal string Key { get; set; } = "";
@@ -324,7 +341,7 @@ internal sealed partial class HttpResponseCache : IDisposable
         {
             var response = new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new ByteArrayContent(Body),
+                Content = new StoredBodyContent(Body),
                 ReasonPhrase = Reason,
             };
             foreach (var header in ResponseHeaders) Add(response, header.Key, header.Value);
