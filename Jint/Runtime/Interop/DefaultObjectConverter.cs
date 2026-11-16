@@ -173,6 +173,18 @@ internal static class DefaultObjectConverter
             }
             else
             {
+#if !NET8_0_OR_GREATER
+                // Without a reference to System.Text.Json a JsonValue is known by its type, asked here rather than
+                // beside the typed lane above so that a value the caches answer for pays nothing: a JsonValue is never
+                // cached, being converted rather than wrapped, and every other value reaching this point is about to
+                // be wrapped, which costs far more than one lookup per runtime type.
+                if (SystemTextJsonNodes.TryConvertValue(value, t, out var jsonPrimitive))
+                {
+                    result = jsonPrimitive;
+                    return true;
+                }
+#endif
+
                 var wrapped = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value, type);
 
                 if (ReferenceEquals(wrapped?.GetPrototypeOf(), engine.Realm.Intrinsics.Object.PrototypeObject)
