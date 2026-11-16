@@ -9104,6 +9104,27 @@ Two fixes reach every target framework, .NET 10 included:
 **What could break:** script, or an `ObjectConverter`, that handled the wrapper. A converter that turned `JsonValue`
 into a primitive itself still works: registered converters run before Jint's own conversion. There is no switch back.
 
+### 4.250 `Intl.Segmenter` finds words by the Unicode word boundary rules ([#4683](https://github.com/sebastienros/jint/issues/4683))
+
+`Intl.Segmenter` with `granularity: "word"` now applies the word boundary rules of
+[UAX #29](https://www.unicode.org/reports/tr29/#Word_Boundary_Rules) as ICU's root rules tailor them, the way V8 and
+SpiderMonkey do, with Unicode 17.0 data of its own. In 4.x and earlier 5.0 builds it joined letters, digits, `'` and
+`-` by a rule of its own, so a host that counts or indexes the words of a text gets different words:
+
+| Input | 4.x / earlier 5.0 | 5.x and Node 26 |
+| --- | --- | --- |
+| `e-mail me` | `e-mail`, ` `, `me` | `e`, `-`, `mail`, ` `, `me` |
+| `a.b` / `x@y.com` | `a`, `.`, `b` / `x`, `@`, `y`, `.`, `com` | `a.b` / `x`, `@`, `y.com` |
+| `don’t` (U+2019) | `don`, `’`, `t` | `don’t` |
+| `a_b` | `a`, `_`, `b` | `a_b` |
+| `thumbs 👍🏽 up` on `net472` | the emoji split in two | the emoji one segment |
+
+`isWordLike` is ICU's rule status: true for a segment that ends with a letter, a number, kana or an ideograph, so
+`__` and `Ⓜ` are now word-like and `々` alone is not. The segments are the same on every target framework; they used
+to follow the runtime's own Unicode data, which on `net472` predates emoji sequences and many scripts. ICU splits a
+run of Chinese, Japanese, Thai, Lao, Khmer or Myanmar text into words with a dictionary that Jint does not have, so
+such a run is still one word-like segment, as it was before. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
