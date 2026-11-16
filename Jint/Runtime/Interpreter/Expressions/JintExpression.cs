@@ -616,7 +616,9 @@ internal abstract class JintExpression
             return nx < ny ? JsBoolean.True : JsBoolean.False;
         }
 
-        return string.CompareOrdinal(TypeConverter.ToString(x), TypeConverter.ToString(y)) < 0 ? JsBoolean.True : JsBoolean.False;
+        // Both primitives are strings: compare them, not the operands, which would run an object's toString again
+        // (https://tc39.es/ecma262/#sec-islessthan step 3).
+        return string.CompareOrdinal(px.ToString(), py.ToString()) < 0 ? JsBoolean.True : JsBoolean.False;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
