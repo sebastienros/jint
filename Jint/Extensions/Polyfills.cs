@@ -359,6 +359,18 @@ internal static class DoublePolyfills
     }
 }
 
+internal static class SinglePolyfills
+{
+    extension(float)
+    {
+#if NETFRAMEWORK || NETSTANDARD2_0
+        // float.IsFinite arrived with double.IsFinite, in .NET Core 3.0 / netstandard2.1.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+#endif
+    }
+}
+
 internal static class BytePolyfills
 {
     extension(byte)
