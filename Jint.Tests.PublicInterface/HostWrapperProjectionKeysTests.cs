@@ -154,7 +154,8 @@ public class HostWrapperProjectionKeysTests
     /// <summary>
     /// <c>Object.preventExtensions</c> alone makes a wrapper list its projections, in the order an array lists
     /// <c>length</c> and an own <c>Symbol.iterator</c>. They are still configurable, so the wrapper is neither sealed
-    /// nor frozen, which <c>isSealed</c> and <c>isFrozen</c> used to answer without having looked.
+    /// nor frozen, which <c>isSealed</c> and <c>isFrozen</c> used to answer without having looked. A non-extensible view
+    /// lists its CLR members as well, ahead of its projections (#4682); <see cref="WithoutClrMembers"/> leaves them out.
     /// </summary>
     [Test]
     public void ANonExtensibleWrapperListsItsProjections()
@@ -162,10 +163,16 @@ public class HostWrapperProjectionKeysTests
         var engine = CreateEngine(new List<int> { 1, 2 });
 
         engine.Evaluate(
-            """
+            $$"""
             const before = Reflect.ownKeys(host).map(String).join();
             Object.preventExtensions(host);
-            [before, Reflect.ownKeys(host).map(String).join(), Object.getOwnPropertyNames(host).join(), Object.isSealed(host), Object.isFrozen(host)].join(';')
+            [
+              before,
+              {{WithoutClrMembers("Reflect.ownKeys(host)")}}.join(),
+              {{WithoutClrMembers("Object.getOwnPropertyNames(host)")}}.join(),
+              Object.isSealed(host),
+              Object.isFrozen(host),
+            ].join(';')
             """).AsString().Should().Be("0,1;0,1,length,Symbol(Symbol.iterator);0,1,length;false;false");
     }
 
@@ -202,11 +209,11 @@ public class HostWrapperProjectionKeysTests
         }
 
         engine.Evaluate(
-            """
+            $$"""
             Object.defineProperty(host, 'tag', { value: 1, configurable: true });
             Object.defineProperty(host, Symbol.for('s'), { value: 2, configurable: true });
             Object.freeze(host);
-            Reflect.ownKeys(host).map(String).join()
+            {{WithoutClrMembers("Reflect.ownKeys(host)")}}.join()
             """).AsString().Should().Be("0,1,length,tag,Symbol(Symbol.iterator),Symbol(s)");
     }
 
@@ -336,13 +343,13 @@ public class HostWrapperProjectionKeysTests
         var engine = CreateEngine(new List<int> { 1, 2 });
 
         engine.Evaluate(
-            """
+            $$"""
             Object.freeze(host);
             let hidden;
             try { Reflect.ownKeys(new Proxy(host, { ownKeys: () => ['0', '1'] })); hidden = 'no error'; }
             catch (e) { hidden = e instanceof TypeError ? 'TypeError' : 'unexpected: ' + e; }
-            const forwarded = Reflect.ownKeys(new Proxy(host, {})).map(String).join();
-            const trapped = Reflect.ownKeys(new Proxy(host, { ownKeys: t => Reflect.ownKeys(t) })).map(String).join();
+            const forwarded = {{WithoutClrMembers("Reflect.ownKeys(new Proxy(host, {}))")}}.join();
+            const trapped = {{WithoutClrMembers("Reflect.ownKeys(new Proxy(host, { ownKeys: t => Reflect.ownKeys(t) }))")}}.join();
             [hidden, forwarded, trapped].join(';')
             """).AsString().Should().Be("TypeError;0,1,length,Symbol(Symbol.iterator);0,1,length,Symbol(Symbol.iterator)");
     }
@@ -364,6 +371,12 @@ public class HostWrapperProjectionKeysTests
         wrapper.GetOwnPropertyKeys().Select(key => key.ToString()).Should().Contain("Symbol(Symbol.dispose)");
         wrapper.GetOwnProperties().Select(pair => pair.Key.ToString()).Should().Contain("Symbol(Symbol.dispose)");
     }
+
+    /// <summary>
+    /// <paramref name="keys"/>, a script expression listing a wrapper's keys, as strings and without the CLR members a
+    /// non-extensible view lists, which are all PascalCase.
+    /// </summary>
+    private static string WithoutClrMembers(string keys) => $"{keys}.filter(k => typeof k !== 'string' || !/^[A-Z]/.test(k)).map(String)";
 
     private static Engine CreateEngine(object host)
     {

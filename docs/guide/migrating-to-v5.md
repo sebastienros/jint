@@ -8241,7 +8241,9 @@ numeric ones included, exactly as before; the script's indices join a leading ru
 and lead the list when there is none.
 
 No key is listed twice. A CLR member, element or entry the script redefines is still the target's and stays where
-the target lists it, which on a view means not at all for a member such as `Contains`. A key the script defined
+the target lists it, which on an extensible view means not at all for a member such as `Contains` (a non-extensible
+view lists its members,
+[§4.249](#4-249-a-wrapped-clr-objects-member-deleted-once-it-is-non-extensible-stays-deleted-and-a-non-extensible-view-or-dictionary-lists-its-members-4682)). A key the script defined
 that a dictionary later gains as an entry is listed once, in the dictionary's place. `for..of` over a dictionary
 still yields only its entries.
 
@@ -8924,10 +8926,13 @@ A projection is now listed in two cases:
   projection is listed from then on, so `seal` and `freeze` make each of them non-configurable, and `isSealed` and
   `isFrozen` check each of them.
 
-An extensible wrapper whose projections the script has not redefined lists exactly what it did before, and a
+An extensible wrapper whose projections the script has not redefined lists exactly what it did before, and on it a
 reflected member such as `Count` or `ToString` is still not listed. A listed projection follows the target's keys and
 comes ahead of the properties the script created, as an array's `length` does: `Reflect.ownKeys` over a frozen
-`List<int> { 1, 2 }` is `['0', '1', 'length', Symbol(Symbol.iterator)]`. The projections are non-enumerable, so
+`List<int> { 1, 2 }` is `['0', '1', 'length', Symbol(Symbol.iterator)]` with the list's members, which a
+non-extensible view lists since
+[§4.249](#4-249-a-wrapped-clr-objects-member-deleted-once-it-is-non-extensible-stays-deleted-and-a-non-extensible-view-or-dictionary-lists-its-members-4682),
+between `'1'` and `'length'`. The projections are non-enumerable, so
 `Object.keys`, `for..in`, `Object.assign`, spread and `JSON.stringify` do not change. `Reflect.ownKeys`,
 `Object.getOwnPropertyNames`, `Object.getOwnPropertySymbols`, and `GetOwnPropertyKeys` / `GetOwnProperties` on the host
 side include them. An `ownKeys` trap of a proxy over such a wrapper that leaves one out now throws a `TypeError`.
@@ -9103,6 +9108,61 @@ Two fixes reach every target framework, .NET 10 included:
 
 **What could break:** script, or an `ObjectConverter`, that handled the wrapper. A converter that turned `JsonValue`
 into a primitive itself still works: registered converters run before Jint's own conversion. There is no switch back.
+
+### 4.249 A wrapped CLR object's member deleted once it is non-extensible stays deleted, and a non-extensible view or dictionary lists its members ([#4682](https://github.com/sebastienros/jint/issues/4682))
+
+A member a wrapped CLR object resolves from its type, such as a method, broke two rules of a non-extensible object
+([§6.1.7.3](https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods)), as
+[§4.244](#4-244-a-wrapped-clr-object-keeps-a-projection-the-script-redefined-or-deleted-instead-of-making-it-again-from-the-clr-side-4678)
+fixed for the projections.
+
+**A member deleted from a non-extensible wrapper stays deleted.** A method is reported configurable, and `delete`
+answered `true`, but the next read resolved it from the CLR type again:
+
+```js
+// host: engine.SetValue("list", new List<int> { 1, 2 }); engine.SetValue("poco", new Poco()); // string Hello()
+Object.preventExtensions(poco);
+delete poco.Hello            // true, as before
+typeof poco.Hello            // earlier previews: 'function'    5.x: 'undefined'
+'Hello' in poco              // earlier previews: true          5.x: false
+```
+
+The read reaches the prototype, as it does on an ordinary object, and `Object.defineProperty` or a write cannot put the
+member back. A proxy whose `deleteProperty` trap forwards to such a wrapper no longer throws a `TypeError`. A member
+reported non-configurable, such as a property, is not deleted, as before. On an extensible wrapper nothing changes: a
+deleted member is resolved again on the next read.
+
+**A non-extensible view or dictionary lists its members.** A list or array view lists its positions, and a dictionary
+its entries, and neither listed `Contains`, `Count`, `ContainsKey` or any other member, though
+`Object.getOwnPropertyDescriptor` describes each. Once the wrapper is non-extensible (`Object.preventExtensions`,
+`Object.seal`, `Object.freeze`) they are listed, after the positions or entries and ahead of the projections:
+
+```js
+Object.freeze(list);
+Reflect.ownKeys(list)        // earlier previews: ['0', '1', 'length', Symbol(Symbol.iterator)]
+                             // 5.x: ['0', '1', 'Capacity', 'Count', 'Add', ..., 'length', Symbol(Symbol.iterator)]
+Object.getOwnPropertyDescriptor(list, 'Contains').configurable
+                             // earlier previews: true, though isFrozen was true    5.x: false
+```
+
+So `Object.freeze` and `Object.seal` reach every member, and `isFrozen` and `isSealed` check each of them. A proxy's
+`ownKeys` trap over such a wrapper may report a member `getOwnPropertyDescriptor` describes, which threw a
+`TypeError` before. A member is listed under its CLR name; a lowerCamel spelling the resolver also answers, such as
+`contains`, is not. An extensible view or dictionary lists exactly what it did before.
+
+**Each name is listed once.** A plain wrapper listed an overloaded method once per overload, so `Reflect.ownKeys` over
+an object with `Hello()` and `Hello(string)` gave `['Hello', 'Hello']`, and a forwarding `ownKeys` trap threw.
+
+**A member of a view or a dictionary is non-enumerable.** A string-keyed dictionary's members already were. A list's
+`Count` and `Capacity`, an array's `Length`, and the properties of a dictionary of any other key type reported
+`enumerable: true`, which no enumeration showed because none listed them. They report `false` now, so `Object.keys`,
+`for..in`, spread, `Object.assign` and `JSON.stringify` over a frozen view or dictionary still give its positions or
+entries alone. On a `Hashtable`, a key spelled like a member, such as `Values`, is still that entry, and enumerable.
+
+**What could break:** `Reflect.ownKeys` and `Object.getOwnPropertyNames` over a sealed, frozen or non-extensible view
+or dictionary now include its members; filter on `Object.keys` for the contents alone. A script that read
+`Object.getOwnPropertyDescriptor(list, 'Count').enumerable` reads `false`. A script that deletes a member from a
+non-extensible wrapper and then reads it gets `undefined`. There is no switch back.
 
 ### 4.250 `Intl.Segmenter` finds words by the Unicode word boundary rules ([#4683](https://github.com/sebastienros/jint/issues/4683))
 

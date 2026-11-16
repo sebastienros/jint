@@ -102,7 +102,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <summary>
     /// Which projections the script has taken over, so that the lanes that would make one from the CLR side leave it
     /// alone. <see cref="ProjectionTakeover.None"/> for nearly every wrapper, and read only on a <c>length</c> read or
-    /// write, and where a projection would be made again.
+    /// write, and where a projection or a member would be made again.
     /// </summary>
     /// <remarks>
     /// Without it a projection came back after the script took it over (sebastienros/jint#4528's follow-up). Two
@@ -110,8 +110,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// looking at the property the script stored, so <c>[[Get]]</c> disagreed with <c>[[GetOwnProperty]]</c>. And
     /// <see cref="GetOwnProperty(JsValue)"/> made <c>@@iterator</c> again, and resolved <c>toJSON</c> or an array's
     /// <c>Length</c> again, after the script deleted one from a non-extensible wrapper, which may not gain a property
-    /// (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods). A byte in padding, as
-    /// <see cref="_hasListedOwnKeys"/> is, and for the same reason.
+    /// (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods). A reflected member, such as a
+    /// method, came back the same way (sebastienros/jint#4682). A byte in padding, as <see cref="_hasListedOwnKeys"/>
+    /// is, and for the same reason.
     /// </remarks>
     private ProjectionTakeover _projectionTakeover;
 
@@ -137,7 +138,24 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         /// <summary><c>@@iterator</c> was deleted from a non-extensible wrapper.</summary>
         IteratorDeleted = 8,
+
+        /// <summary>
+        /// A member resolved from the CLR type, such as a method, was deleted from a non-extensible wrapper. Its name
+        /// is in <see cref="_membersDeletedWhileNonExtensible"/>.
+        /// </summary>
+        MemberDeleted = 16,
     }
+
+    /// <summary>
+    /// The names of the members the script deleted from a wrapper once it was non-extensible, which
+    /// <see cref="GetOwnProperty(JsValue)"/> must therefore not resolve from the CLR type again.
+    /// </summary>
+    /// <remarks>
+    /// A table beside the wrappers rather than a field on each, because every CLR object that crosses into script gets
+    /// a wrapper and almost none is ever made non-extensible and then has a member deleted. Only a wrapper carrying
+    /// <see cref="ProjectionTakeover.MemberDeleted"/> has an entry, so no other wrapper ever looks it up.
+    /// </remarks>
+    private static readonly ConditionalWeakTable<ObjectWrapper, HashSet<string>> _membersDeletedWhileNonExtensible = new();
 
     internal ObjectWrapper(
         Engine engine,
@@ -1117,13 +1135,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     }
 
     /// <summary>
-    /// Makes the wrapper non-extensible, after which it lists every property it projects among its own keys.
+    /// Makes the wrapper non-extensible, after which it lists every property it projects among its own keys, and a
+    /// collection view or a dictionary lists its members as well.
     /// </summary>
     /// <remarks>
     /// The projections are the <c>length</c> forwarder of a collection, <c>toJSON</c>, <c>Symbol.iterator</c>,
     /// <c>Symbol.dispose</c> and <c>Symbol.asyncDispose</c>. An extensible wrapper lists one only after the script
-    /// redefines it, so <c>Object.freeze</c>, <c>Object.seal</c>, <c>Object.isFrozen</c> and <c>Object.isSealed</c>
-    /// reach all of them.
+    /// redefines it, and an extensible view or dictionary lists only its contents, so <c>Object.freeze</c>,
+    /// <c>Object.seal</c>, <c>Object.isFrozen</c> and <c>Object.isSealed</c> reach all of them.
     /// </remarks>
     public override bool PreventExtensions()
     {
@@ -1140,8 +1159,25 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         ListEveryProjection(materialize: wasExtensible);
+        if (KeysAreContents)
+        {
+            // the members join the keys in GetOwnPropertyKeysWithListedOwnKeys
+            _hasListedOwnKeys = true;
+        }
+
         return true;
     }
+
+    /// <summary>
+    /// Whether the target's own keys are its contents rather than its members: a dictionary's entries, or a
+    /// collection view's positions. A member of such a wrapper is non-enumerable, and is listed among its keys only
+    /// once the wrapper is non-extensible.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ArrayLikeWrapper"/> is the only type deriving from this one, which is what lets the exact type test
+    /// stand for it: the JIT folds it to one method-table comparison.
+    /// </remarks>
+    private bool KeysAreContents => _typeDescriptor.IsDictionary || GetType() != typeof(ObjectWrapper);
 
     /// <summary>
     /// Whether <paramref name="property"/> names a property this wrapper projects itself, which its target does not
@@ -1228,26 +1264,34 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     }
 
     /// <summary>
-    /// Whether <paramref name="property"/> names a projection the script deleted from this wrapper once it was
-    /// non-extensible, which <see cref="GetOwnProperty(JsValue)"/> must therefore not make again.
+    /// Whether <paramref name="property"/> names a projection or a member the script deleted from this wrapper once it
+    /// was non-extensible, which <see cref="GetOwnProperty(JsValue)"/> must therefore not make or resolve again.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private bool WasDeletedWhileNonExtensible(JsValue property)
     {
         var bit = DeletedProjectionBit(property);
-        return bit != ProjectionTakeover.None && (_projectionTakeover & bit) != ProjectionTakeover.None;
+        if (bit != ProjectionTakeover.None)
+        {
+            return (_projectionTakeover & bit) != ProjectionTakeover.None;
+        }
+
+        return (_projectionTakeover & ProjectionTakeover.MemberDeleted) != ProjectionTakeover.None
+               && property is JsString name
+               && _membersDeletedWhileNonExtensible.TryGetValue(this, out var names)
+               && names.Contains(name.ToString());
     }
 
     /// <summary>
-    /// Records what removing <paramref name="property"/> from the wrapper did to its projections. Called once the
-    /// removal happened, by every lane that removes.
+    /// Records what removing <paramref name="property"/> from the wrapper did to its projections and members. Called
+    /// once the removal happened, by every lane that removes.
     /// </summary>
     /// <remarks>
     /// An extensible wrapper makes a deleted projection again on the next read, as it always has, and a deleted
-    /// <c>length</c> reads the count again. A non-extensible one may not gain a property
-    /// (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods), so it remembers which projection
-    /// is gone, and a read reaches the prototype from then on. Nothing can define the name again on it, so the record
-    /// is never cleared.
+    /// <c>length</c> reads the count again; a deleted member is resolved from the CLR type again. A non-extensible one
+    /// may not gain a property (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods), so it
+    /// remembers which projection or member is gone, and a read reaches the prototype from then on. Nothing can define
+    /// the name again on it, so the record is never cleared.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void NoteRemoved(JsValue property)
@@ -1255,6 +1299,11 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         var bit = DeletedProjectionBit(property);
         if (bit == ProjectionTakeover.None)
         {
+            if (!Extensible && property is JsString name)
+            {
+                NoteMemberRemoved(name.ToString());
+            }
+
             return;
         }
 
@@ -1276,6 +1325,31 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         // a plain wrapper's target reports a toJSON method among its keys, which the listed lane leaves out from now
         // on; every projection of a non-extensible wrapper is listed already, so this is normally set
+        _hasListedOwnKeys = true;
+    }
+
+    /// <summary>
+    /// Records that <paramref name="member"/> was removed from this non-extensible wrapper, when the name is one
+    /// <see cref="GetOwnProperty(JsValue)"/> would otherwise resolve from the CLR type again: a method, the only kind
+    /// of member reported configurable, or a member the script had redefined.
+    /// </summary>
+    /// <remarks>
+    /// A name the CLR type has no member for needs no record, nothing being there to resolve, and neither does an
+    /// indexer's: what it answers for is an entry or an element, which the removal took from the target itself, or
+    /// which the host may add back to it.
+    /// </remarks>
+    private void NoteMemberRemoved(string member)
+    {
+        var accessor = ResolveMemberAccessor(member, MemberResolutionRequirement.None);
+        if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor) || accessor is IndexerAccessor)
+        {
+            return;
+        }
+
+        _membersDeletedWhileNonExtensible.GetValue(this, static _ => new HashSet<string>(StringComparer.Ordinal)).Add(member);
+        _projectionTakeover |= ProjectionTakeover.MemberDeleted;
+
+        // a plain wrapper's target reports the member among its keys, which the listed lane leaves out from now on
         _hasListedOwnKeys = true;
     }
 
@@ -1706,11 +1780,65 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         List<JsValue> targetKeys = [.. EnumerateOwnPropertyKeys(types)];
         if (_projectionTakeover > ProjectionTakeover.Length)
         {
-            // a plain wrapper's target reports a public toJSON method by name, and it may have been deleted
+            // a plain wrapper's target reports its members by name, a public toJSON method among them, and one may
+            // have been deleted
             targetKeys.RemoveAll(WasDeletedWhileNonExtensible);
         }
 
-        return AddListedOwnKeys(targetKeys, types);
+        var targetKeyCount = targetKeys.Count;
+        if ((types & Types.String) != Types.Empty
+            && !Extensible
+            && KeysAreContents
+            && ReferenceEquals(_engine.Options.Interop.ObjectWrapperReportedPropertyKeys, Options.InteropOptions._defaultReportedPropertyKeys))
+        {
+            AddMembersOfANonExtensibleWrapper(targetKeys);
+        }
+
+        return AddListedOwnKeys(targetKeys, types, targetKeyCount);
+    }
+
+    /// <summary>
+    /// Adds the members a non-extensible view or dictionary describes to <paramref name="targetKeys"/>, after its
+    /// contents, in the order a plain wrapper lists its members.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An extensible view or dictionary lists its contents alone, and leaves its members out, as an array lists its
+    /// positions and not its methods. A non-extensible one may not: its <c>[[OwnPropertyKeys]]</c> must list exactly
+    /// the own properties <c>[[GetOwnProperty]]</c> answers
+    /// (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods), and it answers for every member
+    /// the CLR type has.
+    /// </para>
+    /// <para>
+    /// A member is listed only when <see cref="GetOwnProperty(JsValue)"/> answers it, which leaves out one the script
+    /// deleted, and a key the target reports already is not listed again: an entry spelled like a member, which is
+    /// what the wrapper answers for that name. The projections and the script's own keys are listed after this, so a
+    /// public <c>toJSON</c> method, which the wrapper projects, and a name the script created are left to them. A host
+    /// that replaced <see cref="Options.InteropOptions.ObjectWrapperReportedPropertyKeys"/> owns the key set, and the
+    /// caller does not reach this.
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void AddMembersOfANonExtensibleWrapper(List<JsValue> targetKeys)
+    {
+        HashSet<JsValue>? reported = null;
+        foreach (var name in EnumerateOwnPropertyKeys(Types.String, membersOnly: true))
+        {
+            if (IsProjection(name) || (reported ??= [.. targetKeys]).Contains(name))
+            {
+                continue;
+            }
+
+            var descriptor = GetOwnProperty(name, MemberResolutionRequirement.None, throwOnError: false);
+            if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
+                || (descriptor._flags & PropertyDescriptor.ListedOnWrapper) != PropertyFlag.None)
+            {
+                continue;
+            }
+
+            targetKeys.Add(name);
+            reported.Add(name);
+        }
     }
 
     /// <summary>
@@ -1736,9 +1864,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// keeps the target's place. Every key listed is one <see cref="GetOwnProperty(JsValue)"/> answers, which is
     /// what lets <c>Object.seal</c> and <c>Object.freeze</c> redefine each of them.
     /// </para>
+    /// <para>
+    /// <paramref name="targetKeyCount"/> is how many of <paramref name="targetKeys"/> the target reported, ahead of
+    /// the members a non-extensible view or dictionary lists after them; for a view, that is its positions.
+    /// </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private List<JsValue> AddListedOwnKeys(List<JsValue> targetKeys, Types types)
+    private List<JsValue> AddListedOwnKeys(List<JsValue> targetKeys, Types types, int targetKeyCount)
     {
         var includeStrings = (types & Types.String) != Types.Empty;
         var includeSymbols = (types & Types.Symbol) != Types.Empty;
@@ -1824,7 +1956,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             var index = isSymbol ? uint.MaxValue : ArrayInstance.ParseArrayIndex(key.ToString());
             if (targetReportsOnlyPositions)
             {
-                if (index < (uint) targetKeys.Count)
+                // a name is never one of the positions, and AddMembersOfANonExtensibleWrapper leaves a listed one out
+                if (index < (uint) targetKeyCount)
                 {
                     continue;
                 }
@@ -1921,12 +2054,19 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return merged;
     }
 
-    private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types)
+    /// <summary>
+    /// The target's own keys: a dictionary's entries, a view's positions, or a plain wrapper's members; or, with
+    /// <paramref name="membersOnly"/>, the members whatever the target is.
+    /// </summary>
+    private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types, bool membersOnly = false)
     {
         // prefer object order, add possible other properties after
         var includeStrings = (types & Types.String) != Types.Empty;
 
-        if (includeStrings)
+        // the contents a dictionary or a view reports in place of its members
+        var includeContents = includeStrings && !membersOnly;
+
+        if (includeContents)
         {
             var customKeys = _engine.Options.Interop.ObjectWrapperReportedPropertyKeys(_engine, Target);
             if (customKeys is not null)
@@ -1941,7 +2081,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
         }
 
-        if (includeStrings && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
+        if (includeContents && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
         {
             // IReadOnlyDictionary<,>.Keys is the one the descriptor may have found, and what ImmutableDictionary and
             // ImmutableSortedDictionary return through it is an iterator, not a collection. The collection test comes
@@ -1957,7 +2097,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 yield return JsString.Create(key);
             }
         }
-        else if (includeStrings && Target is IDictionary dictionary)
+        else if (includeContents && Target is IDictionary dictionary)
         {
             // we take values exposed as dictionary keys only; each step pulls from the user enumerator
             foreach (var key in dictionary.Keys)
@@ -1971,7 +2111,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 }
             }
         }
-        else if (includeStrings && _typeDescriptor.IsNonStringKeyedGenericDictionary && _typeDescriptor.KeysAccessor is { } keysAccessor)
+        else if (includeContents && _typeDescriptor.IsNonStringKeyedGenericDictionary && _typeDescriptor.KeysAccessor is { } keysAccessor)
         {
             // a non-string-keyed dictionary implementing only the generic contracts lists its keys as the branch
             // above does, not its CLR members: every other lane answers the keys (#4527)
@@ -1987,7 +2127,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 }
             }
         }
-        else if (includeStrings && this is ArrayLikeWrapper arrayLike)
+        else if (includeContents && this is ArrayLikeWrapper arrayLike)
         {
             // array-like views enumerate like JS arrays: index keys, not reflected CLR member names —
             // Object.keys / for-in / spread over a wrapped array or list must yield "0".."n-1"
@@ -2006,51 +2146,83 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             var interopOptions = _engine.Options.Interop;
 
-            // we take properties, fields and methods
+            // we take properties, fields and methods, each name once: a method's overloads, and a member a derived type
+            // hides with `new`, are one property (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods)
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
             {
-                foreach (var p in InDeclarationOrder(ClrType.GetProperties(interopOptions.ObjectWrapperReportedPropertyBindingFlags)))
+                var properties = InDeclarationOrder(ClrType.GetProperties(interopOptions.ObjectWrapperReportedPropertyBindingFlags));
+                for (var i = 0; i < properties.Length; i++)
                 {
-                    if (!interopOptions.TypeResolver.Filter(_engine, ClrType, p))
+                    if (IsReportedMember(properties[i]) && !IsReportedEarlier(properties, i))
                     {
-                        continue;
-                    }
-
-                    var indexParameters = p.GetIndexParameters();
-                    if (indexParameters.Length == 0)
-                    {
-                        yield return JsString.Create(p.Name);
+                        yield return JsString.Create(properties[i].Name);
                     }
                 }
             }
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Field) == MemberTypes.Field)
             {
-                foreach (var f in InDeclarationOrder(ClrType.GetFields(interopOptions.ObjectWrapperReportedFieldBindingFlags)))
+                var fields = InDeclarationOrder(ClrType.GetFields(interopOptions.ObjectWrapperReportedFieldBindingFlags));
+                for (var i = 0; i < fields.Length; i++)
                 {
-                    if (!interopOptions.TypeResolver.Filter(_engine, ClrType, f))
+                    if (IsReportedMember(fields[i]) && !IsReportedEarlier(fields, i))
                     {
-                        continue;
+                        yield return JsString.Create(fields[i].Name);
                     }
-
-                    yield return JsString.Create(f.Name);
                 }
             }
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Method) == MemberTypes.Method)
             {
-                foreach (var m in InDeclarationOrder(ClrType.GetMethods(interopOptions.ObjectWrapperReportedMethodBindingFlags)))
+                var methods = InDeclarationOrder(ClrType.GetMethods(interopOptions.ObjectWrapperReportedMethodBindingFlags));
+                for (var i = 0; i < methods.Length; i++)
                 {
-                    // we won't report anything from base object as it would usually not be something to expect from JS perspective
-                    if (m.DeclaringType == typeof(object) || m.IsSpecialName || !interopOptions.TypeResolver.Filter(_engine, ClrType, m))
+                    if (IsReportedMember(methods[i]) && !IsReportedEarlier(methods, i))
                     {
-                        continue;
+                        yield return JsString.Create(methods[i].Name);
                     }
-
-                    yield return JsString.Create(m.Name);
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Whether the member key enumeration reports <paramref name="member"/>: one the host's member filter admits, and
+    /// for a property one that is not an indexer, for a method one not declared on <see cref="object"/> and not a
+    /// property or event accessor.
+    /// </summary>
+    private bool IsReportedMember(MemberInfo member)
+    {
+        // we won't report anything from base object as it would usually not be something to expect from JS perspective
+        if (member is MethodInfo method && (method.DeclaringType == typeof(object) || method.IsSpecialName))
+        {
+            return false;
+        }
+
+        if (!_engine.Options.Interop.TypeResolver.Filter(_engine, ClrType, member))
+        {
+            return false;
+        }
+
+        return member is not PropertyInfo property || property.GetIndexParameters().Length == 0;
+    }
+
+    /// <summary>
+    /// Whether a member ahead of <c>members[index]</c> has its name and is reported, so that the name was listed
+    /// already. Asks the reported test only of a member spelled the same, which is an overload or a hidden member.
+    /// </summary>
+    private bool IsReportedEarlier(MemberInfo[] members, int index)
+    {
+        var name = members[index].Name;
+        for (var i = 0; i < index; i++)
+        {
+            if (string.Equals(members[i].Name, name, StringComparison.Ordinal) && IsReportedMember(members[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -2317,7 +2489,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
         }
 
-        var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, member, enumerable: !isDictionary);
+        var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, member, enumerable: !isDictionary && IsEnumerableMember(accessor, member));
         if (descriptor is ReflectionDescriptor reflectionDescriptor)
         {
             reflectionDescriptor.AttachOwner(this);
@@ -2332,6 +2504,21 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         return descriptor;
     }
+
+    /// <summary>
+    /// Whether the descriptor <paramref name="accessor"/> makes for <paramref name="member"/> is enumerable: always on a
+    /// wrapper whose keys are its members, and on one whose keys are its contents only when the name reads an entry.
+    /// </summary>
+    /// <remarks>
+    /// A view enumerates its positions and a dictionary its entries, and a non-extensible one lists its members among
+    /// its keys, so a member is non-enumerable there, as an array's methods are; a string-keyed dictionary's caller
+    /// answers that without asking. The exception is a member whose accessor probes an indexer taking the name first,
+    /// as on a <see cref="Hashtable"/>: when the target holds an entry under the name, that entry is what the name
+    /// reads, and it is enumerable. An indexer's own descriptor, an element or an entry, is enumerable whatever this
+    /// says.
+    /// </remarks>
+    private bool IsEnumerableMember(ReflectionAccessor accessor, string member)
+        => !KeysAreContents || accessor.IndexerAnswers(Target, member);
 
     /// <summary>
     /// The flags a dictionary entry is reported with, whatever its key type: enumerable, and writable and configurable
