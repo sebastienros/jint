@@ -9185,6 +9185,32 @@ to follow the runtime's own Unicode data, which on `net472` predates emoji seque
 run of Chinese, Japanese, Thai, Lao, Khmer or Myanmar text into words with a dictionary that Jint does not have, so
 such a run is still one word-like segment, as it was before. There is no switch back.
 
+### 4.251 A string iterates by code point, not by grapheme cluster ([#4228](https://github.com/sebastienros/jint/issues/4228))
+
+Iterating a string now yields one element per code point, as the specification and every other engine do: a
+surrogate pair is one element, and every other code unit is one element, a lone surrogate included. In 4.x and
+earlier 5.0 builds Jint yielded one element per .NET text element, which joins a CRLF, a letter and its combining
+marks, or an emoji sequence held together by U+200D (zero width joiner) into one element:
+
+```js
+[...'\r\n'].length                         // 4.x / earlier 5.0: 1    5.x: 2
+Array.from('e\u0301').length               // 4.x / earlier 5.0: 1    5.x: 2
+[...'\u{1F468}\u200D\u{1F469}'].length     // 4.x / earlier 5.0: 1    5.x: 3
+const [first] = '\r\n'; first              // 4.x / earlier 5.0: '\r\n'    5.x: '\r'
+```
+
+Every consumer of the string iterator changes with it: `for…of`, `for await…of`, spread, `Array.from`,
+`Array.fromAsync`, array destructuring, `new Set(string)`, `Iterator.from(string)`, `yield*` over a string, and
+`String.prototype[Symbol.iterator]` called directly. The old answers also depended on the runtime: .NET Framework kept a CRLF and an emoji
+sequence apart and joined only combining marks, while .NET 5 and later join all three. Every target now gives the same
+answer.
+
+**What could break:** a script that counted user-perceived characters with `[...s].length` or walked them with
+`for…of`. Splitting text into what a reader sees as characters is `Intl.Segmenter` with
+`{ granularity: 'grapheme' }`, which follows the same Unicode rules on every target framework
+([§4.252](#4-252-intl-segmenter-finds-grapheme-clusters-by-the-unicode-rules-the-same-on-every-target-framework)).
+There is no switch back.
+
 ### 4.252 `Intl.Segmenter` finds grapheme clusters by the Unicode rules, the same on every target framework
 
 `Intl.Segmenter` with `granularity: "grapheme"`, the default, now applies the extended grapheme cluster rules of
