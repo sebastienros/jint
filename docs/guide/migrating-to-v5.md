@@ -9235,6 +9235,33 @@ cluster, in Devanagari, Bengali, Gujarati, Oriya, Telugu, Malayalam, Khmer, Myan
 Unicode marks `Indic_Conjunct_Break`, on every target framework. A lone surrogate is a segment of its own unless a mark
 follows it, as in Node. There is no switch back.
 
+### 4.253 A Chinese or Dangi narrow weekday is CLDR's, and `DefaultCldrProvider` narrows a name to its first grapheme cluster
+
+`Intl.DateTimeFormat` with `calendar: "chinese"` or `"dangi"` and `weekday: "narrow"` now writes CLDR's narrow weekday
+names, the ones the Gregorian formatter already wrote and ICU writes for every calendar: the stand-alone names when the
+weekday is the only field, the format ones beside another field. It used to write `DefaultCldrProvider`'s narrow names,
+which are derived from .NET's culture data and differ from CLDR, and from one target framework to the next:
+
+| Locale, weekday | `net472` before | `net10.0`, `net11.0` before | 5.x on every target, and Node 26 |
+| --- | --- | --- | --- |
+| `vi`, Monday | `H` | `T` | `T2` |
+| `ca`, Monday | `D` | `D` | `dl.` |
+| `he`, Monday | U+05D1 | U+05D1 | U+05D1 U+05F3 |
+| `ccp`, Thursday | U+1111D U+11133 | U+1111D U+11133 U+11122 U+11128 | U+1111D U+11133 U+11122 U+11128 |
+
+Over every culture .NET knows, the lane now matches Node wherever the Gregorian lane does: 6,162 of 6,223 names on
+`net10.0` (5,928 before) and 6,278 of 6,384 on `net472` (4,049 before). The names that still differ are tags Jint
+resolves to other CLDR data than ICU does, `jv-Java` and `tzm-Arab` among them, and they differ in the Gregorian lane
+too. A host's narrow weekdays still take CLDR's place when they differ from `DefaultCldrProvider.Instance`'s.
+
+`DefaultCldrProvider.GetMonthNames(locale, "narrow", calendar)`, and `GetWeekdayNames(locale, "narrow")` where .NET's
+narrowest names are its short ones, now cut a name after its first extended grapheme cluster
+([UAX #29](https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundary_Rules), as in [§4.252](#4-252-intl-segmenter-finds-grapheme-clusters-by-the-unicode-rules-the-same-on-every-target-framework))
+rather than its first `StringInfo` text element, so a conjunct or a letter with its mark stays whole on every target
+framework: on Windows `km`'s narrow December is U+1792 U+17D2 U+1793 U+17BC on `net10.0` (U+1792 U+17D2 before), and `ccp`'s
+narrow Thursday the whole conjunct on `net472`. A derived provider that compares against these answers sees the new
+ones. There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

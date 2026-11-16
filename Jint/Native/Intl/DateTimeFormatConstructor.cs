@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Globalization;
 using Jint.Native.Function;
+using Jint.Native.Intl.Data;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -506,12 +507,14 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // https://tc39.es/ecma402/#table-datetimeformat-components — "narrow" is a value of weekday in its own
         // right, and there is no .NET pattern letter for it. The Chinese and Dangi lane writes its weekday with "ddd",
         // so a narrow one goes into the abbreviated slot of this formatter's own DateTimeFormatInfo, which that
-        // formatter reads for nothing else. Unlike the block above this reaches the shared singleton's data too:
-        // .NET's narrow weekday names live in a slot no pattern letter reaches. Every other formatter writes CLDR's
-        // narrow names.
+        // formatter reads for nothing else. Unlike the block above this reaches the shared singleton too, because the
+        // names are CLDR's, the ones every other formatter writes, and not the culture's.
         if (lunisolar)
         {
-            namesChanged |= ApplyNarrowWeekdayNames(cldrProvider, dateTimeFormatInfo, resolvedLocale, weekday);
+            var weekdayAlone = era == null && year == null && month == null && day == null && dayPeriod == null
+                               && hour == null && minute == null && second == null && fractionalSecondDigits == null
+                               && timeZoneName == null;
+            namesChanged |= ApplyNarrowWeekdayNames(cldrProvider, dateTimeFormatInfo, resolvedLocale, weekday, weekdayAlone);
         }
 
         // The culture IntlUtilities hands out is read-only and shared process-wide, so a formatter that
@@ -695,27 +698,63 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     /// formatter, acts only when <c>weekday</c> is <c>"narrow"</c>, and reports whether it wrote anything.
     /// </summary>
     /// <remarks>
-    /// An answer of the wrong length, or none at all, leaves the abbreviated names in place — which is the
-    /// behaviour every release before this one had for a narrow style.
+    /// <para>
+    /// The names are CLDR's narrow weekdays, in the stand-alone context when the weekday is the only field and in the
+    /// format context otherwise, which is what the pattern of every other formatter writes and what ICU writes for these
+    /// two calendars too: a weekday is the same day in every calendar. They used to be the provider's answer, which for
+    /// <see cref="DefaultCldrProvider"/> is derived from .NET's culture data and so differed from CLDR by platform —
+    /// <c>vi</c>'s <c>T</c> for every weekday but Sunday, where CLDR writes <c>T2</c> to <c>T7</c>.
+    /// </para>
+    /// <para>
+    /// A host's answer takes CLDR's place where it differs from <see cref="DefaultCldrProvider.Instance"/>'s, the rule
+    /// <see cref="JsDateTimeFormat"/> applies to every other name a host supplies; an answer of the wrong length is not
+    /// one.
+    /// </para>
     /// </remarks>
     private static bool ApplyNarrowWeekdayNames(
         ICldrProvider provider,
         DateTimeFormatInfo target,
         string locale,
-        string? weekday)
+        string? weekday,
+        bool weekdayAlone)
     {
         if (!string.Equals(weekday, "narrow", StringComparison.Ordinal))
         {
             return false;
         }
 
-        var narrowWeekdays = provider.GetWeekdayNames(locale, "narrow");
-        if (narrowWeekdays is not { Length: 7 })
+        var narrowWeekdays = DateTimePatternGenerator.ForLocale(locale).GetWeekdayNames(
+            weekdayAlone ? DateTimeNameContext.StandAlone : DateTimeNameContext.Format,
+            DateTimeNameWidth.Narrow);
+
+        if (!ReferenceEquals(provider, DefaultCldrProvider.Instance))
+        {
+            var host = provider.GetWeekdayNames(locale, "narrow");
+            if (host is { Length: 7 } && !SameNames(host, DefaultCldrProvider.Instance.GetWeekdayNames(locale, "narrow")))
+            {
+                narrowWeekdays = host;
+            }
+        }
+
+        target.AbbreviatedDayNames = (string[]) narrowWeekdays.Clone();
+        return true;
+    }
+
+    private static bool SameNames(string[] host, string[]? shipped)
+    {
+        if (shipped is null || shipped.Length != host.Length)
         {
             return false;
         }
 
-        target.AbbreviatedDayNames = (string[]) narrowWeekdays.Clone();
+        for (var i = 0; i < host.Length; i++)
+        {
+            if (!string.Equals(host[i], shipped[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 
