@@ -161,7 +161,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         // STJ integration
-        if (string.Equals(type?.FullName, "System.Text.Json.Nodes.JsonNode", StringComparison.Ordinal))
+        if (SystemTextJsonNodes.IsJsonNode(type))
         {
             // we need to always expose the actual type instead of the type nodes provide
             type = target.GetType();
