@@ -51,7 +51,8 @@ saturating page-local revision; reaching its limit disables reuse instead of wra
 Retiring a query does not necessarily discard its native measurements. A demand-installed synchronous
 `Document.MutationSignal` supplies typed dirty targets, independently of mutation-observer delivery.
 At most 64 distinct changes are summarized before a budgeted read; unknown writes and overflow discard
-all data. Current rule-plan selector dependencies decide between subtree invalidation and global fallback.
+all data. Current rule-plan selector dependencies decide how far a change reaches: the changed subtree,
+the following siblings' subtrees, the `:has()` anchors among the changed element's ancestors, or everything.
 Subtrees follow old child snapshots as well as current links, and ancestor row totals are removed.
 When selectors prove a child-list edit local, unaffected siblings retain rendering and exact row
 measurements; membership and changed subtrees do not. Text-control state is explicit native evidence,
@@ -75,6 +76,8 @@ and focus, pointer-press and hover state when a rule can observe them: the rule 
 `:focus`/`:focus-visible`/`:focus-within`, `:active` and `:hover` any selector names, pseudo-element branches
 included, and an unread plan or an unknown selector counts as all three. Without that, every automation
 click retired measurements twice, on press and on release, for documents whose rules never mention `:active`.
+Measurements are retired only for the ones named by rules that can change a measurement; a rule such as
+Bootstrap's `.btn:active`, which recolours a button, retires the query alone.
 The shared `getComputedStyle` traversal applies the same test. Replacing the document releases retained work immediately. Sizes and
 placement stay in document coordinates; scroll projection and content-shrink clamping remain current.
 A complete layout can share the retained size query and cascade, but never causes a single-rectangle

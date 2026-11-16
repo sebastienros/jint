@@ -10,6 +10,10 @@ internal sealed partial class NativeCssQuery
     private RuleIndex? _index;
     private Dictionary<Element, AncestorFilter>? _ancestorFilters;
     private List<int>? _candidateBuffer;
+
+    // The states an inheriting read passes on its way up to the value it inherits, for every read in flight: a
+    // read that re-enters (a var() substitution, display's fix-up) works above the entries of the read it is in.
+    private readonly List<(State State, NativeCssSource? Source, NativeCssDisposition Disposition)> _pending = [];
     private int[]? _seenCandidates;
     private int _candidateGeneration;
 
@@ -33,6 +37,7 @@ internal sealed partial class NativeCssQuery
         private readonly bool[] _pseudoOnly;
         private readonly bool[] _noPseudo;
         private readonly bool[] _declaresLayout;
+        private readonly bool[] _affectsMeasurements;
 
         internal RuleIndex(List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri, NativeCssLayer Layer)> rules,
             CssValueWork work)
@@ -43,6 +48,7 @@ internal sealed partial class NativeCssQuery
             _pseudoOnly = new bool[rules.Count];
             _noPseudo = new bool[rules.Count];
             _declaresLayout = new bool[rules.Count];
+            _affectsMeasurements = new bool[rules.Count];
             for (var i = 0; i < rules.Count; i++)
             {
                 work.Charge(1);
@@ -52,7 +58,9 @@ internal sealed partial class NativeCssQuery
                 var style = rules[i].Rule.Style;
                 for (var d = 0; d < style.Count && !_declaresLayout[i]; d++)
                 {
-                    _declaresLayout[i] = LayoutProperties.Contains(style.GetPropertyName(d));
+                    var property = style.GetPropertyName(d);
+                    _declaresLayout[i] = LayoutProperties.Contains(property);
+                    _affectsMeasurements[i] |= _declaresLayout[i] || property.StartsWith("--", StringComparison.Ordinal);
                 }
 
                 ancestors.Clear();
@@ -121,6 +129,12 @@ internal sealed partial class NativeCssQuery
 
         /// <summary>Whether the rule at <paramref name="position"/> declares a property a layout state answers.</summary>
         internal bool DeclaresLayout(int position) => _declaresLayout[position];
+
+        /// <summary>
+        /// Whether the rule can change a measurement: it declares a property the layout reads, or a custom property,
+        /// which a layout property's var() can substitute.
+        /// </summary>
+        internal bool AffectsMeasurements(int position) => _affectsMeasurements[position];
 
         /// <summary>Folds <paramref name="element"/>'s own keys — type, id and classes — into <paramref name="filter"/>.</summary>
         internal static void AddKeys(ref AncestorFilter filter, Element element)

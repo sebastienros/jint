@@ -241,6 +241,7 @@ internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKey
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKeyKind
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKeys
     AllSubjectsArePseudoElements
+    AncestorKeyOf
     NoSubjectIsAPseudoElement
     TryCollect
     TryCollectAncestorKeys

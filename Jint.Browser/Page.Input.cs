@@ -1183,7 +1183,43 @@ public sealed partial class Page
                 run => run > frame,
                 FrameSettleTimeout).ConfigureAwait(false);
         }
+
+        await SettleImminentTimersAsync().ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Lets the timers due within a frame run before a click lands, as they do while Playwright waits for the
+    /// target's box to be stable across two animation frames. Bootstrap ends a collapse's transition on a timer
+    /// due 5 ms after it starts, even when the transition lasts nothing, and ignores a toggle until it has: a click
+    /// that follows another sooner than a browser can is lost. Nothing is waited for when no timer is that close.
+    /// </summary>
+    private async Task SettleImminentTimersAsync()
+    {
+        var start = System.Diagnostics.Stopwatch.GetTimestamp();
+        bool Settled(Engine engine)
+        {
+            var remaining = ImminentTimerWindow - System.Diagnostics.Stopwatch.GetElapsedTime(start);
+            return engine._webApi?.TimeUntilNextDueTimer() is not { } due || due > remaining;
+        }
+
+        bool settled;
+        try
+        {
+            settled = await _loop.PostAsync(Settled).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException) when (_closed)
+        {
+            return;
+        }
+
+        if (!settled)
+        {
+            await WaitForAsync(Settled, done => done, FrameSettleTimeout).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>How close a timer must be due for a click to let it run first: a frame.</summary>
+    private static readonly TimeSpan ImminentTimerWindow = TimeSpan.FromMilliseconds(16);
 
     /// <summary>The longest a click waits for a pending frame: a few frames' worth, for a loop that is busy.</summary>
     private static readonly TimeSpan FrameSettleTimeout = TimeSpan.FromMilliseconds(100);

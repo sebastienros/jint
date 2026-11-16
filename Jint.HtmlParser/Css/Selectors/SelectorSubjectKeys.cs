@@ -146,9 +146,11 @@ internal static class SelectorSubjectKeys
         return false;
     }
 
-    // The one key a compound's ancestor must carry, or null: a union of :is() alternatives says the ancestor carries
-    // one of them, which no single key can require.
-    private static SelectorSubjectKey? AncestorKeyOf(Compound compound)
+    /// <summary>
+    /// The one key an element matching <paramref name="compound"/> must carry, or <see langword="null"/>: a union of
+    /// :is() alternatives says the element carries one of them, which no single key can require.
+    /// </summary>
+    internal static SelectorSubjectKey? AncestorKeyOf(Compound compound)
     {
         var keys = new List<SelectorSubjectKey>(1);
         return TryKeysOf(compound, keys, MaximumDepth) && keys.Count == 1 ? keys[0] : null;

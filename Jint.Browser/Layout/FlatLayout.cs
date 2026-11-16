@@ -638,7 +638,23 @@ internal sealed class FlatLayout
 
         internal bool HasBox(Element target)
         {
-            var ancestors = new Stack<Element>();
+            var ancestors = _unresolvedAncestors;
+            var start = ancestors.Count;
+            try
+            {
+                return HasBox(target, ancestors, start);
+            }
+            finally
+            {
+                if (ancestors.Count > start) ancestors.RemoveRange(start, ancestors.Count - start);
+            }
+        }
+
+        // The ancestors a HasBox in flight has yet to decide, for every one in flight: deciding one can re-enter.
+        private readonly List<Element> _unresolvedAncestors = [];
+
+        private bool HasBox(Element target, List<Element> ancestors, int start)
+        {
             var rendered = false;
             for (Element? element = target; element is not null; element = (element.ParentNode as Element))
             {
@@ -648,7 +664,7 @@ internal sealed class FlatLayout
                     break;
                 }
 
-                ancestors.Push(element);
+                ancestors.Add(element);
                 if (ReferenceEquals(element, document?.DocumentElement))
                 {
                     rendered = true;
@@ -656,9 +672,11 @@ internal sealed class FlatLayout
                 }
             }
 
-            while (ancestors.TryPop(out var ancestor))
+            while (ancestors.Count > start)
             {
                 Step();
+                var ancestor = ancestors[^1];
+                ancestors.RemoveAt(ancestors.Count - 1);
                 rendered = rendered && IsRendered(ancestor, visibility, cascade);
                 _rendered.Add(ancestor, rendered);
             }

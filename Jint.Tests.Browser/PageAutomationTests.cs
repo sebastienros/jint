@@ -417,6 +417,52 @@ public sealed class PageAutomationTests
     }
 
     [Test]
+    public async Task AClickLetsATimerDueWithinAFrameRunFirst()
+    {
+        await using var browser = new NativeBrowser();
+        var page = await browser.NewPageAsync();
+
+        // Bootstrap's collapse ends even an instant transition on a 5 ms timer, and ignores a toggle until then.
+        await page.SetContentAsync("""
+            <!doctype html>
+            <button id="toggle">Toggle</button>
+            <script>
+            let busy = false; window.toggles = 0;
+            document.getElementById('toggle').addEventListener('click', () => {
+              if (busy) return;
+              busy = true; toggles++;
+              setTimeout(() => busy = false, 5);
+            });
+            </script>
+            """);
+
+        for (var i = 0; i < 3; i++)
+        {
+            (await page.ClickAsync("#toggle")).Should().BeTrue();
+        }
+
+        (await page.EvaluateAsync<int>("toggles")).Should().Be(3);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task AClickDoesNotWaitForATimerDueLater()
+    {
+        await using var browser = new NativeBrowser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html>
+            <button id="target">Save</button>
+            <script>window.fired = false; setTimeout(() => fired = true, 5000);</script>
+            """);
+
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        (await page.ClickAsync("#target")).Should().BeTrue();
+        started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(2));
+        (await page.EvaluateAsync<bool>("fired")).Should().BeFalse();
+    }
+
+    [Test]
     public async Task HidingACaretWithVisibilityMovesNothingAClickAimsAt()
     {
         await using var browser = new NativeBrowser();

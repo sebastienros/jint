@@ -173,11 +173,17 @@ For a proven-local child-list edit, only membership, the changed subtree and anc
 invalidated; existing siblings keep their rendered flags and exact rows. Detached fragment operations
 still evict changed subtrees without invalidating unrelated document measurements.
 
-The immutable rule plan classifies selector dependencies. Sibling, positional, `:has` and `:empty`
-dependencies fall back globally for structural/text changes and the attributes their matching observes;
-semantic state has conservative global fallbacks, and unrecognized programs always fall back. A style-only
-write cannot change a relational selector that never observes the style attribute, but still invalidates
-the target subtree's geometry. Native text-control edits invalidate their subtree, with global fallback
+The immutable rule plan classifies the selector dependencies of the rules that can change a measurement:
+those declaring a property the flat layout reads, or a custom property its `var()` may substitute. Other
+rules restyle without moving a box. Sibling, positional, `:has` and `:empty` dependencies fall back
+globally for structural/text changes. An attribute change reaches as far as the positions its name holds:
+the changed subtree for a name the subject or an ancestor compound tests; the following siblings' subtrees
+too for a name left of a sibling combinator; the changed element's ancestors that carry the anchor's own
+key, and their subtrees, for a name inside a descendant- or child-relative `:has()`; everything for a name
+inside another `:has()` or a positional pseudo-class's `of` argument. Semantic state has conservative
+global fallbacks for every attribute but `class`, `style`, `aria-*` and `data-*`, which no HTML state
+reads, and unrecognized programs always fall back. A style-only write cannot change a relational selector
+that never observes the style attribute, but still invalidates the target subtree's geometry. Native text-control edits invalidate their subtree, with global fallback
 for semantic selectors; moving a focused descendant also invalidates `:focus-within` dependencies.
 Focus, Browser-owned semantic revisions, CSSOM, media, sheet membership/order, URL and
 document changes retain independent global invalidation. Custom engine configuration and arbitrary

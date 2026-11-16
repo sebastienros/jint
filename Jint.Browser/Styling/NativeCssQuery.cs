@@ -150,7 +150,22 @@ internal sealed partial class NativeCssQuery
             if (pseudo is null) WarmParents(element, ref matching);
             else GetNormalizedProperty(element, null, name, ref matching);
         }
-        var pending = new Stack<(State State, NativeCssSource? Source, NativeCssDisposition Disposition)>();
+        var pending = _pending;
+        var start = pending.Count;
+        try
+        {
+            return ReadInherited(element, pseudo, name, custom, metadata, start, ref matching);
+        }
+        finally
+        {
+            if (pending.Count > start) pending.RemoveRange(start, pending.Count - start);
+        }
+    }
+
+    private NativeCssProperty ReadInherited(Element element, SelectorPseudoElement? pseudo, string name, bool custom,
+        CssPropertyMetadata? metadata, int start, ref SelectorMatchWork matching)
+    {
+        var pending = _pending;
         var current = element;
         var currentPseudo = pseudo;
         NativeCssProperty result;
@@ -179,7 +194,7 @@ internal sealed partial class NativeCssQuery
             var inherit = text is null ? inherited : !custom && (text == "inherit" || text == "unset" && inherited);
             if (inherit && (currentPseudo is not null ? current : InheritanceParent(current)) is { } parent)
             {
-                pending.Push((state, candidate?.Source, disposition == NativeCssDisposition.InvalidAtComputedValue
+                pending.Add((state, candidate?.Source, disposition == NativeCssDisposition.InvalidAtComputedValue
                     ? disposition : NativeCssDisposition.Inherited));
                 current = parent;
                 currentPseudo = null;
@@ -200,8 +215,10 @@ internal sealed partial class NativeCssQuery
             _diagnostics?.ComputedPublished(current, name);
             break;
         }
-        while (pending.TryPop(out var item))
+        while (pending.Count > start)
         {
+            var item = pending[^1];
+            pending.RemoveAt(pending.Count - 1);
             _work.Charge(1);
             result = result with
             {

@@ -33,6 +33,9 @@ internal sealed partial class PageLayout
     // an unread plan proves nothing about the rules.
     private CssInteractionDependencies _cachedInteractions = CssInteractionDependencies.All;
 
+    // What the rules that can change a measurement observe of them: the rest only retire the query.
+    private CssInteractionDependencies _cachedMeasurementInteractions = CssInteractionDependencies.All;
+
     /// <summary>An opaque Browser-owned revision; saturation permanently declines reuse.</summary>
     internal ulong Version { get; private set; }
 
@@ -75,6 +78,7 @@ internal sealed partial class PageLayout
         _cachedSheetRevisions = null;
         _cachedSheetWork = null;
         _cachedInteractions = CssInteractionDependencies.All;
+        _cachedMeasurementInteractions = CssInteractionDependencies.All;
     }
 
     /// <summary>Narrows the interaction witnesses to what the plan behind retained measurements can observe.</summary>
@@ -83,6 +87,11 @@ internal sealed partial class PageLayout
         if (query.TryGetInteractionDependencies(out var dependencies))
         {
             _cachedInteractions = dependencies;
+        }
+
+        if (query.TryGetMeasurementInteractionDependencies(out var measurement))
+        {
+            _cachedMeasurementInteractions = measurement;
         }
     }
 
@@ -129,22 +138,24 @@ internal sealed partial class PageLayout
         var url = document is null ? null : Dom.DomDocumentState.Of(document).Url;
         // A focus, press or hover change moves no box unless some rule can match on it: Playwright's every
         // click presses and releases, and retiring measurements twice per click for a document with no
-        // :active rule rebuilt the whole flat layout for nothing.
+        // :active rule rebuilt the whole flat layout for nothing. A rule that matches on it and declares no
+        // property the layout reads restyles without moving a box either: it retires the query alone.
         var interactions = _cachedInteractions;
-        var globalChange = !ReferenceEquals(_cachedDocument, document) || _cachedMedia != _runtime.Media
+        var measurementInteractions = _cachedMeasurementInteractions;
+        var documentChange = !ReferenceEquals(_cachedDocument, document) || _cachedMedia != _runtime.Media
             || document is not null && (!_cachedResources.CanReuse || _cachedResources != NativeCssStyleSheets.Stamp(document)) || stylesChanged
             || controlRevision == ulong.MaxValue || _cachedControlRevision != controlRevision
-            || _cachedUrl != url
-            || (interactions & CssInteractionDependencies.Focus) != 0 && (!ReferenceEquals(_cachedFocus, events.FocusedElement) || _cachedFocusIndicated != events.FocusIndicated)
-            || (interactions & CssInteractionDependencies.Active) != 0 && !ReferenceEquals(_cachedPress, events.MousePressTarget)
-            || (interactions & CssInteractionDependencies.Hover) != 0 && !ReferenceEquals(_cachedHover, events.MouseHoverTarget);
+            || _cachedUrl != url;
+        var changed = InteractionChanges(events);
+        var globalChange = documentChange || (changed & interactions) != 0;
         if (globalChange || _cachedNativeStamp != document?.MutationStamp)
         {
-            if (globalChange || !ReferenceEquals(_observedDocument, document) || _observedStamp != document?.MutationStamp)
+            var moved = changed & measurementInteractions;
+            if (documentChange || moved != 0 || !ReferenceEquals(_observedDocument, document) || _observedStamp != document?.MutationStamp)
                 ResetMeasurements(stylesChanged ? "stylesheet" : _cachedControlRevision != controlRevision ? "control-state"
-                    : (interactions & CssInteractionDependencies.Focus) != 0 && (!ReferenceEquals(_cachedFocus, events.FocusedElement) || _cachedFocusIndicated != events.FocusIndicated) ? "focus"
-                    : (interactions & CssInteractionDependencies.Active) != 0 && !ReferenceEquals(_cachedPress, events.MousePressTarget) ? "press"
-                    : (interactions & CssInteractionDependencies.Hover) != 0 && !ReferenceEquals(_cachedHover, events.MouseHoverTarget) ? "hover"
+                    : (moved & CssInteractionDependencies.Focus) != 0 ? "focus"
+                    : (moved & CssInteractionDependencies.Active) != 0 ? "press"
+                    : (moved & CssInteractionDependencies.Hover) != 0 ? "hover"
                     : "global-witness");
             RetireQueries();
             _supportedStyles = null;
@@ -161,10 +172,22 @@ internal sealed partial class PageLayout
             _cachedPress = events.MousePressTarget;
             _cachedHover = events.MouseHoverTarget;
             _cachedInteractions = CssInteractionDependencies.All;
+            _cachedMeasurementInteractions = CssInteractionDependencies.All;
         }
 
         // Source installation and CSSOM edits are independent of the native DOM revision.
         return _supportedStyles ??= SupportsStyles(document);
+    }
+
+    // The interaction witnesses that moved since the query was made.
+    private CssInteractionDependencies InteractionChanges(BrowserEventRealm events)
+    {
+        var changed = CssInteractionDependencies.None;
+        if (!ReferenceEquals(_cachedFocus, events.FocusedElement) || _cachedFocusIndicated != events.FocusIndicated)
+            changed |= CssInteractionDependencies.Focus;
+        if (!ReferenceEquals(_cachedPress, events.MousePressTarget)) changed |= CssInteractionDependencies.Active;
+        if (!ReferenceEquals(_cachedHover, events.MouseHoverTarget)) changed |= CssInteractionDependencies.Hover;
+        return changed;
     }
 
     private bool SupportsStyles(Document? document)
