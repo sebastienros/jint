@@ -1502,6 +1502,14 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         // capacity capped to a sane upper bound so a 1e9-length sparse array doesn't preallocate everything
         var items = new List<JsValue>((int) System.Math.Min(1024UL, len));
+
+        // The list holds the elements that are present, so it can only pass MaxArraySize when "length" does; a longer
+        // array-like that is sparse sorts as it always did (sebastienros/jint#4520). A default engine, and an array
+        // within the limit, test one local per present element.
+        var maxItems = _engine._hasMaxArraySize && len > _engine.Options.Constraints.MaxArraySize
+            ? _engine.Options.Constraints.MaxArraySize
+            : ulong.MaxValue;
+
         for (ulong k = 0; k < len; ++k)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -1511,6 +1519,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             if (obj.TryGetValue(k, out var kValue))
             {
+                if ((ulong) items.Count >= maxItems)
+                {
+                    ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, (ulong) items.Count + 1);
+                }
+
                 items.Add(kValue);
             }
         }
@@ -2340,6 +2353,13 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var len = o.GetLongLength();
         ValidateArrayLength(len);
 
+        // Step 5 (ArrayCreate(len)) sizes the result before SortIndexedProperties reads anything; the list that sort
+        // builds is as long (sebastienros/jint#4520).
+        if (_engine._hasMaxArraySize)
+        {
+            ArrayInstance.ValidateListLength(_engine, len);
+        }
+
         if (len == 0)
         {
             return new JsArray(_constructor);
@@ -2611,6 +2631,15 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private JsValue[] CreateBackingArray(ulong length)
     {
         ValidateArrayLength(length);
+
+        // The result is handed to the ownership-taking array constructor, which makes no MaxArraySize check of its own
+        // (sebastienros/jint#4520): ArrayCreate(len) is where the specification sizes it, so this is where it is held
+        // to the limit, before the store is allocated. A default engine pays one byte test.
+        if (_engine._hasMaxArraySize)
+        {
+            ArrayInstance.ValidateListLength(_engine, length);
+        }
+
         return new JsValue[length];
     }
 

@@ -1,4 +1,5 @@
 using System.Text;
+using Jint.Native.Array;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -562,6 +563,10 @@ internal partial class IteratorPrototype : Prototype
 
         var iterated = GetIteratorDirect(o);
         var builder = new JsValueListBuilder(16);
+
+        // The list grows with what the source yields, so the limit is checked as it grows and the iterator is closed
+        // when it is passed, rather than after the source has been drained (sebastienros/jint#4520).
+        var maxLength = _engine.Options.Constraints.MaxArraySize;
         try
         {
             var iterations = 0;
@@ -578,6 +583,11 @@ internal partial class IteratorPrototype : Prototype
                     if (++iterations % Engine.ConstraintCheckInterval == 0)
                     {
                         _engine.Constraints.Check();
+                    }
+
+                    if ((uint) builder.Length >= maxLength)
+                    {
+                        ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, (ulong) builder.Length + 1);
                     }
 
                     builder.Add(value);
