@@ -8855,6 +8855,33 @@ side include them. An `ownKeys` trap of a proxy over such a wrapper that leaves 
 `String` first. `Object.isSealed` and `Object.isFrozen` now answer `false` for a wrapper with projections that was
 only made non-extensible, because its projections are still configurable. There is no switch back.
 
+### 4.246 `Array.fromAsync` hands its mapper the iterator's value as it is, and awaits the source's `return` when it closes it ([#4526](https://github.com/sebastienros/jint/issues/4526))
+
+Over an async iterable, `Array.fromAsync`'s mapper is now called with each value the iterator answered, without
+awaiting it first; only what the mapper returns is awaited. In 4.x and earlier 5.0 builds Jint awaited the value
+before calling the mapper. That differed from V8 and from the specification:
+
+```js
+const it = { [Symbol.asyncIterator]() { let done = false; return {
+  next() { const r = { value: Promise.resolve(7), done }; done = true; return r; } }; } };
+await Array.fromAsync(it, v => typeof v);
+// 4.x / earlier 5.0: ['number']    5.x: ['object']
+```
+
+A promise that rejects is now handed to the mapper too. It used to reject the result and close the source. Values
+from a sync iterable are still awaited as they were, by the async-from-sync wrapper, and a call without a mapper never
+awaited them.
+
+When the mapper throws or rejects, or storing an element fails, the source's `return` is called as before. What it
+answers is now awaited before the result rejects, and a thenable's `then` is called. The result still rejects with the
+mapper's error, whatever `return` answers, but one microtask later than before for a plain object (two for a
+thenable). A wrapped CLR collection's iterator is disposed once that answer has settled, not when `return` is called.
+Each element also settles one microtask earlier than before, so the result settles at the same turn as V8's.
+
+An iterator result whose `done` or `value` getter throws now rejects the result with that error, and the source is
+not closed. The result used to stay pending forever. `value` is no longer read from the result that says `done`.
+There is no switch back.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
