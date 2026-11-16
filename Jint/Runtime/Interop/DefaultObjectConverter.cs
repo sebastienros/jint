@@ -136,10 +136,12 @@ internal static class DefaultObjectConverter
             }
 
 #if NET8_0_OR_GREATER
-            if (value is System.Text.Json.Nodes.JsonValue jsonValue)
+            // a value holding an object or an array is no primitive, and falls through to be wrapped like any object
+            if (value is System.Text.Json.Nodes.JsonValue jsonValue
+                && ConvertSystemTextJsonValue(jsonValue) is { } jsonPrimitive)
             {
-                result = ConvertSystemTextJsonValue(engine, jsonValue);
-                return result is not null;
+                result = jsonPrimitive;
+                return true;
             }
 #endif
 
@@ -173,6 +175,18 @@ internal static class DefaultObjectConverter
             }
             else
             {
+#if !NET8_0_OR_GREATER
+                // Without a reference to System.Text.Json a JsonValue is known by its type, asked here rather than
+                // beside the typed lane above so that a value the caches answer for pays nothing: a JsonValue is never
+                // cached, being converted rather than wrapped, and every other value reaching this point is about to
+                // be wrapped, which costs far more than one lookup per runtime type.
+                if (SystemTextJsonNodes.TryConvertValue(value, t, out var jsonPrimitive))
+                {
+                    result = jsonPrimitive;
+                    return true;
+                }
+#endif
+
                 var wrapped = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value, type);
 
                 if (ReferenceEquals(wrapped?.GetPrototypeOf(), engine.Realm.Intrinsics.Object.PrototypeObject)
@@ -208,14 +222,20 @@ internal static class DefaultObjectConverter
     }
 
 #if NET8_0_OR_GREATER
-    private static JsValue? ConvertSystemTextJsonValue(Engine engine, System.Text.Json.Nodes.JsonNode value)
+    /// <summary>
+    /// The primitive a <c>JsonValue</c> holds, or <see langword="null"/> when it holds an object or an array (a CLR
+    /// object or collection the value was created around), which the caller wraps.
+    /// </summary>
+    /// <remarks>
+    /// Never convert such a value with <see cref="JsValue.FromObject"/>: that comes straight back here, and recurses
+    /// until the process dies of a stack overflow.
+    /// </remarks>
+    private static JsValue? ConvertSystemTextJsonValue(System.Text.Json.Nodes.JsonValue value)
     {
         return value.GetValueKind() switch
         {
-            System.Text.Json.JsonValueKind.Object => JsValue.FromObject(engine, value),
-            System.Text.Json.JsonValueKind.Array => JsValue.FromObject(engine, value),
             System.Text.Json.JsonValueKind.String => JsString.Create(value.ToString()),
-            System.Text.Json.JsonValueKind.Number => ConvertSystemTextJsonNumber((System.Text.Json.Nodes.JsonValue) value),
+            System.Text.Json.JsonValueKind.Number => ConvertSystemTextJsonNumber(value),
             System.Text.Json.JsonValueKind.True => JsBoolean.True,
             System.Text.Json.JsonValueKind.False => JsBoolean.False,
             System.Text.Json.JsonValueKind.Undefined => JsValue.Undefined,
@@ -245,6 +265,12 @@ internal static class DefaultObjectConverter
         if (value.TryGetValue<double>(out var doubleValue))
         {
             return JsNumber.Create(doubleValue);
+        }
+
+        // The JSON text below has no spelling for a float's NaN or infinities: the writer refuses them.
+        if (value.TryGetValue<float>(out var floatValue) && !float.IsFinite(floatValue))
+        {
+            return JsNumber.Create(floatValue);
         }
 
         // A JsonValue built around a CLR number the double conversion declines (a decimal, say) still

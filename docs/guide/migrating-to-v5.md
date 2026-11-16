@@ -8919,11 +8919,13 @@ its value before and still does.
 **What could break:** script that read a `JObject`'s `JProperty` nodes by position through such a member, or relied
 on it being on `Array.prototype`, and a host `catch` written for the exceptions above. What did not change: a list
 declared as a list interface (`IList<T>`, `IReadOnlyList<T>`, `IList`) keeps the view it names, so a `JObject`
-handed over as `IList<JToken>` is still a list of its nodes; a list declared as `object` or as an interface that is
-not a list is wrapped as before unless its runtime type is addressed by key alone, as `JObject`,
-`OrderedDictionary<string, TValue>` and System.Text.Json 9's `JsonObject` are; and an object that is not a list is
-wrapped as before whatever it is declared as. The same holds for any host type, not only Newtonsoft's: a host list
-type that crosses as a base class is wrapped as its own type, with its own list view. There is no switch back.
+handed over as `IList<JToken>` is still a list of its nodes; a list declared as an interface that is not a list is
+wrapped as before unless its runtime type is addressed by key alone, as `JObject`, `OrderedDictionary<string, TValue>`
+and System.Text.Json 9's `JsonObject` are; and an object that is not a list is wrapped as before whatever it is
+declared as. The same holds for any host type, not only Newtonsoft's: a host list type that crosses as a base class
+is wrapped as its own type, with its own list view. A list declared as `object` is wrapped as its runtime type, as
+[§4.247](#4-247-a-list-typed-object-is-the-list-it-is-as-itself-and-a-jsonnode-member-is-one-wrapper) describes.
+There is no switch back.
 
 ### 4.242 An `OrderedDictionary<int, TValue>` is the keyed object a `Dictionary<int, TValue>` is ([#4527](https://github.com/sebastienros/jint/issues/4527))
 
@@ -8995,6 +8997,47 @@ side include them. An `ownKeys` trap of a proxy over such a wrapper that leaves 
 `String` first. `Object.isSealed` and `Object.isFrozen` now answer `false` for a wrapper with projections that was
 only made non-extensible, because its projections are still configurable. There is no switch back.
 
+### 4.244 A wrapped CLR object keeps a projection the script redefined or deleted, instead of making it again from the CLR side ([#4678](https://github.com/sebastienros/jint/pull/4678))
+
+Two lanes of a wrapped CLR object answered a projection (see
+[§4.243](#4-243-a-wrapped-clr-object-lists-a-projection-once-the-script-redefines-it-or-the-object-stops-being-extensible-4528))
+from the CLR side after the script had taken it over.
+
+**A `length` the script redefined is what reads and writes reach.** A read of `length` on a collection that
+implements `ICollection` (a list, an array, a `Queue<T>`, a `ReadOnlyCollection<T>`) answered `Count` without looking
+at the property the script had stored, while `Object.getOwnPropertyDescriptor` reported the script's. A write to it
+resized the list:
+
+```js
+// host: engine.SetValue("list", new List<int> { 1, 2, 3 });   // AllowWrite on
+Object.defineProperty(list, 'length', { value: 7, writable: true, configurable: true });
+list.length                  // earlier previews: 3      5.x: 7
+list.length = 1              // earlier previews: the list loses two elements, and list.length is 1
+                             // 5.x: the property is 1, and the list keeps its three elements
+```
+
+The same holds for a `length` the script redefined as an accessor, froze, or defined after deleting the forwarder of a
+collection that has no `Length` member.
+
+**A projection deleted from a non-extensible wrapper stays deleted.** A non-extensible object may not gain a property,
+but the next read made `Symbol.iterator` again, and resolved `toJSON`, or an array's `length`, from the CLR type
+again. Now the read reaches the prototype, as it does on an ordinary object:
+
+```js
+// host: engine.SetValue("dict", new Dictionary<string, int> { ["a"] = 1 });
+Object.preventExtensions(dict);
+delete dict[Symbol.iterator];
+[...dict]                    // earlier previews: [['a', 1]]    5.x: TypeError, dict is not iterable
+```
+
+On a list or an array the read finds `Array.prototype[Symbol.iterator]` and `Array.prototype.length` (`0`). On an
+extensible wrapper nothing changes: a deleted projection is made again on the next read, and a deleted `length` reads
+`Count` again.
+
+**What could break:** a script that redefines `length` on a wrapped collection and expects reads to go on answering
+the count, or a write to resize the collection. Leave the forwarder alone, or delete the redefinition, after which a
+read answers `Count` again. There is no switch back.
+
 ### 4.245 A wrapped dictionary's entry is a data property, writable and configurable where the host allows it to change ([#4679](https://github.com/sebastienros/jint/pull/4679))
 
 An entry of a wrapped dictionary whose key type is not `string` (`Dictionary<int, T>`, `Dictionary<long, T>`,
@@ -9056,6 +9099,70 @@ Each element also settles one microtask earlier than before, so the result settl
 An iterator result whose `done` or `value` getter throws now rejects the result with that error, and the source is
 not closed. The result used to stay pending forever. `value` is no longer read from the result that says `done`.
 There is no switch back.
+
+### 4.247 A list typed `object` is the list it is as itself, and a `JsonNode` member is one wrapper
+
+Three follow-ups to [§4.241](#4-241-a-jobject-or-jarray-that-crosses-as-jtoken-is-the-object-it-is-as-itself-4524)
+and [§4.242](#4-242-an-ordereddictionary-int-tvalue-is-the-keyed-object-a-dictionary-int-tvalue-is-4527).
+
+**A list that crosses through a member typed `object`** (a property, a method's return value, a field) was wrapped
+as the non-generic list view, not the typed view it gets when it crosses as itself. Reads worked, but writes handed
+the list the raw script value:
+
+```js
+// host: engine.SetValue("host", new { Items = (object) new List<int> { 1, 2 } }), with AllowWrite
+host.Items[0] = 7     // earlier previews: ArgumentException out of Evaluate ("7" is not an Int32)   5.x: 7
+host.Items.push(3)    // earlier previews: the same ArgumentException                               5.x: 3
+// a JArray typed object: earlier previews "Argument is not a JToken"                              5.x: as a JArray
+```
+
+Now a target declared as `object`, through a member or through `ObjectWrapper.Create(engine, target, typeof(object))`,
+is wrapped exactly as if it crossed as its runtime type, which is the type `ObjectWrapper.ClrType` already reported.
+A value read out of a `Dictionary<string, object>` crossed as its runtime type before and still does.
+
+**A `JsonObject` or `JsonArray` that crosses through a member typed `JsonNode`** was wrapped as its own type, but
+the wrapper caches (`TrackObjectWrapperIdentity`, `CacheRecentObjectWrappers`) compared it with `JsonNode` and missed,
+so every read built a new wrapper. Reading the member twice now hands script the same wrapper.
+
+**A dictionary that is a list of its entries through the generic `IList<KeyValuePair<TKey, TValue>>` alone**, not
+the non-generic `IList`, and that crosses as `ICollection<KeyValuePair<TKey, TValue>>` or
+`IReadOnlyCollection<KeyValuePair<TKey, TValue>>`, was wrapped as that collection's count-only view: on
+`Array.prototype`, with a `length`, and `JSON.stringify` giving `[null,null]`. It is now the keyed object it is as
+itself, as a `JObject` typed `ICollection<JToken>` already was.
+
+**What could break:** a host `catch` written for the exceptions above. What did not change: an ordinary dictionary
+or set declared as a collection interface keeps that view, a list declared as a list interface keeps the view it
+names, and an object that is not a list is wrapped as before whatever it is declared as. There is no switch back.
+
+### 4.248 On .NET Framework and `netstandard`, a System.Text.Json `JsonValue` crosses as the primitive it holds ([#4681](https://github.com/sebastienros/jint/issues/4681))
+
+On .NET 10 and later a `JsonValue` has always crossed into script as the number, string, boolean or null it holds.
+On the `net472`, `netstandard2.0` and `netstandard2.1` assets it was wrapped as a CLR object. Jint does not reference
+System.Text.Json there, so nothing recognized the type. That broke every JSON document a host handed script:
+
+```js
+// host: engine.SetValue("obj", JsonNode.Parse("""{"a":1,"b":"x","c":[1,2]}"""))
+typeof obj.a             // earlier previews on net472: "object"                          5.x: "number"
+obj.b === 'x'            // earlier previews on net472: false                             5.x: true
+JSON.stringify(obj)      // earlier previews on net472: TypeError "Cyclic reference detected."
+                         // 5.x: {"a":1,"b":"x","c":[1,2]}
+```
+
+Those assets now recognize a `JsonValue` by its type name, once per runtime type, and convert it by the rules the
+.NET 10 asset uses, NaN, the infinities and `-0` included. Jint still takes no dependency on the System.Text.Json
+package.
+
+Two fixes reach every target framework, .NET 10 included:
+
+- **A `float` NaN or infinity** (`JsonValue.Create(float.NaN)`) threw an `ArgumentException` out of the conversion,
+  because the JSON writer has no spelling for it. It now crosses as `NaN`, `Infinity` or `-Infinity`, as a `double`
+  one already did.
+- **A `JsonValue` created around a CLR object or collection** (`JsonValue.Create(new Poco())`,
+  `JsonValue.Create(new[] { 1, 2 })`) ended the process on .NET 10 with a stack overflow: its conversion converted
+  the same value again. It holds no primitive, so it is now wrapped like any other CLR object, on every target.
+
+**What could break:** script, or an `ObjectConverter`, that handled the wrapper. A converter that turned `JsonValue`
+into a primitive itself still works: registered converters run before Jint's own conversion. There is no switch back.
 
 ## 5. New in v5
 
