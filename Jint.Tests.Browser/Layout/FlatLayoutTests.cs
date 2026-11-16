@@ -672,11 +672,12 @@ public class FlatLayoutTests
             <div id="sizedBox" style="box-sizing: border-box; width: 100px; padding: 0 10px"><b id="inner">x</b></div>
             <div id="unstyled" style="border-left-width: 6px; padding-left: 4px"><b id="plain">x</b></div>
             <div style="display: flex; box-sizing: border-box; width: 200px; padding-left: 8px"><span id="item" style="flex: 1">i</span></div>
+            <nav style="display: flex"><button id="first" style="box-sizing: border-box; min-width: 2.5rem; padding: 0 0.65rem; border: 1px solid"><span id="icon" style="display: block">i</span></button></nav>
             """);
 
         static string Box(double x, double width) => $"{x},{width}";
         async Task<string> XAndWidth(string id)
-            => await page.EvaluateAsync<string>($"(() => {{ const r = document.getElementById('{id}').getBoundingClientRect(); return r.x + ',' + r.width; }})()") ?? "";
+            => await page.EvaluateAsync<string>($"(() => {{ const r = document.getElementById('{id}').getBoundingClientRect(); const round = (v) => Math.round(v * 100) / 100; return round(r.x) + ',' + round(r.width); }})()") ?? "";
 
         (await XAndWidth("card")).Should().Be(Box(0, 320 + 32 + 2));
         (await XAndWidth("copy")).Should().Be(Box(17, 320));
@@ -685,6 +686,10 @@ public class FlatLayoutTests
         (await XAndWidth("inner")).Should().Be(Box(10, 80));
         (await XAndWidth("plain")).Should().Be(Box(4, 1276));
         (await XAndWidth("item")).Should().Be(Box(8, 192));
+
+        // A flex item's min-width in rem holds, and its content box is what its padding and border leave.
+        (await XAndWidth("first")).Should().Be(Box(0, 40));
+        (await XAndWidth("icon")).Should().Be(Box(11.4, 17.2));
     }
 
     /// <summary>
