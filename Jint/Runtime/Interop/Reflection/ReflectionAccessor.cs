@@ -65,6 +65,13 @@ internal abstract class ReflectionAccessor
     /// </summary>
     protected bool HasIndexer => _indexer is not null;
 
+    /// <summary>
+    /// Whether the indexer probe <see cref="GetValue"/> runs first answers <paramref name="memberName"/> on
+    /// <paramref name="target"/>, so that what the member's name reads is the target's entry under that key rather
+    /// than the member. Always <see langword="false"/> without such a probe.
+    /// </summary>
+    internal bool IndexerAnswers(object target, string memberName) => TryReadFromIndexer(target, memberName) is not null;
+
     protected abstract object? DoGetValue(object target, string memberName);
 
     protected abstract void DoSetValue(object target, string memberName, object? value);
