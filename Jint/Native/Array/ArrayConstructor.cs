@@ -101,6 +101,10 @@ public sealed partial class ArrayConstructor : Constructor
 
         var builder = new JsValueListBuilder(16);
         var invoker = callable is not null ? CallbackInvoker.Rent(_engine, callable, 2) : default;
+
+        // The list grows with what the source yields, so the limit is checked as it grows and the iterator is closed
+        // when it is passed, rather than after the source has been drained (sebastienros/jint#4520).
+        var maxLength = _engine.Options.Constraints.MaxArraySize;
         try
         {
             var iterations = 0;
@@ -120,6 +124,11 @@ public sealed partial class ArrayConstructor : Constructor
                     }
 
                     index++;
+
+                    if ((uint) builder.Length >= maxLength)
+                    {
+                        ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, (ulong) builder.Length + 1);
+                    }
 
                     if (callable is not null)
                     {
