@@ -390,6 +390,7 @@ public class FlatLayoutTests
             """
             <div id="wrapper"><div id="invisible" style="visibility: hidden">d</div></div>
             <div id="overlay" style="position: absolute; visibility: hidden">out of flow</div>
+            <div id="layer" style="visibility: hidden"><span id="caret" style="position: absolute">|</span></div>
             <div id="after">e</div>
             """);
 
@@ -398,12 +399,15 @@ public class FlatLayoutTests
 
         // An out-of-flow one takes no space in a browser, so it has no rows to keep.
         (await page.EvaluateAsync<int>("document.getElementById('overlay').getClientRects().length")).Should().Be(0);
-        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{4 * Row},1280,{Row}");
+
+        // One hidden with its layer keeps its rows, as the layer does, so showing the layer moves nothing.
+        (await page.EvaluateAsync<int>("document.getElementById('caret').getClientRects().length")).Should().Be(1);
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{6 * Row},1280,{Row}");
         (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {3.5 * Row}).id")).Should().Be("wrapper");
 
         // Showing it again moves nothing either.
-        await page.EvaluateAsync("document.getElementById('invisible').style.visibility = 'visible'");
-        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{4 * Row},1280,{Row}");
+        await page.EvaluateAsync("document.getElementById('invisible').style.visibility = 'visible'; document.getElementById('layer').style.visibility = 'visible'");
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{6 * Row},1280,{Row}");
         (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {3.5 * Row}).id")).Should().Be("invisible");
     }
 

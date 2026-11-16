@@ -59,6 +59,29 @@ public class FlexLayoutTests
             """)).Should().Be(expected);
     }
 
+    /// <summary>
+    /// https://drafts.csswg.org/css-flexbox/#min-size-auto — a zero flex basis does not cap the content-based
+    /// minimum: a growing column with a checkbox keeps it under the pointer when its neighbour takes the line.
+    /// </summary>
+    [Test]
+    public async Task AZeroBasisItemKeepsItsContentMinimum()
+    {
+        await using var browser = new global::Jint.Browser.Browser(new BrowserOptions { Viewport = new Viewport(800, 600) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <div style="display:flex">
+              <div id="col" style="flex:1 0 0%"><input type="checkbox" id="all"></div>
+              <div id="wide" style="flex:0 0 auto;width:800px">filters</div>
+              <div id="spacer" style="flex:0 0 0%"></div>
+            </div>
+            """);
+        (await page.EvaluateAsync<double>("document.getElementById('col').getBoundingClientRect().width")).Should().Be(16);
+        (await page.EvaluateAsync<double>("document.getElementById('spacer').getBoundingClientRect().width")).Should().Be(0);
+        (await page.ClickAsync("#all")).Should().BeTrue();
+        (await page.EvaluateAsync<bool>("document.getElementById('all').checked")).Should().BeTrue();
+    }
+
     [TestCase("row", "ltr", 0, 736)]
     [TestCase("row-reverse", "ltr", 64, 0)]
     [TestCase("row", "rtl", 64, 0)]

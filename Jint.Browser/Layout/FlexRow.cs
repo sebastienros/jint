@@ -135,11 +135,18 @@ internal static class FlexRow
             // shrink below its content's minimum width. There is no text measurement here, so the content is
             // taken to be at least one row wide — enough for a port, a toggle or an icon to keep a box a pointer
             // can hit — unless the author gave a minimum of their own.
+            //
+            // The content-based minimum is capped by a definite width, never by the flex basis: a `flex: 1 0 0%`
+            // column holding a checkbox keeps its row, it does not collapse to nothing under its neighbour. An item
+            // with no content has none to keep.
             var overflow = style is null ? null : CssCascade.ValueOf(style, "overflow-x");
             explicitMinimums[i] = Length(style is null ? null : CssCascade.ValueOf(style, "min-width"), available);
             maximums[i] = Length(style is null ? null : CssCascade.ValueOf(style, "max-width"), available);
+            var specified = Length(style is null ? null : CssCascade.ValueOf(style, "width"), available);
             minimums[i] = explicitMinimums[i]
-                ?? (overflow is null or "" or "visible" ? Math.Min(widths[i], FlatLayout.RowHeight) : 0);
+                ?? (overflow is null or "" or "visible"
+                    ? Math.Min(specified ?? FlatLayout.RowHeight, HasContent(children[i]) ? FlatLayout.RowHeight : 0)
+                    : 0);
 
             // §9.2 step 3.E: the hypothetical main size is the base size clamped by the min and max main sizes,
             // and it is what the free space is computed from.
@@ -176,10 +183,24 @@ internal static class FlexRow
         for (var i = 0; i < widths.Length; i++)
         {
             if (maximums[i] is { } maximum) widths[i] = Math.Min(widths[i], maximum);
-            if (explicitMinimums[i] is { } minimum) widths[i] = Math.Max(widths[i], minimum);
+            widths[i] = Math.Max(widths[i], minimums[i]);
         }
 
         return widths;
+    }
+
+    // Whether an item has anything for its content-based minimum to keep: an element, or text that is not blank.
+    private static bool HasContent(Element item)
+    {
+        for (var node = item.FirstChild; node is not null; node = node.NextSibling)
+        {
+            if (node is Element || node is Text text && !string.IsNullOrWhiteSpace(text.Data))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal static double? Length(string? value, double available)
