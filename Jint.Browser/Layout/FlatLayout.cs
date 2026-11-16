@@ -566,9 +566,12 @@ internal sealed class FlatLayout
             }
 
             // CSS 2 §10.6.4: with both its top and its bottom set and an auto height, it spans its containing
-            // block — a canvas laid over its host with inset: 0.
+            // block down to its bottom offset — a canvas laid over its host with inset: 0, or a caption kept clear
+            // of a badge below it with inset: 1rem 1rem 3.25rem. Percentages are of the parent's height.
+            var container = Place(parent);
             var height = CssCascade.ValueOf(style, "height");
             double pixels;
+            var bottom = 0d;
             if (height is null or "" or "auto")
             {
                 if (CssCascade.ValueOf(style, "top") is null or "" or "auto" || CssCascade.ValueOf(style, "bottom") is null or "" or "auto")
@@ -577,8 +580,9 @@ internal sealed class FlatLayout
                 }
 
                 pixels = double.PositiveInfinity;
+                bottom = LengthOf(style, "bottom", container.Height) ?? 0;
             }
-            else if (!height.EndsWith("px", StringComparison.Ordinal) || FlexRow.Length(height, 0) is not { } length)
+            else if (LengthOf(style, "height", container.Height) is not { } length)
             {
                 return box;
             }
@@ -593,7 +597,7 @@ internal sealed class FlatLayout
                 return Children(target).Any(HasBox) ? box : box with { Height = pixels };
             }
 
-            var room = Place(parent).Bottom - box.Y;
+            var room = container.Bottom - bottom - box.Y;
             return room > box.Height ? box with { Height = Math.Min(pixels, room) } : box;
         }
 
@@ -742,7 +746,7 @@ internal sealed class FlatLayout
                 return null;
             }
 
-            var authored = FlexRow.Length(CssCascade.ValueOf(style, "width"), available);
+            var authored = LengthOf(style, "width", available);
             if (authored is null)
             {
                 if (CssCascade.ValueOf(style, "left") is not (null or "" or "auto")
@@ -755,10 +759,18 @@ internal sealed class FlatLayout
             }
 
             var width = authored.Value;
-            if (FlexRow.Length(CssCascade.ValueOf(style, "max-width"), available) is { } maximum) width = Math.Min(width, maximum);
-            if (FlexRow.Length(CssCascade.ValueOf(style, "min-width"), available) is { } minimum) width = Math.Max(width, minimum);
+            if (LengthOf(style, "max-width", available) is { } maximum) width = Math.Min(width, maximum);
+            if (LengthOf(style, "min-width", available) is { } minimum) width = Math.Max(width, minimum);
             return width;
         }
+
+        /// <summary>
+        /// A length property in pixels, resolved as <c>getComputedStyle</c> resolves it — <c>15rem</c>, <c>2em</c>,
+        /// <c>50vw</c> or a <c>calc()</c> of them become px — with a percentage taken of <paramref name="basis"/>.
+        /// <see langword="null"/> for <c>auto</c>, <c>none</c>, or a length that needs layout to resolve.
+        /// </summary>
+        private double? LengthOf(Styling.NativeCssComputedStyle style, string name, double basis)
+            => FlexRow.Length(ResolvedLengths.Resolve(name, style.GetNormalizedProperty(name), style, ViewportOf()), basis);
 
         /// <summary>
         /// The width of a grid item (https://drafts.csswg.org/css-grid-2/#layout-algorithm, for column tracks
@@ -823,13 +835,9 @@ internal sealed class FlatLayout
                 return null;
             }
 
-            var viewport = ViewportOf();
-            double? Resolved(string name)
-                => FlexRow.Length(ResolvedLengths.Resolve(name, style.GetNormalizedProperty(name), style, viewport), available);
-
-            var authored = Resolved("width");
-            var maximum = Resolved("max-width");
-            var minimum = Resolved("min-width");
+            var authored = LengthOf(style, "width", available);
+            var maximum = LengthOf(style, "max-width", available);
+            var minimum = LengthOf(style, "min-width", available);
             if (authored is null && maximum is null && minimum is null)
             {
                 return null;
@@ -848,7 +856,7 @@ internal sealed class FlatLayout
         private double PreferredWidth(Element element, double available, int depth)
         {
             var style = cascade?.LayoutOf(element);
-            if (style is not null && FlexRow.Length(CssCascade.ValueOf(style, "width"), available) is { } authored)
+            if (style is not null && LengthOf(style, "width", available) is { } authored)
             {
                 return authored;
             }
