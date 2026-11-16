@@ -567,7 +567,7 @@ internal sealed class FlatLayout
 
             // CSS 2 §10.6.4: with both its top and its bottom set and an auto height, it spans its containing
             // block down to its bottom offset — a canvas laid over its host with inset: 0, or a caption kept clear
-            // of a badge below it with inset: 1rem 1rem 3.25rem. Percentages are of the parent's height.
+            // of a badge below it with inset: 1rem 1rem 3.25rem. A percentage bottom is of the parent's height.
             var container = Place(parent);
             var height = CssCascade.ValueOf(style, "height");
             double pixels;
@@ -582,7 +582,10 @@ internal sealed class FlatLayout
                 pixels = double.PositiveInfinity;
                 bottom = LengthOf(style, "bottom", container.Height) ?? 0;
             }
-            else if (LengthOf(style, "height", container.Height) is not { } length)
+            // A percentage height is left to the rows: an input laid over its label with height: 100% would cover the
+            // label's icon below it, and the hit test does not paint a positioned box above the content after it.
+            else if (ResolvedLengths.Resolve("height", style.GetNormalizedProperty("height"), style, ViewportOf()) is not { } resolved
+                || !resolved.EndsWith("px", StringComparison.Ordinal) || FlexRow.Length(resolved, 0) is not { } length)
             {
                 return box;
             }

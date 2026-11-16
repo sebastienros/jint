@@ -438,6 +438,29 @@ public class FlatLayoutTests
     }
 
     /// <summary>
+    /// A radio laid over its label with <c>position: absolute; inset: 0; height: 100%</c>, beside the label's icon,
+    /// as on a sort control: the flat model stacks the two in rows, and its hit test does not paint a positioned
+    /// box above the content after it, so the radio keeps its own row and a click on it reaches it.
+    /// </summary>
+    [Test]
+    public async Task AnInputLaidOverItsLabelWithAPercentageHeightStaysClickable()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <label style="position: relative; display: grid; width: 1.75rem; height: 1.75rem">
+              <input type="radio" id="radio" name="sort" style="position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0">
+              <span id="icon" style="display: block; width: 18px; height: 18px">i</span>
+            </label>
+            """);
+
+        await page.ClickAsync("#radio");
+        (await page.EvaluateAsync<bool>("document.getElementById('radio').checked")).Should().BeTrue();
+    }
+
+    /// <summary>
     /// https://www.w3.org/TR/CSS2/visudet.html#abs-non-replaced-width — an absolutely positioned box takes its
     /// width, min-width and max-width in any unit getComputedStyle resolves to pixels, not only in px: a dropdown
     /// panel with <c>width: 15rem</c> is 240 px wide rather than shrinking to one row.
