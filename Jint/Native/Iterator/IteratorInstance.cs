@@ -1,9 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Jint.Native.Generator;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
+using Jint.Native.String;
 using Jint.Runtime;
 
 namespace Jint.Native.Iterator;
@@ -628,9 +628,16 @@ internal abstract partial class IteratorInstance : ObjectInstance
         internal override bool TryStartAsyncClose(out JsValue innerResult) => TryStartAsyncClose(_target, out innerResult);
     }
 
+    /// <summary>
+    /// The iterator of https://tc39.es/ecma262/#sec-createstringiterator: each step yields one code point, as
+    /// <c>CodePointAt</c> (https://tc39.es/ecma262/#sec-codepointat) reads it — two code units for a surrogate pair, one
+    /// for anything else, a lone surrogate included. Never a grapheme cluster: a CRLF, a letter and its combining mark,
+    /// and the parts of an emoji sequence joined by U+200D are separate steps (sebastienros/jint#4228).
+    /// </summary>
     internal sealed class StringIterator : IteratorInstance
     {
-        private readonly TextElementEnumerator _iterator;
+        private readonly string _string;
+        private int _position;
 
         // Both StringIteratorPrototype lanes hand in themselves: the iterator a string primitive's lane builds natively
         // stands in for the CreateStringIterator object (https://tc39.es/ecma262/#sec-createstringiterator), so closing
@@ -638,14 +645,20 @@ internal abstract partial class IteratorInstance : ObjectInstance
         // %ArrayIteratorPrototype% the base constructor assigns (sebastienros/jint#4406).
         public StringIterator(Engine engine, string str, ObjectInstance prototype) : base(engine, prototype, IteratorBrand.String)
         {
-            _iterator = StringInfo.GetTextElementEnumerator(str);
+            _string = str;
         }
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
-            if (_iterator.MoveNext())
+            var s = _string;
+            var position = _position;
+            if ((uint) position < (uint) s.Length)
             {
-                nextItem = IteratorResult.CreateValueIteratorPosition(_engine, (string) _iterator.Current);
+                // A finished iterator stays finished: the position only grows, so a later step lands here again.
+                var codeUnitCount = StringPrototype.CodePointAt(s, position).CodeUnitCount;
+                _position = position + codeUnitCount;
+                var value = codeUnitCount == 1 ? JsString.Create(s[position]) : JsString.Create(s.Substring(position, 2));
+                nextItem = IteratorResult.CreateValueIteratorPosition(_engine, value);
                 return true;
             }
 
