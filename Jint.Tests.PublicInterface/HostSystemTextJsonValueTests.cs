@@ -126,6 +126,81 @@ public class HostSystemTextJsonValueTests
             """).AsString().Should().Be("true,true,true,true");
     }
 
+    /// <summary>
+    /// NaN and the infinities have no JSON spelling, and System.Text.Json's writer refuses them, so they must be read
+    /// from the node rather than from its text. Negative zero keeps its sign, as <c>-0</c> does in script.
+    /// </summary>
+    [Test]
+    public void ANonFiniteNumberOrNegativeZeroCrossesAsItself()
+    {
+        var engine = new Engine()
+            .SetValue("nan", JsonValue.Create(double.NaN))
+            .SetValue("pinf", JsonValue.Create(double.PositiveInfinity))
+            .SetValue("ninf", JsonValue.Create(double.NegativeInfinity))
+            .SetValue("fnan", JsonValue.Create(float.NaN))
+            .SetValue("fpinf", JsonValue.Create(float.PositiveInfinity))
+            .SetValue("fninf", JsonValue.Create(float.NegativeInfinity))
+            .SetValue("negzero", JsonValue.Create(-0.0));
+
+        engine.Evaluate("""
+            [nan, pinf, ninf, fnan, fpinf, fninf, negzero].map(x => typeof x).join()
+            """).AsString().Should().Be("number,number,number,number,number,number,number");
+
+        engine.Evaluate("""
+            [
+                Number.isNaN(nan),
+                pinf === Infinity,
+                ninf === -Infinity,
+                Number.isNaN(fnan),
+                fpinf === Infinity,
+                fninf === -Infinity,
+                Object.is(negzero, -0)
+            ].join()
+            """).AsString().Should().Be("true,true,true,true,true,true,true");
+    }
+
+    [Test]
+    public void AStringThatReadsAsAnotherKindStaysAString()
+    {
+        var engine = new Engine()
+            .SetValue("node", JsonNode.Parse("""{"s":"5","t":"true","n":"null","o":"{}"}"""))
+            .SetValue("created", JsonValue.Create("5"));
+
+        engine.Evaluate("""
+            [
+                typeof node.s, node.s === '5',
+                typeof node.t, node.t === 'true',
+                typeof node.n, node.n === 'null',
+                typeof node.o, node.o === '{}',
+                typeof created, created === '5'
+            ].join()
+            """).AsString().Should().Be("string,true,string,true,string,true,string,true,string,true");
+    }
+
+    /// <summary>
+    /// A <c>JsonValue</c> created around a CLR object or collection holds no primitive, so it is wrapped like any
+    /// other CLR object. Converting it used to come back to the same conversion and overflow the stack on .NET 10.
+    /// </summary>
+    [Test]
+    public void AValueHoldingAnObjectOrAnArrayIsWrapped()
+    {
+#pragma warning disable IL2026, IL3050 // the reflection-based JsonValue.Create<T> is what builds such a value
+        var poco = JsonValue.Create(new JsonValuePoco());
+        var list = JsonValue.Create(new[] { 1, 2 });
+#pragma warning restore IL2026, IL3050
+
+        var engine = new Engine().SetValue("poco", poco).SetValue("list", list);
+
+        engine.Evaluate("typeof poco + ',' + typeof list").AsString().Should().Be("object,object");
+        engine.Evaluate("poco").ToObject().Should().BeSameAs(poco);
+        engine.Evaluate("list").ToObject().Should().BeSameAs(list);
+    }
+
+    public sealed class JsonValuePoco
+    {
+        public int K { get; set; } = 1;
+    }
+
     public sealed class NodeHolder(JsonNode node, JsonNode value)
     {
         public JsonNode Node { get; } = node;

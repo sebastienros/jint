@@ -1,9 +1,11 @@
 #if !NET8_0_OR_GREATER
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
 using Jint.Native;
+using Expression = System.Linq.Expressions.Expression;
 #endif
 
 namespace Jint.Runtime.Interop;
@@ -31,9 +33,9 @@ internal static class SystemTextJsonNodes
     private const string JsonValueTypeName = "System.Text.Json.Nodes.JsonValue";
 
     /// <summary>
-    /// Per runtime type, how to read a <c>JsonValue</c>'s JSON text, or <see langword="null"/> for every other type.
+    /// Per runtime type, how to read a <c>JsonValue</c>, or <see langword="null"/> for every other type.
     /// </summary>
-    private static readonly ConcurrentDictionary<Type, Func<object, string>?> _jsonTextReaders = new();
+    private static readonly ConcurrentDictionary<Type, JsonValueReader?> _readers = new();
 
     /// <summary>
     /// The number, string, boolean or null a <c>JsonValue</c> holds, by the rules of the typed lane .NET 8 on uses
@@ -42,24 +44,42 @@ internal static class SystemTextJsonNodes
     /// </summary>
     /// <remarks>
     /// Recognized by its type, once per runtime type: <c>JsonValue</c>'s concrete subclasses are internal and differ
-    /// between package versions, so the test is whether the type derives from it. Its kind is read from
-    /// <c>ToJsonString()</c>, the one member every package version has that tells a string from any other kind.
+    /// between package versions, so the test is whether the type derives from it. A number is asked of the node
+    /// through <c>TryGetValue&lt;T&gt;</c> in the typed lane's order, because the writer behind
+    /// <c>ToJsonString()</c> refuses NaN and the infinities; the JSON text answers only what those cannot, which
+    /// tells a string from a boolean, a null, a decimal, an object and an array in every package version.
     /// </remarks>
     internal static bool TryConvertValue(object value, Type runtimeType, [NotNullWhen(true)] out JsValue? result)
     {
-        var reader = _jsonTextReaders.GetOrAdd(runtimeType, static type => CreateJsonTextReader(type));
+        var reader = _readers.GetOrAdd(runtimeType, static type => CreateReader(type));
         if (reader is null)
         {
             result = null;
             return false;
         }
 
-        result = ConvertJsonText(value, reader(value));
+        result = Convert(reader, value);
         return result is not null;
     }
 
-    private static JsValue? ConvertJsonText(object value, string json)
+    private static JsValue? Convert(JsonValueReader reader, object value)
     {
+        if (reader.TryGetInt32(value, out var intValue))
+        {
+            return JsNumber.Create(intValue);
+        }
+
+        if (reader.TryGetDouble(value, out var doubleValue))
+        {
+            return JsNumber.Create(doubleValue);
+        }
+
+        if (reader.TryGetSingle(value, out var floatValue) && !float.IsFinite(floatValue))
+        {
+            return JsNumber.Create(floatValue);
+        }
+
+        var json = reader.ToJsonString(value);
         if (json.Length == 0)
         {
             return null;
@@ -80,42 +100,14 @@ internal static class SystemTextJsonNodes
             case '[':
                 return null;
             default:
-                return ConvertJsonNumber(json);
+                // a number neither an int nor a double holds, a decimal say: its text, as the typed lane reads it
+                return NumberParser.TryParseDouble(json.AsSpan(), out doubleValue)
+                    ? JsNumber.Create(doubleValue)
+                    : JsNumber.DoubleNaN;
         }
     }
 
-    /// <summary>
-    /// A JSON number as the nearest JavaScript number, as <c>DefaultObjectConverter.ConvertSystemTextJsonNumber</c>
-    /// reads one: an integer that fits an <see cref="int"/> first, then the nearest double.
-    /// </summary>
-    /// <remarks>
-    /// The text cannot say whether the node was parsed or built around a CLR number, which the typed lane's
-    /// <c>TryGetValue&lt;int&gt;</c> can; the two agree on every value but one. A parsed <c>-0</c> is <c>+0</c> on both,
-    /// and so is <c>JsonValue.Create(-0.0)</c> here, which the typed lane reads as <c>-0</c>.
-    /// </remarks>
-    private static JsNumber ConvertJsonNumber(string json)
-    {
-        var integral = true;
-        foreach (var c in json)
-        {
-            if (c is '.' or 'e' or 'E')
-            {
-                integral = false;
-                break;
-            }
-        }
-
-        if (integral && int.TryParse(json, System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out var intValue))
-        {
-            return JsNumber.Create(intValue);
-        }
-
-        return NumberParser.TryParseDouble(json.AsSpan(), out var doubleValue)
-            ? JsNumber.Create(doubleValue)
-            : JsNumber.DoubleNaN;
-    }
-
-    private static Func<object, string>? CreateJsonTextReader(Type type)
+    private static JsonValueReader? CreateReader(Type type)
     {
         Type? jsonValueType = null;
         for (var t = type; t is not null; t = t.BaseType)
@@ -127,39 +119,101 @@ internal static class SystemTextJsonNodes
             }
         }
 
-        var jsonNodeType = jsonValueType?.BaseType;
-        if (!IsJsonNode(jsonNodeType))
+        if (jsonValueType is null || !IsJsonNode(jsonValueType.BaseType))
         {
             return null;
         }
 
-        // public string ToJsonString(JsonSerializerOptions? options = null), in every package version
-        foreach (var method in jsonNodeType!.GetMethods(BindingFlags.Public | BindingFlags.Instance))
-        {
-            if (!string.Equals(method.Name, "ToJsonString", StringComparison.Ordinal) || method.ReturnType != typeof(string))
-            {
-                continue;
-            }
+        return _readersByJsonValueType.GetOrAdd(jsonValueType, static t => CreateJsonValueReader(t));
+    }
 
-            var parameters = method.GetParameters();
-            if (parameters.Length == 1 && !parameters[0].ParameterType.IsValueType)
+    /// <summary>
+    /// One reader per System.Text.Json assembly's <c>JsonValue</c>, shared by all of its concrete subclasses.
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, JsonValueReader?> _readersByJsonValueType = new();
+
+    /// <summary>
+    /// Binds the reader's questions to <paramref name="jsonValueType"/>'s members, or answers <see langword="null"/>,
+    /// which wraps the value as before, when a package version or the runtime does not let them be bound.
+    /// </summary>
+    /// <remarks>
+    /// <c>TryGetValue&lt;T&gt;</c> is a generic virtual method, which .NET Framework will not bind an open-instance
+    /// delegate to, so the reads are compiled expressions instead; they are built once per assembly.
+    /// </remarks>
+    private static JsonValueReader? CreateJsonValueReader(Type jsonValueType)
+    {
+        // public bool TryGetValue<T>(out T value), declared on JsonValue in every package version
+        MethodInfo? tryGetValue = null;
+        foreach (var method in jsonValueType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        {
+            if (string.Equals(method.Name, "TryGetValue", StringComparison.Ordinal)
+                && method.IsGenericMethodDefinition
+                && method.ReturnType == typeof(bool)
+                && method.GetParameters() is { Length: 1 } parameters
+                && parameters[0].ParameterType.IsByRef)
             {
-                return (Func<object, string>) typeof(SystemTextJsonNodes)
-                    .GetMethod(nameof(CreateTypedJsonTextReader), BindingFlags.NonPublic | BindingFlags.Static)!
-                    .MakeGenericMethod(jsonNodeType, parameters[0].ParameterType)
-                    .Invoke(null, [method])!;
+                tryGetValue = method;
+                break;
             }
         }
 
-        return null;
+        // public string ToJsonString(JsonSerializerOptions? options = null), declared on JsonNode
+        MethodInfo? toJsonString = null;
+        foreach (var method in jsonValueType.BaseType!.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        {
+            if (string.Equals(method.Name, "ToJsonString", StringComparison.Ordinal)
+                && method.ReturnType == typeof(string)
+                && method.GetParameters() is { Length: 1 } parameters
+                && !parameters[0].ParameterType.IsValueType)
+            {
+                toJsonString = method;
+                break;
+            }
+        }
+
+        if (tryGetValue is null || toJsonString is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var node = Expression.Parameter(typeof(object), "node");
+            var typedNode = Expression.Convert(node, jsonValueType);
+
+            TryRead<TResult> BindTryGetValue<TResult>()
+            {
+                var result = Expression.Parameter(typeof(TResult).MakeByRefType(), "result");
+                var call = Expression.Call(typedNode, tryGetValue.MakeGenericMethod(typeof(TResult)), result);
+                return Expression.Lambda<TryRead<TResult>>(call, node, result).Compile();
+            }
+
+            var toJson = Expression.Lambda<Func<object, string>>(
+                Expression.Call(typedNode, toJsonString, Expression.Constant(null, toJsonString.GetParameters()[0].ParameterType)),
+                node).Compile();
+
+            return new JsonValueReader(BindTryGetValue<int>(), BindTryGetValue<double>(), BindTryGetValue<float>(), toJson);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException or ArgumentException or MemberAccessException)
+        {
+            return null;
+        }
     }
 
-    private static Func<object, string> CreateTypedJsonTextReader<TNode, TOptions>(MethodInfo toJsonString)
-        where TNode : class
-        where TOptions : class
+    private delegate bool TryRead<TResult>(object node, out TResult result);
+
+    /// <summary>
+    /// The four questions the lane asks a <c>JsonValue</c>.
+    /// </summary>
+    private sealed class JsonValueReader(TryRead<int> tryGetInt32, TryRead<double> tryGetDouble, TryRead<float> tryGetSingle, Func<object, string> toJsonString)
     {
-        var call = (Func<TNode, TOptions?, string>) Delegate.CreateDelegate(typeof(Func<TNode, TOptions?, string>), toJsonString);
-        return node => call((TNode) node, null);
+        public bool TryGetInt32(object value, out int result) => tryGetInt32(value, out result);
+
+        public bool TryGetDouble(object value, out double result) => tryGetDouble(value, out result);
+
+        public bool TryGetSingle(object value, out float result) => tryGetSingle(value, out result);
+
+        public string ToJsonString(object value) => toJsonString(value);
     }
 #endif
 }

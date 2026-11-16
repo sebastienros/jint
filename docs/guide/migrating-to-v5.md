@@ -9089,8 +9089,17 @@ JSON.stringify(obj)      // earlier previews on net472: TypeError "Cyclic refere
 ```
 
 Those assets now recognize a `JsonValue` by its type name, once per runtime type, and convert it by the rules the
-.NET 10 asset uses. Jint still takes no dependency on the System.Text.Json package. There is one difference left:
-`JsonValue.Create(-0.0)` reads as `+0` there, and as `-0` on .NET 10. A `-0` parsed from JSON text is `+0` on both.
+.NET 10 asset uses, NaN, the infinities and `-0` included. Jint still takes no dependency on the System.Text.Json
+package.
+
+Two fixes reach every target framework, .NET 10 included:
+
+- **A `float` NaN or infinity** (`JsonValue.Create(float.NaN)`) threw an `ArgumentException` out of the conversion,
+  because the JSON writer has no spelling for it. It now crosses as `NaN`, `Infinity` or `-Infinity`, as a `double`
+  one already did.
+- **A `JsonValue` created around a CLR object or collection** (`JsonValue.Create(new Poco())`,
+  `JsonValue.Create(new[] { 1, 2 })`) ended the process on .NET 10 with a stack overflow: its conversion converted
+  the same value again. It holds no primitive, so it is now wrapped like any other CLR object, on every target.
 
 **What could break:** script, or an `ObjectConverter`, that handled the wrapper. A converter that turned `JsonValue`
 into a primitive itself still works: registered converters run before Jint's own conversion. There is no switch back.
