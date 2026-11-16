@@ -308,7 +308,7 @@ internal sealed partial class NativeCssQuery
         "flex-basis", "flex-direction", "flex-grow", "flex-shrink", "flex-wrap", "align-items", "align-self",
         "width", "min-width", "max-width", "height", "min-height", "max-height",
         "inline-size", "min-inline-size", "max-inline-size", "block-size", "min-block-size", "max-block-size",
-        "top", "right", "bottom", "left", "inset-block-start", "inset-block-end", "inset-inline-start", "inset-inline-end",
+        "top", "right", "bottom", "left", "inset-block-start", "inset-block-end", "inset-inline-start", "inset-inline-end", "transform", "pointer-events",
         "overflow-x", "overflow-y", "overflow-inline", "overflow-block",
         "grid-template-columns", "grid-column-start", "grid-column-end", "column-gap", "font-size", "writing-mode",
     };
