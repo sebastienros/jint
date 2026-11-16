@@ -220,39 +220,24 @@ internal sealed class JsSegments : ObjectInstance
 
     private readonly record struct GraphemeInfo(string Text, int Index);
 
+    /// <summary>
+    /// The sentences of <paramref name="input"/> by the sentence boundary rules of UAX #29, see <see cref="SentenceBreaker"/>.
+    /// </summary>
     private static List<SegmentData> ComputeSentenceSegments(string input)
     {
         var segments = new List<SegmentData>();
         var index = 0;
-        var length = input.Length;
 
-        while (index < length)
+        while (index < input.Length)
         {
-            var startIndex = index;
-
-            // Find end of sentence (., !, ?)
-            while (index < length)
-            {
-                var c = input[index];
-                index++;
-
-                if (c == '.' || c == '!' || c == '?')
-                {
-                    // Include trailing whitespace in the sentence
-                    while (index < length && char.IsWhiteSpace(input[index]))
-                    {
-                        index++;
-                    }
-                    break;
-                }
-            }
-
+            var end = SentenceBreaker.NextBreak(input, index);
             segments.Add(new SegmentData
             {
-                Segment = input.Substring(startIndex, index - startIndex),
-                Index = startIndex,
+                Segment = input.Substring(index, end - index),
+                Index = index,
                 IsWordLike = false
             });
+            index = end;
         }
 
         return segments;
