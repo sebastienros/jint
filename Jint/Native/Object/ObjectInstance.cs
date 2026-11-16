@@ -2905,19 +2905,26 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return GetMethod(_engine.Realm, this, property);
     }
 
-    internal ICallable? GetDisposeMethod(DisposeHint hint)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-getdisposemethod, in <paramref name="realm"/>, the current Realm Record: the realm
+    /// of the built-in that is adding the resource, or the running realm when it is null (a <c>using</c> declaration).
+    /// It is the realm of a <c>TypeError</c> for a method that is not callable and of the <c>%Promise%</c> the
+    /// sync-dispose fallback's closure returns.
+    /// </summary>
+    internal ICallable? GetDisposeMethod(DisposeHint hint, Realm? realm = null)
     {
+        realm ??= _engine.Realm;
         if (hint == DisposeHint.Async)
         {
-            var method = GetMethod(GlobalSymbolRegistry.AsyncDispose);
+            var method = GetMethod(realm, this, GlobalSymbolRegistry.AsyncDispose);
             if (method is null)
             {
-                method = GetMethod(GlobalSymbolRegistry.Dispose);
+                method = GetMethod(realm, this, GlobalSymbolRegistry.Dispose);
                 if (method is not null)
                 {
                     JsCallDelegate closure = (_, _) =>
                     {
-                        var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Intrinsics.Promise);
+                        var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, realm.Intrinsics.Promise);
                         try
                         {
                             method.Call(this);
@@ -2937,7 +2944,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return method;
         }
 
-        return GetMethod(GlobalSymbolRegistry.Dispose);
+        return GetMethod(realm, this, GlobalSymbolRegistry.Dispose);
     }
 
 

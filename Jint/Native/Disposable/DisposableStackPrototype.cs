@@ -35,14 +35,14 @@ internal sealed partial class DisposableStackPrototype : Prototype
     private JsValue Adopt(JsValue thisObject, JsValue value, JsValue onDispose)
     {
         var stack = AssertDisposableStack(thisObject);
-        return stack.Adopt(value, onDispose);
+        return stack.Adopt(value, onDispose, _realm);
     }
 
     [JsFunction]
     private JsValue Defer(JsValue thisObject, JsValue onDispose)
     {
         var stack = AssertDisposableStack(thisObject);
-        stack.Defer(onDispose);
+        stack.Defer(onDispose, _realm);
         return Undefined;
     }
 
@@ -64,26 +64,27 @@ internal sealed partial class DisposableStackPrototype : Prototype
     private JsValue Move(JsValue thisObject)
     {
         var stack = AssertDisposableStack(thisObject);
-        var newDisposableStack = _engine.Intrinsics.Function.OrdinaryCreateFromConstructor(
-            _engine.Intrinsics.DisposableStack,
+        // OrdinaryCreateFromConstructor(%DisposableStack%, ...): %DisposableStack% of the realm of this built-in, not the running one.
+        var newDisposableStack = _realm.Intrinsics.Function.OrdinaryCreateFromConstructor(
+            _realm.Intrinsics.DisposableStack,
             static intrinsics => intrinsics.DisposableStack.PrototypeObject,
             static (Engine engine, Realm _, object? _) => new DisposableStack(engine, DisposeHint.Sync));
 
-        return stack.Move(newDisposableStack);
+        return stack.Move(newDisposableStack, _realm);
     }
 
     [JsFunction]
     private JsValue Use(JsValue thisObject, JsValue value)
     {
         var stack = AssertDisposableStack(thisObject);
-        return stack.Use(value);
+        return stack.Use(value, _realm);
     }
 
     private DisposableStack AssertDisposableStack(JsValue thisObject)
     {
         if (thisObject is not DisposableStack { _hint: DisposeHint.Sync } stack)
         {
-            Throw.TypeError(_engine.Realm, "This is not a DisposableStack instance.");
+            Throw.TypeError(_realm, "This is not a DisposableStack instance.");
             return null!;
         }
 
