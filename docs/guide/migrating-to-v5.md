@@ -8849,11 +8849,13 @@ its value before and still does.
 **What could break:** script that read a `JObject`'s `JProperty` nodes by position through such a member, or relied
 on it being on `Array.prototype`, and a host `catch` written for the exceptions above. What did not change: a list
 declared as a list interface (`IList<T>`, `IReadOnlyList<T>`, `IList`) keeps the view it names, so a `JObject`
-handed over as `IList<JToken>` is still a list of its nodes; a list declared as `object` or as an interface that is
-not a list is wrapped as before unless its runtime type is addressed by key alone, as `JObject`,
-`OrderedDictionary<string, TValue>` and System.Text.Json 9's `JsonObject` are; and an object that is not a list is
-wrapped as before whatever it is declared as. The same holds for any host type, not only Newtonsoft's: a host list
-type that crosses as a base class is wrapped as its own type, with its own list view. There is no switch back.
+handed over as `IList<JToken>` is still a list of its nodes; a list declared as an interface that is not a list is
+wrapped as before unless its runtime type is addressed by key alone, as `JObject`, `OrderedDictionary<string, TValue>`
+and System.Text.Json 9's `JsonObject` are; and an object that is not a list is wrapped as before whatever it is
+declared as. The same holds for any host type, not only Newtonsoft's: a host list type that crosses as a base class
+is wrapped as its own type, with its own list view. A list declared as `object` is wrapped as its runtime type, as
+[§4.247](#4-247-a-list-typed-object-is-the-list-it-is-as-itself-and-a-jsonnode-member-is-one-wrapper) describes.
+There is no switch back.
 
 ### 4.242 An `OrderedDictionary<int, TValue>` is the keyed object a `Dictionary<int, TValue>` is ([#4527](https://github.com/sebastienros/jint/issues/4527))
 
