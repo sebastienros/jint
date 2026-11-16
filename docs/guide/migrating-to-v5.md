@@ -8243,7 +8243,7 @@ and lead the list when there is none.
 No key is listed twice. A CLR member, element or entry the script redefines is still the target's and stays where
 the target lists it, which on an extensible view means not at all for a member such as `Contains` (a non-extensible
 view lists its members,
-[§4.249](#4-249-a-wrapped-clr-objects-member-deleted-once-it-is-non-extensible-stays-deleted-and-a-non-extensible-view-or-dictionary-lists-its-members-4682)). A key the script defined
+[§4.249](#4-249-a-wrapped-clr-object-s-member-deleted-once-it-is-non-extensible-stays-deleted-and-a-non-extensible-view-or-dictionary-lists-its-members-4682)). A key the script defined
 that a dictionary later gains as an entry is listed once, in the dictionary's place. `for..of` over a dictionary
 still yields only its entries.
 
@@ -8931,7 +8931,7 @@ reflected member such as `Count` or `ToString` is still not listed. A listed pro
 comes ahead of the properties the script created, as an array's `length` does: `Reflect.ownKeys` over a frozen
 `List<int> { 1, 2 }` is `['0', '1', 'length', Symbol(Symbol.iterator)]` with the list's members, which a
 non-extensible view lists since
-[§4.249](#4-249-a-wrapped-clr-objects-member-deleted-once-it-is-non-extensible-stays-deleted-and-a-non-extensible-view-or-dictionary-lists-its-members-4682),
+[§4.249](#4-249-a-wrapped-clr-object-s-member-deleted-once-it-is-non-extensible-stays-deleted-and-a-non-extensible-view-or-dictionary-lists-its-members-4682),
 between `'1'` and `'length'`. The projections are non-enumerable, so
 `Object.keys`, `for..in`, `Object.assign`, spread and `JSON.stringify` do not change. `Reflect.ownKeys`,
 `Object.getOwnPropertyNames`, `Object.getOwnPropertySymbols`, and `GetOwnPropertyKeys` / `GetOwnProperties` on the host
