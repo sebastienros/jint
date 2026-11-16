@@ -422,7 +422,8 @@ public sealed class CascadeTraversalTests
         sizes.Measure(ContentDom.ElementById(document, "hidden")!).Should().Be(FlatBox.Empty);
         sizes.Measure(document.CreateElement("div")).Should().Be(FlatBox.Empty);
         sizes.Measure(sidebar).Height.Should().Be(48);
-        diagnostics.Queries.Single().StatePublications.Should().Be(5, "only html, body, the sidebar and its two rendered descendants need the cascade");
+        diagnostics.Queries.Single().StatePublications.Should().Be(6,
+            "only html, body, the sidebar, its two rendered descendants and the hidden div need the cascade: an author rule may override the hidden attribute's display: none, but not for the div's own descendants");
 
         var layout = FlatLayout.Of(document, visibility, 1280, 720, 96);
         foreach (var element in new[] { leaf, target, sidebar })

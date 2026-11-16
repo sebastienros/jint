@@ -551,6 +551,40 @@ public class FlatLayoutTests
     }
 
     /// <summary>
+    /// https://html.spec.whatwg.org/multipage/rendering.html#hidden-elements — the <c>hidden</c> attribute is the UA
+    /// sheet's <c>display: none</c>, which an author rule overrides: a search box shown while the page loads with
+    /// <c>display: block !important</c> keeps its box, and <c>checkVisibility()</c> says so. A plain
+    /// <c>hidden</c>, and <c>hidden="until-found"</c> (content-visibility: hidden), still have none.
+    /// </summary>
+    [Test]
+    public async Task AnAuthorRuleOverridesTheHiddenAttribute()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <style>.loading[hidden] { display: block !important }</style>
+            <div id="shown" class="loading" hidden>search</div>
+            <div id="gone" hidden>gone</div>
+            <div id="found" hidden="until-found">found</div>
+            <div id="after">after</div>
+            """);
+
+        (await Rect(page, "document.getElementById('shown')")).Should().Be($"0,{2 * Row},1280,{Row}");
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{3 * Row},1280,{Row}");
+        (await page.EvaluateAsync<int>("document.getElementById('gone').getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<int>("document.getElementById('found').getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<bool>("document.getElementById('shown').checkVisibility()")).Should().BeTrue();
+        (await page.EvaluateAsync<bool>("document.getElementById('gone').checkVisibility()")).Should().BeFalse();
+
+        // Without the author rule the attribute hides it again.
+        await page.EvaluateAsync("document.getElementById('shown').classList.remove('loading')");
+        (await page.EvaluateAsync<int>("document.getElementById('shown').getClientRects().length")).Should().Be(0);
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{2 * Row},1280,{Row}");
+    }
+
+    /// <summary>
     /// https://drafts.csswg.org/css-grid-2/#layout-algorithm — a grid item is as wide as the column tracks it
     /// spans and the gaps between them, whether the track count and the span come from a var() or not.
     /// </summary>

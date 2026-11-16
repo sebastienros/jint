@@ -129,12 +129,21 @@ internal static class LayoutMembers
                 return false;
             }
 
-            if (current.GetAttribute("hidden") is not null)
+            // The hidden attribute is the UA sheet's display: none, which an author rule may override; only a
+            // read without the cascade, or hidden=until-found (content-visibility: hidden), takes its word.
+            var hidden = current.GetAttribute("hidden");
+            if (hidden is not null && (!visibility.CascadeAvailable
+                || string.Equals(hidden.Trim(), "until-found", StringComparison.OrdinalIgnoreCase)))
             {
                 return false;
             }
 
             var (display, computedVisibility) = visibility.Style(current, traversal);
+            if (hidden is not null && !visibility.CascadeAvailable)
+            {
+                // The cascade stopped answering on this very element, so the attribute is all there is.
+                return false;
+            }
             if (string.Equals(display, "none", StringComparison.OrdinalIgnoreCase)
                 || (first && string.Equals(display, "contents", StringComparison.OrdinalIgnoreCase)))
             {

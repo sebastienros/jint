@@ -75,7 +75,12 @@ internal sealed class ElementVisibility
 
     private AxIgnoredReason ReasonFor(Element element, bool ariaHiddenCounts, CssCascade.Traversal? traversal)
     {
-        if (Attribute(element, "hidden") is not null)
+        // HTML §15.3.1: the hidden attribute is the UA sheet's [hidden] { display: none }, which an author rule
+        // overrides (a search box shown while the page loads with display: block !important). The cascade
+        // decides when it can answer; an inline-only read cannot see that rule, and hidden=until-found is
+        // content-visibility: hidden, which the cascade does not compute, so those keep the attribute's word.
+        var hidden = Attribute(element, "hidden");
+        if (hidden is not null && (!CascadeAvailable || IsUntilFound(hidden)))
         {
             return AxIgnoredReason.Hidden;
         }
@@ -86,6 +91,12 @@ internal sealed class ElementVisibility
         }
 
         var (display, visibility) = Style(element, traversal);
+
+        if (hidden is not null && (string.Equals(display, "none", StringComparison.OrdinalIgnoreCase) || !CascadeAvailable))
+        {
+            // Its own display: none, or a cascade that stopped answering on this very element.
+            return AxIgnoredReason.Hidden;
+        }
 
         if (string.Equals(display, "none", StringComparison.OrdinalIgnoreCase))
         {
@@ -100,6 +111,9 @@ internal sealed class ElementVisibility
 
         return AxIgnoredReason.None;
     }
+
+    private static bool IsUntilFound(string hidden)
+        => string.Equals(hidden.Trim(), "until-found", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Reads the element's <c>display</c> and <c>visibility</c>, from the cascade when it is available and
