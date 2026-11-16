@@ -23,11 +23,21 @@ withdrawn before it ships. Anything not listed here is intended to keep working 
 | `net472` | — | **added** |
 | `netstandard2.0` | yes | yes |
 | `netstandard2.1` | yes | yes |
-| `net8.0` | yes | yes |
+| `net8.0` | yes | **dropped** |
 | `net10.0` | yes | yes |
+| `net11.0` | — | **added** |
 
 > **Status: landed** ([#3296](https://github.com/sebastienros/jint/pull/3296)). `Jint/Jint.csproj`
-> targets `net472;netstandard2.0;netstandard2.1;net8.0;net10.0`.
+> targets `net472;netstandard2.0;netstandard2.1;net10.0;net11.0`.
+
+The dedicated `net8.0` asset is removed as .NET 8 leaves support. Modern libraries and their tests
+target .NET 10 and .NET 11; Jint retains its .NET Standard assets for downlevel embedders.
+Building the repository requires the .NET 11 SDK selected by `global.json` (11.0.100 or a later feature band).
+
+The .NET 11 asset also tightens `DecompressionStream` to the Compression Standard: truncated input,
+trailing bytes, and concatenated gzip members now error both sides with a `TypeError`. Supply one complete
+member per stream and handle rejection from the writable and readable sides. The .NET 10 asset retains its
+previous lenient stream-based decoder; valid compressed input works on both targets.
 
 The `netstandard` and modern .NET targets are deliberately kept. `netstandard2.0` in particular is
 what game engines and other embedded runtimes resolve against, and it costs far more to drop than
@@ -8878,6 +8888,76 @@ of these returning a larger array. `sort` of a real array that a host built long
 `new JsArray(engine, items)` now throws too. A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged,
 and a list of exactly `MaxArraySize` elements is still allowed. There is no switch back: raise `MaxArraySize`.
 
+### 4.241 A `JObject` or `JArray` that crosses as `JToken` is the object it is as itself ([#4524](https://github.com/sebastienros/jint/issues/4524))
+
+[§4.222](#4-222-an-index-on-a-wrapped-jobject-is-one-more-of-its-keys-4501) made a wrapped `JObject` a keyed object,
+but only when it crossed as `JObject`. A member typed `JToken` (a POCO property, a method such as `SelectToken`, a
+field), `JContainer`, `object` or `IDictionary<string, JToken>` wrapped it against that declared type, and none of
+those is a dictionary whose list Jint knew to ignore. So it was still a view of its `JProperty` nodes:
+
+```js
+// host: engine.SetValue("host", new { Data = (JToken) JObject.Parse("{ \"a\": 1, \"b\": 2 }") });
+Object.keys(host.Data)          // earlier previews: InvalidOperationException out of Evaluate   5.x: ["a", "b"]
+JSON.stringify(host.Data)       // earlier previews: InvalidOperationException                   5.x: {"a":1,"b":2}
+Object.getPrototypeOf(host.Data) === Object.prototype  // earlier previews: false (Array.prototype)  5.x: true
+Array.prototype.slice.call(host.Data).length           // earlier previews: 2 (the JProperty nodes)   5.x: 0
+```
+
+Typed `object` or `IDictionary<string, JToken>`, reads by key already worked, but the object was on
+`Array.prototype` with a `length` of 0, and under `AllowWrite` a delete answered `false`. A `JArray` typed `JToken`
+was a list, but every name that is not an index went through `JToken`'s object indexer, and `JArray`'s throws
+`ArgumentException`: `x.foo`, `x.push(3)` and `JSON.stringify(x)` (which looks up `toJSON`) threw out of `Evaluate`,
+and `x[0] = 7` under `AllowWrite` was silently dropped.
+
+Now a list that crosses as a class it derives from (`JToken`, `JContainer`) is wrapped as its own type. A `JObject`
+that crosses as `object` or as an interface other than a list interface is wrapped as `JObject`, and one that crosses
+as `IDictionary<string, JToken>` keeps that exposure without the list view. Every one of these answers what the
+`JObject` or the `JArray` answers when it crosses as itself, as [§4.222](#4-222-an-index-on-a-wrapped-jobject-is-one-more-of-its-keys-4501)
+describes for a `JObject`. Reading the same member twice still hands script the same wrapper. A `JValue` crossed as
+its value before and still does.
+
+**What could break:** script that read a `JObject`'s `JProperty` nodes by position through such a member, or relied
+on it being on `Array.prototype`, and a host `catch` written for the exceptions above. What did not change: a list
+declared as a list interface (`IList<T>`, `IReadOnlyList<T>`, `IList`) keeps the view it names, so a `JObject`
+handed over as `IList<JToken>` is still a list of its nodes; a list declared as `object` or as an interface that is
+not a list is wrapped as before unless its runtime type is addressed by key alone, as `JObject`,
+`OrderedDictionary<string, TValue>` and System.Text.Json 9's `JsonObject` are; and an object that is not a list is
+wrapped as before whatever it is declared as. The same holds for any host type, not only Newtonsoft's: a host list
+type that crosses as a base class is wrapped as its own type, with its own list view. There is no switch back.
+
+### 4.242 An `OrderedDictionary<int, TValue>` is the keyed object a `Dictionary<int, TValue>` is ([#4527](https://github.com/sebastienros/jint/issues/4527))
+
+[§4.222](#4-222-an-index-on-a-wrapped-jobject-is-one-more-of-its-keys-4501) applied to string-keyed dictionaries
+only. A dictionary with any other key type that is also a list of its entries, such as `OrderedDictionary<int, TValue>`
+(.NET 9 and later), was still wrapped as a view of that list, while `Reflect.ownKeys` listed its keys:
+
+```js
+// host: engine.SetValue("x", new OrderedDictionary<int, string> { [5] = "a", [7] = "b" });
+x[0]              // earlier previews: the KeyValuePair at position 0    5.x: undefined
+x[5]              // earlier previews: undefined (past the list's end)   5.x: "a"
+x["5"], 5 in x    // "a", true before and after
+Reflect.ownKeys(x)                       // ["5", "7"] before and after
+Array.prototype.slice.call(x).length     // earlier previews: 2 (the entries)   5.x: 0
+```
+
+Under `AllowWrite`, `x[0] = "z"` was an `InvalidCastException` out of `Evaluate` (the string converted to a
+`KeyValuePair` for position 0), and `delete x[5]` answered `true` with the entry still there.
+
+Now such a type answers every lane the way a `Dictionary<int, TValue>` holding the same entries does: reads, `in`,
+`hasOwnProperty`, `Reflect.ownKeys`, `for..in`, `JSON.stringify`, writes and deletes under `AllowWrite`, and
+`x["5"]` reads the same key as `x[5]`. Through a member, the [§4.241](#4-241-a-jobject-or-jarray-that-crosses-as-jtoken-is-the-object-it-is-as-itself-4524)
+rules apply unchanged. A host dictionary with a non-string key that implements only the generic dictionary contracts,
+and not the non-generic `IDictionary`, now lists its keys from `Reflect.ownKeys`, `Object.keys`, `for..in` and
+`JSON.stringify`, where it listed its CLR members (`Keys`, `Values`, `Count`, ...) before.
+
+**What could break:** script that read an `OrderedDictionary<TKey, TValue>` with a non-string key by position, or
+relied on it being on `Array.prototype`, a host `catch` written for the exception above, and script that enumerated
+the CLR members of such a generic-only dictionary. What did not change: `Dictionary<TKey, TValue>`, `SortedList<TKey, TValue>` and
+`SortedDictionary<TKey, TValue>`, which are no list; a member declared as a list interface (`IList<T>`,
+`IReadOnlyList<T>`, `IList`) keeps the list view it names; and a dictionary whose list holds its values and that
+declares an integer indexer of its own for that list, other than the one taking its key, keeps its positions.
+`GetAt` and `SetAt` remain callable for positional access. There is no switch back.
+
 ### 4.243 A wrapped CLR object lists a projection once the script redefines it or the object stops being extensible ([#4528](https://github.com/sebastienros/jint/issues/4528))
 
 A wrapped CLR object makes a few properties of its own that its target does not report: the `length` forwarder of a
@@ -8914,6 +8994,41 @@ side include them. An `ownKeys` trap of a proxy over such a wrapper that leaves 
 `Reflect.ownKeys` now includes a symbol, so a script that calls `.join()` on that list throws. Map the keys through
 `String` first. `Object.isSealed` and `Object.isFrozen` now answer `false` for a wrapper with projections that was
 only made non-extensible, because its projections are still configurable. There is no switch back.
+
+### 4.245 A wrapped dictionary's entry is a data property, writable and configurable where the host allows it to change ([#4679](https://github.com/sebastienros/jint/pull/4679))
+
+An entry of a wrapped dictionary whose key type is not `string` (`Dictionary<int, T>`, `Dictionary<long, T>`,
+`IReadOnlyDictionary<int, T>`, a `DayOfWeek`-keyed one, and so on) reported the indexer's accessor pair:
+`Object.getOwnPropertyDescriptor` returned `get` and `set` functions and no `value`, and the entry was never
+configurable, so `delete d[5]` answered `false` and kept it and `Object.defineProperty` threw. A string-keyed
+dictionary's entry was already a data property, but it reported `writable: false` even when an assignment would change
+it. Now every entry is a data property whatever the key type, as the same key on an ordinary object is:
+
+```js
+// host: engine.SetValue("d", new Dictionary<int, string> { [5] = "a" });   AllowWrite = true
+Object.getOwnPropertyDescriptor(d, 5)
+// earlier previews: { get: f, set: f, enumerable: true, configurable: false }
+// 5.x:              { value: 'a', writable: true, enumerable: true, configurable: true }
+delete d[5]     // earlier previews: false, the entry stays    5.x: true, the dictionary no longer holds 5
+```
+
+- **`writable` and `configurable` say whether script may change the entry**: both are `true` under
+  `Options.Interop.AllowWrite` when the dictionary accepts writes, and both are `false` without `AllowWrite`, for an
+  `IReadOnlyDictionary<TKey, TValue>` that is not also an `IDictionary<TKey, TValue>`, and for a dictionary that
+  reports itself read-only (`ReadOnlyDictionary`, `ImmutableDictionary`, `FrozenDictionary`). `enumerable` is `true`.
+  That applies to string keys too, so `writable` of a string-keyed entry changes from `false` to `true` under
+  `AllowWrite`, and `configurable` of a read-only dictionary's entry changes from `true` to `false`.
+- **`Object.freeze`, `Object.isFrozen` and `Object.defineProperty` read the same answer.** Freezing makes each entry
+  non-writable and non-configurable, as for a string-keyed dictionary. `Object.defineProperty` over a read-only
+  dictionary's entry now throws a `TypeError` for a new value, where it used to define a property on the wrapper that
+  shadowed the entry; over a writable entry it defines that property, now for any key type, and `d[5]` reads it.
+- **The entry is the dictionary's at the moment it is asked.** A non-string-keyed entry's descriptor used to be
+  stored on the wrapper by the first read, so an entry the host removed afterwards stayed an own property: `5 in d`
+  answered `true` and `d[5]` read `undefined`. Neither happens now.
+- Reads, writes and enumeration of entries do not change, nor do the dictionary's own members, such as `Count`.
+  A non-generic `IDictionary` such as `Hashtable` keeps its accessor pair.
+
+There is no switch back.
 
 ### 4.246 `Array.fromAsync` hands its mapper the iterator's value as it is, and awaits the source's `return` when it closes it ([#4526](https://github.com/sebastienros/jint/issues/4526))
 

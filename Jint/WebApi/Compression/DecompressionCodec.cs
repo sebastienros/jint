@@ -1,4 +1,4 @@
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER && !NET11_0_OR_GREATER
 using System.IO;
 using System.IO.Compression;
 
@@ -25,7 +25,7 @@ namespace Jint.WebApi.Compression;
 /// <b>Two documented divergences, both in the lenient direction, and they apply to every format.</b> The
 /// standard makes it an error for a stream to end before its member is complete, and an error for anything
 /// to follow the member (a second gzip "member" included). Detecting either needs to know how many of the
-/// bytes handed over the decompressor actually consumed, and .NET exposes no incremental inflater or
+/// bytes handed over the decompressor actually consumed, and targets before .NET 11 expose no incremental inflater or
 /// decoder — only these pull streams, which buffer input internally and report neither figure. So a
 /// truncated stream ends its readable side cleanly rather than erroring it, trailing bytes after a member
 /// are ignored, and a multi-member gzip stream decodes every member. <see cref="BrotliStream"/> behaves

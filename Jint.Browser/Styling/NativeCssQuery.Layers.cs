@@ -54,7 +54,9 @@ internal sealed partial class NativeCssQuery
             }
             var contexts = new Dictionary<CssRule, NativeCssLayer>();
             Dictionary<CssRule, CssScopeRule[]>? scopes = null;
-            foreach (var rule in NativeCssParsing.ApplicableRules(input.Sheet, _media, _work))
+            var applicable = NativeCssParsing.ApplicableRules(input.Sheet, _media, _work);
+            rules.EnsureCapacity(rules.Count + applicable.Length);
+            foreach (var rule in applicable)
             {
                 _work.Charge(1);
                 var layer = rule.ParentRule is { } parent && contexts.TryGetValue(parent, out var inherited) ? inherited : root;
@@ -75,7 +77,8 @@ internal sealed partial class NativeCssQuery
                         rules.Add((style, input.Origin, order++, input.NamespaceUri, layer));
                         break;
                 }
-                contexts.Add(rule, layer);
+                // Only a rule's children look its layer up, and the walk has read every child already.
+                if (rule.Rules.Count != 0) contexts.Add(rule, layer);
                 if (chain is not null) (scopes ??= new(ReferenceEqualityComparer.Instance)).Add(rule, chain);
             }
         }

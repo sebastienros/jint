@@ -9,6 +9,7 @@ Jint.Tests/Scripts/
 *.sln.docstates
 
 # Build results
+.dotnet/
 
 [Dd]ebug/
 [Rr]elease/

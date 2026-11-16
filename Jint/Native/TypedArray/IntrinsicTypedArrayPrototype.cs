@@ -1789,7 +1789,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         }
     }
 
-    private static int SearchSpan<T>(Span<T> span, T value, int fromInclusive, bool last) where T : IEquatable<T>
+    private static int SearchSpan<T>(ReadOnlySpan<T> span, T value, int fromInclusive, bool last) where T : IEquatable<T>
     {
         if (last)
         {

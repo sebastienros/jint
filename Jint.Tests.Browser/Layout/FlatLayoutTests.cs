@@ -412,6 +412,145 @@ public class FlatLayoutTests
     }
 
     /// <summary>
+    /// https://www.w3.org/TR/CSS2/visudet.html#abs-non-replaced-height — an absolutely positioned box with its
+    /// top and bottom set and an auto height ends its bottom offset above its containing block's bottom: a
+    /// caption laid over a card's artwork with <c>inset: 1rem 1rem 3.25rem</c> stays clear of the badge below it.
+    /// </summary>
+    [TestCase("0", 0)]
+    [TestCase("48px", 48)]
+    [TestCase("3rem", 48)]
+    [TestCase("25%", 48)]
+    public async Task AStretchedPositionedBoxEndsAtItsBottomOffset(string bottom, int offset)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            $"""
+            <div id="host" style="position: relative"><div id="layer" style="position: absolute; top: 0; bottom: {bottom}">x</div>{Rows(10)}</div>
+            """);
+
+        // The host is its own row, the layer's and ten more: 192 px, of which 25% is 48 px.
+        var host = await page.EvaluateAsync<double>("document.getElementById('host').getBoundingClientRect().bottom");
+        var layer = await page.EvaluateAsync<double>("document.getElementById('layer').getBoundingClientRect().bottom");
+        (await page.EvaluateAsync<double>("document.getElementById('host').getBoundingClientRect().height")).Should().Be(12 * Row);
+        layer.Should().Be(host - offset);
+    }
+
+    /// <summary>
+    /// A radio laid over its label with <c>position: absolute; inset: 0; height: 100%</c>, beside the label's icon,
+    /// as on a sort control: the flat model stacks the two in rows, and its hit test does not paint a positioned
+    /// box above the content after it, so the radio keeps its own row and a click on it reaches it.
+    /// </summary>
+    [Test]
+    public async Task AnInputLaidOverItsLabelWithAPercentageHeightStaysClickable()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <label style="position: relative; display: grid; width: 1.75rem; height: 1.75rem">
+              <input type="radio" id="radio" name="sort" style="position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0">
+              <span id="icon" style="display: block; width: 18px; height: 18px">i</span>
+            </label>
+            """);
+
+        await page.ClickAsync("#radio");
+        (await page.EvaluateAsync<bool>("document.getElementById('radio').checked")).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// https://www.w3.org/TR/CSS2/visudet.html#abs-non-replaced-width — an absolutely positioned box takes its
+    /// width, min-width and max-width in any unit getComputedStyle resolves to pixels, not only in px: a dropdown
+    /// panel with <c>width: 15rem</c> is 240 px wide rather than shrinking to one row.
+    /// </summary>
+    [TestCase("width: 15rem", 240)]
+    [TestCase("width: calc(10rem + 16px)", 176)]
+    [TestCase("width: 15rem; max-width: calc(100vw - 1200px)", 80)]
+    [TestCase("width: 2px; min-width: 20vw", 256)]
+    [TestCase("width: 10em; font-size: 20px", 200)]
+    public async Task APositionedBoxTakesItsWidthInAnyAbsoluteUnit(string style, int width)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            $"""
+            <div style="position: relative"><span>anchor</span><div id="panel" style="position: absolute; top: 100%; left: 0; {style}">menu</div></div>
+            """);
+
+        (await page.EvaluateAsync<double>("document.getElementById('panel').getBoundingClientRect().width")).Should().Be(width);
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/rendering.html#the-details-and-summary-elements — a closed
+    /// <c>&lt;details&gt;</c> shows its summary alone: its content is <c>content-visibility: hidden</c>, so it is
+    /// neither hit nor visible to <c>checkVisibility()</c>, and the details is no taller than its summary. A
+    /// second summary is content like the rest. Opening it, by script or by a click on its summary, gives the
+    /// content its rows again.
+    /// </summary>
+    [Test]
+    public async Task AClosedDetailsShowsOnlyItsSummary()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <details id="details"><summary id="summary">Language</summary><div id="panel"><label><input type="checkbox" id="box"> C#</label></div><summary id="second">More</summary></details>
+            <div id="after">after</div>
+            """);
+
+        // html, body, details, its summary, then what follows.
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{4 * Row},1280,{Row}");
+        (await Rect(page, "document.getElementById('details')")).Should().Be($"0,{2 * Row},1280,{2 * Row}");
+        (await page.EvaluateAsync<int>("document.getElementById('panel').getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<int>("document.getElementById('second').getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<bool>("document.getElementById('box').checkVisibility()")).Should().BeFalse();
+        (await page.EvaluateAsync<bool>("document.getElementById('summary').checkVisibility()")).Should().BeTrue();
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {3.5 * Row}).id")).Should().Be("summary");
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {4.5 * Row}).id")).Should().Be("after");
+
+        // Opened by script: details, summary, panel, label, checkbox, second summary.
+        await page.EvaluateAsync("document.getElementById('details').open = true");
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{8 * Row},1280,{Row}");
+        (await page.EvaluateAsync<bool>("document.getElementById('box').checkVisibility()")).Should().BeTrue();
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(640, {4.5 * Row}).id")).Should().NotBe("after");
+
+        // Closed and opened again by its summary's activation behaviour.
+        await page.EvaluateAsync("document.getElementById('details').removeAttribute('open')");
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{4 * Row},1280,{Row}");
+        await page.ClickAsync("#summary");
+        (await page.EvaluateAsync<bool>("document.getElementById('details').open")).Should().BeTrue();
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{8 * Row},1280,{Row}");
+    }
+
+    /// <summary>
+    /// A closed dropdown's absolutely positioned panel lies over the open dropdown beside it, as on a filter bar
+    /// whose panels sit at their details' left edge: a click on the open panel's checkbox reaches the checkbox.
+    /// </summary>
+    [Test]
+    public async Task AClosedDetailsPanelDoesNotInterceptAClickOnTheOpenOne()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <style>.bar { display: flex } details { position: relative; width: 50px } .panel { position: absolute; top: 100%; left: 0; width: 200px }</style>
+            <div class="bar">
+              <details open><summary>Type</summary><div class="panel"><label><input type="checkbox" id="quickstart"> Quickstart</label></div></details>
+              <details id="language"><summary>Language</summary><div class="panel" id="closed"><label><input type="checkbox"> C#</label><label><input type="checkbox"> Go</label></div></details>
+            </div>
+            """);
+
+        await page.ClickAsync("#quickstart");
+        (await page.EvaluateAsync<bool>("document.getElementById('quickstart').checked")).Should().BeTrue();
+        (await page.EvaluateAsync<int>("document.getElementById('closed').getClientRects().length")).Should().Be(0);
+    }
+
+    /// <summary>
     /// https://drafts.csswg.org/css-grid-2/#layout-algorithm — a grid item is as wide as the column tracks it
     /// spans and the gaps between them, whether the track count and the span come from a var() or not.
     /// </summary>

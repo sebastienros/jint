@@ -65,7 +65,8 @@ internal static class LayoutMembers
     /// Modelled: the box test, <c>opacityProperty</c>/<c>checkOpacity</c> (computed opacity 0 on the element or
     /// any ancestor), and <c>visibilityProperty</c>/<c>checkVisibilityCSS</c> (computed <c>visibility</c> other
     /// than <c>visible</c>). Not modelled: <c>content-visibility</c>, which the CSS engine does not compute, so
-    /// step 2 never fires and <c>contentVisibilityAuto</c> is accepted and ignored. The flat tree is
+    /// step 2 only fires for the content of a closed <c>&lt;details&gt;</c>, which HTML's rendering makes
+    /// <c>content-visibility: hidden</c>, and <c>contentVisibilityAuto</c> is accepted and ignored. The flat tree is
     /// approximated by the DOM tree plus shadow hosts; slot assignment is not followed. Opacity and
     /// visibility need the CSS cascade; when it is unavailable those options are ignored.
     /// </para>
@@ -122,7 +123,8 @@ internal static class LayoutMembers
             }
 
             realm.CancellationToken.ThrowIfCancellationRequested();
-            if (FlatLayout.IsMetadata(current))
+            // A closed details' content is content-visibility: hidden, which checkVisibility() always fails.
+            if (FlatLayout.IsMetadata(current) || FlatLayout.IsClosedDetailsContent(current))
             {
                 return false;
             }

@@ -108,7 +108,6 @@ internal sealed partial class NativeCssQuery
         else
         {
             var rules = BuildRules();
-            var index = new RuleIndex(rules, _work);
             var scopes = new ShadowRoot?[_sheets.Length];
             for (var i = 0; i < scopes.Length; i++)
             {
@@ -116,11 +115,7 @@ internal sealed partial class NativeCssQuery
                 scopes[i] = _sheets[i].Sheet.EffectiveOwnerNode(_work)?.TreeShadowRoot;
             }
             Verify();
-            var dependencies = new MeasurementDependencies();
-            for (var i = 0; i < rules.Count; i++)
-                dependencies.Include(rules[i].Rule.Selector, index.AffectsMeasurements(i), _work);
-            // Scoping roots and limits are matched against ancestors; no retained row is safe.
-            if (_scopeChains is not null) dependencies.IncludeUnknown();
+            var (index, dependencies) = SharedPlans.GetOrBuild(rules, _scopeChains is not null, _work);
             _plan = new(_sheets, _sheetRevisions, _media, scopes, rules, index, dependencies, _scopeChains);
             Plans.AddOrUpdate(_document, _plan);
             _rules = rules;
@@ -128,6 +123,86 @@ internal sealed partial class NativeCssQuery
             _diagnostics?.RulePlanBuilt();
         }
         _seenCandidates = new int[_rules.Count];
+    }
+
+    /// <summary>
+    /// The rule index and measurement dependencies of rule lists that are the same, rule for rule, whichever document
+    /// they were read for: a site's pages link the same sheets, whose rules come out of the prepared-rule cache with
+    /// the same compiled selectors, and rebuilding both for every page cost a navigation more than all its matching.
+    /// </summary>
+    /// <remarks>
+    /// Both are read-only once built, and depend on each rule's selector and on what its declarations name alone
+    /// (<see cref="RuleIndex.FlagsOf"/>), never on the document, the rule objects or their order beyond positions.
+    /// A list matches when every rule has the very same selector and the same flags at the same position: a rule a
+    /// script edited, a nested rule (whose selector is compiled anew) or another sheet makes another list.
+    /// </remarks>
+    private static class SharedPlans
+    {
+        private const int MaxPlans = 16;
+        private static readonly object Gate = new();
+        private static readonly LinkedList<Shape> Recent = new();
+
+        private sealed record Shape(int Hash, bool Scoped, CompiledSelector[] Selectors, RuleFlags[] Flags,
+            RuleIndex Index, MeasurementDependencies Dependencies);
+
+        internal static (RuleIndex Index, MeasurementDependencies Dependencies) GetOrBuild(
+            List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri, NativeCssLayer Layer)> rules,
+            bool scoped, CssValueWork work)
+        {
+            var flags = new RuleFlags[rules.Count];
+            var hash = new HashCode();
+            hash.Add(scoped);
+            for (var i = 0; i < rules.Count; i++)
+            {
+                work.Charge(1);
+                flags[i] = RuleIndex.FlagsOf(rules[i].Rule);
+                hash.Add(RuntimeHelpers.GetHashCode(rules[i].Rule.Selector));
+                hash.Add(flags[i]);
+            }
+
+            var code = hash.ToHashCode();
+            lock (Gate)
+            {
+                for (var node = Recent.First; node is not null; node = node.Next)
+                {
+                    var shape = node.Value;
+                    if (shape.Hash != code || shape.Scoped != scoped || !Matches(shape, rules, flags)) continue;
+                    Recent.Remove(node);
+                    Recent.AddFirst(node);
+                    return (shape.Index, shape.Dependencies);
+                }
+            }
+
+            var index = new RuleIndex(rules, work);
+            var dependencies = new MeasurementDependencies();
+            for (var i = 0; i < rules.Count; i++)
+                dependencies.Include(rules[i].Rule.Selector, index.AffectsMeasurements(i), work);
+            // Scoping roots and limits are matched against ancestors; no retained row is safe.
+            if (scoped) dependencies.IncludeUnknown();
+
+            var selectors = new CompiledSelector[rules.Count];
+            for (var i = 0; i < selectors.Length; i++) selectors[i] = rules[i].Rule.Selector;
+            lock (Gate)
+            {
+                Recent.AddFirst(new Shape(code, scoped, selectors, flags, index, dependencies));
+                while (Recent.Count > MaxPlans) Recent.RemoveLast();
+            }
+
+            return (index, dependencies);
+        }
+
+        private static bool Matches(Shape shape,
+            List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri, NativeCssLayer Layer)> rules,
+            RuleFlags[] flags)
+        {
+            if (shape.Selectors.Length != rules.Count) return false;
+            for (var i = 0; i < rules.Count; i++)
+            {
+                if (!ReferenceEquals(shape.Selectors[i], rules[i].Rule.Selector) || shape.Flags[i] != flags[i]) return false;
+            }
+
+            return true;
+        }
     }
 
     private bool PlanIsCurrent(RulePlan plan)
@@ -404,6 +479,19 @@ internal sealed partial class NativeCssQuery
             return interactions;
         }
     }
+}
+
+/// <summary>What a style rule's declarations name, as far as the rule index and the measurements care.</summary>
+[Flags]
+internal enum RuleFlags : byte
+{
+    None = 0,
+
+    /// <summary>It declares a property a layout state answers.</summary>
+    DeclaresLayout = 1,
+
+    /// <summary>It can change a measurement: a layout property, or a custom property a layout property's var() can substitute.</summary>
+    AffectsMeasurements = 2,
 }
 
 /// <summary>The page interaction state a document's style rules can observe.</summary>

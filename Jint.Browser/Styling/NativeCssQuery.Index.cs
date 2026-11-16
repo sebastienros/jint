@@ -55,13 +55,9 @@ internal sealed partial class NativeCssQuery
                 var selector = rules[i].Rule.Selector;
                 _pseudoOnly[i] = SelectorSubjectKeys.AllSubjectsArePseudoElements(selector);
                 _noPseudo[i] = SelectorSubjectKeys.NoSubjectIsAPseudoElement(selector);
-                var style = rules[i].Rule.Style;
-                for (var d = 0; d < style.Count && !_declaresLayout[i]; d++)
-                {
-                    var property = style.GetPropertyName(d);
-                    _declaresLayout[i] = LayoutProperties.Contains(property);
-                    _affectsMeasurements[i] |= _declaresLayout[i] || property.StartsWith("--", StringComparison.Ordinal);
-                }
+                var flags = FlagsOf(rules[i].Rule);
+                _declaresLayout[i] = (flags & RuleFlags.DeclaresLayout) != 0;
+                _affectsMeasurements[i] = (flags & RuleFlags.AffectsMeasurements) != 0;
 
                 ancestors.Clear();
                 if (SelectorSubjectKeys.TryCollectAncestorKeys(selector, ancestors))
@@ -125,6 +121,21 @@ internal sealed partial class NativeCssQuery
             }
 
             return false;
+        }
+
+        /// <summary>What a rule's declarations tell the index and the measurement dependencies.</summary>
+        internal static RuleFlags FlagsOf(CssStyleRule rule)
+        {
+            var flags = RuleFlags.None;
+            var style = rule.Style;
+            for (var d = 0; d < style.Count; d++)
+            {
+                var property = style.GetPropertyName(d);
+                if (LayoutProperties.Contains(property)) return RuleFlags.DeclaresLayout | RuleFlags.AffectsMeasurements;
+                if (property.StartsWith("--", StringComparison.Ordinal)) flags = RuleFlags.AffectsMeasurements;
+            }
+
+            return flags;
         }
 
         /// <summary>Whether the rule at <paramref name="position"/> declares a property a layout state answers.</summary>

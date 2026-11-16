@@ -93,6 +93,12 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     internal ParameterInfo FirstIndexParameter { get; }
 
     /// <summary>
+    /// The key the member name converted to, which every access of this accessor passes to the indexer;
+    /// <see langword="null"/> for the fallback a string indexer is resolved with when the name is also an integer.
+    /// </summary>
+    internal object? Key => _key;
+
+    /// <summary>
     /// Whether this indexer stands in for a name the target cannot hold as a key: the non-generic
     /// <see cref="IDictionary"/> indexer of a generic dictionary, keyed by something that is not the
     /// dictionary's <c>TKey</c>. It addresses no entry, so it is not <see cref="Writable"/>, and

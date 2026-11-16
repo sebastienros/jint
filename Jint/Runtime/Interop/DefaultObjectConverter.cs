@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -161,7 +161,9 @@ internal static class DefaultObjectConverter
             // valid for the same exposed CLR type — the same object may also cross as an
             // explicit interface/superclass view, which resolves a different member set.
             if (engine._objectWrapperCache?.TryGetValue(value, out var cached) == true
-                && (cached is not ObjectWrapper cachedWrapper || cachedWrapper.ClrType == valueType))
+                && (cached is not ObjectWrapper cachedWrapper
+                    || cachedWrapper.ClrType == valueType
+                    || ObjectWrapper.IsDeferredExposureOf(cachedWrapper, valueType)))
             {
                 result = cached;
             }
@@ -973,9 +975,12 @@ internal sealed class RecentObjectWrapperCache
                 // the same object can cross under different exposed CLR types (explicit interface /
                 // superclass views resolve different members), so a wrapper is only reusable for the
                 // same exposed type. A mismatched slot is skipped rather than a terminal miss —
-                // wrappers for both views can coexist in the ring.
+                // wrappers for both views can coexist in the ring. A list crossing under a declared type that
+                // defers to its runtime type is wrapped as the latter, which only the slower check recognizes.
                 var wrapper = _wrappers[i];
-                if (wrapper is not ObjectWrapper objectWrapper || objectWrapper.ClrType == clrType)
+                if (wrapper is not ObjectWrapper objectWrapper
+                    || objectWrapper.ClrType == clrType
+                    || ObjectWrapper.IsDeferredExposureOf(objectWrapper, clrType))
                 {
                     return wrapper;
                 }

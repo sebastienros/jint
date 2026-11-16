@@ -10,7 +10,7 @@ either project, and what performance it bought.
 
 | Option | Verdict |
 | --- | --- |
-| Reference the `GregsEx` package | **Not viable.** The package ships `lib/net10.0` only, and Jint targets `net472`, `netstandard2.0`, `netstandard2.1`, `net8.0` and `net10.0`. Its public surface also stops above what a JavaScript engine needs: no group names before a match, and no executor entry below the mutable `EcmaScriptMatcher` session, which owns `lastIndex` itself where Jint's `RegExpBuiltinExec` must. |
+| Reference the `GregsEx` package | **Not viable.** The package ships `lib/net10.0` only, and Jint targets `net472`, `netstandard2.0`, `netstandard2.1`, `net10.0` and `net11.0`. Its public surface also stops above what a JavaScript engine needs: no group names before a match, and no executor entry below the mutable `EcmaScriptMatcher` session, which owns `lastIndex` itself where Jint's `RegExpBuiltinExec` must. |
 | Vendor GregsEx whole | **Not worth it.** 77K lines across six flavors plus FastExpressionCompiler, almost none of it ECMAScript. |
 | **Copy the ECMAScript closure** | **Chosen.** About 9.6K lines of logic plus the Unicode 17.0 tables, under `Jint/Runtime/RegExp/GregsEx/` with GregsEx's folder layout kept. A sync is mechanical: `tools/sync_gregsex.py` takes the pinned upstream files, renames the namespace, makes the types internal, then applies `tools/gregsex-sync/jint.patch`. It keeps no state, so whether there is anything to take is just whether `git diff` is empty: `.github/workflows/gregsex-sync.yml` regenerates weekly and opens a pull request only then. What the patch holds is in that folder's `README.md`. |
 

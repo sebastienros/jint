@@ -13,10 +13,10 @@ Benchmarks use [BenchmarkDotNet](https://benchmarkdotnet.org/) and live in `Jint
 
 ```bash
 # List, then run a class, a method, or a wildcard match
-dotnet run -c Release --project Jint.Benchmark\Jint.Benchmark.csproj -- --list flat
-dotnet run -c Release --project Jint.Benchmark\Jint.Benchmark.csproj -- --filter "Jint.Benchmark.EngineConstructionBenchmark"
-dotnet run -c Release --project Jint.Benchmark\Jint.Benchmark.csproj -- --filter "*EngineConstructionBenchmark.BuildEngine"
-dotnet run -c Release --project Jint.Benchmark\Jint.Benchmark.csproj -- --filter "*Array*"
+dotnet run -c Release -f net10.0 --project Jint.Benchmark\Jint.Benchmark.csproj -- --list flat
+dotnet run -c Release -f net10.0 --project Jint.Benchmark\Jint.Benchmark.csproj -- --filter "Jint.Benchmark.EngineConstructionBenchmark"
+dotnet run -c Release -f net10.0 --project Jint.Benchmark\Jint.Benchmark.csproj -- --filter "*EngineConstructionBenchmark.BuildEngine"
+dotnet run -c Release -f net10.0 --project Jint.Benchmark\Jint.Benchmark.csproj -- --filter "*Array*"
 ```
 
 Running everything is slow — filter unless you need the full set.
@@ -25,7 +25,7 @@ Running everything is slow — filter unless you need the full set.
 >
 > A job named on the command line **replaces** this project's configured job rather than joining it. That is a deliberate behaviour of `JintBenchmarkConfig.Create(args)` and not BenchmarkDotNet's own: BDN merges `--job short` into the config it is handed, so before the replacement a "smoke test" ran the row **twice** — once short and once in full — and cost more than the measurement it was standing in for. The replacement also drops the affinity, GC and power-plan settings the configured job carries, which is why the run announces that nothing is pinned and no number from it may be quoted.
 
-The cross-engine comparison (`EngineComparisonBenchmark`) has its own notes and published results in [`Jint.Benchmark/README.md`](README.md). Run it from the `Jint.Benchmark` directory so the `Scripts/*.js` files resolve: `dotnet run -c Release -- --allCategories EngineComparison`.
+The cross-engine comparison (`EngineComparisonBenchmark`) has its own notes and published results in [`Jint.Benchmark/README.md`](README.md). Run it from the `Jint.Benchmark` directory so the `Scripts/*.js` files resolve: `dotnet run -c Release -f net10.0 -- --allCategories EngineComparison`.
 
 ### The measurement environment
 

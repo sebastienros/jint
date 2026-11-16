@@ -780,17 +780,23 @@ public sealed class TypeResolver
 
         // An integer-shaped name prefers an integer indexer, which on a type that is both a dictionary and a list
         // is the list's: JObject's IList<JToken>.Item, whose position 0 is a JProperty node, beat its own string
-        // indexers. A type addressed by its keys alone has no position to name, so the name is one more key and
-        // scores like any other, and the dictionary's string indexer answers it (#4501). Asked only for an
-        // integer-shaped name, and only once per resolved member.
-        var prefersIntegerIndexer = isInteger && !TypeDescriptor.Get(type).IsAddressedByKeyOnly;
+        // indexers. A type addressed by its keys alone has no position to name, so the name is one more key, and
+        // the indexer taking the dictionary's key type answers it: JObject's string indexer (#4501), and
+        // OrderedDictionary<int, T>'s own int indexer rather than its non-generic IDictionary one, as on
+        // Dictionary<int, T> (#4527). Asked only for an integer-shaped name, and only once per resolved member.
+        Type? preferredIndexType = null;
+        if (isInteger)
+        {
+            var descriptor = TypeDescriptor.Get(type);
+            preferredIndexType = descriptor.IsAddressedByKeyOnly ? descriptor.GenericDictionaryKeyType : typeof(int);
+        }
 
         // if no methods are found check if target implemented indexing
         var score = int.MaxValue;
         if (indexerAccessor != null)
         {
             var parameter = indexerAccessor.FirstIndexParameter;
-            score = CalculateIndexerScore(parameter, prefersIntegerIndexer);
+            score = CalculateIndexerScore(parameter, preferredIndexType);
         }
 
         if (score != 0)
@@ -807,7 +813,7 @@ public sealed class TypeResolver
                     }
 
                     var parameter = accessor.FirstIndexParameter;
-                    var newScore = CalculateIndexerScore(parameter, prefersIntegerIndexer);
+                    var newScore = CalculateIndexerScore(parameter, preferredIndexType);
                     if (newScore < score)
                     {
                         // found a better one
@@ -966,13 +972,22 @@ public sealed class TypeResolver
         return false;
     }
 
-    private static int CalculateIndexerScore(ParameterInfo parameter, bool isInteger)
+    /// <summary>
+    /// Scores an indexer for a member name, lower being better: an indexer taking <paramref name="preferredIndexType"/>
+    /// is exact, one taking a string comes next, and an integer one that is not preferred comes last.
+    /// </summary>
+    private static int CalculateIndexerScore(ParameterInfo parameter, Type? preferredIndexType)
     {
         var paramType = parameter.ParameterType;
 
+        if (paramType == preferredIndexType)
+        {
+            return 0;
+        }
+
         if (paramType == typeof(int))
         {
-            return isInteger ? 0 : 10;
+            return 10;
         }
 
         if (paramType == typeof(string))

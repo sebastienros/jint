@@ -1,6 +1,6 @@
 # IndexedDB
 
-IndexedDB requires .NET 8 or later and is an explicit grant, separate from `WebApiFeatures.Default`:
+IndexedDB requires .NET 10 or later and is an explicit grant, separate from `WebApiFeatures.Default`:
 
 ```csharp
 using var engine = new Engine(options =>

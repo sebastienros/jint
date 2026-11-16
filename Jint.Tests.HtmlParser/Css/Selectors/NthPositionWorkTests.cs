@@ -43,6 +43,51 @@ public sealed class NthPositionWorkTests
         }
     }
 
+    // A traversal's first question about a parent's children is answered by counting from the element, as
+    // el.matches() asks it: each one-off answer agrees with the indexed answer querySelectorAll gives.
+    [TestCase(":nth-child(3)")]
+    [TestCase(":nth-child(2n+1)")]
+    [TestCase(":nth-last-child(2)")]
+    [TestCase(":nth-last-child(-n+3)")]
+    [TestCase(":nth-of-type(2)")]
+    [TestCase(":nth-of-type(odd)")]
+    [TestCase(":nth-last-of-type(1)")]
+    [TestCase(":first-child")]
+    [TestCase(":last-of-type")]
+    [TestCase(":only-child")]
+    public void OneOffQuestionsAgreeWithTheIndex(string selector)
+    {
+        var (document, root, items) = Tree(9);
+        var program = Parse(selector);
+        var indexed = SelectorMatcher.QuerySelectorAll(program, root).ToHashSet();
+        foreach (var item in items)
+        {
+            var work = new SelectorMatchWork(document, default);
+            SelectorMatcher.Matches(program, item, null, default, ref work).Should().Be(indexed.Contains(item), selector);
+        }
+    }
+
+    [Test]
+    public void OnlyASecondQuestionAboutAParentIndexesItsChildren()
+    {
+        var (document, root, items) = Tree(4096);
+        var work = new SelectorMatchWork(document, default);
+        var cell = work.EnsureCell();
+
+        // One question near the start of a long list costs the siblings before the element, and builds no table.
+        SelectorMatcher.Matches(Parse(":nth-child(3)"), items[2], null, default, ref work).Should().BeTrue();
+        cell.Native.Steps.Should().BeLessThan(64);
+        (cell.SiblingPositions?.ContainsKey(root) ?? false).Should().BeFalse();
+
+        // A second one indexes them all, once, so the questions after it are answered from the table.
+        SelectorMatcher.Matches(Parse(":nth-last-of-type(1)"), items[^1], null, default, ref work).Should().BeTrue();
+        cell.SiblingPositions!.ContainsKey(root).Should().BeTrue();
+        var indexed = cell.Native.Steps;
+        for (var i = 0; i < items.Length; i++)
+            SelectorMatcher.Matches(Parse(":nth-child(n)"), items[i], null, default, ref work).Should().BeTrue();
+        (cell.Native.Steps - indexed).Should().BeLessThan(items.Length * 40);
+    }
+
     [Test]
     public void FilterIndexesRespectScopeAndSubjectMembership()
     {

@@ -24,8 +24,8 @@ dotnet pack Jint.HtmlParser/Jint.HtmlParser.csproj -c Release \
   -p:RestoreSources=https://api.nuget.org/v3/index.json
 dotnet restore tools/html-parser-package-consumer/HtmlParserPackageConsumer.csproj \
   --configfile tools/html-parser-package-consumer/nuget.config
-dotnet run --project tools/html-parser-package-consumer/HtmlParserPackageConsumer.csproj -c Release -f net8.0
 dotnet run --project tools/html-parser-package-consumer/HtmlParserPackageConsumer.csproj -c Release -f net10.0
+dotnet run --project tools/html-parser-package-consumer/HtmlParserPackageConsumer.csproj -c Release -f net11.0
 ```
 
 Each run prints `ALL PARSER PACKAGE PROBES PASSED` only after checking HTML, XML, strict SVG, fragment
@@ -46,7 +46,7 @@ unzip -p artifacts/html-parser-package-consumer/feed/Jint.HtmlParser.*.nupkg '*.
 unzip -l artifacts/html-parser-package-consumer/feed/Jint.HtmlParser.*.nupkg
 ```
 
-The package must contain both `lib/net8.0` and `lib/net10.0` assets, declare `System.IO.Hashing`,
+The package must contain both `lib/net10.0` and `lib/net11.0` assets, declare `System.IO.Hashing`,
 include `licenses/ValueStringBuilder.LICENSE.txt`, and have no `Jint` or `AngleSharp` dependency.
 The application also checks that its own assembly is unsigned and that it loaded the
 `Jint.HtmlParser` assembly. The package manifest and restored graph are the dependency checks, since
@@ -74,17 +74,17 @@ and Jint.Browser. Its two version inputs cover a prerelease and a GA Browser who
 experimental. `verify_packages.py` checks both shipped framework assets, the parser's package policy,
 and Browser's exact dependency on the actual parser version before supplying consumer version properties.
 
-The consumer builds and runs on net8.0 and net10.0 with `IncludeBrowser=true`. This adds a packaged
+The consumer builds and runs on net10.0 and net11.0 with `IncludeBrowser=true`. This adds a packaged
 Browser smoke probe that creates a page, parses HTML, runs script and reads DOM text. For example,
 after packing all four packages with `Version=5.0.0`, run:
 
 ```sh
 python3 tools/html-parser-package-consumer/verify_packages.py feed \
-  --version 5.0.0 --framework net8.0 --framework net10.0
+  --version 5.0.0 --framework net10.0 --framework net11.0
 dotnet build tools/html-parser-package-consumer/HtmlParserPackageConsumer.csproj -c Release \
   -p:IncludeBrowser=true -p:HtmlParserPackageVersion=5.0.0-experimental-0 -p:BrowserPackageVersion=5.0.0
 python3 tools/html-parser-package-consumer/verify_packages.py restore \
-  --version 5.0.0 --framework net8.0 --framework net10.0 --browser
+  --version 5.0.0 --framework net10.0 --framework net11.0 --browser
 ```
 
 Restore verification checks exact versions, framework assets, the source recorded by NuGet and the

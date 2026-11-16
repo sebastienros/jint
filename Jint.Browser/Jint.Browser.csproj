@@ -3,10 +3,10 @@
   <PropertyGroup>
     <NeutralLanguage>en-US</NeutralLanguage>
 
-    <!-- The whole package is net8.0+, the same floor Jint/WebApi/ and Jint.DevTools sit on and for the same
+    <!-- The whole package is net10.0+, the same floor Jint.DevTools sits on and for the same
          reason: this is host surface built on the modern BCL, not engine surface a netstandard consumer
          resolves. -->
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
 
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>

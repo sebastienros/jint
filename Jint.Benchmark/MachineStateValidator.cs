@@ -70,7 +70,12 @@ internal sealed class MachineStateValidator : IValidator
 
     public bool TreatsWarningsAsErrors => _fatal;
 
-    public IEnumerable<ValidationError> Validate(ValidationParameters validationParameters)
+    // The check samples the process table synchronously; BenchmarkDotNet 0.16 only asks for it asynchronously.
+    // tools/browser-comparison compiles this file too and calls Validate directly for its --idle-check.
+    public IAsyncEnumerable<ValidationError> ValidateAsync(ValidationParameters validationParameters)
+        => Validate(validationParameters).ToAsyncEnumerable();
+
+    internal IEnumerable<ValidationError> Validate(ValidationParameters validationParameters)
     {
         if (Skipped)
         {

@@ -91,6 +91,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// </remarks>
     private bool _hasListedOwnKeys;
 
+    /// <summary>
+    /// Whether a <c>[[DefineOwnProperty]]</c> or a host <see cref="SetOwnProperty"/> has stored a property on this
+    /// wrapper. Such a property outranks the dictionary entry of the same key, so the lanes that read a
+    /// non-string-keyed dictionary by a number key have to ask <c>_properties</c> first - but only once something can
+    /// be there to find. Never cleared; in padding, as <see cref="_hasListedOwnKeys"/> is.
+    /// </summary>
+    private bool _storesDefinedProperties;
+
     internal ObjectWrapper(
         Engine engine,
         object obj,
@@ -232,7 +240,37 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         type ??= target.GetType();
 
-        if (TryBuildArrayLikeWrapper(engine, target, type, out var wrapper))
+        var resolution = ResolveExposure(type);
+        var listViewAllowed = true;
+
+        // A declared type that is not an explicit list contract may not pick the view of a list whose runtime type
+        // is something else (#4524): a JObject typed JToken, JContainer or object is the keyed object it is as
+        // JObject, one typed IDictionary<string, JToken> keeps that exposure without a list view, and a JArray typed
+        // JToken is the list it is as JArray. ExposureResolution says which declared types may defer. One that
+        // cannot pays a flag test, and one crossing as its own type a reference comparison more.
+        if (resolution.RuntimeTypeMayDecide)
+        {
+            var runtimeType = target.GetType();
+            if (!ReferenceEquals(runtimeType, type) && target is IList)
+            {
+                if (!resolution.TryGetMemoized(runtimeType, out var exposure))
+                {
+                    exposure = resolution.Decide(runtimeType, TypeDescriptor.Get(runtimeType));
+                }
+
+                if (exposure == DeclaredTypeExposure.Runtime)
+                {
+                    type = runtimeType;
+                    resolution = ResolveExposure(type);
+                }
+                else if (exposure == DeclaredTypeExposure.DeclaredWithoutListView)
+                {
+                    listViewAllowed = false;
+                }
+            }
+        }
+
+        if (listViewAllowed && TryBuildArrayLikeWrapper(engine, target, type, resolution.Factory, out var wrapper))
         {
             return wrapper;
         }
@@ -240,52 +278,96 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return new ObjectWrapper(engine, target, type);
     }
 
-    private static readonly ConcurrentDictionary<Type, ArrayLikeWrapperFactory?> _arrayLikeWrapperResolution = new();
+    private static readonly ConcurrentDictionary<Type, ExposureResolution> _exposureResolution = new();
+
+    /// <summary>
+    /// What wrapping a target under <paramref name="type"/> needs resolved once: the array-like view factory, and
+    /// whether the target's runtime type may decide the exposure instead.
+    /// </summary>
+    /// <remarks>
+    /// Resolved once per exposed type: reflection (interface scan + generic instantiation + Activator) runs only on
+    /// the first sighting, every later wrapper creation is a dictionary read. Deliberately not GetOrAdd with a
+    /// lambda: a lambda parameter carries no [DynamicallyAccessedMembers], so <paramref name="type"/>'s annotation
+    /// is lost at the closure boundary and the interface scan inside reads as unannotated in every trimming build.
+    /// </remarks>
+    internal static ExposureResolution ResolveExposure(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    {
+        if (_exposureResolution.TryGetValue(type, out var resolution))
+        {
+            return resolution;
+        }
+
+        var descriptor = TypeDescriptor.Get(type);
+        ArrayLikeWrapperFactory? factory;
+        if (descriptor.IsAddressedByKeyOnly)
+        {
+            // a dictionary whose list holds its entries (JObject's JProperty nodes) is an object to script,
+            // not a view of that list: no factory is built, and the IList fallback below is not taken (#4501)
+            factory = NoArrayLikeViewFactory.Instance;
+        }
+        else
+        {
+            try
+            {
+                var factoryType = ResolveArrayLikeWrapperFactoryType(type);
+                factory = factoryType is null ? null : (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
+            }
+            catch (Exception e) when (IsMissingGenericInstantiation(e))
+            {
+                // no typed factory on this runtime; the caller degrades to the non-generic ListWrapper,
+                // or to a plain ObjectWrapper when the target is not even an IList
+                factory = null;
+            }
+        }
+
+        // GetOrAdd's value overload rather than TryAdd, so that a race still hands every caller the
+        // same resolution the dictionary holds - which is what the factory overload guaranteed.
+        return _exposureResolution.GetOrAdd(type, new ExposureResolution(type, descriptor, factory));
+    }
+
+    /// <summary>
+    /// Whether <paramref name="wrapper"/> is what wrapping its target under <paramref name="exposedType"/> builds,
+    /// although its <see cref="ClrType"/> is another type: the runtime type that exposure defers to (#4524).
+    /// </summary>
+    /// <remarks>
+    /// The identity caches match a wrapper to the type its target is crossing as, and for a deferring exposure that
+    /// is not the wrapper's own type. Asked only once a cached wrapper's type has already differed, so an ordinary
+    /// lookup never reaches it.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static bool IsDeferredExposureOf(ObjectWrapper wrapper, Type exposedType)
+    {
+        if (!_exposureResolution.TryGetValue(exposedType, out var resolution)
+            || !resolution.RuntimeTypeMayDecide
+            || wrapper.Target is not IList)
+        {
+            return false;
+        }
+
+        var runtimeType = wrapper.ClrType;
+        if (!ReferenceEquals(runtimeType, wrapper.Target.GetType()))
+        {
+            return false;
+        }
+
+        if (!resolution.TryGetMemoized(runtimeType, out var exposure))
+        {
+            // the wrapper's own descriptor is the runtime type's, which is what Decide reads
+            exposure = resolution.Decide(runtimeType, wrapper._typeDescriptor);
+        }
+
+        return exposure == DeclaredTypeExposure.Runtime;
+    }
 
     private static bool TryBuildArrayLikeWrapper(
         Engine engine,
         object target,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties)] Type type,
+        ArrayLikeWrapperFactory? factory,
         [NotNullWhen(true)] out ArrayLikeWrapper? result)
     {
         result = null;
-
-        // resolved once per exposed type: reflection (interface scan + generic instantiation +
-        // Activator) runs only on the first sighting, every later wrapper creation is a single
-        // virtual call into the cached factory.
-        //
-        // Deliberately not GetOrAdd with a lambda: a lambda parameter carries no
-        // [DynamicallyAccessedMembers], so `type`'s annotation is lost at the closure boundary and the
-        // interface scan inside reads as unannotated in every trimming build. Resolving in this method
-        // keeps the annotated parameter in scope. A cached miss is stored as null and TryGetValue reports
-        // it, so a type that is not array-like is resolved once and not once per crossing.
-        if (!_arrayLikeWrapperResolution.TryGetValue(type, out var factory))
-        {
-            if (TypeDescriptor.Get(type).IsAddressedByKeyOnly)
-            {
-                // a dictionary whose list holds its entries (JObject's JProperty nodes) is an object to script,
-                // not a view of that list: no factory is built, and the IList fallback below is not taken (#4501)
-                factory = NoArrayLikeViewFactory.Instance;
-            }
-            else
-            {
-                try
-                {
-                    var factoryType = ResolveArrayLikeWrapperFactoryType(type);
-                    factory = factoryType is null ? null : (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
-                }
-                catch (Exception e) when (IsMissingGenericInstantiation(e))
-                {
-                    // no typed factory on this runtime; the caller degrades to the non-generic ListWrapper,
-                    // or to a plain ObjectWrapper when the target is not even an IList
-                    factory = null;
-                }
-            }
-
-            // GetOrAdd's value overload rather than TryAdd, so that a race still hands every caller the
-            // same factory the dictionary holds - which is what the factory overload guaranteed.
-            factory = _arrayLikeWrapperResolution.GetOrAdd(type, factory);
-        }
 
         // IsInstanceOfType is what keeps the factory's cast honest. Every factory casts the target to the
         // contract the exposed type named - (T[]), (IList<T>), (IReadOnlyList<T>) - and until the exposed
@@ -458,7 +540,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     private static EnumerableSnapshotFactory ResolveEnumerableSnapshotFactory(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
     {
-        // resolved out of the lambda for the reason TryBuildArrayLikeWrapper's is: an annotated Type does
+        // resolved out of the lambda for the reason ResolveExposure's is: an annotated Type does
         // not survive the closure boundary, so the interface scan below read as unannotated.
         if (_enumerableSnapshotResolution.TryGetValue(type, out var cached))
         {
@@ -840,7 +922,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             return false;
         }
-        else if (ReferenceEquals(receiver, this) && _typeDescriptor.IsNonStringKeyedGenericDictionary)
+        else if (ReferenceEquals(receiver, this) && _typeDescriptor.IsNonStringKeyedGenericDictionary && !StoresDefinedProperty(property))
         {
             // non-string-keyed CLR generic dictionary (e.g. Dictionary<TestModel, string>).
             // Matches the receiver gate in Get: when [[Set]] arrives via Proxy/Reflect.set with a
@@ -964,8 +1046,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         // whatever this defines lands in _properties, which is consulted ahead of the dictionary lane from
         // here on, so the memo must not answer for it any more
         DropCrossingMemo();
+        _storesDefinedProperties = true;
 
-        if (_typeDescriptor.IsStringKeyedGenericDictionary && property.IsString() && !TryGetProperty(property, out _))
+        if (_typeDescriptor.IsGenericDictionary && property.IsString() && !TryGetProperty(property, out _))
         {
             // For dictionary-backed objects, GetOwnProperty returns fresh descriptors that are not stored
             // in _properties. ValidateAndApplyPropertyDescriptor mutates descriptors in-place, so mutations
@@ -1113,6 +1196,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         // same reason as DefineOwnProperty: a descriptor in _properties outranks the memo from now on
         DropCrossingMemo();
+        _storesDefinedProperties = true;
 
         // ValidateAndApplyPropertyDescriptor stores through here for two things: a property GetOwnProperty did not
         // answer, which it is creating, and one it did, which a redefinition replaces (data to accessor and back, or an
@@ -1177,10 +1261,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             if (property is JsString jsString && _typeDescriptor.IsStringKeyedGenericDictionary)
             {
-                var key = jsString.ToString();
-                var removed = _typeDescriptor.TryRemoveDictionaryValue(Target, key);
-                _engine.CheckAmortizedConstraintsAtHostBoundary();
-                if (!removed && HoldsDictionaryKey(key))
+                if (!RemoveEntryUnlessRefused(jsString.ToString()))
+                {
+                    return false;
+                }
+            }
+            else if (property is JsString name && _typeDescriptor.IsNonStringKeyedGenericDictionary)
+            {
+                // "5" on a Dictionary<int, T> names the entry GetOwnProperty describes, so it is the entry that goes
+                if (TryGetEntryKey(ResolveMemberAccessor(name.ToString(), MemberResolutionRequirement.None), out var entryKey)
+                    && !RemoveEntryUnlessRefused(entryKey))
                 {
                     return false;
                 }
@@ -1188,20 +1278,27 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             else if (!property.IsString()
                 && !property.IsSymbol()
                 && _typeDescriptor.IsNonStringKeyedGenericDictionary
-                && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
+                && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey)
+                && !RemoveEntryUnlessRefused(clrKey!))
             {
-                var removed = _typeDescriptor.TryRemoveDictionaryValue(Target, clrKey!);
-                _engine.CheckAmortizedConstraintsAtHostBoundary();
-                if (!removed && HoldsDictionaryKey(clrKey!))
-                {
-                    return false;
-                }
+                return false;
             }
         }
 
         // also remove from _properties cache to avoid stale entries
         base.RemoveOwnProperty(property);
         return true;
+    }
+
+    /// <summary>
+    /// Removes the dictionary's entry under <paramref name="key"/>, answering <see langword="false"/> only when it
+    /// holds one and refuses to remove it.
+    /// </summary>
+    private bool RemoveEntryUnlessRefused(object key)
+    {
+        var removed = _typeDescriptor.TryRemoveDictionaryValue(Target, key);
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
+        return removed || !HoldsDictionaryKey(key);
     }
 
     /// <summary>
@@ -1247,6 +1344,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         if (!property.IsString()
             && !property.IsSymbol()
             && _typeDescriptor.IsNonStringKeyedGenericDictionary
+            && !StoresDefinedProperty(property)
             && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
         {
             // Prototype chain is intentionally skipped: non-string non-symbol keys can't resolve
@@ -1360,12 +1458,19 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                         return converted;
                     }
                 }
+                else if (_typeDescriptor.IsNonStringKeyedGenericDictionary && TryGetEntryValue(property, out var entry))
+                {
+                    // "5" on a Dictionary<int, T>: the entry's value, with no descriptor built for it, as the
+                    // string-keyed lane above answers; a miss takes the slow path below, as it always has
+                    return entry;
+                }
             }
         }
         else if (ReferenceEquals(receiver, this)
             && _typeDescriptor.IsNonStringKeyedGenericDictionary
             && !property.IsSymbol()
             && !property.IsString()
+            && !StoresDefinedProperty(property)
             && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
         {
             // Prototype chain is intentionally skipped on miss: non-string non-symbol keys can't
@@ -1696,6 +1801,22 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 }
             }
         }
+        else if (includeStrings && _typeDescriptor.IsNonStringKeyedGenericDictionary && _typeDescriptor.KeysAccessor is { } keysAccessor)
+        {
+            // a non-string-keyed dictionary implementing only the generic contracts lists its keys as the branch
+            // above does, not its CLR members: every other lane answers the keys (#4527)
+            var keys = (IEnumerable) keysAccessor.GetValue(Target)!;
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            foreach (var key in keys)
+            {
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (key is not null
+                    && _engine._typeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out var stringKey))
+                {
+                    yield return JsString.Create((string) stringKey!);
+                }
+            }
+        }
         else if (includeStrings && this is ArrayLikeWrapper arrayLike)
         {
             // array-like views enumerate like JS arrays: index keys, not reflected CLR member names —
@@ -1854,7 +1975,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             if (contains)
             {
-                // DictionaryMemberFlags is Enumerable for every key; only configurability varies.
+                // DictionaryMemberFlags is Enumerable for every key; only writability and configurability vary.
                 return OwnPropertyProbe.Enumerable;
             }
         }
@@ -1904,21 +2025,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         if (!property.IsString() && _typeDescriptor.IsNonStringKeyedGenericDictionary)
         {
             // non-string-keyed CLR generic dictionary — resolve via underlying CLR key, not string
-            if (TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
-            {
-                var found = _typeDescriptor.TryGetDictionaryValue(Target, clrKey!, out var raw);
-                _engine.CheckAmortizedConstraintsAtHostBoundary();
-                if (found)
-                {
-                    var flags = PropertyFlag.Enumerable;
-                    if (_engine.Options.Interop.AllowWrite)
-                    {
-                        flags |= PropertyFlag.Configurable;
-                    }
-                    return new PropertyDescriptor(FromObject(_engine, raw), flags);
-                }
-            }
-            return PropertyDescriptor.Undefined;
+            return TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey)
+                ? DescribeEntry(clrKey!)
+                : PropertyDescriptor.Undefined;
         }
 
         var member = property.ToString();
@@ -2000,6 +2109,15 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return PropertyDescriptor.Undefined;
         }
 
+        if (_typeDescriptor.IsNonStringKeyedGenericDictionary && TryGetEntryKey(accessor, out var entryKey))
+        {
+            // The name spells one of the dictionary's keys, "5" on a Dictionary<int, T>: what it answers for is an
+            // entry, which is a data property as a string-keyed dictionary's entry is, and never the indexer's
+            // accessor pair. It is not stored either: the dictionary is asked each time, so an entry the host has
+            // removed since is no longer an own property.
+            return DescribeEntry(entryKey);
+        }
+
         // A member resolving purely to registered extension methods must not shadow a same-named
         // Array.prototype native on an indexed array-like view (#2976): return Undefined WITHOUT
         // caching, so the outer Get falls through to the attached prototype and a later mutation of
@@ -2038,18 +2156,90 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     }
 
     /// <summary>
-    /// The flags a dictionary-backed member is reported with. Configurability follows
-    /// <see cref="Options.InteropOptions.AllowWrite"/>, exactly as it did before the memo existed.
+    /// The flags a dictionary entry is reported with, whatever its key type: enumerable, and writable and configurable
+    /// exactly when script may change the entry - <see cref="Options.InteropOptions.AllowWrite"/> is on and the
+    /// dictionary accepts writes (<see cref="TypeDescriptor.AcceptsEntryWrites"/>). That is what the wrapper's own
+    /// [[Set]] and [[Delete]] do with the entry, so <c>Object.freeze</c>, <c>Object.isFrozen</c> and
+    /// <c>Object.defineProperty</c> read the same answer they act on
+    /// (https://tc39.es/ecma262/#sec-validateandapplypropertydescriptor).
     /// </summary>
     private PropertyFlag DictionaryMemberFlags()
+        => _engine.Options.Interop.AllowWrite && _typeDescriptor.AcceptsEntryWrites(Target)
+            ? PropertyFlag.ConfigurableEnumerableWritable
+            : PropertyFlag.Enumerable;
+
+    /// <summary>
+    /// The descriptor of the entry a non-string-keyed dictionary holds under <paramref name="key"/>, or
+    /// <see cref="PropertyDescriptor.Undefined"/> when it holds none.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private PropertyDescriptor DescribeEntry(object key)
     {
-        var flags = PropertyFlag.Enumerable;
-        if (_engine.Options.Interop.AllowWrite)
+        var found = _typeDescriptor.TryGetDictionaryValue(Target, key, out var raw);
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
+        return found
+            ? new PropertyDescriptor(FromObject(_engine, raw), DictionaryMemberFlags())
+            : PropertyDescriptor.Undefined;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="property"/> names a property stored on the wrapper by <c>[[DefineOwnProperty]]</c> -
+    /// <c>Object.defineProperty</c>, <c>Object.freeze</c>, <c>Object.seal</c> - or by the host, which the number-key
+    /// lanes of a non-string-keyed dictionary leave to the ordinary path, as the string-key lanes do.
+    /// </summary>
+    private bool StoresDefinedProperty(JsValue property) => _storesDefinedProperties && TryGetProperty(property, out _);
+
+    /// <summary>
+    /// The key of the entry <paramref name="accessor"/> stands for: on a non-string-keyed generic dictionary, a name
+    /// that resolved to an indexer with a key of the dictionary's own key type, as <c>"5"</c> does on a
+    /// <c>Dictionary&lt;int, T&gt;</c>. The name was converted to that key by the resolver, once per type and name.
+    /// </summary>
+    private bool TryGetEntryKey(ReflectionAccessor accessor, [NotNullWhen(true)] out object? key)
+    {
+        if (accessor is IndexerAccessor { KeyCannotBeAnEntry: false, Key: { } candidate }
+            && _typeDescriptor.GenericDictionaryKeyType!.IsInstanceOfType(candidate))
         {
-            flags |= PropertyFlag.Configurable;
+            key = candidate;
+            return true;
         }
 
-        return flags;
+        key = null;
+        return false;
+    }
+
+    /// <summary>
+    /// [[Get]]'s lane for an entry of a non-string-keyed dictionary named by a string, such as <c>x[5]</c> on a
+    /// <c>Dictionary&lt;int, T&gt;</c>: the entry's value, read without building its descriptor. Declines, leaving the
+    /// answer to <see cref="GetOwnProperty(JsValue, MemberResolutionRequirement, bool)"/> wherever that would consult
+    /// something else first - a host member accessor, a prototype method preferred - and for a key the dictionary does
+    /// not hold. A property stored on the wrapper answers first, as it does there.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool TryGetEntryValue(JsValue property, out JsValue value)
+    {
+        if (TryGetProperty(property, out var stored))
+        {
+            // what the slow path answers first, a member resolved earlier included, answered here without asking twice
+            value = UnwrapJsValue(stored, this);
+            return true;
+        }
+
+        var interop = _engine.Options.Interop;
+        if (!interop.PreferJsPrototypeMethods
+            && ReferenceEquals(interop.MemberAccessor, Options.InteropOptions._defaultMemberAccessor)
+            && TryGetEntryKey(ResolveMemberAccessor(property.ToString(), MemberResolutionRequirement.Readable), out var key))
+        {
+            var found = _typeDescriptor.TryGetDictionaryValue(Target, key, out var raw);
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            if (found)
+            {
+                value = FromObject(_engine, raw);
+                return true;
+            }
+        }
+
+        value = Undefined;
+        return false;
     }
 
     /// <summary>

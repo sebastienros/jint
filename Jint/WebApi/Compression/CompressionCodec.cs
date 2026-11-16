@@ -1,4 +1,4 @@
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER && !NET11_0_OR_GREATER
 using System.IO;
 using System.IO.Compression;
 

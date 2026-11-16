@@ -156,7 +156,7 @@ internal sealed class FlatLayout
     /// </remarks>
     internal static bool IsRendered(Element element, ElementVisibility visibility, CssCascade.Traversal? cascade = null)
     {
-        if (IsMetadata(element))
+        if (IsMetadata(element) || IsClosedDetailsContent(element))
         {
             return false;
         }
@@ -191,6 +191,20 @@ internal sealed class FlatLayout
 
         return element.LocalName is "script" or "style" or "template" or "noscript" or "title" or "meta" or "link";
     }
+
+    /// <summary>
+    /// Whether <paramref name="element"/> is the content of a closed <c>&lt;details&gt;</c>: a child other than its
+    /// summary, which HTML's rendering puts in the details' content slot with <c>content-visibility: hidden</c>
+    /// (https://html.spec.whatwg.org/multipage/rendering.html#the-details-and-summary-elements). Nothing in it is
+    /// drawn or hit, and the details is only as tall as its summary, so here it has no box: a closed dropdown's
+    /// panel does not cover the open one beside it. Chromium still reports its geometry, which the flat model,
+    /// with boxes that are rows, cannot give it without making the details as tall as its content.
+    /// </summary>
+    internal static bool IsClosedDetailsContent(Element element)
+        // The summary for the details is its first summary child; any other summary is content like the rest.
+        => element.ParentNode is Element { NamespaceUri: Namespaces.Html, LocalName: "details" } details
+            && !details.HasAttribute("open")
+            && !ReferenceEquals(Events.ActivationBehaviors.FirstSummaryOf(details), element);
 
     /// <summary>The ordinal of <paramref name="element"/>, or <c>-1</c> when it is not rendered.</summary>
     internal int OrdinalOf(Element element)
@@ -566,9 +580,12 @@ internal sealed class FlatLayout
             }
 
             // CSS 2 §10.6.4: with both its top and its bottom set and an auto height, it spans its containing
-            // block — a canvas laid over its host with inset: 0.
+            // block down to its bottom offset — a canvas laid over its host with inset: 0, or a caption kept clear
+            // of a badge below it with inset: 1rem 1rem 3.25rem. A percentage bottom is of the parent's height.
+            var container = Place(parent);
             var height = CssCascade.ValueOf(style, "height");
             double pixels;
+            var bottom = 0d;
             if (height is null or "" or "auto")
             {
                 if (CssCascade.ValueOf(style, "top") is null or "" or "auto" || CssCascade.ValueOf(style, "bottom") is null or "" or "auto")
@@ -577,8 +594,12 @@ internal sealed class FlatLayout
                 }
 
                 pixels = double.PositiveInfinity;
+                bottom = LengthOf(style, "bottom", container.Height) ?? 0;
             }
-            else if (!height.EndsWith("px", StringComparison.Ordinal) || FlexRow.Length(height, 0) is not { } length)
+            // A percentage height is left to the rows: an input laid over its label with height: 100% would cover the
+            // label's icon below it, and the hit test does not paint a positioned box above the content after it.
+            else if (ResolvedLengths.Resolve("height", style.GetNormalizedProperty("height"), style, ViewportOf()) is not { } resolved
+                || !resolved.EndsWith("px", StringComparison.Ordinal) || FlexRow.Length(resolved, 0) is not { } length)
             {
                 return box;
             }
@@ -593,7 +614,7 @@ internal sealed class FlatLayout
                 return Children(target).Any(HasBox) ? box : box with { Height = pixels };
             }
 
-            var room = Place(parent).Bottom - box.Y;
+            var room = container.Bottom - bottom - box.Y;
             return room > box.Height ? box with { Height = Math.Min(pixels, room) } : box;
         }
 
@@ -742,7 +763,7 @@ internal sealed class FlatLayout
                 return null;
             }
 
-            var authored = FlexRow.Length(CssCascade.ValueOf(style, "width"), available);
+            var authored = LengthOf(style, "width", available);
             if (authored is null)
             {
                 if (CssCascade.ValueOf(style, "left") is not (null or "" or "auto")
@@ -755,10 +776,18 @@ internal sealed class FlatLayout
             }
 
             var width = authored.Value;
-            if (FlexRow.Length(CssCascade.ValueOf(style, "max-width"), available) is { } maximum) width = Math.Min(width, maximum);
-            if (FlexRow.Length(CssCascade.ValueOf(style, "min-width"), available) is { } minimum) width = Math.Max(width, minimum);
+            if (LengthOf(style, "max-width", available) is { } maximum) width = Math.Min(width, maximum);
+            if (LengthOf(style, "min-width", available) is { } minimum) width = Math.Max(width, minimum);
             return width;
         }
+
+        /// <summary>
+        /// A length property in pixels, resolved as <c>getComputedStyle</c> resolves it — <c>15rem</c>, <c>2em</c>,
+        /// <c>50vw</c> or a <c>calc()</c> of them become px — with a percentage taken of <paramref name="basis"/>.
+        /// <see langword="null"/> for <c>auto</c>, <c>none</c>, or a length that needs layout to resolve.
+        /// </summary>
+        private double? LengthOf(Styling.NativeCssComputedStyle style, string name, double basis)
+            => FlexRow.Length(ResolvedLengths.Resolve(name, style.GetNormalizedProperty(name), style, ViewportOf()), basis);
 
         /// <summary>
         /// The width of a grid item (https://drafts.csswg.org/css-grid-2/#layout-algorithm, for column tracks
@@ -823,13 +852,9 @@ internal sealed class FlatLayout
                 return null;
             }
 
-            var viewport = ViewportOf();
-            double? Resolved(string name)
-                => FlexRow.Length(ResolvedLengths.Resolve(name, style.GetNormalizedProperty(name), style, viewport), available);
-
-            var authored = Resolved("width");
-            var maximum = Resolved("max-width");
-            var minimum = Resolved("min-width");
+            var authored = LengthOf(style, "width", available);
+            var maximum = LengthOf(style, "max-width", available);
+            var minimum = LengthOf(style, "min-width", available);
             if (authored is null && maximum is null && minimum is null)
             {
                 return null;
@@ -848,7 +873,7 @@ internal sealed class FlatLayout
         private double PreferredWidth(Element element, double available, int depth)
         {
             var style = cascade?.LayoutOf(element);
-            if (style is not null && FlexRow.Length(CssCascade.ValueOf(style, "width"), available) is { } authored)
+            if (style is not null && LengthOf(style, "width", available) is { } authored)
             {
                 return authored;
             }

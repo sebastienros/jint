@@ -32,6 +32,11 @@ fall out of the row rule and every one of them is load-bearing:
   `ReasonFor`. An element with no box answers zeros, no client rectangles, and `-32000` rather than a box of
   zeros over the protocol: a client reads zeros as a real box at the origin.
 - **An excluded element takes its subtree with it**, which is right for `display: none`.
+- **A closed `<details>` has no box for its content**, only for its summary (its first `<summary>` child).
+  [HTML's rendering](https://html.spec.whatwg.org/multipage/rendering.html#the-details-and-summary-elements) puts
+  that content in a slot with `content-visibility: hidden`: nothing in it is drawn, hit or `checkVisibility()`-visible,
+  and the details is as tall as its summary. Chromium still reports the content's geometry; rows cannot, without
+  making the closed details as tall as what it hides, so its content answers zeros here.
 - **A `visibility: hidden|collapse` box is laid out and never hit**, as [CSS 2 §11.2](https://www.w3.org/TR/CSS2/visufx.html#visibility)
   says: it keeps its rows, its rectangle and its client rectangles, so hiding an editor's caret or a hover
   toolbar moves nothing after it, and a hit test passes through it to the visible box beneath. A
