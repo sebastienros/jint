@@ -8892,7 +8892,7 @@ side include them. An `ownKeys` trap of a proxy over such a wrapper that leaves 
 `String` first. `Object.isSealed` and `Object.isFrozen` now answer `false` for a wrapper with projections that was
 only made non-extensible, because its projections are still configurable. There is no switch back.
 
-### 4.244 A wrapped CLR object keeps a projection the script redefined or deleted, instead of making it again from the CLR side ([#PRNUMBER](https://github.com/sebastienros/jint/pull/PRNUMBER))
+### 4.244 A wrapped CLR object keeps a projection the script redefined or deleted, instead of making it again from the CLR side ([#4678](https://github.com/sebastienros/jint/pull/4678))
 
 Two lanes of a wrapped CLR object answered a projection (see
 [§4.243](#4-243-a-wrapped-clr-object-lists-a-projection-once-the-script-redefines-it-or-the-object-stops-being-extensible-4528))
