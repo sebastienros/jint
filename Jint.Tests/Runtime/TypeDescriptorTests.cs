@@ -51,6 +51,31 @@ public class TypeDescriptorTests
         TypeDescriptor.Get(typeof(NonGenericIndexedValueList)).IsIntegerIndexed.Should().BeTrue();
     }
 
+    /// <summary>
+    /// A key that is not a string makes no difference (#4527): an int-keyed dictionary whose list holds its entries is
+    /// addressed by key, and an integer indexer taking the key type is the dictionary's own, not the list's. One that
+    /// declares an integer indexer of another type for a list of its values keeps its positions.
+    /// </summary>
+    [Test]
+    public void ADictionaryWhoseKeysAreNotStringsIsAddressedByKeyOnTheSameTerms()
+    {
+        AssertAddressing(typeof(IntKeyedEntryList), addressedByKeyOnly: true);
+        AssertAddressing(typeof(IntKeyedValueList), addressedByKeyOnly: true);
+        AssertAddressing(typeof(LongKeyedIndexedValueList), addressedByKeyOnly: false);
+#if NET9_0_OR_GREATER
+        AssertAddressing(typeof(OrderedDictionary<int, string>), addressedByKeyOnly: true);
+        AssertAddressing(typeof(OrderedDictionary<long, string>), addressedByKeyOnly: true);
+        AssertAddressing(typeof(OrderedDictionary<Guid, string>), addressedByKeyOnly: true);
+#endif
+
+        AssertAddressing(typeof(Dictionary<int, string>), addressedByKeyOnly: false);
+        AssertAddressing(typeof(SortedList<int, string>), addressedByKeyOnly: false);
+        AssertAddressing(typeof(SortedDictionary<int, string>), addressedByKeyOnly: false);
+
+        TypeDescriptor.Get(typeof(IntKeyedEntryList)).IsIntegerIndexed.Should().BeFalse("a type addressed by key has no position to index");
+        TypeDescriptor.Get(typeof(LongKeyedIndexedValueList)).IsIntegerIndexed.Should().BeTrue();
+    }
+
     private static void AssertAddressing(Type type, bool addressedByKeyOnly)
         => TypeDescriptor.Get(type).IsAddressedByKeyOnly.Should().Be(addressedByKeyOnly, "{0}", type);
 
@@ -159,6 +184,69 @@ public class TypeDescriptorTests
         void IList.Remove(object value) => throw new NotSupportedException();
 
         void IList.RemoveAt(int index) => throw new NotSupportedException();
+    }
+
+    /// <summary>An int-keyed dictionary whose list holds its entries, the way <c>OrderedDictionary&lt;int, TValue&gt;</c>'s does.</summary>
+    private sealed class IntKeyedEntryList : Dictionary<int, int>, IList<KeyValuePair<int, int>>
+    {
+        KeyValuePair<int, int> IList<KeyValuePair<int, int>>.this[int index] { get => this.ElementAt(index); set => throw new NotSupportedException(); }
+
+        int IList<KeyValuePair<int, int>>.IndexOf(KeyValuePair<int, int> item) => throw new NotSupportedException();
+
+        void IList<KeyValuePair<int, int>>.Insert(int index, KeyValuePair<int, int> item) => throw new NotSupportedException();
+
+        void IList<KeyValuePair<int, int>>.RemoveAt(int index) => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// An int-keyed dictionary that lists its values through the interface alone: its only integer indexer is the
+    /// dictionary's.
+    /// </summary>
+    private sealed class IntKeyedValueList : Dictionary<int, int>, IList<int>
+    {
+        int IList<int>.this[int index] { get => Values.ElementAt(index); set => throw new NotSupportedException(); }
+
+        bool ICollection<int>.IsReadOnly => true;
+
+        int IList<int>.IndexOf(int item) => throw new NotSupportedException();
+
+        void IList<int>.Insert(int index, int item) => throw new NotSupportedException();
+
+        void IList<int>.RemoveAt(int index) => throw new NotSupportedException();
+
+        void ICollection<int>.Add(int item) => throw new NotSupportedException();
+
+        bool ICollection<int>.Contains(int item) => ContainsValue(item);
+
+        void ICollection<int>.CopyTo(int[] array, int arrayIndex) => Values.CopyTo(array, arrayIndex);
+
+        bool ICollection<int>.Remove(int item) => throw new NotSupportedException();
+
+        IEnumerator<int> IEnumerable<int>.GetEnumerator() => Values.GetEnumerator();
+    }
+
+    /// <summary>A long-keyed dictionary that lists its values and declares the int indexer of that list itself.</summary>
+    private sealed class LongKeyedIndexedValueList : Dictionary<long, int>, IList<int>
+    {
+        public int this[int index] { get => Values.ElementAt(index); set => throw new NotSupportedException(); }
+
+        bool ICollection<int>.IsReadOnly => true;
+
+        public int IndexOf(int item) => throw new NotSupportedException();
+
+        public void Insert(int index, int item) => throw new NotSupportedException();
+
+        public void RemoveAt(int index) => throw new NotSupportedException();
+
+        void ICollection<int>.Add(int item) => throw new NotSupportedException();
+
+        bool ICollection<int>.Contains(int item) => ContainsValue(item);
+
+        void ICollection<int>.CopyTo(int[] array, int arrayIndex) => Values.CopyTo(array, arrayIndex);
+
+        bool ICollection<int>.Remove(int item) => throw new NotSupportedException();
+
+        IEnumerator<int> IEnumerable<int>.GetEnumerator() => Values.GetEnumerator();
     }
 
     private static void AssertInformation(Type type, bool isArrayLike, bool iterable, bool isIntegerIndexedArray, bool shouldHaveLength)
