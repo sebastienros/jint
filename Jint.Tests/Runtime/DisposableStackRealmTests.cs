@@ -21,7 +21,7 @@ namespace Jint.Tests.Runtime;
 /// resource and the callback, and report a stack that is already disposed, with that realm's errors.</item>
 /// </list>
 /// The rows named "other realm" call a built-in of a second realm made with <c>$262.createRealm()</c>, the plumbing
-/// <see cref="SuppressedErrorFromDisposalTests"/> uses, on a stack of the main realm; the "main" rows are the controls
+/// <see cref="CrossRealmAttributionTests"/> uses, on a stack of the main realm; the "main" rows are the controls
 /// (the main realm's built-in on a stack of the other realm).
 /// </summary>
 public class DisposableStackRealmTests
@@ -51,11 +51,11 @@ public class DisposableStackRealmTests
 
     // ---- move: the stack it returns inherits from the built-in's own realm ----
 
-    public static TestCases<string, string, string> Move
+    public static TheoryData<string, string, string> Move
     {
         get
         {
-            var rows = new TestCases<string, string, string>();
+            var rows = new TheoryData<string, string, string>();
             foreach (var kind in new[] { "sync", "async" })
             {
                 var ctor = Proto(kind);
@@ -80,15 +80,16 @@ public class DisposableStackRealmTests
         }
     }
 
-    [TestCaseSource(nameof(Move)), CancelAfter(10000)]
+    [Theory(Timeout = 10000)]
+    [MemberData(nameof(Move))]
     public void MoveCreatesTheStackInTheRealmOfTheBuiltIn(string name, string script, string expected)
     {
-        Run(script).Should().Be(expected, name);
+        Run(script, TestContext.Current.CancellationToken).Should().Be(expected, name);
     }
 
     // ---- disposeAsync: the promise is the built-in's own realm's ----
 
-    public static TestCases<string, string, string> DisposeAsyncPromise => new()
+    public static TheoryData<string, string, string> DisposeAsyncPromise => new()
     {
         {
             "other realm's disposeAsync on a main realm stack",
@@ -137,19 +138,20 @@ public class DisposableStackRealmTests
         },
     };
 
-    [TestCaseSource(nameof(DisposeAsyncPromise)), CancelAfter(10000)]
+    [Theory(Timeout = 10000)]
+    [MemberData(nameof(DisposeAsyncPromise))]
     public void DisposeAsyncReturnsAPromiseOfTheRealmOfTheBuiltIn(string name, string script, string expected)
     {
-        Run(script).Should().Be(expected, name);
+        Run(script, TestContext.Current.CancellationToken).Should().Be(expected, name);
     }
 
     // ---- the errors of every method: the built-in's own realm's ----
 
-    public static TestCases<string, string, string> Errors
+    public static TheoryData<string, string, string> Errors
     {
         get
         {
-            var rows = new TestCases<string, string, string>();
+            var rows = new TheoryData<string, string, string>();
             foreach (var kind in new[] { "sync", "async" })
             {
                 var ctor = Proto(kind);
@@ -243,13 +245,14 @@ public class DisposableStackRealmTests
         }
     }
 
-    [TestCaseSource(nameof(Errors)), CancelAfter(10000)]
+    [Theory(Timeout = 10000)]
+    [MemberData(nameof(Errors))]
     public void ErrorsAreRaisedInTheRealmOfTheBuiltIn(string name, string script, string expected)
     {
-        Run(script).Should().Be(expected, name);
+        Run(script, TestContext.Current.CancellationToken).Should().Be(expected, name);
     }
 
-    public static TestCases<string, string, string> DisposeAsyncRejection => new()
+    public static TheoryData<string, string, string> DisposeAsyncRejection => new()
     {
         {
             "other realm's disposeAsync, receiver is no stack",
@@ -268,15 +271,16 @@ public class DisposableStackRealmTests
         },
     };
 
-    [TestCaseSource(nameof(DisposeAsyncRejection)), CancelAfter(10000)]
+    [Theory(Timeout = 10000)]
+    [MemberData(nameof(DisposeAsyncRejection))]
     public void DisposeAsyncRejectsWithAnErrorOfTheRealmOfTheBuiltIn(string name, string script, string expected)
     {
-        Run(script).Should().Be(expected, name);
+        Run(script, TestContext.Current.CancellationToken).Should().Be(expected, name);
     }
 
-    private static string Run(string script)
+    private static string Run(string script, CancellationToken cancellationToken)
     {
-        var engine = new Engine(options => options.ObserveCancellation(TestContext.CurrentContext.CancellationToken));
+        var engine = new Engine(options => options.CancellationToken(cancellationToken));
         Test262Object.Install(engine);
         return engine.Evaluate(Prelude + script).UnwrapIfPromise().AsString();
     }
