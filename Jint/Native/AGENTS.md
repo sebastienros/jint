@@ -55,6 +55,14 @@ for a finished list: one compare, then a single copy, where `CreateArrayFromList
 built-in that fills a `new JsValue[n]` of its own and hands it to the ownership-taking constructor calls
 `ArrayConstructor.ValidateElementCount(n)` first, before allocating the store, as `split("")` does.
 
+**A list that grows with an iterator is bounded as it grows, not after.** `Array.from`, `Iterator.prototype.toArray` and
+the async `toArray` test the count before each value they would add, and leave by the close their own abrupt completion
+makes (`Close(CompletionType.Throw)`; for the async one `AsyncIteratorClose` with a throw completion, started and not
+awaited, since the exception ends the run). Checking only in `ConstructFromBuilder` drains the source first, so an infinite
+generator runs until memory or time ends it ([#4520](https://github.com/sebastienros/jint/issues/4520)). A built-in that sizes a
+result from an array-like's `length` (`toSorted`, `toReversed`, `with`) takes the check where the specification calls
+`ArrayCreate`, in `ArrayPrototype.CreateBackingArray`, behind `_hasMaxArraySize`.
+
 **An argument list is bounded where it is built, never where it lands.** The rest parameter
 (`FunctionEnvironment.HandleRestElementArray`) and the `arguments` object take the list unchecked, so a call without a
 spread pays nothing. What makes a list longer than its source is checked instead

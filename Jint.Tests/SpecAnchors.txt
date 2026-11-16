@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-11-14
-anchors: 1358
+anchors: 1363
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -130,6 +130,9 @@ ecma262 sec-array.prototype.slice
 ecma262 sec-array.prototype.sort
 ecma262 sec-array.prototype.splice
 ecma262 sec-array.prototype.tolocalestring
+ecma262 sec-array.prototype.toreversed
+ecma262 sec-array.prototype.tosorted
+ecma262 sec-array.prototype.tospliced
 ecma262 sec-array.prototype.unshift
 ecma262 sec-array.prototype.values
 ecma262 sec-array.prototype.with
@@ -886,8 +889,9 @@ ecma402 relativetimeformat-objects
 ecma402 sec-%intlsegmentiteratorprototype%-object
 ecma402 sec-%intlsegmentiteratorprototype%.%symbol.tostringtag%
 ecma402 sec-%intlsegmentiteratorprototype%.next
-ecma402 sec-%segmentsprototype%-@@iterator
-ecma402 sec-%segmentsprototype%.containing
+ecma402 sec-%intlsegmentsprototype%-@@iterator
+ecma402 sec-%intlsegmentsprototype%-object
+ecma402 sec-%intlsegmentsprototype%.containing
 ecma402 sec-InitializeRelativeTimeFormat
 ecma402 sec-Intl.DateTimeFormat.prototype.formatRangeToParts
 ecma402 sec-Intl.DateTimeFormat.prototype.formatToParts
@@ -941,6 +945,7 @@ ecma402 sec-collationsoflocale
 ecma402 sec-computeexponent
 ecma402 sec-computeexponentformagnitude
 ecma402 sec-createdatetimeformat
+ecma402 sec-createsegmentdataobject
 ecma402 sec-createsegmentiterator
 ecma402 sec-createsegmentsobject
 ecma402 sec-createstringlistfromiterable

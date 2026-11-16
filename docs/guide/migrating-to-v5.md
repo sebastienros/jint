@@ -8846,6 +8846,38 @@ the order .NET already reported, so nothing changes there. On .NET Framework the
 cache held: a member somebody had looked up by name came first, so two listings of one wrapper could disagree, with a
 `ContainsKey` call or a garbage collection in between. A host that sorted the keys itself is unaffected.
 
+### 4.240 `toSorted`, `toReversed`, `with`, `sort`, `Array.from` and the `toArray` helpers refuse a list past `MaxArraySize` ([#4520](https://github.com/sebastienros/jint/issues/4520))
+
+`Options.Constraints.MaxArraySize` bounds every array a script can build from a count (§4.217, §4.221). A few
+built-ins still built one past it, from an array-like's `length` or from the values an iterator yields. With
+`MaxArraySize = 4`:
+
+```js
+Array.prototype.toSorted.call({ length: 10 });
+// earlier previews: an array of 10 elements
+// 5.x:              MemoryLimitExceededException ("The array size 10 is larger than maximum allowed (4)")
+```
+
+Each of these now ends the run with that exception, where it used to return an array or an unbounded list:
+
+- `Array.prototype.toSorted`, `toReversed` and `with` on an array-like whose `length` is past the limit. The
+  exception comes where the specification sizes the result (`ArrayCreate(len)`), before any element is read.
+- `Array.prototype.sort` on an array-like that reports more elements present than the limit. A sparse array-like
+  with a large `length` and few elements still sorts.
+- `Array.from`, `Iterator.prototype.toArray` and `AsyncIterator.prototype.toArray` over an iterator that yields more
+  values than the limit. The collection stops at the first value that does not fit and closes the iterator, as the
+  built-in's own abrupt completion does, so a generator's `finally` runs and an infinite one no longer fills memory.
+  For `AsyncIterator.prototype.toArray` the exception comes out of whatever drains the event loop, and the promise
+  it returned never settles.
+
+`toSpliced`, `Array.from` over an array-like, and the lists `Object.groupBy` and `Map.groupBy` build were already
+bounded and are unchanged.
+
+**What could break:** a host that set a finite `MaxArraySize`, or runs `Options.ForUntrustedCode`, and relied on one
+of these returning a larger array. `sort` of a real array that a host built longer than the limit with
+`new JsArray(engine, items)` now throws too. A host with no `MaxArraySize` (`uint.MaxValue`, the default) is unchanged,
+and a list of exactly `MaxArraySize` elements is still allowed. There is no switch back: raise `MaxArraySize`.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
