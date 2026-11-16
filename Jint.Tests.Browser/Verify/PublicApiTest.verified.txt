@@ -22,10 +22,12 @@ namespace Jint.Browser
         public Jint.Browser.StoragePartitionProvider StoragePartition { get; }
         public System.Threading.Tasks.Task AddInitScriptAsync(string script) { }
         public System.Threading.Tasks.Task AddInitScriptAsync(string function, object? argument) { }
+        public void AddVirtualAuthenticator(Jint.Browser.VirtualAuthenticator authenticator) { }
         public void ClearHttpCache() { }
         public System.Threading.Tasks.Task CloseAsync() { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
         public System.Threading.Tasks.Task<Jint.Browser.Page> NewPageAsync() { }
+        public bool RemoveVirtualAuthenticator(Jint.Browser.VirtualAuthenticator authenticator) { }
         public System.Threading.Tasks.Task RouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task> handler) { }
         public System.Threading.Tasks.Task UnrouteAsync(System.Func<System.Uri, bool> match, System.Func<Jint.Browser.RoutedRequest, System.Threading.Tasks.Task>? handler = null) { }
     }
@@ -416,6 +418,29 @@ namespace Jint.Browser
         public int Height { get; init; }
         public int Width { get; init; }
         public static Jint.Browser.Viewport Default { get; }
+    }
+    public sealed class VirtualAuthenticator
+    {
+        public VirtualAuthenticator(Jint.Browser.VirtualAuthenticatorOptions? options = null) { }
+        public System.Collections.Generic.IReadOnlyList<Jint.Browser.VirtualAuthenticatorCredential> Credentials { get; }
+        public Jint.Browser.VirtualAuthenticatorOptions Options { get; }
+        public void RemoveAllCredentials() { }
+    }
+    public sealed class VirtualAuthenticatorCredential
+    {
+        public System.ReadOnlyMemory<byte> CredentialId { get; }
+        public bool IsResidentCredential { get; }
+        public string RpId { get; }
+        public uint SignCount { get; }
+        public System.ReadOnlyMemory<byte>? UserHandle { get; }
+    }
+    public sealed class VirtualAuthenticatorOptions : System.IEquatable<Jint.Browser.VirtualAuthenticatorOptions>
+    {
+        public VirtualAuthenticatorOptions() { }
+        public bool HasResidentKey { get; init; }
+        public bool HasUserVerification { get; init; }
+        public bool IsUserVerified { get; init; }
+        public string Transport { get; init; }
     }
     public enum WaitUntilState
     {

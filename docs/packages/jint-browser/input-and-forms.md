@@ -90,4 +90,24 @@ inside the listener throws `InvalidStateError`. Standalone engines and workers k
 An activated submit input with no `value` attribute submits the UA's default label, `Submit`.
 An explicitly empty `value=""` remains empty; the input's `.value` getter still reflects its attribute.
 
+## Passkeys (WebAuthn)
+
+A page signs up and signs in with passkeys against a virtual authenticator the host adds to its context, as
+the DevTools protocol's `WebAuthn.addVirtualAuthenticator` does for Chromium:
+
+```csharp
+var authenticator = new VirtualAuthenticator(); // a verifying platform authenticator with discoverable keys
+page.Context.AddVirtualAuthenticator(authenticator);
+await page.NavigateAsync("http://localhost:5000/login");
+```
+
+`navigator.credentials.create()` and `get()` then complete without a prompt, conditional mediation (the
+passkeys an autofill offers) included, and what they return verifies like a browser's: `none` attestation,
+ES256 keys, the client data, authenticator data and signature a relying party checks. The same instance can
+be added to another context, so a passkey registered in one signs in in the next; `Credentials` lists what
+it holds. A document created before the context had an authenticator has no WebAuthn at all, as a browser
+without it; with every authenticator removed, a modal ceremony rejects with `NotAllowedError` and a
+conditional one waits until its signal aborts it. An IP address is not a valid relying party, so browse a
+local site as `localhost`.
+
 Input uses a deterministic synthetic box model, not visual layout. See [Limitations](./limitations).
