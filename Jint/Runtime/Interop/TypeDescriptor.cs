@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Runtime.Interop.Reflection;
 
 namespace Jint.Runtime.Interop;
@@ -25,6 +26,7 @@ internal sealed class TypeDescriptor
     private readonly MethodInfo? _genericContainsKeyMethod;
     private readonly MethodInfo? _genericIndexerSetMethod;
     private readonly MethodInfo? _genericRemoveMethod;
+    private readonly PropertyInfo? _entriesIsReadOnlyProperty;
 
     // per-descriptor L1 caches over the process-wide compiled delegates, so a dictionary operation is a
     // field read. Resolved lazily and racily - the delegates are pure, so a duplicate resolve is harmless.
@@ -58,7 +60,17 @@ internal sealed class TypeDescriptor
             out _toJsonMethod,
             out _genericContainsKeyMethod,
             out _genericIndexerSetMethod,
-            out _genericRemoveMethod);
+            out _genericRemoveMethod,
+            out var entriesIsReadOnlyProperty);
+
+        // ICollection<KeyValuePair<TKey, TValue>>.IsReadOnly, kept only when it is the collection of this dictionary's
+        // own entries
+        if (entriesIsReadOnlyProperty?.DeclaringType?.GenericTypeArguments is [{ GenericTypeArguments: [var entryKeyType, var entryValueType] }]
+            && entryKeyType == _keyType
+            && entryValueType == _valueType)
+        {
+            _entriesIsReadOnlyProperty = entriesIsReadOnlyProperty;
+        }
 
         IsDictionary = _tryGetValueMethod is not null || isDictionary;
         IsGenericDictionary = _tryGetValueMethod is not null;
@@ -183,7 +195,8 @@ internal sealed class TypeDescriptor
         out MethodInfo? toJsonMethod,
         out MethodInfo? genericContainsKeyMethod,
         out MethodInfo? genericIndexerSetMethod,
-        out MethodInfo? genericRemoveMethod)
+        out MethodInfo? genericRemoveMethod,
+        out PropertyInfo? entriesIsReadOnlyProperty)
     {
         AnalyzeType(
             type,
@@ -199,7 +212,8 @@ internal sealed class TypeDescriptor
             out toJsonMethod,
             out genericContainsKeyMethod,
             out genericIndexerSetMethod,
-            out genericRemoveMethod);
+            out genericRemoveMethod,
+            out entriesIsReadOnlyProperty);
 
         foreach (var t in type.GetInterfaces())
         {
@@ -217,7 +231,8 @@ internal sealed class TypeDescriptor
                 out var toJsonMethodForSubType,
                 out var genericContainsKeyMethodForSubType,
                 out var genericIndexerSetMethodForSubType,
-                out var genericRemoveMethodForSubType);
+                out var genericRemoveMethodForSubType,
+                out var entriesIsReadOnlyPropertyForSubType);
 
             isCollection |= isCollectionForSubType;
             isEnumerable |= isEnumerableForSubType;
@@ -233,6 +248,7 @@ internal sealed class TypeDescriptor
             genericContainsKeyMethod ??= genericContainsKeyMethodForSubType;
             genericIndexerSetMethod ??= genericIndexerSetMethodForSubType;
             genericRemoveMethod ??= genericRemoveMethodForSubType;
+            entriesIsReadOnlyProperty ??= entriesIsReadOnlyPropertyForSubType;
         }
     }
 
@@ -251,7 +267,8 @@ internal sealed class TypeDescriptor
         out MethodInfo? toJsonMethod,
         out MethodInfo? genericContainsKeyMethod,
         out MethodInfo? genericIndexerSetMethod,
-        out MethodInfo? genericRemoveMethod)
+        out MethodInfo? genericRemoveMethod,
+        out PropertyInfo? entriesIsReadOnlyProperty)
     {
         isCollection = typeof(ICollection).IsAssignableFrom(type);
         isEnumerable = typeof(IEnumerable).IsAssignableFrom(type);
@@ -267,6 +284,7 @@ internal sealed class TypeDescriptor
         genericContainsKeyMethod = null;
         genericIndexerSetMethod = null;
         genericRemoveMethod = null;
+        entriesIsReadOnlyProperty = null;
         // Find parameterless toJSON method to match JSON.stringify's expected signature
         // Note: The method name uses camelCase (toJSON) to match the JavaScript specification
         toJsonMethod = type.GetMethod("toJSON", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
@@ -298,6 +316,13 @@ internal sealed class TypeDescriptor
             }
 
             isCollection |= genericTypeDefinition == typeof(IReadOnlyCollection<>) || genericTypeDefinition == typeof(ICollection<>);
+            if (genericTypeDefinition == typeof(ICollection<>)
+                && type.GenericTypeArguments[0] is { IsGenericType: true } element
+                && element.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+            {
+                entriesIsReadOnlyProperty = type.GetProperty(nameof(ICollection<int>.IsReadOnly));
+            }
+
             if (genericTypeDefinition == typeof(IList<>))
             {
                 integerIndexer ??= type.GetProperty("Item");
@@ -506,6 +531,35 @@ internal sealed class TypeDescriptor
 
         return _genericContainsKeyMethod.Invoke(target, [key]) is true;
     }
+
+    /// <summary>
+    /// Whether <paramref name="target"/>, a generic dictionary of this type, lets script change its entries: the type
+    /// carries the <see cref="IDictionary{TKey,TValue}"/> write contract and the instance does not report itself
+    /// read-only, as a <c>ReadOnlyDictionary</c>, an <c>ImmutableDictionary</c> or a <c>FrozenDictionary</c> does.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the instance every time rather than remembered, since <c>IsReadOnly</c> is the instance's answer. The
+    /// non-generic <see cref="IDictionary"/> every dictionary of the base class library implements answers it with an
+    /// interface call; any other one is asked through its entry collection, out of line.
+    /// </remarks>
+    public bool AcceptsEntryWrites(object target)
+    {
+        if (_genericIndexerSetMethod is null)
+        {
+            // IReadOnlyDictionary<,> alone: there is no write to accept
+            return false;
+        }
+
+        if (target is IDictionary dictionary)
+        {
+            return !dictionary.IsReadOnly;
+        }
+
+        return _entriesIsReadOnlyProperty is null || !EntriesAreReadOnly(target);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool EntriesAreReadOnly(object target) => _entriesIsReadOnlyProperty!.GetValue(target) is true;
 
     public bool TrySetDictionaryValue(object target, object key, object? value)
     {

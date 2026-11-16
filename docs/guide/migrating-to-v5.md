@@ -8935,6 +8935,41 @@ side include them. An `ownKeys` trap of a proxy over such a wrapper that leaves 
 `String` first. `Object.isSealed` and `Object.isFrozen` now answer `false` for a wrapper with projections that was
 only made non-extensible, because its projections are still configurable. There is no switch back.
 
+### 4.245 A wrapped dictionary's entry is a data property, writable and configurable where the host allows it to change ([#4679](https://github.com/sebastienros/jint/pull/4679))
+
+An entry of a wrapped dictionary whose key type is not `string` (`Dictionary<int, T>`, `Dictionary<long, T>`,
+`IReadOnlyDictionary<int, T>`, a `DayOfWeek`-keyed one, and so on) reported the indexer's accessor pair:
+`Object.getOwnPropertyDescriptor` returned `get` and `set` functions and no `value`, and the entry was never
+configurable, so `delete d[5]` answered `false` and kept it and `Object.defineProperty` threw. A string-keyed
+dictionary's entry was already a data property, but it reported `writable: false` even when an assignment would change
+it. Now every entry is a data property whatever the key type, as the same key on an ordinary object is:
+
+```js
+// host: engine.SetValue("d", new Dictionary<int, string> { [5] = "a" });   AllowWrite = true
+Object.getOwnPropertyDescriptor(d, 5)
+// earlier previews: { get: f, set: f, enumerable: true, configurable: false }
+// 5.x:              { value: 'a', writable: true, enumerable: true, configurable: true }
+delete d[5]     // earlier previews: false, the entry stays    5.x: true, the dictionary no longer holds 5
+```
+
+- **`writable` and `configurable` say whether script may change the entry**: both are `true` under
+  `Options.Interop.AllowWrite` when the dictionary accepts writes, and both are `false` without `AllowWrite`, for an
+  `IReadOnlyDictionary<TKey, TValue>` that is not also an `IDictionary<TKey, TValue>`, and for a dictionary that
+  reports itself read-only (`ReadOnlyDictionary`, `ImmutableDictionary`, `FrozenDictionary`). `enumerable` is `true`.
+  That applies to string keys too, so `writable` of a string-keyed entry changes from `false` to `true` under
+  `AllowWrite`, and `configurable` of a read-only dictionary's entry changes from `true` to `false`.
+- **`Object.freeze`, `Object.isFrozen` and `Object.defineProperty` read the same answer.** Freezing makes each entry
+  non-writable and non-configurable, as for a string-keyed dictionary. `Object.defineProperty` over a read-only
+  dictionary's entry now throws a `TypeError` for a new value, where it used to define a property on the wrapper that
+  shadowed the entry; over a writable entry it defines that property, now for any key type, and `d[5]` reads it.
+- **The entry is the dictionary's at the moment it is asked.** A non-string-keyed entry's descriptor used to be
+  stored on the wrapper by the first read, so an entry the host removed afterwards stayed an own property: `5 in d`
+  answered `true` and `d[5]` read `undefined`. Neither happens now.
+- Reads, writes and enumeration of entries do not change, nor do the dictionary's own members, such as `Count`.
+  A non-generic `IDictionary` such as `Hashtable` keeps its accessor pair.
+
+There is no switch back.
+
 ### 4.246 `Array.fromAsync` hands its mapper the iterator's value as it is, and awaits the source's `return` when it closes it ([#4526](https://github.com/sebastienros/jint/issues/4526))
 
 Over an async iterable, `Array.fromAsync`'s mapper is now called with each value the iterator answered, without
