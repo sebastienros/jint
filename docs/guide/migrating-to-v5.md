@@ -8937,6 +8937,47 @@ side include them. An `ownKeys` trap of a proxy over such a wrapper that leaves 
 `String` first. `Object.isSealed` and `Object.isFrozen` now answer `false` for a wrapper with projections that was
 only made non-extensible, because its projections are still configurable. There is no switch back.
 
+### 4.244 A wrapped CLR object keeps a projection the script redefined or deleted, instead of making it again from the CLR side ([#4678](https://github.com/sebastienros/jint/pull/4678))
+
+Two lanes of a wrapped CLR object answered a projection (see
+[§4.243](#4-243-a-wrapped-clr-object-lists-a-projection-once-the-script-redefines-it-or-the-object-stops-being-extensible-4528))
+from the CLR side after the script had taken it over.
+
+**A `length` the script redefined is what reads and writes reach.** A read of `length` on a collection that
+implements `ICollection` (a list, an array, a `Queue<T>`, a `ReadOnlyCollection<T>`) answered `Count` without looking
+at the property the script had stored, while `Object.getOwnPropertyDescriptor` reported the script's. A write to it
+resized the list:
+
+```js
+// host: engine.SetValue("list", new List<int> { 1, 2, 3 });   // AllowWrite on
+Object.defineProperty(list, 'length', { value: 7, writable: true, configurable: true });
+list.length                  // earlier previews: 3      5.x: 7
+list.length = 1              // earlier previews: the list loses two elements, and list.length is 1
+                             // 5.x: the property is 1, and the list keeps its three elements
+```
+
+The same holds for a `length` the script redefined as an accessor, froze, or defined after deleting the forwarder of a
+collection that has no `Length` member.
+
+**A projection deleted from a non-extensible wrapper stays deleted.** A non-extensible object may not gain a property,
+but the next read made `Symbol.iterator` again, and resolved `toJSON`, or an array's `length`, from the CLR type
+again. Now the read reaches the prototype, as it does on an ordinary object:
+
+```js
+// host: engine.SetValue("dict", new Dictionary<string, int> { ["a"] = 1 });
+Object.preventExtensions(dict);
+delete dict[Symbol.iterator];
+[...dict]                    // earlier previews: [['a', 1]]    5.x: TypeError, dict is not iterable
+```
+
+On a list or an array the read finds `Array.prototype[Symbol.iterator]` and `Array.prototype.length` (`0`). On an
+extensible wrapper nothing changes: a deleted projection is made again on the next read, and a deleted `length` reads
+`Count` again.
+
+**What could break:** a script that redefines `length` on a wrapped collection and expects reads to go on answering
+the count, or a write to resize the collection. Leave the forwarder alone, or delete the redefinition, after which a
+read answers `Count` again. There is no switch back.
+
 ### 4.245 A wrapped dictionary's entry is a data property, writable and configurable where the host allows it to change ([#4679](https://github.com/sebastienros/jint/pull/4679))
 
 An entry of a wrapped dictionary whose key type is not `string` (`Dictionary<int, T>`, `Dictionary<long, T>`,

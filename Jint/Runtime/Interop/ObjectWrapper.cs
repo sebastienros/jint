@@ -99,6 +99,46 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// </summary>
     private bool _storesDefinedProperties;
 
+    /// <summary>
+    /// Which projections the script has taken over, so that the lanes that would make one from the CLR side leave it
+    /// alone. <see cref="ProjectionTakeover.None"/> for nearly every wrapper, and read only on a <c>length</c> read or
+    /// write, and where a projection would be made again.
+    /// </summary>
+    /// <remarks>
+    /// Without it a projection came back after the script took it over (sebastienros/jint#4528's follow-up). Two
+    /// lanes did that. The <c>length</c> read and write lanes of a collection answered from <c>Count</c> without
+    /// looking at the property the script stored, so <c>[[Get]]</c> disagreed with <c>[[GetOwnProperty]]</c>. And
+    /// <see cref="GetOwnProperty(JsValue)"/> made <c>@@iterator</c> again, and resolved <c>toJSON</c> or an array's
+    /// <c>Length</c> again, after the script deleted one from a non-extensible wrapper, which may not gain a property
+    /// (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods). A byte in padding, as
+    /// <see cref="_hasListedOwnKeys"/> is, and for the same reason.
+    /// </remarks>
+    private ProjectionTakeover _projectionTakeover;
+
+    /// <summary>
+    /// The projections the script has taken over on one wrapper; see <see cref="_projectionTakeover"/>.
+    /// </summary>
+    [Flags]
+    private enum ProjectionTakeover : byte
+    {
+        None = 0,
+
+        /// <summary>
+        /// <c>length</c> is not the forwarder: the script redefined it, or deleted it from a non-extensible
+        /// wrapper. Reads and writes reach the property that is there, or the prototype, and never <c>Count</c>.
+        /// </summary>
+        Length = 1,
+
+        /// <summary>The <c>length</c> forwarder was deleted from a non-extensible wrapper.</summary>
+        LengthDeleted = 2,
+
+        /// <summary><c>toJSON</c> was deleted from a non-extensible wrapper.</summary>
+        ToJsonDeleted = 4,
+
+        /// <summary><c>@@iterator</c> was deleted from a non-extensible wrapper.</summary>
+        IteratorDeleted = 8,
+    }
+
     internal ObjectWrapper(
         Engine engine,
         object obj,
@@ -639,7 +679,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         if (!_symbols!.TryGetValue(GlobalSymbolRegistry.Iterator, out var descriptor))
         {
-            return true;
+            // unless it was deleted from a non-extensible wrapper, when the read reaches the prototype instead
+            return (_projectionTakeover & ProjectionTakeover.IteratorDeleted) == ProjectionTakeover.None;
         }
 
         return !descriptor.IsAccessorDescriptor()
@@ -1129,10 +1170,113 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ListIfProjection(JsValue property)
     {
-        if (IsProjection(property) && TryGetProperty(property, out var stored))
+        if (!IsProjection(property))
         {
+            return;
+        }
+
+        if (TryGetProperty(property, out var stored))
+        {
+            if (CommonProperties.Length.Equals(property) && !IsLengthForwarder(stored))
+            {
+                // Of the projections only length has lanes that answer without asking what is stored: toJSON is read
+                // like any member, and the symbols are only ever read from the store. A define that leaves the
+                // forwarder's getter in place, which is what Object.freeze and Object.seal do, keeps those lanes:
+                // the getter answers what they do.
+                _projectionTakeover |= ProjectionTakeover.Length;
+            }
+
             ListAsOwnKey(stored);
         }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="descriptor"/> is an accessor over the <c>length</c> forwarder's getter, which answers
+    /// the count of whatever wrapper it is called on.
+    /// </summary>
+    private static bool IsLengthForwarder(PropertyDescriptor descriptor)
+        => descriptor.IsAccessorDescriptor()
+           && descriptor.Get is ClrFunction getter
+           && ReferenceEquals(getter._func, _lengthFunction);
+
+    /// <summary>
+    /// The bit recording that <paramref name="property"/>, a projection this wrapper makes again on a read, was
+    /// deleted from it; <see cref="ProjectionTakeover.None"/> for anything else.
+    /// </summary>
+    private ProjectionTakeover DeletedProjectionBit(JsValue property)
+    {
+        if (property is JsSymbol)
+        {
+            return property == GlobalSymbolRegistry.Iterator && _typeDescriptor.Iterable
+                ? ProjectionTakeover.IteratorDeleted
+                : ProjectionTakeover.None;
+        }
+
+        if (property is not JsString name)
+        {
+            return ProjectionTakeover.None;
+        }
+
+        if (_typeDescriptor.LengthProperty is not null && CommonProperties.Length.Equals(name))
+        {
+            return ProjectionTakeover.LengthDeleted;
+        }
+
+        return _typeDescriptor.ToJsonMethod is not null && string.Equals(name.ToString(), "toJSON", StringComparison.Ordinal)
+            ? ProjectionTakeover.ToJsonDeleted
+            : ProjectionTakeover.None;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="property"/> names a projection the script deleted from this wrapper once it was
+    /// non-extensible, which <see cref="GetOwnProperty(JsValue)"/> must therefore not make again.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool WasDeletedWhileNonExtensible(JsValue property)
+    {
+        var bit = DeletedProjectionBit(property);
+        return bit != ProjectionTakeover.None && (_projectionTakeover & bit) != ProjectionTakeover.None;
+    }
+
+    /// <summary>
+    /// Records what removing <paramref name="property"/> from the wrapper did to its projections. Called once the
+    /// removal happened, by every lane that removes.
+    /// </summary>
+    /// <remarks>
+    /// An extensible wrapper makes a deleted projection again on the next read, as it always has, and a deleted
+    /// <c>length</c> reads the count again. A non-extensible one may not gain a property
+    /// (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods), so it remembers which projection
+    /// is gone, and a read reaches the prototype from then on. Nothing can define the name again on it, so the record
+    /// is never cleared.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void NoteRemoved(JsValue property)
+    {
+        var bit = DeletedProjectionBit(property);
+        if (bit == ProjectionTakeover.None)
+        {
+            return;
+        }
+
+        if (Extensible)
+        {
+            if (bit == ProjectionTakeover.LengthDeleted)
+            {
+                _projectionTakeover &= ~ProjectionTakeover.Length;
+            }
+
+            return;
+        }
+
+        _projectionTakeover |= bit;
+        if (bit == ProjectionTakeover.LengthDeleted)
+        {
+            _projectionTakeover |= ProjectionTakeover.Length;
+        }
+
+        // a plain wrapper's target reports a toJSON method among its keys, which the listed lane leaves out from now
+        // on; every projection of a non-extensible wrapper is listed already, so this is normally set
+        _hasListedOwnKeys = true;
     }
 
     /// <summary>
@@ -1293,6 +1437,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         // also remove from _properties cache to avoid stale entries
         base.RemoveOwnProperty(property);
+        NoteRemoved(property);
         return true;
     }
 
@@ -1328,7 +1473,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         ForgetResolvedProperty(property);
         base.RemoveOwnProperty(property);
+        NoteRemoved(property);
     }
+
+    /// <summary>
+    /// Whether <c>length</c> is not the forwarder any more, so a lane that would answer it from the collection's
+    /// count must leave it to the property that is there.
+    /// </summary>
+    private protected bool LengthTakenOver => (_projectionTakeover & ProjectionTakeover.Length) != ProjectionTakeover.None;
 
     private void ForgetResolvedProperty(JsValue property)
     {
@@ -1420,7 +1572,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             // try some fast paths
             if (!_typeDescriptor.IsDictionary)
             {
-                if (Target is ICollection c && CommonProperties.Length.Equals(property))
+                if (Target is ICollection c
+                    && CommonProperties.Length.Equals(property)
+                    // the script's length, if it took the forwarder over, is read below like any stored property
+                    && (_projectionTakeover & ProjectionTakeover.Length) == ProjectionTakeover.None)
                 {
                     var count = c.Count;
                     _engine.CheckAmortizedConstraintsAtHostBoundary();
@@ -1547,7 +1702,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private List<JsValue> GetOwnPropertyKeysWithListedOwnKeys(Types types)
-        => AddListedOwnKeys([.. EnumerateOwnPropertyKeys(types)], types);
+    {
+        List<JsValue> targetKeys = [.. EnumerateOwnPropertyKeys(types)];
+        if (_projectionTakeover > ProjectionTakeover.Length)
+        {
+            // a plain wrapper's target reports a public toJSON method by name, and it may have been deleted
+            targetKeys.RemoveAll(WasDeletedWhileNonExtensible);
+        }
+
+        return AddListedOwnKeys(targetKeys, types);
+    }
 
     /// <summary>
     /// Adds the keys this wrapper lists of its own to <paramref name="targetKeys"/>, in
@@ -2010,7 +2174,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         // if we have array-like or dictionary or expando, we can provide iterator
         if (property.IsSymbol())
         {
-            if (property == GlobalSymbolRegistry.Iterator && _typeDescriptor.Iterable)
+            if (property == GlobalSymbolRegistry.Iterator
+                && _typeDescriptor.Iterable
+                && (_projectionTakeover & ProjectionTakeover.IteratorDeleted) == ProjectionTakeover.None)
             {
                 var iteratorFunction = new ClrFunction(
                     Engine,
@@ -2074,6 +2240,12 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             // Let outer Get fall through to the attached prototype (Array.prototype, etc.)
             // rather than dispatching to a same-named CLR method whose semantics may differ.
+            return PropertyDescriptor.Undefined;
+        }
+
+        if (_projectionTakeover > ProjectionTakeover.Length && WasDeletedWhileNonExtensible(property))
+        {
+            // toJSON, or an array's length, which resolution below would answer from the CLR type again
             return PropertyDescriptor.Undefined;
         }
 
@@ -2402,11 +2574,17 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         _lengthPropertyPending = false;
         // create a forwarder to produce length from Count or Length if one of them is present
-        var functionInstance = new ClrFunction(_engine, "length", GetLength);
+        var functionInstance = new ClrFunction(_engine, "length", _lengthFunction);
         var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
         SetProperty(KnownKeys.Length, descriptor);
         return descriptor;
     }
+
+    /// <summary>
+    /// The <c>length</c> forwarder's getter, one delegate for every wrapper so that <see cref="IsLengthForwarder"/>
+    /// can recognize it.
+    /// </summary>
+    private static readonly JsCallDelegate _lengthFunction = GetLength;
 
     private static JsNumber GetLength(JsValue thisObject, JsCallArguments arguments)
     {
