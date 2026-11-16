@@ -81,6 +81,26 @@ engine. Real layout, full CSS computation beyond automation needs, exotic at-rul
 and exact `document.write` insertion-point corner cases may remain outside scope. This is a scope policy,
 not a claim that the native parser lacks all support for those features.
 
+### Mouse drag and drop
+
+A mouse drag that starts on a draggable element (`draggable="true"`, an `img`, an `a` with `href`) runs the
+[drag-and-drop processing model](https://html.spec.whatwg.org/multipage/dnd.html#drag-and-drop-processing-model)
+once the pointer moves 4 CSS pixels: `dragstart`, `drag` at each move, `dragenter`/`dragleave` when the element
+under the pointer changes, `dragover`, then `drop` where the last `dragover` was cancelled (else `dragleave`)
+and `dragend`, with no `mouseup` or `click`. Two boundaries differ from the standard's text. The current target
+is always the element under the pointer, as in Blink and Gecko, rather than the body when its `dragenter` was
+not cancelled. The drag data store is never switched to protected or read-only mode, so every listener can read
+and write it. There is no drag feedback image and no `drag` event between moves.
+`PageAutomationTests.AMouseDragOnADraggableElementRunsTheDragAndDropModel` covers the sequence.
+
+### Unsupported media features
+
+Media features the native parser recognizes but does not evaluate (`color-gamut`, `dynamic-range`,
+`update`, `scan`, `overflow-block`, `device-width` and the others in its pending list) make a stylesheet or
+`@import` media list never match, as [Media Queries 4](https://drafts.csswg.org/mediaqueries-4/#evaluating)
+requires for a feature the user agent does not support. That list's `mediaText` then serializes as `not all`
+rather than its source. Previously the parser's incomplete-grammar exception escaped every style read on the page.
+
 ### Modern attribute factories and setters (#3950)
 
 [DOM's attribute factories](https://dom.spec.whatwg.org/#dom-document-createattribute) and

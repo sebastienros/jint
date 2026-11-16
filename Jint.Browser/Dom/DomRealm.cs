@@ -591,8 +591,18 @@ internal sealed class DomRealm
     internal JsValue WrapNodeValue(Node? node) => node is null ? JsValue.Null : WrapNode(node);
 
     private Action<int>? _nativeReadCheckpoint;
-    // Trusted host-only checks. Native read work owns polling and never retains this callback.
-    internal Action<int> NativeReadCheckpoint => _nativeReadCheckpoint ??= _ => Engine.Constraints.Check();
+    // Trusted host-only checks. Native read work owns polling and never retains this callback. It is polled as
+    // often as the cascade's checkpoint — at every element a selector visits — so it shares that cadence: the
+    // exact constraints on every poll, the observation-only ones (a clock read, a token) every 64 polls.
+    internal Action<int> NativeReadCheckpoint => _nativeReadCheckpoint ??= units =>
+    {
+        CssCheckpoint();
+
+        // Cancellation is the one observation a native read reports at once, as the engine's own exception, even
+        // when a host's constraint cancelled during this very poll: the token is cheap to read, the clock is not.
+        _ = CancellationToken;
+        _cancellation?.Check();
+    };
 
     /// <summary>
     /// The selectors <c>matches</c>, <c>closest</c> and the query methods compiled, by their text; see
@@ -628,8 +638,23 @@ internal sealed class DomRealm
         }
     };
 
+    private Jint.Constraints.CancellationConstraint? _cancellation;
+    private bool _cancellationFound;
+
+    // An engine's constraints are fixed when it is built, so the lookup is made once.
     internal CancellationToken CancellationToken
-        => Engine.Constraints.Find<Jint.Constraints.CancellationConstraint>()?.Token ?? default;
+    {
+        get
+        {
+            if (!_cancellationFound)
+            {
+                _cancellation = Engine.Constraints.Find<Jint.Constraints.CancellationConstraint>();
+                _cancellationFound = true;
+            }
+
+            return _cancellation?.Token ?? default;
+        }
+    }
 
     private Jint.Browser.Geometry.GeometryRealm? _geometry;
 

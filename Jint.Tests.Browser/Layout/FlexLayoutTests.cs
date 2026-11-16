@@ -8,8 +8,6 @@ public class FlexLayoutTests
 {
     [TestCase("column", "nowrap")]
     [TestCase("column-reverse", "nowrap")]
-    [TestCase("row", "wrap")]
-    [TestCase("row", "wrap-reverse")]
     public async Task UnsupportedFlexDirectionsAndWrappingKeepTheFlatModel(string direction, string wrap)
     {
         await using var browser = new global::Jint.Browser.Browser(
@@ -30,6 +28,58 @@ public class FlexLayoutTests
             }))
             """)).Should().Be("[[0,48,800,16],[0,64,800,16]]");
         page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-flexbox/#algo-line-break — a wrapping row whose items fit on one line is that
+    /// line; items that do not fit wrap, one under the other.
+    /// </summary>
+    [TestCase("wrap", "flex:1", "[[0,48,400,16],[400,48,400,16]]")]
+    [TestCase("wrap-reverse", "flex:1", "[[0,48,400,16],[400,48,400,16]]")]
+    [TestCase("wrap", "width:25%", "[[0,48,200,16],[200,48,200,16]]")]
+    [TestCase("wrap", "width:100%", "[[0,48,800,16],[0,64,800,16]]")]
+    public async Task AWrappingRowIsOneLineWhenItsItemsFit(string wrap, string item, string expected)
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 600) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            $$"""
+            <div style="display:flex;flex-wrap:{{wrap}}">
+              <button id="a" style="{{item}}">A</button>
+              <button id="b" style="{{item}}">B</button>
+            </div>
+            """);
+        (await page.EvaluateAsync<string>(
+            """
+            JSON.stringify(['a','b'].map(id => {
+              const r = document.getElementById(id).getBoundingClientRect();
+              return [r.x,r.y,r.width,r.height];
+            }))
+            """)).Should().Be(expected);
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-flexbox/#min-size-auto — a zero flex basis does not cap the content-based
+    /// minimum: a growing column with a checkbox keeps it under the pointer when its neighbour takes the line.
+    /// </summary>
+    [Test]
+    public async Task AZeroBasisItemKeepsItsContentMinimum()
+    {
+        await using var browser = new global::Jint.Browser.Browser(new BrowserOptions { Viewport = new Viewport(800, 600) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <div style="display:flex">
+              <div id="col" style="flex:1 0 0%"><input type="checkbox" id="all"></div>
+              <div id="wide" style="flex:0 0 auto;width:800px">filters</div>
+              <div id="spacer" style="flex:0 0 0%"></div>
+            </div>
+            """);
+        (await page.EvaluateAsync<double>("document.getElementById('col').getBoundingClientRect().width")).Should().Be(16);
+        (await page.EvaluateAsync<double>("document.getElementById('spacer').getBoundingClientRect().width")).Should().Be(0);
+        (await page.ClickAsync("#all")).Should().BeTrue();
+        (await page.EvaluateAsync<bool>("document.getElementById('all').checked")).Should().BeTrue();
     }
 
     [TestCase("row", "ltr", 0, 736)]
@@ -95,6 +145,54 @@ public class FlexLayoutTests
               return [r.x,r.width].join(',');
             }).join('|')
             """)).Should().Be($"0,{firstWidth}|{firstWidth},{secondWidth}");
+        page.Errors.Should().BeEmpty();
+    }
+
+    // https://drafts.csswg.org/css-flexbox/#min-size-auto: a shrinking item keeps its automatic minimum, one row
+    // without text measurement, an explicit min-width, or nothing when its overflow is not visible.
+    [TestCase("", 16)]
+    [TestCase("min-width:40px", 40)]
+    [TestCase("overflow:hidden", 0)]
+    [TestCase("flex:0 0 auto;min-width:240px", 240)]
+    [TestCase("flex:0 0 300px;max-width:100px", 100)]
+    [TestCase("flex:0 0 300px;max-width:100px;min-width:150px", 150)]
+    public async Task AShrinkingItemStopsAtItsMinimumWidth(string style, int width)
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 600) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            $$"""
+            <div style="display:flex">
+              <div id="a" style="flex:1 0 100%">A</div>
+              <button id="b" style="flex:0 1 auto;{{style}}">B</button>
+            </div>
+            """);
+        (await page.EvaluateAsync<int>("document.getElementById('b').getBoundingClientRect().width")).Should().Be(width);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task AnAutomaticBasisFlexRowIsAsWideAsItsItems()
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 600) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <div style="display:flex">
+              <ul id="tabs" style="display:flex;flex:0 0 auto;margin:0;padding:0">
+                <li><button id="one">One</button></li><li><button id="two">Two</button></li><li><button id="three">Three</button></li>
+              </ul>
+              <div id="rest" style="flex:1 1 auto">rest</div>
+            </div>
+            """);
+        (await page.EvaluateAsync<string>(
+            "['tabs','one','two','three','rest'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return r.x + ',' + r.width; }).join('|')"))
+            .Should().Be("0,48|0,16|16,16|32,16|48,752");
+        (await page.EvaluateAsync<string>(
+            "(() => { const r = three.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2).id; })()"))
+            .Should().Be("three");
         page.Errors.Should().BeEmpty();
     }
 

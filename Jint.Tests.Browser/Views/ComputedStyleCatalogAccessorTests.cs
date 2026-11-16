@@ -97,4 +97,40 @@ public sealed class ComputedStyleCatalogAccessorTests
             .Should().Be(expected);
         page.Errors.Should().BeEmpty();
     }
+
+    [TestCase("display:grid;grid-template-rows:repeat(3, 240px)", "240px 240px 240px")]
+    [TestCase("display:grid;--rows:2;grid-template-rows:repeat(var(--rows), 10px) 1em", "10px 10px 16px")]
+    [TestCase("display:grid;grid-template-rows:1fr 20px", "1fr 20px")]
+    [TestCase("display:grid;grid-template-rows:50% 20px", "50% 20px")]
+    [TestCase("display:block;grid-template-rows:20px", "20px")]
+    public async Task GridRowsResolveOnlyWhenEveryTrackIsAnAbsoluteLength(string style, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<div id=x style='{style}'></div>");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('x')).gridTemplateRows"))
+            .Should().Be(expected);
+        page.Errors.Should().BeEmpty();
+    }
+
+    // https://drafts.csswg.org/css-flexbox/#flex-property: the factors are the numbers, the basis the other part,
+    // in either order. A minifier writes `flex: 0 1 auto` as `flex: 0 auto`.
+    [TestCase("0 auto", "0 1 auto")]
+    [TestCase("0 1 auto", "0 1 auto")]
+    [TestCase("1 100px", "1 1 100px")]
+    [TestCase("100px 1", "1 1 100px")]
+    [TestCase("2 3", "2 3 0%")]
+    [TestCase("1 0 0", "1 0 0px")]
+    [TestCase("2", "2 1 0%")]
+    [TestCase("content", "1 1 content")]
+    [TestCase("none", "0 0 auto")]
+    public async Task TheFlexShorthandAssignsFactorsAndBasisByKind(string flex, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<style>#x {{ flex: {flex} }}</style><div style='display:flex'><div id=x></div></div>");
+        (await page.EvaluateAsync<string>("(() => { const c = getComputedStyle(document.getElementById('x')); return [c.flexGrow, c.flexShrink, c.flexBasis].join(' '); })()"))
+            .Should().Be(expected);
+        page.Errors.Should().BeEmpty();
+    }
 }

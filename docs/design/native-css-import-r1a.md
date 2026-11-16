@@ -47,13 +47,13 @@ and [CSSOM CSSImportRule](https://drafts.csswg.org/cssom/#the-cssimportrule-inte
 
 ## Browser handoff
 
-`CssImportPrelude.MayContainImport(source, options, work, cancellationToken)` is
-an incremental tokenizer scan, with no syntax parser, token list, selector
-compiler, declaration model or AST. It ignores comments, string/URL contents and
-nested imports. Escaped at-keywords are decoded by the tokenizer. It keeps scanning
-past apparent qualified rules because invalid selectors can recover before a legal
-import. A false result proves no candidate top-level import; true is only a hint.
-Token, character, depth and cancellation bounds apply. A zero-import completed
+`NativeCssParsing.HasImportRule(source, work)` reads the sheet's top-level rule
+boundaries from the shared syntax cache, which the sheet's own parse then reuses:
+no selector compiler, declaration model or AST. Comments, string/URL contents and
+nested imports are not rules of that list, and escaped at-keywords are decoded by
+the tokenizer. It does not stop at qualified rules, because invalid selectors can
+recover before a legal import. A false result proves no top-level import; true is
+only a hint. The work's cancellation and checkpoints bound it. A zero-import completed
 resource must keep `Sheet == null` until actual CSSOM/cascade demand.
 
 For candidate resources, the shared Browser `EnsureSheet` materializes **one**

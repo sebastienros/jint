@@ -42,8 +42,14 @@ References belong to one document and stop resolving after navigation.
 - `PressAsync(target, key)` is `locator.press`: it waits for a focusable target the same way, focuses it and presses the key in one turn of the page loop, so the key reaches the target rather than the body. It returns `false` and presses nothing when no focusable match appears, and awaits a navigation `Enter` causes as `PressAsync(key)` does.
 - Focused buttons and button-state inputs activate with a trusted click on Enter's keydown or Space's keyup, without pointer events or hit testing. Canceling the key default or click prevents activation; moving focus abandons a pending Space press. Submit buttons retain their name/value and run validation and submit listeners.
 - `ClickAsync` scrolls the target into view and runs link, button, checkbox, radio, label, summary, and option activation.
+- Before it presses, `ClickAsync` lets a frame the page requested run, and the timers due within a frame (16 ms), as they would while Playwright waits for a box stable across two animation frames. Bootstrap ends even an instant collapse transition on a 5 ms timer and ignores a toggle until then. A timer due later is not waited for.
 - `SelectAsync` matches an option by value, then by visible text, and fires `input` followed by `change`.
 - `SetInputFilesAsync` selects files into an `<input type=file>`, which is what a file picker would do and what clicking one cannot: the files are read into memory, `input.files` becomes a `FileList`, `input.value` becomes a fake Windows path plus the first name, and `input` then `change` fire. An overload takes `PageFile` values for content that has no path. An input without `multiple` keeps only the first file, and passing no files clears the selection.
+- `MouseMoveAsync(x, y, steps)`, `MouseDownAsync(button)` and `MouseUpAsync(button)` are a coordinate mouse for gestures a single click cannot express, such as a drag in a sortable list. The pointer and its held buttons persist across calls and navigations; each move step is its own page turn and dispatches `pointermove` and `mousemove` with the held `buttons`, a press dispatches `pointerdown`/`mousedown` and focuses, and a release dispatches `pointerup`/`mouseup` and then a `click` at the nearest common ancestor of the pressed and released elements, awaiting a navigation it causes. `BoundingBoxAsync(target)` returns the synthetic box (`ElementBox`) those coordinates are hit-tested against, or `null` for an element without one.
+- A coordinate-mouse drag that starts on a draggable element (`draggable="true"`, an image, a link) runs HTML's drag-and-drop processing model once the pointer has moved 4 pixels: `dragstart`, `drag`, `dragenter`/`dragleave`, `dragover`, then `drop` where the last `dragover` was cancelled, and `dragend`, all carrying one `DataTransfer`. No `mouseup` or `click` follows a drag. This is what a list sorting with native drag and drop, such as SortableJS, needs.
+- `DoubleClickAsync(target)` presses and releases twice, with `detail` 1 then 2, and then dispatches `dblclick`.
+- `TypeAsync(text)` types at whatever has focus, for an editor that moves focus into an element of its own (CodeMirror's or Monaco's hidden input) on a click.
+- `BrowserContextOptions.ActionTimeout` makes `ClickAsync`, `FillAsync`, `TypeAsync`, `SelectAsync`, `HoverAsync` and `SetInputFilesAsync` wait for a target that is missing, not rendered, not editable or covered, instead of answering `false` at once. It is zero, meaning look once, by default. An attempt that dispatched input is never repeated.
 - `TapAsync` puts one finger down at the centre of the target's box and lifts it: `touchstart`, `touchend`, and then the compatibility mouse events [Touch Events §8](https://w3c.github.io/touch-events/#mouse-events) gives a tap — `mousemove`, `mousedown`, `mouseup`, `click` — so it activates what a click activates. A page that calls `preventDefault()` on the `touchstart`, or on the first `touchmove`, gets none of those four. `TapAsync(x, y)` taps a point instead of an element.
 
 `SetTouchEmulationAsync(enabled, maxTouchPoints)` is the separate question of what the page *detects*: `ontouchstart` and its three siblings on `window`, `document` and elements, `navigator.maxTouchPoints`, and the `(pointer: coarse)` / `(hover: none)` media features. A tap is delivered either way — a page that added a `touchstart` listener hears one — so emulation is what lets a responsive page decide to add one. It belongs to the page and survives navigation; `BrowserOptions.HasTouch` is the same setting one level up, so a page opens as a touch device and its first document parses in one.
@@ -84,5 +90,25 @@ inside the listener throws `InvalidStateError`. Standalone engines and workers k
 
 An activated submit input with no `value` attribute submits the UA's default label, `Submit`.
 An explicitly empty `value=""` remains empty; the input's `.value` getter still reflects its attribute.
+
+## Passkeys (WebAuthn)
+
+A page signs up and signs in with passkeys against a virtual authenticator the host adds to its context, as
+the DevTools protocol's `WebAuthn.addVirtualAuthenticator` does for Chromium:
+
+```csharp
+var authenticator = new VirtualAuthenticator(); // a verifying platform authenticator with discoverable keys
+page.Context.AddVirtualAuthenticator(authenticator);
+await page.NavigateAsync("http://localhost:5000/login");
+```
+
+`navigator.credentials.create()` and `get()` then complete without a prompt, conditional mediation (the
+passkeys an autofill offers) included, and what they return verifies like a browser's: `none` attestation,
+ES256 keys, the client data, authenticator data and signature a relying party checks. The same instance can
+be added to another context, so a passkey registered in one signs in in the next; `Credentials` lists what
+it holds. A document created before the context had an authenticator has no WebAuthn at all, as a browser
+without it; with every authenticator removed, a modal ceremony rejects with `NotAllowedError` and a
+conditional one waits until its signal aborts it. An IP address is not a valid relying party, so browse a
+local site as `localhost`.
 
 Input uses a deterministic synthetic box model, not visual layout. See [Limitations](./limitations).

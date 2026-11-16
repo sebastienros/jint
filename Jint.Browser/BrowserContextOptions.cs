@@ -92,6 +92,67 @@ public sealed class BrowserContextOptions
     private Viewport? _viewport;
 
     /// <summary>
+    /// The URL a relative address a host passes to a page of this context is resolved against, or
+    /// <see langword="null"/> — the default — for none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A test suite names its server once rather than on every call:
+    /// <c>page.NavigateAsync("/admin")</c> and <c>page.WaitForUrlAsync("/admin", ...)</c> resolve against it,
+    /// with the URL standard's own rules, so <c>"/admin"</c> keeps its host and <c>"admin"</c> its directory.
+    /// It is the host's address bar and nothing else: a page's own links, forms and <c>location</c> writes
+    /// still resolve against the document's base URL. An absolute address is left alone.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentException">The value is not an absolute URL.</exception>
+    public string? BaseUrl
+    {
+        get => _baseUrl;
+        set
+        {
+            if (value is not null && Runtime.PageUrl.Parse(value, null) is null)
+            {
+                throw new ArgumentException("A base URL must be absolute.", nameof(value));
+            }
+
+            _baseUrl = value;
+        }
+    }
+
+    private string? _baseUrl;
+
+    /// <summary>
+    /// How long a page's actions wait for their target to be actionable; <see cref="TimeSpan.Zero"/> — the
+    /// default — looks once.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Page.ClickAsync(string, NavigationOptions)"/>, <see cref="Page.FillAsync(string, string)"/>,
+    /// <see cref="Page.TypeAsync(string, string)"/>, <see cref="Page.SelectAsync(string, string)"/>,
+    /// <see cref="Page.HoverAsync(string)"/> and <see cref="Page.SetInputFilesAsync(string, IReadOnlyList{string})"/>
+    /// answer <see langword="false"/> when their target is missing, not being rendered, not editable or covered
+    /// by another element. With a timeout they look again, while the page goes on running, until the target is
+    /// ready or the time is up — Playwright's actionability wait, for a suite written against it. An attempt
+    /// that dispatched input is never repeated, so a click that started but landed elsewhere still answers
+    /// <see langword="false"/> at once.
+    /// </para>
+    /// <para>
+    /// <see cref="Page.FocusAsync"/> and the target form of <see cref="Page.PressAsync(string, string, KeyModifiers, int, NavigationOptions?, TimeSpan?)"/>
+    /// have a timeout of their own and do not read this one.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative and not infinite.</exception>
+    public TimeSpan ActionTimeout
+    {
+        get => _actionTimeout;
+        set => _actionTimeout = value >= TimeSpan.Zero || value == System.Threading.Timeout.InfiniteTimeSpan
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "ActionTimeout cannot be negative.");
+    }
+
+    private TimeSpan _actionTimeout;
+
+    /// <summary>
     /// Whether every page of this context opens as a touch device, or <see langword="null"/> — the default —
     /// for <see cref="BrowserOptions.HasTouch"/>.
     /// </summary>

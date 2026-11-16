@@ -23,11 +23,14 @@ internal Jint.HtmlParser.Css.CssRawRule
     get_Text
 internal Jint.HtmlParser.Css.CssRuleBody
     (constructor)
+    get_IsClosed
+    get_Kind
+    get_Text
 internal Jint.HtmlParser.Css.CssRuleBodyKind
 internal Jint.HtmlParser.Css.CssSourceText
     From
+    get_Source
     get_Span
-    get_Text
 internal Jint.HtmlParser.Css.Media.CssMediaEnvironment
     (constructor)
     get_ForcedColors
@@ -81,13 +84,12 @@ internal Jint.HtmlParser.Css.Model.CssFontFaceRule
 internal Jint.HtmlParser.Css.Model.CssGroupingRule
     DeleteRule
     InsertRule
-internal Jint.HtmlParser.Css.Model.CssImportPrelude
-    MayContainImport
 internal Jint.HtmlParser.Css.Model.CssImportRule
     SetStyleSheet
     get_Href
     get_Media
     get_StyleSheet
+internal Jint.HtmlParser.Css.Model.CssIncompleteRuleGrammarException
 internal Jint.HtmlParser.Css.Model.CssLayerBlockRule
     get_LayerName
     get_Name
@@ -239,7 +241,11 @@ internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKey
     get_Name
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKeyKind
 internal Jint.HtmlParser.Css.Selectors.SelectorSubjectKeys
+    AllSubjectsArePseudoElements
+    AncestorKeyOf
+    NoSubjectIsAPseudoElement
     TryCollect
+    TryCollectAncestorKeys
 internal Jint.HtmlParser.Css.Serialization.CssRuleSerializer
     Serialize
 internal Jint.HtmlParser.Css.Syntax.CssAscii
@@ -411,6 +417,7 @@ internal Jint.HtmlParser.HtmlInputValueState
     ResetValue
     Select
     SetEditingSelection
+    SetRangeText
     SetSelectionDirection
     SetSelectionEnd
     SetSelectionRange
@@ -446,6 +453,7 @@ internal Jint.HtmlParser.HtmlOptionState
 internal Jint.HtmlParser.HtmlRadioGroupFacts
     get_CheckedCount
     get_RequiredCount
+internal Jint.HtmlParser.HtmlRangeTextMode
 internal Jint.HtmlParser.HtmlScriptState
     get_AlreadyStarted
     get_ForceAsync
@@ -491,6 +499,7 @@ internal Jint.HtmlParser.HtmlTextAreaState
     Select
     SetDefaultValue
     SetEditingSelection
+    SetRangeText
     SetSelectionEnd
     SetSelectionRange
     SetSelectionStart

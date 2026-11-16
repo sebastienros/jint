@@ -65,9 +65,12 @@ internal static class SelectorSubjectKeys
                 case PredicateKind.Where:
                     logical ??= predicate.Arguments;
                     break;
-                // These match an element other than the one the compound's own names describe.
+                // A pseudo-element's compound names its originating element, which is what an index looks up
+                // for the pseudo-element's own style too.
                 case PredicateKind.PseudoElement:
                 case PredicateKind.WebkitUnknownPseudoElement:
+                    break;
+                // These match an element other than the one the compound's own names describe.
                 case PredicateKind.Picker:
                 case PredicateKind.Slotted:
                 case PredicateKind.Host:
@@ -80,5 +83,76 @@ internal static class SelectorSubjectKeys
         else if (compound.TypeName is { } type) keys.Add(new(SelectorSubjectKeyKind.Type, type));
         else return logical is not null && depth < MaximumDepth && TryCollect(logical, keys, depth + 1);
         return true;
+    }
+
+    /// <summary>
+    /// For each branch, a key an ancestor of the subject must carry for each compound that has to match an ancestor
+    /// (Selectors 4 §16: a compound reached through a descendant or child combinator, from the subject or from a
+    /// sibling of it or of an ancestor, matches a strict ancestor of the subject). Returns <see langword="false"/>
+    /// when some branch requires no ancestor key, or uses a combinator or form this cannot reason about, in which
+    /// case no ancestor can rule the selector out.
+    /// </summary>
+    internal static bool TryCollectAncestorKeys(CompiledSelector selector, List<List<SelectorSubjectKey>> branches)
+    {
+        if (selector.ContainsNesting) return false;
+        foreach (var branch in selector.Branches)
+        {
+            if (branch.LeadingCombinator is not null || branch.Compounds.Count == 0) return false;
+            var keys = new List<SelectorSubjectKey>();
+            var compounds = branch.CompoundArray;
+            for (var part = compounds.Length - 1; part > 0; part--)
+            {
+                var combinator = branch.CombinatorArray[part - 1];
+                if (combinator == Combinator.Column) return false;
+                if (combinator is Combinator.Descendant or Combinator.Child && AncestorKeyOf(compounds[part - 1]) is { } key) keys.Add(key);
+            }
+
+            if (keys.Count == 0) return false;
+            branches.Add(keys);
+        }
+
+        return branches.Count != 0;
+    }
+
+    /// <summary>Whether every branch's subject is a pseudo-element, which never matches an element itself.</summary>
+    internal static bool AllSubjectsArePseudoElements(CompiledSelector selector)
+    {
+        foreach (var branch in selector.Branches)
+        {
+            if (branch.Compounds.Count == 0 || !HasPseudoElement(branch.CompoundArray[^1])) return false;
+        }
+
+        return selector.Branches.Count != 0;
+    }
+
+    /// <summary>Whether no branch's subject is a pseudo-element, so the selector never matches one.</summary>
+    internal static bool NoSubjectIsAPseudoElement(CompiledSelector selector)
+    {
+        foreach (var branch in selector.Branches)
+        {
+            if (branch.Compounds.Count == 0 || HasPseudoElement(branch.CompoundArray[^1])) return false;
+        }
+
+        return !selector.ContainsNesting;
+    }
+
+    private static bool HasPseudoElement(Compound compound)
+    {
+        foreach (var predicate in compound.Predicates)
+        {
+            if (predicate.Kind is PredicateKind.PseudoElement or PredicateKind.WebkitUnknownPseudoElement) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The one key an element matching <paramref name="compound"/> must carry, or <see langword="null"/>: a union of
+    /// :is() alternatives says the element carries one of them, which no single key can require.
+    /// </summary>
+    internal static SelectorSubjectKey? AncestorKeyOf(Compound compound)
+    {
+        var keys = new List<SelectorSubjectKey>(1);
+        return TryKeysOf(compound, keys, MaximumDepth) && keys.Count == 1 ? keys[0] : null;
     }
 }

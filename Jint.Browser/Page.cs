@@ -41,6 +41,9 @@ namespace Jint.Browser;
 public sealed partial class Page : IAsyncDisposable
 {
     private readonly PageLoop _loop;
+
+    /// <summary>The page's loop, which a parse waiting for a script lets serve the reads a caller is polling with.</summary>
+    internal PageLoop Loop => _loop;
     private readonly PageRecorder _recorder;
     private readonly PageNetworkRecorder _requests;
     private readonly BrowserOptions _options;
@@ -131,6 +134,8 @@ public sealed partial class Page : IAsyncDisposable
     /// </remarks>
     private void ReportTitleAtEndOfTurn(Engine engine)
     {
+        SignalTurnEnded();
+
         if (_observer is null)
         {
             return;
@@ -239,6 +244,13 @@ public sealed partial class Page : IAsyncDisposable
 
     /// <summary>What the page's scripts printed, oldest first, formatted the way a console would.</summary>
     public IReadOnlyList<string> ConsoleMessages => _recorder.ConsoleMessages;
+
+    /// <summary>
+    /// What the page's scripts printed, oldest first, each with the level of the <c>console</c> method that
+    /// printed it — so a caller can ask for the errors without parsing text.
+    /// </summary>
+    /// <remarks>The same messages, and the same bound, as <see cref="ConsoleMessages"/>.</remarks>
+    public IReadOnlyList<PageConsoleMessage> ConsoleEntries => _recorder.ConsoleEntries;
 
     /// <summary>Raised when the page calls <c>alert</c>, <c>confirm</c> or <c>prompt</c>.</summary>
     /// <remarks>

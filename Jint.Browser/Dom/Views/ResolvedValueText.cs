@@ -113,10 +113,36 @@ internal static class ResolvedValueText
         if (!IsGridContainer(style)) return value;
         style.Work.Charge(value.Length);
 
+        if (ColumnTracks(value, containerWidth, columnGap(), out _) is not { } tracks) return value;
+
+        style.Work.Charge(tracks.Length * 8);
+        var builder = new StringBuilder();
+        foreach (var size in tracks)
+        {
+            if (builder.Length > 0) builder.Append(' ');
+            builder.Append(size.ToString("0.######", CultureInfo.InvariantCulture)).Append("px");
+        }
+        return builder.ToString();
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex s_trackOpen = new(@"\(\s+");
+    private static readonly System.Text.RegularExpressions.Regex s_trackClose = new(@"\s+\)");
+    private static readonly System.Text.RegularExpressions.Regex s_trackComma = new(@"\s*,\s*");
+
+    /// <summary>
+    /// The used widths of a column track list in a container <paramref name="containerWidth"/> wide: absolute
+    /// lengths as they are, and the space they and the gaps leave shared between the <c>fr</c> tracks. Null for
+    /// a track list it cannot size without content — <c>auto</c>, <c>minmax()</c>, an <c>auto-fill</c> repeat.
+    /// </summary>
+    internal static double[]? ColumnTracks(string value, double containerWidth, string columnGap, out double gap)
+    {
+        gap = 0;
         var tracks = new List<(double Size, bool Flexible)>();
-        if (!Expand(value, tracks, containerWidth, allowRepeat: true) || tracks.Count == 0) return value;
-        if (!TryLength(columnGap().Trim(), containerWidth, out var gap, normalIsZero: true))
-            return value;
+
+        // A computed value keeps the author's spacing inside repeat(), which a substituted var() leaves too.
+        value = s_trackComma.Replace(s_trackClose.Replace(s_trackOpen.Replace(value.Trim(), "("), ")"), ", ");
+        if (!Expand(value, tracks, containerWidth, allowRepeat: true) || tracks.Count == 0) return null;
+        if (!TryLength(columnGap.Trim(), containerWidth, out gap, normalIsZero: true)) return null;
 
         var leftover = containerWidth - gap * (tracks.Count - 1);
         var flex = 0d;
@@ -127,13 +153,37 @@ internal static class ResolvedValueText
         }
         var unit = flex > 0 ? Math.Max(0, leftover) / Math.Max(1, flex) : 0;
 
-        style.Work.Charge(tracks.Count * 8);
+        var sizes = new double[tracks.Count];
+        for (var i = 0; i < sizes.Length; i++)
+        {
+            sizes[i] = tracks[i].Flexible ? tracks[i].Size * unit : tracks[i].Size;
+        }
+        return sizes;
+    }
+
+    /// <summary>
+    /// CSS Grid 2 §7.2.6 for rows: a row track list made only of absolute lengths, optionally in an integer
+    /// <c>repeat()</c>, has used sizes equal to those lengths whatever the container's height, so it resolves
+    /// without a layout. Percentages and flexible tracks need a definite height the flat model does not
+    /// have, and keep their text, as every other track list does.
+    /// </summary>
+    internal static string GridRows(string value, NativeCssComputedStyle style)
+    {
+        if (!IsGridContainer(style)) return value;
+        style.Work.Charge(value.Length);
+
+        var tracks = new List<(double Size, bool Flexible)>();
+        if (!Expand(value, tracks, double.NaN, allowRepeat: true) || tracks.Count == 0) return value;
+
         var builder = new StringBuilder();
         foreach (var (size, flexible) in tracks)
         {
+            if (flexible || double.IsNaN(size)) return value;
             if (builder.Length > 0) builder.Append(' ');
-            builder.Append((flexible ? size * unit : size).ToString("0.######", CultureInfo.InvariantCulture)).Append("px");
+            builder.Append(size.ToString("0.######", CultureInfo.InvariantCulture)).Append("px");
         }
+
+        style.Work.Charge(tracks.Count * 8);
         return builder.ToString();
     }
 

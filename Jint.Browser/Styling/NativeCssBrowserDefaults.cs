@@ -5,7 +5,8 @@ using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Browser.Styling;
 
-// HTML Rendering §15.3.1: the supported display rules from the HTML user-agent sheet.
+// HTML Rendering §15.3.1: the supported display rules from the HTML user-agent sheet, and §15.3.5's
+// bidirectional text rules.
 // https://html.spec.whatwg.org/multipage/rendering.html#the-css-user-agent-style-sheet-and-presentational-hints
 internal static class NativeCssBrowserDefaults
 {
@@ -38,6 +39,11 @@ internal static class NativeCssBrowserDefaults
         nobr wbr { white-space: normal; }
         [dir="ltr" i] { direction: ltr; }
         [dir="rtl" i] { direction: rtl; }
+        address, blockquote, center, div, figure, figcaption, footer, form, header, hr,
+        legend, listing, main, p, plaintext, pre, search, xmp { unicode-bidi: isolate; }
+        bdi, output { unicode-bidi: isolate; }
+        bdo, bdo[dir] { unicode-bidi: isolate-override; }
+        textarea[dir="auto" i], pre[dir="auto" i] { unicode-bidi: plaintext; }
         """;
     private static readonly ConditionalWeakTable<Document, CssStyleSheet> Sheets = new();
 

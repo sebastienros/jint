@@ -183,10 +183,25 @@ internal sealed class AccessibleName
             // here through a reference or a subtree descent.
             if (descendant || AriaRoles.NameFromContent.Contains(role))
             {
-                var content = FromContent(element, context);
-                if (content.Length > 0)
+                // https://w3c.github.io/accname/#comp_name_from_content step 2F.v: "return the accumulated text
+                // if it is not the empty string". For a node the recursion reached, whitespace is not empty: a
+                // `<span class="icon" title="Edit">` holding an aria-hidden glyph and the indentation around it
+                // contributes that whitespace, and its title is not reached — what Playwright's and the
+                // browsers' implementations answer. The root flattens what its descendants accumulated.
+                var accumulated = AccumulatedContent(element, context);
+
+                // A block-level node's content is set apart with whitespace on both sides — what HTML-AAM's
+                // rendering asks for, and what Playwright and the browsers do — so even an empty one, a
+                // `display: flex` icon holder, has accumulated text and its title is not reached either.
+                if (descendant && accumulated.Length == 0
+                    && !HtmlDisplay.IsInlineLevel(HtmlDisplay.Resolve(element, _visibility.Style(element, _cascade).Display)))
                 {
-                    return content;
+                    accumulated = " ";
+                }
+
+                if (descendant ? accumulated.Length > 0 : Flatten(accumulated).Length > 0)
+                {
+                    return descendant ? accumulated : Flatten(accumulated);
                 }
             }
 
@@ -208,7 +223,10 @@ internal sealed class AccessibleName
         }
     }
 
-    private string FromContent(Element element, Context context)
+    private string FromContent(Element element, Context context) => Flatten(AccumulatedContent(element, context));
+
+    /// <summary>Step 2F's accumulated text, whitespace and all, before it is flattened.</summary>
+    private string AccumulatedContent(Element element, Context context)
     {
         var builder = new StringBuilder();
         foreach (var child in element.ChildNodes)
@@ -244,7 +262,7 @@ internal sealed class AccessibleName
             }
         }
 
-        return Flatten(builder.ToString());
+        return builder.ToString();
     }
 
     private string NativeLabel(Element element, string role, Context context)

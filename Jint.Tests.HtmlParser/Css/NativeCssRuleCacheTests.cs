@@ -97,14 +97,14 @@ public sealed class NativeCssRuleCacheTests
         var cache = new NativeCssRuleCache();
         var raw = Raw("a {color:red}");
         var original = Read(cache, raw);
-        for (var index = 0; index < 8192; index++) Read(cache, Raw($".a{index} {{}}"));
+        for (var index = 0; index < NativeCssRuleCache.MaxEntries; index++) Read(cache, Raw($".a{index} {{}}"));
         Read(cache, raw).Selector.Should().NotBeSameAs(original.Selector);
 
         original = Read(cache, raw);
         var value = new string('a', 60 * 1024);
-        for (var index = 0; index < 18; index++) Read(cache, Raw($".b{index} {{--long:{value}}}"));
+        for (var index = 0; index <= NativeCssRuleCache.MaxUnits / (value.Length * 8); index++) Read(cache, Raw($".b{index} {{--long:{value}}}"));
         Read(cache, raw).Selector.Should().NotBeSameAs(original.Selector);
-        var oversized = Raw("a {--long:" + new string('x', 64 * 1024) + "}");
+        var oversized = Raw("a {--long:" + new string('x', NativeCssRuleCache.MaxRuleLength) + "}");
         Read(cache, oversized).Selector.Should().NotBeSameAs(Read(cache, oversized).Selector);
     }
 

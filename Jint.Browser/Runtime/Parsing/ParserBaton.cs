@@ -299,7 +299,11 @@ internal sealed class ParserBaton : IDisposable
         try
         {
             _tasks.ProcessTask();
-            PageRuntime.Find(_engine)?.UpdateRendering();
+            var runtime = PageRuntime.Find(_engine);
+            runtime?.UpdateRendering();
+
+            // HTML's "spin the event loop": while the parser waits, the page answers what a caller polls it with.
+            runtime?.Page.Loop.DrainReentrant();
         }
         catch (Exception exception)
         {

@@ -9,7 +9,7 @@ internal sealed partial class NativeCssQuery
     {
         var pending = new Stack<Element>();
         var parent = InheritanceParent(element);
-        while (parent is not null && !StateOf(parent, ref matching).Computed.ContainsKey("display"))
+        while (parent is not null && !StateFor(parent, "display", ref matching).Computed.ContainsKey("display"))
         {
             _work.Charge(1);
             pending.Push(parent);

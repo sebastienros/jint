@@ -51,6 +51,15 @@ internal sealed partial class PageLayout
         }
     }
 
+    private void InvalidateFollowing(SizeMeasurements measurements, Element element)
+    {
+        for (var sibling = element.NextSibling; sibling is not null; sibling = sibling.NextSibling)
+        {
+            if (sibling is Element following)
+                measurements.Invalidate(following, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
+        }
+    }
+
     private void ResetMeasurements(string reason = "reset")
     {
         if (_measurements is not null) Diagnostics?.MeasurementsDiscarded(reason);
@@ -94,6 +103,25 @@ internal sealed partial class PageLayout
                             measurements.InvalidateChildren(root, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
                         else
                             measurements.Invalidate(root, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
+
+                        // Selectors 4 §16.3-4: a name left of a sibling combinator restyles what follows it.
+                        if (dirty.Kind == NativeMutationKind.Attributes && context.Query.RequiresSiblingMeasurements(dirty.Kind, dirty.Attribute))
+                            InvalidateFollowing(measurements, root);
+
+                        // Selectors 4 §4.5: a name in a :has() argument restyles the anchors among the changed element
+                        // and its ancestors.
+                        if (context.Query.MeasurementAnchors(dirty.Kind, dirty.Attribute) is { } anchors)
+                        {
+                            for (var ancestor = root; ancestor is not null; ancestor = ancestor.ParentNode as Element)
+                            {
+                                foreach (var anchor in anchors)
+                                {
+                                    if (!anchor.MayBeCarriedBy(ancestor)) continue;
+                                    measurements.Invalidate(ancestor, _runtime.Dom.CssCheckpoint, _runtime.Dom.CancellationToken);
+                                    if (anchor.Siblings) InvalidateFollowing(measurements, ancestor);
+                                }
+                            }
+                        }
                     }
                     context.Verify();
                     if (dirty.ChangedChild is Element changed)

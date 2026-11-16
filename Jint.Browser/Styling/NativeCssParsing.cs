@@ -49,6 +49,23 @@ internal static class NativeCssParsing
         internal CssMutationStamp Stamp = stamp;
     }
 
+    /// <summary>
+    /// Whether <paramref name="source"/> has a top-level <c>@import</c> rule, read from the rule boundaries every
+    /// document's sheet of the same text shares, which the sheet's own parse then reuses: a site's pages link the
+    /// same sheets, and tokenizing each of them again on every page only to find no import allocated a string
+    /// for every name in it.
+    /// </summary>
+    internal static bool HasImportRule(string source, CssValueWork work)
+    {
+        foreach (var rule in Syntax.Parse(source, work))
+        {
+            work.Charge(1);
+            if (IsImport(rule)) return true;
+        }
+
+        return false;
+    }
+
     internal static CssStyleSheet CreateSheet(string source, CssValueWork work)
     {
         var rules = Syntax.Parse(source, work);
@@ -101,7 +118,7 @@ internal static class NativeCssParsing
         {
             guarded.CheckCancellation();
             if (importsOnly && (input.ImportsRead || input.ImportEnd == 0)) return rules;
-            var raw = input.Rules ?? CssParser.ParseRuleList(input.Body!.Value, guarded);
+            var raw = input.Rules ?? Syntax.ParseBody(input.Body!.Value, guarded);
             var end = importsOnly ? input.ImportEnd : raw.Length;
             var result = new List<CssRule>(rules.Count);
             foreach (var rule in rules) { guarded.Charge(1); result.Add(rule); }
@@ -166,7 +183,21 @@ internal static class NativeCssParsing
         slot.Reading = true;
         try
         {
-            var parsed = CssParser.ParseMediaQueryList(input.Source, guarded);
+            CssMediaList parsed;
+            try
+            {
+                parsed = CssParser.ParseMediaQueryList(input.Source, guarded);
+            }
+            catch (CssIncompleteRuleGrammarException)
+            {
+                // A feature the parser knows but does not evaluate yet — color-gamut, update, scan,
+                // device-width, ... Media Queries 4 §3.2 makes a query on a feature the user agent does not
+                // support "unknown", which matches nothing, so the list is the one that never matches rather
+                // than an exception out of every style read on the page.
+                // https://drafts.csswg.org/mediaqueries-4/#evaluating
+                parsed = CssParser.ParseMediaQueryList("not all", guarded);
+            }
+
             guarded.CheckCancellation();
             media.Initialize(parsed);
             slot.Input = null;

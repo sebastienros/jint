@@ -206,6 +206,7 @@ internal static class WindowInstaller
         // client set before this document existed: both are read on every access, so this is only the
         // installation and never a snapshot.
         NavigatorInstaller.Install(runtime);
+        WebAuthnInstaller.Install(runtime);
         SystemState.SystemStateRealm.Install(runtime);
         PerformanceNavigation.Install(runtime);
         TouchEmulation.Apply(runtime);

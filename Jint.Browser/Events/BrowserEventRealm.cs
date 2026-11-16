@@ -177,6 +177,12 @@ internal sealed class BrowserEventRealm
     internal (Element Image, int X, int Y)? PendingImagePoint { get; set; }
 
     /// <summary>
+    /// The drag-and-drop operation the mouse is in, or about to start: see <c>InputDispatcher.Drag</c>. Per
+    /// engine, like <see cref="MousePressTarget"/>, so a navigation in the middle of a drag ends it.
+    /// </summary>
+    internal DragOperation? Drag { get; set; }
+
+    /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — the coordinate
     /// <paramref name="image"/>'s last activation selected, and (0, 0) for a button that has none.
     /// </summary>
