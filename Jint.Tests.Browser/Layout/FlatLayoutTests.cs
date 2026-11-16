@@ -736,6 +736,31 @@ public class FlatLayoutTests
         (await page.EvaluateAsync<double>("window.scrollY")).Should().Be((18 * Row) - 64);
     }
 
+    /// <summary>
+    /// https://drafts.csswg.org/css-scroll-snap-1/#scroll-padding — <c>scrollIntoView</c> aligns within the
+    /// scrollport shrunk by the root's scroll-padding, and the target's scroll-margin grows its box: a page with a
+    /// fixed header sets <c>scroll-padding-top</c> so an anchor lands below the header.
+    /// </summary>
+    [TestCase("html { scroll-padding-top: 2rem }", "", 17 * Row - 32, 32)]
+    [TestCase("html { scroll-padding-top: 25% }", "", 17 * Row - 32, 32)]
+    [TestCase("", "#r15 { scroll-margin-top: 8px }", 17 * Row - 8, 8)]
+    [TestCase("html { scroll-padding-top: 16px }", "#r15 { scroll-margin-top: 8px }", 17 * Row - 24, 24)]
+    public async Task ScrollIntoViewHonoursScrollPaddingAndScrollMargin(string padding, string margin, int scrollY, int top)
+    {
+        await using var browser = new global::Jint.Browser.Browser(new BrowserOptions { Viewport = new Viewport(800, 128) });
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync($"<style>{padding} {margin}</style>{Rows(40)}");
+
+        await page.EvaluateAsync("document.getElementById('r15').scrollIntoView()");
+        (await page.EvaluateAsync<double>("window.scrollY")).Should().Be(scrollY);
+        (await page.EvaluateAsync<double>("document.getElementById('r15').getBoundingClientRect().top")).Should().Be(top);
+
+        // 'end' keeps the bottom padding clear too.
+        await page.EvaluateAsync("document.documentElement.style.scrollPaddingBottom = '32px'; document.getElementById('r15').scrollIntoView({ block: 'end' })");
+        (await page.EvaluateAsync<double>("document.getElementById('r15').getBoundingClientRect().bottom")).Should().Be(128 - 32);
+    }
+
     [Test]
     public async Task AScrollFiresOneEventPerTurnAtTheDocument()
     {
