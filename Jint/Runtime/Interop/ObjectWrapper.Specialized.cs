@@ -600,13 +600,14 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         // invalidate arbitrary keys. Everywhere else the memo is already null.
         DropCrossingMemo();
 
-        if (ReferenceEquals(receiver, this) && CommonProperties.Length.Equals(property))
+        if (ReferenceEquals(receiver, this) && CommonProperties.Length.Equals(property) && !LengthTakenOver)
         {
             // A length write adds and removes elements — it is the element lane spelled by count rather than
             // by position — so a view whose indexer the host's member filter hides has nothing to grow or
             // truncate, and `list.length = 0` must not clear a collection whose elements script cannot see.
             // The "length" forwarder itself keeps answering: it is produced from Count, a member the filter
-            // decides about separately (#3558).
+            // decides about separately (#3558). A length the script took over is written by base.Set like any
+            // property of the wrapper's, and leaves the collection alone.
             if (!_elementsExposed || !CanWrite || !Extensible)
             {
                 return false;
