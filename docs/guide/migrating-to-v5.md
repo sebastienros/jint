@@ -8859,11 +8859,13 @@ its value before and still does.
 **What could break:** script that read a `JObject`'s `JProperty` nodes by position through such a member, or relied
 on it being on `Array.prototype`, and a host `catch` written for the exceptions above. What did not change: a list
 declared as a list interface (`IList<T>`, `IReadOnlyList<T>`, `IList`) keeps the view it names, so a `JObject`
-handed over as `IList<JToken>` is still a list of its nodes; a list declared as `object` or as an interface that is
-not a list is wrapped as before unless its runtime type is addressed by key alone, as `JObject`,
-`OrderedDictionary<string, TValue>` and System.Text.Json 9's `JsonObject` are; and an object that is not a list is
-wrapped as before whatever it is declared as. The same holds for any host type, not only Newtonsoft's: a host list
-type that crosses as a base class is wrapped as its own type, with its own list view. There is no switch back.
+handed over as `IList<JToken>` is still a list of its nodes; a list declared as an interface that is not a list is
+wrapped as before unless its runtime type is addressed by key alone, as `JObject`, `OrderedDictionary<string, TValue>`
+and System.Text.Json 9's `JsonObject` are; and an object that is not a list is wrapped as before whatever it is
+declared as. The same holds for any host type, not only Newtonsoft's: a host list type that crosses as a base class
+is wrapped as its own type, with its own list view. A list declared as `object` is wrapped as its runtime type, as
+[§4.247](#4-247-a-list-typed-object-is-the-list-it-is-as-itself-and-a-jsonnode-member-is-one-wrapper) describes.
+There is no switch back.
 
 ### 4.242 An `OrderedDictionary<int, TValue>` is the keyed object a `Dictionary<int, TValue>` is ([#4527](https://github.com/sebastienros/jint/issues/4527))
 
@@ -8996,6 +8998,40 @@ Each element also settles one microtask earlier than before, so the result settl
 An iterator result whose `done` or `value` getter throws now rejects the result with that error, and the source is
 not closed. The result used to stay pending forever. `value` is no longer read from the result that says `done`.
 There is no switch back.
+
+### 4.247 A list typed `object` is the list it is as itself, and a `JsonNode` member is one wrapper
+
+Three follow-ups to [§4.241](#4-241-a-jobject-or-jarray-that-crosses-as-jtoken-is-the-object-it-is-as-itself-4524)
+and [§4.242](#4-242-an-ordereddictionary-int-tvalue-is-the-keyed-object-a-dictionary-int-tvalue-is-4527).
+
+**A list that crosses through a member typed `object`** (a property, a method's return value, a field) was wrapped
+as the non-generic list view, not the typed view it gets when it crosses as itself. Reads worked, but writes handed
+the list the raw script value:
+
+```js
+// host: engine.SetValue("host", new { Items = (object) new List<int> { 1, 2 } }), with AllowWrite
+host.Items[0] = 7     // earlier previews: ArgumentException out of Evaluate ("7" is not an Int32)   5.x: 7
+host.Items.push(3)    // earlier previews: the same ArgumentException                               5.x: 3
+// a JArray typed object: earlier previews "Argument is not a JToken"                              5.x: as a JArray
+```
+
+Now a target declared as `object`, through a member or through `ObjectWrapper.Create(engine, target, typeof(object))`,
+is wrapped exactly as if it crossed as its runtime type, which is the type `ObjectWrapper.ClrType` already reported.
+A value read out of a `Dictionary<string, object>` crossed as its runtime type before and still does.
+
+**A `JsonObject` or `JsonArray` that crosses through a member typed `JsonNode`** was wrapped as its own type, but
+the wrapper caches (`TrackObjectWrapperIdentity`, `CacheRecentObjectWrappers`) compared it with `JsonNode` and missed,
+so every read built a new wrapper. Reading the member twice now hands script the same wrapper.
+
+**A dictionary that is a list of its entries through the generic `IList<KeyValuePair<TKey, TValue>>` alone**, not
+the non-generic `IList`, and that crosses as `ICollection<KeyValuePair<TKey, TValue>>` or
+`IReadOnlyCollection<KeyValuePair<TKey, TValue>>`, was wrapped as that collection's count-only view: on
+`Array.prototype`, with a `length`, and `JSON.stringify` giving `[null,null]`. It is now the keyed object it is as
+itself, as a `JObject` typed `ICollection<JToken>` already was.
+
+**What could break:** a host `catch` written for the exceptions above. What did not change: an ordinary dictionary
+or set declared as a collection interface keeps that view, a list declared as a list interface keeps the view it
+names, and an object that is not a list is wrapped as before whatever it is declared as. There is no switch back.
 
 ## 5. New in v5
 

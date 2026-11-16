@@ -64,10 +64,16 @@ internal enum DeclaredTypeExposure : byte
 /// Newtonsoft's <c>JToken</c> and <c>JContainer</c> are what a <c>JObject</c> or a <c>JArray</c> crosses as through a
 /// member, and the view they named was a list of a <c>JObject</c>'s <c>JProperty</c> nodes, or a <c>JArray</c> whose
 /// every other name reached <c>JToken</c>'s object indexer and threw. So a list crossing as a class it derives from is
-/// wrapped as its own type. <see cref="object"/> and the remaining interfaces (<c>IEnumerable&lt;JToken&gt;</c>,
+/// wrapped as its own type. The remaining interfaces (<c>IEnumerable&lt;JToken&gt;</c>,
 /// <c>IDictionary&lt;string, JToken&gt;</c>) defer only for a runtime type addressed by key alone
 /// (<see cref="TypeDescriptor.IsAddressedByKeyOnly"/>): a declared dictionary keeps its exposure without the list
-/// view, anything else becomes the runtime type.
+/// view, anything else becomes the runtime type. A declared <see cref="object"/> never gets here: it names nothing, so
+/// <see cref="ObjectWrapper"/> exposes every target as its runtime type.
+/// </para>
+/// <para>
+/// Such a runtime type may be a list by the generic contract alone, which <see cref="IList"/> does not see, so a
+/// declared collection interface whose own view is a count-only one (<c>ICollection&lt;KeyValuePair&lt;,&gt;&gt;</c>)
+/// is asked about every target (<see cref="NonListTargetsMayDefer"/>), not only an <see cref="IList"/>.
 /// </para>
 /// <para>
 /// The decision is memoized for the last runtime type seen, so a declared type that always holds the same runtime
@@ -94,6 +100,13 @@ internal sealed class ExposureResolution
                                && !isExplicitListContract;
         _declaredIsClass = !declaredType.IsInterface && declaredType != typeof(object);
         _declaredIsDictionary = declaredDescriptor.IsDictionary;
+
+        // a collection interface that is no list contract names a count-only view, the one a list by the generic
+        // contract alone would take; an enumerable has no view to take, a dictionary keeps its own
+        NonListTargetsMayDefer = RuntimeTypeMayDecide
+                                 && declaredType.IsInterface
+                                 && declaredDescriptor.IsArrayLike
+                                 && !declaredDescriptor.IsDictionary;
     }
 
     /// <summary>The array-like view factory for the exposed type, <see langword="null"/> for none.</summary>
@@ -101,6 +114,11 @@ internal sealed class ExposureResolution
 
     /// <summary>Whether a list target of another runtime type may be exposed otherwise than as the declared type.</summary>
     internal bool RuntimeTypeMayDecide { get; }
+
+    /// <summary>
+    /// Whether a target that is no <see cref="IList"/> may decide too: it may be a list by the generic contract alone.
+    /// </summary>
+    internal bool NonListTargetsMayDefer { get; }
 
     internal bool TryGetMemoized(Type runtimeType, out DeclaredTypeExposure exposure)
     {
@@ -122,9 +140,11 @@ internal sealed class ExposureResolution
     internal DeclaredTypeExposure Decide(Type runtimeType, TypeDescriptor runtimeDescriptor)
     {
         DeclaredTypeExposure exposure;
-        if (!_declaredType.IsAssignableFrom(runtimeType) || !typeof(IList).IsAssignableFrom(runtimeType))
+        if (!_declaredType.IsAssignableFrom(runtimeType)
+            || (!typeof(IList).IsAssignableFrom(runtimeType) && !runtimeDescriptor.IsAddressedByKeyOnly))
         {
-            // a host may name a type its target does not implement, and keeps the answer it had
+            // a host may name a type its target does not implement, and keeps the answer it had; and a target that
+            // is no list has no view to escape, unless it is a list of its entries by the generic contract alone
             exposure = DeclaredTypeExposure.Declared;
         }
         else if (_declaredIsClass)

@@ -231,27 +231,28 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             Throw.ArgumentNullException(nameof(target));
         }
 
-        // STJ integration
-        if (string.Equals(type?.FullName, "System.Text.Json.Nodes.JsonNode", StringComparison.Ordinal))
+        // A declared object names nothing about the target, and System.Text.Json's JsonNode nothing a JsonObject or a
+        // JsonArray is to script, so either is exposed as the runtime type - which GetClrType, and so the wrapper's
+        // ClrType, already says. Wrapping a List<int> typed object as object took the non-generic list view, whose
+        // writes handed the list a script value it refused.
+        if (type is null || type == typeof(object) || IsSystemTextJsonNode(type))
         {
-            // we need to always expose the actual type instead of the type nodes provide
             type = target.GetType();
         }
-
-        type ??= target.GetType();
 
         var resolution = ResolveExposure(type);
         var listViewAllowed = true;
 
         // A declared type that is not an explicit list contract may not pick the view of a list whose runtime type
-        // is something else (#4524): a JObject typed JToken, JContainer or object is the keyed object it is as
-        // JObject, one typed IDictionary<string, JToken> keeps that exposure without a list view, and a JArray typed
-        // JToken is the list it is as JArray. ExposureResolution says which declared types may defer. One that
-        // cannot pays a flag test, and one crossing as its own type a reference comparison more.
+        // is something else (#4524): a JObject typed JToken or JContainer is the keyed object it is as JObject, one
+        // typed IDictionary<string, JToken> keeps that exposure without a list view, and a JArray typed JToken is the
+        // list it is as JArray. ExposureResolution says which declared types may defer. One that cannot pays a flag
+        // test, and one crossing as its own type a reference comparison more. A target that is no IList is asked
+        // about only under a declared collection, whose view a generic-only entry list would otherwise take.
         if (resolution.RuntimeTypeMayDecide)
         {
             var runtimeType = target.GetType();
-            if (!ReferenceEquals(runtimeType, type) && target is IList)
+            if (!ReferenceEquals(runtimeType, type) && (target is IList || resolution.NonListTargetsMayDefer))
             {
                 if (!resolution.TryGetMemoized(runtimeType, out var exposure))
                 {
@@ -338,15 +339,20 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal static bool IsDeferredExposureOf(ObjectWrapper wrapper, Type exposedType)
     {
-        if (!_exposureResolution.TryGetValue(exposedType, out var resolution)
-            || !resolution.RuntimeTypeMayDecide
-            || wrapper.Target is not IList)
+        var runtimeType = wrapper.ClrType;
+        if (!ReferenceEquals(runtimeType, wrapper.Target.GetType()))
         {
             return false;
         }
 
-        var runtimeType = wrapper.ClrType;
-        if (!ReferenceEquals(runtimeType, wrapper.Target.GetType()))
+        if (!_exposureResolution.TryGetValue(exposedType, out var resolution))
+        {
+            // JsonNode is never resolved: CreateWithReflection exposes every node as its runtime type
+            return IsSystemTextJsonNode(exposedType);
+        }
+
+        if (!resolution.RuntimeTypeMayDecide
+            || (wrapper.Target is not IList && !resolution.NonListTargetsMayDefer))
         {
             return false;
         }
@@ -2353,6 +2359,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         var accessor = engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, MemberResolutionRequirement.None, accessorFactory: Factory);
         return accessor.CreatePropertyDescriptor(engine, target, member.Name);
     }
+
+    /// <summary>
+    /// Whether <paramref name="type"/> is System.Text.Json's <c>JsonNode</c>, matched by name because only some target
+    /// frameworks reference the assembly.
+    /// </summary>
+    private static bool IsSystemTextJsonNode(Type type)
+        => string.Equals(type.FullName, "System.Text.Json.Nodes.JsonNode", StringComparison.Ordinal);
 
     internal static Type GetClrType(object obj, Type? type)
     {
