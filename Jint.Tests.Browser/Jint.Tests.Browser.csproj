@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- The package's own two target frameworks. There is no net472 leg because there is no net472 asset:
-         Jint.Browser is net8.0+, like Jint/WebApi/ and Jint.DevTools. -->
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <!-- The package's own target frameworks. There is no net472 leg because there is no net472 asset:
+         Jint.Browser is net10.0+, like Jint.DevTools. -->
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <!-- NonParallelizable isolates application fixtures within a testhost, not between frameworks.
          Keep their wall-clock page/client budgets independent of the other framework's workload. -->
     <TestTfmsInParallel>false</TestTfmsInParallel>
@@ -37,7 +37,7 @@
     <!--
       The web-platform-tests corpus, its server and its exclusion vocabulary, which Wpt/ runs the browser lane
       on. One corpus and one pin: copying WptCorpus, WptServer and WptExclusion here would give the two lanes
-      two of each, and nothing would say when they drifted. Jint.Tests targets net8.0/net10.0 (plus net472 on
+      two of each, and nothing would say when they drifted. Jint.Tests targets net10.0/net11.0 (plus net472 on
       Windows, which this reference does not ask for) and grants InternalsVisibleTo to this assembly; the
       dependency is one way, and nothing in Jint.Tests may reference Jint.Browser.
     -->
@@ -45,7 +45,7 @@
     <!--
       The emitter, referenced as a library so DomBindingsStalenessTests can run it in memory against the
       explicit contract and diff its output with what is checked in. That is the whole reason the generator
-      targets net8.0 rather than net10.0: this suite runs on both legs, and a net10.0-only emitter would be
+      targets net10.0 rather than net11.0: this suite runs on both legs, and a net11.0-only emitter would be
       unreferenceable from the lower one.
     -->
     <ProjectReference Include="..\tools\dom-bindings\Jint.Browser.BindingGenerator\Jint.Browser.BindingGenerator.csproj" />
@@ -80,7 +80,7 @@
     artifacts/ while the first leg's build is still writing it.
 
     One baseline rather than one per target framework, because Jint.Browser has no conditional compilation:
-    its two assets are compiled from the same sources, so their surfaces cannot differ.
+    its assets are compiled from the same sources, so their surfaces cannot differ.
     NoSourceFileIsGatedByTargetFramework is what keeps that claim true rather than assumed.
   -->
   <PropertyGroup>

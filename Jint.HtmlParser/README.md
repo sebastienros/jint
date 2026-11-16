@@ -1,6 +1,6 @@
 # Jint.HtmlParser
 
-Jint.HtmlParser is an experimental native markup package for .NET 8 and .NET 10. Its public API is provisional until **ACC-06 (external package and API acceptance)** in the
+Jint.HtmlParser is an experimental native markup package for .NET 10 and .NET 11. Its public API is provisional until **ACC-06 (external package and API acceptance)** in the
 [acceptance tracker](https://github.com/sebastienros/jint/blob/main/docs/design/html-parser-completeness.md)
 is explicitly closed. Internal Browser use and API snapshots do not close that gate. Public signatures,
 behavior and value-type layouts may change between prereleases, including positional record structs such

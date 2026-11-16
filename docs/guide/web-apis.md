@@ -1,7 +1,7 @@
 # Web APIs
 
 Jint provides an opt-in, WHATWG-oriented web platform surface for scripts that need APIs such as `console`,
-timers, events, encoding, streams, `fetch`, storage, or workers. Web APIs require .NET 8 or later.
+timers, events, encoding, streams, `fetch`, storage, or workers. Web APIs require .NET 10 or later.
 
 ```csharp
 var engine = new Engine(options => options

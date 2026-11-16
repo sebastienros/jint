@@ -610,8 +610,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
     }
 
     /// <summary>
-    /// isWellFormed/toWellFormed short-circuit on a vectorized "does this string contain any surrogate
-    /// code unit at all?" scan, and toWellFormed additionally hands back the receiver's own string when
+    /// isWellFormed/toWellFormed validate UTF-16, and toWellFormed hands back the receiver's own string when
     /// nothing needs replacing. These cases pin the surrogate range boundary and every unpaired shape;
     /// all expectations were verified against V8.
     /// </summary>
@@ -651,6 +650,34 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
 
         // an already-well-formed primitive maps to the same sequence of code units
         _engine.Evaluate("var s = 'abcde'.repeat(1000); s.toWellFormed() === s").AsBoolean().Should().BeTrue();
+    }
+
+    [Test]
+    public void WellFormedHandlesPairsAndUnpairedSurrogatesAcrossVectorBoundaries()
+    {
+        _engine.Evaluate("""
+            (() => {
+                for (let offset = 0; offset < 130; offset++) {
+                    const prefix = 'x'.repeat(offset);
+                    for (const [part, valid, repaired] of [
+                        ['\uD800\uDC00', true, '\uD800\uDC00'],
+                        ['\uDBFF\uDFFF', true, '\uDBFF\uDFFF'],
+                        ['\uD800', false, '\uFFFD'],
+                        ['\uDFFF', false, '\uFFFD'],
+                        ['\uD800\uD800\uDC00', false, '\uFFFD\uD800\uDC00'],
+                        ['\uDC00\uD800', false, '\uFFFD\uFFFD'],
+                    ]) {
+                        for (const suffix of ['', 'y'.repeat(257)]) {
+                            const input = prefix + part + suffix;
+                            if (input.isWellFormed() !== valid || input.toWellFormed() !== prefix + repaired + suffix) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return true;
+            })()
+            """).AsBoolean().Should().BeTrue();
     }
 
     // ---- coercion order and receiver coercion ----

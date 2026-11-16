@@ -46,7 +46,7 @@ Unprefixed `path`, `querystring`, and `url` work by default. A host-registered m
 Resource-bearing modules such as `node:fs`, `node:child_process`, `node:http`, `node:crypto`, `node:os`, and
 `node:buffer` are deliberately absent.
 
-`node:path` is available on all Jint target frameworks. `node:url` and `node:querystring` require .NET 8 because
+`node:path` is available on all Jint target frameworks. `node:url` and `node:querystring` require .NET 10 because
 they use Jint's WHATWG URL implementation.
 
 See [Modules](./modules.md) for general module loading and graph policy.
