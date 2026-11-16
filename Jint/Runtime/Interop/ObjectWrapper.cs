@@ -2147,13 +2147,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             var interopOptions = _engine.Options.Interop;
 
             // we take properties, fields and methods, each name once: a method's overloads, and a member a derived type
-            // hides with `new`, are one property (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods)
+            // hides with `new`, are one property (https://tc39.es/ecma262/#sec-invariants-of-the-essential-internal-methods).
+            // Only a name reflection returns more than once is checked, so a type with none lists as it always has.
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
             {
-                var properties = InDeclarationOrder(ClrType.GetProperties(interopOptions.ObjectWrapperReportedPropertyBindingFlags));
+                var flags = interopOptions.ObjectWrapperReportedPropertyBindingFlags;
+                var properties = InDeclarationOrder(ClrType.GetProperties(flags));
+                var repeated = RepeatedNames(MemberTypes.Property, flags, properties);
                 for (var i = 0; i < properties.Length; i++)
                 {
-                    if (IsReportedMember(properties[i]) && !IsReportedEarlier(properties, i))
+                    if (IsReportedMember(properties[i]) && (repeated is null || !IsReportedEarlier(properties, i, repeated)))
                     {
                         yield return JsString.Create(properties[i].Name);
                     }
@@ -2162,10 +2165,12 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Field) == MemberTypes.Field)
             {
-                var fields = InDeclarationOrder(ClrType.GetFields(interopOptions.ObjectWrapperReportedFieldBindingFlags));
+                var flags = interopOptions.ObjectWrapperReportedFieldBindingFlags;
+                var fields = InDeclarationOrder(ClrType.GetFields(flags));
+                var repeated = RepeatedNames(MemberTypes.Field, flags, fields);
                 for (var i = 0; i < fields.Length; i++)
                 {
-                    if (IsReportedMember(fields[i]) && !IsReportedEarlier(fields, i))
+                    if (IsReportedMember(fields[i]) && (repeated is null || !IsReportedEarlier(fields, i, repeated)))
                     {
                         yield return JsString.Create(fields[i].Name);
                     }
@@ -2174,16 +2179,65 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Method) == MemberTypes.Method)
             {
-                var methods = InDeclarationOrder(ClrType.GetMethods(interopOptions.ObjectWrapperReportedMethodBindingFlags));
+                var flags = interopOptions.ObjectWrapperReportedMethodBindingFlags;
+                var methods = InDeclarationOrder(ClrType.GetMethods(flags));
+                var repeated = RepeatedNames(MemberTypes.Method, flags, methods);
                 for (var i = 0; i < methods.Length; i++)
                 {
-                    if (IsReportedMember(methods[i]) && !IsReportedEarlier(methods, i))
+                    if (IsReportedMember(methods[i]) && (repeated is null || !IsReportedEarlier(methods, i, repeated)))
                     {
                         yield return JsString.Create(methods[i].Name);
                     }
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// For each type, member kind and binding flags, the names reflection returns more than once, or
+    /// <see langword="null"/> when every name is returned once.
+    /// </summary>
+    /// <remarks>
+    /// Answered from what reflection returns, before the host's member filter, so it does not depend on the engine and
+    /// is shared process-wide, as the type descriptors are. It is a superset of the names the listing can repeat.
+    /// </remarks>
+    private static readonly ConcurrentDictionary<(Type Type, MemberTypes Kind, BindingFlags Flags), HashSet<string>?> _repeatedMemberNames = new();
+
+    /// <summary>
+    /// The names <paramref name="members"/>, which reflection returned for this wrapper's type, a member kind and
+    /// <paramref name="flags"/>, holds more than once: a method's overloads, and a member a derived type hides with
+    /// <c>new</c>. <see langword="null"/> when there is none, which is the common case.
+    /// </summary>
+    private HashSet<string>? RepeatedNames(MemberTypes kind, BindingFlags flags, MemberInfo[] members)
+    {
+        if (members.Length < 2)
+        {
+            return null;
+        }
+
+        var key = (ClrType, kind, flags);
+        if (!_repeatedMemberNames.TryGetValue(key, out var names))
+        {
+            names = FindRepeatedNames(members);
+            _repeatedMemberNames.TryAdd(key, names);
+        }
+
+        return names;
+    }
+
+    private static HashSet<string>? FindRepeatedNames(MemberInfo[] members)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        HashSet<string>? repeated = null;
+        foreach (var member in members)
+        {
+            if (!seen.Add(member.Name))
+            {
+                (repeated ??= new HashSet<string>(StringComparer.Ordinal)).Add(member.Name);
+            }
+        }
+
+        return repeated;
     }
 
     /// <summary>
@@ -2209,11 +2263,17 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     /// <summary>
     /// Whether a member ahead of <c>members[index]</c> has its name and is reported, so that the name was listed
-    /// already. Asks the reported test only of a member spelled the same, which is an overload or a hidden member.
+    /// already. Looks only when the name is one of the <paramref name="repeated"/> names, and asks the reported test
+    /// only of a member spelled the same, which is an overload or a hidden member.
     /// </summary>
-    private bool IsReportedEarlier(MemberInfo[] members, int index)
+    private bool IsReportedEarlier(MemberInfo[] members, int index, HashSet<string> repeated)
     {
         var name = members[index].Name;
+        if (!repeated.Contains(name))
+        {
+            return false;
+        }
+
         for (var i = 0; i < index; i++)
         {
             if (string.Equals(members[i].Name, name, StringComparison.Ordinal) && IsReportedMember(members[i]))

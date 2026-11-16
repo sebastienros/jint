@@ -364,6 +364,27 @@ public class HostNonExtensibleWrapperMemberTests
         keys.Should().Contain("Add").And.Contain("Count").And.NotContain("Contains");
     }
 
+    /// <summary>
+    /// Each member name is listed once and in declaration order, extensible or not: a method's overloads declared
+    /// apart, and a property a derived type hides with <c>new</c>, keep the place of the first one listed.
+    /// </summary>
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AnOverloadedOrHiddenMemberIsListedOnceInItsPlace(bool preventExtensions)
+    {
+        typeof(ShadowingRecord).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Count(p => p.Name == nameof(ShadowingRecord.Shadowed))
+            .Should().Be(2, "reflection returns the hidden property as well, which is what the listing must not repeat");
+
+        var engine = CreateEngine(new ShadowingRecord());
+        if (preventExtensions)
+        {
+            engine.Execute("Object.preventExtensions(host);");
+        }
+
+        engine.Evaluate("Reflect.ownKeys(host).join()").AsString().Should().Be("Shadowed,First,Last,Hello,Middle,Before");
+    }
+
     private static Engine CreateEngine(object host, bool allowWrite = false)
     {
         var engine = new Engine(options =>
@@ -411,5 +432,34 @@ public class HostNonExtensibleWrapperMemberTests
         public string Hello() => "hi";
 
         public string Hello(string who) => "hi " + who;
+    }
+
+    /// <summary>
+    /// A base type whose property <see cref="ShadowingRecord"/> hides.
+    /// </summary>
+    public class ShadowingBase
+    {
+        public string Shadowed { get; set; } = "base";
+
+        public int Before() => 1;
+    }
+
+    /// <summary>
+    /// A host object hiding its base type's property with one of another type, and declaring a method's overloads
+    /// with another method between them.
+    /// </summary>
+    public sealed class ShadowingRecord : ShadowingBase
+    {
+        public new int Shadowed { get; set; } = 2;
+
+        public string First { get; set; } = "f";
+
+        public string Hello() => "hi";
+
+        public int Middle() => 0;
+
+        public string Hello(string who) => who;
+
+        public string Last { get; set; } = "l";
     }
 }
