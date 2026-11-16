@@ -1,5 +1,6 @@
 #nullable enable
 using Jint.Browser.Styling;
+using Jint.HtmlParser.Css;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
 
@@ -18,6 +19,28 @@ public sealed class NativeCssSyntaxCacheTests
         cache.Parse("a {display:flex}", work).Should().NotBeSameAs(boundaries);
         for (var i = 0; i < NativeCssSyntaxCache.MaxEntries; i++) cache.Parse($".entry{i} {{}}", work);
         cache.Parse(first, work).Should().NotBeSameAs(boundaries);
+    }
+
+    [Test]
+    public void AGroupingRuleBodyIsSharedOnlyAtTheSameOffsetWithTheSameText()
+    {
+        var cache = new NativeCssSyntaxCache();
+        var work = new CssValueWork(default);
+        const string sheet = "@media print { a { color: red } b { color: blue } }";
+        CssRuleBody BodyOf(string source) => new(cache.Parse(source, work)[0].Body!.Value, CssRuleBodyKind.Group, true);
+
+        var first = cache.ParseBody(BodyOf(sheet), work);
+        first.Should().HaveCount(2);
+        // Another copy of the sheet, as the next page fetches it.
+        cache.ParseBody(BodyOf(new string(sheet.ToCharArray())), work).Should().BeSameAs(first);
+        // The same body moved: its rules would name the wrong offsets.
+        var moved = cache.ParseBody(BodyOf(" " + sheet), work);
+        moved.Should().NotBeSameAs(first);
+        moved[0].Text.Span.Start.Should().Be(first[0].Text.Span.Start + 1);
+        // Another body at the same offset.
+        var other = cache.ParseBody(BodyOf(sheet.Replace("red", "tan", StringComparison.Ordinal)), work);
+        other.Should().NotBeSameAs(first);
+        other[0].Text.Text.Should().Contain("tan");
     }
 
     [Test]

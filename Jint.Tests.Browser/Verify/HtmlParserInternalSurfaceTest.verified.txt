@@ -23,6 +23,9 @@ internal Jint.HtmlParser.Css.CssRawRule
     get_Text
 internal Jint.HtmlParser.Css.CssRuleBody
     (constructor)
+    get_IsClosed
+    get_Kind
+    get_Text
 internal Jint.HtmlParser.Css.CssRuleBodyKind
 internal Jint.HtmlParser.Css.CssSourceText
     From
@@ -81,8 +84,6 @@ internal Jint.HtmlParser.Css.Model.CssFontFaceRule
 internal Jint.HtmlParser.Css.Model.CssGroupingRule
     DeleteRule
     InsertRule
-internal Jint.HtmlParser.Css.Model.CssImportPrelude
-    MayContainImport
 internal Jint.HtmlParser.Css.Model.CssImportRule
     SetStyleSheet
     get_Href

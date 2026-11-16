@@ -1,4 +1,5 @@
 #nullable enable
+using Jint.Browser.Styling;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
@@ -6,10 +7,9 @@ using Jint.HtmlParser.Css.Values;
 namespace Jint.Tests.HtmlParser.Css.Model;
 
 [TestFixture]
-public sealed class CssImportPreludeTests
+public sealed class CssImportHintTests
 {
-    private static bool Hint(string source, CssParseOptions? options = null) =>
-        CssImportPrelude.MayContainImport(source, options, new CssValueWork(default), default);
+    private static bool Hint(string source) => NativeCssParsing.HasImportRule(source, new CssValueWork(default));
 
     [TestCase("/* @import 'comment'; */ a { border-color:red; }", false)]
     [TestCase("a { content:'@import'; background:url(@import); }", false)]
@@ -21,15 +21,16 @@ public sealed class CssImportPreludeTests
     [TestCase("??? {} @import 'legal-after-invalid-selector';", true)]
     [TestCase("a {} @import 'invalid-after-style';", true)]
     [TestCase("@import 'a' layer;", true)]
-    public void HintUsesOnlyDecodedTopLevelTokensAndDoesNotValidateOrMaterialize(string source, bool expected)
+    public void HintReadsOnlyTopLevelRulesAndDoesNotValidateOrMaterialize(string source, bool expected)
     {
         Hint(source).Should().Be(expected);
     }
 
     [Test]
-    public void ColdScanToleratesUnsupportedSelectorsAndDeclarationsWithoutSemanticAllocation()
+    public void HintToleratesUnsupportedSelectorsAndDeclarations()
     {
         Hint("a:unsupported-selector { border-color:red; @container x {} } b { unknown-property:x; }").Should().BeFalse();
+        Hint(new string('(', 12000) + "@import 'nested';" + new string(')', 12000)).Should().BeFalse();
         // A candidate sheet is semantically built once; raw declaration grammar stays deferred.
         var sheet = CssStyleSheet.Parse("@import 'a'; b { box-shadow:none; }");
         sheet.Rules.Count.Should().Be(2);
@@ -39,27 +40,11 @@ public sealed class CssImportPreludeTests
     }
 
     [Test]
-    public void LexicalLimitsApplyToCharactersTokensAndIterativeDepth()
-    {
-        Assert.Throws<ParseLimitException>(() => Hint("123456", new CssParseOptions
-        { Limits = new ParseLimits { MaxInputCharacters = 5 } }))!.Kind.Should().Be(ParseLimitKind.InputCharacters);
-        Assert.Throws<ParseLimitException>(() => Hint("abcdef", new CssParseOptions
-        { Limits = new ParseLimits { MaxTokenCharacters = 5 } }))!.Kind.Should().Be(ParseLimitKind.TokenCharacters);
-        Assert.Throws<ParseLimitException>(() => Hint("a { b { c {} } }", new CssParseOptions
-        { Limits = new ParseLimits { MaxNestingDepth = 2 } }))!.Kind.Should().Be(ParseLimitKind.NestingDepth);
-        Hint(new string('(', 12000) + "@import 'nested';" + new string(')', 12000)).Should().BeFalse();
-    }
-
-    [Test]
-    public void CancellationAndSharedWorkCheckpointsBoundWideColdScansAndNativeTraversals()
+    public void CancellationAndSharedWorkCheckpointsBoundHintsAndNativeTraversals()
     {
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        Assert.Throws<OperationCanceledException>(() => CssImportPrelude.MayContainImport("", null,
-            new CssValueWork(default), cancellation.Token));
-        var checks = 0;
-        var work = new CssValueWork(default, () => { if (++checks == 3) throw new OperationCanceledException(); });
-        Assert.Throws<OperationCanceledException>(() => CssImportPrelude.MayContainImport(new string(' ', 40000), null, work, default));
+        Assert.Throws<OperationCanceledException>(() => NativeCssParsing.HasImportRule("", new CssValueWork(cancellation.Token)));
 
         var sheet = CssStyleSheet.Parse("@import 'a';");
         var child = CssStyleSheet.Parse("a {}");
