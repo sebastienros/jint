@@ -107,7 +107,8 @@ internal static class ResolvedValueText
     // CSS Grid 2 §7.2.6 (resolved value): a grid container reports used track sizes. Without a layout engine
     // only an explicit list of <length>px, <percentage> and <flex> tracks (optionally in an integer repeat())
     // over an empty or text-free container is resolvable: fixed tracks keep their size and §12.7.1 shares the
-    // leftover space by flex factor. Any other track list (minmax, auto, names, auto-fill) keeps its text.
+    // leftover space by flex factor, minmax(<length-percentage>, <flex>) with its floor. Any other track list
+    // (other minmax forms, auto, names, auto-fill) keeps its text.
     internal static string GridColumns(string value, NativeCssComputedStyle style, double containerWidth, Func<string> columnGap)
     {
         if (!IsGridContainer(style)) return value;
@@ -132,31 +133,53 @@ internal static class ResolvedValueText
     /// <summary>
     /// The used widths of a column track list in a container <paramref name="containerWidth"/> wide: absolute
     /// lengths as they are, and the space they and the gaps leave shared between the <c>fr</c> tracks. Null for
-    /// a track list it cannot size without content — <c>auto</c>, <c>minmax()</c>, an <c>auto-fill</c> repeat.
+    /// a track list it cannot size without content — <c>auto</c>, a <c>minmax()</c> whose maximum is not
+    /// <c>fr</c>, an <c>auto-fill</c> repeat.
     /// </summary>
     internal static double[]? ColumnTracks(string value, double containerWidth, string columnGap, out double gap)
     {
         gap = 0;
-        var tracks = new List<(double Size, bool Flexible)>();
+        var tracks = new List<(double Size, bool Flexible, double Min)>();
 
         // A computed value keeps the author's spacing inside repeat(), which a substituted var() leaves too.
         value = s_trackComma.Replace(s_trackClose.Replace(s_trackOpen.Replace(value.Trim(), "("), ")"), ", ");
         if (!Expand(value, tracks, containerWidth, allowRepeat: true) || tracks.Count == 0) return null;
         if (!TryLength(columnGap.Trim(), containerWidth, out gap, normalIsZero: true)) return null;
 
-        var leftover = containerWidth - gap * (tracks.Count - 1);
-        var flex = 0d;
-        foreach (var (size, flexible) in tracks)
+        // §12.7.1 "find the size of an fr": share the space left by the fixed tracks and the gaps by flex
+        // factor; a flexible track whose share is below its minmax() floor is treated as inflexible at that
+        // floor, and the rest is shared again among the others (each pass freezes one track at least).
+        var frozen = new bool[tracks.Count];
+        var unit = 0d;
+        for (var pass = 0; pass <= tracks.Count; pass++)
         {
-            if (flexible) flex += size;
-            else leftover -= size;
+            var leftover = containerWidth - gap * (tracks.Count - 1);
+            var flex = 0d;
+            for (var i = 0; i < tracks.Count; i++)
+            {
+                var (size, flexible, min) = tracks[i];
+                if (flexible && !frozen[i]) flex += size;
+                else leftover -= flexible ? min : size;
+            }
+            unit = flex > 0 ? Math.Max(0, leftover) / Math.Max(1, flex) : 0;
+
+            var changed = false;
+            for (var i = 0; i < tracks.Count; i++)
+            {
+                if (tracks[i].Flexible && !frozen[i] && tracks[i].Size * unit < tracks[i].Min)
+                {
+                    frozen[i] = true;
+                    changed = true;
+                }
+            }
+            if (!changed) break;
         }
-        var unit = flex > 0 ? Math.Max(0, leftover) / Math.Max(1, flex) : 0;
 
         var sizes = new double[tracks.Count];
         for (var i = 0; i < sizes.Length; i++)
         {
-            sizes[i] = tracks[i].Flexible ? tracks[i].Size * unit : tracks[i].Size;
+            var (size, flexible, min) = tracks[i];
+            sizes[i] = !flexible ? size : frozen[i] ? min : Math.Max(min, size * unit);
         }
         return sizes;
     }
@@ -172,11 +195,11 @@ internal static class ResolvedValueText
         if (!IsGridContainer(style)) return value;
         style.Work.Charge(value.Length);
 
-        var tracks = new List<(double Size, bool Flexible)>();
+        var tracks = new List<(double Size, bool Flexible, double Min)>();
         if (!Expand(value, tracks, double.NaN, allowRepeat: true) || tracks.Count == 0) return value;
 
         var builder = new StringBuilder();
-        foreach (var (size, flexible) in tracks)
+        foreach (var (size, flexible, _) in tracks)
         {
             if (flexible || double.IsNaN(size)) return value;
             if (builder.Length > 0) builder.Append(' ');
@@ -194,7 +217,7 @@ internal static class ResolvedValueText
             display.Equals("inline-grid", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool Expand(string text, List<(double, bool)> tracks, double containerWidth, bool allowRepeat)
+    private static bool Expand(string text, List<(double Size, bool Flexible, double Min)> tracks, double containerWidth, bool allowRepeat)
     {
         foreach (var token in Split(text, ' '))
         {
@@ -216,14 +239,26 @@ internal static class ResolvedValueText
                 }
                 continue;
             }
+            if (token.StartsWith("minmax(", StringComparison.OrdinalIgnoreCase) && token.EndsWith(')'))
+            {
+                // minmax(<length-percentage>, <flex>): a flexible track that never shrinks below its floor, which
+                // minmax(0, 1fr) leaves at zero, the usual way to keep long content from widening a column.
+                // Other minmax() forms need content to size and keep their text.
+                var bounds = Split(token.Substring(7, token.Length - 8), ',');
+                if (bounds.Count != 2 || !bounds[1].EndsWith("fr", StringComparison.OrdinalIgnoreCase) ||
+                    !TryNumber(bounds[1].AsSpan(0, bounds[1].Length - 2), out var flexFactor) ||
+                    !TryLength(bounds[0], containerWidth, out var floor, normalIsZero: false)) return false;
+                tracks.Add((flexFactor, true, floor));
+                continue;
+            }
             if (token.EndsWith("fr", StringComparison.OrdinalIgnoreCase))
             {
                 if (!TryNumber(token.AsSpan(0, token.Length - 2), out var factor)) return false;
-                tracks.Add((factor, true));
+                tracks.Add((factor, true, 0));
                 continue;
             }
             if (!TryLength(token, containerWidth, out var size, normalIsZero: false)) return false;
-            tracks.Add((size, false));
+            tracks.Add((size, false, 0));
         }
         return true;
     }
