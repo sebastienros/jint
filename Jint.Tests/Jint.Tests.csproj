@@ -12,6 +12,10 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Runtime\Scripts\*.*;Parser\Scripts\*.*" />
+    <!-- The conformance tests of UAX #29's word and sentence boundaries, vendored beside the generator of the tables
+         they check. -->
+    <EmbeddedResource Include="..\tools\text-segmentation\WordBreakTest.txt" LogicalName="unicode-WordBreakTest.txt" />
+    <EmbeddedResource Include="..\tools\text-segmentation\SentenceBreakTest.txt" LogicalName="unicode-SentenceBreakTest.txt" />
   </ItemGroup>
 
   <ItemGroup>
