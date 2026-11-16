@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-11-14
-anchors: 1352
+anchors: 1351
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -1047,7 +1047,6 @@ ecma402 sup-string.prototype.tolocalelowercase
 ecma402 sup-string.prototype.tolocaleuppercase
 ecma402 table-datetimeformat-components
 ecma402 table-numbering-system-digits
-proposal-array-from-async sec-array.fromAsync
 proposal-array-grouping sec-map.groupby
 proposal-array-grouping sec-object.groupby
 proposal-arraybuffer-transfer sec-arraybuffer.prototype.transfer

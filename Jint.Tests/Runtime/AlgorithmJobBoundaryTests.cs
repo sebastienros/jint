@@ -11,11 +11,10 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The numbers below are change detectors, not a conformance claim. <c>Array.fromAsync</c> still awaits the
-/// iterator's value <em>and</em> the mapped value where
-/// https://tc39.es/proposal-array-from-async/#sec-array.fromAsync awaits only the mapped one, so its turn
-/// count is not yet the specification's. What the algorithm no longer does is spend a job on re-entering its
-/// own loop, which is what every figure here got smaller by.
+/// What the algorithm no longer does is spend a job on re-entering its own loop, which is what every figure
+/// here got smaller by. The three <c>Array.fromAsync</c> figures are also Node 26's: since
+/// sebastienros/jint#4526 a mapper is handed the iterator's value without an Await of its own, and only what it
+/// answers is awaited (https://tc39.es/ecma262/#sec-array.fromasync step 8.d.ix).
 /// </para>
 /// </remarks>
 public class AlgorithmJobBoundaryTests
@@ -82,9 +81,10 @@ public class AlgorithmJobBoundaryTests
     [Test]
     public void ArrayFromAsyncWithAMapperSpendsNoJobOnReEnteringItsLoop()
     {
-        // Was 14: two re-enqueues per element.
+        // Was 14: two re-enqueues per element. Then 10, one more Await per element than the specification's, of the
+        // value before the mapper saw it (sebastienros/jint#4526).
         var log = Interleave("Array.fromAsync([1, 2], x => x * 2).then(a => log.push('done:' + a.join('')));");
-        TurnsBefore(log, "done:24").Should().Be(10);
+        TurnsBefore(log, "done:24").Should().Be(8);
     }
 
     /// <summary>

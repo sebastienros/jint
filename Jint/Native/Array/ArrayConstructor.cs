@@ -282,33 +282,6 @@ public sealed partial class ArrayConstructor : Constructor
         }
     }
 
-    private static void AsyncIteratorClose(Engine engine, IteratorInstance iteratorRecord)
-    {
-        try
-        {
-            try
-            {
-                var iterator = iteratorRecord.Instance;
-                var returnMethod = iterator.GetMethod(CommonProperties.Return);
-                returnMethod?.Call(iterator, Arguments.Empty);
-            }
-            finally
-            {
-                // A CLR collection's iterator the record holds - itself, or behind the CreateAsyncFromSyncIterator wrapper
-                // - disposes its host enumerator in its native close, as a for await loop's close does: in place of a
-                // missing `return` (AsyncIteratorClose step 4.b, https://tc39.es/ecma262/#sec-asynciteratorclose;
-                // sebastienros/jint#4410), and after one, since nothing here awaits what it answered (sebastienros/jint#4406).
-                iteratorRecord.CloseNativeStateAfterReturn(CompletionType.Throw);
-            }
-        }
-        catch (Exception e) when (!Throw.MustPropagateHostException(e))
-        {
-            // Every caller closes with a throw completion, which wins over what the close raises (AsyncIteratorClose
-            // step 5) - but never over an exception that ends the run, a constraint that tripped inside `return` among
-            // them, which the filter lets through.
-        }
-    }
-
     private void FromAsyncIteratorLoop(
         IteratorInstance iterator,
         ArrayOperations target,
@@ -334,8 +307,22 @@ public sealed partial class ArrayConstructor : Constructor
                     return;
                 }
 
-                var done = TypeConverter.ToBoolean(iterResultObj.Get(CommonProperties.Done));
-                var value = iterResultObj.Get(CommonProperties.Value);
+                // Steps 8.d.vi and 8.d.viii: ? IteratorComplete(nextResult) and ? IteratorValue(nextResult). A getter
+                // that throws rejects the result and leaves the source open; it used to escape this reaction, so the
+                // result never settled (sebastienros/jint#4526).
+                bool done;
+                JsValue value;
+                try
+                {
+                    done = TypeConverter.ToBoolean(iterResultObj.Get(CommonProperties.Done));
+                    value = done ? Undefined : iterResultObj.Get(CommonProperties.Value);
+                }
+                catch (JavaScriptException e)
+                {
+                    promiseCapability.Reject(e.Error);
+                    return;
+                }
+
                 if (done)
                 {
                     // Iteration complete - Set(A, "length", k, true)
@@ -351,8 +338,7 @@ public sealed partial class ArrayConstructor : Constructor
                     return;
                 }
 
-                ProcessAsyncIteratorValue(value, target, callable, thisArg, promiseCapability, capturedK, iterator,
-                    () => FromAsyncIteratorLoop(iterator, target, callable, thisArg, promiseCapability, capturedK + 1));
+                ProcessAsyncIteratorValue(value, target, callable, thisArg, promiseCapability, capturedK, iterator);
             },
             reason => promiseCapability.Reject(reason));
         }
@@ -363,13 +349,16 @@ public sealed partial class ArrayConstructor : Constructor
     }
 
     /// <summary>
-    /// One element of https://tc39.es/proposal-array-from-async/#sec-array.fromAsync step 3.e's repeat loop.
+    /// One turn of https://tc39.es/ecma262/#sec-array.fromasync step 8.d's repeat loop, from step 8.d.ix on: the mapper
+    /// is called with nextValue as the iterator answered it, with no Await of its own (step 8.d.ix.1), and only what it
+    /// answers is awaited (step 8.d.ix.3). Jint used to await nextValue first, so a mapper was handed what a promise settled
+    /// to rather than the promise, a rejected one closed the source instead of reaching it, and every element cost one
+    /// job more than the specification's (sebastienros/jint#4526).
     /// </summary>
     /// <remarks>
-    /// <c>continueLoop</c> is the next turn of that loop, and is invoked directly rather than through a job
-    /// of its own: the loop's only job boundaries are its Awaits, so an extra hop would sever the algorithm
-    /// across jobs the specification does not have. It cannot recurse, because the next turn's own Await
-    /// ends in a <c>PerformPromiseThen</c>, which queues rather than calls.
+    /// The next turn of the loop is called directly rather than through a job of its own: the loop's only job boundaries
+    /// are its Awaits, so an extra hop would sever the algorithm across jobs the specification does not have. It cannot
+    /// recurse, because the next turn's own Await ends in a <c>PerformPromiseThen</c>, which queues rather than calls.
     /// </remarks>
     private void ProcessAsyncIteratorValue(
         JsValue value,
@@ -378,101 +367,65 @@ public sealed partial class ArrayConstructor : Constructor
         JsValue thisArg,
         PromiseCapability promiseCapability,
         ulong k,
-        IteratorInstance iterator,
-        Action continueLoop)
-    {
-        if (callable is not null)
-        {
-            // When mapping, await the value first, then apply mapfn
-            var valuePromise = _realm.Intrinsics.Promise.PromiseResolve(value);
-
-            PromiseOperations.UponPromise(_engine, (JsPromise) valuePromise,
-                resolvedValue => ProcessMappedValue(resolvedValue, target, callable, thisArg, promiseCapability, k, continueLoop, iterator),
-                reason =>
-                {
-                    AsyncIteratorClose(_engine, iterator);
-                    promiseCapability.Reject(reason);
-                });
-        }
-        else
-        {
-            // Per spec 3.j.ii.8: when mapping is false, mappedValue = nextValue (no await)
-            ProcessMappedValue(value, target, callable, thisArg, promiseCapability, k, continueLoop, iterator);
-        }
-    }
-
-    private void ProcessMappedValue(
-        JsValue value,
-        ArrayOperations target,
-        ICallable? callable,
-        JsValue thisArg,
-        PromiseCapability promiseCapability,
-        ulong k,
-        Action continueLoop,
-        IteratorInstance? iterator = null)
+        IteratorInstance iterator)
     {
         try
         {
-            if (callable is not null)
+            if (callable is null)
             {
-                // Apply mapfn - IfAbruptCloseAsyncIterator
-                JsValue mappedValue;
-                try
-                {
-                    mappedValue = callable.Call(thisArg, value, k);
-                }
-                catch (JavaScriptException e)
-                {
-                    if (iterator is not null) AsyncIteratorClose(_engine, iterator);
-                    promiseCapability.Reject(e.Error);
-                    return;
-                }
-
-                // Await the mapped value
-                var mappedPromise = _realm.Intrinsics.Promise.PromiseResolve(mappedValue);
-
-                var capturedIterator = iterator;
-                PromiseOperations.UponPromise(_engine, (JsPromise) mappedPromise, resolvedMapped =>
-                {
-                    try
-                    {
-                        target.CreateDataPropertyOrThrow(k, resolvedMapped);
-                    }
-                    catch (JavaScriptException e2)
-                    {
-                        if (capturedIterator is not null) AsyncIteratorClose(_engine, capturedIterator);
-                        promiseCapability.Reject(e2.Error);
-                        return;
-                    }
-
-                    continueLoop();
-                },
-                reason =>
-                {
-                    if (capturedIterator is not null) AsyncIteratorClose(_engine, capturedIterator);
-                    promiseCapability.Reject(reason);
-                });
-            }
-            else
-            {
+                // Step 8.d.x: mapping is false, so mappedValue is nextValue, stored without an Await.
                 try
                 {
                     target.CreateDataPropertyOrThrow(k, value);
                 }
                 catch (JavaScriptException e)
                 {
-                    if (iterator is not null) AsyncIteratorClose(_engine, iterator);
-                    promiseCapability.Reject(e.Error);
+                    // Step 8.d.xii: IfAbruptCloseAsyncIterator(defineStatus, iteratorRecord).
+                    iterator.AsyncIteratorClose(CompletionType.Throw, e.Error, promiseCapability);
                     return;
                 }
 
-                continueLoop();
+                FromAsyncIteratorLoop(iterator, target, callable, thisArg, promiseCapability, k + 1);
+                return;
             }
+
+            // Step 8.d.ix.1: Let mappedValue be Completion(Call(mapper, thisArg, « nextValue, 𝔽(k) »)).
+            // Step 8.d.ix.2: IfAbruptCloseAsyncIterator(mappedValue, iteratorRecord).
+            JsValue mappedValue;
+            try
+            {
+                mappedValue = callable.Call(thisArg, value, k);
+            }
+            catch (JavaScriptException e)
+            {
+                iterator.AsyncIteratorClose(CompletionType.Throw, e.Error, promiseCapability);
+                return;
+            }
+
+            // Step 8.d.ix.3: Set mappedValue to Completion(Await(mappedValue)). Step 8.d.ix.4: IfAbruptCloseAsyncIterator.
+            var mappedPromise = _realm.Intrinsics.Promise.PromiseResolve(mappedValue);
+
+            PromiseOperations.UponPromise(_engine, (JsPromise) mappedPromise, resolvedMapped =>
+            {
+                // Steps 8.d.xi and 8.d.xii: CreateDataPropertyOrThrow, closing the source if it fails.
+                try
+                {
+                    target.CreateDataPropertyOrThrow(k, resolvedMapped);
+                }
+                catch (JavaScriptException e)
+                {
+                    iterator.AsyncIteratorClose(CompletionType.Throw, e.Error, promiseCapability);
+                    return;
+                }
+
+                FromAsyncIteratorLoop(iterator, target, callable, thisArg, promiseCapability, k + 1);
+            },
+            reason => iterator.AsyncIteratorClose(CompletionType.Throw, reason, promiseCapability));
         }
         catch (JavaScriptException e)
         {
-            if (iterator is not null) AsyncIteratorClose(_engine, iterator);
-            promiseCapability.Reject(e.Error);
+            // The Await's PromiseResolve reading a promise's constructor threw: an abrupt mappedValue, step 8.d.ix.4.
+            iterator.AsyncIteratorClose(CompletionType.Throw, e.Error, promiseCapability);
         }
     }
 
