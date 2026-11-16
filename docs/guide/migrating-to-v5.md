@@ -9207,7 +9207,9 @@ answer.
 
 **What could break:** a script that counted user-perceived characters with `[...s].length` or walked them with
 `for…of`. Splitting text into what a reader sees as characters is `Intl.Segmenter` with
-`{ granularity: 'grapheme' }`, which is unchanged. There is no switch back.
+`{ granularity: 'grapheme' }`, which follows the same Unicode rules on every target framework
+([§4.252](#4-252-intl-segmenter-finds-grapheme-clusters-by-the-unicode-rules-the-same-on-every-target-framework)).
+There is no switch back.
 
 ### 4.252 `Intl.Segmenter` finds grapheme clusters by the Unicode rules, the same on every target framework
 
