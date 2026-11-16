@@ -1,4 +1,3 @@
-using System.Globalization;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -97,19 +96,25 @@ internal sealed class JsSegments : ObjectInstance
         };
     }
 
+    /// <summary>
+    /// The extended grapheme clusters of <paramref name="input"/> by the grapheme cluster boundary rules of UAX #29, see
+    /// <see cref="GraphemeBreaker"/>.
+    /// </summary>
     private static List<SegmentData> ComputeGraphemeSegments(string input)
     {
         var segments = new List<SegmentData>();
-        var enumerator = StringInfo.GetTextElementEnumerator(input);
+        var index = 0;
 
-        while (enumerator.MoveNext())
+        while (index < input.Length)
         {
+            var end = GraphemeBreaker.NextBreak(input, index);
             segments.Add(new SegmentData
             {
-                Segment = enumerator.GetTextElement(),
-                Index = enumerator.ElementIndex,
+                Segment = input.Substring(index, end - index),
+                Index = index,
                 IsWordLike = false
             });
+            index = end;
         }
 
         return segments;
