@@ -28,6 +28,19 @@ internal abstract class CssRule
 
     internal void Attach(CssStyleSheet? sheet, CssRule? parent, CssValueWork work)
     {
+        // A sheet's rules are attached one by one as they are read, with no children yet: the walk below is for a
+        // rule moved with its subtree.
+        if (Rules.Count == 0)
+        {
+            work.Charge(1);
+            ParentStyleSheet = sheet;
+            ParentRule = parent;
+            _attachmentSheet = parent is null ? sheet : null;
+            _attachmentParent = parent;
+            work.CheckCancellation();
+            return;
+        }
+
         var pending = new Stack<(CssRule Rule, CssRule? Parent)>();
         pending.Push((this, parent));
         while (pending.TryPop(out var item))

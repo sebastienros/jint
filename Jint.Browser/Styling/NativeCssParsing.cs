@@ -14,6 +14,12 @@ internal static class NativeCssParsing
     private static readonly ConditionalWeakTable<CssRuleList, RuleSlot> RuleSources = new();
     private static readonly ConditionalWeakTable<CssMediaList, MediaSlot> MediaSources = new();
     private static readonly NativeCssSyntaxCache Syntax = new();
+
+    // The parsed media query lists of grouping rules' preludes, by their text: every page of a site reads the same
+    // hundreds of @media rules. A list's queries are immutable and its mutators replace the array, which the lists
+    // initialized from a cached one share.
+    private const int MaxParsedMedia = 4096;
+    private static readonly Dictionary<string, CssMediaList> ParsedMedia = new(StringComparer.Ordinal);
     private static readonly NativeCssRuleCache PreparedRules = new();
 
     private sealed class RuleSlot
@@ -23,8 +29,10 @@ internal static class NativeCssParsing
     }
 
     private sealed class RuleInput(CssStyleSheet sheet, CssRule? parent, CssMutationStamp stamp,
-        CssRawRule[]? rules, CssRuleBody? body, int importEnd)
+        CssRawRule[]? rules, CssRuleBody? body, int importEnd, CssRawRule? raw = null)
     {
+        // The raw rule the body belongs to, which every document of the sheet shares: it finds the body's rules.
+        internal readonly CssRawRule? Raw = raw;
         internal readonly CssStyleSheet Sheet = sheet;
         internal readonly CssRule? Parent = parent;
         internal CssMutationStamp Stamp = stamp;
@@ -118,7 +126,7 @@ internal static class NativeCssParsing
         {
             guarded.CheckCancellation();
             if (importsOnly && (input.ImportsRead || input.ImportEnd == 0)) return rules;
-            var raw = input.Rules ?? Syntax.ParseBody(input.Body!.Value, guarded);
+            var raw = input.Rules ?? Syntax.ParseBody(input.Body!.Value, input.Raw, guarded);
             var end = importsOnly ? input.ImportEnd : raw.Length;
             var result = new List<CssRule>(rules.Count);
             foreach (var rule in rules) { guarded.Charge(1); result.Add(rule); }
@@ -142,9 +150,9 @@ internal static class NativeCssParsing
                 if (rule is CssImportRule) hasImport = true;
                 else if (rule is not CssLayerStatementRule || hasImport) allowed = false;
                 rule.Attach(input.Sheet, input.Parent, guarded);
-                if (value.Children is { } body)
+                if (value.Children is { } body && MayHoldRules(body))
                     RuleSources.GetValue(rule.Rules, static _ => new()).Input =
-                        new(input.Sheet, rule, rule.Rules.Stamp, null, body, 0);
+                        new(input.Sheet, rule, rule.Rules.Stamp, null, body, 0, item);
                 if (value.Media is { } media)
                 {
                     var list = rule switch { CssMediaRule mediaRule => mediaRule.Media, CssImportRule import => import.Media, _ => throw new InvalidOperationException() };
@@ -183,19 +191,31 @@ internal static class NativeCssParsing
         slot.Reading = true;
         try
         {
-            CssMediaList parsed;
-            try
+            var text = input.Source.Text;
+            guarded.Charge(text.Length);
+            CssMediaList? parsed;
+            lock (ParsedMedia) ParsedMedia.TryGetValue(text, out parsed);
+            if (parsed is null)
             {
-                parsed = CssParser.ParseMediaQueryList(input.Source, guarded);
-            }
-            catch (CssIncompleteRuleGrammarException)
-            {
-                // A feature the parser knows but does not evaluate yet — color-gamut, update, scan,
-                // device-width, ... Media Queries 4 §3.2 makes a query on a feature the user agent does not
-                // support "unknown", which matches nothing, so the list is the one that never matches rather
-                // than an exception out of every style read on the page.
-                // https://drafts.csswg.org/mediaqueries-4/#evaluating
-                parsed = CssParser.ParseMediaQueryList("not all", guarded);
+                try
+                {
+                    parsed = CssParser.ParseMediaQueryList(input.Source, guarded);
+                }
+                catch (CssIncompleteRuleGrammarException)
+                {
+                    // A feature the parser knows but does not evaluate yet — color-gamut, update, scan,
+                    // device-width, ... Media Queries 4 §3.2 makes a query on a feature the user agent does not
+                    // support "unknown", which matches nothing, so the list is the one that never matches rather
+                    // than an exception out of every style read on the page.
+                    // https://drafts.csswg.org/mediaqueries-4/#evaluating
+                    parsed = CssParser.ParseMediaQueryList("not all", guarded);
+                }
+
+                lock (ParsedMedia)
+                {
+                    if (ParsedMedia.Count >= MaxParsedMedia) ParsedMedia.Clear();
+                    ParsedMedia[text] = parsed;
+                }
             }
 
             guarded.CheckCancellation();
@@ -308,6 +328,12 @@ internal static class NativeCssParsing
         work.CheckCancellation();
         return result.ToArray();
     }
+
+    // CSS Nesting 1 §2: a style rule's body holds rules only as nested group rules and nested style rules, each
+    // with a block of its own. A body with no '{' is declarations alone, and has no rule list to read later: a
+    // sheet's every style rule otherwise kept a slot, and the cascade's walk read each one's body again.
+    private static bool MayHoldRules(CssRuleBody body) =>
+        body.Kind != CssRuleBodyKind.Style || body.Text.Source.AsSpan(body.Text.Span.Start, body.Text.Span.Length).Contains('{');
 
     private static bool IsImport(CssRawRule rule) =>
         rule.Kind == CssRuleKind.AtRule && CssAscii.EqualsIgnoreCase(rule.Name, "import");

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.HtmlParser.Css;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Selectors;
@@ -43,7 +44,16 @@ internal sealed class NativeCssRuleCache
     // The declaration prototype is private, unowned and never mutated or returned. Copy creates
     // a separate owner whose writes replace its immutable entry array rather than changing it.
     private sealed record Entry(CompiledSelector Selector, string SelectorText,
-        CssDeclarationBlock Declarations, int Units);
+        CssDeclarationBlock Declarations, int Units)
+    {
+        // Set when the budgets evict it, under the gate: the raw-keyed table below then no longer serves it.
+        internal volatile bool Evicted;
+    }
+
+    // The syntax cache hands every document of a sheet the same raw rules, so a rule seen before is found by its
+    // raw record, without hashing and comparing its text again on every page. An entry lives as long as the raw
+    // rule that found it, which the bounded syntax cache and the documents holding it decide.
+    private readonly ConditionalWeakTable<CssRawRule, Entry> _byRaw = new();
 
     internal CssParsedRule? Parse(CssRawRule raw, CssStyleRule? nestingParent, CssValueWork work)
     {
@@ -55,7 +65,13 @@ internal sealed class NativeCssRuleCache
         // The sheet's source and the rule's span in it: CssSourceText.Text would copy the rule's text out.
         var key = new Key(raw.Text.Source, raw.Text.Span.Start, raw.Text.Span.Length);
         Entry? entry;
-        lock (_gate) _entries.TryGetValue(key, out entry);
+        if (!_byRaw.TryGetValue(raw, out entry) || entry.Evicted)
+        {
+            entry = null;
+            lock (_gate) _entries.TryGetValue(key, out entry);
+            if (entry is not null) _byRaw.AddOrUpdate(raw, entry);
+        }
+
         if (entry is not null)
         {
             work.Charge(entry.Declarations.Count);
@@ -78,6 +94,7 @@ internal sealed class NativeCssRuleCache
             {
                 if (_entries.TryAdd(key, entry))
                 {
+                    _byRaw.AddOrUpdate(raw, entry);
                     _order.Enqueue(key);
                     _units += entry.Units;
                     if (_sources.TryGetValue(key.Text, out var references))
@@ -93,7 +110,9 @@ internal sealed class NativeCssRuleCache
                     while (_entries.Count > MaxEntries || _units > MaxUnits)
                     {
                         var oldest = _order.Dequeue();
-                        _units -= _entries[oldest].Units;
+                        var evicted = _entries[oldest];
+                        evicted.Evicted = true;
+                        _units -= evicted.Units;
                         _entries.Remove(oldest);
                         if (_sources[oldest.Text] == 1)
                         {
