@@ -67,13 +67,8 @@ internal static partial class SelectorMatcher
             work.VerifyRead();
             var local = new Work(ref work, environment);
             ValidateImplemented(program, ref local, work.Token);
-            // Selectors §6.7: quirks-mode ID matching is ASCII case-insensitive.
-            // Keep that lane on the matcher, and classify the parsed program (including escapes).
-            if ((root as Document ?? root.OwnerDocument)?.Mode != DocumentMode.Quirks &&
-                program.BranchArray is [var branch] && branch.LeadingCombinator is null &&
-                branch.CompoundArray is [var compound] && !compound.HasExplicitType &&
-                compound.PredicateArray is [{ Kind: PredicateKind.Id, IsNestingReference: false } id])
-                return NativeIdIndex.Find(root, id.Name!, ref work);
+            if (IsLoneId(program, root) is { } id)
+                return NativeIdIndex.Find(root, id, ref work);
             var scope = ScopeFor(root, ref local);
             for (var node = root.FirstChild; node is not null; node = NextWithin(root, node, ref local))
             {
@@ -89,6 +84,16 @@ internal static partial class SelectorMatcher
         }
         finally { work.Exit(); }
     }
+
+    // The ID of a selector that is one ID alone, which the ID index answers. Selectors §6.7: quirks-mode ID
+    // matching is ASCII case-insensitive; keep that lane on the matcher, and classify the parsed program
+    // (including escapes).
+    private static string? IsLoneId(CompiledSelector program, Node root)
+        => (root as Document ?? root.OwnerDocument)?.Mode != DocumentMode.Quirks &&
+            program.BranchArray is [var branch] && branch.LeadingCombinator is null &&
+            branch.CompoundArray is [var compound] && !compound.HasExplicitType &&
+            compound.PredicateArray is [{ Kind: PredicateKind.Id, IsNestingReference: false } id]
+                ? id.Name : null;
 
     internal static IReadOnlyList<Element> QuerySelectorAll(CompiledSelector program, Node root,
         in SelectorEnvironment environment, ref SelectorMatchWork work)
@@ -111,6 +116,12 @@ internal static partial class SelectorMatcher
             work.VerifyRead();
             var local = new Work(ref work, environment);
             ValidateImplemented(program, ref local, work.Token);
+            // A lone ID, as querySelector answers it: from the index when at most one descendant carries it.
+            if (IsLoneId(program, root) is { } id && NativeIdIndex.TryFindOnly(root, id, ref work, out var only))
+            {
+                work.VerifyRead();
+                return only is null ? [] : [only];
+            }
             var scope = ScopeFor(root, ref local);
             for (var node = root.FirstChild; node is not null; node = NextWithin(root, node, ref local))
             {

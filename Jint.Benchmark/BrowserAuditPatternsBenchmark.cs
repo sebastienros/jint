@@ -41,6 +41,11 @@ namespace Jint.Benchmark;
 /// which indexed all 700 siblings to answer one position. 7,000 calls.
 /// </description></item>
 /// <item><description>
+/// <see cref="LoneIdUniqueness"/> — <c>document.querySelectorAll('#list').length === 1</c>, axe-core's check that
+/// an ID is unique, which it makes for every ancestor with an ID of every node it reports: each call walked the
+/// whole document. 2,000 calls.
+/// </description></item>
+/// <item><description>
 /// <see cref="Control"/> — an arithmetic loop that reaches none of the five changes, sized like the others: it
 /// is the cross-process floor, and a delta on it is not a result.
 /// </description></item>
@@ -115,6 +120,14 @@ public class BrowserAuditPatternsBenchmark
         })()
         """;
 
+    private const string LoneIdScript = """
+        (function () {
+            var n = 0;
+            for (var i = 0; i < 2000; i++) { if (document.querySelectorAll('#list').length === 1) n++; }
+            return n;
+        })()
+        """;
+
     private const string ControlScript = """
         (function () {
             var n = 0;
@@ -129,6 +142,7 @@ public class BrowserAuditPatternsBenchmark
     private Page _matches = null!;
     private Page _arguments = null!;
     private Page _indexOf = null!;
+    private Page _loneId = null!;
     private Page _nthChild = null!;
     private Page _control = null!;
 
@@ -141,6 +155,7 @@ public class BrowserAuditPatternsBenchmark
         _matches = await CreatePageAsync(MatchesScript);
         _arguments = await CreatePageAsync(ArgumentsScript);
         _indexOf = await CreatePageAsync(IndexOfScript);
+        _loneId = await CreatePageAsync(LoneIdScript);
         _nthChild = await CreatePageAsync(NthChildScript);
         _control = await CreatePageAsync(ControlScript);
     }
@@ -185,6 +200,9 @@ public class BrowserAuditPatternsBenchmark
 
     [Benchmark]
     public Task<double> NthChildOfManySiblings() => _nthChild.EvaluateAsync<double>(NthChildScript);
+
+    [Benchmark]
+    public Task<double> LoneIdUniqueness() => _loneId.EvaluateAsync<double>(LoneIdScript);
 
     [Benchmark(Baseline = true)]
     public Task<double> Control() => _control.EvaluateAsync<double>(ControlScript);
