@@ -1116,7 +1116,8 @@ public sealed partial class Page
             T reading;
             try
             {
-                reading = await _loop.PostAsync(engine =>
+                // A look only reads, so a parse waiting for a script answers it too, as a browser's page does.
+                reading = await _loop.PostReentrantAsync(engine =>
                 {
                     // The look is a turn of its own, and the end of it must not wake the wait that made it.
                     _waitLooking = true;

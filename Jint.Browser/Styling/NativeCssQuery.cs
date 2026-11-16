@@ -32,6 +32,10 @@ internal sealed partial class NativeCssQuery
     private long _inlineVerifiedEpoch = -1;
     private int _inlineVerifiedCount = -1;
     private readonly Dictionary<Element, State> _states = new();
+
+    // States made of the rules that declare a property geometry reads (LayoutProperties), which is all a
+    // layout pass asks of an element: the same winners for those properties, from a fraction of the rules.
+    private readonly Dictionary<Element, State> _layoutStates = new();
     private readonly Dictionary<(Element Element, SelectorPseudoElement Pseudo), State> _pseudoStates = new();
     private readonly CssMediaEnvironment _media;
     private readonly SelectorEnvironment _selectors;
@@ -105,7 +109,7 @@ internal sealed partial class NativeCssQuery
             Verify();
             return result;
         }
-        catch { _aborted = true; _states.Clear(); _pseudoStates.Clear(); _ancestorFilters?.Clear(); throw; }
+        catch { _aborted = true; _states.Clear(); _layoutStates.Clear(); _pseudoStates.Clear(); _ancestorFilters?.Clear(); throw; }
     }
 
     internal bool HasPropertyInput(Element element, string name, ref SelectorMatchWork matching) =>
@@ -153,7 +157,7 @@ internal sealed partial class NativeCssQuery
         while (true)
         {
             _work.Charge(1);
-            var state = currentPseudo is { } kind ? PseudoStateOf(current, kind, ref matching) : StateOf(current, ref matching);
+            var state = currentPseudo is { } kind ? PseudoStateOf(current, kind, ref matching) : StateFor(current, name, ref matching);
             if (state.Computed.TryGetValue(name, out result!))
             {
                 _diagnostics?.CacheHit(current, name);
@@ -270,16 +274,39 @@ internal sealed partial class NativeCssQuery
 
     private State StateOf(Element element, ref SelectorMatchWork matching) => StateOf(element, null, ref matching);
 
+    /// <summary>
+    /// The state a read of <paramref name="name"/> needs: the element's full state when it has one or the property
+    /// is not one geometry reads, else its layout state — the rules that declare one of those properties, which
+    /// answer every one of them exactly as the full state does, since only such a rule can be a winner for it.
+    /// </summary>
+    private State StateFor(Element element, string name, ref SelectorMatchWork matching)
+        => LayoutProperties.Contains(name) && !_states.ContainsKey(element)
+            ? StateOf(element, null, ref matching, layout: true)
+            : StateOf(element, null, ref matching);
+
+    /// <summary>The longhands the flat layout and the visibility rules read, and what resolving their lengths reads.</summary>
+    internal static readonly HashSet<string> LayoutProperties = new(StringComparer.Ordinal)
+    {
+        "display", "visibility", "position", "direction", "white-space", "white-space-collapse", "text-wrap-mode",
+        "flex-basis", "flex-direction", "flex-grow", "flex-shrink", "flex-wrap", "align-items", "align-self",
+        "width", "min-width", "max-width", "height", "min-height", "max-height",
+        "inline-size", "min-inline-size", "max-inline-size", "block-size", "min-block-size", "max-block-size",
+        "top", "right", "bottom", "left", "inset-block-start", "inset-block-end", "inset-inline-start", "inset-inline-end",
+        "overflow-x", "overflow-y", "overflow-inline", "overflow-block",
+        "grid-template-columns", "grid-column-start", "grid-column-end", "column-gap", "font-size", "writing-mode",
+    };
+
     private State PseudoStateOf(Element element, SelectorPseudoElement pseudo, ref SelectorMatchWork matching) =>
         StateOf(element, pseudo, ref matching);
 
     // A pseudo-element's state holds the rules whose subject is that pseudo-element of the element; it has
     // no style attribute of its own, so inline declarations never reach it.
-    private State StateOf(Element element, SelectorPseudoElement? pseudo, ref SelectorMatchWork matching)
+    private State StateOf(Element element, SelectorPseudoElement? pseudo, ref SelectorMatchWork matching, bool layout = false)
     {
         Verify();
         if (!ReferenceEquals(element.OwnerDocument, _document)) throw new ArgumentException("Element belongs to another document.");
-        if (pseudo is { } kind ? _pseudoStates.TryGetValue((element, kind), out var cached) : _states.TryGetValue(element, out cached))
+        if (pseudo is { } kind ? _pseudoStates.TryGetValue((element, kind), out var cached)
+            : (layout ? _layoutStates : _states).TryGetValue(element, out cached))
             return cached;
         matching.Observe(element);
         var state = new State(element, _work, pseudo);
@@ -295,10 +322,40 @@ internal sealed partial class NativeCssQuery
         _candidateBuffer = null;
         _index!.Collect(element, candidates, _seenCandidates!, ref _candidateGeneration, _work);
         var ancestors = AncestorsOf(element);
+
+        // A full state after a layout state takes the rules that one matched as they are: each rule is matched once.
+        Dictionary<CssStyleRule, NativeCssSource>? matchedForLayout = null;
+        if (!layout && pseudo is null && _layoutStates.TryGetValue(element, out var partial))
+        {
+            matchedForLayout = new(ReferenceEqualityComparer.Instance);
+            foreach (var source in partial.Sources)
+            {
+                if (source.Rule is { } matchedRule) matchedForLayout[matchedRule] = source;
+            }
+
+            // The values it computed are the full state's too: the same rules decide them.
+            foreach (var computed in partial.Computed)
+            {
+                state.Computed[computed.Key] = computed.Value;
+            }
+        }
+
         foreach (var position in candidates)
         {
             _work.Charge(1);
             var (rule, origin, order, namespaceUri, layer) = _rules![position];
+            if (layout && !_index.DeclaresLayout(position)) continue;
+            if (matchedForLayout is not null && _index.DeclaresLayout(position))
+            {
+                if (matchedForLayout.TryGetValue(rule, out var reused))
+                {
+                    state.Matches.Add(rule);
+                    state.Sources.Add(reused);
+                }
+
+                continue;
+            }
+
             if (_scopeChains?.ContainsKey(rule) != true && !_index.Admits(position, pseudo is not null, ancestors)) continue;
             if (namespaceUri is not null && element.NamespaceUri != namespaceUri) continue;
             var scope = (rule.ParentStyleSheet?.Attachment.OwnerNode ??
@@ -345,8 +402,15 @@ internal sealed partial class NativeCssQuery
                 EncapsulationDepth: depth));
         matching.VerifyRead();
         Verify();
+        if (layout)
+        {
+            _layoutStates.Add(element, state);
+            _diagnostics?.StatePublished(element);
+            return state;
+        }
+
         _states.Add(element, state);
-        _diagnostics?.StatePublished(element);
+        if (matchedForLayout is null) _diagnostics?.StatePublished(element);
         return state;
     }
 

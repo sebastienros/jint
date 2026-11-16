@@ -32,6 +32,7 @@ internal sealed partial class NativeCssQuery
         private readonly int[][]?[] _ancestorKeys;
         private readonly bool[] _pseudoOnly;
         private readonly bool[] _noPseudo;
+        private readonly bool[] _declaresLayout;
 
         internal RuleIndex(List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri, NativeCssLayer Layer)> rules,
             CssValueWork work)
@@ -41,12 +42,19 @@ internal sealed partial class NativeCssQuery
             _ancestorKeys = new int[][]?[rules.Count];
             _pseudoOnly = new bool[rules.Count];
             _noPseudo = new bool[rules.Count];
+            _declaresLayout = new bool[rules.Count];
             for (var i = 0; i < rules.Count; i++)
             {
                 work.Charge(1);
                 var selector = rules[i].Rule.Selector;
                 _pseudoOnly[i] = SelectorSubjectKeys.AllSubjectsArePseudoElements(selector);
                 _noPseudo[i] = SelectorSubjectKeys.NoSubjectIsAPseudoElement(selector);
+                var style = rules[i].Rule.Style;
+                for (var d = 0; d < style.Count && !_declaresLayout[i]; d++)
+                {
+                    _declaresLayout[i] = LayoutProperties.Contains(style.GetPropertyName(d));
+                }
+
                 ancestors.Clear();
                 if (SelectorSubjectKeys.TryCollectAncestorKeys(selector, ancestors))
                 {
@@ -110,6 +118,9 @@ internal sealed partial class NativeCssQuery
 
             return false;
         }
+
+        /// <summary>Whether the rule at <paramref name="position"/> declares a property a layout state answers.</summary>
+        internal bool DeclaresLayout(int position) => _declaresLayout[position];
 
         /// <summary>Folds <paramref name="element"/>'s own keys — type, id and classes — into <paramref name="filter"/>.</summary>
         internal static void AddKeys(ref AncestorFilter filter, Element element)

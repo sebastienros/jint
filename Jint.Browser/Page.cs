@@ -41,6 +41,9 @@ namespace Jint.Browser;
 public sealed partial class Page : IAsyncDisposable
 {
     private readonly PageLoop _loop;
+
+    /// <summary>The page's loop, which a parse waiting for a script lets serve the reads a caller is polling with.</summary>
+    internal PageLoop Loop => _loop;
     private readonly PageRecorder _recorder;
     private readonly PageNetworkRecorder _requests;
     private readonly BrowserOptions _options;
