@@ -784,7 +784,8 @@ internal static class NumberParser
     /// The signed conversion is correctly rounded everywhere, so halve the operand to reach it, OR-ing
     /// the bit that falls off back in so a tie still reads as a tie, and double the result - which is
     /// exact - to get back. No runtime before .NET 9 rounds the unsigned conversion once for an operand
-    /// with the high bit set (sebastienros/jint#3530, adams85/acornima#53).
+    /// with the high bit set (sebastienros/jint#3530). Acornima carries its own copy for numeric literals
+    /// since adams85/acornima#54; this one serves the string-to-number and radix lanes.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static double UInt64ToDouble(ulong value)
