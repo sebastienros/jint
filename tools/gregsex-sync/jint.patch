@@ -1,5 +1,5 @@
 diff --git a/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs b/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs
-index 057eaa9f2..09120e696 100644
+index 56bb07670..353f58c98 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs
 +++ b/Jint/Runtime/RegExp/GregsEx/Contracts/LaneContracts.cs
 @@ -1,124 +1,22 @@
@@ -128,7 +128,7 @@ index 057eaa9f2..09120e696 100644
      }
  }
  
-@@ -151,6 +49,14 @@ internal ref struct RunState
+@@ -161,6 +59,14 @@ internal ref struct RunState
          Failure = default;
      }
  
@@ -144,7 +144,7 @@ index 057eaa9f2..09120e696 100644
      // otherwise per-unit charges reproduce the exact failing offset and consumed work.
      [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 diff --git a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
-index 75c3e9d22..0d48c89b3 100644
+index 8568f6dfc..3f9a5b97a 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
 +++ b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaAccelerator.cs
 @@ -1,4 +1,10 @@
@@ -159,7 +159,7 @@ index 75c3e9d22..0d48c89b3 100644
  using System.Buffers;
  using System.Numerics;
 diff --git a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
-index 01ef35981..468e562e8 100644
+index 565d3ac2c..8dbdca945 100644
 --- a/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
 +++ b/Jint/Runtime/RegExp/GregsEx/Execution/Backtracking/EcmaExecutor.cs
 @@ -1,5 +1,4 @@

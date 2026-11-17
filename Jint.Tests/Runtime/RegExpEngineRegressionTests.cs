@@ -225,7 +225,7 @@ public class RegExpEngineRegressionTests
         var matcher = Jint.Runtime.RegExp.JintRegExpEngine.Compile("\"(?:[^\"\\\\]|\\\\.)*(?=\")\"", Jint.Runtime.RegExp.RegExpFlags.None);
         var groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[matcher.CaptureCount];
         var big = "\"" + string.Concat(Enumerable.Repeat("a\\\"b", 20_000)) + "\"";
-        matcher.TryMatch(big, 0, Jint.Runtime.RegExp.JintRegExpEngine.NoDeadline, groups).Should().BeTrue();
+        matcher.TryMatch(big, 0, null, groups).Should().BeTrue();
         groups[0].Length.Should().Be(big.Length);
         matcher.PlannedFrames.Should().BeLessThan(20_000, "growth beyond the retained ceiling stays with the search");
     }
@@ -288,13 +288,13 @@ public class RegExpEngineRegressionTests
         var thousands = Jint.Runtime.RegExp.JintRegExpEngine.Compile(string.Concat(Enumerable.Repeat("(a)", 3000)), Jint.Runtime.RegExp.RegExpFlags.None);
         thousands.PlannedFrames.Should().Be(64);
         var groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[thousands.CaptureCount];
-        thousands.TryMatch(new string('a', 3000), 0, Jint.Runtime.RegExp.JintRegExpEngine.NoDeadline, groups).Should().BeTrue();
+        thousands.TryMatch(new string('a', 3000), 0, null, groups).Should().BeTrue();
 
         // Registers alone over the cap: the plan is one frame, and every search brings storage of its own.
         var huge = Jint.Runtime.RegExp.JintRegExpEngine.Compile(string.Concat(Enumerable.Repeat("(a)", 140_000)), Jint.Runtime.RegExp.RegExpFlags.None);
         huge.PlannedFrames.Should().Be(1);
         groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[huge.CaptureCount];
-        huge.TryMatch(new string('a', 140_000), 0, Jint.Runtime.RegExp.JintRegExpEngine.NoDeadline, groups).Should().BeTrue();
+        huge.TryMatch(new string('a', 140_000), 0, null, groups).Should().BeTrue();
         groups[140_000].Index.Should().Be(139_999);
     }
 

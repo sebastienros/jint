@@ -16,7 +16,7 @@ public class RegExpCustomEngineBenchmark
     private string _input = "";
     private readonly RegexCapture[] _groups = new RegexCapture[8];
 
-    private bool Find(JintRegExpEngine engine, int start) => engine.TryMatch(_input, start, JintRegExpEngine.NoDeadline, _groups);
+    private bool Find(JintRegExpEngine engine, int start) => engine.TryMatch(_input, start, null, _groups);
 
     private JintRegExpEngine _literalEngine = null!;
     private JintRegExpEngine _variableLengthEngine = null!;
