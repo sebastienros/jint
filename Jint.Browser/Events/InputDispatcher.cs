@@ -681,6 +681,13 @@ internal static partial class InputDispatcher
                 MoveFocus(dom, document, focused, backwards: (options.Modifiers & EventModifiers.Shift) != EventModifiers.None);
                 return;
 
+            case "ArrowDown" or "ArrowRight" or "ArrowUp" or "ArrowLeft"
+                when EventDom.IsHtml(focused, "input") && EventDom.InputType(focused) == "radio":
+                // Only a key going down gets here, a client's rawKeyDown included: Playwright sends a key that
+                // produces no text that way.
+                SelectAdjacentRadio(dom, focused, options.Key);
+                return;
+
             case "Enter" when EventDom.IsHtml(focused, "input") && TextEditing.IsEditable(dom, focused):
                 // The value is committed by the press, so `change` fires here rather than waiting for focus to
                 // leave — which is what a page listening for it on a search box is written against.
@@ -725,6 +732,55 @@ internal static partial class InputDispatcher
     /// controls: the element loses focus with its <c>blur</c> and <c>focusout</c>, <c>activeElement</c> is the
     /// body, and the next <kbd>Tab</kbd> starts over from the first element.
     /// </remarks>
+    /// <summary>
+    /// An arrow key on a radio button selects the next or previous one of its group, as every engine does:
+    /// <kbd>ArrowDown</kbd> and <kbd>ArrowRight</kbd> move forward in tree order, <kbd>ArrowUp</kbd> and
+    /// <kbd>ArrowLeft</kbd> back, the horizontal pair swapped in a right-to-left control, wrapping at either end and
+    /// skipping disabled or unrendered buttons. The one reached is focused and clicked (Blink's
+    /// <c>RadioInputType::HandleKeydownEvent</c> dispatches a simulated click), so its activation behaviour checks it
+    /// and fires <c>input</c> and <c>change</c>.
+    /// </summary>
+    private static void SelectAdjacentRadio(DomRealm dom, Element focused, string key)
+    {
+        if (EventDom.Disabled(dom, focused))
+        {
+            return;
+        }
+
+        var rtl = key is "ArrowLeft" or "ArrowRight"
+            && Dom.Views.CssCascade.Of(focused) is { } style
+            && Dom.Views.CssCascade.ValueOf(style, "direction") == "rtl";
+        var forward = key is "ArrowDown" || (key == "ArrowRight") != rtl;
+        var group = HtmlCheckableState.SnapshotRadioGroup(focused, dom.CancellationToken);
+        var index = -1;
+        for (var i = 0; i < group.Count; i++)
+        {
+            if (ReferenceEquals(group[i], focused))
+            {
+                index = i;
+                break;
+            }
+        }
+
+        if (index < 0 || group.Count < 2)
+        {
+            return;
+        }
+
+        for (var step = 1; step < group.Count; step++)
+        {
+            var candidate = group[(index + (forward ? step : group.Count - step)) % group.Count];
+            if (EventDom.Disabled(dom, candidate) || !FocusController.IsBeingRendered(dom, candidate))
+            {
+                continue;
+            }
+
+            FocusController.Focus(dom, candidate, FocusOrigin.Keyboard);
+            DispatchClickEvent(dom.WrapNode(candidate), ClickOptions.Synthetic with { Detail = 0 }, trusted: true);
+            return;
+        }
+    }
+
     private static void MoveFocus(DomRealm dom, Document document, Element from, bool backwards)
     {
         if (FocusController.NextInTabOrder(dom, document, from, backwards) is { } next)

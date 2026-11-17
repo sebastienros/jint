@@ -350,6 +350,7 @@ internal Jint.HtmlParser.HtmlCheckableState
     Get
     GetRadioGroupFacts
     SameRadioGroup
+    SnapshotRadioGroup
 internal Jint.HtmlParser.HtmlCheckedChangeOrigin
 internal Jint.HtmlParser.HtmlCheckednessAlgorithms
     ResetCheckedness
