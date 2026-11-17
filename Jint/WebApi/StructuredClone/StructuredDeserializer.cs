@@ -1,4 +1,4 @@
-#if NET8_0_OR_GREATER
+﻿#if NET8_0_OR_GREATER
 using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Native.Error;
@@ -388,7 +388,7 @@ internal sealed class StructuredDeserializer
     /// </summary>
     private JsRegExp DeserializeRegExp(SerializedRegExp record)
     {
-        var result = new JsRegExp(_engine, record.Matcher)
+        var result = new JsRegExp(_engine, _realm.Intrinsics.RegExp, record.Matcher)
         {
             _prototype = _realm.Intrinsics.RegExp.PrototypeObject,
             HostRegex = record.HostRegex,

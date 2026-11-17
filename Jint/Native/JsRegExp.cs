@@ -18,7 +18,7 @@ public sealed class JsRegExp : ObjectInstance
     private PropertyDescriptor _prototypeDescriptor = null!;
 
     public JsRegExp(Engine engine)
-        : this(engine, RegExpParseCache.GetOrCompile(engine.Realm, "", "", System.Threading.Timeout.InfiniteTimeSpan))
+        : this(engine, engine.Realm.Intrinsics.RegExp, RegExpParseCache.GetOrCompile(engine.Realm, "", "", System.Threading.Timeout.InfiniteTimeSpan))
     {
         // The empty pattern, matching what its Source says; Intrinsics.RegExp.Construct builds any other.
     }
@@ -28,13 +28,31 @@ public sealed class JsRegExp : ObjectInstance
     // pass, so a path that already holds its matcher passes it and every other passes null, rather than looking
     // the empty pattern up in the process-wide cache for a value that is replaced before anything reads it.
     // https://tc39.es/ecma262/#sec-regexpalloc
-    internal JsRegExp(Engine engine, JintRegExpEngine? matcher)
+    //
+    // owner is the %RegExp% of the realm that allocates it (RegExpAlloc of the RegExp Legacy Features proposal),
+    // which is what the realm is read from.
+    internal JsRegExp(Engine engine, RegExpConstructor owner, JintRegExpEngine? matcher)
         : base(engine, ObjectClass.RegExp)
     {
+        LegacyConstructor = owner;
         // Every initialization replaces the source; this is what the public constructor's empty pattern reports.
         Source = regExpForMatchingAllCharacters;
         Matcher = matcher;
     }
+
+    /// <summary>
+    /// The <c>%RegExp%</c> of the regexp's <c>[[Realm]]</c> in the RegExp Legacy Features proposal - the realm of the
+    /// constructor that allocated this instance, which decides whose legacy statics a match of it may touch - kept as
+    /// the constructor whose statics it updates, so the realm is <c>LegacyConstructor._realm</c> and the common case needs
+    /// no lookup. https://github.com/tc39/proposal-regexp-legacy-features
+    /// </summary>
+    internal RegExpConstructor LegacyConstructor { get; }
+
+    /// <summary>
+    /// <c>[[LegacyFeaturesEnabled]]</c> of the same proposal: false for an instance a subclass of <c>RegExp</c> (rather
+    /// than <c>RegExp</c> itself) allocated, whose matches invalidate the legacy statics instead of setting them.
+    /// </summary>
+    internal bool LegacyFeaturesEnabled { get; set; } = true;
 
     /// <summary>The pattern text, escaped as <c>RegExp.prototype.source</c> reports it.</summary>
     public string Source { get; set; }
