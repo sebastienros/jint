@@ -101,6 +101,11 @@ internal static class EcmaUnitFilters
     // list children first, so one pass computes every node.
     internal static SearchValues<char>? BuildRequired(EcmaProgram program, ReadOnlySpan<EcmaNode> nodes, int root, EcmaCaseTables caseTables,
         EcmaFastSet?[] fastSets)
+        => BuildRequiredUnits(program, nodes, root, caseTables, fastSets) is { } units ? Shared(units.Low, units.High) : null;
+
+    // The ASCII required units themselves, for the compiled kernels' plan.
+    internal static Units? BuildRequiredUnits(EcmaProgram program, ReadOnlySpan<EcmaNode> nodes, int root, EcmaCaseTables caseTables,
+        EcmaFastSet?[] fastSets)
     {
         var req = new Units?[nodes.Length];
         for (var i = 0; i < nodes.Length; i++)
@@ -124,7 +129,7 @@ internal static class EcmaUnitFilters
             return null;
         }
 
-        return Shared(units.Low, units.High);
+        return units;
     }
 
     // Units a match can start with, through nullable atoms and zero-width assertions (a positive lookahead's body
