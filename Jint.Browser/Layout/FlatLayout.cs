@@ -442,6 +442,7 @@ internal sealed class FlatLayout
         private Dictionary<Element, bool> _rendered => Measurements.Rendered;
         private Dictionary<Element, int> _rows => Measurements.Rows;
         private readonly Dictionary<Element, double> _widths = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<Element, (double Left, double Right)> _insets = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<Element, double> _heights = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<Element, FlatBox> _sizes = new(ReferenceEqualityComparer.Instance);
 
@@ -528,7 +529,8 @@ internal sealed class FlatLayout
                 var horizontal = FlexRow.IsHorizontal(parent, cascade);
                 var reverse = horizontal && FlexRow.IsReversed(parent, cascade);
                 var (next, offset) = _childrenPlaced.TryGetValue(parent, out var placed)
-                    ? placed : (0, horizontal ? (reverse ? WidthOf(parent) : 0) : RowHeight);
+                    ? placed : (0, horizontal ? (reverse ? ContentWidth(parent) : 0) : RowHeight);
+                var contentX = parentBox.X + InsetOf(parent).Left;
                 var children = Children(parent);
                 for (; next < children.Count; next++)
                 {
@@ -543,7 +545,7 @@ internal sealed class FlatLayout
                     {
                         // Its height affects the next sibling, not its own vertical origin. Leave
                         // this index pending so a later sibling query measures it when needed.
-                        _positions[child] = new FlatBox(PlacedX(child, parentBox.X), PlacedY(child, parentBox, parentBox.Y + offset), 0, 0);
+                        _positions[child] = new FlatBox(PlacedX(child, contentX), PlacedY(child, parentBox, parentBox.Y + offset), 0, 0);
                         break;
                     }
 
@@ -561,7 +563,7 @@ internal sealed class FlatLayout
                     }
 
                     _positions[child] = new FlatBox(
-                        PlacedX(child, parentBox.X + (horizontal ? offset : 0)),
+                        PlacedX(child, contentX + (horizontal ? offset : 0)),
                         PlacedY(child, parentBox, parentBox.Y + (horizontal ? RowHeight + cross : offset)), 0, 0);
                     offset += horizontal ? (reverse ? 0 : width) : HeightOf(child);
                     if (ReferenceEquals(child, element))
@@ -894,7 +896,7 @@ internal sealed class FlatLayout
                 }
 
                 var parent = (element.ParentNode as Element)!;
-                var width = _widths[parent];
+                var width = ContentWidth(parent);
                 if (FlexRow.IsHorizontal(parent, cascade))
                 {
                     var children = Children(parent).Where(HasBox).ToArray();
@@ -928,7 +930,8 @@ internal sealed class FlatLayout
                 return null;
             }
 
-            var authored = LengthOf(style, "width", available);
+            var extra = ContentBoxExtra(element, style, available);
+            var authored = LengthOf(style, "width", available) is { } own ? own + extra : (double?) null;
             if (authored is null)
             {
                 if (CssCascade.ValueOf(style, "left") is not (null or "" or "auto")
@@ -941,8 +944,8 @@ internal sealed class FlatLayout
             }
 
             var width = authored.Value;
-            if (LengthOf(style, "max-width", available) is { } maximum) width = Math.Min(width, maximum);
-            if (LengthOf(style, "min-width", available) is { } minimum) width = Math.Max(width, minimum);
+            if (LengthOf(style, "max-width", available) is { } maximum) width = Math.Min(width, maximum + extra);
+            if (LengthOf(style, "min-width", available) is { } minimum) width = Math.Max(width, minimum + extra);
             return width;
         }
 
@@ -1025,10 +1028,66 @@ internal sealed class FlatLayout
                 return null;
             }
 
-            var width = authored ?? available;
-            if (maximum is { } max) width = Math.Min(width, max);
-            if (minimum is { } min) width = Math.Max(width, min);
+            // CSS Box Sizing 3: under the initial content-box, width, min-width and max-width size the content, and the
+            // box is that plus its own horizontal padding and border; under border-box they size the box itself.
+            var extra = ContentBoxExtra(element, style, available);
+            var width = authored is { } own ? own + extra : available;
+            if (maximum is { } max) width = Math.Min(width, max + extra);
+            if (minimum is { } min) width = Math.Max(width, min + extra);
             return width;
+        }
+
+        // What content-box sizing adds to an authored width: the box's own left and right padding and border.
+        private double ContentBoxExtra(Element element, Styling.NativeCssComputedStyle style, double available)
+        {
+            if (CssCascade.ValueOf(style, "box-sizing") is "border-box")
+            {
+                return 0;
+            }
+
+            var (left, right) = Inset(style, available);
+            return left + right;
+        }
+
+        /// <summary>
+        /// The width <paramref name="element"/>'s children are laid out in (CSS 2 §10.1): its content box, its width
+        /// less its left and right padding and border.
+        /// </summary>
+        private double ContentWidth(Element element)
+        {
+            var (left, right) = InsetOf(element);
+            return Math.Max(0, WidthOf(element) - left - right);
+        }
+
+        /// <summary>
+        /// How far <paramref name="element"/>'s content box is inset from its border box on the left and the right:
+        /// its padding and its border, a border counting only when its style draws one (CSS Backgrounds 3: a
+        /// <c>none</c> or <c>hidden</c> style computes the width to 0). A card's 1px border and 16px padding put its
+        /// copy 17px in from its edge. Vertical padding is not modelled: rows stay rows.
+        /// </summary>
+        private (double Left, double Right) InsetOf(Element element)
+        {
+            if (!_insets.TryGetValue(element, out var inset))
+            {
+                inset = cascade?.LayoutOf(element) is { } style ? Inset(style, WidthOf(element)) : (0, 0);
+                _insets.Add(element, inset);
+            }
+
+            return inset;
+        }
+
+        private (double Left, double Right) Inset(Styling.NativeCssComputedStyle style, double basis)
+        {
+            return (Side("left"), Side("right"));
+
+            double Side(string side)
+            {
+                var padding = LengthOf(style, "padding-" + side, basis) ?? 0;
+                var border = CssCascade.ValueOf(style, "border-" + side + "-style") is null or "" or "none" or "hidden"
+                    ? 0
+                    : LengthOf(style, "border-" + side + "-width", 0) ?? 0;
+                return padding + border;
+            }
         }
 
         /// <summary>

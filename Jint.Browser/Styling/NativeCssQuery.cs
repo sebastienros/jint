@@ -312,6 +312,8 @@ internal sealed partial class NativeCssQuery
         "overflow-x", "overflow-y", "overflow-inline", "overflow-block",
         "grid-template-columns", "grid-column-start", "grid-column-end", "column-gap", "font-size", "writing-mode",
         "aspect-ratio",
+        "padding-left", "padding-right", "border-left-width", "border-right-width", "border-left-style", "border-right-style",
+        "box-sizing",
     };
 
     private State PseudoStateOf(Element element, SelectorPseudoElement pseudo, ref SelectorMatchWork matching) =>

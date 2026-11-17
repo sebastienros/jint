@@ -654,6 +654,45 @@ public class FlatLayoutTests
     }
 
     /// <summary>
+    /// https://www.w3.org/TR/CSS2/visudet.html#containing-block-details — a box's children are laid out in its
+    /// content box, inset by its left and right padding and border, and an authored width sizes the content under
+    /// the initial <c>box-sizing: content-box</c> and the whole box under <c>border-box</c>. A border with no style
+    /// draws nothing and insets nothing.
+    /// </summary>
+    [Test]
+    public async Task ChildrenAreLaidOutInTheirParentsContentBox()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <div id="card" style="width: 20rem; border: 1px solid; padding: 0 1rem"><p id="copy">copy</p></div>
+            <div id="sized" style="width: 100px; padding: 0 10px; border-left: 2px solid">x</div>
+            <div id="sizedBox" style="box-sizing: border-box; width: 100px; padding: 0 10px"><b id="inner">x</b></div>
+            <div id="unstyled" style="border-left-width: 6px; padding-left: 4px"><b id="plain">x</b></div>
+            <div style="display: flex; box-sizing: border-box; width: 200px; padding-left: 8px"><span id="item" style="flex: 1">i</span></div>
+            <nav style="display: flex"><button id="first" style="box-sizing: border-box; min-width: 2.5rem; padding: 0 0.65rem; border: 1px solid"><span id="icon" style="display: block">i</span></button></nav>
+            """);
+
+        static string Box(double x, double width) => $"{x},{width}";
+        async Task<string> XAndWidth(string id)
+            => await page.EvaluateAsync<string>($"(() => {{ const r = document.getElementById('{id}').getBoundingClientRect(); const round = (v) => Math.round(v * 100) / 100; return round(r.x) + ',' + round(r.width); }})()") ?? "";
+
+        (await XAndWidth("card")).Should().Be(Box(0, 320 + 32 + 2));
+        (await XAndWidth("copy")).Should().Be(Box(17, 320));
+        (await XAndWidth("sized")).Should().Be(Box(0, 100 + 20 + 2));
+        (await XAndWidth("sizedBox")).Should().Be(Box(0, 100));
+        (await XAndWidth("inner")).Should().Be(Box(10, 80));
+        (await XAndWidth("plain")).Should().Be(Box(4, 1276));
+        (await XAndWidth("item")).Should().Be(Box(8, 192));
+
+        // A flex item's min-width in rem holds, and its content box is what its padding and border leave.
+        (await XAndWidth("first")).Should().Be(Box(0, 40));
+        (await XAndWidth("icon")).Should().Be(Box(11.4, 17.2));
+    }
+
+    /// <summary>
     /// https://drafts.csswg.org/css-grid-2/#layout-algorithm — a grid item is as wide as the column tracks it
     /// spans and the gaps between them, whether the track count and the span come from a var() or not.
     /// </summary>
