@@ -71,16 +71,10 @@ public class StackedLabelSetTests
     {
         yield return "continue";
         yield return "break";
-        for (var i = 0; i < stack.Length; i++)
+        foreach (var label in stack)
         {
-            // Acornima rejects a continue naming a label two or more above the loop as an early error; see
-            // AcornimaStillRejectsAContinueTwoLabelsAboveTheLoop.
-            if (i >= stack.Length - 2)
-            {
-                yield return "continue " + stack[i];
-            }
-
-            yield return "break " + stack[i];
+            yield return "continue " + label;
+            yield return "break " + label;
         }
     }
 
@@ -324,26 +318,5 @@ public class StackedLabelSetTests
               return n + ':' + log.join(',');
             })()
             """.Replace("HEAD", head)).Should().Be("3:d0,d1,d2");
-    }
-
-    /// <summary>
-    /// Pins a parser defect so that its fix is noticed. Node accepts this program and answers 3; Acornima raises the
-    /// early error ContainsUndefinedContinueTarget reserves for a label that is not on an iteration statement,
-    /// because its <c>ParseLabeledStatement</c> marks only the label directly above the next one as a loop label.
-    /// The loop handler already holds the whole set, so when this starts failing, delete it and drop the filter in
-    /// <see cref="Jumps"/>.
-    /// </summary>
-    [Test]
-    public void AcornimaStillRejectsAContinueTwoLabelsAboveTheLoop()
-    {
-        Run("""
-            (function () {
-              try {
-                return String(eval("(function () { var n = 0; a: b: c: for (var i = 0; i < 3; i++) { n++; continue a; } return n; })()"));
-              } catch (e) {
-                return e.name;
-              }
-            })()
-            """).Should().Be("SyntaxError");
     }
 }
