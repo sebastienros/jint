@@ -4167,10 +4167,10 @@ number on `net472` and on the `netstandard` assets loaded there:
 1.95232124646081910e-200 === Number('1.95232124646081910e-200');
 ```
 
-The literal now reads its own digits through the same `NumberParser` §4.90 gave the string lanes, so all
-four routes to a Number denote one double on every target framework. Measured over 2000 random literals per
-shape on `net472`, the number that were not the nearest double, with `net8.0` and `net10.0` at zero for
-every row and all rows zero afterwards:
+The literal is now read by a correctly rounded decimal reader — Jint's own `NumberParser` at first, and
+Acornima's scanner since 1.9.0 — so all four routes to a Number denote one double on every target
+framework. Measured over 2000 random literals per shape on `net472`, the number that were not the nearest
+double, with `net8.0` and `net10.0` at zero for every row and all rows zero afterwards:
 
 | literal shape | 5.0 on `net472` |
 | --- | --- |
@@ -4257,12 +4257,12 @@ one it owed nothing to the platform — every target framework was wrong in the 
 
 Measured over 500 random literals per shape, and identical on `net472`, `net8.0` and `net10.0`, the number
 that were not the nearest double: 28 of 17 hexadecimal digits, 25 of 20, 24 of 60; 35 of 25 octal digits
-and 43 of 90; 77 of 70 binary digits and 62 of 200. All zero afterwards. `AstExtensions.NearestDouble`
-re-reads such a literal's own text — every radix a literal can be written in is a power of two, so the
-exact value is the digits' own bits and rounding them costs no big-integer arithmetic.
+and 43 of 90; 77 of 70 binary digits and 62 of 200. All zero afterwards. Every radix a literal can be
+written in is a power of two, so the exact value is the digits' own bits and rounding them costs no
+big-integer arithmetic; since Acornima 1.9.0 the scanner does that itself.
 
-**A wide sloppy-mode legacy octal literal moved further than one ULP**, because the scanner does not fall
-back to `double` accumulation for that spelling at all — it abandons the octal reading and re-reads the
+**A wide sloppy-mode legacy octal literal moved further than one ULP**, because the scanner did not fall
+back to `double` accumulation for that spelling at all — it abandoned the octal reading and re-read the
 digits as decimal, which is the wrong base:
 
 ```js
