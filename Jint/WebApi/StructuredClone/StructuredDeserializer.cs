@@ -388,10 +388,9 @@ internal sealed class StructuredDeserializer
     /// </summary>
     private JsRegExp DeserializeRegExp(SerializedRegExp record)
     {
-        var result = new JsRegExp(_engine)
+        var result = new JsRegExp(_engine, record.Matcher)
         {
             _prototype = _realm.Intrinsics.RegExp.PrototypeObject,
-            Matcher = record.Matcher,
             HostRegex = record.HostRegex,
             ConversionOptions = record.ConversionOptions,
             Source = record.Source,
