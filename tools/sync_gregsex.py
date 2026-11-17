@@ -128,13 +128,16 @@ def sync(revision, patch=True):
     for name, text in files.items():
         out = TARGET / name
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(transform(name, text), newline="\n")
+        # UTF-8 explicitly: the default is the locale's code page, which on Windows mangles every non-ASCII character.
+        out.write_text(transform(name, text), encoding="utf-8", newline="\n")
     if patch and PATCH.exists() and PATCH.stat().st_size > 0:
-        result = subprocess.run(["git", "apply", "--whitespace=nowarn", str(PATCH)], cwd=ROOT,
-                                capture_output=True, text=True)
+        # Fed on stdin rather than named, so a checkout that converted the patch to CRLF (core.autocrlf) still
+        # applies it to the LF files written above.
+        result = subprocess.run(["git", "apply", "--whitespace=nowarn", "-"], cwd=ROOT, capture_output=True,
+                                input=PATCH.read_bytes().replace(b"\r\n", b"\n"))
         if result.returncode != 0:
             raise SystemExit("tools/gregsex-sync/jint.patch no longer applies to GregsEx " + sha[:12] +
-                             ":\n" + result.stderr + "Resolve it by hand and regenerate the patch (see the README).")
+                             ":\n" + result.stderr.decode("utf-8", "replace") + "Resolve it by hand and regenerate the patch (see the README).")
     print(f"Generated {len(files)} files from GregsEx {sha}")
     return sha
 
