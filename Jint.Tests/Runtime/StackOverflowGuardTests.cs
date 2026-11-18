@@ -91,9 +91,9 @@ public class StackOverflowGuardTests
 
     /// <summary>
     /// The recovery test the guard lives or dies by: catching near-exhaustion has to leave the engine in
-    /// the state it was in before, not merely alive. Firing at the very same depth on three successive
-    /// runs is the strongest single signal available here — a frame, an execution context or a native
-    /// stack slot left behind by the unwind would move the third run's number.
+    /// the state it was in before, not merely alive. Firing at a steady depth on successive runs is the
+    /// strongest single signal available here — a frame, an execution context or a native stack slot
+    /// left behind by the unwind would shorten every run after the first.
     /// <para>
     /// The first two runs are warm-ups whose depths are discarded. Depth is a count of native stack
     /// frames, so it moves whenever the JIT re-compiles any interpreter method the recursion runs
@@ -103,6 +103,12 @@ public class StackOverflowGuardTests
     /// the runtime with the defect. Two rounds are discarded rather than one because the
     /// <c>fib(20)</c> recovery check inside each round promotes code of its own, so a single warm-up
     /// still left the second measured round moving.
+    /// </para>
+    /// <para>
+    /// No spread bound survives that wobble: a 25% allowance was still broken by an observed 751/…/533,
+    /// a single recompilation step of 29%. What separates the defect from the runtime is <em>shape</em>,
+    /// not size — a leak leaves the same residue on every fire, so the depths march strictly downward,
+    /// while a recompilation steps once and holds. The assertion below therefore fails only on the march.
     /// </para>
     /// </summary>
     [Fact]
@@ -117,7 +123,8 @@ public class StackOverflowGuardTests
 
                 var depths = new List<double>();
                 const int warmupRounds = 2;
-                for (var round = 0; round < warmupRounds + 3; round++)
+                const int measuredRounds = 5;
+                for (var round = 0; round < warmupRounds + measuredRounds; round++)
                 {
                     engine.Evaluate("depth = 0");
                     Assert.Throws<JavaScriptException>(() => engine.Evaluate("f()"));
@@ -134,8 +141,29 @@ public class StackOverflowGuardTests
                     engine.IsEvaluationInProgress.Should().BeFalse();
                 }
 
-                depths.Should().AllBeEquivalentTo(depths[0], "an unwind that left anything behind would shorten the next run");
-                depths[0].Should().BeGreaterThan(100, "a guard that fires this early would be a limit, not a backstop");
+                // A leak marches, a recompilation steps: an unwind that leaves anything behind shortens
+                // EVERY following round, so the leak signature is depth falling round after round with a
+                // compounding total loss. A JIT frame-size change moves the depth once — in either
+                // direction, by up to 29% observed — and then holds, which is why no spread bound works
+                // here (a 25% one was broken on CI). Fail only on the march: at least three of the four
+                // adjacent pairs falling AND more than 10% lost end to end. Five measured rounds give the
+                // shape room to show; three successive downward recompilations this late in warm-up would
+                // be needed to fake it. The deterministic leak signals (CallStack.Count == 0,
+                // IsEvaluationInProgress false, fib recovering) are asserted per round above regardless.
+                var fallingPairs = 0;
+                for (var i = 1; i < depths.Count; i++)
+                {
+                    if (depths[i] < depths[i - 1])
+                    {
+                        fallingPairs++;
+                    }
+                }
+
+                var totalLoss = 1 - depths[depths.Count - 1] / depths[0];
+                (fallingPairs >= measuredRounds - 2 && totalLoss > 0.10).Should().BeFalse(
+                    $"an unwind that left anything behind would shorten every following run "
+                    + $"(depths: {string.Join("/", depths)}, falling pairs: {fallingPairs}, total loss: {totalLoss:P0})");
+                depths.Min().Should().BeGreaterThan(100, "a guard that fires this early would be a limit, not a backstop");
             },
             maxStackSize: SmallStack);
     }
