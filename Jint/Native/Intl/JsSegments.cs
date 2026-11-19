@@ -39,16 +39,25 @@ internal sealed class JsSegments : ObjectInstance
             return Undefined;
         }
 
-        var intIndex = (int) n;
-        foreach (var segment in _segments)
+        // The segments tile the input in order from index 0, so the one holding n is the last that starts at or before it.
+        var target = (int) n;
+        var segments = _segments;
+        var low = 0;
+        var high = segments.Count - 1;
+        while (low < high)
         {
-            if (intIndex >= segment.Index && intIndex < segment.Index + segment.Segment.Length)
+            var mid = low + ((high - low + 1) >> 1);
+            if (segments[mid].Index <= target)
             {
-                return CreateSegmentDataObject(realm, segment);
+                low = mid;
+            }
+            else
+            {
+                high = mid - 1;
             }
         }
 
-        return Undefined;
+        return CreateSegmentDataObject(realm, segments[low]);
     }
 
     /// <summary>
