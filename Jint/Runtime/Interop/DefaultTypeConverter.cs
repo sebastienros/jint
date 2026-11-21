@@ -550,11 +550,11 @@ public class DefaultTypeConverter : ClrTypeConverter
             return true;
         }
 
-        // Convert.ChangeType can only throw InvalidCastException for a value that is not IConvertible and is not
-        // already exactly the target type. A probe (overload scoring, #4337) must not pay a first-chance exception
-        // for that, so take the very path the catch below takes, minus the throw. A caller that asked for the
-        // exception to propagate still gets it from ChangeType itself.
-        if (!propagateException && value is not IConvertible && valueType != type)
+        // A probe (overload scoring asks TryConvert of every candidate it has no rule for, #4337) must not pay a
+        // first-chance exception for a conversion Convert.ChangeType is certain to refuse, so take the very path the
+        // catch below takes, minus the throw. A caller that asked for the exception to propagate still gets it from
+        // ChangeType itself.
+        if (!propagateException && InteropHelper.ChangeTypeMustFail(value, type, formatProvider))
         {
             if (TryCastWithOperators(value, type, valueType, out var cast))
             {
@@ -562,7 +562,7 @@ public class DefaultTypeConverter : ClrTypeConverter
                 return true;
             }
 
-            problemMessage = "Object must implement IConvertible.";
+            problemMessage = "Convert.ChangeType cannot convert the value to the target type.";
             return false;
         }
 
