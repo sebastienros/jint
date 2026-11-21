@@ -405,7 +405,7 @@ internal sealed class InteropHelper
             return true;
         }
 
-        if (value is not IConvertible)
+        if (value is not IConvertible || ChangeTypeMustFail(value, targetType, CultureInfo.InvariantCulture))
         {
             return false;
         }
@@ -421,6 +421,118 @@ internal sealed class InteropHelper
             return false;
         }
     }
+
+    /// <summary>
+    /// Whether <see cref="Convert.ChangeType(object, Type, IFormatProvider)"/> is certain to throw for this value and
+    /// target type, so that a probe can decline without throwing and catching.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Overload scoring probes every candidate it has no structural rule for, on every call, and a first-chance
+    /// exception per probe made such calls several times slower - and unusable under a debugger
+    /// (<see href="https://github.com/sebastienros/jint/issues/4337">#4337</see>). This answers
+    /// <see langword="true"/> only where the outcome is already fixed and leaves the rest to the call.
+    /// </para>
+    /// <para>
+    /// A value that is not <see cref="IConvertible"/> converts to nothing but its own type. A BCL convertible - a
+    /// primitive, <see cref="string"/>, <see cref="decimal"/>, <see cref="DateTime"/>, <see cref="DBNull"/> or an
+    /// enum - is converted by <c>ChangeType</c> itself to the <see cref="TypeCode"/> types, <see cref="object"/>
+    /// and <see cref="Enum"/>, and handed to its own <c>ToType</c> for anything else, which is
+    /// <c>Convert.DefaultToType</c> and refuses every such type. Between two <see cref="TypeCode"/> types the
+    /// refusals are the fixed cells of the <see cref="IConvertible"/> matrix, and a string is the target's own
+    /// <c>Parse</c>, asked here through the matching <c>TryParse</c>.
+    /// </para>
+    /// <para>
+    /// A host type implementing <see cref="IConvertible"/> answers <c>ToType</c> itself, so it is never refused.
+    /// <c>InteropOverloadProbeExceptionTests</c> holds every refusal to the call itself, on each target framework.
+    /// </para>
+    /// </remarks>
+    internal static bool ChangeTypeMustFail(object value, Type targetType, IFormatProvider? provider)
+    {
+        var valueType = value.GetType();
+        if (valueType == targetType)
+        {
+            return false;
+        }
+
+        if (value is not IConvertible)
+        {
+            return true;
+        }
+
+        var valueCode = Type.GetTypeCode(valueType);
+        if (valueCode == TypeCode.Object)
+        {
+            return false;
+        }
+
+        // an enum reports its underlying type's code, but ChangeType converts to the TypeCode types themselves only
+        var targetCode = targetType.IsEnum ? TypeCode.Object : Type.GetTypeCode(targetType);
+        if (targetCode is TypeCode.Object or TypeCode.DBNull or TypeCode.Empty)
+        {
+            return targetType != typeof(object) && targetType != typeof(Enum);
+        }
+
+        if (valueCode == TypeCode.String)
+        {
+            return !CanParse((string) value, targetCode, provider);
+        }
+
+        return IsFixedRefusal(valueCode, targetCode);
+    }
+
+    /// <summary>
+    /// The fixed refusals of the <see cref="IConvertible"/> matrix: <see cref="DateTime"/> converts only to and from
+    /// <see cref="string"/>, and <see cref="char"/> refuses <see cref="bool"/>, the floating-point types and
+    /// <see cref="decimal"/> in both directions.
+    /// </summary>
+    private static bool IsFixedRefusal(TypeCode from, TypeCode to)
+    {
+        if (from == to)
+        {
+            return false;
+        }
+
+        if (from == TypeCode.DateTime || to == TypeCode.DateTime)
+        {
+            return from != TypeCode.String && to != TypeCode.String;
+        }
+
+        if (from == TypeCode.Char)
+        {
+            return to is TypeCode.Boolean or TypeCode.Single or TypeCode.Double or TypeCode.Decimal;
+        }
+
+        if (to == TypeCode.Char)
+        {
+            return from is TypeCode.Boolean or TypeCode.Single or TypeCode.Double or TypeCode.Decimal;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether <c>Convert.ChangeType</c> parses <paramref name="value"/> as the target: the styles are the ones
+    /// <c>Convert.ToInt32(string, IFormatProvider)</c> and its siblings pass to <c>Parse</c>.
+    /// </summary>
+    private static bool CanParse(string value, TypeCode targetCode, IFormatProvider? provider) => targetCode switch
+    {
+        TypeCode.Boolean => bool.TryParse(value, out _),
+        TypeCode.Char => value.Length == 1,
+        TypeCode.SByte => sbyte.TryParse(value, NumberStyles.Integer, provider, out _),
+        TypeCode.Byte => byte.TryParse(value, NumberStyles.Integer, provider, out _),
+        TypeCode.Int16 => short.TryParse(value, NumberStyles.Integer, provider, out _),
+        TypeCode.UInt16 => ushort.TryParse(value, NumberStyles.Integer, provider, out _),
+        TypeCode.Int32 => int.TryParse(value, NumberStyles.Integer, provider, out _),
+        TypeCode.UInt32 => uint.TryParse(value, NumberStyles.Integer, provider, out _),
+        TypeCode.Int64 => long.TryParse(value, NumberStyles.Integer, provider, out _),
+        TypeCode.UInt64 => ulong.TryParse(value, NumberStyles.Integer, provider, out _),
+        TypeCode.Single => float.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, provider, out _),
+        TypeCode.Double => double.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, provider, out _),
+        TypeCode.Decimal => decimal.TryParse(value, NumberStyles.Number, provider, out _),
+        TypeCode.DateTime => DateTime.TryParse(value, provider, DateTimeStyles.None, out _),
+        _ => true,
+    };
 
     internal static readonly HashSet<Type> GenericCollectionTypeDefinitions =
     [
