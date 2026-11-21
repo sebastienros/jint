@@ -1,10 +1,13 @@
-﻿using System.Text;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Jint.Collections;
 using Jint.Extensions;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -16,33 +19,313 @@ namespace Jint.Native.RegExp;
 public sealed partial class RegExpConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("RegExp");
-    private static readonly Regex DummyRegex = new("(?:)", RegexOptions.None, TimeSpan.FromSeconds(1));
 
     // RegExp legacy static properties ($1-$9, lastMatch, lastParen, leftContext, rightContext, input).
     // These are NOT Annex B — they come from the TC39 "RegExp Legacy Features" proposal
     // (https://github.com/tc39/proposal-regexp-legacy-features); ECMA-262's B.2.4 is the
     // Date.prototype additions.
-    internal string _legacyInput = "";
-    internal string _legacyLastParen = "";
-    internal readonly string[] _legacyParens = new string[9];
-    // Last match and left/right context are computed lazily from the match position, so those three
-    // cost nothing beyond the subject reference and two offsets stored per successful exec().
-    // Materializing them eagerly cost a Substring per exec() — for a match that spans most of a large
-    // subject that is a copy of the whole subject, paid whether or not anything ever reads them.
-    // The fields above are not lazy: $1-$9 and lastParen are copied out of the Match on every
-    // successful exec() (see RegExpPrototype.UpdateLegacyStaticProperties).
+    //
+    // A successful match records the subject, the position of the match, the number of captures and the
+    // (index, length) span of each of the first nine and of the last, which is all a read of any of these needs:
+    // every value is cut out of the subject when it is first read, and nothing is cut out for a match whose
+    // statics are never read. Strings are immutable, so a value cut out later is the one that would have been cut
+    // out then. The span array is this constructor's own and the next match overwrites it whole (count and spans
+    // together), so no read can see two matches mixed and nothing outlives the match that wrote it; the cut-out
+    // values are memoized per match so a second read of $1 is as cheap as it always was.
+    //
+    // A lane that never learns a match's captures records the search that finds it instead (SetLegacyPending): the
+    // regexp, its matcher, the subject and where to search from. test() asks its matcher only whether there is a
+    // match, and a global match or a plain-string replace asks it only for ranges, so recording the captures would
+    // cost every call a search no script may ever want the result of. The first read of a static runs that search
+    // (ResolveLegacyMatch) and fills in what a lane that had the captures would have recorded. A matcher is a pure
+    // function of its pattern, the subject and where the search starts, so the match it finds is the one the lane found.
+    //
+    // input is not part of that: it is written by every match and by the input/$_ setter, and the setter leaves
+    // the rest of the last match alone.
+    //
+    // A match by an instance a subclass allocated invalidates all of this (InvalidateLegacyProperties): the proposal
+    // sets the slots to empty, and a read of an empty slot throws a TypeError. input is a slot of its own in that:
+    // assigning to it makes it readable again while the others stay unreadable until the next successful match.
+    // The subject of the last match, which is what input reads; a script's assignment to input is kept beside it
+    // (null: none since the last match) so that a match stores one reference, not two.
     private string _legacyContextInput = "";
+    private string? _legacyInputAssigned;
     private int _legacyMatchIndex;
     private int _legacyMatchEnd;
-    internal string _legacyLastMatch => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchIndex, _legacyMatchEnd - _legacyMatchIndex) : "";
-    internal string _legacyLeftContext => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(0, _legacyMatchIndex) : "";
-    internal string _legacyRightContext => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchEnd) : "";
 
-    internal void SetLegacyContext(string input, int matchIndex, int matchLength)
+    private const int LegacyParenCapacity = 9;
+    private const int LegacyLastParenBit = 1 << LegacyParenCapacity;
+    private const int LegacyMatchInvalid = 1;
+    private const int LegacyInputInvalid = 2;
+
+    private readonly int[] _legacyParenSpans = new int[2 * LegacyParenCapacity];
+    private readonly string?[] _legacyParens = new string?[LegacyParenCapacity];
+    private string? _legacyLastParenValue;
+    // The captures of the last match, group 0 not counted: lastParen is the last of them, and $1-$9 the first nine.
+    private int _legacyCaptureCount;
+    // The span of the last capture, kept only when there are more than nine (otherwise it is _legacyParenSpans' last).
+    private int _legacyLastCaptureIndex;
+    private int _legacyLastCaptureLength;
+    // Bit i: _legacyParens[i] holds the memoized value of $(i + 1). LegacyLastParenBit: _legacyLastParenValue does.
+    private int _legacyMaterialized;
+    // LegacyMatchInvalid: the slots a match sets other than input are empty. LegacyInputInvalid: input is.
+    private int _legacyInvalid;
+
+    // The search a lane recorded in place of the match's captures, until the first read runs it. Null: nothing pending.
+    private JsRegExp? _legacyPendingRegExp;
+    private JintRegExpEngine? _legacyPendingMatcher;
+    private int _legacyPendingStart;
+    private bool _legacyPendingFind;
+
+    /// <summary>
+    /// Records a successful match of <paramref name="input"/> at <paramref name="matchIndex"/> in the statics.
+    /// <paramref name="groupCount"/> counts group 0 as well; the spans of the captures follow through
+    /// <see cref="SetLegacyParen"/>, one call for each of the first nine, and through
+    /// <see cref="SetLegacyLastCapture"/> when there are more than nine, before anything reads.
+    /// </summary>
+    internal void SetLegacyMatch(string input, int matchIndex, int matchLength, int groupCount)
     {
-        _legacyContextInput = input;
+        // A reference store into this long-lived object is a write barrier; the same subject again (a loop over one
+        // string) needs none.
+        if (!ReferenceEquals(_legacyContextInput, input))
+        {
+            _legacyContextInput = input;
+        }
+
+        _legacyInputAssigned = null;
         _legacyMatchIndex = matchIndex;
         _legacyMatchEnd = matchIndex + matchLength;
+        _legacyCaptureCount = System.Math.Max(groupCount - 1, 0);
+        _legacyInvalid = 0;
+        if (_legacyPendingRegExp is not null)
+        {
+            _legacyPendingRegExp = null;
+            _legacyPendingMatcher = null;
+        }
+
+        if (_legacyMaterialized != 0)
+        {
+            ForgetMaterializedParens();
+        }
+    }
+
+    /// <summary>
+    /// Records a successful match of <paramref name="input"/> as the search that finds it: <paramref name="matcher"/>
+    /// of <paramref name="regExp"/>, started at <paramref name="searchStart"/> (a forward search even for a sticky
+    /// matcher when <paramref name="find"/>, otherwise in the matcher's own mode). Nothing else about the match is
+    /// known until a static is read.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void SetLegacyPending(string input, JsRegExp regExp, JintRegExpEngine matcher, int searchStart, bool find)
+    {
+        // Each reference is stored only when it changes: a loop over one regexp and one subject stores none.
+        if (!ReferenceEquals(_legacyContextInput, input))
+        {
+            _legacyContextInput = input;
+        }
+
+        _legacyInputAssigned = null;
+        if (!ReferenceEquals(_legacyPendingRegExp, regExp))
+        {
+            _legacyPendingRegExp = regExp;
+        }
+
+        if (!ReferenceEquals(_legacyPendingMatcher, matcher))
+        {
+            _legacyPendingMatcher = matcher;
+        }
+
+        _legacyPendingStart = searchStart;
+        _legacyPendingFind = find;
+        _legacyInvalid = 0;
+        if (_legacyMaterialized != 0)
+        {
+            ForgetMaterializedParens();
+        }
+    }
+
+    /// <summary>
+    /// Records the span of capture <c>slot + 1</c> of the match <see cref="SetLegacyMatch"/> began; an
+    /// <paramref name="index"/> below zero says the group took no part in the match.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void SetLegacyParen(int slot, int index, int length)
+    {
+        var spans = _legacyParenSpans;
+        spans[2 * slot] = index;
+        spans[2 * slot + 1] = length;
+    }
+
+    /// <summary>
+    /// Records the span of the last capture of a match with more than nine, which <c>lastParen</c> still reports;
+    /// an <paramref name="index"/> below zero says that group took no part in the match.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void SetLegacyLastCapture(int index, int length)
+    {
+        _legacyLastCaptureIndex = index;
+        _legacyLastCaptureLength = length;
+    }
+
+    /// <summary>
+    /// InvalidateLegacyRegExpStaticProperties: every static is empty, so a read throws a <c>TypeError</c> until the next
+    /// successful match sets them again. Assigning <c>input</c> makes that one readable on its own.
+    /// </summary>
+    internal void InvalidateLegacyProperties()
+    {
+        _legacyInvalid = LegacyMatchInvalid | LegacyInputInvalid;
+        _legacyInputAssigned = null;
+        _legacyContextInput = "";
+        _legacyMatchIndex = 0;
+        _legacyMatchEnd = 0;
+        _legacyCaptureCount = 0;
+        _legacyPendingRegExp = null;
+        _legacyPendingMatcher = null;
+        ForgetMaterializedParens();
+    }
+
+    private void ThrowIfLegacyInvalid(int mask)
+    {
+        if ((_legacyInvalid & mask) != 0)
+        {
+            ThrowLegacyInvalid();
+        }
+    }
+
+    [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ThrowLegacyInvalid()
+    {
+        Throw.TypeError(_realm, "The legacy RegExp static properties are not available until the next successful match: the last one was made by an instance of a RegExp subclass, or could not be read back");
+    }
+
+    private void EnsureLegacyMatch()
+    {
+        if (_legacyPendingRegExp is not null)
+        {
+            ResolveLegacyMatch();
+        }
+    }
+
+    /// <summary>
+    /// Runs the search <see cref="SetLegacyPending"/> recorded and fills in the match, as the lane would have if it had
+    /// had the captures. The pending search is cleared first and the match is unreadable until the search answers, so a
+    /// search that throws (a regex timeout) leaves the statics throwing a <c>TypeError</c> - as after an invalidation, with
+    /// <c>input</c> still readable - rather than describing a match nobody found, or pending for ever.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ResolveLegacyMatch()
+    {
+        var regExp = _legacyPendingRegExp!;
+        var matcher = _legacyPendingMatcher!;
+        _legacyPendingRegExp = null;
+        _legacyPendingMatcher = null;
+        _legacyInvalid |= LegacyMatchInvalid;
+
+        var groups = new Jint.Runtime.RegExp.GregsEx.RegexCapture[matcher.CaptureCount];
+        if (!RegExpPrototype.ReplayLegacyMatch(regExp, matcher, _legacyContextInput, _legacyPendingStart, _legacyPendingFind, groups))
+        {
+            // The recorded search found a match, so its replay cannot miss; if it ever did, the spans held are an
+            // earlier match's, and this read must not cut them out of the new input.
+            ThrowLegacyInvalid();
+        }
+
+        _legacyMatchIndex = groups[0].Index;
+        _legacyMatchEnd = groups[0].Index + groups[0].Length;
+        var count = groups.Length - 1;
+        _legacyCaptureCount = count;
+        for (var slot = 0; slot < count && slot < LegacyParenCapacity; slot++)
+        {
+            var capture = groups[slot + 1];
+            SetLegacyParen(slot, capture.Participated ? capture.Index : -1, capture.Length);
+        }
+
+        if (count > LegacyParenCapacity)
+        {
+            var last = groups[count];
+            SetLegacyLastCapture(last.Participated ? last.Index : -1, last.Length);
+        }
+
+        _legacyInvalid &= ~LegacyMatchInvalid;
+    }
+
+    private string GetLegacyLastMatch()
+    {
+        EnsureLegacyMatch();
+        return _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchIndex, _legacyMatchEnd - _legacyMatchIndex) : "";
+    }
+
+    private string GetLegacyLeftContext()
+    {
+        EnsureLegacyMatch();
+        return _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(0, _legacyMatchIndex) : "";
+    }
+
+    private string GetLegacyRightContext()
+    {
+        EnsureLegacyMatch();
+        return _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchEnd) : "";
+    }
+
+    /// <summary>
+    /// <c>RegExp.$1</c>..<c>RegExp.$9</c> for <paramref name="slot"/> 0..8: the capture's text, or the empty string
+    /// for a group that took no part in the last match and for one the last match did not have.
+    /// </summary>
+    private string GetLegacyParen(int slot)
+    {
+        EnsureLegacyMatch();
+        if ((uint) slot >= (uint) _legacyCaptureCount)
+        {
+            return "";
+        }
+
+        if ((_legacyMaterialized & (1 << slot)) == 0)
+        {
+            MaterializeLegacyParen(slot);
+        }
+
+        return _legacyParens[slot]!;
+    }
+
+    /// <summary>
+    /// <c>RegExp.lastParen</c>: the last capture of the last match, whether or not it took part (then it is the
+    /// empty string), and the empty string for a match with no captures. UpdateLegacyRegExpStaticProperties step 9
+    /// of https://github.com/tc39/proposal-regexp-legacy-features.
+    /// </summary>
+    private string GetLegacyLastParen()
+    {
+        EnsureLegacyMatch();
+        var count = _legacyCaptureCount;
+        if (count <= LegacyParenCapacity)
+        {
+            // The last capture is one of the nine whose spans were kept (and none at all for a count of zero).
+            return count == 0 ? "" : GetLegacyParen(count - 1);
+        }
+
+        if ((_legacyMaterialized & LegacyLastParenBit) == 0)
+        {
+            _legacyLastParenValue = _legacyLastCaptureIndex < 0
+                ? ""
+                : _legacyContextInput.Substring(_legacyLastCaptureIndex, _legacyLastCaptureLength);
+            _legacyMaterialized |= LegacyLastParenBit;
+        }
+
+        return _legacyLastParenValue!;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void MaterializeLegacyParen(int slot)
+    {
+        var index = _legacyParenSpans[2 * slot];
+        _legacyParens[slot] = index < 0 ? "" : _legacyContextInput.Substring(index, _legacyParenSpans[2 * slot + 1]);
+        _legacyMaterialized |= 1 << slot;
+    }
+
+    private void ForgetMaterializedParens()
+    {
+        System.Array.Clear(_legacyParens, 0, _legacyParens.Length);
+        _legacyLastParenValue = null;
+        _legacyMaterialized = 0;
     }
 
     /// <summary>
@@ -52,17 +335,15 @@ public sealed partial class RegExpConstructor : Constructor
     /// </summary>
     internal void ResetLegacyProperties()
     {
-        _legacyInput = "";
-        _legacyLastParen = "";
-        var parens = _legacyParens;
-        for (var i = 0; i < parens.Length; i++)
-        {
-            parens[i] = "";
-        }
-
+        _legacyInputAssigned = null;
         _legacyContextInput = "";
         _legacyMatchIndex = 0;
         _legacyMatchEnd = 0;
+        _legacyCaptureCount = 0;
+        _legacyInvalid = 0;
+        _legacyPendingRegExp = null;
+        _legacyPendingMatcher = null;
+        ForgetMaterializedParens();
     }
 
     internal RegExpConstructor(
@@ -76,10 +357,6 @@ public sealed partial class RegExpConstructor : Constructor
         PrototypeObject = new RegExpPrototype(engine, realm, this, objectPrototype);
         _length = new PropertyDescriptor(2, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
-        for (var i = 0; i < 9; i++)
-        {
-            _legacyParens[i] = "";
-        }
     }
 
     internal RegExpPrototype PrototypeObject { get; }
@@ -88,11 +365,34 @@ public sealed partial class RegExpConstructor : Constructor
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
+        _builtInSpecies = _symbols![GlobalSymbolRegistry.Species];
         AddLegacyAccessors();
     }
 
     [JsSymbolAccessor("Species")]
     private static JsValue Species(JsValue thisObject) => thisObject;
+
+    // The @@species descriptor Initialize installed. A script cannot change which getter it holds in place: giving
+    // the accessor another getter, turning it into a data property and deleting it all store a different
+    // descriptor object (or remove the entry), so while this very instance is what the constructor holds, the
+    // getter is the built-in one that answers its receiver.
+    private PropertyDescriptor? _builtInSpecies;
+
+    /// <summary>
+    /// Whether <c>RegExp[@@species]</c> is still the built-in accessor, which answers its receiver, so that
+    /// <see cref="ObjectInstance.SpeciesConstructor"/> asked about a constructor of <c>RegExp</c> answers
+    /// <c>RegExp</c> without running script. Symbol-keyed properties move no version, so this reads the descriptor.
+    /// </summary>
+    internal bool HasDefaultSpecies
+    {
+        get
+        {
+            EnsureInitialized();
+            return _symbols is { } symbols
+                   && symbols.TryGetValue(GlobalSymbolRegistry.Species, out var descriptor)
+                   && ReferenceEquals(descriptor, _builtInSpecies);
+        }
+    }
 
     // Legacy static accessors (RegExp Legacy Features proposal). Kept hand-rolled rather than
     // [JsAccessor] because the accessor function names are non-identifier strings like
@@ -109,6 +409,8 @@ public sealed partial class RegExpConstructor : Constructor
             {
                 Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
             }
+
+            ThrowIfLegacyInvalid(LegacyMatchInvalid);
             return getter(this);
         }
 
@@ -124,12 +426,14 @@ public sealed partial class RegExpConstructor : Constructor
         var inputGetter = new ClrFunction(Engine, "get input", (thisObj, _) =>
         {
             if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
-            return (JsValue) _legacyInput;
+            ThrowIfLegacyInvalid(LegacyInputInvalid);
+            return (JsValue) (_legacyInputAssigned ?? _legacyContextInput);
         }, 0, LengthFlags);
         var inputSetter = new ClrFunction(Engine, "set input", (thisObj, args) =>
         {
             if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Setter called on non-RegExp constructor");
-            _legacyInput = TypeConverter.ToString(args.At(0));
+            _legacyInputAssigned = TypeConverter.ToString(args.At(0));
+            _legacyInvalid &= ~LegacyInputInvalid;
             return Undefined;
         }, 1, LengthFlags);
         var inputAccessor = new GetSetPropertyDescriptor(get: inputGetter, set: inputSetter, flags: PropertyFlag.Configurable);
@@ -142,7 +446,8 @@ public sealed partial class RegExpConstructor : Constructor
                 get: new ClrFunction(Engine, "", (thisObj, _) =>
                 {
                     if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
-                    return (JsValue) _legacyParens[i];
+                    ThrowIfLegacyInvalid(LegacyMatchInvalid);
+                    return (JsValue) GetLegacyParen(i);
                 }, 0, LengthFlags),
                 set: Undefined,
                 flags: PropertyFlag.Configurable);
@@ -150,14 +455,14 @@ public sealed partial class RegExpConstructor : Constructor
 
         SetProperty("input", inputAccessor);
         SetProperty("$_", inputAccessor);
-        SetProperty("lastMatch", CreateLegacyReadOnlyAccessor(static c => c._legacyLastMatch));
-        SetProperty("$&", CreateLegacyReadOnlyAccessor(static c => c._legacyLastMatch));
-        SetProperty("lastParen", CreateLegacyReadOnlyAccessor(static c => c._legacyLastParen));
-        SetProperty("$+", CreateLegacyReadOnlyAccessor(static c => c._legacyLastParen));
-        SetProperty("leftContext", CreateLegacyReadOnlyAccessor(static c => c._legacyLeftContext));
-        SetProperty("$`", CreateLegacyReadOnlyAccessor(static c => c._legacyLeftContext));
-        SetProperty("rightContext", CreateLegacyReadOnlyAccessor(static c => c._legacyRightContext));
-        SetProperty("$'", CreateLegacyReadOnlyAccessor(static c => c._legacyRightContext));
+        SetProperty("lastMatch", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLastMatch()));
+        SetProperty("$&", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLastMatch()));
+        SetProperty("lastParen", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLastParen()));
+        SetProperty("$+", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLastParen()));
+        SetProperty("leftContext", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLeftContext()));
+        SetProperty("$`", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyLeftContext()));
+        SetProperty("rightContext", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyRightContext()));
+        SetProperty("$'", CreateLegacyReadOnlyAccessor(static c => c.GetLegacyRightContext()));
         SetProperty("$1", CreateParenAccessor(0));
         SetProperty("$2", CreateParenAccessor(1));
         SetProperty("$3", CreateParenAccessor(2));
@@ -456,10 +761,6 @@ public sealed partial class RegExpConstructor : Constructor
         // This method is called when a RegExp object is created at run-time, e.g.,
         // `new RegExp("abc", "i")`, `RegExp("abc", "i")`, `/x/.compile("abc", "i")`, `"x".match("abc")`, etc.
 
-        // A previously host-supplied Regex is re-initialized from a JavaScript pattern here (compile),
-        // so it stops being a host regex and gets a real parse result below.
-        r.IsHostRegex = false;
-
         var p = pattern.IsUndefined() ? "" : TypeConverter.ToString(pattern);
         if (string.IsNullOrEmpty(p))
         {
@@ -468,64 +769,25 @@ public sealed partial class RegExpConstructor : Constructor
 
         var f = flags.IsUndefined() ? "" : TypeConverter.ToString(flags);
 
-        // Validate flags before attempting compilation - invalid flags should always be a SyntaxError
-
-        if (!Tokenizer.ValidateRegExp(p, f, out var error, Engine.BaseParserOptions.EcmaVersion, Engine.BaseParserOptions.ExperimentalESFeatures))
-        {
-            Throw.SyntaxError(_realm, error!.Description);
-        }
-
-        RegExpParseResult regExpParseResult = default;
-
-        // Both halves of how this pattern gets adapted — how it is code-generated and how long a match of it
-        // may run — come off the one conversion-options instance Jint binds its OnRegExp handler to, which
-        // resolved an explicit ScriptParsingOptions/ModuleParsingOptions RegexTimeout against
-        // Options.Constraints.RegexTimeout when the active script or module was parsed. The timeout used to
-        // be read from Acornima's own ParserOptions.RegexTimeout beside it, which Jint never assigns: every
-        // regex built at run time got the parser package's process-wide default instead of the budget the
-        // host configured, in both directions (sebastienros/jint#3431). The fallback covers parser options
-        // that did not come from Jint's handler, and a preparation, which has no engine to resolve a
-        // timeout against and so deliberately chooses none (sebastienros/jint#3442). It is the same
-        // expression RegExpPrototype.GetCustomEngineTimeout resolves at match time.
+        // The match timeout comes off the one conversion-options instance Jint binds its OnRegExp handler to,
+        // which resolved an explicit ScriptParsingOptions/ModuleParsingOptions RegexTimeout against
+        // Options.Constraints.RegexTimeout when the active script or module was parsed (sebastienros/jint#3431).
+        // A null instance - parser options that did not come from Jint's handler, or a preparation, which has no
+        // engine to resolve a timeout against (sebastienros/jint#3442) - leaves it on the engine's constraint,
+        // which RegExpPrototype.GetCustomEngineTimeout reads at match time. Compiling runs under the same budget.
         var conversionOptions = _engine.GetActiveParserOptions().OnRegExp?.Target as Engine.RegexConversionOptions;
-        var regexTimeout = Options.ConstraintOptions.NormalizeRegexTimeout(
-            conversionOptions?.Timeout ?? _engine.Options.Constraints.RegexTimeout);
 
-        if (!NeedCustomEngine(p, f))
-        {
-            // Dynamic patterns are data-driven and may never repeat, so they are never compiled eagerly:
-            // Adaptive interprets a pattern on its first construction and upgrades to RegexOptions.Compiled
-            // only once the process-wide cache proves reuse, which amortizes the one-time compilation cost.
-            // An explicit CompileRegex = false on the active parsing options opts out entirely.
-            var compilation = conversionOptions?.Compilation == RegexCompilation.Interpreted
-                ? RegexCompilation.Interpreted
-                : RegexCompilation.Adaptive;
+        // Compiling is also what validates: the flags and the pattern's early errors are both the matcher's
+        // to report, so a pattern is parsed once rather than once by Acornima and again here.
+        r.Matcher = RegExpParseCache.GetOrCompile(_realm, p, f, Engine.RegexConversionOptions.ResolveTimeout(conversionOptions, _engine));
 
-            regExpParseResult = RegExpParseCache.GetOrAdapt(p, f, compilation, regexTimeout);
-
-            if (regExpParseResult.Success)
-            {
-                r.Value = regExpParseResult.Regex!;
-                r.ParseResult = regExpParseResult;
-            }
-        }
-
-        if (!regExpParseResult.Success)
-        {
-            var customEngine = TryCompileWithCustomEngine(_realm, p, f, regexTimeout);
-
-            // Carry the conversion options forward the way JintLiteralExpression does, so that the budget
-            // the pattern was compiled under is the one every later match of it runs under: the custom
-            // engine has no MatchTimeout of its own to embed the value in, so RegExpPrototype reads it back
-            // from here. A null instance leaves that read on its engine-constraint fallback, which is what
-            // this timeout was derived from anyway.
-            regExpParseResult = RegExpParseResult.ForSuccess(customEngine, additionalData: conversionOptions);
-
-            // Set Value to a dummy regex to avoid null reference in code paths that read it
-            // but won't actually use it (since UsesDotNetEngine will be false)
-            r.Value = DummyRegex;
-            r.ParseResult = regExpParseResult;
-        }
+        // A previously host-supplied Regex is re-initialized from a JavaScript pattern here (compile), so it stops
+        // being a host regex only now. Everything above can throw or run script (ToString on the pattern or the
+        // flags, an invalid pattern, a compile that outran its budget), and RegExpInitialize assigns nothing to the
+        // object until the last of those has passed (https://tc39.es/ecma262/#sec-regexpinitialize), so an abrupt
+        // completion must leave a host Regex still matching, and script run above must still see it as one.
+        r.HostRegex = null;
+        r.ConversionOptions = conversionOptions;
 
         // The pattern may contain characters that are not valid in a regexp literal ('/' and new line characters),
         // so such cases needs to be escaped.
@@ -544,810 +806,6 @@ public sealed partial class RegExpConstructor : Constructor
         }
 
         return r;
-    }
-
-    /// <summary>
-    /// Validate regex flags per ECMAScript spec: only "dgimsuvy" allowed, no duplicates,
-    /// u and v are mutually exclusive.
-    /// </summary>
-    private void ValidateFlags(string flags)
-    {
-        var seen = 0;
-        foreach (var c in flags)
-        {
-            var bit = c switch
-            {
-                'd' => 1,
-                'g' => 2,
-                'i' => 4,
-                'm' => 8,
-                's' => 16,
-                'u' => 32,
-                'v' => 64,
-                'y' => 128,
-                _ => -1,
-            };
-
-            if (bit < 0)
-            {
-                Throw.SyntaxError(_realm, $"Invalid regular expression flags: {flags}");
-            }
-
-            if ((seen & bit) != 0)
-            {
-                Throw.SyntaxError(_realm, $"Invalid regular expression flags: {flags}");
-            }
-
-            seen |= bit;
-        }
-
-        // u and v are mutually exclusive
-        if ((seen & 32) != 0 && (seen & 64) != 0)
-        {
-            Throw.SyntaxError(_realm, $"Invalid regular expression flags: {flags}");
-        }
-    }
-
-    /// <summary>
-    /// Detect patterns where .NET Regex produces semantically incorrect results
-    /// compared to ECMAScript specification. These patterns need the custom engine.
-    /// </summary>
-    internal static bool NeedCustomEngine(string pattern, string flags)
-    {
-        // Unicode modes: Although Acornima implements a best-effort conversion for
-        // flag u patterns, it's not possible to produce standards-compliant results
-        // in most of the cases. Conversion of flag v patterns is not supported at all.
-        if (flags.Contains('u') || flags.Contains('v'))
-        {
-            return true;
-        }
-
-        // Case-insensitive matching that reaches across the ASCII boundary: .NET IgnoreCase groups
-        // characters that the spec's Canonicalize keeps apart in non-unicode mode, where it is
-        // toUpperCase with a hard barrier rather than Unicode case folding. Only the verdict that holds
-        // for every subject takes the pattern away from .NET here; the subject-dependent one keeps the
-        // .NET engine and is resolved per match, see JsRegExp.NeedsCaseFoldingFallback.
-        if (flags.Contains('i') && GetCaseFoldingHazard(pattern) == CaseFoldingHazard.Always)
-        {
-            return true;
-        }
-
-        // Check for further non-compliant cases by scanning the pattern.
-        //
-        // The main hazard is repeated groups. ECMAScript clears the captures made inside a
-        // quantified group at the start of every iteration (RepeatMatcher, step 4) whereas
-        // .NET retains captures from earlier iterations, and .NET records an empty capture
-        // when an iteration of a quantified capturing group matches the empty string whereas
-        // ECMAScript rejects empty iterations. A quantified group is therefore only safe for
-        // .NET when its body contains no capturing groups or lookaround assertions and, if
-        // the group itself is capturing, when its body cannot match the empty string.
-
-        const int nonCapturingGroup = 0;
-        const int capturingGroup = 1;
-        const int lookaheadAssertion = 2;
-        const int lookbehindAssertion = 3;
-
-        List<int>? capturingGroups = null;
-        Dictionary<string, int>? namedGroupNumbers = null;
-        var groupStack = new RefStack<GroupScanState>();
-
-        for (int i = 0; i < pattern.Length; i++)
-        {
-            char ch = pattern[i], next;
-
-            if (ch == '\\' && i + 1 < pattern.Length)
-            {
-                next = pattern[i + 1];
-                if (next >= '1' && next <= '9')
-                {
-                    int refNum = 0;
-                    int j = i + 1;
-                    while (j < pattern.Length && pattern[j] >= '0' && pattern[j] <= '9')
-                    {
-                        refNum = refNum * 10 + (pattern[j] - '0');
-                        j++;
-                    }
-
-                    if (capturingGroups is null || refNum > capturingGroups.Count || capturingGroups![refNum - 1] < 0)
-                    {
-                        // Forward or self backreference
-                        return true;
-                    }
-
-                    foreach (var item in groupStack)
-                    {
-                        if (item.Type == lookbehindAssertion)
-                        {
-                            // Backreference in lookbehind
-                            return true;
-                        }
-                    }
-
-                    i = j - 1; // skip past parsed digits
-                    // A backreference may match the empty string, so it doesn't affect nullability.
-                    TryConsumeQuantifier(pattern, ref i, out _);
-                    continue;
-                }
-
-                if (next == 'k' && i + 2 < pattern.Length && pattern[i + 2] == '<')
-                {
-                    int nameStart = i + 3;
-                    int nameEnd = pattern.IndexOf('>', nameStart);
-                    if (nameEnd > nameStart)
-                    {
-                        var name = pattern.Substring(nameStart, nameEnd - nameStart);
-                        if (namedGroupNumbers is null || !namedGroupNumbers.TryGetValue(name, out var number) || capturingGroups![number - 1] < 0)
-                        {
-                            // Forward or self named backreference
-                            return true;
-                        }
-                    }
-                    else
-                    {
-                        nameEnd = nameStart + 1;
-                    }
-
-                    foreach (var item in groupStack)
-                    {
-                        if (item.Type == lookbehindAssertion)
-                        {
-                            // Named backreference in lookbehind
-                            return true;
-                        }
-                    }
-
-                    i = nameEnd;
-                    // A backreference may match the empty string, so it doesn't affect nullability.
-                    TryConsumeQuantifier(pattern, ref i, out _);
-                    continue;
-                }
-
-                if (next is 'b' or 'B')
-                {
-                    // Zero-width assertion, doesn't affect nullability.
-                    i++;
-                    TryConsumeQuantifier(pattern, ref i, out _);
-                    continue;
-                }
-
-                // A consuming escape atom; skip the whole escape sequence so that a quantifier
-                // following it is attributed to the atom (e.g. in \u0041* the quantifier repeats U+0041).
-                i++;
-                switch (next)
-                {
-                    case 'x':
-                        if (i + 2 < pattern.Length && HexDigitValue(pattern[i + 1]) >= 0 && HexDigitValue(pattern[i + 2]) >= 0)
-                        {
-                            i += 2;
-                        }
-                        break;
-                    case 'u':
-                        if (i + 4 < pattern.Length
-                            && HexDigitValue(pattern[i + 1]) >= 0 && HexDigitValue(pattern[i + 2]) >= 0
-                            && HexDigitValue(pattern[i + 3]) >= 0 && HexDigitValue(pattern[i + 4]) >= 0)
-                        {
-                            i += 4;
-                        }
-                        break;
-                    case 'c':
-                        if (i + 1 < pattern.Length && pattern[i + 1] is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z'))
-                        {
-                            i++;
-                        }
-                        break;
-                    case '0':
-                        // Annex B legacy octal escape allows up to two more octal digits.
-                        for (int digits = 0; digits < 2 && i + 1 < pattern.Length && pattern[i + 1] is >= '0' and <= '7'; digits++)
-                        {
-                            i++;
-                        }
-                        break;
-                }
-
-                HandleConsumingAtom(pattern, ref i, groupStack);
-                continue;
-            }
-
-            if (ch == '[')
-            {
-                // A character class is a single consuming atom; skip to its unescaped ']'.
-                int j = i + 1;
-                while (j < pattern.Length)
-                {
-                    if (pattern[j] == '\\')
-                    {
-                        j++;
-                    }
-                    else if (pattern[j] == ']')
-                    {
-                        break;
-                    }
-                    j++;
-                }
-
-                i = j;
-                HandleConsumingAtom(pattern, ref i, groupStack);
-                continue;
-            }
-
-            if (ch == '(')
-            {
-                int groupNumber = 0;
-                int groupType = nonCapturingGroup;
-
-                if (i + 1 >= pattern.Length || pattern[i + 1] != '?')
-                {
-                    (capturingGroups ??= new()).Add(-1);
-                    groupNumber = capturingGroups.Count;
-                    groupType = capturingGroup;
-                }
-                else if (i + 2 < pattern.Length)
-                {
-                    next = pattern[i + 2];
-                    if (next == '<')
-                    {
-                        int nameStart = i + 3;
-                        if (nameStart < pattern.Length)
-                        {
-                            int nameEnd;
-                            if (pattern[nameStart] is '=' or '!')
-                            {
-                                groupType = lookbehindAssertion;
-                                i += 3; // skip "?<=" / "?<!"
-                            }
-                            else if ((nameEnd = pattern.IndexOf('>', nameStart)) > nameStart)
-                            {
-                                // Found (?<name>
-                                (capturingGroups ??= new()).Add(-1);
-                                groupNumber = capturingGroups.Count;
-                                groupType = capturingGroup;
-
-                                var name = pattern.Substring(nameStart, nameEnd - nameStart);
-                                namedGroupNumbers ??= new(StringComparer.Ordinal);
-
-                                if (!namedGroupNumbers.TryAdd(name, groupNumber))
-                                {
-                                    // Duplicate named group
-                                    return true;
-                                }
-
-                                i = nameEnd;
-                            }
-                        }
-                    }
-                    else if (next is '=' or '!')
-                    {
-                        groupType = lookaheadAssertion;
-                        i += 2; // skip "?=" / "?!"
-                    }
-                    else if (next == ':')
-                    {
-                        i += 2; // skip "?:"
-                    }
-                    else if (next is 'i' or 'm' or 's' or '-')
-                    {
-                        // Inline modifier group (?ims-ims: ... )
-                        int j = i + 2;
-                        do
-                        {
-                            if (pattern[j] == 'i')
-                            {
-                                // Case insensitive modifier
-                                return true;
-                            }
-                            j++;
-                        }
-                        while (j < pattern.Length && pattern[j] is 'i' or 'm' or 's' or '-');
-
-                        if (j < pattern.Length && pattern[j] == ':')
-                        {
-                            // Acornima adapts m/s modifier groups compliantly, skip the header.
-                            i = j;
-                        }
-                    }
-                }
-
-                // GroupScanState is a deliberately mutable scan cursor (updated in place via ref while
-                // scanning the group body), so it cannot be a readonly struct as MA0168 would prefer.
-#pragma warning disable MA0168
-                groupStack.Push(new GroupScanState { Number = groupNumber, Type = groupType, CurrentBranchNullable = true });
-#pragma warning restore MA0168
-                continue;
-            }
-
-            if (ch == ')')
-            {
-                if (groupStack._size == 0)
-                {
-                    continue;
-                }
-
-                var group = groupStack.Pop();
-                var groupNullable = group.AnyBranchNullable || group.CurrentBranchNullable;
-                var hasQuantifier = TryConsumeQuantifier(pattern, ref i, out var minCanBeZero);
-
-                if (hasQuantifier)
-                {
-                    if (group.Type is lookaheadAssertion or lookbehindAssertion)
-                    {
-                        // Quantified lookahead/lookbehind
-                        return true;
-                    }
-
-                    if ((group.BodyFlags & (GroupBodyFlags.ContainsCapture | GroupBodyFlags.ContainsLookaround)) != GroupBodyFlags.None)
-                    {
-                        // Repeated group containing capturing groups or lookaround assertions:
-                        // .NET retains captures from earlier iterations, ECMAScript resets them.
-                        return true;
-                    }
-
-                    if (groupNullable)
-                    {
-                        // Repeated group whose body may match the empty string diverges between .NET and
-                        // ECMAScript, so route it to the custom engine. Two distinct hazards:
-                        //  - a capturing body: .NET records an empty capture for an empty iteration,
-                        //    ECMAScript rejects empty iterations;
-                        //  - a non-capturing body: .NET's empty-subexpression loop protection stops the
-                        //    repetition at the first empty/zero-width alternative, whereas ECMAScript's
-                        //    RepeatMatcher prunes the empty iteration and backtracks into a later consuming
-                        //    alternative - so the *match itself* diverges, e.g. /(?:a*|b)*/ on "aaabbb"
-                        //    matches "aaabbb" per spec but only "aaa" under .NET.
-                        return true;
-                    }
-                }
-
-                if (group.Number > 0)
-                {
-                    capturingGroups![group.Number - 1] = i;
-                }
-
-                if (groupStack._size > 0)
-                {
-                    ref var parent = ref groupStack._array[groupStack._size - 1];
-                    parent.BodyFlags |= group.BodyFlags;
-
-                    if (group.Type is lookaheadAssertion or lookbehindAssertion)
-                    {
-                        // Lookarounds are zero-width, so they don't affect the parent's nullability.
-                        parent.BodyFlags |= GroupBodyFlags.ContainsLookaround;
-                    }
-                    else
-                    {
-                        if (group.Type == capturingGroup)
-                        {
-                            parent.BodyFlags |= GroupBodyFlags.ContainsCapture;
-                        }
-
-                        if (!groupNullable && !(hasQuantifier && minCanBeZero))
-                        {
-                            parent.CurrentBranchNullable = false;
-                        }
-                    }
-                }
-
-                continue;
-            }
-
-            if (ch == '|')
-            {
-                if (groupStack._size > 0)
-                {
-                    ref var top = ref groupStack._array[groupStack._size - 1];
-                    top.AnyBranchNullable |= top.CurrentBranchNullable;
-                    top.CurrentBranchNullable = true;
-                }
-                continue;
-            }
-
-            if (ch is '^' or '$')
-            {
-                // Zero-width assertion, doesn't affect nullability.
-                TryConsumeQuantifier(pattern, ref i, out _);
-                continue;
-            }
-
-            // Any other character is a consuming atom (a literal, '.', a lone '{', ...).
-            HandleConsumingAtom(pattern, ref i, groupStack);
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Consumes an optional quantifier following a consuming atom and updates the nullability
-    /// tracking of the innermost open group: the current alternative can no longer match the
-    /// empty string unless the atom was made optional by a min-zero quantifier.
-    /// </summary>
-    private static void HandleConsumingAtom(string pattern, ref int i, RefStack<GroupScanState> groupStack)
-    {
-        var optional = TryConsumeQuantifier(pattern, ref i, out var minCanBeZero) && minCanBeZero;
-        if (!optional && groupStack._size > 0)
-        {
-            groupStack._array[groupStack._size - 1].CurrentBranchNullable = false;
-        }
-    }
-
-    /// <summary>
-    /// Tries to consume a quantifier (*, +, ?, {n}, {n,}, {n,m}, each with an optional lazy '?'
-    /// suffix) following position <paramref name="i"/>, advancing <paramref name="i"/> past it
-    /// on success. A brace that doesn't form a well-formed interval quantifier is left in place
-    /// (Annex B treats it as a literal).
-    /// </summary>
-    private static bool TryConsumeQuantifier(string pattern, ref int i, out bool minCanBeZero)
-    {
-        minCanBeZero = false;
-
-        var j = i + 1;
-        if ((uint) j >= (uint) pattern.Length)
-        {
-            return false;
-        }
-
-        switch (pattern[j])
-        {
-            case '*':
-            case '?':
-                minCanBeZero = true;
-                break;
-
-            case '+':
-                break;
-
-            case '{':
-                var k = j + 1;
-                var sawDigit = false;
-                var minIsZero = true;
-                while (k < pattern.Length && pattern[k] is >= '0' and <= '9')
-                {
-                    if (pattern[k] != '0')
-                    {
-                        minIsZero = false;
-                    }
-                    sawDigit = true;
-                    k++;
-                }
-
-                if (!sawDigit)
-                {
-                    return false;
-                }
-
-                if (k < pattern.Length && pattern[k] == ',')
-                {
-                    k++;
-                    while (k < pattern.Length && pattern[k] is >= '0' and <= '9')
-                    {
-                        k++;
-                    }
-                }
-
-                if (k >= pattern.Length || pattern[k] != '}')
-                {
-                    return false;
-                }
-
-                minCanBeZero = minIsZero;
-                j = k;
-                break;
-
-            default:
-                return false;
-        }
-
-        if (j + 1 < pattern.Length && pattern[j + 1] == '?')
-        {
-            // Lazy quantifier suffix
-            j++;
-        }
-
-        i = j;
-        return true;
-    }
-
-    [Flags]
-    private enum GroupBodyFlags : byte
-    {
-        None = 0,
-        /// <summary>The group's body contains a capturing group (at any depth).</summary>
-        ContainsCapture = 1,
-        /// <summary>The group's body contains a lookaround assertion (at any depth).</summary>
-        ContainsLookaround = 2,
-    }
-
-    /// <summary>Scan state for one open group in <see cref="NeedCustomEngine"/>.</summary>
-    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-    private struct GroupScanState
-    {
-        /// <summary>1-based capturing group number, 0 for non-capturing groups and assertions.</summary>
-        public int Number;
-        /// <summary>One of the group type constants declared in <see cref="NeedCustomEngine"/>.</summary>
-        public int Type;
-        /// <summary>Hazards seen anywhere in the group's body so far.</summary>
-        public GroupBodyFlags BodyFlags;
-        /// <summary>Whether the current alternative may still match the empty string.</summary>
-        public bool CurrentBranchNullable;
-        /// <summary>Whether a completed alternative may match the empty string.</summary>
-        public bool AnyBranchNullable;
-    }
-
-    /// <summary>
-    /// How far .NET's case-insensitive matching of a pattern can drift from
-    /// <see href="https://tc39.es/ecma262/#sec-runtime-semantics-canonicalize-ch">Canonicalize</see>
-    /// in non-Unicode mode. Ordered by severity: a scan keeps the most severe verdict it finds.
-    /// </summary>
-    internal enum CaseFoldingHazard : byte
-    {
-        /// <summary>The two agree on every subject, so the pattern keeps the .NET engine unconditionally.</summary>
-        None,
-
-        /// <summary>
-        /// They agree on every subject free of <see cref="JsRegExp.CaseFoldingTriggers"/>. The pattern keeps
-        /// the .NET engine and only the rare subject that carries a trigger is diverted per match.
-        /// </summary>
-        SubjectDependent,
-
-        /// <summary>They can disagree on any subject at all, so the custom engine takes the pattern outright.</summary>
-        Always,
-    }
-
-    /// <summary>
-    /// Classify pattern content whose case-insensitive matching .NET resolves differently from
-    /// <see href="https://tc39.es/ecma262/#sec-runtime-semantics-canonicalize-ch">Canonicalize</see>
-    /// in non-Unicode mode, where Canonicalize is toUpperCase plus a hard barrier: a character at or
-    /// above U+0080 whose uppercase is a single code unit below U+0080 canonicalizes to itself (step 9).
-    /// .NET instead closes every character set in the pattern under its own case-equivalence relation.
-    /// <list type="bullet">
-    /// <item><description>
-    /// <see cref="CaseFoldingHazard.Always"/> for any non-ASCII code point, written literally or as a
-    /// <c>\uXXXX</c>, <c>\u{XXXX}</c> or <c>\xNN</c> escape: there the barrier keeps U+00DF and U+1E9E,
-    /// or U+00E5 and U+212B, distinct while .NET groups them. Also for a decimal escape, which is either
-    /// a backreference or an Annex B legacy octal escape denoting any code point up to U+00FF (telling
-    /// the two apart needs the capture-group count). And for <c>\W</c>, which is the one construct the
-    /// adapter expands into a *positive* class spanning the whole BMP while excluding the ASCII word
-    /// characters, so closing it pulls those characters back in and <c>/\W/i</c> matches <c>k</c> on
-    /// .NET 7+ and <c>I</c> on .NET Framework - a divergence an all-ASCII subject already shows, which
-    /// no check on the subject could catch.
-    /// </description></item>
-    /// <item><description>
-    /// <see cref="CaseFoldingHazard.SubjectDependent"/> for an all-ASCII pattern that can match <c>K</c>
-    /// or <c>k</c> - as a literal, through a class range covering one, or through <c>\w</c> - and for the
-    /// word-boundary assertions. Closing an all-ASCII set can only ever add a
-    /// <see cref="JsRegExp.CaseFoldingTriggers">trigger</see> to it, and the barrier keeps the spec from
-    /// mapping any non-ASCII subject character onto an ASCII one, so the two engines provably agree on
-    /// every subject that carries no trigger.
-    /// </description></item>
-    /// </list>
-    /// <para>
-    /// Only consulted for a pattern that already carries the <c>i</c> flag and neither <c>u</c> nor
-    /// <c>v</c> (those go to the custom engine regardless), so a pattern without <c>i</c> never pays for
-    /// this scan and never loses the .NET engine over a character that only matters when folding.
-    /// </para>
-    /// </summary>
-    private static CaseFoldingHazard GetCaseFoldingHazard(string pattern)
-    {
-        // Kelvin sign folding partners: the only ASCII characters .NET puts in a case-equivalence class
-        // with a non-ASCII one.
-        const int KelvinPartnerUpper = 'K';
-        const int KelvinPartnerLower = 'k';
-
-        var worst = CaseFoldingHazard.None;
-        var inClass = false;
-
-        // Code point a following '-' would open a class range from, or -1 when the preceding element
-        // cannot be a range bound (a class escape, or a range that just closed).
-        var rangeStart = -1;
-        var inRange = false;
-
-        for (var i = 0; i < pattern.Length; i++)
-        {
-            var ch = pattern[i];
-            int codePoint;
-
-            if (ch == '\\')
-            {
-                if (!TryDecodeEscape(pattern, ref i, out codePoint, out var escapeHazard))
-                {
-                    if (escapeHazard == CaseFoldingHazard.Always)
-                    {
-                        return CaseFoldingHazard.Always;
-                    }
-
-                    if (escapeHazard > worst)
-                    {
-                        worst = escapeHazard;
-                    }
-
-                    // A class escape (\d, \w, ...) stands for a set, so it cannot be a range bound.
-                    rangeStart = -1;
-                    inRange = false;
-                    continue;
-                }
-            }
-            else if (!inClass && ch == '[')
-            {
-                inClass = true;
-                rangeStart = -1;
-                inRange = false;
-                continue;
-            }
-            else if (inClass && ch == ']')
-            {
-                inClass = false;
-                rangeStart = -1;
-                inRange = false;
-                continue;
-            }
-            else if (inClass && ch == '-' && rangeStart >= 0)
-            {
-                inRange = true;
-                continue;
-            }
-            else
-            {
-                codePoint = ch;
-            }
-
-            if (codePoint > 0x7F)
-            {
-                return CaseFoldingHazard.Always;
-            }
-
-            if (inRange)
-            {
-                // An inverted range is a SyntaxError the parser rejects, so it needs no special care here.
-                if ((rangeStart <= KelvinPartnerUpper && KelvinPartnerUpper <= codePoint)
-                    || (rangeStart <= KelvinPartnerLower && KelvinPartnerLower <= codePoint))
-                {
-                    worst = CaseFoldingHazard.SubjectDependent;
-                }
-
-                rangeStart = -1;
-                inRange = false;
-                continue;
-            }
-
-            if (codePoint == KelvinPartnerUpper || codePoint == KelvinPartnerLower)
-            {
-                worst = CaseFoldingHazard.SubjectDependent;
-            }
-
-            rangeStart = codePoint;
-        }
-
-        return worst;
-    }
-
-    /// <summary>
-    /// Whether a case-insensitive pattern keeps the .NET engine but has to be diverted to the custom one
-    /// for a subject carrying a <see cref="JsRegExp.CaseFoldingTriggers">trigger</see>.
-    /// </summary>
-    internal static bool HasSubjectDependentCaseFoldingHazard(string pattern, string flags)
-        => flags.Contains('i')
-           && !flags.Contains('u')
-           && !flags.Contains('v')
-           && GetCaseFoldingHazard(pattern) == CaseFoldingHazard.SubjectDependent;
-
-    /// <summary>
-    /// Decode the escape sequence starting at the backslash <paramref name="i"/> points at, leaving
-    /// <paramref name="i"/> on its last character. Returns <see langword="true"/> with the single code
-    /// point the escape denotes and <paramref name="hazard"/> set to <see cref="CaseFoldingHazard.None"/>,
-    /// leaving the caller to judge that code point. Returns <see langword="false"/> for an escape that
-    /// denotes no single character, with <paramref name="hazard"/> carrying its own verdict.
-    /// </summary>
-    private static bool TryDecodeEscape(string pattern, ref int i, out int codePoint, out CaseFoldingHazard hazard)
-    {
-        hazard = CaseFoldingHazard.None;
-        codePoint = 0;
-
-        if (i + 1 >= pattern.Length)
-        {
-            // Trailing backslash: not a valid pattern, and the parser has the final say on that.
-            codePoint = '\\';
-            return true;
-        }
-
-        var ch = pattern[i + 1];
-        i++;
-
-        switch (ch)
-        {
-            case >= '0' and <= '9':
-                hazard = CaseFoldingHazard.Always;
-                return false;
-
-            case 'W':
-                hazard = CaseFoldingHazard.Always;
-                return false;
-
-            case 'w':
-                // The word-character set contains 'k' and 'K'.
-                hazard = CaseFoldingHazard.SubjectDependent;
-                return false;
-
-            case 'b' or 'B':
-                // The word-boundary assertions classify their neighbours with .NET's own word-character
-                // set, which under IgnoreCase takes in U+0130 on every target framework.
-                hazard = CaseFoldingHazard.SubjectDependent;
-                return false;
-
-            case 'k':
-                // Either a named backreference or, under Annex B, an IdentityEscape for 'k'. Both carry
-                // the same hazard as a literal 'k', so the two readings agree.
-                hazard = CaseFoldingHazard.SubjectDependent;
-                return false;
-
-            case 'u' when i + 1 < pattern.Length && pattern[i + 1] == '{':
-                return TryDecodeBracedUnicodeEscape(pattern, ref i, out codePoint);
-
-            case 'u' when i + 4 < pattern.Length
-                          && HexDigitValue(pattern[i + 1]) >= 0 && HexDigitValue(pattern[i + 2]) >= 0
-                          && HexDigitValue(pattern[i + 3]) >= 0 && HexDigitValue(pattern[i + 4]) >= 0:
-                codePoint = (HexDigitValue(pattern[i + 1]) << 12)
-                            | (HexDigitValue(pattern[i + 2]) << 8)
-                            | (HexDigitValue(pattern[i + 3]) << 4)
-                            | HexDigitValue(pattern[i + 4]);
-                i += 4;
-                return true;
-
-            case 'x' when i + 2 < pattern.Length
-                          && HexDigitValue(pattern[i + 1]) >= 0 && HexDigitValue(pattern[i + 2]) >= 0:
-                codePoint = (HexDigitValue(pattern[i + 1]) << 4) | HexDigitValue(pattern[i + 2]);
-                i += 2;
-                return true;
-
-            case 'c' when i + 1 < pattern.Length && char.IsAsciiLetter(pattern[i + 1]):
-                // ControlLetter: always below U+0020.
-                i++;
-                return false;
-
-            case 'd' or 'D' or 's' or 'S' or 'p' or 'P':
-                return false;
-
-            default:
-                // IdentityEscape (including a malformed \u, \x or \c): the escape denotes the character.
-                codePoint = ch;
-                return true;
-        }
-    }
-
-    /// <summary>
-    /// Decode a braced unicode escape whose opening brace sits at <paramref name="i"/> + 1, leaving
-    /// <paramref name="i"/> on the closing brace. A sequence that is not well formed is an IdentityEscape
-    /// for <c>u</c> in a non-unicode pattern, which is what the parser makes of it too.
-    /// </summary>
-    private static bool TryDecodeBracedUnicodeEscape(string pattern, ref int i, out int codePoint)
-    {
-        var value = 0;
-        var j = i + 2;
-        while (j < pattern.Length && pattern[j] != '}')
-        {
-            var digit = HexDigitValue(pattern[j]);
-            if (digit < 0)
-            {
-                break;
-            }
-
-            value = (value << 4) | digit;
-            j++;
-        }
-
-        if (j < pattern.Length && pattern[j] == '}')
-        {
-            codePoint = value;
-            i = j;
-            return true;
-        }
-
-        codePoint = 'u';
-        return true;
-    }
-
-    private static int HexDigitValue(char c)
-    {
-        if (c >= '0' && c <= '9') return c - '0';
-        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-        return -1;
     }
 
     private static string EscapeRegExpSource(string source)
@@ -1412,44 +870,72 @@ AppendEscapedNewLine:
     }
 
     /// <summary>
-    /// Attempt to compile the regex pattern using the custom Jint regex engine.
+    /// Compiles a JavaScript pattern, throwing the <c>SyntaxError</c> the specification requires for invalid
+    /// flags or an early error in the pattern.
+    /// https://tc39.es/ecma262/#sec-regexpinitialize
     /// </summary>
-    internal static JintRegExpEngine TryCompileWithCustomEngine(Realm realm, string pattern, string flags, TimeSpan regexTimeout)
+    internal static JintRegExpEngine Compile(Realm realm, string pattern, string flags, TimeSpan timeout)
     {
-        try
+        var regExpFlags = ParseFlags(flags);
+        if (regExpFlags is not null)
         {
-            var regExpFlags = RegExpFlags.None;
-            foreach (var c in flags)
+            try
             {
-                regExpFlags |= c switch
-                {
-                    'g' => RegExpFlags.Global,
-                    'i' => RegExpFlags.IgnoreCase,
-                    'm' => RegExpFlags.Multiline,
-                    's' => RegExpFlags.DotAll,
-                    'u' => RegExpFlags.Unicode,
-                    'y' => RegExpFlags.Sticky,
-                    'd' => RegExpFlags.Indices,
-                    'v' => RegExpFlags.UnicodeSets,
-                    _ => RegExpFlags.None,
-                };
+                return JintRegExpEngine.Compile(pattern, regExpFlags.Value, timeout);
+            }
+            catch (RegExpSyntaxException ex)
+            {
+                ThrowSyntaxError(realm, pattern, flags, ex.Message);
+            }
+        }
+
+        ThrowSyntaxError(realm, pattern, flags, $"Invalid regular expression flags '{flags}'");
+        return null!;
+    }
+
+    [DoesNotReturn]
+    private static void ThrowSyntaxError(Realm realm, string pattern, string flags, string fallbackMessage)
+    {
+        // The matcher's diagnostics are structured codes rather than prose, so the message comes from
+        // Acornima's validator, which reads the same grammar; it is only consulted on this failure path.
+        var message = !Tokenizer.ValidateRegExp(pattern, flags, out var error, Engine.BaseParserOptions.EcmaVersion, Engine.BaseParserOptions.ExperimentalESFeatures)
+            ? error!.Description
+            : fallbackMessage;
+        Throw.SyntaxError(realm, message);
+    }
+
+    /// <summary>
+    /// Parses a flags string per https://tc39.es/ecma262/#sec-regexpinitialize step 5: only <c>dgimsuvy</c>,
+    /// none repeated, and not both <c>u</c> and <c>v</c>. Returns null when the string is invalid.
+    /// </summary>
+    internal static RegExpFlags? ParseFlags(string flags)
+    {
+        var result = RegExpFlags.None;
+        foreach (var c in flags)
+        {
+            var flag = c switch
+            {
+                'd' => RegExpFlags.Indices,
+                'g' => RegExpFlags.Global,
+                'i' => RegExpFlags.IgnoreCase,
+                'm' => RegExpFlags.Multiline,
+                's' => RegExpFlags.DotAll,
+                'u' => RegExpFlags.Unicode,
+                'v' => RegExpFlags.UnicodeSets,
+                'y' => RegExpFlags.Sticky,
+                _ => RegExpFlags.None,
+            };
+
+            if (flag == RegExpFlags.None || (result & flag) != RegExpFlags.None)
+            {
+                return null;
             }
 
-            using var cts = regexTimeout.TotalMilliseconds > 0 && regexTimeout != Timeout.InfiniteTimeSpan
-                ? new CancellationTokenSource(regexTimeout)
-                : null;
+            result |= flag;
+        }
 
-            return JintRegExpEngine.Compile(pattern, regExpFlags, cts?.Token ?? default);
-        }
-        catch (OperationCanceledException)
-        {
-            throw new RegexMatchTimeoutException(string.Empty, pattern, regexTimeout);
-        }
-        catch (RegExpSyntaxException ex)
-        {
-            Throw.SyntaxError(realm, ex.Message);
-            throw;
-        }
+        const RegExpFlags UnicodeModes = RegExpFlags.Unicode | RegExpFlags.UnicodeSets;
+        return (result & UnicodeModes) == UnicodeModes ? null : result;
     }
 
     /// <summary>
@@ -1463,60 +949,108 @@ AppendEscapedNewLine:
         return RegExpInitialize(r, pattern, flags);
     }
 
-    private JsRegExp RegExpAlloc(JsValue newTarget)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-regexpalloc
+    /// The object is not reachable from script until the <c>RegExpInitialize</c> that follows it, and the only
+    /// script that can run in between (reading <c>newTarget.prototype</c>) runs before the object exists. So
+    /// <paramref name="matcher"/> is the one the caller already holds, or <see langword="null"/> when the
+    /// initialization compiles it; no matcher is made up for an object nothing can match against yet.
+    /// </summary>
+    private JsRegExp RegExpAlloc(JsValue newTarget, JintRegExpEngine? matcher = null)
     {
+        // RegExpAlloc of the RegExp Legacy Features proposal: the instance remembers the realm of the constructor that
+        // allocated it, and keeps the legacy features only when that constructor is %RegExp% itself rather than a
+        // subclass (or any other newTarget).
         if (ReferenceEquals(newTarget, this))
         {
-            return new JsRegExp(_engine)
+            return new JsRegExp(_engine, this, matcher)
             {
                 _prototype = PrototypeObject
             };
         }
 
+        // The factory is handed the realm of this constructor, whose %RegExp% is this.
         var r = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.RegExp.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new JsRegExp(engine));
+            static (Engine engine, Realm realm, JintRegExpEngine? initial) => new JsRegExp(engine, realm.Intrinsics.RegExp, initial),
+            matcher);
+        r.LegacyFeaturesEnabled = false;
         return r;
     }
 
-    internal JsRegExp Construct(RegExpParseResult parseResult, string source, string flags)
+    internal JsRegExp Construct(JintRegExpEngine matcher, Engine.RegexConversionOptions? conversionOptions, string source, string flags)
     {
         // This method is called to create a JsRegExp object from a regexp literal, e.g., `/abc/i`.
 
-        var r = RegExpAlloc(this);
-        r.Value = parseResult.Regex ?? DummyRegex;
+        var r = RegExpAlloc(this, matcher);
+        r.ConversionOptions = conversionOptions;
 
         // Source is already a valid, properly escaped JS regexp pattern.
         r.Source = source;
         r.Flags = flags;
 
-        r.ParseResult = parseResult;
         RegExpInitialize(r);
         return r;
     }
 
+    /// <summary>
+    /// Creates a <c>RegExp</c> from a host-supplied .NET <see cref="Regex"/>, as
+    /// <see cref="Options.InteropOptions.RegexConversion"/> directs.
+    /// </summary>
     public JsRegExp Construct(Regex regExp, string source = "?[native regex]", string flags = "")
     {
-        // This method is called to create a JsRegExp object from a .NET Regex directly.
+        if (_engine.Options.Interop.RegexConversion == RegexConversionMode.EcmaScript)
+        {
+            return ConstructFromHostRegexAsEcmaScript(regExp);
+        }
 
         var r = RegExpAlloc(this);
-        r.Value = regExp;
 
-        // There is no JavaScript pattern to adapt, so there is no RegExpParseResult either: mark the
-        // instance so the prototype lanes route to the .NET engine (rather than dereferencing an absent
-        // custom engine) and read capture-group metadata off the Regex.
-        r.IsHostRegex = true;
+        // The host's own .NET pattern keeps .NET semantics: the prototype lanes route a host regex to the
+        // .NET engine and read its capture-group metadata off the Regex.
+        r.HostRegex = regExp;
 
         // We shouldn't return the .NET pattern as if it were a JS pattern since that would be
-        // incorrect and misleading. We could try to convert the .NET pattern to a JS one,
-        // but that would be a huge (if not impossible) task. So let's use an invalid pattern
-        // giving a hint about the situation.
+        // incorrect and misleading, so the source is a deliberately invalid pattern giving a hint about the
+        // situation. RegexConversionMode.EcmaScript is the opt-in that reads the pattern as ECMAScript instead.
         r.Source = source;
         r.Flags = flags;
 
         RegExpInitialize(r);
 
+        return r;
+    }
+
+    private JsRegExp ConstructFromHostRegexAsEcmaScript(Regex regExp)
+    {
+        // ECMAScript only narrows .NET's own syntax toward JavaScript's, and Compiled and CultureInvariant only say how
+        // .NET runs the pattern, so all three translate to nothing.
+        const RegexOptions Translatable = RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Singleline
+                                          | RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ECMAScript;
+        var options = regExp.Options;
+        if ((options & ~Translatable) != RegexOptions.None)
+        {
+            Throw.SyntaxError(_realm, $"The .NET regex option(s) '{options & ~Translatable}' have no ECMAScript equivalent");
+        }
+
+        var flags = string.Concat(
+            (options & RegexOptions.IgnoreCase) != RegexOptions.None ? "i" : "",
+            (options & RegexOptions.Multiline) != RegexOptions.None ? "m" : "",
+            (options & RegexOptions.Singleline) != RegexOptions.None ? "s" : "");
+
+        var pattern = regExp.ToString();
+        var r = RegExpAlloc(this);
+        // The host chose a match timeout for this Regex; it keeps applying, to compiling it and to every match.
+        if (regExp.MatchTimeout != Regex.InfiniteMatchTimeout)
+        {
+            r.ConversionOptions = new Engine.RegexConversionOptions(Options.ConstraintOptions.NormalizeRegexTimeout(regExp.MatchTimeout));
+        }
+
+        r.Matcher = RegExpParseCache.GetOrCompile(_realm, pattern, flags, Engine.RegexConversionOptions.ResolveTimeout(r.ConversionOptions, _engine));
+        r.Source = EscapeRegExpSource(pattern.Length == 0 ? JsRegExp.regExpForMatchingAllCharacters : pattern);
+        r.Flags = flags;
+        RegExpInitialize(r);
         return r;
     }
 

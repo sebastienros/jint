@@ -1,0 +1,6 @@
+# Sources under this directory are copied from GregsEx (https://github.com/sebastienros/gregsex) and kept
+# as close to upstream as the downlevel targets allow, so that a later sync is a diff rather than a rewrite.
+# Marking them as generated code keeps Jint's style analyzers off them; compiler diagnostics, including
+# nullable analysis, still apply with TreatWarningsAsErrors. See README.md beside this file.
+[*.cs]
+generated_code = true

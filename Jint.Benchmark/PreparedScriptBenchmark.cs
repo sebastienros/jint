@@ -32,33 +32,23 @@ public class PreparedScriptBenchmark
     [Benchmark(Baseline = true)]
     public void ExecuteStringOnMultipleEngines()
     {
-        RenderTemplates(prepareScript: false, compileRegex: false);
+        RenderTemplates(prepareScript: false);
     }
 
     [Benchmark]
-    public void ExecutePreparedWithoutRegexCompilationOnMultipleEngines()
+    public void ExecutePreparedOnMultipleEngines()
     {
-        RenderTemplates(prepareScript: true, compileRegex: false);
+        RenderTemplates(prepareScript: true);
     }
 
-    [Benchmark]
-    public void ExecutePreparedWithRegexCompilationOnMultipleEngines()
-    {
-        RenderTemplates(prepareScript: true, compileRegex: true);
-    }
-
-    private void RenderTemplates(bool prepareScript, bool compileRegex)
+    private void RenderTemplates(bool prepareScript)
     {
         // First engine: load library and render first item
         Prepared<Script> preparedLibrary = default;
         var engine = new Engine();
         if (prepareScript)
         {
-            var preparationOptions = new ScriptPreparationOptions
-            {
-                ParsingOptions = new ScriptParsingOptions { CompileRegex = compileRegex }
-            };
-            preparedLibrary = Engine.PrepareScript(_libraryCode, options: preparationOptions);
+            preparedLibrary = Engine.PrepareScript(_libraryCode);
             engine.Execute(preparedLibrary);
         }
         else

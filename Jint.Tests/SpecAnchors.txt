@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-11-14
-anchors: 1363
+anchors: 1367
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -200,6 +200,7 @@ ecma262 sec-bound-function-exotic-objects-call-thisargument-argumentslist
 ecma262 sec-bound-function-exotic-objects-construct-argumentslist-newtarget
 ecma262 sec-boundfunctioncreate
 ecma262 sec-built-in-function-objects
+ecma262 sec-built-in-function-objects-call-thisargument-argumentslist
 ecma262 sec-canbeheldweakly
 ecma262 sec-candeclareglobalvar
 ecma262 sec-canonicalizekeyedcollectionkey
@@ -674,14 +675,17 @@ ecma262 sec-reflect.defineproperty
 ecma262 sec-regexp-pattern-flags
 ecma262 sec-regexp-prototype-matchall
 ecma262 sec-regexp.escape
+ecma262 sec-regexp.prototype-%symbol.split%
 ecma262 sec-regexp.prototype-@@match
 ecma262 sec-regexp.prototype-@@replace
 ecma262 sec-regexp.prototype-@@search
 ecma262 sec-regexp.prototype-@@split
 ecma262 sec-regexp.prototype.compile
+ecma262 sec-regexpalloc
 ecma262 sec-regexpbuiltinexec
 ecma262 sec-regexpcreate
 ecma262 sec-regexpexec
+ecma262 sec-regexpinitialize
 ecma262 sec-rejectpromise
 ecma262 sec-requireobjectcoercible
 ecma262 sec-resolve-private-identifier
