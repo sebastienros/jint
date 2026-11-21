@@ -638,7 +638,7 @@ internal static class RegExpInterpreter
         ref int[] stackBuf,
         ref int[]? stackPooled,
         ref int sp,
-        Span<int> capture,
+        ReadOnlySpan<int> capture,
         int allocCount,
         int savedPc,
         int savedCindex,
