@@ -71,3 +71,18 @@ updates:
       actions:
         patterns:
           - "*"
+
+  # The same update for the 4.x maintenance branch. Dependabot reads this file from the default branch
+  # only, so a branch it should keep current needs an entry that names it. NuGet has no 4.x entry on
+  # purpose: a package that ships with 4.x moves there as a reviewed backport, and 4.x's test stack
+  # (xUnit v3) is not the one the groups above describe.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "4.x"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      actions:
+        patterns:
+          - "*"
