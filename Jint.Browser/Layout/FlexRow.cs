@@ -106,9 +106,25 @@ internal static class FlexRow
     internal static double BaseSize(Element child, double available, CssCascade.Traversal? cascade, Func<Element, double>? autoBasis)
     {
         var style = cascade?.LayoutOf(child);
-        var basis = style is null ? null : CssCascade.ValueOf(style, "flex-basis");
-        var width = style is null ? null : CssCascade.ValueOf(style, "width");
-        return Length(basis, available) ?? Length(width, available) ?? autoBasis?.Invoke(child) ?? FlatLayout.RowHeight;
+        return Resolved(style, "flex-basis", available, cascade) ?? Resolved(style, "width", available, cascade)
+            ?? autoBasis?.Invoke(child) ?? FlatLayout.RowHeight;
+    }
+
+    /// <summary>
+    /// A length property of a flex item in pixels, resolved as <c>getComputedStyle</c> resolves it — a pagination
+    /// button's <c>min-width: 2.5rem</c>, a filter's <c>flex: 0 0 8.5rem</c> — with a percentage of
+    /// <paramref name="available"/>; <see langword="null"/> for <c>auto</c>, <c>none</c> or a length that needs
+    /// layout.
+    /// </summary>
+    private static double? Resolved(Styling.NativeCssComputedStyle? style, string name, double available, CssCascade.Traversal? cascade)
+    {
+        if (style is null)
+        {
+            return null;
+        }
+
+        var viewport = Viewport.Default with { Width = (int) (cascade?.ReadContext?.ViewportWidth ?? Viewport.Default.Width) };
+        return Length(ResolvedLengths.Resolve(name, style.GetNormalizedProperty(name), style, viewport), available);
     }
 
     internal static double[] Widths(IReadOnlyList<Element> children, double available, CssCascade.Traversal? cascade, Func<Element, double>? autoBasis, Action? step = null, CancellationToken cancellationToken = default)
@@ -140,9 +156,9 @@ internal static class FlexRow
             // column holding a checkbox keeps its row, it does not collapse to nothing under its neighbour. An item
             // with no content has none to keep.
             var overflow = style is null ? null : CssCascade.ValueOf(style, "overflow-x");
-            explicitMinimums[i] = Length(style is null ? null : CssCascade.ValueOf(style, "min-width"), available);
-            maximums[i] = Length(style is null ? null : CssCascade.ValueOf(style, "max-width"), available);
-            var specified = Length(style is null ? null : CssCascade.ValueOf(style, "width"), available);
+            explicitMinimums[i] = Resolved(style, "min-width", available, cascade);
+            maximums[i] = Resolved(style, "max-width", available, cascade);
+            var specified = Resolved(style, "width", available, cascade);
             minimums[i] = explicitMinimums[i]
                 ?? (overflow is null or "" or "visible"
                     ? Math.Min(specified ?? FlatLayout.RowHeight, HasContent(children[i]) ? FlatLayout.RowHeight : 0)

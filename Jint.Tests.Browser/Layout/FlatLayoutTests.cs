@@ -551,6 +551,148 @@ public class FlatLayoutTests
     }
 
     /// <summary>
+    /// https://html.spec.whatwg.org/multipage/rendering.html#hidden-elements — the <c>hidden</c> attribute is the UA
+    /// sheet's <c>display: none</c>, which an author rule overrides: a search box shown while the page loads with
+    /// <c>display: block !important</c> keeps its box, and <c>checkVisibility()</c> says so. A plain
+    /// <c>hidden</c>, and <c>hidden="until-found"</c> (content-visibility: hidden), still have none.
+    /// </summary>
+    [Test]
+    public async Task AnAuthorRuleOverridesTheHiddenAttribute()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <style>.loading[hidden] { display: block !important }</style>
+            <div id="shown" class="loading" hidden>search</div>
+            <div id="gone" hidden>gone</div>
+            <div id="found" hidden="until-found">found</div>
+            <div id="after">after</div>
+            """);
+
+        (await Rect(page, "document.getElementById('shown')")).Should().Be($"0,{2 * Row},1280,{Row}");
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{3 * Row},1280,{Row}");
+        (await page.EvaluateAsync<int>("document.getElementById('gone').getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<int>("document.getElementById('found').getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<bool>("document.getElementById('shown').checkVisibility()")).Should().BeTrue();
+        (await page.EvaluateAsync<bool>("document.getElementById('gone').checkVisibility()")).Should().BeFalse();
+
+        // Without the author rule the attribute hides it again.
+        await page.EvaluateAsync("document.getElementById('shown').classList.remove('loading')");
+        (await page.EvaluateAsync<int>("document.getElementById('shown').getClientRects().length")).Should().Be(0);
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{2 * Row},1280,{Row}");
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-sizing-4/#aspect-ratio — a box with an authored aspect ratio and an auto height
+    /// is its used width divided by the ratio, reported exactly, and takes the rows that height covers: a card's
+    /// 16:9 image header as wide as the card. Taller content still wins, and an authored height is kept.
+    /// </summary>
+    [TestCase("aspect-ratio: 16 / 9", 180)]
+    [TestCase("aspect-ratio: 16/9", 180)]
+    [TestCase("aspect-ratio: auto 2 / 1", 160)]
+    [TestCase("aspect-ratio: 1.6", 200)]
+    [TestCase("aspect-ratio: 10", 48)]
+    [TestCase("aspect-ratio: 16 / 9; height: 40px", 48)]
+    public async Task AnAspectRatioGivesABoxItsHeight(string style, double height)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            $"""
+            <div style="width: 320px"><div id="art" style="{style}"><b>a</b><b>b</b></div><p id="after">after</p></div>
+            """);
+
+        // html, body, the card, then the header at 3 rows; its content is three rows (48 px).
+        (await Rect(page, "document.getElementById('art')")).Should().Be($"0,{3 * Row},320,{height}");
+        // What follows it starts where it ends.
+        (await Rect(page, "document.getElementById('after')")).Should().Be($"0,{(3 * Row) + height},320,{Row}");
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(100, {(3 * Row) + height + 4}).id")).Should().Be("after");
+
+        // The space below its content is the header's own.
+        if (height > 3 * Row)
+        {
+            (await page.EvaluateAsync<string>($"document.elementFromPoint(100, {(3 * Row) + height - 4}).id")).Should().Be("art");
+        }
+    }
+
+    /// <summary>
+    /// https://www.w3.org/TR/CSS2/visudet.html#abs-non-replaced-height — an absolutely positioned box with a
+    /// <c>top</c> sits that far below its containing block's top, and one with only a <c>bottom</c> ends that far
+    /// above its bottom, its descendants with it: badges laid along the bottom of a card's 16:9 header. One the
+    /// inset would move out of its containing block — a dropdown panel at <c>top: 100%</c> — keeps its row.
+    /// </summary>
+    [Test]
+    public async Task AnAbsoluteBoxIsPlacedByItsVerticalInsetInsideItsContainingBlock()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <div style="width: 320px"><div id="art" style="position: relative; aspect-ratio: 16 / 9">
+              <div id="caption" style="position: absolute; top: 40px">caption</div>
+              <div id="badges" style="position: absolute; bottom: 12px; left: 12px"><span id="kind">kind</span></div>
+              <div id="menu" style="position: absolute; top: 100%">menu</div>
+            </div></div>
+            """);
+
+        // html, body, the card, then the header at 48 px, 180 px tall.
+        (await Rect(page, "document.getElementById('art')")).Should().Be($"0,{3 * Row},320,180");
+        (await page.EvaluateAsync<double>("document.getElementById('caption').getBoundingClientRect().top")).Should().Be((3 * Row) + 40);
+
+        // The badges are two rows: their own and the kind's. They end 12 px above the header's bottom.
+        var bottom = (3 * Row) + 180 - 12;
+        (await page.EvaluateAsync<double>("document.getElementById('badges').getBoundingClientRect().bottom")).Should().Be(bottom);
+        (await page.EvaluateAsync<double>("document.getElementById('kind').getBoundingClientRect().top")).Should().Be(bottom - Row);
+        (await page.EvaluateAsync<string>($"document.elementFromPoint(20, {bottom - 4}).id")).Should().Be("kind");
+
+        // top: 100% would put it below the header, so it keeps its row, the header's fourth.
+        (await page.EvaluateAsync<double>("document.getElementById('menu').getBoundingClientRect().top")).Should().Be((3 * Row) + (4 * Row));
+    }
+
+    /// <summary>
+    /// https://www.w3.org/TR/CSS2/visudet.html#containing-block-details — a box's children are laid out in its
+    /// content box, inset by its left and right padding and border, and an authored width sizes the content under
+    /// the initial <c>box-sizing: content-box</c> and the whole box under <c>border-box</c>. A border with no style
+    /// draws nothing and insets nothing.
+    /// </summary>
+    [Test]
+    public async Task ChildrenAreLaidOutInTheirParentsContentBox()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <div id="card" style="width: 20rem; border: 1px solid; padding: 0 1rem"><p id="copy">copy</p></div>
+            <div id="sized" style="width: 100px; padding: 0 10px; border-left: 2px solid">x</div>
+            <div id="sizedBox" style="box-sizing: border-box; width: 100px; padding: 0 10px"><b id="inner">x</b></div>
+            <div id="unstyled" style="border-left-width: 6px; padding-left: 4px"><b id="plain">x</b></div>
+            <div style="display: flex; box-sizing: border-box; width: 200px; padding-left: 8px"><span id="item" style="flex: 1">i</span></div>
+            <nav style="display: flex"><button id="first" style="box-sizing: border-box; min-width: 2.5rem; padding: 0 0.65rem; border: 1px solid"><span id="icon" style="display: block">i</span></button></nav>
+            """);
+
+        static string Box(double x, double width) => $"{x},{width}";
+        async Task<string> XAndWidth(string id)
+            => await page.EvaluateAsync<string>($"(() => {{ const r = document.getElementById('{id}').getBoundingClientRect(); const round = (v) => Math.round(v * 100) / 100; return round(r.x) + ',' + round(r.width); }})()") ?? "";
+
+        (await XAndWidth("card")).Should().Be(Box(0, 320 + 32 + 2));
+        (await XAndWidth("copy")).Should().Be(Box(17, 320));
+        (await XAndWidth("sized")).Should().Be(Box(0, 100 + 20 + 2));
+        (await XAndWidth("sizedBox")).Should().Be(Box(0, 100));
+        (await XAndWidth("inner")).Should().Be(Box(10, 80));
+        (await XAndWidth("plain")).Should().Be(Box(4, 1276));
+        (await XAndWidth("item")).Should().Be(Box(8, 192));
+
+        // A flex item's min-width in rem holds, and its content box is what its padding and border leave.
+        (await XAndWidth("first")).Should().Be(Box(0, 40));
+        (await XAndWidth("icon")).Should().Be(Box(11.4, 17.2));
+    }
+
+    /// <summary>
     /// https://drafts.csswg.org/css-grid-2/#layout-algorithm — a grid item is as wide as the column tracks it
     /// spans and the gaps between them, whether the track count and the span come from a var() or not.
     /// </summary>
@@ -734,6 +876,31 @@ public class FlatLayoutTests
         // …and 'end' puts it against the bottom of the window instead.
         await page.EvaluateAsync("document.getElementById('r15').scrollIntoView({ block: 'end' })");
         (await page.EvaluateAsync<double>("window.scrollY")).Should().Be((18 * Row) - 64);
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-scroll-snap-1/#scroll-padding — <c>scrollIntoView</c> aligns within the
+    /// scrollport shrunk by the root's scroll-padding, and the target's scroll-margin grows its box: a page with a
+    /// fixed header sets <c>scroll-padding-top</c> so an anchor lands below the header.
+    /// </summary>
+    [TestCase("html { scroll-padding-top: 2rem }", "", 17 * Row - 32, 32)]
+    [TestCase("html { scroll-padding-top: 25% }", "", 17 * Row - 32, 32)]
+    [TestCase("", "#r15 { scroll-margin-top: 8px }", 17 * Row - 8, 8)]
+    [TestCase("html { scroll-padding-top: 16px }", "#r15 { scroll-margin-top: 8px }", 17 * Row - 24, 24)]
+    public async Task ScrollIntoViewHonoursScrollPaddingAndScrollMargin(string padding, string margin, int scrollY, int top)
+    {
+        await using var browser = new global::Jint.Browser.Browser(new BrowserOptions { Viewport = new Viewport(800, 128) });
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync($"<style>{padding} {margin}</style>{Rows(40)}");
+
+        await page.EvaluateAsync("document.getElementById('r15').scrollIntoView()");
+        (await page.EvaluateAsync<double>("window.scrollY")).Should().Be(scrollY);
+        (await page.EvaluateAsync<double>("document.getElementById('r15').getBoundingClientRect().top")).Should().Be(top);
+
+        // 'end' keeps the bottom padding clear too.
+        await page.EvaluateAsync("document.documentElement.style.scrollPaddingBottom = '32px'; document.getElementById('r15').scrollIntoView({ block: 'end' })");
+        (await page.EvaluateAsync<double>("document.getElementById('r15').getBoundingClientRect().bottom")).Should().Be(128 - 32);
     }
 
     [Test]

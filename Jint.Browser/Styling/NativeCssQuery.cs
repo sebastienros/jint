@@ -181,7 +181,7 @@ internal sealed partial class NativeCssQuery
             var candidate = Winner(state, name);
             var text = candidate?.Declaration.Value;
             var disposition = NativeCssDisposition.Cascaded;
-            if (!custom && text is not null && text.Contains("var(", StringComparison.Ordinal))
+            if (!custom && text is not null && (text.Contains("var(", StringComparison.Ordinal) || text.Contains("env(", StringComparison.OrdinalIgnoreCase)))
             {
                 text = Substitute(current, currentPseudo, text, ref matching);
                 // CSS Variables 1 §3.2: a pending shorthand expands only once its text is substituted.
@@ -311,6 +311,9 @@ internal sealed partial class NativeCssQuery
         "top", "right", "bottom", "left", "inset-block-start", "inset-block-end", "inset-inline-start", "inset-inline-end", "transform", "pointer-events",
         "overflow-x", "overflow-y", "overflow-inline", "overflow-block",
         "grid-template-columns", "grid-column-start", "grid-column-end", "column-gap", "font-size", "writing-mode",
+        "aspect-ratio",
+        "padding-left", "padding-right", "border-left-width", "border-right-width", "border-left-style", "border-right-style",
+        "box-sizing",
     };
 
     private State PseudoStateOf(Element element, SelectorPseudoElement pseudo, ref SelectorMatchWork matching) =>

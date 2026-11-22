@@ -6,12 +6,13 @@ using Jint.Extensions;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// Pins the double a numeric literal holds. The scanner settles a whole-number literal with its own
-/// <see cref="ulong"/> accumulator, and that conversion double-rounds on .NET Framework and on .NET 8
-/// and below for a value in <c>[2^63, 2^64)</c>; everything it cannot accumulate - a fraction, an
-/// exponent, more digits than a <see cref="ulong"/> holds - it hands to <c>double.Parse</c>, which is
-/// not IEEE correctly-rounded on .NET Framework. Both used to make the same source hold two different
-/// numbers depending only on which target framework was loaded.
+/// Pins the double a numeric literal holds. Before Acornima 1.9.0 the scanner settled a whole-number
+/// literal with a <see cref="ulong"/> accumulator whose conversion double-rounds on .NET Framework and
+/// on .NET 8 and below for a value in <c>[2^63, 2^64)</c>, and handed everything it could not
+/// accumulate - a fraction, an exponent, more digits than a <see cref="ulong"/> holds - to
+/// <c>double.Parse</c>, which is not IEEE correctly-rounded on .NET Framework. Both made the same source
+/// hold two different numbers depending only on which target framework was loaded. Jint now reads
+/// <c>NumericLiteral.Value</c> as scanned, so these tests guard the parser against regressing.
 /// </summary>
 public class NumericLiteralPrecisionTests
 {
@@ -111,7 +112,7 @@ public class NumericLiteralPrecisionTests
     }
 
     /// <summary>
-    /// A radix literal wider than the scanner's <see cref="ulong"/> accumulator is rebuilt one digit at a
+    /// A radix literal wider than the scanner's <see cref="ulong"/> accumulator was rebuilt one digit at a
     /// time in a <c>double</c>, which rounds once per digit where the literal denotes one rounding of the
     /// whole value. Unlike the octave above, this one was wrong on every target framework: no platform
     /// parser is involved in it at all.

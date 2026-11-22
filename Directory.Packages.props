@@ -4,11 +4,11 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Acornima" Version="1.9.1" />
-    <PackageVersion Include="Acornima.Extras" Version="1.9.1" />
+    <PackageVersion Include="Acornima" Version="1.9.2" />
+    <PackageVersion Include="Acornima.Extras" Version="1.9.2" />
     <!-- Comparison controls for Jint.HtmlParser only. Production, tests and binding generation use
          native models; historical binding provenance does not constrain these benchmark versions. -->
-    <PackageVersion Include="AngleSharp" Version="1.10.3" />
+    <PackageVersion Include="AngleSharp" Version="1.10.4" />
     <PackageVersion Include="AngleSharp.Css" Version="1.4.2" />
     <PackageVersion Include="AngleSharp.Xml" Version="1.3.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.16.0-preview.2" />
@@ -22,9 +22,17 @@
     <PackageVersion Include="Microsoft.ClearScript.V8.Native.win-x64" Version="7.5.1.1" />
     <PackageVersion Include="Microsoft.ClearScript.V8.Native.linux-x64" Version="7.5.1.1" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" PrivateAssets="all" />
+    <!-- Never newer than the Roslyn of the SDK floor in global.json (11.0.100 ships 5.12), and Dependabot
+         is told to leave it alone. Jint.SourceGenerators is loaded as an analyzer by the compiler of
+         whatever SDK builds this repository, and a compiler refuses an analyzer built against a newer
+         Microsoft.CodeAnalysis than its own: CS9057, which TreatWarningsAsErrors turns into a failed build.
+         So a bump past the floor's compiler silently raises the SDK floor; move it by hand, and only
+         ever up to the version the floor SDK band itself ships.
+         Microsoft.CodeAnalysis.Analyzers is not frozen: it is built against an old Roslyn on purpose,
+         and 5.9.0 loads on the 5.0 compiler. -->
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" PrivateAssets="all" />
     <PackageVersion Include="Verify.SourceGenerators" Version="2.5.0" />
-    <PackageVersion Include="Verify.NUnit" Version="33.4.0" />
+    <PackageVersion Include="Verify.NUnit" Version="33.5.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
     <!-- The generic host the jint-browser `mcp` command builds its server on: the Model Context Protocol
          SDK's own documented hosting path, and the one whose stdout purity it guarantees. Only the tool

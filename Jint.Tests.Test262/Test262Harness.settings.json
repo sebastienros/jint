@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "2e58f87d8350ad51224617a041c6e041d52f8444",
+  "SuiteGitSha": "2a1ade303f72d3de80565c921d685222405c32ce",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -159,6 +159,12 @@
     // block-scoped-functions-annex-b-arguments.js in this very suite asserts the opposite of it.
     // Reported as tc39/test262#5113; tc39/test262#5112 corrects the file. Removed when that lands.
     "annexB/language/function-code/block-decl-func-skip-arguments.js",
+
+    // Fails in every engine since tc39/test262#4551 reworked harness/propertyHelper.js: isConfigurable
+    // deletes the global String to test it, then its new _isCanonicalNumericIndexString helper calls
+    // String(n), which throws "String is not defined". Reported as tc39/test262#5191, which proposes
+    // capturing String with the harness's other primordials. Removed when a fix for it lands.
+    "built-ins/String/prop-desc.js",
 
     // === INTL402 EXCLUSIONS ===
     // The following tests require full CLDR locale data support which is not available in the default provider.

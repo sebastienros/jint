@@ -361,6 +361,11 @@ internal sealed class FlatLayout
                 || CssCascade.ValueOf(style, "max-width") is not (null or "" or "none")
                 || CssCascade.ValueOf(style, "min-width") is not (null or "" or "auto" or "0" or "0px"));
 
+    /// <summary>Whether <paramref name="element"/> declares an aspect ratio, which can give it more rows than its content.</summary>
+    private static bool HasAspectRatio(Element element, CssCascade.Traversal? cascade)
+        => cascade?.LayoutOf(element) is { } style
+            && CssCascade.ValueOf(style, "aspect-ratio") is { Length: > 0 } ratio && !ratio.Trim().Equals("auto", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Whether <paramref name="element"/> is absolutely positioned, out of its parent's flow.</summary>
     private static bool IsOutOfFlow(Element element, CssCascade.Traversal? cascade)
         => cascade?.LayoutOf(element) is { } style
@@ -384,7 +389,7 @@ internal sealed class FlatLayout
             // So can an invisible one, which the row division would hit, and a column whose height or growth
             // gives a box more rows than its descendants.
             hasFlexRows = hasFlexRows || invisible || FlexRow.IsHorizontal(element, cascade) || IsOutOfFlow(element, cascade)
-                || FlexRow.IsColumn(element, cascade) || HasAuthoredWidth(element, cascade);
+                || FlexRow.IsColumn(element, cascade) || HasAuthoredWidth(element, cascade) || HasAspectRatio(element, cascade);
 
             for (var child = element.LastChild; child is not null; child = child.PreviousSibling)
             {
@@ -437,6 +442,7 @@ internal sealed class FlatLayout
         private Dictionary<Element, bool> _rendered => Measurements.Rendered;
         private Dictionary<Element, int> _rows => Measurements.Rows;
         private readonly Dictionary<Element, double> _widths = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<Element, (double Left, double Right)> _insets = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<Element, double> _heights = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<Element, FlatBox> _sizes = new(ReferenceEqualityComparer.Instance);
 
@@ -523,7 +529,8 @@ internal sealed class FlatLayout
                 var horizontal = FlexRow.IsHorizontal(parent, cascade);
                 var reverse = horizontal && FlexRow.IsReversed(parent, cascade);
                 var (next, offset) = _childrenPlaced.TryGetValue(parent, out var placed)
-                    ? placed : (0, horizontal ? (reverse ? WidthOf(parent) : 0) : RowHeight);
+                    ? placed : (0, horizontal ? (reverse ? ContentWidth(parent) : 0) : RowHeight);
+                var contentX = parentBox.X + InsetOf(parent).Left;
                 var children = Children(parent);
                 for (; next < children.Count; next++)
                 {
@@ -538,7 +545,7 @@ internal sealed class FlatLayout
                     {
                         // Its height affects the next sibling, not its own vertical origin. Leave
                         // this index pending so a later sibling query measures it when needed.
-                        _positions[child] = new FlatBox(PlacedX(child, parentBox.X), parentBox.Y + offset, 0, 0);
+                        _positions[child] = new FlatBox(PlacedX(child, contentX), PlacedY(child, parentBox, parentBox.Y + offset), 0, 0);
                         break;
                     }
 
@@ -556,8 +563,8 @@ internal sealed class FlatLayout
                     }
 
                     _positions[child] = new FlatBox(
-                        PlacedX(child, parentBox.X + (horizontal ? offset : 0)),
-                        parentBox.Y + (horizontal ? RowHeight + cross : offset), 0, 0);
+                        PlacedX(child, contentX + (horizontal ? offset : 0)),
+                        PlacedY(child, parentBox, parentBox.Y + (horizontal ? RowHeight + cross : offset)), 0, 0);
                     offset += horizontal ? (reverse ? 0 : width) : HeightOf(child);
                     if (ReferenceEquals(child, element))
                     {
@@ -581,7 +588,7 @@ internal sealed class FlatLayout
         /// keeps its static position. CSS Transforms 1 §6: a translation then moves it, and nothing else. Popper
         /// places dropdown menus, tooltips and popovers this way — <c>inset: 0 0 auto auto</c> and a
         /// <c>translate()</c> it works out from the offset parent — so a menu wider than its toggle opens back
-        /// into the viewport instead of past its edge. Vertically, the box keeps its row.
+        /// into the viewport instead of past its edge. Vertically, <see cref="PlacedY"/> places it.
         /// </summary>
         private double PlacedX(Element child, double staticX)
         {
@@ -606,6 +613,47 @@ internal sealed class FlatLayout
             }
 
             return x + TranslationX(style, child);
+        }
+
+        /// <summary>
+        /// The top edge of <paramref name="child"/>: <paramref name="staticY"/>, its row, unless it is absolutely
+        /// positioned with a vertical inset that keeps it inside both its containing block and its parent. CSS 2
+        /// §10.6.4: <c>top</c> puts it that far below the containing block's top, or, with <c>top: auto</c>,
+        /// <c>bottom</c> ends it that far above the block's bottom — a card's badges laid along the bottom of its
+        /// image header with <c>bottom: 12px</c>. A box the inset would move outside either keeps its row: every
+        /// descendant then still fits vertically inside its ancestors, which the hit test relies on. Its rows, and
+        /// what follows it, stay where the flow puts them; its descendants move with it.
+        /// </summary>
+        private double PlacedY(Element child, FlatBox parentBox, double staticY)
+        {
+            if (cascade?.LayoutOf(child) is not { } style
+                || CssCascade.ValueOf(style, "position") != "absolute"
+                || PositionedAncestor(child) is not { } block
+                || !_positions.TryGetValue(block, out var blockBox))
+            {
+                return staticY;
+            }
+
+            var blockHeight = HeightOf(block);
+            var height = HeightOf(child);
+            double y;
+            if (OffsetOf(style, "top", blockHeight) is { } top)
+            {
+                y = blockBox.Y + top;
+            }
+            else if (OffsetOf(style, "bottom", blockHeight) is { } bottom)
+            {
+                y = blockBox.Y + blockHeight - bottom - height;
+            }
+            else
+            {
+                return staticY;
+            }
+
+            var parentBottom = parentBox.Y + HeightOf((child.ParentNode as Element)!);
+            return y >= blockBox.Y && y + height <= blockBox.Y + blockHeight && y >= parentBox.Y && y + height <= parentBottom
+                ? y
+                : staticY;
         }
 
         /// <summary>
@@ -848,7 +896,7 @@ internal sealed class FlatLayout
                 }
 
                 var parent = (element.ParentNode as Element)!;
-                var width = _widths[parent];
+                var width = ContentWidth(parent);
                 if (FlexRow.IsHorizontal(parent, cascade))
                 {
                     var children = Children(parent).Where(HasBox).ToArray();
@@ -882,7 +930,8 @@ internal sealed class FlatLayout
                 return null;
             }
 
-            var authored = LengthOf(style, "width", available);
+            var extra = ContentBoxExtra(element, style, available);
+            var authored = LengthOf(style, "width", available) is { } own ? own + extra : (double?) null;
             if (authored is null)
             {
                 if (CssCascade.ValueOf(style, "left") is not (null or "" or "auto")
@@ -895,8 +944,8 @@ internal sealed class FlatLayout
             }
 
             var width = authored.Value;
-            if (LengthOf(style, "max-width", available) is { } maximum) width = Math.Min(width, maximum);
-            if (LengthOf(style, "min-width", available) is { } minimum) width = Math.Max(width, minimum);
+            if (LengthOf(style, "max-width", available) is { } maximum) width = Math.Min(width, maximum + extra);
+            if (LengthOf(style, "min-width", available) is { } minimum) width = Math.Max(width, minimum + extra);
             return width;
         }
 
@@ -979,10 +1028,66 @@ internal sealed class FlatLayout
                 return null;
             }
 
-            var width = authored ?? available;
-            if (maximum is { } max) width = Math.Min(width, max);
-            if (minimum is { } min) width = Math.Max(width, min);
+            // CSS Box Sizing 3: under the initial content-box, width, min-width and max-width size the content, and the
+            // box is that plus its own horizontal padding and border; under border-box they size the box itself.
+            var extra = ContentBoxExtra(element, style, available);
+            var width = authored is { } own ? own + extra : available;
+            if (maximum is { } max) width = Math.Min(width, max + extra);
+            if (minimum is { } min) width = Math.Max(width, min + extra);
             return width;
+        }
+
+        // What content-box sizing adds to an authored width: the box's own left and right padding and border.
+        private double ContentBoxExtra(Element element, Styling.NativeCssComputedStyle style, double available)
+        {
+            if (CssCascade.ValueOf(style, "box-sizing") is "border-box")
+            {
+                return 0;
+            }
+
+            var (left, right) = Inset(style, available);
+            return left + right;
+        }
+
+        /// <summary>
+        /// The width <paramref name="element"/>'s children are laid out in (CSS 2 §10.1): its content box, its width
+        /// less its left and right padding and border.
+        /// </summary>
+        private double ContentWidth(Element element)
+        {
+            var (left, right) = InsetOf(element);
+            return Math.Max(0, WidthOf(element) - left - right);
+        }
+
+        /// <summary>
+        /// How far <paramref name="element"/>'s content box is inset from its border box on the left and the right:
+        /// its padding and its border, a border counting only when its style draws one (CSS Backgrounds 3: a
+        /// <c>none</c> or <c>hidden</c> style computes the width to 0). A card's 1px border and 16px padding put its
+        /// copy 17px in from its edge. Vertical padding is not modelled: rows stay rows.
+        /// </summary>
+        private (double Left, double Right) InsetOf(Element element)
+        {
+            if (!_insets.TryGetValue(element, out var inset))
+            {
+                inset = cascade?.LayoutOf(element) is { } style ? Inset(style, WidthOf(element)) : (0, 0);
+                _insets.Add(element, inset);
+            }
+
+            return inset;
+        }
+
+        private (double Left, double Right) Inset(Styling.NativeCssComputedStyle style, double basis)
+        {
+            return (Side("left"), Side("right"));
+
+            double Side(string side)
+            {
+                var padding = LengthOf(style, "padding-" + side, basis) ?? 0;
+                var border = CssCascade.ValueOf(style, "border-" + side + "-style") is null or "" or "none" or "hidden"
+                    ? 0
+                    : LengthOf(style, "border-" + side + "-width", 0) ?? 0;
+                return padding + border;
+            }
         }
 
         /// <summary>
@@ -1056,7 +1161,12 @@ internal sealed class FlatLayout
                 Step();
                 if ((element.ParentNode as Element) is not { } parent || !SizedByParent(element, parent))
                 {
-                    _heights.Add(element, CountRows(element) * RowHeight);
+                    var rows = CountRows(element);
+                    // An aspect ratio's height is reported as it is, not rounded up to the rows it takes, unless
+                    // the content is taller (CSS Sizing 4's automatic minimum).
+                    _heights.Add(element, RatioHeight(element) is { } ratio
+                        ? Math.Max(ratio, ContentRows(element) * RowHeight)
+                        : rows * RowHeight);
                     break;
                 }
 
@@ -1113,15 +1223,65 @@ internal sealed class FlatLayout
         /// </summary>
         private int DefiniteRows(Element element)
         {
+            var ratioRows = RatioHeight(element) is { } ratio ? (int) Math.Min(int.MaxValue / 2, Math.Ceiling(ratio / RowHeight)) : 0;
             if (!FlexRow.IsColumn(element, cascade) || cascade?.LayoutOf(element) is not { } style)
             {
-                return 0;
+                return ratioRows;
             }
 
             var height = ResolvedLengths.Resolve("height", style.GetNormalizedProperty("height"), style, ViewportOf());
             return height.EndsWith("px", StringComparison.Ordinal) && FlexRow.Length(height, 0) is { } pixels
                 ? (int) Math.Min(int.MaxValue / 2, Math.Ceiling(pixels / RowHeight))
-                : 0;
+                : ratioRows;
+        }
+
+        /// <summary>
+        /// The height an authored <c>aspect-ratio</c> gives a box whose height is <c>auto</c>
+        /// (https://drafts.csswg.org/css-sizing-4/#aspect-ratio): its used width divided by the ratio — a card's
+        /// 16:9 image header as wide as the card. <see langword="null"/> without a ratio, for <c>auto</c> alone
+        /// (a non-replaced box has no natural ratio), or when the height is authored. The content still wins when
+        /// it is taller, which the callers apply: the ratio only sets a minimum on the rows.
+        /// </summary>
+        private double? RatioHeight(Element element)
+        {
+            if (cascade?.LayoutOf(element) is not { } style
+                || CssCascade.ValueOf(style, "height") is not (null or "" or "auto")
+                || Ratio(CssCascade.ValueOf(style, "aspect-ratio")) is not { } ratio)
+            {
+                return null;
+            }
+
+            var width = WidthOf(element);
+            return width > 0 ? width / ratio : null;
+
+            // <ratio> is <number> [ / <number> ]?, with an optional auto keyword on either side.
+            static double? Ratio(string? value)
+            {
+                if (value is null) return null;
+                var text = value.Replace("auto", "", StringComparison.OrdinalIgnoreCase).Trim();
+                if (text.Length == 0) return null;
+                var slash = text.IndexOf('/');
+                if (!double.TryParse(slash < 0 ? text : text[..slash], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var width)) return null;
+                var height = 1d;
+                if (slash >= 0 && !double.TryParse(text[(slash + 1)..], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out height)) return null;
+                return width > 0 && height > 0 && double.IsFinite(width / height) ? width / height : null;
+            }
+        }
+
+        // The rows a box's content takes, without what a definite height or a ratio adds: its own row and its
+        // children's, side by side in a horizontal flex row. CountRows has counted the children already.
+        private int ContentRows(Element element)
+        {
+            var rows = 0;
+            var horizontal = FlexRow.IsHorizontal(element, cascade);
+            foreach (var child in Children(element))
+            {
+                Step();
+                var count = TryRows(child, out var known) ? known : CountRows(child);
+                rows = horizontal ? Math.Max(rows, count) : rows + count;
+            }
+
+            return rows + 1;
         }
 
         /// <summary>The page's viewport, which vw, vh and rem lengths resolve against.</summary>

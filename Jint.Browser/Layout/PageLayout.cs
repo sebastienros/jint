@@ -207,43 +207,73 @@ internal sealed partial class PageLayout
         }
 
         var box = sizes.Place(element);
-        var top = box.Y;
-        var bottom = box.Bottom;
-        var height = _runtime.Viewport.Height;
+        var viewport = _runtime.Viewport.Height;
+
+        // https://drafts.csswg.org/css-scroll-snap-1/#scroll-padding and #scroll-margin: the box aligned is the
+        // element's border box grown by its scroll-margin, and it is aligned within the scrollport shrunk by the
+        // scrolling element's scroll-padding — a page with a fixed 64px header sets scroll-padding-top so that
+        // an anchor scrolls below the header rather than under it. Percentages are of the scrollport's height.
+        var root = _runtime.Document?.DocumentElement;
+        var paddingTop = ScrollLength(sizes, root, "scroll-padding-top", viewport);
+        var paddingBottom = ScrollLength(sizes, root, "scroll-padding-bottom", viewport);
+        var top = box.Y - ScrollLength(sizes, element, "scroll-margin-top", viewport);
+        var bottom = box.Bottom + ScrollLength(sizes, element, "scroll-margin-bottom", viewport);
+        var height = Math.Max(0, viewport - paddingTop - paddingBottom);
+        var extent = bottom - top;
+
+        // Every target below is where the shrunk scrollport's top lands; the scroll offset is that less the padding.
+        void Align(double scrollportTop) => ScrollTo(scrollportTop - paddingTop, ScrollMaximum(sizes, scrollportTop - paddingTop));
 
         switch (block)
         {
             case "center":
-                ScrollTo(box.CenterY - (height / 2), ScrollMaximum(sizes, box.CenterY - (height / 2)));
+                Align(((top + bottom) / 2) - (height / 2));
                 return;
 
             case "end":
-                ScrollTo(bottom - height, ScrollMaximum(sizes, bottom - height));
+                Align(bottom - height);
                 return;
 
             case "nearest":
-                if (top < _scrollY && bottom > _scrollY + height)
+                var visibleTop = _scrollY + paddingTop;
+                if (top < visibleTop && bottom > visibleTop + height)
                 {
                     return;
                 }
 
-                if ((top < _scrollY && box.Height <= height)
-                    || (bottom > _scrollY + height && box.Height > height))
+                if ((top < visibleTop && extent <= height)
+                    || (bottom > visibleTop + height && extent > height))
                 {
-                    ScrollTo(top, ScrollMaximum(sizes, top));
+                    Align(top);
                 }
-                else if ((bottom > _scrollY + height && box.Height <= height)
-                    || (top < _scrollY && box.Height > height))
+                else if ((bottom > visibleTop + height && extent <= height)
+                    || (top < visibleTop && extent > height))
                 {
-                    ScrollTo(bottom - height, ScrollMaximum(sizes, bottom - height));
+                    Align(bottom - height);
                 }
 
                 return;
 
             default:
-                ScrollTo(top, ScrollMaximum(sizes, top));
+                Align(top);
                 return;
         }
+    }
+
+    /// <summary>
+    /// A scroll-padding or scroll-margin longhand of <paramref name="element"/> in pixels, resolved as
+    /// <c>getComputedStyle</c> resolves it, with a percentage of <paramref name="basis"/>; 0 for <c>auto</c>, for
+    /// a negative or unresolvable length, or when the cascade cannot answer.
+    /// </summary>
+    private double ScrollLength(FlatLayout.SizeQuery sizes, Element? element, string name, double basis)
+    {
+        if (element is null || sizes.Cascade is not { } cascade || cascade.Of(element) is not { } style)
+        {
+            return 0;
+        }
+
+        var text = ResolvedLengths.Resolve(name, style.GetNormalizedProperty(name), style, _runtime.Viewport);
+        return FlexRow.Length(text, basis) ?? 0;
     }
 
     private void ScheduleScrollEvent()

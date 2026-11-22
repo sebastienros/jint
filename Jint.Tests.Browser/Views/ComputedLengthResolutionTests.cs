@@ -24,6 +24,24 @@ public sealed class ComputedLengthResolutionTests
         return result!;
     }
 
+    /// <summary>
+    /// https://drafts.csswg.org/css-env-1/ — <c>env()</c> is substituted at computed-value time from the user
+    /// agent's variables: every safe-area and keyboard inset is <c>0px</c> on a rectangular viewport, an undefined
+    /// variable takes its fallback, and one with none makes the declaration invalid, so the property takes its
+    /// initial value. A mobile panel's <c>top: max(5rem, env(safe-area-inset-top))</c> is 80px.
+    /// </summary>
+    [TestCase("top: max(5rem, env(safe-area-inset-top))", "top", "80px")]
+    [TestCase("top: calc(1rem + env(safe-area-inset-top, 40px))", "top", "16px")]
+    [TestCase("padding-left: env(keyboard-inset-width)", "paddingLeft", "0px")]
+    [TestCase("padding-left: env(titlebar-area-x, 12px)", "paddingLeft", "12px")]
+    [TestCase("padding-left: env(no-such-variable)", "paddingLeft", "0px")]
+    [TestCase("--inset: env(safe-area-inset-bottom); padding-left: max(8px, var(--inset))", "paddingLeft", "8px")]
+    public async Task EnvironmentVariablesAreSubstitutedFromTheUserAgent(string declaration, string property, string expected)
+    {
+        (await Read($"#x {{ position: absolute; {declaration} }}", "<div id=x>x</div>",
+            $"getComputedStyle(document.getElementById('x')).{property}")).Should().Be(expected);
+    }
+
     [Test]
     public async Task TheIssueReproMatchesChromium()
     {

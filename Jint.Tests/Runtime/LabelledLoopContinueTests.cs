@@ -395,8 +395,7 @@ public class LabelledLoopContinueTests
 
     private static readonly string[] Contexts = ["plain", "generator", "async", "async-generator"];
 
-    // A continue and the break that follows it, per label stack. Acornima rejects a continue naming a label two or more above
-    // the loop, which no stack here has.
+    // A continue and the break that follows it, per label stack.
     private static readonly Dictionary<string, string[]> Jumps = new(StringComparer.Ordinal)
     {
         ["a"] = ["continue + break a", "continue a + break a", "continue + break"],
@@ -408,6 +407,15 @@ public class LabelledLoopContinueTests
             "continue b + break b",
             "continue a + break b",
             "continue b + break a",
+        ],
+        ["a:b:c"] =
+        [
+            "continue + break a",
+            "continue a + break a",
+            "continue b + break b",
+            "continue c + break c",
+            "continue a + break c",
+            "continue c + break a",
         ],
     };
 

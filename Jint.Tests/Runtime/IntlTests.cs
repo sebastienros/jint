@@ -1690,9 +1690,9 @@ public class IntlTests
             narrowWeekdays.Should().NotBeNull();
             narrowWeekdays!.Should().HaveCount(7);
 
-            // Already narrow when any entry is a single text element; narrowed entry by entry when none is.
+            // Already narrow when any entry is a single grapheme cluster; narrowed entry by entry when none is.
             var shortest = dtfi.ShortestDayNames;
-            var alreadyNarrow = shortest.Any(d => d.Length == 0 || StringInfo.GetNextTextElement(d, 0).Length == d.Length);
+            var alreadyNarrow = shortest.Any(d => d.Length == 0 || GraphemeBreaker.NextBreak(d, 0) == d.Length);
             for (var i = 0; i < 7; i++)
             {
                 var expected = alreadyNarrow ? shortest[i] : Narrow(resolved, shortest[i]);
@@ -1705,9 +1705,13 @@ public class IntlTests
         compared.Should().BeGreaterThan(100);
     }
 
-    /// <summary>The narrowing the provider applies, written once so the test states the rule rather than copying it.</summary>
+    /// <summary>
+    /// The narrowing the provider applies, written once so the test states the rule rather than copying it: the first
+    /// extended grapheme cluster of UAX #29, the same on every target framework, where a text element of
+    /// <see cref="StringInfo"/> follows the runtime's Unicode data and cuts a conjunct after its virama.
+    /// </summary>
     private static string Narrow(CultureInfo culture, string name)
-        => name.Length == 0 ? name : culture.TextInfo.ToUpper(StringInfo.GetNextTextElement(name, 0));
+        => name.Length == 0 ? name : culture.TextInfo.ToUpper(name.Substring(0, GraphemeBreaker.NextBreak(name, 0)));
 
     /// <summary>
     /// https://tc39.es/ecma402/#sec-formatdatetimepattern step 15.g makes the <c>ampm</c> a pattern writes an
