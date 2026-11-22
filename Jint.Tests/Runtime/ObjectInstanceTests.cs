@@ -59,6 +59,31 @@ public class ObjectInstanceTests
         result.Should().Be("[[\"a\",\"b\"],[\"ownKeys\",\"gopd:a\",\"gopd:b\"]]");
     }
 
+    /// <summary>
+    /// A redefinition compares its value with SameValue
+    /// (https://tc39.es/ecma262/#sec-validateandapplypropertydescriptor), so -0 is not the 0 a property holds:
+    /// a non-writable 0 refuses it and a writable one stores it, even when every attribute is restated.
+    /// </summary>
+    [Fact]
+    public void RedefiningZeroAsNegativeZeroIsAChangeOfValue()
+    {
+        var engine = new Engine();
+        engine.Execute("""
+            var fixed = {};
+            Object.defineProperty(fixed, 'x', { value: 0, writable: false, enumerable: true, configurable: false });
+            var open = {};
+            Object.defineProperty(open, 'x', { value: 0, writable: true, enumerable: true, configurable: true });
+            """);
+
+        engine.Evaluate("Reflect.defineProperty(fixed, 'x', { value: -0, writable: false, enumerable: true, configurable: false })")
+            .AsBoolean().Should().BeFalse();
+        engine.Evaluate("Object.is(fixed.x, 0)").AsBoolean().Should().BeTrue();
+
+        engine.Evaluate("Reflect.defineProperty(open, 'x', { value: -0, writable: true, enumerable: true, configurable: true })")
+            .AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.is(open.x, -0)").AsBoolean().Should().BeTrue();
+    }
+
     [Fact]
     public void RemovingFirstPropertyFromObjectInstancePropertiesBucketAndEnumerating()
     {
