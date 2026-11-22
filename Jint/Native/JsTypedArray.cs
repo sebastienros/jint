@@ -144,7 +144,11 @@ public sealed class JsTypedArray : ObjectInstance
                 return PropertyDescriptor.Undefined;
             }
 
-            return new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+            // https://tc39.es/proposal-immutable-arraybuffer/#sec-typedarray-getownproperty
+            var flags = _viewedArrayBuffer.IsImmutableBuffer
+                ? PropertyFlag.OnlyEnumerable
+                : PropertyFlag.ConfigurableEnumerableWritable;
+            return new PropertyDescriptor(value, flags);
         }
 
         return base.GetOwnProperty(property);
@@ -162,7 +166,7 @@ public sealed class JsTypedArray : ObjectInstance
     /// method reports the property absent exactly when <c>IntegerIndexedElementGet</c> yields
     /// <c>undefined</c>, which it does exactly when <see cref="IsValidIntegerIndex(double)"/> is false (a
     /// valid index always decodes to a number or a BigInt, never <c>undefined</c>), and otherwise builds
-    /// a <see cref="PropertyFlag.ConfigurableEnumerableWritable"/> descriptor. Detached, out-of-bounds and
+    /// an enumerable descriptor, immutable buffer or not. Detached, out-of-bounds and
     /// length-tracking buffers are all covered because <c>IsValidIntegerIndex</c> is the same witness the
     /// element read consults. Non-index keys keep the ordinary lookup.
     /// </remarks>
@@ -201,6 +205,13 @@ public sealed class JsTypedArray : ObjectInstance
         var numericIndex = TypeConverter.CanonicalNumericIndexString(property);
         if (numericIndex is not null)
         {
+            // https://tc39.es/proposal-immutable-arraybuffer/#sec-typedarray-set
+            // Refused before the value is converted, whatever the receiver and even out of bounds.
+            if (_viewedArrayBuffer.IsImmutableBuffer)
+            {
+                return false;
+            }
+
             if (ReferenceEquals(this, receiver))
             {
                 IntegerIndexedElementSet(numericIndex.Value, value);
@@ -227,6 +238,14 @@ public sealed class JsTypedArray : ObjectInstance
             if (!IsValidIntegerIndex(numericIndex.Value))
             {
                 return false;
+            }
+
+            // https://tc39.es/proposal-immutable-arraybuffer/#sec-typedarray-defineownproperty
+            // The current descriptor is neither configurable nor writable, so validation accepts only a
+            // restatement of it, and refuses a new value even when it would convert to the current one.
+            if (_viewedArrayBuffer.IsImmutableBuffer)
+            {
+                return ValidateAndApplyPropertyDescriptor(this, property, extensible: false, desc, GetOwnProperty(property));
             }
 
             if (desc is { ConfigurableSet: true, Configurable: false })
