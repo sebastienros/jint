@@ -21,6 +21,27 @@ internal class DeclarativeEnvironment : Environment
     internal Binding[]? _slots;
     internal Key[]? _slotNames;
 
+    /// <summary>
+    /// Set, and never cleared, when a binding is added to this environment after it was instantiated —
+    /// sloppy direct eval hoisting into its caller's variable environment, or Annex B copying a block
+    /// function there (<see cref="NoteInjectedBinding"/>). From then on its name set is no longer the one its
+    /// layout implies, so <see cref="ScopePath"/> stops describing it by layout.
+    /// </summary>
+    internal bool _hasInjectedBindings;
+
+    /// <summary>
+    /// Records that a binding may be added to <paramref name="environment"/> outside its instantiation, for the
+    /// caches that reason about name sets: the per-engine injection epoch, and the environment's own mark.
+    /// </summary>
+    internal static void NoteInjectedBinding(Engine engine, Environment environment)
+    {
+        unchecked { engine._envBindingInjectionEpoch++; }
+        if (environment is DeclarativeEnvironment declarative)
+        {
+            declarative._hasInjectedBindings = true;
+        }
+    }
+
     public DeclarativeEnvironment(Engine engine, bool catchEnvironment = false) : base(engine)
     {
         _catchEnvironment = catchEnvironment;

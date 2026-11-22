@@ -44,6 +44,18 @@ internal sealed class SlotChainMemo
         Next2 = next2;
         InjectionEpoch = injectionEpoch;
     }
+
+    /// <summary>
+    /// Pins the <paramref name="hops"/> links above <paramref name="start"/> (1 to 3) for a chain some other proof
+    /// has just shown reaches the slot environment with no intermediate owning the name — a validated
+    /// <see cref="ScopePath"/>, whose own epoch check makes the current epoch the right one to record.
+    /// </summary>
+    internal static SlotChainMemo ForValidatedChain(Engine engine, Environment start, int hops)
+    {
+        var next1 = hops >= 2 ? start._outerEnv : null;
+        var next2 = hops == 3 ? next1!._outerEnv : null;
+        return new SlotChainMemo(start, next1, next2, engine._envBindingInjectionEpoch);
+    }
 }
 
 /// <summary>
@@ -194,16 +206,17 @@ internal struct SlotLocationCache
     /// the out-of-line walk, which re-publishes the memo on success.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool CanReachAtOuterHop(Engine engine, Environment env, DeclarativeEnvironment cached, Key key, ref SlotChainMemo? memoSlot)
-    {
-        var memo = memoSlot;
-        if (memo is not null && MemoStillPins(memo, engine, env, cached))
-        {
-            return true;
-        }
+    private static bool CanReachAtOuterHop(Engine engine, Environment env, DeclarativeEnvironment cached, Key key, ref SlotChainMemo? memoSlot)
+        => MemoPins(memoSlot, engine, env, cached) || WalkAndMemoize(engine, env, cached, key, ref memoSlot);
 
-        return WalkAndMemoize(engine, env, cached, key, ref memoSlot);
-    }
+    /// <summary>
+    /// The inline half of <see cref="CanReachAtOuterHop"/>: whether <paramref name="memo"/> still pins the chain from
+    /// <paramref name="env"/> to <paramref name="cached"/>. A caller with a cheaper lane to try before the walk takes
+    /// this and <see cref="WalkAndMemoize"/> separately.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool MemoPins(SlotChainMemo? memo, Engine engine, Environment env, DeclarativeEnvironment cached)
+        => memo is not null && MemoStillPins(memo, engine, env, cached);
 
     /// <summary>
     /// Whether <paramref name="memo"/> still proves that <paramref name="cached"/> is reachable from
@@ -214,8 +227,8 @@ internal struct SlotLocationCache
     /// an inserted environment, and a pooled link re-attached under a different outer fails here so
     /// the caller re-walks.
     /// <para>
-    /// Shared by the inline hit in <see cref="TryResolve"/> and by <see cref="CanReachAtOuterHop"/>
-    /// (the identifier read path calls the latter directly) so the soundness argument has exactly one
+    /// Shared by the inline hit in <see cref="TryResolve"/>, by <see cref="CanReachAtOuterHop"/> and, through
+    /// <see cref="MemoPins"/>, by the identifier read path, so the soundness argument has exactly one
     /// implementation.
     /// </para>
     /// </summary>
@@ -259,7 +272,7 @@ internal struct SlotLocationCache
     /// a <see cref="SlotChainMemo"/> so subsequent reads on the same chain skip the probes.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool WalkAndMemoize(Engine engine, Environment env, DeclarativeEnvironment cached, Key key, ref SlotChainMemo? memoSlot)
+    internal static bool WalkAndMemoize(Engine engine, Environment env, DeclarativeEnvironment cached, Key key, ref SlotChainMemo? memoSlot)
     {
         var search = env;
         Environment? next1 = null;
