@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-11-14
-anchors: 1366
+anchors: 1369
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -388,6 +388,7 @@ ecma262 sec-global-environment-records
 ecma262 sec-global-environment-records-createimmutablebinding-n-s
 ecma262 sec-global-environment-records-createmutablebinding-n-d
 ecma262 sec-global-environment-records-hasbinding-n
+ecma262 sec-global-environment-records-setmutablebinding-n-v-s
 ecma262 sec-globaldeclarationinstantiation
 ecma262 sec-hasproperty
 ecma262 sec-host-cleanup-finalization-registry
@@ -859,6 +860,8 @@ ecma262 sec-updateempty
 ecma262 sec-validateandapplypropertydescriptor
 ecma262 sec-validateatomicaccess
 ecma262 sec-validateintegertypedarray
+ecma262 sec-value-properties-of-the-global-object-infinity
+ecma262 sec-value-properties-of-the-global-object-nan
 ecma262 sec-variable-statement-runtime-semantics-evaluation
 ecma262 sec-waiterlist-records
 ecma262 sec-weak-ref-constructor
