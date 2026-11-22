@@ -2307,7 +2307,10 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 currentValueFetched = true;
             }
 
-            if ((currentValue is null && descValue is null) || (currentValue is not null && descValue is not null && currentValue == descValue))
+            // SameValue, which is what this short-cut stands for, and not JsValue's ==, which holds +0 and -0
+            // equal: with == a redefinition of 0 as -0 returned true here without checking writability or
+            // writing the new value.
+            if ((currentValue is null && descValue is null) || (currentValue is not null && descValue is not null && SameValue(currentValue, descValue)))
             {
                 return true;
             }
