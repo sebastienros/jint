@@ -224,16 +224,17 @@ internal sealed class JintUpdateExpression : JintExpression
             return slotResult;
         }
 
-        // Global-binding fast path: when this identifier resolves to a cached plain writable global
-        // data property, read and write its descriptor value directly — no environment chain walk and
-        // no second SetMutableBinding lookup. Mirrors the read cache in JintIdentifierExpression and the
-        // simple-assignment cache (AssignToCachedGlobalBinding). Operator-overloading-capable contexts
+        // Global-binding fast path: when this identifier resolves to a cached plain global data
+        // property that is writable, read and write its descriptor value directly — no environment chain
+        // walk and no second SetMutableBinding lookup. Mirrors the read cache in JintIdentifierExpression and
+        // the simple-assignment cache (AssignToCachedGlobalBinding). Operator-overloading-capable contexts
         // fall through so a CLR op_Increment/op_Decrement is still honored.
         if (_leftIdentifier!._cachedGlobalEnv is not null && !context.OperatorOverloadingAllowed)
         {
             var descriptor = _leftIdentifier.TryGetValidatedGlobalDescriptor(engine, engine.ExecutionContext.LexicalEnvironment);
-            // Writable is re-checked through the cached reference: defineProperty flips the
-            // flag in place without bumping the versions the validator checks.
+            // Writable is re-checked through the cached reference: the cache holds read-only
+            // globals too, for reads, and defineProperty flips the flag in place without bumping
+            // the versions the validator checks. A non-writable hit takes the full path below.
             if (descriptor is not null && descriptor.Writable && descriptor._value is { } current)
             {
                 if (_evalOrArguments && engine.ExecutionContext.Strict)
