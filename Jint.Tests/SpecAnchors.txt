@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-11-14
-anchors: 1363
+anchors: 1366
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -1129,6 +1129,9 @@ proposal-immutable-arraybuffer sec-get-arraybuffer.prototype.immutable
 proposal-immutable-arraybuffer sec-integerindexedelementset
 proposal-immutable-arraybuffer sec-isimmutablebuffer
 proposal-immutable-arraybuffer sec-setviewvalue
+proposal-immutable-arraybuffer sec-typedarray-defineownproperty
+proposal-immutable-arraybuffer sec-typedarray-getownproperty
+proposal-immutable-arraybuffer sec-typedarray-set
 proposal-import-attributes sec-ModuleRequestsEqual
 proposal-import-bytes sec-create-bytes-module
 proposal-import-text sec-create-text-module
