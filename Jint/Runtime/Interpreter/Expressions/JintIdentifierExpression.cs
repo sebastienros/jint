@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Runtime.Environments;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -478,5 +479,67 @@ internal sealed class JintIdentifierExpression : JintExpression
     private void ThrowNotInitialized(Engine engine)
     {
         Throw.ReferenceError(engine.Realm, $"{_identifier.Key.Name} has not been initialized");
+    }
+}
+
+/// <summary>
+/// A write through <see cref="JintIdentifierExpression"/>'s global-binding cache that runs user code between validating
+/// the cached descriptor and storing into it: an assignment's right-hand side or a declaration's initializer
+/// (https://tc39.es/ecma262/#sec-assignment-operators-runtime-semantics-evaluation), or the conversion of an update's
+/// object operand (https://tc39.es/ecma262/#sec-postfix-increment-operator-runtime-semantics-evaluation). That code can
+/// make the global read-only, delete it or turn it into an accessor, and PutValue (https://tc39.es/ecma262/#sec-putvalue)
+/// sees the property as it is afterwards, so the store into the descriptor is only PutValue's while the descriptor is
+/// still the property's and still writable.
+/// </summary>
+[StructLayout(LayoutKind.Auto)]
+internal readonly struct CachedGlobalWrite
+{
+    private readonly GlobalEnvironment _environment;
+    private readonly Runtime.Descriptors.PropertyDescriptor _descriptor;
+    private readonly uint _shapeVersion;
+    private readonly int _lexicalVersion;
+
+    /// <summary>
+    /// Takes the two versions the validation compared, before the user code runs. They are taken from the environment
+    /// rather than from the identifier's cache, which the user code may fill again for a new property by evaluating
+    /// the same node.
+    /// </summary>
+    internal CachedGlobalWrite(GlobalEnvironment environment, Runtime.Descriptors.PropertyDescriptor descriptor)
+    {
+        _environment = environment;
+        _descriptor = descriptor;
+        _shapeVersion = environment._global._propertiesVersion;
+        _lexicalVersion = environment._lexicalMutations;
+    }
+
+    /// <summary>
+    /// Stores into the descriptor while neither version has moved and it is still writable (defineProperty flips the
+    /// flag in place and moves neither version); otherwise completes the write through the SetMutableBinding of the
+    /// global environment the reference resolved to (https://tc39.es/ecma262/#sec-global-environment-records-setmutablebinding-n-v-s).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Complete(Environment.BindingName name, JsValue value, bool strict)
+    {
+        var environment = _environment;
+        var descriptor = _descriptor;
+        if (environment._global._propertiesVersion == _shapeVersion
+            && environment._lexicalMutations == _lexicalVersion
+            && descriptor.Writable)
+        {
+            descriptor._value = value;
+            return;
+        }
+
+        CompleteThroughBinding(environment, name, value, strict);
+    }
+
+    /// <summary>
+    /// The full path: a TypeError in strict code and nothing in sloppy code for a read-only global, a ReferenceError in
+    /// strict code and a new property in sloppy code for a deleted one, the setter for an accessor.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void CompleteThroughBinding(GlobalEnvironment environment, Environment.BindingName name, JsValue value, bool strict)
+    {
+        environment.SetMutableBinding(name, value, strict);
     }
 }
