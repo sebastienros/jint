@@ -1303,13 +1303,15 @@ internal sealed class JintAssignmentExpression : JintExpression
             var strict = executionContext.Strict;
             var identifier = left.Identifier;
 
-            // Global-binding fast path: write directly through the cached plain writable
-            // MutableBinding data descriptor. The null pre-check keeps the cost for non-global
-            // identifiers to a single field test; the rest stays out-of-line.
+            // Global-binding fast path: write directly through the cached plain data descriptor.
+            // The null pre-check keeps the cost for non-global identifiers to a single field
+            // test; the rest stays out-of-line.
             if (left._cachedGlobalEnv is not null)
             {
-                // Writable is re-checked through the cached reference: defineProperty flips the
-                // flag in place without bumping the versions the validator checks.
+                // Writable is re-checked through the cached reference: the cache holds read-only
+                // globals too, for reads, and defineProperty flips the flag in place without
+                // bumping the versions the validator checks. A non-writable hit takes the full
+                // path below, which throws in strict code and ignores the write in sloppy code.
                 var cachedGlobalDescriptor = left.TryGetValidatedGlobalDescriptor(engine, env);
                 if (cachedGlobalDescriptor is not null && cachedGlobalDescriptor.Writable)
                 {
@@ -1371,9 +1373,10 @@ internal sealed class JintAssignmentExpression : JintExpression
         }
 
         /// <summary>
-        /// The cached-global-binding arm of <see cref="AssignToIdentifier"/>; semantics are
-        /// identical to its slow path with the final store mirroring
-        /// GlobalObject.SetFromMutableBinding's writable MutableBinding data-property fast path.
+        /// The cached-global-binding arm of <see cref="AssignToIdentifier"/>, taken only for a
+        /// descriptor the caller found writable; semantics are identical to its slow path with the
+        /// final store mirroring GlobalObject.SetFromMutableBinding's writable MutableBinding
+        /// data-property fast path.
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static JsValue AssignToCachedGlobalBinding(

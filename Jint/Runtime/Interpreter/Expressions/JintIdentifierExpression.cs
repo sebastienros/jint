@@ -30,10 +30,11 @@ internal sealed class JintIdentifierExpression : JintExpression
     private SlotChainMemo? _slotChainMemo;
 
     // Version-based inline cache for global bindings: when resolution (from any scope depth)
-    // lands on a plain writable data property of the real GlobalObject, remember the
-    // descriptor. Valid while the global object's own-property shape and the set of global
-    // lexical declarations are unchanged AND a bounded walk from the current env reaches the
-    // global env without an intermediate that could own the name — value writes mutate the
+    // lands on a plain data property of the real GlobalObject, remember the descriptor; see
+    // TryRememberGlobalBinding for which ones qualify and why writers re-check Writable. Valid
+    // while the global object's own-property shape and the set of global lexical declarations
+    // are unchanged AND a bounded walk from the current env reaches the global env without an
+    // intermediate that could own the name — value writes and value redefinitions mutate the
     // descriptor in place and bump neither version. Mirrors JintMemberExpression's read cache.
     internal GlobalEnvironment? _cachedGlobalEnv;
     private Runtime.Descriptors.PropertyDescriptor? _cachedGlobalDescriptor;
@@ -287,7 +288,8 @@ internal sealed class JintIdentifierExpression : JintExpression
     /// without passing an environment that could own the name (mirrors the slot-cache walk:
     /// with-objects and declarative envs holding the binding — e.g. sloppy direct eval injected
     /// a var — bail to full resolution; the per-read probes are what make nested-scope use
-    /// safe). Returns the cached plain writable data descriptor, or null on miss.
+    /// safe). Returns the cached plain data descriptor, or null on miss; it may be non-writable, so a
+    /// writer checks <see cref="Runtime.Descriptors.PropertyDescriptor.Writable"/> on what it gets.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal Runtime.Descriptors.PropertyDescriptor? TryGetValidatedGlobalDescriptor(Engine engine, Environment env)
@@ -393,12 +395,15 @@ internal sealed class JintIdentifierExpression : JintExpression
     }
 
     /// <summary>
-    /// Caches the resolved global binding when it is a plain writable data property on the
-    /// real GlobalObject (no CustomValue indirection — materialized lazy built-ins qualify,
-    /// live accessor-like descriptors never do) and no lexical declaration shadows it. Reads
-    /// may then use the descriptor directly while the versions hold; writers must re-check
-    /// <see cref="Runtime.Descriptors.PropertyDescriptor.Writable"/> through the cached
-    /// reference because defineProperty flips flags in place without bumping the versions.
+    /// Caches the resolved global binding when it is a plain data property on the real
+    /// GlobalObject (no CustomValue indirection — materialized lazy built-ins qualify, live
+    /// accessor-like descriptors never do) and no lexical declaration shadows it. Writable or
+    /// not: a read only takes the descriptor's value, so <c>undefined</c>, <c>NaN</c>,
+    /// <c>Infinity</c> and a host's read-only global are cached for reads like any other. Every
+    /// writer re-checks <see cref="Runtime.Descriptors.PropertyDescriptor.Writable"/> through the
+    /// cached reference before it stores — defineProperty flips flags in place without bumping
+    /// the versions, so a cached descriptor can be or become non-writable — and takes the full
+    /// path when it is not, which throws in strict code and ignores the write in sloppy code.
     /// Re-probing the global's own storage here is also what keeps a name resolved from the
     /// global's prototype chain out of the cache: a prototype mutation bumps no global version,
     /// so caching such a descriptor would serve stale values.
@@ -428,7 +433,6 @@ internal sealed class JintIdentifierExpression : JintExpression
 
         if (descriptor is not null
             && descriptor.IsDataDescriptor()
-            && descriptor.Writable
             && (descriptor._flags & Runtime.Descriptors.PropertyFlag.CustomJsValue) == Runtime.Descriptors.PropertyFlag.None)
         {
             _cachedGlobalEnv = globalEnv;
