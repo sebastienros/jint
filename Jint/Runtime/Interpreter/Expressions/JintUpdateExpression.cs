@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Runtime.Descriptors;
@@ -159,58 +160,44 @@ internal sealed class JintUpdateExpression : JintExpression
 
         reference.AssertValid(engine.Realm);
 
+        // From here on `value` is the operand as read, and once a lane below has converted it, the old numeric value
+        // a postfix update returns.
         var value = engine.GetValue(reference, false);
-        var isInteger = value._type == InternalTypes.Integer;
 
         JsValue? newValue = null;
 
         var operatorOverloaded = false;
-        if (context.OperatorOverloadingAllowed)
+        if (context.OperatorOverloadingAllowed && TryOperatorOverloading(context, value, out var result))
         {
-            if (JintUnaryExpression.TryOperatorOverloading(context, _argument.GetValue(context), _change > 0 ? "op_Increment" : "op_Decrement", out var result))
-            {
-                operatorOverloaded = true;
-                newValue = result;
-            }
+            operatorOverloaded = true;
+            newValue = result;
         }
 
         if (!operatorOverloaded)
         {
-            if (isInteger)
+            if (value._type == InternalTypes.Integer)
             {
                 newValue = JsNumber.Create((long) value.AsInteger() + _change);
             }
-            else if (!value.IsBigInt())
+            else if (value._type == InternalTypes.Number)
             {
-                newValue = JsNumber.Create(TypeConverter.ToNumber(value) + _change);
+                newValue = JsNumber.Create(((JsNumber) value)._value + _change);
+            }
+            else if (value._type == InternalTypes.BigInt)
+            {
+                newValue = JsBigInt.Create(((JsBigInt) value)._value + _change);
             }
             else
             {
-                newValue = JsBigInt.Create(TypeConverter.ToBigInt(value) + _change);
+                value = TypeConverter.ToNumeric(value);
+                newValue = AddChange(value);
             }
         }
 
         engine.PutValue(reference, newValue!);
         engine._referencePool.Return(reference);
 
-        if (_prefix)
-        {
-            return newValue!;
-        }
-        else
-        {
-            if (isInteger || operatorOverloaded)
-            {
-                return value;
-            }
-
-            if (!value.IsBigInt())
-            {
-                return JsNumber.Create(TypeConverter.ToNumber(value));
-            }
-
-            return JsBigInt.Create(value);
-        }
+        return _prefix ? newValue! : value;
     }
 
     private JsValue? UpdateIdentifier(EvaluationContext context)
@@ -249,33 +236,30 @@ internal sealed class JintUpdateExpression : JintExpression
                 {
                     newValue = JsNumber.Create((long) current.AsInteger() + _change);
                 }
+                else if (current._type == InternalTypes.Number)
+                {
+                    newValue = JsNumber.Create(((JsNumber) current)._value + _change);
+                }
+                else if (current._type == InternalTypes.BigInt)
+                {
+                    newValue = JsBigInt.Create(((JsBigInt) current)._value + _change);
+                }
                 else if (current.IsObject())
                 {
                     // the only operand whose conversion runs user code
                     return UpdateCachedGlobalObject(engine, descriptor, current);
                 }
-                else if (current._type != InternalTypes.BigInt)
-                {
-                    newValue = JsNumber.Create(TypeConverter.ToNumber(current) + _change);
-                }
                 else
                 {
-                    newValue = JsBigInt.Create(TypeConverter.ToBigInt(current) + _change);
+                    // a primitive, which ToNumeric converts without running user code; `current` becomes the old
+                    // numeric value a postfix update returns
+                    current = TypeConverter.ToNumeric(current);
+                    newValue = AddChange(current);
                 }
 
                 descriptor._value = newValue;
 
-                if (_prefix)
-                {
-                    return newValue;
-                }
-
-                if (!current.IsBigInt() && !current.IsNumber())
-                {
-                    return JsNumber.Create(TypeConverter.ToNumber(current));
-                }
-
-                return current;
+                return _prefix ? newValue : current;
             }
         }
 
@@ -295,33 +279,34 @@ internal sealed class JintUpdateExpression : JintExpression
                 Throw.SyntaxError(context.Engine.Realm);
             }
 
-            var isInteger = value._type == InternalTypes.Integer;
-
             JsValue? newValue = null;
 
             var operatorOverloaded = false;
-            if (context.OperatorOverloadingAllowed)
+            if (context.OperatorOverloadingAllowed && TryOperatorOverloading(context, value, out var result))
             {
-                if (JintUnaryExpression.TryOperatorOverloading(context, _argument.GetValue(context), _change > 0 ? "op_Increment" : "op_Decrement", out var result))
-                {
-                    operatorOverloaded = true;
-                    newValue = result;
-                }
+                operatorOverloaded = true;
+                newValue = result;
             }
 
             if (!operatorOverloaded)
             {
-                if (isInteger)
+                if (value._type == InternalTypes.Integer)
                 {
                     newValue = JsNumber.Create((long) value.AsInteger() + _change);
                 }
-                else if (value._type != InternalTypes.BigInt)
+                else if (value._type == InternalTypes.Number)
                 {
-                    newValue = JsNumber.Create(TypeConverter.ToNumber(value) + _change);
+                    newValue = JsNumber.Create(((JsNumber) value)._value + _change);
+                }
+                else if (value._type == InternalTypes.BigInt)
+                {
+                    newValue = JsBigInt.Create(((JsBigInt) value)._value + _change);
                 }
                 else
                 {
-                    newValue = JsBigInt.Create(TypeConverter.ToBigInt(value) + _change);
+                    // `value` becomes the old numeric value a postfix update returns
+                    value = TypeConverter.ToNumeric(value);
+                    newValue = AddChange(value);
                 }
             }
 
@@ -334,39 +319,64 @@ internal sealed class JintUpdateExpression : JintExpression
                 _leftIdentifier.TryRememberGlobalBinding(globalEnv);
             }
 
-            if (_prefix)
-            {
-                return newValue;
-            }
-
-            if (!value.IsBigInt() && !value.IsNumber() && !operatorOverloaded)
-            {
-                return JsNumber.Create(TypeConverter.ToNumber(value));
-            }
-
-            return value;
+            return _prefix ? newValue : value;
         }
 
         return null;
     }
 
     /// <summary>
-    /// The cached-global arm of <see cref="UpdateIdentifier"/> for an object operand. Converting it runs its
-    /// <c>valueOf</c>, <c>toString</c> or <c>@@toPrimitive</c> before PutValue
-    /// (https://tc39.es/ecma262/#sec-postfix-increment-operator-runtime-semantics-evaluation,
-    /// https://tc39.es/ecma262/#sec-prefix-increment-operator-runtime-semantics-evaluation), and that code may change
-    /// the global, so the store goes through <see cref="CachedGlobalWrite"/>. The value it computes and returns is the
-    /// one the inline arm computed for an object before, which is also what the slow path below computes.
+    /// Number::add or BigInt::add of the change to an operand ToNumeric has already converted. Every lane above
+    /// converts the operand once, before PutValue, and a postfix update returns that converted value rather than the
+    /// operand (https://tc39.es/ecma262/#sec-postfix-increment-operator-runtime-semantics-evaluation,
+    /// https://tc39.es/ecma262/#sec-postfix-decrement-operator-runtime-semantics-evaluation,
+    /// https://tc39.es/ecma262/#sec-prefix-increment-operator-runtime-semantics-evaluation,
+    /// https://tc39.es/ecma262/#sec-prefix-decrement-operator-runtime-semantics-evaluation). Only an operand that is
+    /// neither a Number nor a BigInt reaches it, so it stays out of line.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private JsNumber UpdateCachedGlobalObject(Engine engine, PropertyDescriptor descriptor, JsValue current)
+    private JsValue AddChange(JsValue numeric)
+    {
+        return numeric.IsBigInt()
+            ? JsBigInt.Create(numeric.AsBigInt() + _change)
+            : JsNumber.Create(TypeConverter.ToNumber(numeric) + _change);
+    }
+
+    /// <summary>
+    /// A CLR <c>op_Increment</c> / <c>op_Decrement</c> of a host object, given the value the update has already read
+    /// rather than reading the operand a second time. A primitive is never offered, so a BigInt is not treated as the
+    /// <see cref="System.Numerics.BigInteger"/> it is stored as.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool TryOperatorOverloading(EvaluationContext context, JsValue value, [NotNullWhen(true)] out JsValue? result)
+    {
+        if (!value.IsObject())
+        {
+            result = null;
+            return false;
+        }
+
+        return JintUnaryExpression.TryOperatorOverloading(context, value, _change > 0 ? "op_Increment" : "op_Decrement", out result);
+    }
+
+    /// <summary>
+    /// The cached-global arm of <see cref="UpdateIdentifier"/> for an object operand. Converting it with ToNumeric runs
+    /// its <c>valueOf</c>, <c>toString</c> or <c>@@toPrimitive</c> once, before PutValue
+    /// (https://tc39.es/ecma262/#sec-postfix-increment-operator-runtime-semantics-evaluation,
+    /// https://tc39.es/ecma262/#sec-prefix-increment-operator-runtime-semantics-evaluation), and that code may change
+    /// the global, so the store goes through <see cref="CachedGlobalWrite"/>. A postfix update returns the converted
+    /// value, as the slow path below does.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue UpdateCachedGlobalObject(Engine engine, PropertyDescriptor descriptor, JsValue current)
     {
         var identifier = _leftIdentifier!;
         var write = new CachedGlobalWrite(identifier._cachedGlobalEnv!, descriptor);
 
-        var newValue = JsNumber.Create(TypeConverter.ToNumber(current) + _change);
+        var oldValue = TypeConverter.ToNumeric(current);
+        var newValue = AddChange(oldValue);
         write.Complete(identifier.Identifier, newValue, engine.ExecutionContext.Strict);
 
-        return _prefix ? newValue : JsNumber.Create(TypeConverter.ToNumber(current));
+        return _prefix ? newValue : oldValue;
     }
 }
