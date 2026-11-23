@@ -75,10 +75,24 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
     }
 
+    // An `undefined` read the static analysis did not fold, which a resolution reaching the global's own
+    // `undefined` may fold at run time (TryFoldUndefinedAtRunTime). Decided once, here, so every other
+    // identifier pays nothing; cleared for good when a resolution shows the site's chain always crosses a
+    // `with` or an eval's environment.
+    private bool _mayFoldUndefinedAtRunTime;
+
     public JintIdentifierExpression(Identifier expression) : base(expression)
     {
-        _identifier = expression.UserData as Environment.BindingName
-            ?? new Environment.BindingName(expression.Name);
+        var identifier = expression.UserData as Environment.BindingName;
+        if (identifier?.CalculatedValue is null && string.Equals(expression.Name, "undefined", StringComparison.Ordinal))
+        {
+            // A name of its own, never the analysed program's: that one is shared by every identifier of the name
+            // in the program, and by every engine running it, and a run-time fold is this site's alone.
+            identifier = new Environment.BindingName(expression.Name);
+            _mayFoldUndefinedAtRunTime = true;
+        }
+
+        _identifier = identifier ?? new Environment.BindingName(expression.Name);
     }
 
     // Separate slot-location cache for the unboxed numeric read (WS-5); kept apart from the
@@ -263,6 +277,11 @@ internal sealed class JintIdentifierExpression : JintExpression
                 // No hop restriction: the validator re-walks with shadow probes on every read,
                 // so nested-scope reads of globals (loop bodies, closures) can use the cache.
                 TryRememberGlobalBinding(globalEnv);
+
+                if (_mayFoldUndefinedAtRunTime)
+                {
+                    TryFoldUndefinedAtRunTime(engine, env, globalEnv);
+                }
             }
 
             if (value is null)
@@ -438,6 +457,76 @@ internal sealed class JintIdentifierExpression : JintExpression
             _cachedGlobalShapeVersion = globalObject._propertiesVersion;
             _cachedGlobalLexicalVersion = globalEnv._lexicalMutations;
         }
+    }
+
+    /// <summary>
+    /// Folds this <c>undefined</c> read for the reads after it, as the static analysis folds an analysed program's
+    /// (<see cref="Environment.BindingName.CalculatedValue"/>), once a full resolution has reached the global
+    /// environment. The global's own <c>undefined</c> is non-writable and non-configurable
+    /// (https://tc39.es/ecma262/#sec-undefined), so only a binding of that name between the read and the global
+    /// can give it another value; the global's lexical record cannot gain one (a <c>let</c>, <c>const</c> or
+    /// <c>class</c> of that name is a SyntaxError by HasRestrictedGlobalProperty), and a global function of that
+    /// name is a TypeError (CanDeclareGlobalFunction). The declarations between a site and the global are fixed by
+    /// where the site is, with three exceptions, each handled. A <c>with</c> object's names are not, so a chain
+    /// crossing one is never folded. A direct eval's code is shared, through the eval cache, by callers whose
+    /// chains differ, and so is every function it declares, so a chain crossing an eval's environment is never
+    /// folded either; a prepared script the debugger evaluates is shared the same way, which is why
+    /// <see cref="Engine.DisableRuntimeUndefinedFolds"/> turns the fold off for its engine. And a sloppy direct eval,
+    /// or an Annex B function alias, can add a binding to an environment that already exists: every place that may
+    /// add one named <c>undefined</c> calls <see cref="Engine.InvalidateRuntimeUndefinedFolds"/>, which is why every
+    /// fold is registered with the engine — the reads it serves validate nothing.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void TryFoldUndefinedAtRunTime(Engine engine, Environment env, GlobalEnvironment globalEnv)
+    {
+        if (engine._runtimeUndefinedFoldsDisabled)
+        {
+            return;
+        }
+
+        for (Environment? search = env; !ReferenceEquals(search, globalEnv); search = search._outerEnv)
+        {
+            if (search is null)
+            {
+                return;
+            }
+
+            if (search is ObjectEnvironment || search is DeclarativeEnvironment { _evalEnvironment: true })
+            {
+                // where the site is decides this, so it is decided for good
+                _mayFoldUndefinedAtRunTime = false;
+                return;
+            }
+        }
+
+        if (globalEnv._globalObject is not { } globalObject
+            || globalEnv._declarativeRecord.HasBinding(KnownKeys.Undefined))
+        {
+            return;
+        }
+
+        var descriptor = globalObject.GetOwnProperty(KnownKeys.Undefined);
+        if (!descriptor.IsDataDescriptor()
+            || descriptor.Configurable
+            || descriptor.Writable
+            || (descriptor._flags & Runtime.Descriptors.PropertyFlag.CustomJsValue) != Runtime.Descriptors.PropertyFlag.None
+            || descriptor._value is not JsUndefined)
+        {
+            return;
+        }
+
+        _identifier.SetFoldsToUndefined(true);
+        engine.RegisterRuntimeUndefinedFold(this);
+    }
+
+    /// <summary>
+    /// Ends a run-time fold, for <see cref="Engine.InvalidateRuntimeUndefinedFolds"/>. The global-binding cache is
+    /// dropped too, so the next read resolves in full and may fold again rather than settling on the cache.
+    /// </summary>
+    internal void DropRuntimeUndefinedFold()
+    {
+        _identifier.SetFoldsToUndefined(false);
+        _cachedGlobalEnv = null;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
