@@ -1,4 +1,6 @@
+using System.Runtime.CompilerServices;
 using Jint.Native;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
 using Environment = Jint.Runtime.Environments.Environment;
@@ -247,6 +249,11 @@ internal sealed class JintUpdateExpression : JintExpression
                 {
                     newValue = JsNumber.Create((long) current.AsInteger() + _change);
                 }
+                else if (current.IsObject())
+                {
+                    // the only operand whose conversion runs user code
+                    return UpdateCachedGlobalObject(engine, descriptor, current);
+                }
                 else if (current._type != InternalTypes.BigInt)
                 {
                     newValue = JsNumber.Create(TypeConverter.ToNumber(current) + _change);
@@ -341,5 +348,25 @@ internal sealed class JintUpdateExpression : JintExpression
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The cached-global arm of <see cref="UpdateIdentifier"/> for an object operand. Converting it runs its
+    /// <c>valueOf</c>, <c>toString</c> or <c>@@toPrimitive</c> before PutValue
+    /// (https://tc39.es/ecma262/#sec-postfix-increment-operator-runtime-semantics-evaluation,
+    /// https://tc39.es/ecma262/#sec-prefix-increment-operator-runtime-semantics-evaluation), and that code may change
+    /// the global, so the store goes through <see cref="CachedGlobalWrite"/>. The value it computes and returns is the
+    /// one the inline arm computed for an object before, which is also what the slow path below computes.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsNumber UpdateCachedGlobalObject(Engine engine, PropertyDescriptor descriptor, JsValue current)
+    {
+        var identifier = _leftIdentifier!;
+        var write = new CachedGlobalWrite(identifier._cachedGlobalEnv!, descriptor);
+
+        var newValue = JsNumber.Create(TypeConverter.ToNumber(current) + _change);
+        write.Complete(identifier.Identifier, newValue, engine.ExecutionContext.Strict);
+
+        return _prefix ? newValue : JsNumber.Create(TypeConverter.ToNumber(current));
     }
 }

@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-11-14
-anchors: 1373
+anchors: 1375
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -601,6 +601,8 @@ ecma262 sec-performpromiseall
 ecma262 sec-performpromiseany
 ecma262 sec-performpromiserace
 ecma262 sec-performpromisethen
+ecma262 sec-postfix-increment-operator-runtime-semantics-evaluation
+ecma262 sec-prefix-increment-operator-runtime-semantics-evaluation
 ecma262 sec-prepareforordinarycall
 ecma262 sec-privateelementfind
 ecma262 sec-privateenvironment-records
