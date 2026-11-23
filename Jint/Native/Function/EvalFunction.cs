@@ -339,6 +339,8 @@ public sealed class EvalFunction : Function
             }
         }
 
+        lexEnv._evalEnvironment = true;
+
         // If ctx is not already suspended, suspend ctx.
 
         Engine.EnterExecutionContext(lexEnv, varEnv, evalRealm, privateEnv, strictEval);
