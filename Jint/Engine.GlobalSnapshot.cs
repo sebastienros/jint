@@ -655,6 +655,9 @@ public sealed class GlobalSnapshot
                 engine._envBindingInjectionEpoch++;
             }
 
+            // the run-time folds of `undefined` validate nothing per read, so they are ended rather than re-checked
+            engine.InvalidateRuntimeUndefinedFolds();
+
             // Same rule, applied to time rather than to storage: the event loop's generation only ever moves
             // forward, so a job stamped by an earlier cycle can never be mistaken for current work. Here
             // rather than beside EventLoop.Clear so that a partial restore still ends the cycle — half a

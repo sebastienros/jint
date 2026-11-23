@@ -15,6 +15,11 @@ internal class DeclarativeEnvironment : Environment
 {
     internal HybridDictionary<Binding>? _dictionary;
     internal readonly bool _catchEnvironment;
+
+    // The environment an eval's code runs in (PerformEval). The eval cache shares one source's code, and every
+    // function it declares, between callers whose chains differ, so a read whose chain crosses one cannot be
+    // folded for good the way a read in ordinary code can (JintIdentifierExpression.TryFoldUndefinedAtRunTime).
+    internal bool _evalEnvironment;
     private DisposeCapability? _disposeCapability;
 
     // Fixed-slot binding storage for qualifying functions

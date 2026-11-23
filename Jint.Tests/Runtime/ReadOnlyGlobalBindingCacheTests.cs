@@ -24,9 +24,13 @@ namespace Jint.Tests.Runtime;
 /// https://tc39.es/ecma262/#sec-validateandapplypropertydescriptor. The expected strings were taken from
 /// Node 26, running each script in its main context.</para>
 /// <para>Each scenario runs from source, prepared, and prepared with the static analysis off, and each of those
-/// twice: as written, and with a dead direct <c>eval</c> call appended. The analysis folds the identifier
-/// <c>undefined</c> to a constant only when nothing in the program can shadow it, so the appended call is what
-/// sends the <c>undefined</c> reads of the first two modes through the cache too.</para>
+/// twice: as written, and with a dead direct <c>eval</c> call appended. Only a prepared, analysed program has its
+/// identifier <c>undefined</c> folded to a constant before it runs, and only when nothing in the program can shadow
+/// it, so the appended call is what keeps the prepared mode's reads unfolded; source text is never analysed
+/// (<c>Execute(string)</c> and <c>Evaluate(string)</c> only parse), so the source mode's reads are never folded
+/// statically, with or without it. A read the analysis left unfolded is folded at run time by its first resolution
+/// (see <c>RuntimeUndefinedFoldTests</c>), so in every mode the cache serves <c>undefined</c> for that first read only;
+/// <c>NaN</c>, <c>Infinity</c> and the host's global are what keep exercising it.</para>
 /// </remarks>
 public class ReadOnlyGlobalBindingCacheTests
 {
@@ -225,8 +229,9 @@ public class ReadOnlyGlobalBindingCacheTests
 
     /// <summary>
     /// The change itself: a read of a non-writable global populates the identifier's global-binding cache.
-    /// The static analysis is off so the identifier <c>undefined</c> is resolved rather than folded, which is
-    /// how 4.x reads it from unprepared code.
+    /// The static analysis is off so the identifier <c>undefined</c> is resolved rather than folded beforehand,
+    /// which is how unprepared code reads it; that first resolution also folds it at run time, so its second
+    /// read below answers from the fold, with the same value.
     /// </summary>
     [TestCase("undefined", "undefined")]
     [TestCase("NaN", "NaN")]
