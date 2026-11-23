@@ -1047,6 +1047,12 @@ public sealed partial class Options
         public ArrayConversionMode ArrayConversion { get; set { ThrowIfReadOnly(); field = value; } } = ArrayConversionMode.Copy;
 
         /// <summary>
+        /// How a CLR <see cref="System.Text.RegularExpressions.Regex"/> crossing into script becomes a <c>RegExp</c>,
+        /// defaults to <see cref="RegexConversionMode.DotNet"/>.
+        /// </summary>
+        public RegexConversionMode RegexConversion { get; set { ThrowIfReadOnly(); field = value; } } = RegexConversionMode.DotNet;
+
+        /// <summary>
         /// How a CLR sequence that is <em>only</em> an <see cref="System.Collections.Generic.IEnumerable{T}"/> — a LINQ
         /// iterator, a generator method's result, any lazily computed sequence with no <c>Count</c> and no indexer — is
         /// exposed to script code. Defaults to <see cref="Jint.EnumerableConversionMode.Lazy"/>, which changes nothing.
@@ -1463,6 +1469,13 @@ public sealed partial class Options
         /// on the .NET one. The value reads back as it was assigned, and
         /// <see cref="OptionsSecurityExtensions.ValidateSecurityConfiguration(Options, SecurityConfigurationPolicy)"/>
         /// reports an untimed engine as an error.
+        /// </para>
+        /// <para>
+        /// On Jint's own regex engine an interval longer than a millisecond starts at a search's first clock read, which
+        /// it makes only on the first charge after its first 16,384 steps of work: a search that ends sooner reads no
+        /// clock, and a longer one can overrun the interval by the time those steps take plus one large step, which is
+        /// microseconds on ordinary patterns and linear in the subject at worst. An interval of a millisecond or less is
+        /// measured from the start of the search and, like any other, first checked after those steps.
         /// </para>
         /// </remarks>
         public TimeSpan RegexTimeout { get; set { ThrowIfReadOnly(); field = value; } } = TimeSpan.FromSeconds(10);
@@ -1908,6 +1921,33 @@ public enum ArrayConversionMode
     /// </para>
     /// </summary>
     LiveView,
+}
+
+/// <summary>
+/// How a CLR <see cref="System.Text.RegularExpressions.Regex"/> is exposed to script as a <c>RegExp</c>, see
+/// <see cref="Options.InteropOptions.RegexConversion"/>.
+/// </summary>
+public enum RegexConversionMode
+{
+    /// <summary>
+    /// The default. The <c>RegExp</c> keeps matching with the host's <see cref="System.Text.RegularExpressions.Regex"/>,
+    /// so its .NET syntax, options and match timeout apply exactly as in C#. Its <c>source</c> reads
+    /// <c>?[native regex]</c>, since the pattern is not ECMAScript.
+    /// </summary>
+    DotNet,
+
+    /// <summary>
+    /// The <c>RegExp</c> is compiled from the regex's pattern text as an ECMAScript pattern, with
+    /// <see cref="System.Text.RegularExpressions.RegexOptions.IgnoreCase"/>, <see cref="System.Text.RegularExpressions.RegexOptions.Multiline"/>
+    /// and <see cref="System.Text.RegularExpressions.RegexOptions.Singleline"/> becoming the <c>i</c>, <c>m</c> and
+    /// <c>s</c> flags and the regex's match timeout still applying, and then behaves like any other <c>RegExp</c>.
+    /// </summary>
+    /// <remarks>
+    /// A pattern or option with no ECMAScript meaning throws a <c>SyntaxError</c> at the crossing. A pattern valid in
+    /// both syntaxes matches with ECMAScript semantics, which differ from .NET's for <c>\d</c>, <c>\w</c> and <c>\b</c>
+    /// (ASCII only), <c>$</c> (no match before a final newline) and <c>.</c> (no match on <c>\r</c>, U+2028 or U+2029).
+    /// </remarks>
+    EcmaScript,
 }
 
 /// <summary>

@@ -160,7 +160,6 @@ namespace Jint
     public sealed class GlobalSnapshot { }
     public interface IParsingOptions
     {
-        bool? CompileRegex { get; init; }
         System.TimeSpan? RegexTimeout { get; init; }
         bool RetainFunctionSourceText { get; init; }
         bool Tolerant { get; init; }
@@ -193,7 +192,6 @@ namespace Jint
     {
         public static readonly Jint.ModuleParsingOptions Default;
         public ModuleParsingOptions() { }
-        public bool? CompileRegex { get; init; }
         public int? MaxNodeCount { get; init; }
         public int? MaxSourceLength { get; init; }
         public System.TimeSpan? RegexTimeout { get; init; }
@@ -316,6 +314,7 @@ namespace Jint
             public System.Reflection.BindingFlags ObjectWrapperReportedPropertyBindingFlags { get; set; }
             public Jint.Options.ReportedPropertyKeysDelegate ObjectWrapperReportedPropertyKeys { get; set; }
             public bool PreferJsPrototypeMethods { get; set; }
+            public Jint.RegexConversionMode RegexConversion { get; set; }
             public Jint.Options.SerializeToJsonDelegate? SerializeToJson { get; set; }
             public bool ThrowOnUnresolvedMember { get; set; }
             public bool TrackObjectWrapperIdentity { get; set; }
@@ -462,6 +461,11 @@ namespace Jint
         public bool Contains(string name) { }
         public System.Collections.Generic.IEnumerator<string> GetEnumerator() { }
     }
+    public enum RegexConversionMode
+    {
+        DotNet = 0,
+        EcmaScript = 1,
+    }
     public enum ResultLimit
     {
         Depth = 0,
@@ -486,7 +490,6 @@ namespace Jint
         public static readonly Jint.ScriptParsingOptions Default;
         public ScriptParsingOptions() { }
         public bool AllowReturnOutsideFunction { get; init; }
-        public bool? CompileRegex { get; init; }
         public int? MaxNodeCount { get; init; }
         public int? MaxSourceLength { get; init; }
         public System.TimeSpan? RegexTimeout { get; init; }
@@ -1021,12 +1024,10 @@ namespace Jint.Native
         public bool IgnoreCase { get; }
         public bool Indices { get; }
         public bool Multiline { get; }
-        public Acornima.RegExpParseResult ParseResult { get; set; }
         public string Source { get; set; }
         public bool Sticky { get; }
         public bool Unicode { get; }
         public bool UnicodeSets { get; }
-        public System.Text.RegularExpressions.Regex Value { get; set; }
         public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         protected override void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }

@@ -199,20 +199,20 @@ internal sealed class SerializedDate(DatePresentation dateValue) : SerializedObj
 /// <remarks>
 /// The matcher is shared rather than recompiled — it is immutable and belongs to no engine, and re-parsing the
 /// source would fail outright for a host-supplied .NET <see cref="Regex"/> whose pattern is not a JavaScript
-/// one. A <see cref="Regex"/> and the parse result behind it are documented as safe for concurrent matching,
-/// so sharing one across two engines on two threads is sound.
+/// one. A <see cref="Regex"/> is documented as safe for concurrent matching and a compiled ECMAScript matcher keeps
+/// its mutable state in per-thread scratch, so sharing either across two engines on two threads is sound.
 /// </remarks>
 internal sealed class SerializedRegExp : SerializedObject
 {
-    internal Regex Matcher { get; init; } = null!;
+    internal Jint.Runtime.RegExp.JintRegExpEngine? Matcher { get; init; }
+
+    internal Regex? HostRegex { get; init; }
+
+    internal Engine.RegexConversionOptions? ConversionOptions { get; init; }
 
     internal string Source { get; init; } = null!;
 
     internal string Flags { get; init; } = null!;
-
-    internal RegExpParseResult ParseResult { get; init; }
-
-    internal bool IsHostRegex { get; init; }
 }
 
 /// <summary>

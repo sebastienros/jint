@@ -1,29 +1,10 @@
-﻿using System.Text.RegularExpressions;
-using Jint.Native.RegExp;
-
+﻿
 namespace Jint;
 
 public interface IParsingOptions
 {
     /// <summary>
-    /// Gets or sets whether to create compiled <see cref="Regex"/> instances when adapting regular expressions.
-    /// When <see langword="true"/>, regex patterns are pre-compiled using <see cref="RegexOptions.Compiled"/>.
-    /// When <see langword="false"/>, regex patterns are interpreted.
-    /// When <see langword="null"/>, regex patterns in prepared scripts and modules are pre-compiled, while
-    /// other regex patterns start out interpreted and are upgraded to <see cref="RegexOptions.Compiled"/>
-    /// when the same pattern keeps being constructed: successful adaptations are cached process-wide, which
-    /// both detects reuse and amortizes the one-time compilation cost, so one-shot patterns never pay it.
-    /// Defaults to <see langword="null"/>.
-    /// </summary>
-    /// <remarks>
-    /// Patterns that require the custom QuickJS engine are always interpreted regardless of this setting.
-    /// Under Native AOT the .NET runtime ignores <see cref="RegexOptions.Compiled"/> and such patterns
-    /// fall back to the built-in <see cref="Regex"/> interpreter.
-    /// </remarks>
-    bool? CompileRegex { get; init; }
-
-    /// <summary>
-    /// Gets or sets the match timeout for the <see cref="Regex"/> instances created for this source.
+    /// Gets or sets the match timeout for the regular expressions this source creates.
     /// Defaults to <see langword="null"/>, meaning the engine running the source decides through
     /// <see cref="Options.ConstraintOptions.RegexTimeout"/>.
     /// </summary>
@@ -71,7 +52,7 @@ public sealed record ScriptParsingOptions : IParsingOptions, IParsingLimitOption
     {
         AllowReturnOutsideFunction = true,
         AllowTopLevelUsing = true,
-        OnRegExp = Engine.DeferredAdaptiveRegExpHandler,
+        OnRegExp = Engine.DeferredRegExpHandler,
         // OnNode (source-text retention) is applied conditionally in ApplyTo based on RetainFunctionSourceText.
     };
 
@@ -103,9 +84,6 @@ public sealed record ScriptParsingOptions : IParsingOptions, IParsingLimitOption
     public int? MaxNodeCount { get; init; }
 
     /// <inheritdoc/>
-    public bool? CompileRegex { get; init; }
-
-    /// <inheritdoc/>
     public TimeSpan? RegexTimeout { get; init; }
 
     /// <inheritdoc/>
@@ -123,23 +101,16 @@ public sealed record ScriptParsingOptions : IParsingOptions, IParsingLimitOption
     /// </summary>
     public Position SourceOffset { get; init; }
 
-    internal ParserOptions ApplyTo(ParserOptions baseOptions, RegexCompilation fallbackRegexCompilation, TimeSpan? fallbackRegexTimeout) => baseOptions with
+    internal ParserOptions ApplyTo(ParserOptions baseOptions, TimeSpan? fallbackRegexTimeout) => baseOptions with
     {
         AllowReturnOutsideFunction = AllowReturnOutsideFunction,
-        OnRegExp = GetOnRegExpHandler(fallbackRegexCompilation, fallbackRegexTimeout),
+        OnRegExp = GetOnRegExpHandler(fallbackRegexTimeout),
         OnNode = RetainFunctionSourceText ? Engine.DefaultNodeHandler : null,
         Tolerant = Tolerant,
     };
 
-    private OnRegExpHandler? GetOnRegExpHandler(RegexCompilation fallbackRegexCompilation, TimeSpan? fallbackRegexTimeout)
+    private OnRegExpHandler? GetOnRegExpHandler(TimeSpan? fallbackRegexTimeout)
     {
-        var compilation = CompileRegex switch
-        {
-            true => RegexCompilation.Compiled,
-            false => RegexCompilation.Interpreted,
-            null => fallbackRegexCompilation,
-        };
-
         // An explicit RegexTimeout is the host having chosen, and outranks the fallback. The fallback is the
         // engine's constraint where the parse happens on an engine, and nothing at all where it does not -
         // a preparation — in which case the timeout stays unresolved and every engine running the result
@@ -147,33 +118,27 @@ public sealed record ScriptParsingOptions : IParsingOptions, IParsingLimitOption
         var chosen = RegexTimeout ?? fallbackRegexTimeout;
         if (chosen is null)
         {
-            return compilation switch
-            {
-                RegexCompilation.Compiled => Engine.DeferredCompiledRegExpHandler,
-                RegexCompilation.Interpreted => Engine.DeferredInterpretedRegExpHandler,
-                _ => Engine.DeferredAdaptiveRegExpHandler,
-            };
+            return Engine.DeferredRegExpHandler;
         }
 
         // Normalized here rather than at either source, so that "a limit that cannot be reached is not a
-        // limit" holds for the per-parse override and the engine setting alike, and neither can reach
-        // Regex with an interval it refuses to construct with.
-        return Engine.CreateRegExpHandler(compilation, Options.ConstraintOptions.NormalizeRegexTimeout(chosen.Value));
+        // limit" holds for the per-parse override and the engine setting alike.
+        return Engine.CreateRegExpHandler(Options.ConstraintOptions.NormalizeRegexTimeout(chosen.Value));
     }
 
     internal ParserOptions GetParserOptions() => ReferenceEquals(this, Default)
         ? _defaultParserOptions
-        : ApplyTo(_defaultParserOptions, RegexCompilation.Adaptive, fallbackRegexTimeout: null);
+        : ApplyTo(_defaultParserOptions, fallbackRegexTimeout: null);
 
     internal ParserOptions GetParserOptions(Options engineOptions)
-        => ApplyTo(_defaultParserOptions, RegexCompilation.Adaptive, engineOptions.Constraints.RegexTimeout);
+        => ApplyTo(_defaultParserOptions, engineOptions.Constraints.RegexTimeout);
 }
 
 public sealed record class ModuleParsingOptions : IParsingOptions, IParsingLimitOptions
 {
     private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
     {
-        OnRegExp = Engine.DeferredAdaptiveRegExpHandler,
+        OnRegExp = Engine.DeferredRegExpHandler,
         // OnNode (source-text retention) is applied conditionally in ApplyTo based on RetainFunctionSourceText.
     };
 
@@ -198,9 +163,6 @@ public sealed record class ModuleParsingOptions : IParsingOptions, IParsingLimit
     public int? MaxNodeCount { get; init; }
 
     /// <inheritdoc/>
-    public bool? CompileRegex { get; init; }
-
-    /// <inheritdoc/>
     public TimeSpan? RegexTimeout { get; init; }
 
     /// <inheritdoc/>
@@ -209,22 +171,15 @@ public sealed record class ModuleParsingOptions : IParsingOptions, IParsingLimit
     /// <inheritdoc/>
     public bool RetainFunctionSourceText { get; init; }
 
-    internal ParserOptions ApplyTo(ParserOptions baseOptions, RegexCompilation fallbackRegexCompilation, TimeSpan? fallbackRegexTimeout) => baseOptions with
+    internal ParserOptions ApplyTo(ParserOptions baseOptions, TimeSpan? fallbackRegexTimeout) => baseOptions with
     {
-        OnRegExp = GetOnRegExpHandler(fallbackRegexCompilation, fallbackRegexTimeout),
+        OnRegExp = GetOnRegExpHandler(fallbackRegexTimeout),
         OnNode = RetainFunctionSourceText ? Engine.DefaultNodeHandler : null,
         Tolerant = Tolerant,
     };
 
-    private OnRegExpHandler? GetOnRegExpHandler(RegexCompilation fallbackRegexCompilation, TimeSpan? fallbackRegexTimeout)
+    private OnRegExpHandler? GetOnRegExpHandler(TimeSpan? fallbackRegexTimeout)
     {
-        var compilation = CompileRegex switch
-        {
-            true => RegexCompilation.Compiled,
-            false => RegexCompilation.Interpreted,
-            null => fallbackRegexCompilation,
-        };
-
         // An explicit RegexTimeout is the host having chosen, and outranks the fallback. The fallback is the
         // engine's constraint where the parse happens on an engine, and nothing at all where it does not -
         // a preparation — in which case the timeout stays unresolved and every engine running the result
@@ -232,24 +187,18 @@ public sealed record class ModuleParsingOptions : IParsingOptions, IParsingLimit
         var chosen = RegexTimeout ?? fallbackRegexTimeout;
         if (chosen is null)
         {
-            return compilation switch
-            {
-                RegexCompilation.Compiled => Engine.DeferredCompiledRegExpHandler,
-                RegexCompilation.Interpreted => Engine.DeferredInterpretedRegExpHandler,
-                _ => Engine.DeferredAdaptiveRegExpHandler,
-            };
+            return Engine.DeferredRegExpHandler;
         }
 
         // Normalized here rather than at either source, so that "a limit that cannot be reached is not a
-        // limit" holds for the per-parse override and the engine setting alike, and neither can reach
-        // Regex with an interval it refuses to construct with.
-        return Engine.CreateRegExpHandler(compilation, Options.ConstraintOptions.NormalizeRegexTimeout(chosen.Value));
+        // limit" holds for the per-parse override and the engine setting alike.
+        return Engine.CreateRegExpHandler(Options.ConstraintOptions.NormalizeRegexTimeout(chosen.Value));
     }
 
     internal ParserOptions GetParserOptions() => ReferenceEquals(this, Default)
         ? _defaultParserOptions
-        : ApplyTo(_defaultParserOptions, RegexCompilation.Adaptive, fallbackRegexTimeout: null);
+        : ApplyTo(_defaultParserOptions, fallbackRegexTimeout: null);
 
     internal ParserOptions GetParserOptions(Options engineOptions)
-        => ApplyTo(_defaultParserOptions, RegexCompilation.Adaptive, engineOptions.Constraints.RegexTimeout);
+        => ApplyTo(_defaultParserOptions, engineOptions.Constraints.RegexTimeout);
 }
