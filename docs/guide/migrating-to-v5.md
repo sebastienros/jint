@@ -9262,7 +9262,7 @@ framework: on Windows `km`'s narrow December is U+1792 U+17D2 U+1793 U+17BC on `
 narrow Thursday the whole conjunct on `net472`. A derived provider that compares against these answers sees the new
 ones. There is no switch back.
 
-### 4.254 With operator overloading on, a BigInt, a string or a Date keeps its own operators ([#PRNUMBER](https://github.com/sebastienros/jint/pull/PRNUMBER))
+### 4.254 With operator overloading on, a BigInt, a string or a Date keeps its own operators ([#4737](https://github.com/sebastienros/jint/pull/4737))
 
 With `Options.Interop.AllowOperatorOverloading = true`, an operator expression asked the CLR operator lookup about
 every pair of operands, and the lookup reads each operand's CLR form. A value the engine created has one with operators
