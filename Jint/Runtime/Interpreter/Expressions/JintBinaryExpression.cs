@@ -782,13 +782,41 @@ internal abstract class JintBinaryExpression : JintExpression
     /// answers <see langword="false"/> through <see cref="HostInterop"/>; the selection rules are on
     /// <see cref="TryOperatorOverloadingWithReflection"/>.
     /// </summary>
+    /// <remarks>
+    /// Only a pair with at least one <see cref="IsHostOperand">host operand</see> is offered to the lookup. The
+    /// other operand may be anything, so <c>v + 1</c> and <c>'s' + v</c> still find a host's <c>(T, double)</c> and
+    /// <c>(string, T)</c> operators.
+    /// </remarks>
     internal static bool TryOperatorOverloading(
         EvaluationContext context,
         JsValue leftValue,
         JsValue rightValue,
         string? clrName,
-        [NotNullWhen(true)] out object? result) =>
-        HostInterop.Instance.TryBinaryOperator(context, leftValue, rightValue, clrName, out result);
+        [NotNullWhen(true)] out object? result)
+    {
+        if (!IsHostOperand(leftValue) && !IsHostOperand(rightValue))
+        {
+            result = null;
+            return false;
+        }
+
+        return HostInterop.Instance.TryBinaryOperator(context, leftValue, rightValue, clrName, out result);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="value"/> is a CLR object projected into script, which is what makes an operator
+    /// expression eligible for a CLR operator at all.
+    /// </summary>
+    /// <remarks>
+    /// The lookup reads an operand's CLR form, <see cref="JsValue.ToObject"/>, and a value the engine created has
+    /// one too: a BigInt is a <see cref="BigInteger"/>, a string a <see cref="string"/>, a Date a
+    /// <see cref="DateTime"/>, and each of those declares operators of its own. Offering them let <c>5n + 1n</c>
+    /// answer a wrapped <see cref="BigInteger"/>, <c>5n + 1</c> skip its <c>TypeError</c>, the difference of two
+    /// Dates be a <see cref="TimeSpan"/> and two String objects with the same contents be loosely equal. Their
+    /// meaning is the specification's, whatever the option says; the option is for host types.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsHostOperand(JsValue value) => value.IsObject() && value is IObjectWrapper;
 
     /// <summary>
     /// The reflection lane behind <see cref="TryOperatorOverloading"/>.

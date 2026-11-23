@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-11-14
-anchors: 1373
+anchors: 1375
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -192,6 +192,7 @@ ecma262 sec-bigint.asintn
 ecma262 sec-bigint.asuintn
 ecma262 sec-bigint.prototype.tostring
 ecma262 sec-bigint.prototype.valueof
+ecma262 sec-bitwise-not-operator-runtime-semantics-evaluation
 ecma262 sec-block-runtime-semantics-evaluation
 ecma262 sec-blockdeclarationinstantiation
 ecma262 sec-boolean-constructor-boolean-value
@@ -859,6 +860,7 @@ ecma262 sec-typedarray-get
 ecma262 sec-typedarraybytelength
 ecma262 sec-typedarraylength
 ecma262 sec-typeof-operator
+ecma262 sec-unary-minus-operator-runtime-semantics-evaluation
 ecma262 sec-undefined
 ecma262 sec-updateempty
 ecma262 sec-validateandapplypropertydescriptor

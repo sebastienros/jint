@@ -344,20 +344,12 @@ internal sealed class JintUpdateExpression : JintExpression
 
     /// <summary>
     /// A CLR <c>op_Increment</c> / <c>op_Decrement</c> of a host object, given the value the update has already read
-    /// rather than reading the operand a second time. A primitive is never offered, so a BigInt is not treated as the
-    /// <see cref="System.Numerics.BigInteger"/> it is stored as.
+    /// rather than reading the operand a second time. Only a <see cref="JintBinaryExpression.IsHostOperand">host
+    /// operand</see> is offered, so a BigInt is not treated as the <see cref="System.Numerics.BigInteger"/> it is stored as.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private bool TryOperatorOverloading(EvaluationContext context, JsValue value, [NotNullWhen(true)] out JsValue? result)
-    {
-        if (!value.IsObject())
-        {
-            result = null;
-            return false;
-        }
-
-        return JintUnaryExpression.TryOperatorOverloading(context, value, _change > 0 ? "op_Increment" : "op_Decrement", out result);
-    }
+    private bool TryOperatorOverloading(EvaluationContext context, JsValue value, [NotNullWhen(true)] out JsValue? result) =>
+        JintUnaryExpression.TryOperatorOverloading(context, value, _change > 0 ? "op_Increment" : "op_Decrement", out result);
 
     /// <summary>
     /// The cached-global arm of <see cref="UpdateIdentifier"/> for an object operand. Converting it with ToNumeric runs
