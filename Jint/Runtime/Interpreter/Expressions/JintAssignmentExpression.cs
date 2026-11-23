@@ -1169,7 +1169,9 @@ internal sealed class JintAssignmentExpression : JintExpression
         /// The cached-global-binding arm of <see cref="AssignToIdentifier"/>, taken only for a
         /// descriptor the caller found writable; semantics are identical to its slow path with the
         /// final store mirroring GlobalObject.SetFromMutableBinding's writable MutableBinding
-        /// data-property fast path.
+        /// data-property fast path. The right-hand side runs between that check and the store, so
+        /// the store goes through <see cref="CachedGlobalWrite"/>, which takes the slow path's
+        /// SetMutableBinding when that code changed the global.
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static JsValue AssignToCachedGlobalBinding(
@@ -1188,6 +1190,8 @@ internal sealed class JintAssignmentExpression : JintExpression
             {
                 Throw.SyntaxError(engine.Realm, "Invalid assignment target");
             }
+
+            var write = new CachedGlobalWrite(left._cachedGlobalEnv!, descriptor);
 
             JsValue completion;
             if (nameAnonymousFunction && right is JintClassExpression classExpression && right._expression.IsAnonymousFunctionDefinition())
@@ -1216,7 +1220,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                 ((Function) rval).SetFunctionName(identifier.Value);
             }
 
-            descriptor._value = rval;
+            write.Complete(identifier, rval, strict);
             return rval;
         }
     }
