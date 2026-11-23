@@ -9262,6 +9262,29 @@ framework: on Windows `km`'s narrow December is U+1792 U+17D2 U+1793 U+17BC on `
 narrow Thursday the whole conjunct on `net472`. A derived provider that compares against these answers sees the new
 ones. There is no switch back.
 
+### 4.254 With operator overloading on, a BigInt, a string or a Date keeps its own operators ([#PRNUMBER](https://github.com/sebastienros/jint/pull/PRNUMBER))
+
+With `Options.Interop.AllowOperatorOverloading = true`, an operator expression asked the CLR operator lookup about
+every pair of operands, and the lookup reads each operand's CLR form. A value the engine created has one with operators
+of its own: a BigInt is a `System.Numerics.BigInteger`, a string a `System.String`, a Date a `System.DateTime`. So
+those operators answered in place of the specification's:
+
+| Expression, with `a = 5n` | Node, and now with or without the option | Before, with the option on |
+| --- | --- | --- |
+| `a + 1n`, `-a`, `a << 2n`, `c += 1n` | a `bigint` | an `object` wrapping the `BigInteger` |
+| `a + 1`, `a * 1.5` | `TypeError` | `6`, `5`, as wrapped `BigInteger`s |
+| `+a`, `a >>> 1n` | `TypeError` | a wrapped `BigInteger` |
+| `new Date(86400000) - new Date(0)` | `86400000` | a wrapped `TimeSpan` |
+| `new String('a') == new String('a')` | `false` | `true` |
+| `Symbol.iterator == Symbol.iterator` | `true` | `ArgumentException` out of `Evaluate` |
+
+A CLR operator is now selected only when at least one operand is a host object, a CLR object projected into script.
+The other operand may be anything, so a host `operator +(T, double)`, `(string, T)` or `(T, BigInteger)` still answers
+`v + 1`, `'s' + v` and `v * 3n`, and two host objects still use `operator ==(T, T)`.
+
+**What could break:** script that read a BigInt result's CLR members, or relied on `date1 - date2` being a `TimeSpan`.
+Expose a host method for that instead. Nothing changes for `AllowOperatorOverloading = false`.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

@@ -364,8 +364,21 @@ internal sealed class JintUnaryExpression : JintExpression
         return JsBigInt.Create(BigInteger.Negate(bigInt));
     }
 
-    internal static bool TryOperatorOverloading(EvaluationContext context, JsValue value, string clrName, [NotNullWhen(true)] out JsValue? result) =>
-        HostInterop.Instance.TryUnaryOperator(context, value, clrName, out result);
+    /// <summary>
+    /// Calls the CLR operator a host operand declares under <paramref name="clrName"/>, if there is one. Only a
+    /// <see cref="JintBinaryExpression.IsHostOperand">host operand</see> is offered to the lookup: a BigInt, a
+    /// number or a Date has a CLR form with operators of its own, and its meaning is the specification's.
+    /// </summary>
+    internal static bool TryOperatorOverloading(EvaluationContext context, JsValue value, string clrName, [NotNullWhen(true)] out JsValue? result)
+    {
+        if (!JintBinaryExpression.IsHostOperand(value))
+        {
+            result = null;
+            return false;
+        }
+
+        return HostInterop.Instance.TryUnaryOperator(context, value, clrName, out result);
+    }
 
     internal static bool TryOperatorOverloadingWithReflection(EvaluationContext context, JsValue value, string clrName, [NotNullWhen(true)] out JsValue? result)
     {
