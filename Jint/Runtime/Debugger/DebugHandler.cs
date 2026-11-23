@@ -166,7 +166,11 @@ public class DebugHandler
     /// Internally, this is used for evaluating breakpoint conditions, but may also be used for e.g. watch lists
     /// in a debugger.
     /// </remarks>
-    public JsValue Evaluate(in Prepared<Script> preparedScript) => EvaluateCore(in preparedScript, frame: null);
+    public JsValue Evaluate(in Prepared<Script> preparedScript)
+    {
+        _engine.DisableRuntimeUndefinedFolds();
+        return EvaluateCore(in preparedScript, frame: null);
+    }
 
     /// <summary>
     /// Evaluates a script (expression) in the environment of <paramref name="frame"/> rather than in the
@@ -197,6 +201,10 @@ public class DebugHandler
             Throw.ArgumentNullException(nameof(frame));
         }
 
+        // A prepared script's code runs wherever the debugger is stopped, and every function it declares shares
+        // one definition between those places, so no read in it may be folded for good. A source text is parsed
+        // afresh on every evaluation and shares nothing.
+        _engine.DisableRuntimeUndefinedFolds();
         return EvaluateCore(in preparedScript, frame);
     }
 
