@@ -244,6 +244,9 @@ public sealed partial class Engine : IDisposable
         _functionDefinitions.Clear();
         _scriptStatementLists = null;
 
+        // the run-time folds hold their read sites; ending them lets those go with the trees
+        InvalidateRuntimeUndefinedFolds();
+
         // _evaluatedScripts is kept on purpose: it holds only ASTs, and it is what makes the next run of a
         // script cache its rebuilt tree straight away instead of going through the uncached first evaluation.
         //
@@ -711,6 +714,55 @@ public sealed partial class Engine : IDisposable
     // identity alone cannot see a name added to a pinned env. Creates into fresh environments
     // never bump: a fresh environment cannot appear in a previously pinned chain.
     internal int _envBindingInjectionEpoch;
+
+    // Every `undefined` read folded at run time (JintIdentifierExpression.TryFoldUndefinedAtRunTime). Such a read
+    // validates nothing, exactly like one the static analysis folded, so this list is how a fold is undone: whatever
+    // may add a binding named `undefined` to an environment that already exists calls InvalidateRuntimeUndefinedFolds.
+    // Bounded, so a host evaluating fresh sources on one engine never grows it without limit.
+    private const int MaxRuntimeUndefinedFolds = 1024;
+    private List<JintIdentifierExpression>? _runtimeUndefinedFolds;
+
+    // Set for good by a debugger evaluation of a prepared script, whose code runs in whatever environment the
+    // debugger is stopped in and whose functions share one definition between those environments.
+    internal bool _runtimeUndefinedFoldsDisabled;
+
+    internal void RegisterRuntimeUndefinedFold(JintIdentifierExpression site)
+    {
+        var folds = _runtimeUndefinedFolds ??= new List<JintIdentifierExpression>();
+        if (folds.Count >= MaxRuntimeUndefinedFolds)
+        {
+            InvalidateRuntimeUndefinedFolds();
+        }
+
+        folds.Add(site);
+    }
+
+    /// <summary>
+    /// Undoes every run-time fold of <c>undefined</c>; each of those reads resolves in full next time and may fold
+    /// again. Called wherever a binding named <c>undefined</c> may have been added to an environment that already
+    /// exists, and wherever the engine lets go of the read sites (<see cref="DiscardInterpreterCaches"/>).
+    /// </summary>
+    internal void InvalidateRuntimeUndefinedFolds()
+    {
+        var folds = _runtimeUndefinedFolds;
+        if (folds is null || folds.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var site in folds)
+        {
+            site.DropRuntimeUndefinedFold();
+        }
+
+        folds.Clear();
+    }
+
+    internal void DisableRuntimeUndefinedFolds()
+    {
+        _runtimeUndefinedFoldsDisabled = true;
+        InvalidateRuntimeUndefinedFolds();
+    }
 
     // Whether Options.Constraints.MaxArraySize is set (it is not uint.MaxValue), for the lists a run-time count lengthens:
     // a spread, an array-like handed to apply/Reflect.apply/Reflect.construct, a script ownKeys trap's result, a bound
@@ -2704,6 +2756,7 @@ public sealed partial class Engine : IDisposable
                     var bindingExists = varEnvRec.HasBinding(fn);
                     if (!bindingExists)
                     {
+                        NoteInjectedBinding(fn);
                         varEnvRec.CreateMutableBinding(fn, canBeDeleted: true);
                         varEnvRec.InitializeBinding(fn, fo, DisposeHint.Normal);
                     }
@@ -2728,6 +2781,7 @@ public sealed partial class Engine : IDisposable
                     var bindingExists = varEnvRec.HasBinding(vn);
                     if (!bindingExists)
                     {
+                        NoteInjectedBinding(vn);
                         varEnvRec.CreateMutableBinding(vn, canBeDeleted: true);
                         varEnvRec.InitializeBinding(vn, JsValue.Undefined, DisposeHint.Normal);
                     }
@@ -2761,6 +2815,7 @@ public sealed partial class Engine : IDisposable
                             var bindingExists = varEnvRec.HasBinding(fn);
                             if (!bindingExists)
                             {
+                                NoteInjectedBinding(fn);
                                 varEnvRec.CreateMutableBinding(fn, canBeDeleted: true);
                                 varEnvRec.InitializeBinding(fn, JsValue.Undefined, DisposeHint.Normal);
                             }
@@ -2768,6 +2823,18 @@ public sealed partial class Engine : IDisposable
                     }
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// A sloppy direct eval is about to add <paramref name="name"/> to the caller's variable environment, which
+    /// already exists; a read of <c>undefined</c> folded at run time beneath it would no longer see the global one.
+    /// </summary>
+    internal void NoteInjectedBinding(Key name)
+    {
+        if (name == KnownKeys.Undefined)
+        {
+            InvalidateRuntimeUndefinedFolds();
         }
     }
 

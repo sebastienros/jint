@@ -144,8 +144,10 @@ internal abstract class Environment : JsValue
 
         /// <summary>
         /// The value every read of this name evaluates to without resolving it, or <see langword="null"/> when a
-        /// read has to resolve. Only the static analysis sets it, for the identifier <c>undefined</c> of a program
-        /// that cannot shadow the global one; see <see cref="SetFoldsToUndefined"/>.
+        /// read has to resolve. Set for the identifier <c>undefined</c> only: by the static analysis, for a program
+        /// that cannot shadow the global one, on the instance the program's identifiers share; or at run time, on an
+        /// instance one read site owns, by that site's <c>TryFoldUndefinedAtRunTime</c>, which the engine can undo
+        /// (<see cref="Engine.InvalidateRuntimeUndefinedFolds"/>). See <see cref="SetFoldsToUndefined"/>.
         /// </summary>
         public JsValue? CalculatedValue { get; private set; }
 
@@ -166,7 +168,9 @@ internal abstract class Environment : JsValue
         /// non-configurable (https://tc39.es/ecma262/#sec-undefined), so only a binding between the read and the
         /// global environment can give it another value. The analysis sets it while it has seen nothing in the
         /// program that could create one and clears it on the first thing that could, which is safe because every
-        /// identifier node of one program shares this instance.
+        /// identifier node of one program shares this instance. A run-time fold sets it on an instance its read site
+        /// owns and is registered with the engine, which clears it again when a binding of the name may have been
+        /// added to an environment that already exists.
         /// </summary>
         internal void SetFoldsToUndefined(bool folds) => CalculatedValue = folds ? Undefined : null;
     }

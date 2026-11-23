@@ -92,6 +92,7 @@ public class DebugHandler
     /// </remarks>
     public JsValue Evaluate(in Prepared<Script> preparedScript)
     {
+        _engine.DisableRuntimeUndefinedFolds();
         if (!preparedScript.IsValid)
         {
             Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));

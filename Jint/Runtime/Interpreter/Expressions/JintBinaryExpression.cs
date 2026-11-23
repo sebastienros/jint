@@ -1028,6 +1028,13 @@ internal abstract class JintBinaryExpression : JintExpression
             return new SingletonStrictEqualityExpression(expression, operandIsLeft: false, leftSingleton.Value, invert);
         }
 
+        // x === undefined where the analysis did not fold `undefined`; only with `undefined` on the right, where the
+        // operand is read first and nothing has to be parked across its suspension
+        if (leftSingleton is null && IsRuntimeUndefinedCandidate(expression.Right) && !IsRuntimeUndefinedCandidate(expression.Left))
+        {
+            return new RuntimeUndefinedStrictEqualityExpression(expression, invert);
+        }
+
         return null;
     }
 
@@ -1041,10 +1048,15 @@ internal abstract class JintBinaryExpression : JintExpression
     /// when BOTH sides are singletons (e.g. `null == undefined`) — that is left to the generic path,
     /// mirroring <see cref="TryBuildFusedStrictEquality"/>, so cross-singleton semantics are preserved.
     /// </summary>
-    private static SingletonLooseEqualityExpression? TryBuildFusedLooseEquality(NonLogicalBinaryExpression expression, bool invert)
+    private static JintBinaryExpression? TryBuildFusedLooseEquality(NonLogicalBinaryExpression expression, bool invert)
     {
         var leftSingleton = GetKnownSingletonType(expression.Left);
         var rightSingleton = GetKnownSingletonType(expression.Right);
+
+        if (leftSingleton is null && IsRuntimeUndefinedCandidate(expression.Right) && !IsRuntimeUndefinedCandidate(expression.Left))
+        {
+            return new RuntimeUndefinedLooseEqualityExpression(expression, invert);
+        }
 
         if (rightSingleton is not null && leftSingleton is null)
         {
@@ -1070,6 +1082,12 @@ internal abstract class JintBinaryExpression : JintExpression
         Literal literal when JintLiteralExpression.ConvertToJsValue(literal) is JsNull => InternalTypes.Null,
         _ => null,
     };
+
+    // The identifier `undefined` the analysis did not fold, which JintIdentifierExpression may fold at run time: the
+    // same test its constructor makes.
+    private static bool IsRuntimeUndefinedCandidate(Expression expression)
+        => expression is Identifier { Name: "undefined" } identifier
+           && identifier.UserData is not Jint.Runtime.Environments.Environment.BindingName { CalculatedValue: not null };
 
     // typeof only ever returns these interned singletons (JintTypeOfExpression.GetTypeOfString and
     // the unresolvable-reference shortcut), so a mapped literal compares by reference and an
@@ -1264,6 +1282,128 @@ internal abstract class JintBinaryExpression : JintExpression
 
             var nullish = (value._type & NullOrUndefinedOrHtmlDda) != InternalTypes.Empty;
             return nullish != _invert;
+        }
+    }
+
+    /// <summary>
+    /// `x === undefined` (and !==) for an <c>undefined</c> the static analysis did not fold. Once the read has been
+    /// folded at run time (JintIdentifierExpression.TryFoldUndefinedAtRunTime) its name carries the value, so this
+    /// answers with <see cref="SingletonStrictEqualityExpression"/>'s one type test, the fold's own test standing in
+    /// for the read it replaces; until then, or for a read that is shadowed and never folds, it reads the identifier
+    /// and compares as the generic strict equality does. The operand is evaluated first either way, as the left
+    /// operand is, and the identifier can neither suspend nor run code, so nothing has to be parked for a resume.
+    /// </summary>
+    private sealed class RuntimeUndefinedStrictEqualityExpression : JintBinaryExpression
+    {
+        private readonly JintIdentifierExpression _undefined;
+        private readonly bool _invert;
+
+        public RuntimeUndefinedStrictEqualityExpression(NonLogicalBinaryExpression expression, bool invert) : base(expression)
+        {
+            _undefined = (JintIdentifierExpression) _right;
+            _invert = invert;
+        }
+
+        protected override object EvaluateInternal(EvaluationContext context)
+        {
+            var value = _left.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return JsValue.Undefined;
+            }
+
+            return Matches(context, value) ? JsBoolean.True : JsBoolean.False;
+        }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            var value = _left.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return false;
+            }
+
+            return Matches(context, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool Matches(EvaluationContext context, JsValue value)
+        {
+            var equal = _undefined.Identifier.CalculatedValue is not null
+                ? value._type == InternalTypes.Undefined
+                : value == _undefined.GetValue(context);
+            return equal != _invert;
+        }
+    }
+
+    /// <summary>
+    /// `x == undefined` (and !=) for an <c>undefined</c> the static analysis did not fold; see
+    /// <see cref="RuntimeUndefinedStrictEqualityExpression"/>. Folded, it answers with
+    /// <see cref="SingletonLooseEqualityExpression"/>'s mask, except where operator overloading is on: the generic
+    /// path then asks the operand's CLR type first, and so does this.
+    /// </summary>
+    private sealed class RuntimeUndefinedLooseEqualityExpression : JintBinaryExpression
+    {
+        private const InternalTypes NullOrUndefinedOrHtmlDda = InternalTypes.Null | InternalTypes.Undefined | InternalTypes.IsHTMLDDA;
+
+        private readonly JintIdentifierExpression _undefined;
+        private readonly bool _invert;
+
+        public RuntimeUndefinedLooseEqualityExpression(NonLogicalBinaryExpression expression, bool invert) : base(expression)
+        {
+            _undefined = (JintIdentifierExpression) _right;
+            _invert = invert;
+        }
+
+        protected override object EvaluateInternal(EvaluationContext context)
+        {
+            var value = _left.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return JsValue.Undefined;
+            }
+
+            if (_undefined.Identifier.CalculatedValue is not null && !context.OperatorOverloadingAllowed)
+            {
+                var nullish = (value._type & NullOrUndefinedOrHtmlDda) != InternalTypes.Empty;
+                return nullish != _invert ? JsBoolean.True : JsBoolean.False;
+            }
+
+            return CompareGeneric(context, value);
+        }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            var value = _left.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return false;
+            }
+
+            if (_undefined.Identifier.CalculatedValue is not null && !context.OperatorOverloadingAllowed)
+            {
+                return ((value._type & NullOrUndefinedOrHtmlDda) != InternalTypes.Empty) != _invert;
+            }
+
+            return TypeConverter.ToBoolean(CompareGeneric(context, value));
+        }
+
+        // EqualBinaryExpression's path from its operator-overloading probe on
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private JsValue CompareGeneric(EvaluationContext context, JsValue left)
+        {
+            var right = _undefined.GetValue(context);
+            if (context.OperatorOverloadingAllowed
+                && TryOperatorOverloading(context, left, right, _invert ? "op_Inequality" : "op_Equality", out var opResult))
+            {
+                return JsValue.FromObject(context.Engine, opResult);
+            }
+
+            var equality = left.Type == right.Type
+                ? left.Equals(right)
+                : left.IsLooselyEqual(right);
+
+            return equality != _invert ? JsBoolean.True : JsBoolean.False;
         }
     }
 
