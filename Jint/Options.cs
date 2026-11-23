@@ -362,9 +362,17 @@ public class Options
         /// Whether operator overloading resolution is allowed, defaults to false.
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// An operator expression selects a CLR operator only when at least one operand is a host object, a CLR
+        /// object projected into script; the other operand may be any value, so a host <c>operator +(T, double)</c>
+        /// answers <c>v + 1</c>. Values the engine creates - a BigInt, a number, a string, a symbol, a Date, a
+        /// String object - keep their ECMAScript meaning even though their CLR form declares operators of its own.
+        /// </para>
+        /// <para>
         /// Read once per engine, at the end of construction and so after any callback registered with
         /// <c>Options.Configure</c> has run. Setting it on an <see cref="Options"/> instance an engine
         /// has already been built from does not reach that engine — only engines built afterwards.
+        /// </para>
         /// </remarks>
         public bool AllowOperatorOverloading { get; set; }
 
