@@ -3,6 +3,11 @@ using System.Text;
 namespace Jint.HtmlParser.Css.Syntax;
 
 // CSS Syntax Level 3, §4.3: https://drafts.csswg.org/css-syntax/#tokenizer-algorithms
+// NextSkimmed consumes exactly as Next does (same spans, limits, work, diagnostics and EOF recovery)
+// but leaves decoded text unbuilt; only at-keyword and function names keep theirs, and an ident keeps
+// its text only when it needed decoding (an escape or non-ASCII), so an ident with empty text is
+// exactly its source slice. Skimmed tokens are for boundary scans (CssParser's rule scan) and must
+// never reach a component value or public syntax.
 internal sealed class CssTokenizer
 {
     private readonly string _source;
@@ -35,7 +40,28 @@ internal sealed class CssTokenizer
         CheckCancellation();
     }
 
-    internal CssToken Next()
+    internal CssToken Next() => Next<Decoding>();
+
+    // The same token boundaries as Next with value text left unbuilt; for boundary scans only.
+    // Each mode's call tree is compiled separately, so Next carries no skim test at all.
+    internal CssToken NextSkimmed() => Next<Skimming>();
+
+    private interface IMode
+    {
+        static abstract bool Skim { get; }
+    }
+
+    private struct Decoding : IMode
+    {
+        public static bool Skim => false;
+    }
+
+    private struct Skimming : IMode
+    {
+        public static bool Skim => true;
+    }
+
+    private CssToken Next<TMode>() where TMode : struct, IMode
     {
         CheckCancellation();
         SkipComments();
@@ -50,22 +76,22 @@ internal sealed class CssTokenizer
         switch (c)
         {
             case ' ' or '\t' or '\n':
-                return Make(CssTokenKind.Whitespace, start, text: ConsumeWhitespace());
+                return Make(CssTokenKind.Whitespace, start, text: ConsumeWhitespace<TMode>());
             case '"' or '\'':
                 Consume();
-                return ConsumeString(start, c);
+                return ConsumeString<TMode>(start, c);
             case '#':
                 Consume();
                 if (IsName(Peek()) || IsValidEscape(Peek(), Peek(1)))
                 {
                     var isId = WouldStartIdent(0);
-                    return Make(CssTokenKind.Hash, start, text: ConsumeName(), isIdHash: isId);
+                    return Make(CssTokenKind.Hash, start, text: ConsumeName<TMode>(), isIdHash: isId);
                 }
                 return Make(CssTokenKind.Delim, start, delimiter: '#');
             case '@':
                 Consume();
                 return WouldStartIdent(0)
-                    ? Make(CssTokenKind.AtKeyword, start, text: ConsumeName())
+                    ? Make(CssTokenKind.AtKeyword, start, text: ConsumeName<Decoding>())
                     : Make(CssTokenKind.Delim, start, delimiter: '@');
             case '<' when Peek(1) == '!' && Peek(2) == '-' && Peek(3) == '-':
                 Advance(4);
@@ -76,16 +102,16 @@ internal sealed class CssTokenizer
             case 'u' or 'U' when _allowUnicodeRanges && Peek(1) == '+' && (IsHexDigit(Peek(2)) || Peek(2) == '?'):
                 return ConsumeUnicodeRange(start);
             case >= '0' and <= '9':
-                return ConsumeNumeric(start);
+                return ConsumeNumeric<TMode>(start);
             case '+' or '-' or '.' when WouldStartNumber(0):
-                return ConsumeNumeric(start);
+                return ConsumeNumeric<TMode>(start);
             case '-' or '\\' when WouldStartIdent(0):
-                return ConsumeIdentLike(start);
+                return ConsumeIdentLike<TMode>(start);
         }
 
         if (IsNameStart(c))
         {
-            return ConsumeIdentLike(start);
+            return ConsumeIdentLike<TMode>(start);
         }
 
         Consume();
@@ -104,7 +130,7 @@ internal sealed class CssTokenizer
         };
     }
 
-    private CssToken ConsumeNumeric(int start)
+    private CssToken ConsumeNumeric<TMode>(int start) where TMode : struct, IMode
     {
         var numberStart = _position;
         var source = _source.AsSpan(_position);
@@ -113,11 +139,11 @@ internal sealed class CssTokenizer
             source = source[..(_maxTokenCharacters + 3)];
         var count = Parsing.NumberScanner.Scan(source, trailingPoint: false, out var isInteger, _numberCheckpoint ??= CheckCancellation);
         Advance(count);
-        var number = CssNameCache.Get(_source.AsSpan(numberStart, _position - numberStart));
+        var number = TMode.Skim ? null : CssNameCache.Get(_source.AsSpan(numberStart, _position - numberStart));
         if (WouldStartIdent(0))
         {
             return Make(CssTokenKind.Dimension, start, numberText: number,
-                unit: ConsumeName(), isInteger: isInteger);
+                unit: ConsumeName<TMode>(), isInteger: isInteger);
         }
         if (Peek() == '%')
         {
@@ -166,14 +192,18 @@ internal sealed class CssTokenizer
             unicodeStart: low, unicodeEnd: high);
     }
 
-    private CssToken ConsumeIdentLike(int start)
+    private CssToken ConsumeIdentLike<TMode>(int start) where TMode : struct, IMode
     {
-        var name = ConsumeName();
+        var nameStart = _position;
+        // A skimmed name is null only on the fast lane, where the source slice is the decoded name.
+        var name = ConsumeName<TMode>();
+        var nameEnd = _position;
         if (Peek() != '(')
         {
             return Make(CssTokenKind.Ident, start, text: name);
         }
         Consume();
+        name ??= CssNameCache.Get(_source.AsSpan(nameStart, nameEnd - nameStart));
         if (!CssAscii.EqualsIgnoreCase(name, "url"))
         {
             return Make(CssTokenKind.Function, start, text: name);
@@ -184,10 +214,10 @@ internal sealed class CssTokenizer
         {
             return Make(CssTokenKind.Function, start, text: name);
         }
-        return ConsumeUrl(start);
+        return ConsumeUrl<TMode>(start);
     }
 
-    private CssToken ConsumeUrl(int start)
+    private CssToken ConsumeUrl<TMode>(int start) where TMode : struct, IMode
     {
         while (IsWhitespace(Peek())) Consume();
         var text = new ValueStringBuilder(stackalloc char[128]);
@@ -200,12 +230,12 @@ internal sealed class CssTokenizer
                 {
                     _eofRecoverySuffix += ")";
                     Report("css/unexpected-eof", _position);
-                    return Make(CssTokenKind.Url, start, text: text.ToString());
+                    return Make(CssTokenKind.Url, start, text: Text<TMode>(ref text));
                 }
                 if (c == ')')
                 {
                     Consume();
-                    return Make(CssTokenKind.Url, start, text: text.ToString());
+                    return Make(CssTokenKind.Url, start, text: Text<TMode>(ref text));
                 }
                 if (IsWhitespace(c))
                 {
@@ -213,13 +243,13 @@ internal sealed class CssTokenizer
                     if (Peek() == ')')
                     {
                         Consume();
-                        return Make(CssTokenKind.Url, start, text: text.ToString());
+                        return Make(CssTokenKind.Url, start, text: Text<TMode>(ref text));
                     }
                     if (Peek() < 0)
                     {
                         _eofRecoverySuffix += ")";
                         Report("css/unexpected-eof", _position);
-                        return Make(CssTokenKind.Url, start, text: text.ToString());
+                        return Make(CssTokenKind.Url, start, text: Text<TMode>(ref text));
                     }
                     ConsumeBadUrlRemainder();
                     Report("css/bad-url", start);
@@ -240,11 +270,11 @@ internal sealed class CssTokenizer
                         return Make(CssTokenKind.BadUrl, start);
                     }
                     Consume();
-                    AppendCodePoint(ref text, ConsumeEscape());
+                    Append<TMode>(ref text, ConsumeEscape());
                 }
                 else
                 {
-                    AppendCodePoint(ref text, Consume());
+                    Append<TMode>(ref text, Consume());
                 }
             }
         }
@@ -265,7 +295,7 @@ internal sealed class CssTokenizer
         }
     }
 
-    private CssToken ConsumeString(int start, int quote)
+    private CssToken ConsumeString<TMode>(int start, int quote) where TMode : struct, IMode
     {
         var text = new ValueStringBuilder(stackalloc char[128]);
         try
@@ -277,12 +307,12 @@ internal sealed class CssTokenizer
                 {
                     _eofRecoverySuffix += (char) quote;
                     Report("css/unexpected-eof", _position);
-                    return Make(CssTokenKind.String, start, text: text.ToString());
+                    return Make(CssTokenKind.String, start, text: Text<TMode>(ref text));
                 }
                 if (c == quote)
                 {
                     Consume();
-                    return Make(CssTokenKind.String, start, text: text.ToString());
+                    return Make(CssTokenKind.String, start, text: Text<TMode>(ref text));
                 }
                 if (c == '\n')
                 {
@@ -294,15 +324,17 @@ internal sealed class CssTokenizer
                     Consume();
                     if (Peek() < 0) { _eofRecoverySuffix += "\n"; continue; }
                     if (Peek() == '\n') { Consume(); continue; }
-                    AppendCodePoint(ref text, ConsumeEscape());
+                    Append<TMode>(ref text, ConsumeEscape());
                 }
-                else AppendCodePoint(ref text, Consume());
+                else Append<TMode>(ref text, Consume());
             }
         }
         finally { text.Dispose(); }
     }
 
-    private string ConsumeName()
+    // Returns null only when skimming and the name took the fast lane; an escaped or non-ASCII name
+    // is always decoded, so a skimming caller can still compare it.
+    private string? ConsumeName<TMode>() where TMode : struct, IMode
     {
         // Fast lane: an ASCII name ending on a character that needs no decoding is a source slice.
         var source = _source;
@@ -312,7 +344,7 @@ internal sealed class CssTokenizer
         if (end == source.Length || IsPlainTerminator(source[end]))
         {
             Advance(end - start);
-            return CssNameCache.Get(source.AsSpan(start, end - start));
+            return TMode.Skim ? null : CssNameCache.Get(source.AsSpan(start, end - start));
         }
 
         var text = new ValueStringBuilder(stackalloc char[128]);
@@ -334,7 +366,7 @@ internal sealed class CssTokenizer
         finally { text.Dispose(); }
     }
 
-    private string ConsumeWhitespace()
+    private string? ConsumeWhitespace<TMode>() where TMode : struct, IMode
     {
         var source = _source;
         var start = _position;
@@ -343,7 +375,13 @@ internal sealed class CssTokenizer
         if (end == source.Length || source[end] is not ('\r' or '\f'))
         {
             Advance(end - start);
-            return CssNameCache.Get(source.AsSpan(start, end - start));
+            return TMode.Skim ? null : CssNameCache.Get(source.AsSpan(start, end - start));
+        }
+        if (TMode.Skim)
+        {
+            Advance(end - start);
+            while (IsWhitespace(Peek())) Consume();
+            return null;
         }
 
         var text = new ValueStringBuilder(stackalloc char[128]);
@@ -544,6 +582,14 @@ internal sealed class CssTokenizer
     private static bool IsName(int c) => IsNameStart(c) || IsDigit(c) || c == '-';
     private static bool IsValidEscape(int first, int second) => first == '\\' && second != '\n';
     private static bool IsNonPrintable(int c) => c is >= 0 and <= 8 or 11 or >= 14 and <= 31 or 127;
+    private static void Append<TMode>(ref ValueStringBuilder builder, int c) where TMode : struct, IMode
+    {
+        if (!TMode.Skim) AppendCodePoint(ref builder, c);
+    }
+
+    private static string? Text<TMode>(ref ValueStringBuilder builder) where TMode : struct, IMode =>
+        TMode.Skim ? null : builder.ToString();
+
     private static void AppendCodePoint(ref ValueStringBuilder builder, int c)
     {
         if (c <= char.MaxValue) builder.Append((char) c);

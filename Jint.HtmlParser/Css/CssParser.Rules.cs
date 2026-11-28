@@ -42,7 +42,7 @@ internal static partial class CssParser
             var tokenizer = new CssTokenizer(input.Text, options?.Limits.MaxTokenCharacters ?? 0, null,
                 work.Token, baseOffset: input.Span.Start, checkpoint: work.CheckCancellation);
             CssToken token;
-            while ((token = tokenizer.Next()).Kind != CssTokenKind.None)
+            while ((token = tokenizer.NextSkimmed()).Kind != CssTokenKind.None)
                 if (token.Kind != CssTokenKind.Whitespace)
                     throw new CssParseException("css/expected-media-rule", token.Span.Start);
         }
@@ -99,12 +99,13 @@ internal static partial class CssParser
             _limits = limits;
             _diagnostics = diagnostics;
             _work = work;
+            // Only boundaries are read here: skimmed tokens leave strings, URLs and names unbuilt.
             _tokenizer = new CssTokenizer(input.Text, limits.MaxTokenCharacters, diagnostics, work.Token,
                 baseOffset: input.Span.Start, checkpoint: work.CheckCancellation);
             Advance();
         }
 
-        private void Advance() => _current = _tokenizer.Next();
+        private void Advance() => _current = _tokenizer.NextSkimmed();
 
         internal CssRawRule? Next()
         {
@@ -142,8 +143,7 @@ internal static partial class CssParser
                         default:
                             if (token.Kind != CssTokenKind.Whitespace)
                             {
-                                if (significant == 0) customName = token.Kind == CssTokenKind.Ident &&
-                                    token.Text.StartsWith("--", StringComparison.Ordinal);
+                                if (significant == 0) customName = token.Kind == CssTokenKind.Ident && IsDashed(token);
                                 if (significant == 1) customDeclaration = !atRule && customName && token.Kind == CssTokenKind.Colon;
                                 significant++;
                             }
@@ -209,6 +209,11 @@ internal static partial class CssParser
                 closers.Push(Closer(kind));
             }
         }
+
+        // A skimmed ident keeps text only when it needed decoding; otherwise its source slice is its name.
+        private bool IsDashed(CssToken ident) => ident.Text is { Length: > 0 } name
+            ? name.StartsWith("--", StringComparison.Ordinal)
+            : ident.Span.Length >= 2 && _input.Source[ident.Span.Start] == '-' && _input.Source[ident.Span.Start + 1] == '-';
 
         private void Report(string code, int offset) => _diagnostics?.Add(code, offset);
         private static bool IsClosing(CssTokenKind kind) => kind is CssTokenKind.CloseParenthesis or
